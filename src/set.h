@@ -14,6 +14,7 @@ typedef struct {
 
 set_t *set_new(compar_t compar);
 void set_init(set_t *set, compar_t compar);
+void set_free(set_t *set);
 
 const void *set_get(const set_t *set, int index);
 int set_size(const set_t *set);

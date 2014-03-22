@@ -16,6 +16,11 @@ void set_init(set_t *set, compar_t compar)
     set->compar = compar;
 }
 
+void set_free(set_t *set)
+{
+    vector_free(set->vec);
+}
+
 static int search(const set_t *set, const void *obj)
 {
     int lo = 0;

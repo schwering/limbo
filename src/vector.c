@@ -21,6 +21,14 @@ void vector_init(vector_t *vec)
     vec->length = 0;
 }
 
+void vector_free(vector_t *vec)
+{
+    if (vec->array != NULL) {
+        free(vec->array);
+    }
+    vec->array = NULL;
+}
+
 void vector_copy(vector_t *dst, const vector_t *src)
 {
     if (dst->capacity < src->length) {
