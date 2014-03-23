@@ -2,6 +2,7 @@ AC_INIT([libesl], [1.0], [schwering@kbsg.rwth-aachen.de])
 AM_INIT_AUTOMAKE([foreign -Wall])
 AM_PATH_CHECK
 AC_PROG_CC
+AC_PROG_CC_STDC
 AM_PROG_AR
 AC_PROG_RANLIB
 AC_CONFIG_HEADERS([config.h])

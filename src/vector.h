@@ -15,11 +15,12 @@
 typedef struct {
     void const **array;
     int capacity;
-    int length;
+    int size;
 } vector_t;
 
 vector_t *vector_new(void);
 void vector_init(vector_t *vec);
+void vector_free(vector_t *vec);
 
 void vector_copy(vector_t *dst, const vector_t *src);
 void vector_copy_range(vector_t *dst, const vector_t *src, int from, int to);
@@ -38,6 +39,7 @@ void vector_append_all(vector_t *vec, const vector_t *elems);
 void vector_insert_all(vector_t *vec, int index, const vector_t *elems);
 
 const void *vector_remove(vector_t *vec, int index);
+const void *vector_clear(vector_t *vec);
 
 #endif
 
