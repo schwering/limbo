@@ -16,8 +16,14 @@ vector_t *vector_new(void)
 
 void vector_init(vector_t *vec)
 {
-    vec->array = malloc(INIT_SIZE * sizeof(void *));
-    vec->capacity = INIT_SIZE;
+    vector_init_with_size(vec, INIT_SIZE);
+}
+
+void vector_init_with_size(vector_t *vec, int size)
+{
+    assert(size > 0);
+    vec->array = malloc(size * sizeof(void *));
+    vec->capacity = size;
     vec->size = 0;
 }
 
@@ -128,7 +134,7 @@ const void *vector_remove(vector_t *vec, int index)
     const void *elem;
     assert(0 <= index && index < vec->size);
     elem = vec->array[index];
-    memmove(vec->array + index, vec->array + index + 1, vec->size - index - 1);
+    memmove(vec->array + index, vec->array + index + 1, (vec->size - index - 1) * sizeof(void *));
     --vec->size;
     return elem;
 }

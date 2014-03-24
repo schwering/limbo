@@ -20,6 +20,7 @@ typedef struct {
 
 vector_t *vector_new(void);
 void vector_init(vector_t *vec);
+void vector_init_with_size(vector_t *vec, int size);
 void vector_free(vector_t *vec);
 
 void vector_copy(vector_t *dst, const vector_t *src);

@@ -100,8 +100,8 @@ END_TEST
 
 Suite *vector_suite(void)
 {
-  Suite *s = suite_create ("Vector");
-  TCase *tc_core = tcase_create ("Core");
+  Suite *s = suite_create("Vector");
+  TCase *tc_core = tcase_create("Core");
   tcase_add_test(tc_core, test_vector_insert);
   tcase_add_test(tc_core, test_vector_insert_all);
   suite_add_tcase(s, tc_core);
