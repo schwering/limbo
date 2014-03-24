@@ -85,18 +85,25 @@ void set_intersection(set_t *set, const set_t *left, const set_t *right)
 {
     assert(left->compar == right->compar);
     set_init_with_size(set, left->compar, set_size(left));
-    for (int i = 0, j = 0; i < vector_size(&left->vec); ++i) {
-        for (; j < vector_size(&right->vec); ++j) {
+    if (vector_size(&left->vec) == 0) {
+        vector_copy(&set->vec, &left->vec);
+    } else if (vector_size(&right->vec) == 0) {
+        vector_copy(&set->vec, &right->vec);
+    } else {
+        for (int i = 0, j = 0; i < vector_size(&left->vec); ++i) {
             const void *l = vector_get(&left->vec, i);
-            const void *r = vector_get(&right->vec, j);
-            const int cmp = left->compar(l, r);
-            if (cmp == 0) {
-                vector_append(&set->vec, l);
-                ++j;
-                break;
-            } else if (cmp > 0) {
-                break;
+            for (; j < vector_size(&right->vec); ++j) {
+                const void *r = vector_get(&right->vec, j);
+                const int cmp = left->compar(l, r);
+                if (cmp > 0) {
+                    vector_append(&set->vec, r);
+                    ++j;
+                    break;
+                } else if (cmp < 0) {
+                    break;
+                }
             }
+            vector_append(&set->vec, l);
         }
     }
 }
