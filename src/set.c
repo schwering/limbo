@@ -6,13 +6,6 @@
 
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 
-set_t *set_new(compar_t compar)
-{
-    set_t *set = malloc(sizeof(set_t));
-    set_init(set, compar);
-    return set;
-}
-
 void set_init(set_t *set, compar_t compar)
 {
     vector_init(&set->vec);
@@ -145,8 +138,10 @@ static inline int insert_pos(const set_t *set, const void *obj)
         if (cmp == 0) { // element already present
             return -1;
         } else if (cmp <= 0) { // left half
-            const int cmp_left = set->compar(obj, vector_get(&set->vec, i-1));
-            if (i == 0 || !(cmp_left <= 0)) { // position found
+            if (i == 0 ||
+                    !(set->compar(obj,
+                            vector_get(&set->vec,
+                                i-1)) <= 0)) { // position found
                 return i;
             } else { // left half
                 hi = i - 1;
@@ -178,19 +173,33 @@ bool set_contains(const set_t *set, const void *elem)
     return set_find(set, elem) != -1;
 }
 
-void set_add(set_t *set, const void *elem)
+bool set_add(set_t *set, const void *elem)
 {
     const int i = insert_pos(set, elem);
     if (i != -1) {
         vector_insert(&set->vec, i, elem);
+        return true;
+    } else {
+        return false;
     }
 }
 
-void set_remove(set_t *set, const void *elem)
+bool set_remove(set_t *set, const void *elem)
 {
     const int i = search(set, elem);
-    assert(i != -1);
-    vector_remove(&set->vec, i);
+    if (i != -1) {
+        vector_remove(&set->vec, i);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+const void *set_remove_index(set_t *set, int index)
+{
+    const void *elem = vector_get(&set->vec, index);
+    vector_remove(&set->vec, index);
+    return elem;
 }
 
 void set_clear(set_t *set)

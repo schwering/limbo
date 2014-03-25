@@ -8,8 +8,8 @@
  *  compar(x,y) >  0 iff x > y
  *
  * The underlying data structure is vector_t. Most functions have a
- * corresponding counterpart in vector.h, for example, set_init(), set_free(),
- * set_eq(), set_size(), set_clear().
+ * corresponding counterpart in vector.h, for example, set_init[_with_size](),
+ * set_free(), set_eq(), set_size(), set_clear().
  *
  * The purpose of set_get() is mostly for iteration over the set's elements as
  * the indx depends on the element's order.
@@ -19,6 +19,10 @@
  *
  * While union, difference, intersection are currently only implemented as
  * constructors, we could add variants which modify one of the operands.
+ *
+ * set_add() only inserts the element if it wasn't present before.
+ * set_add() returns true iff the element was actually inserted.
+ * set_remove() returns true iff the element was actually removed.
  *
  * schwering@kbsg.rwth-aachen.de
  */
@@ -35,7 +39,6 @@ typedef struct {
     compar_t compar;
 } set_t;
 
-set_t *set_new(compar_t compar);
 void set_init(set_t *set, compar_t compar);
 void set_init_with_size(set_t *set, compar_t compar, int size);
 void set_singleton(set_t *set, compar_t compar, const void *elem);
@@ -51,9 +54,10 @@ int set_size(const set_t *set);
 int set_find(const set_t *set, const void *elem);
 bool set_contains(const set_t *set, const void *elem);
 
-void set_add(set_t *set, const void *elem);
+bool set_add(set_t *set, const void *elem);
 
-void set_remove(set_t *set, const void *elem);
+bool set_remove(set_t *set, const void *elem);
+const void *set_remove_index(set_t *set, int index);
 void set_clear(set_t *set);
 
 #endif

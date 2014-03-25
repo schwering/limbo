@@ -8,13 +8,6 @@
 #define RESIZE_FACTOR 2
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 
-vector_t *vector_new(void)
-{
-    vector_t *vec = malloc(sizeof(vector_t));
-    vector_init(vec);
-    return vec;
-}
-
 void vector_init(vector_t *vec)
 {
     vector_init_with_size(vec, INIT_SIZE);
