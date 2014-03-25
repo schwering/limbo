@@ -5,7 +5,6 @@
 #include <string.h>
 
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
-#define MAX(x,y) ((x) > (y) ? (x) : (y))
 
 set_t *set_new(compar_t compar)
 {
@@ -32,78 +31,75 @@ void set_singleton(set_t *set, compar_t compar, const void *elem)
     set_add(set, elem);
 }
 
-void set_union(set_t *set, const set_t *left, const set_t *right)
+void set_union(set_t *set, const set_t *l, const set_t *r)
 {
-    assert(left->compar == right->compar);
-    set_init_with_size(set, left->compar, set_size(left) + set_size(right));
-    for (int i = 0, j = 0; i < vector_size(&left->vec) ||
-            j < vector_size(&right->vec); ) {
-        int cmp;
-        while (i < vector_size(&left->vec) &&
-                (j == vector_size(&right->vec) ||
-                 (cmp = left->compar(
-                     vector_get(&left->vec, i),
-                     vector_get(&right->vec, j))) <= 0)) {
-            if (cmp == 0) {
-                ++j;
-            }
-            vector_append(&set->vec, vector_get(&left->vec, i));
+    assert(l->compar == r->compar);
+    set_init_with_size(set, l->compar, set_size(l) + set_size(r));
+    int i = 0;
+    int j = 0;
+    while (i < vector_size(&l->vec) && j < vector_size(&r->vec)) {
+        const int cmp = l->compar(
+                vector_get(&l->vec, i),
+                vector_get(&r->vec, j));
+        if (cmp < 0) {
+            vector_append(&set->vec, vector_get(&l->vec, i));
             ++i;
-        }
-        while (j < vector_size(&right->vec) &&
-                (i == vector_size(&left->vec) ||
-                 left->compar(
-                     vector_get(&left->vec, i),
-                     vector_get(&right->vec, j)) < 0)) {
-            vector_append(&set->vec, vector_get(&right->vec, j));
+        } else if (cmp > 0) {
+            vector_append(&set->vec, vector_get(&r->vec, j));
+            ++j;
+        } else {
+            vector_append(&set->vec, vector_get(&l->vec, i));
+            ++i;
             ++j;
         }
     }
+    vector_append_all_range(&set->vec, &l->vec, i, vector_size(&l->vec));
+    vector_append_all_range(&set->vec, &r->vec, j, vector_size(&r->vec));
 }
 
-void set_difference(set_t *set, const set_t *left, const set_t *right)
+void set_difference(set_t *set, const set_t *l, const set_t *r)
 {
-    assert(left->compar == right->compar);
-    set_init_with_size(set, left->compar, MIN(set_size(left), set_size(right)));
-    for (int i = 0, j = 0; i < vector_size(&left->vec); ++i) {
-        for (; j < vector_size(&right->vec); ++j) {
-            const void *l = vector_get(&left->vec, i);
-            const void *r = vector_get(&right->vec, j);
-            const int cmp = left->compar(l, r);
-            if (cmp == 0) {
-                ++j;
+    assert(l->compar == r->compar);
+    set_init_with_size(set, l->compar, set_size(l));
+    int i = 0;
+    int j = 0;
+    while (i < vector_size(&l->vec)) {
+        while (j < vector_size(&r->vec)) {
+            const int cmp = l->compar(
+                    vector_get(&l->vec, i),
+                    vector_get(&r->vec, j));
+            if (cmp < 0) {
                 break;
             } else if (cmp > 0) {
-                vector_append(&set->vec, l);
-                break;
+                ++j;
+            } else {
+                goto skip;
             }
         }
+        vector_append(&set->vec, vector_get(&l->vec, i));
+skip:
+        ++i;
     }
 }
 
-void set_intersection(set_t *set, const set_t *left, const set_t *right)
+void set_intersection(set_t *set, const set_t *l, const set_t *r)
 {
-    assert(left->compar == right->compar);
-    set_init_with_size(set, left->compar, set_size(left));
-    if (vector_size(&left->vec) == 0) {
-        vector_copy(&set->vec, &left->vec);
-    } else if (vector_size(&right->vec) == 0) {
-        vector_copy(&set->vec, &right->vec);
-    } else {
-        for (int i = 0, j = 0; i < vector_size(&left->vec); ++i) {
-            const void *l = vector_get(&left->vec, i);
-            for (; j < vector_size(&right->vec); ++j) {
-                const void *r = vector_get(&right->vec, j);
-                const int cmp = left->compar(l, r);
-                if (cmp > 0) {
-                    vector_append(&set->vec, r);
-                    ++j;
-                    break;
-                } else if (cmp < 0) {
-                    break;
-                }
-            }
-            vector_append(&set->vec, l);
+    assert(l->compar == r->compar);
+    set_init_with_size(set, l->compar, MIN(set_size(l), set_size(r)));
+    int i = 0;
+    int j = 0;
+    while (i < vector_size(&l->vec) && j < vector_size(&r->vec)) {
+        const int cmp = l->compar(
+                vector_get(&l->vec, i),
+                vector_get(&r->vec, j));
+        if (cmp < 0) {
+            ++i;
+        } else if (cmp > 0) {
+            ++j;
+        } else {
+            vector_append(&set->vec, vector_get(&l->vec, i));
+            ++i;
+            ++j;
         }
     }
 }
@@ -113,8 +109,15 @@ void set_free(set_t *set)
     vector_free(&set->vec);
 }
 
+bool set_eq(const set_t *set1, const set_t *set2)
+{
+    return set1->compar == set2->compar &&
+        vector_eq(&set1->vec, &set2->vec, set1->compar);
+}
+
 static inline int search(const set_t *set, const void *obj)
 {
+    // XXX could use Knuth's uniform binary search to safe some comparisons
     int lo = 0;
     int hi = vector_size(&set->vec) - 1;
     while (lo <= hi) {
@@ -133,6 +136,7 @@ static inline int search(const set_t *set, const void *obj)
 
 static inline int insert_pos(const set_t *set, const void *obj)
 {
+    // XXX could use Knuth's uniform binary search to safe some comparisons
     int lo = 0;
     int hi = vector_size(&set->vec) - 1;
     while (lo <= hi) {
@@ -172,12 +176,6 @@ int set_find(const set_t *set, const void *elem)
 bool set_contains(const set_t *set, const void *elem)
 {
     return set_find(set, elem) != -1;
-}
-
-bool set_eq(const set_t *set1, const set_t *set2)
-{
-    return set1->compar == set2->compar &&
-        vector_eq(&set1->vec, &set2->vec, set1->compar);
 }
 
 void set_add(set_t *set, const void *elem)

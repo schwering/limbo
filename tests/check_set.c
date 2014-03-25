@@ -59,6 +59,8 @@ START_TEST(test_set_singleton)
     ck_assert(set_contains(&set, (const void *) (long int) 5));
     ck_assert(!set_contains(&set, (const void *) (long int) 4));
     ck_assert(!set_contains(&set, (const void *) (long int) 6));
+    set_clear(&set);
+    ck_assert_int_eq(set_size(&set), 0);
     set_free(&set);
 }
 END_TEST
@@ -68,6 +70,39 @@ START_TEST(test_set_union)
     set_t set1; set_init(&set1, compar_int);
     set_t set2; set_init(&set2, compar_int);
     set_t set;
+    // left and right empty
+    ck_assert_int_eq(set_size(&set1), 0);
+    ck_assert_int_eq(set_size(&set2), 0);
+    set_union(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 0);
+    ck_assert(set_eq(&set, &set1));
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left empty
+    ck_assert_int_eq(set_size(&set1), 0);
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set2), 10);
+    set_union(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 10);
+    ck_assert(set_eq(&set, &set2));
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // right empty
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set1), 10);
+    ck_assert_int_eq(set_size(&set2), 0);
+    set_union(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 10);
+    ck_assert(set_eq(&set, &set1));
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
     // left same as right
     for (int i = 0; i < 10; ++i) {
         set_add(&set1, (const void *) (long int) i);
@@ -130,6 +165,25 @@ START_TEST(test_set_union)
     set_free(&set);
     set_clear(&set1);
     set_clear(&set2);
+    // left and right intersect twice
+    for (int i = 0; i < 20; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+        set_add(&set1, (const void *) (long int) (i + 40));
+    }
+    ck_assert_int_eq(set_size(&set1), 40);
+    for (int i = 10; i < 30; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+        set_add(&set2, (const void *) (long int) (i + 40));
+    }
+    ck_assert_int_eq(set_size(&set2), 40);
+    set_union(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 60);
+    for (int i = 0; i < 30; ++i) {
+        ck_assert_int_eq((long int) set_get(&set, i), i);
+    }
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
     // left and right don't intersect
     for (int i = 0; i < 10; ++i) {
         set_add(&set1, (const void *) (long int) i);
@@ -150,11 +204,179 @@ START_TEST(test_set_union)
 }
 END_TEST
 
+START_TEST(test_set_difference)
+{
+    set_t set1; set_init(&set1, compar_int);
+    set_t set2; set_init(&set2, compar_int);
+    set_t set;
+    // left and right empty
+    ck_assert_int_eq(set_size(&set1), 0);
+    ck_assert_int_eq(set_size(&set2), 0);
+    set_difference(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 0);
+    ck_assert(set_eq(&set, &set1));
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left empty
+    ck_assert_int_eq(set_size(&set1), 0);
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set2), 10);
+    set_difference(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 0);
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // right empty
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set1), 10);
+    ck_assert_int_eq(set_size(&set2), 0);
+    set_difference(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 10);
+    ck_assert(set_eq(&set, &set1));
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left same as right
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set1), 10);
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set2), 10);
+    set_difference(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 0);
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left subset of right
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set1), 10);
+    for (int i = 0; i < 20; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set2), 20);
+    set_difference(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 0);
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left superset of right
+    for (int i = 0; i < 20; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set1), 20);
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set2), 10);
+    set_difference(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 10);
+    for (int i = 0; i < 10; ++i) {
+        ck_assert_int_eq((long int) set_get(&set, i), i + 10);
+    }
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left and right intersect
+    for (int i = 0; i < 20; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set1), 20);
+    for (int i = 10; i < 30; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set2), 20);
+    set_difference(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 10);
+    for (int i = 0; i < 10; ++i) {
+        ck_assert_int_eq((long int) set_get(&set, i), i);
+    }
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left and right intersect twice
+    for (int i = 0; i < 20; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+        set_add(&set1, (const void *) (long int) (i + 40));
+    }
+    ck_assert_int_eq(set_size(&set1), 40);
+    for (int i = 10; i < 30; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+        set_add(&set2, (const void *) (long int) (i + 40));
+    }
+    ck_assert_int_eq(set_size(&set2), 40);
+    set_difference(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 20);
+    for (int i = 0; i < 10; ++i) {
+        ck_assert_int_eq((long int) set_get(&set, i), i);
+        ck_assert_int_eq((long int) set_get(&set, i + 10), i + 40);
+    }
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left and right don't intersect
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set1), 10);
+    for (int i = 10; i < 20; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set2), 10);
+    set_difference(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 10);
+    ck_assert(set_eq(&set, &set1));
+    set_free(&set);
+    set_free(&set1);
+    set_free(&set2);
+}
+END_TEST
+
 START_TEST(test_set_intersection)
 {
     set_t set1; set_init(&set1, compar_int);
     set_t set2; set_init(&set2, compar_int);
     set_t set;
+    // left and right empty
+    ck_assert_int_eq(set_size(&set1), 0);
+    ck_assert_int_eq(set_size(&set2), 0);
+    set_intersection(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 0);
+    ck_assert(set_eq(&set, &set1));
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left empty
+    ck_assert_int_eq(set_size(&set1), 0);
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set2), 10);
+    set_intersection(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 0);
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // right empty
+    for (int i = 0; i < 10; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+    }
+    ck_assert_int_eq(set_size(&set1), 10);
+    ck_assert_int_eq(set_size(&set2), 0);
+    set_intersection(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 0);
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
     // left same as right
     for (int i = 0; i < 10; ++i) {
         set_add(&set1, (const void *) (long int) i);
@@ -211,8 +433,28 @@ START_TEST(test_set_intersection)
     ck_assert_int_eq(set_size(&set2), 20);
     set_intersection(&set, &set1, &set2);
     ck_assert_int_eq(set_size(&set), 10);
-    for (int i = 10; i < 20; ++i) {
-        ck_assert_int_eq((long int) set_get(&set, i), i);
+    for (int i = 0; i < 10; ++i) {
+        ck_assert_int_eq((long int) set_get(&set, i), i + 10);
+    }
+    set_free(&set);
+    set_clear(&set1);
+    set_clear(&set2);
+    // left and right intersect twice
+    for (int i = 0; i < 20; ++i) {
+        set_add(&set1, (const void *) (long int) i);
+        set_add(&set1, (const void *) (long int) (i + 40));
+    }
+    ck_assert_int_eq(set_size(&set1), 40);
+    for (int i = 10; i < 30; ++i) {
+        set_add(&set2, (const void *) (long int) i);
+        set_add(&set2, (const void *) (long int) (i + 40));
+    }
+    ck_assert_int_eq(set_size(&set2), 40);
+    set_intersection(&set, &set1, &set2);
+    ck_assert_int_eq(set_size(&set), 20);
+    for (int i = 0; i < 10; ++i) {
+        ck_assert_int_eq((long int) set_get(&set, i), i + 10);
+        ck_assert_int_eq((long int) set_get(&set, i + 10), i + 50);
     }
     set_free(&set);
     set_clear(&set1);
@@ -229,9 +471,6 @@ START_TEST(test_set_intersection)
     set_intersection(&set, &set1, &set2);
     ck_assert_int_eq(set_size(&set), 0);
     set_free(&set);
-    set_clear(&set1);
-    set_clear(&set2);
-    set_free(&set);
     set_free(&set1);
     set_free(&set2);
 }
@@ -244,6 +483,7 @@ Suite *set_suite(void)
   tcase_add_test(tc_core, test_set_add);
   tcase_add_test(tc_core, test_set_singleton);
   tcase_add_test(tc_core, test_set_union);
+  tcase_add_test(tc_core, test_set_difference);
   tcase_add_test(tc_core, test_set_intersection);
   suite_add_tcase(s, tc_core);
   return s;
