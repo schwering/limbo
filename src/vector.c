@@ -6,6 +6,7 @@
 
 #define INIT_SIZE 4
 #define RESIZE_FACTOR 2
+#define MIN(x,y) ((x) < (y) ? (x) : (y))
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 
 void vector_init(vector_t *vec)
@@ -53,24 +54,32 @@ const void *vector_get(const vector_t *vec, int index)
     return vec->array[index];
 }
 
+int vector_cmp(const vector_t *vec1, const vector_t *vec2,
+        int (*compar)(const void *, const void *))
+{
+    if (compar != NULL) {
+        const int n = MIN(vec1->size, vec2->size);
+        for (int i = 0; i < n; ++i) {
+            const int cmp = compar(vec1->array[i], vec2->array[i]);
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        return vec1->size - vec2->size;
+    } else {
+        int cmp = memcmp(vec1->array, vec2->array, vec1->size * sizeof(void *));
+        if (cmp == 0) {
+            return vec1->size - vec2->size;
+        } else {
+            return cmp;
+        }
+    }
+}
+
 bool vector_eq(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *))
 {
-    if (vec1->size != vec2->size) {
-        return false;
-    }
-    if (compar != NULL) {
-        int i = vec1->size;
-        while (--i >= 0) {
-            if (vec1->array[i] != vec2->array[i] &&
-                    compar(vec1->array[i], vec2->array[i]) != 0) {
-                return false;
-            }
-        }
-        return true;
-    } else {
-        return memcmp(vec1->array, vec2->array, vec1->size * sizeof(void *)) == 0;
-    }
+    return vector_cmp(vec1, vec2, compar) == 0;
 }
 
 int vector_size(const vector_t *vec)

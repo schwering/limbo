@@ -18,6 +18,12 @@ void set_init_with_size(set_t *set, compar_t compar, int size)
     set->compar = compar;
 }
 
+void set_copy(set_t *dst, const set_t *src)
+{
+    vector_copy(&dst->vec, &src->vec);
+    dst->compar = src->compar;
+}
+
 void set_singleton(set_t *set, compar_t compar, const void *elem)
 {
     set_init_with_size(set, compar, 1);
@@ -102,10 +108,16 @@ void set_free(set_t *set)
     vector_free(&set->vec);
 }
 
+int set_cmp(const set_t *set1, const set_t *set2)
+{
+    assert(set1->compar == set2->compar);
+    return vector_cmp(&set1->vec, &set2->vec, set1->compar);
+}
+
 bool set_eq(const set_t *set1, const set_t *set2)
 {
-    return set1->compar == set2->compar &&
-        vector_eq(&set1->vec, &set2->vec, set1->compar);
+    assert(set1->compar == set2->compar);
+    return vector_eq(&set1->vec, &set2->vec, set1->compar);
 }
 
 static inline int search(const set_t *set, const void *obj)

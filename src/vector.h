@@ -12,9 +12,8 @@
  * the new one.
  * Deallocation is done with vector_free().
  *
- * vector_eq() returns true iff
- *  (a) compar is NULL and comparing the elements byte-wisely, or
- *  (b) compar is not NULL and compar() is 0 for all corresponding elements.
+ * vector_cmp() compares does byte-wise comparison if the compar parameter is
+ * NULL and applies compar to all elements otherwise.
  *
  * After vector_insert(), vector_get() returns the inserted element for the
  * respective index. After vector_insert_all[_rang](), first element of the
@@ -49,6 +48,8 @@ void vector_free(vector_t *vec);
 const void *vector_get(const vector_t *vec, int index);
 int vector_size(const vector_t *vec);
 
+int vector_cmp(const vector_t *vec1, const vector_t *vec2,
+        int (*compar)(const void *, const void *));
 bool vector_eq(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *));
 

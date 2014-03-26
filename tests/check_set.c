@@ -52,6 +52,25 @@ START_TEST(test_set_add)
 }
 END_TEST
 
+START_TEST(test_set_copy)
+{
+    set_t dst;
+    set_t src; set_init(&src, compar_int);
+    ck_assert_int_eq(set_size(&src), 0);
+    set_copy(&dst, &src);
+    ck_assert_int_eq(set_size(&dst), 0);
+    for (int i = 0; i < 100; ++i) {
+        set_add(&src, (const void *) (long int) i);
+    }
+    set_free(&dst);
+    ck_assert_int_eq(set_size(&src), 100);
+    set_copy(&dst, &src);
+    ck_assert_int_eq(set_size(&dst), 100);
+    set_free(&dst);
+    set_free(&src);
+}
+END_TEST
+
 START_TEST(test_set_singleton)
 {
     set_t set; set_singleton(&set, compar_int, (const void *) (long int) 5);
@@ -481,6 +500,7 @@ Suite *set_suite(void)
   Suite *s = suite_create("Set");
   TCase *tc_core = tcase_create("Core");
   tcase_add_test(tc_core, test_set_add);
+  tcase_add_test(tc_core, test_set_copy);
   tcase_add_test(tc_core, test_set_singleton);
   tcase_add_test(tc_core, test_set_union);
   tcase_add_test(tc_core, test_set_difference);
