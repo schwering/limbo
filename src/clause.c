@@ -124,3 +124,29 @@ pelset_t pel(const setup_t *setup)
     return pel;
 }
 
+bool clause_is_resolvable(const clause_t *c, const literal_t *l)
+{
+    const literal_t ll = literal_flip(l);
+    return clause_contains(c, &ll);
+}
+
+clause_t clause_resolve(const clause_t *c, const literal_t *l)
+{
+    const literal_t ll = literal_flip(l);
+    clause_t cc = *c;
+    const bool removed = clause_remove(&cc, &ll);
+    assert(removed);
+    return cc;
+}
+
+bool clause_is_unit(const clause_t *c)
+{
+    return clause_size(c) == 1;
+}
+
+literal_t clause_unit(const clause_t *c)
+{
+    assert(clause_is_unit(c));
+    return *clause_get(c, 0);
+}
+

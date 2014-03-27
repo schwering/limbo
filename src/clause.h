@@ -32,5 +32,11 @@ setup_t ground_clauses(
         int n_query_vars);
 pelset_t pel(const setup_t *setup);
 
+bool clause_resolvable(const clause_t *c, const literal_t *l);
+clause_t clause_resolve(const clause_t *c, const literal_t *l);
+
+bool clause_is_unit(const clause_t *c);
+literal_t clause_unit(const clause_t *c);
+
 #endif
 
