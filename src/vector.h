@@ -26,6 +26,9 @@
  * inclusively, the to index is exclusive. That is, the range has (to - from)
  * elements.
  *
+ * For typesafe usage there is a MAP macro which declares appropriate wrapper
+ * functions.
+ *
  * schwering@kbsg.rwth-aachen.de
  */
 #ifndef _VECTOR_H_
@@ -61,15 +64,92 @@ void vector_prepend_all(vector_t *vec, const vector_t *elems);
 void vector_append_all(vector_t *vec, const vector_t *elems);
 void vector_insert_all(vector_t *vec, int index, const vector_t *elems);
 
-void vector_append_all_range(vector_t *vec,
+void vector_prepend_all_range(vector_t *vec,
         const vector_t *elems, int from, int to);
-void vector_preend_all_range(vector_t *vec,
+void vector_append_all_range(vector_t *vec,
         const vector_t *elems, int from, int to);
 void vector_insert_all_range(vector_t *vec, int index,
         const vector_t *elems, int from, int to);
 
 const void *vector_remove(vector_t *vec, int index);
 void vector_clear(vector_t *vec);
+
+#define VECTOR_DECL(prefix, type) \
+    typedef union { vector_t v; } prefix##_t;\
+    void prefix##_init(prefix##_t *v);\
+    void prefix##_init_with_size(prefix##_t *v, int size);\
+    void prefix##_copy(prefix##_t *dst, const prefix##_t *src);\
+    void prefix##_copy_range(prefix##_t *dst,\
+            const prefix##_t *src, int from, int to);\
+    void prefix##_free(prefix##_t *v);\
+    type prefix##_get(const prefix##_t *v, int index);\
+    int prefix##_size(const prefix##_t *v);\
+    int prefix##_cmp(const prefix##_t *v1, const prefix##_t *v2);\
+    bool prefix##_eq(const prefix##_t *v1, const prefix##_t *v2);\
+    void prefix##_prepend(prefix##_t *v, type elem);\
+    void prefix##_append(prefix##_t *v, type elem);\
+    void prefix##_insert(prefix##_t *v, int index, type elem);\
+    void prefix##_prepend_all(prefix##_t *v, const prefix##_t *elems);\
+    void prefix##_append_all(prefix##_t *v, const prefix##_t *elems);\
+    void prefix##_insert_all(prefix##_t *v,\
+            int index, const prefix##_t *elems);\
+    void prefix##_prepend_all_range(\
+            prefix##_t *v, const prefix##_t *elems, int from, int to);\
+    void prefix##_append_all_range(prefix##_t *v,\
+            const prefix##_t *elems, int from, int to);\
+    void prefix##_insert_all_range(prefix##_t *v,\
+            int index, const prefix##_t *elems, int from, int to);\
+    type prefix##_remove(prefix##_t *v, int index);\
+    void prefix##_clear(prefix##_t *v);
+
+#define VECTOR_IMPL(prefix, type, compar) \
+    void prefix##_init(prefix##_t *v) {\
+        vector_init(&v->v); }\
+    void prefix##_init_with_size(prefix##_t *v, int size) {\
+        vector_init_with_size(&v->v, size); }\
+    void prefix##_copy(prefix##_t *dst, const prefix##_t *src) {\
+        vector_copy(&dst->v, &src->v); }\
+    void prefix##_copy_range(prefix##_t *dst,\
+            const prefix##_t *src, int from, int to) {\
+        vector_copy_range(&dst->v, &src->v, from, to); }\
+    void prefix##_free(prefix##_t *v) {\
+        vector_free(&v->v); }\
+    type prefix##_get(const prefix##_t *v, int index) {\
+        return (type) vector_get(&v->v, index); }\
+    int prefix##_size(const prefix##_t *v) {\
+        return vector_size(&v->v); }\
+    int prefix##_cmp(const prefix##_t *v1, const prefix##_t *v2) {\
+        return vector_cmp(&v1->v, &v2->v,\
+                (int (*)(const void *, const void *)) compar); }\
+    bool prefix##_eq(const prefix##_t *v1, const prefix##_t *v2) {\
+        return vector_eq(&v1->v, &v2->v,\
+                (int (*)(const void *, const void *)) compar); }\
+    void prefix##_prepend(prefix##_t *v, type elem) {\
+        vector_prepend(&v->v, (const void *) elem); }\
+    void prefix##_append(prefix##_t *v, type elem) {\
+        vector_append(&v->v, (const void *) elem); }\
+    void prefix##_insert(prefix##_t *v, int index, type elem) {\
+        vector_insert(&v->v, index, (const void *) elem); }\
+    void prefix##_prepend_all(prefix##_t *v, const prefix##_t *elems) {\
+        vector_prepend_all(&v->v, &elems->v); }\
+    void prefix##_append_all(prefix##_t *v, const prefix##_t *elems) {\
+        vector_append_all(&v->v, &elems->v); }\
+    void prefix##_insert_all(prefix##_t *v,\
+            int index, const prefix##_t *elems) {\
+        vector_insert_all(&v->v, index, &elems->v); }\
+    void prefix##_prepend_all_range(\
+            prefix##_t *v, const prefix##_t *elems, int from, int to) {\
+        vector_prepend_all_range(&v->v, &elems->v, from, to); }\
+    void prefix##_append_all_range(prefix##_t *v,\
+            const prefix##_t *elems, int from, int to) {\
+        vector_append_all_range(&v->v, &elems->v, from, to); }\
+    void prefix##_insert_all_range(prefix##_t *v,\
+            int index, const prefix##_t *elems, int from, int to) {\
+        vector_insert_all_range(&v->v, index, &elems->v, from, to); }\
+    type prefix##_remove(prefix##_t *v, int index) {\
+        return (type) vector_remove(&v->v, index); }\
+    void prefix##_clear(prefix##_t *v) {\
+        vector_clear(&v->v); }
 
 #endif
 

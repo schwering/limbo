@@ -24,6 +24,9 @@
  * set_add() returns true iff the element was actually inserted.
  * set_remove() returns true iff the element was actually removed.
  *
+ * For typesafe usage there is a MAP macro which declares appropriate wrapper
+ * functions.
+ *
  * schwering@kbsg.rwth-aachen.de
  */
 #ifndef _SET_H_
@@ -61,6 +64,74 @@ bool set_add(set_t *set, const void *elem);
 bool set_remove(set_t *set, const void *elem);
 const void *set_remove_index(set_t *set, int index);
 void set_clear(set_t *set);
+
+#define SET_DECL(prefix, type) \
+    typedef union { set_t s; } prefix##_t;\
+    void prefix##_init(prefix##_t *s);\
+    void prefix##_init_with_size(prefix##_t *s, int size);\
+    void prefix##_copy(prefix##_t *dst, const prefix##_t *src);\
+    void prefix##_singleton(prefix##_t *s, const type elem);\
+    void prefix##_union(prefix##_t *s,\
+            const prefix##_t *left, const prefix##_t *right);\
+    void prefix##_difference(prefix##_t *s,\
+            const prefix##_t *left, const prefix##_t *right);\
+    void prefix##_intersection(prefix##_t *s,\
+            const prefix##_t *left, const prefix##_t *right);\
+    void prefix##_free(prefix##_t *s);\
+    int prefix##_cmp(const prefix##_t *s1, const prefix##_t *s2);\
+    bool prefix##_eq(const prefix##_t *s1, const prefix##_t *s2);\
+    const type prefix##_get(const prefix##_t *s, int index);\
+    int prefix##_size(const prefix##_t *s);\
+    int prefix##_find(const prefix##_t *s, const type elem);\
+    bool prefix##_contains(const prefix##_t *s, const type elem);\
+    bool prefix##_add(prefix##_t *s, const type elem);\
+    bool prefix##_remove(prefix##_t *s, const type elem);\
+    const type prefix##_remove_index(prefix##_t *s, int index);\
+    void prefix##_clear(prefix##_t *s);
+
+#define SET_IMPL(prefix, type, compar) \
+    void prefix##_init(prefix##_t *s) {\
+        set_init(&s->s, (compar_t) compar); }\
+    void prefix##_init_with_size(prefix##_t *s, int size) {\
+        set_init_with_size(&s->s, (compar_t) compar, size); }\
+    void prefix##_copy(prefix##_t *dst, const prefix##_t *src) {\
+        set_copy(&dst->s, &src->s); }\
+    void prefix##_singleton(prefix##_t *s, const type elem) {\
+        set_singleton(&s->s, (compar_t) compar, (const void *) elem); }\
+    void prefix##_union(prefix##_t *s,\
+            const prefix##_t *left, const prefix##_t *right) {\
+        set_union(&s->s, &left->s, &right->s); }\
+    void prefix##_difference(prefix##_t *s,\
+            const prefix##_t *left, const prefix##_t *right) {\
+        set_difference(&s->s, &left->s, &right->s); }\
+    void prefix##_intersection(prefix##_t *s,\
+            const prefix##_t *left, const prefix##_t *right) {\
+        set_intersection(&s->s, &left->s, &right->s); }\
+    void prefix##_free(prefix##_t *s) {\
+        set_free(&s->s); }\
+    int prefix##_cmp(const prefix##_t *s1,\
+            const prefix##_t *s2) {\
+        return set_cmp(&s1->s, &s2->s); }\
+    bool prefix##_eq(const prefix##_t *s1,\
+            const prefix##_t *s2) {\
+        return set_eq(&s1->s, &s2->s); }\
+    const type prefix##_get(const prefix##_t *s, int index) {\
+        return (const type) set_get(&s->s, index); }\
+    int prefix##_size(const prefix##_t *s) {\
+        return set_size(&s->s); }\
+    int prefix##_find(const prefix##_t *s, const type elem) {\
+        return set_find(&s->s, (const void *) elem); }\
+    bool prefix##_contains(const prefix##_t *s,\
+            const type elem) {\
+        return set_contains(&s->s, (const void *) elem); }\
+    bool prefix##_add(prefix##_t *s, const type elem) {\
+        return set_add(&s->s, (const void *) elem); }\
+    bool prefix##_remove(prefix##_t *s, const type elem) {\
+        return set_remove(&s->s, (const void *) elem); }\
+    const type prefix##_remove_index(prefix##_t *s, int index) {\
+        return (const type) set_remove_index(&s->s, index); }\
+    void prefix##_clear(prefix##_t *s) {\
+        set_clear(&s->s); }
 
 #endif
 

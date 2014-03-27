@@ -1,7 +1,4 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
-/*
- * schwering@kbsg.rwth-aachen.de
- */
 #include "map.h"
 #include <stdlib.h>
 
@@ -31,7 +28,7 @@ int map_find(const map_t *map, const void *key)
 
 bool map_contains(const map_t *map, const void *key)
 {
-    return map_find(&map->set, key) != -1;
+    return map_find(map, key) != -1;
 }
 
 const kv_t *map_get(const map_t *map, int index)
@@ -81,7 +78,7 @@ const void *map_add_replace(map_t *map, const void *key, const void *val)
     }
 }
 
-const void *map_remove(map_t *map, void *key)
+const void *map_remove(map_t *map, const void *key)
 {
     const int i = map_find(map, key);
     if (i != -1) {

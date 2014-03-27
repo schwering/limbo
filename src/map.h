@@ -15,6 +15,9 @@
  *
  * map_remove() also returns the old value if the given key is present.
  *
+ * For typesafe usage there is a MAP macro which declares appropriate wrapper
+ * functions.
+ *
  * schwering@kbsg.rwth-aachen.de
  */
 #ifndef _MAP_H_
@@ -46,8 +49,55 @@ int map_size(const map_t *map);
 bool map_add(map_t *map, const void *key, const void *val);
 const void *map_add_replace(map_t *map, const void *key, const void *val);
 
-const void *map_remove(map_t *map, void *key);
+const void *map_remove(map_t *map, const void *key);
 void map_clear(map_t *map);
+
+#define MAP_DECL(prefix, keytype, valtype) \
+    typedef union { map_t m; } prefix##_t;\
+    typedef struct { keytype key; valtype val; } prefix##_kv_t;\
+    void prefix##_init(prefix##_t *m);\
+    void prefix##_init_with_size(prefix##_t *m, int size);\
+    void prefix##_free(prefix##_t *m);\
+    int prefix##_find(const prefix##_t *m, const keytype key);\
+    bool prefix##_contains(const prefix##_t *m, const keytype key);\
+    const prefix##_kv_t *prefix##_get(const prefix##_t *m, int index);\
+    const valtype prefix##_lookup(const prefix##_t *m, const keytype key);\
+    int prefix##_size(const prefix##_t *m);\
+    bool prefix##_add(prefix##_t *m, const keytype key, const valtype val);\
+    const valtype prefix##_add_replace(prefix##_t *m,\
+            const keytype key, const valtype val);\
+    const valtype prefix##_remove(prefix##_t *m, const keytype key);\
+    void prefix##_clear(prefix##_t *m);
+
+#define MAP_IMPL(prefix, keytype, valtype, keycompar) \
+    static inline int prefix##_kv_compar(const kv_t *l, const kv_t *r) {\
+        return keycompar((const keytype) l->key, (const keytype) r->key); }\
+    void prefix##_init(prefix##_t *m) {\
+        map_init(&m->m, prefix##_kv_compar); }\
+    void prefix##_init_with_size(prefix##_t *m, int size) {\
+        map_init_with_size(&m->m, prefix##_kv_compar, size); }\
+    void prefix##_free(prefix##_t *m) {\
+        map_free(&m->m); }\
+    int prefix##_find(const prefix##_t *m, const keytype key) {\
+        return map_find(&m->m, (const void *) key); }\
+    bool prefix##_contains(const prefix##_t *m, const keytype key) {\
+        return map_contains(&m->m, (const void *) key); }\
+    const prefix##_kv_t *prefix##_get(const prefix##_t *m, int index) {\
+        return (prefix##_kv_t *) map_get(&m->m, index); }\
+    const valtype prefix##_lookup(const prefix##_t *m, const keytype key) {\
+        return (const valtype) map_lookup(&m->m, (const void *) key); }\
+    int prefix##_size(const prefix##_t *m) {\
+        return map_size(&m->m); }\
+    bool prefix##_add(prefix##_t *m, const keytype key, const valtype val) {\
+        return map_add(&m->m, (const void *) key, (const void *) val); }\
+    const valtype prefix##_add_replace(prefix##_t *m,\
+            const keytype key, const valtype val) {\
+        return (const valtype) map_add_replace(&m->m,\
+                (const void *) key, (const void *) val); }\
+    const valtype prefix##_remove(prefix##_t *m, const keytype key) {\
+        return (const valtype) map_remove(&m->m, (const void *) key); }\
+    void prefix##_clear(prefix##_t *m) {\
+        map_clear(&m->m); }
 
 #endif
 

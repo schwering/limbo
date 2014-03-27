@@ -3,102 +3,102 @@
 #include <stdlib.h>
 #include "../src/vector.h"
 
-static int compar_int(const void *p, const void *q)
+static int compar_long_int(long int p, long int q)
 {
-    return (long int) p - (long int) q;
+    return p - q;
 }
+
+VECTOR_DECL(ivec, long int);
+VECTOR_IMPL(ivec, long int, compar_long_int);
 
 START_TEST(test_vector_insert)
 {
-    vector_t vec1; vector_init(&vec1);
-    vector_t vec2; vector_init(&vec2);
-    ck_assert(vector_eq(&vec1, &vec2, NULL));
-    ck_assert(vector_eq(&vec1, &vec2, compar_int));
-    ck_assert_int_eq(vector_size(&vec1), 0);
-    vector_prepend(&vec1, (void *) 3);
-    vector_prepend(&vec1, (void *) 2);
-    vector_prepend(&vec1, (void *) 1);
-    ck_assert_int_eq((long int) vector_get(&vec1, 0), 1);
-    ck_assert_int_eq((long int) vector_get(&vec1, 1), 2);
-    ck_assert_int_eq((long int) vector_get(&vec1, 2), 3);
-    ck_assert_int_eq(vector_size(&vec1), 3);
-    ck_assert(!vector_eq(&vec1, &vec2, NULL));
-    ck_assert(!vector_eq(&vec1, &vec2, compar_int));
-    vector_append(&vec2, (void *) 1);
-    vector_append(&vec2, (void *) 2);
-    vector_append(&vec2, (void *) 3);
-    ck_assert_int_eq((long int) vector_get(&vec2, 0), 1);
-    ck_assert_int_eq((long int) vector_get(&vec2, 1), 2);
-    ck_assert_int_eq((long int) vector_get(&vec2, 2), 3);
-    ck_assert_int_eq(vector_size(&vec2), 3);
-    ck_assert(vector_eq(&vec1, &vec2, NULL));
-    ck_assert(vector_eq(&vec1, &vec2, compar_int));
-    while (vector_size(&vec1) > 0) {
-        vector_remove(&vec1, 0);
+    ivec_t vec1; ivec_init(&vec1);
+    ivec_t vec2; ivec_init(&vec2);
+    ck_assert(ivec_eq(&vec1, &vec2));
+    ck_assert_int_eq(ivec_size(&vec1), 0);
+    ivec_prepend(&vec1, 3);
+    ivec_prepend(&vec1, 2);
+    ivec_prepend(&vec1, 1);
+    ck_assert_int_eq(ivec_get(&vec1, 0), 1);
+    ck_assert_int_eq(ivec_get(&vec1, 1), 2);
+    ck_assert_int_eq(ivec_get(&vec1, 2), 3);
+    ck_assert_int_eq(ivec_size(&vec1), 3);
+    ck_assert(!ivec_eq(&vec1, &vec2));
+    ivec_append(&vec2, 1);
+    ivec_append(&vec2, 2);
+    ivec_append(&vec2, 3);
+    ck_assert_int_eq(ivec_get(&vec2, 0), 1);
+    ck_assert_int_eq(ivec_get(&vec2, 1), 2);
+    ck_assert_int_eq(ivec_get(&vec2, 2), 3);
+    ck_assert_int_eq(ivec_size(&vec2), 3);
+    ck_assert(ivec_eq(&vec1, &vec2));
+    while (ivec_size(&vec1) > 0) {
+        ivec_remove(&vec1, 0);
     }
     for (int i = 0; i < 150; ++i) {
-        vector_append(&vec1, (void *) (long int) i);
+        ivec_append(&vec1, i);
     }
     for (int i = 1500; i >= 150; --i) {
-        vector_insert(&vec1, 150, (void *) (long int) i);
+        ivec_insert(&vec1, 150, i);
     }
-    ck_assert_int_eq(vector_size(&vec1), 1501);
+    ck_assert_int_eq(ivec_size(&vec1), 1501);
     for (int i = 0; i <= 1500; ++i) {
-        ck_assert_int_eq((long int) vector_get(&vec1, i), i);
+        ck_assert_int_eq(ivec_get(&vec1, i), i);
     }
-    vector_free(&vec1);
-    vector_free(&vec2);
+    ivec_free(&vec1);
+    ivec_free(&vec2);
 }
 END_TEST
 
 START_TEST(test_vector_insert_all)
 {
-    vector_t vec1; vector_init(&vec1);
-    vector_t vec2; vector_init(&vec2);
+    ivec_t vec1; ivec_init(&vec1);
+    ivec_t vec2; ivec_init(&vec2);
     for (int i = 0; i < 10; ++i) {
-        vector_append(&vec1, (const void *) (long int) i);
+        ivec_append(&vec1, i);
     }
     for (int i = 10; i < 20; ++i) {
-        vector_append(&vec2, (const void *) (long int) i);
+        ivec_append(&vec2, i);
     }
     for (int i = 20; i < 30; ++i) {
-        vector_append(&vec1, (const void *) (long int) i);
+        ivec_append(&vec1, i);
     }
-    ck_assert_int_eq(vector_size(&vec1), 20);
-    ck_assert_int_eq(vector_size(&vec2), 10);
-    vector_insert_all(&vec1, 10, &vec2);
-    ck_assert_int_eq(vector_size(&vec1), 30);
-    for (int i = 1; i < vector_size(&vec1); ++i) {
-        ck_assert_int_eq((long int) vector_get(&vec1, i-1) + 1, (long int) vector_get(&vec1, i));
+    ck_assert_int_eq(ivec_size(&vec1), 20);
+    ck_assert_int_eq(ivec_size(&vec2), 10);
+    ivec_insert_all(&vec1, 10, &vec2);
+    ck_assert_int_eq(ivec_size(&vec1), 30);
+    for (int i = 1; i < ivec_size(&vec1); ++i) {
+        ck_assert_int_eq(ivec_get(&vec1, i-1) + 1, ivec_get(&vec1, i));
     }
-    vector_free(&vec2);
-    vector_copy(&vec2, &vec1);
-    ck_assert(vector_eq(&vec1, &vec2, compar_int));
-    vector_free(&vec2);
-    vector_copy_range(&vec2, &vec1, 0, 10);
-    ck_assert_int_eq(vector_size(&vec2), 10);
+    ivec_free(&vec2);
+    ivec_copy(&vec2, &vec1);
+    ck_assert(ivec_eq(&vec1, &vec2));
+    ivec_free(&vec2);
+    ivec_copy_range(&vec2, &vec1, 0, 10);
+    ck_assert_int_eq(ivec_size(&vec2), 10);
     for (int i = 0; i < 10; ++i) {
-        ck_assert_int_eq((long int) vector_get(&vec2, i), i);
+        ck_assert_int_eq(ivec_get(&vec2, i), i);
     }
-    vector_clear(&vec1);
-    ck_assert_int_eq(vector_size(&vec1), 0);
-    vector_append_all(&vec1, &vec2);
-    ck_assert_int_eq(vector_size(&vec1), 10);
-    vector_append_all(&vec1, &vec2);
-    ck_assert_int_eq(vector_size(&vec1), 20);
-    vector_append_all(&vec1, &vec2);
-    ck_assert_int_eq(vector_size(&vec1), 30);
+    ivec_clear(&vec1);
+    ck_assert_int_eq(ivec_size(&vec1), 0);
+    ivec_append_all(&vec1, &vec2);
+    ck_assert_int_eq(ivec_size(&vec1), 10);
+    ivec_append_all(&vec1, &vec2);
+    ck_assert_int_eq(ivec_size(&vec1), 20);
+    ivec_append_all(&vec1, &vec2);
+    ck_assert_int_eq(ivec_size(&vec1), 30);
     for (int i = 0; i < 10; ++i) {
-        ck_assert_int_eq((long int) vector_get(&vec1, i), i);
-        ck_assert_int_eq((long int) vector_get(&vec1, i + 10), i);
-        ck_assert_int_eq((long int) vector_get(&vec1, i + 20), i);
+        ck_assert_int_eq(ivec_get(&vec1, i), i);
+        ck_assert_int_eq(ivec_get(&vec1, i + 10), i);
+        ck_assert_int_eq(ivec_get(&vec1, i + 20), i);
     }
-    vector_free(&vec1);
-    vector_free(&vec2);
+    ivec_free(&vec1);
+    ivec_free(&vec2);
 }
 END_TEST
 
-Suite *vector_suite(void)
+Suite *ivec_suite(void)
 {
   Suite *s = suite_create("Vector");
   TCase *tc_core = tcase_create("Core");
@@ -111,7 +111,7 @@ Suite *vector_suite(void)
 int main(void)
 {
     int number_failed;
-    Suite *s = vector_suite();
+    Suite *s = ivec_suite();
     SRunner *sr = srunner_create(s);
     srunner_run_all(sr, CK_NORMAL);
     number_failed = srunner_ntests_failed(sr);

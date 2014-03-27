@@ -57,6 +57,9 @@ const void *vector_get(const vector_t *vec, int index)
 int vector_cmp(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *))
 {
+    if (vec1 == vec2) {
+        return 0;
+    }
     if (compar != NULL) {
         const int n = MIN(vec1->size, vec2->size);
         for (int i = 0; i < n; ++i) {
@@ -79,7 +82,7 @@ int vector_cmp(const vector_t *vec1, const vector_t *vec2,
 bool vector_eq(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *))
 {
-    return vector_cmp(vec1, vec2, compar) == 0;
+    return vec1->size == vec2->size && vector_cmp(vec1, vec2, compar) == 0;
 }
 
 int vector_size(const vector_t *vec)
