@@ -85,6 +85,11 @@ bool vector_eq(const vector_t *vec1, const vector_t *vec2,
     return vec1->size == vec2->size && vector_cmp(vec1, vec2, compar) == 0;
 }
 
+const void **vector_array(const vector_t *vec)
+{
+    return vec->array;
+}
+
 int vector_size(const vector_t *vec)
 {
     return vec->size;

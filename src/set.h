@@ -55,6 +55,7 @@ int set_cmp(const set_t *set1, const set_t *set2);
 bool set_eq(const set_t *set1, const set_t *set2);
 
 const void *set_get(const set_t *set, int index);
+const void **set_array(const set_t *set);
 int set_size(const set_t *set);
 int set_find(const set_t *set, const void *elem);
 bool set_contains(const set_t *set, const void *elem);
@@ -81,6 +82,7 @@ void set_clear(set_t *set);
     int prefix##_cmp(const prefix##_t *s1, const prefix##_t *s2);\
     bool prefix##_eq(const prefix##_t *s1, const prefix##_t *s2);\
     const type prefix##_get(const prefix##_t *s, int index);\
+    const type *prefix##_array(const prefix##_t *s);\
     int prefix##_size(const prefix##_t *s);\
     int prefix##_find(const prefix##_t *s, const type elem);\
     bool prefix##_contains(const prefix##_t *s, const type elem);\
@@ -117,6 +119,8 @@ void set_clear(set_t *set);
         return set_eq(&s1->s, &s2->s); }\
     const type prefix##_get(const prefix##_t *s, int index) {\
         return (const type) set_get(&s->s, index); }\
+    const type *prefix##_array(const prefix##_t *s) {\
+        return (const type *) set_array(&s->s); }\
     int prefix##_size(const prefix##_t *s) {\
         return set_size(&s->s); }\
     int prefix##_find(const prefix##_t *s, const type elem) {\

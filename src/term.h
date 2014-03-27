@@ -17,9 +17,17 @@ int stdname_compar(stdname_t l, stdname_t r);
 
 MAP_DECL(varmap, var_t, stdname_t);
 
+VECTOR_DECL(varvec, var_t);
+
+SET_DECL(varset, var_t);
+
 VECTOR_DECL(stdvec, stdname_t);
 void stdvec_prepend_copy(stdvec_t *dst, stdname_t n, const stdvec_t *src);
 void stdvec_copy_append(stdvec_t *dst, const stdvec_t *src, stdname_t n);
+
+SET_DECL(stdvecset, stdvec_t *);
+
+SET_DECL(stdset, stdname_t);
 
 #endif
 

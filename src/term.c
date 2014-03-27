@@ -3,6 +3,15 @@
 
 MAP_IMPL(varmap, var_t, stdname_t, stdname_compar);
 
+int var_compar(var_t l, var_t r)
+{
+    return l - r;
+}
+
+VECTOR_IMPL(varvec, var_t, NULL);
+
+SET_IMPL(varset, var_t, var_compar);
+
 int stdname_compar(stdname_t l, stdname_t r)
 {
     return l - r;
@@ -23,4 +32,8 @@ void stdvec_copy_append(stdvec_t *dst, const stdvec_t *src, stdname_t n)
     stdvec_append_all(dst, src);
     stdvec_append(dst, n);
 }
+
+SET_IMPL(stdvecset, stdvec_t *, stdvec_cmp);
+
+SET_IMPL(stdset, stdname_t, NULL);
 

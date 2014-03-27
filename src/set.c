@@ -170,6 +170,11 @@ const void *set_get(const set_t *set, int index)
     return vector_get(&set->vec, index);
 }
 
+const void **set_array(const set_t *set)
+{
+    return vector_array(&set->vec);
+}
+
 int set_size(const set_t *set)
 {
     return vector_size(&set->vec);
