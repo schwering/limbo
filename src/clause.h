@@ -17,12 +17,20 @@
 #include "term.h"
 
 SET_DECL(clause, literal_t *);
+SET_DECL(pelset, literal_t *);
 SET_DECL(setup, clause_t *);
 
 typedef struct {
+    stdset_t names;
     varset_t vars;
     clause_t *(*univ_clause)(const varmap_t *map);
 } univ_clause_t;
+
+setup_t ground_clauses(
+        const univ_clause_t *univ_clauses[], int n_univ_clauses,
+        const stdvecset_t *query_zs, const stdset_t *query_ns,
+        int n_query_vars);
+pelset_t pel(const setup_t *setup);
 
 #endif
 

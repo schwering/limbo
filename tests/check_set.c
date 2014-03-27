@@ -14,12 +14,14 @@ SET_IMPL(iset, long int, compar_long_int);
 START_TEST(test_set_add)
 {
     iset_t set = iset_init();
+    iset_t set_all = iset_init();
     for (int i = 0; i < 10; ++i) {
         iset_add(&set, i);
         iset_add(&set, (i + 10));
         iset_add(&set, i);
     }
     ck_assert_int_eq(iset_size(&set), 20);
+    iset_add_all(&set_all, &set);
     for (int i = 0; i < 20; ++i) {
         ck_assert_int_eq(iset_find(&set, i), i);
         ck_assert(iset_contains(&set, i));
@@ -34,6 +36,7 @@ START_TEST(test_set_add)
         ck_assert(!iset_contains(&set, i));
     }
     ck_assert_int_eq(iset_size(&set), 10);
+    iset_add_all(&set_all, &set);
     for (int i = 5; i < 15; ++i) {
         ck_assert(!iset_contains(&set, i));
         iset_add(&set, i);
@@ -45,12 +48,16 @@ START_TEST(test_set_add)
         ck_assert(!iset_contains(&set, i));
     }
     ck_assert_int_eq(iset_size(&set), 10);
+    iset_add_all(&set_all, &set);
     for (int i = 15; i > 5; --i) {
         ck_assert(!iset_contains(&set, i));
         iset_add(&set, i);
         ck_assert(iset_contains(&set, i));
     }
     ck_assert_int_eq(iset_size(&set), 20);
+    iset_add_all(&set_all, &set);
+    ck_assert_int_eq(iset_size(&set), 20);
+    iset_free(&set_all);
     iset_free(&set);
 }
 END_TEST

@@ -80,6 +80,9 @@ int vector_cmp(const vector_t *vec1, const vector_t *vec2,
     if (vec1 == vec2) {
         return 0;
     }
+    if (vec1->array == vec2->array) {
+        return vec1->size - vec2->size;
+    }
     const int n = MIN(vec1->size, vec2->size);
     if (compar != NULL) {
         for (int i = 0; i < n; ++i) {

@@ -6,36 +6,38 @@
 literal_t literal_init(const stdvec_t *z, bool sign, pred_t pred,
         const stdvec_t *args)
 {
-    literal_t l;
-    if (z == NULL) {
-        l.z = stdvec_init();
-    } else {
-        l.z = stdvec_copy(z);
-    }
-    l.sign = sign;
-    l.pred = pred;
-    l.args = stdvec_copy(args);
-    return l;
+    return (literal_t) {
+        .z = (z == NULL) ? stdvec_init() : *z,
+        .sign = sign,
+        .pred = pred,
+        .args = stdvec_copy(args)
+    };
 }
 
-void literal_append(literal_t *l1, const literal_t *l2, stdname_t n)
+literal_t literal_append(const literal_t *l, stdname_t n)
 {
-    l1->z = stdvec_copy_append(&l2->z, n);
-    l1->sign = l2->sign;
-    l1->pred = l2->pred;
-    memcpy(&l1->args, &l2->args, sizeof(l1->args));
+    return (literal_t) {
+        .z = stdvec_copy_append(&l->z, n),
+        .sign = l->sign,
+        .pred = l->pred,
+        .args = l->args
+    };
 }
 
-void literal_flip(literal_t *l1, const literal_t *l2)
+literal_t literal_flip(const literal_t *l)
 {
-    memcpy(l1, l2, sizeof(*l1));
-    l1->sign = !l1->sign;
+    return (literal_t) {
+        .z = l->z,
+        .sign = !l->sign,
+        .pred = l->pred,
+        .args = l->args
+    };
 }
 
-void literal_free(literal_t *l1)
+void literal_free(literal_t *l)
 {
-    stdvec_free(&l1->z);
-    stdvec_free(&l1->args);
+    stdvec_free(&l->z);
+    stdvec_free(&l->args);
 }
 
 int literal_cmp(const literal_t *l1, const literal_t *l2)

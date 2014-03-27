@@ -61,6 +61,7 @@ int set_find(const set_t *set, const void *elem);
 bool set_contains(const set_t *set, const void *elem);
 
 bool set_add(set_t *set, const void *elem);
+void set_add_all(set_t *set, const set_t *elems);
 
 bool set_remove(set_t *set, const void *elem);
 const void *set_remove_index(set_t *set, int index);
@@ -87,6 +88,7 @@ void set_clear(set_t *set);
     int prefix##_find(const prefix##_t *s, const type elem);\
     bool prefix##_contains(const prefix##_t *s, const type elem);\
     bool prefix##_add(prefix##_t *s, const type elem);\
+    void prefix##_add_all(prefix##_t *s, const prefix##_t *elems);\
     bool prefix##_remove(prefix##_t *s, const type elem);\
     const type prefix##_remove_index(prefix##_t *s, int index);\
     void prefix##_clear(prefix##_t *s);
@@ -132,6 +134,8 @@ void set_clear(set_t *set);
         return set_contains(&s->s, (const void *) elem); }\
     bool prefix##_add(prefix##_t *s, const type elem) {\
         return set_add(&s->s, (const void *) elem); }\
+    void prefix##_add_all(prefix##_t *s, const prefix##_t *elems) {\
+        return set_add_all(&s->s, &elems->s); }\
     bool prefix##_remove(prefix##_t *s, const type elem) {\
         return set_remove(&s->s, (const void *) elem); }\
     const type prefix##_remove_index(prefix##_t *s, int index) {\

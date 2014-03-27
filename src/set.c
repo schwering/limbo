@@ -211,6 +211,13 @@ bool set_add(set_t *set, const void *elem)
     }
 }
 
+void set_add_all(set_t *set, const set_t *elems)
+{
+    for (int i = 0; i < set_size(elems); ++i) {
+        set_add(set, set_get(elems, i));
+    }
+}
+
 bool set_remove(set_t *set, const void *elem)
 {
     const int i = search(set, elem);

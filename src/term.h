@@ -8,10 +8,13 @@
 #define _TERM_H_
 
 #include "map.h"
+#include <limits.h>
 #include <stdlib.h>
 
 typedef long int stdname_t;
 typedef long int var_t;
+
+#define STDNAME_MAX LONG_MAX
 
 int stdname_compar(stdname_t l, stdname_t r);
 
