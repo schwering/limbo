@@ -15,8 +15,7 @@ MAP_IMPL(iimap, long int, long int, compar_long_int);
 
 START_TEST(test_map_add)
 {
-    iimap_t map;
-    iimap_init(&map);
+    iimap_t map = iimap_init();
     for (int i = -11; i < 10; i += 4) {
         ck_assert(!iimap_contains(&map, ABS(i)));
         ck_assert(iimap_add(&map, ABS(i), ABS(i)));

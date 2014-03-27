@@ -1,4 +1,8 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+/*
+ * A negative value of vector_t's `capacity' attribute indicates that the
+ * object does not own the memory of its `array' attribute.
+ */
 #include "vector.h"
 #include <assert.h>
 #include <stdlib.h>
@@ -9,38 +13,54 @@
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 
-void vector_init(vector_t *vec)
+vector_t vector_init(void)
 {
-    vector_init_with_size(vec, INIT_SIZE);
+    return vector_init_with_size(INIT_SIZE);
 }
 
-void vector_init_with_size(vector_t *vec, int size)
+vector_t vector_init_with_size(int size)
 {
+    assert(size >= 0);
     size = MAX(size, INIT_SIZE);
-    vec->array = malloc(size * sizeof(void *));
-    vec->capacity = size;
-    vec->size = 0;
+    return (vector_t) {
+        .array = malloc(size * sizeof(void *)),
+        .capacity = size,
+        .size = 0,
+    };
 }
 
-void vector_copy(vector_t *dst, const vector_t *src)
+vector_t vector_copy(const vector_t *src)
 {
-    vector_copy_range(dst, src, 0, src->size);
+    return vector_copy_range(src, 0, src->size);
 }
 
-void vector_copy_range(vector_t *dst, const vector_t *src, int from, int to)
+vector_t vector_copy_range(const vector_t *src, int from, int to)
 {
     const int n_new_elems = to - from;
-    dst->capacity = MAX(n_new_elems, INIT_SIZE);
-    dst->array = malloc(src->capacity * sizeof(void *));
-    memcpy(dst->array,
+    vector_t dst;
+    dst.capacity = MAX(n_new_elems, INIT_SIZE);
+    dst.array = malloc(src->capacity * sizeof(void *));
+    memcpy(dst.array,
             src->array + from,
             n_new_elems * sizeof(void *));
-    dst->size = n_new_elems;
+    dst.size = n_new_elems;
+    return dst;
+}
+
+const vector_t vector_sub(const vector_t *src, int from, int to)
+{
+    const int n_new_elems = to - from;
+    vector_t dst = {
+        .array = src->array + sizeof(void *) * from,
+        .capacity = -1,
+        .size = n_new_elems
+    };
+    return dst;
 }
 
 void vector_free(vector_t *vec)
 {
-    if (vec->array != NULL) {
+    if (vec->capacity >= 0 && vec->array != NULL) {
         free(vec->array);
     }
     vec->array = NULL;
@@ -60,23 +80,21 @@ int vector_cmp(const vector_t *vec1, const vector_t *vec2,
     if (vec1 == vec2) {
         return 0;
     }
+    const int n = MIN(vec1->size, vec2->size);
     if (compar != NULL) {
-        const int n = MIN(vec1->size, vec2->size);
         for (int i = 0; i < n; ++i) {
             const int cmp = compar(vec1->array[i], vec2->array[i]);
             if (cmp != 0) {
                 return cmp;
             }
         }
-        return vec1->size - vec2->size;
     } else {
-        int cmp = memcmp(vec1->array, vec2->array, vec1->size * sizeof(void *));
-        if (cmp == 0) {
-            return vec1->size - vec2->size;
-        } else {
+        const int cmp = memcmp(vec1->array, vec2->array, n);
+        if (cmp != 0) {
             return cmp;
         }
     }
+    return vec1->size - vec2->size;
 }
 
 bool vector_eq(const vector_t *vec1, const vector_t *vec2,

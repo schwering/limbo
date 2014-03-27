@@ -6,34 +6,41 @@
 
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 
-void set_init(set_t *set, compar_t compar)
+set_t set_init(compar_t compar)
 {
-    vector_init(&set->vec);
-    set->compar = compar;
+    return (set_t) {
+        .vec = vector_init(),
+        .compar = compar
+    };
 }
 
-void set_init_with_size(set_t *set, compar_t compar, int size)
+set_t set_init_with_size(compar_t compar, int size)
 {
-    vector_init_with_size(&set->vec, size);
-    set->compar = compar;
+    return (set_t) {
+        .vec = vector_init_with_size(size),
+        .compar = compar
+    };
 }
 
-void set_copy(set_t *dst, const set_t *src)
+set_t set_copy(const set_t *src)
 {
-    vector_copy(&dst->vec, &src->vec);
-    dst->compar = src->compar;
+    return (set_t) {
+        .vec = vector_copy(&src->vec),
+        .compar = src->compar
+    };
 }
 
-void set_singleton(set_t *set, compar_t compar, const void *elem)
+set_t set_singleton(compar_t compar, const void *elem)
 {
-    set_init_with_size(set, compar, 1);
-    set_add(set, elem);
+    set_t set = set_init_with_size(compar, 1);
+    set_add(&set, elem);
+    return set;
 }
 
-void set_union(set_t *set, const set_t *l, const set_t *r)
+set_t set_union(const set_t *l, const set_t *r)
 {
     assert(l->compar == r->compar);
-    set_init_with_size(set, l->compar, set_size(l) + set_size(r));
+    set_t set = set_init_with_size(l->compar, set_size(l) + set_size(r));
     int i = 0;
     int j = 0;
     while (i < vector_size(&l->vec) && j < vector_size(&r->vec)) {
@@ -41,25 +48,26 @@ void set_union(set_t *set, const set_t *l, const set_t *r)
                 vector_get(&l->vec, i),
                 vector_get(&r->vec, j));
         if (cmp < 0) {
-            vector_append(&set->vec, vector_get(&l->vec, i));
+            vector_append(&set.vec, vector_get(&l->vec, i));
             ++i;
         } else if (cmp > 0) {
-            vector_append(&set->vec, vector_get(&r->vec, j));
+            vector_append(&set.vec, vector_get(&r->vec, j));
             ++j;
         } else {
-            vector_append(&set->vec, vector_get(&l->vec, i));
+            vector_append(&set.vec, vector_get(&l->vec, i));
             ++i;
             ++j;
         }
     }
-    vector_append_all_range(&set->vec, &l->vec, i, vector_size(&l->vec));
-    vector_append_all_range(&set->vec, &r->vec, j, vector_size(&r->vec));
+    vector_append_all_range(&set.vec, &l->vec, i, vector_size(&l->vec));
+    vector_append_all_range(&set.vec, &r->vec, j, vector_size(&r->vec));
+    return set;
 }
 
-void set_difference(set_t *set, const set_t *l, const set_t *r)
+set_t set_difference(const set_t *l, const set_t *r)
 {
     assert(l->compar == r->compar);
-    set_init_with_size(set, l->compar, set_size(l));
+    set_t set = set_init_with_size(l->compar, set_size(l));
     int i = 0;
     int j = 0;
     while (i < vector_size(&l->vec)) {
@@ -75,16 +83,17 @@ void set_difference(set_t *set, const set_t *l, const set_t *r)
                 goto skip;
             }
         }
-        vector_append(&set->vec, vector_get(&l->vec, i));
+        vector_append(&set.vec, vector_get(&l->vec, i));
 skip:
         ++i;
     }
+    return set;
 }
 
-void set_intersection(set_t *set, const set_t *l, const set_t *r)
+set_t set_intersection(const set_t *l, const set_t *r)
 {
     assert(l->compar == r->compar);
-    set_init_with_size(set, l->compar, MIN(set_size(l), set_size(r)));
+    set_t set = set_init_with_size(l->compar, MIN(set_size(l), set_size(r)));
     int i = 0;
     int j = 0;
     while (i < vector_size(&l->vec) && j < vector_size(&r->vec)) {
@@ -96,11 +105,12 @@ void set_intersection(set_t *set, const set_t *l, const set_t *r)
         } else if (cmp > 0) {
             ++j;
         } else {
-            vector_append(&set->vec, vector_get(&l->vec, i));
+            vector_append(&set.vec, vector_get(&l->vec, i));
             ++i;
             ++j;
         }
     }
+    return set;
 }
 
 void set_free(set_t *set)

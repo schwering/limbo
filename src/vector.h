@@ -42,10 +42,11 @@ typedef struct {
     int size;
 } vector_t;
 
-void vector_init(vector_t *vec);
-void vector_init_with_size(vector_t *vec, int size);
-void vector_copy(vector_t *dst, const vector_t *src);
-void vector_copy_range(vector_t *dst, const vector_t *src, int from, int to);
+vector_t vector_init(void);
+vector_t vector_init_with_size(int size);
+vector_t vector_copy(const vector_t *src);
+vector_t vector_copy_range(const vector_t *src, int from, int to);
+const vector_t vector_sub(const vector_t *src, int from, int to);
 void vector_free(vector_t *vec);
 
 const void *vector_get(const vector_t *vec, int index);
@@ -77,11 +78,11 @@ void vector_clear(vector_t *vec);
 
 #define VECTOR_DECL(prefix, type) \
     typedef union { vector_t v; } prefix##_t;\
-    void prefix##_init(prefix##_t *v);\
-    void prefix##_init_with_size(prefix##_t *v, int size);\
-    void prefix##_copy(prefix##_t *dst, const prefix##_t *src);\
-    void prefix##_copy_range(prefix##_t *dst,\
-            const prefix##_t *src, int from, int to);\
+    prefix##_t prefix##_init(void);\
+    prefix##_t prefix##_init_with_size(int size);\
+    prefix##_t prefix##_copy(const prefix##_t *src);\
+    prefix##_t prefix##_copy_range(const prefix##_t *src, int from, int to);\
+    const prefix##_t prefix##_sub(const prefix##_t *src, int from, int to);\
     void prefix##_free(prefix##_t *v);\
     const type prefix##_get(const prefix##_t *v, int index);\
     const type *prefix##_array(const prefix##_t *v);\
@@ -105,15 +106,16 @@ void vector_clear(vector_t *vec);
     void prefix##_clear(prefix##_t *v);
 
 #define VECTOR_IMPL(prefix, type, compar) \
-    void prefix##_init(prefix##_t *v) {\
-        vector_init(&v->v); }\
-    void prefix##_init_with_size(prefix##_t *v, int size) {\
-        vector_init_with_size(&v->v, size); }\
-    void prefix##_copy(prefix##_t *dst, const prefix##_t *src) {\
-        vector_copy(&dst->v, &src->v); }\
-    void prefix##_copy_range(prefix##_t *dst,\
-            const prefix##_t *src, int from, int to) {\
-        vector_copy_range(&dst->v, &src->v, from, to); }\
+    prefix##_t prefix##_init(void) {\
+        return (prefix##_t) { .v = vector_init() }; }\
+    prefix##_t prefix##_init_with_size(int size) {\
+        return (prefix##_t) { .v = vector_init_with_size(size) }; }\
+    prefix##_t prefix##_copy(const prefix##_t *src) {\
+        return (prefix##_t) { .v = vector_copy(&src->v) }; }\
+    prefix##_t prefix##_copy_range(const prefix##_t *src, int from, int to) {\
+        return (prefix##_t) { .v = vector_copy_range(&src->v, from, to) }; }\
+    const prefix##_t prefix##_sub(const prefix##_t *src, int from, int to) {\
+        return (prefix##_t) { .v = vector_sub(&src->v, from, to) }; }\
     void prefix##_free(prefix##_t *v) {\
         vector_free(&v->v); }\
     const type prefix##_get(const prefix##_t *v, int index) {\

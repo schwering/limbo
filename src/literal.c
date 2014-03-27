@@ -3,22 +3,24 @@
 #include <stdlib.h>
 #include <string.h>
 
-void literal_init(literal_t *l, const stdvec_t *z, bool sign, pred_t pred,
+literal_t literal_init(const stdvec_t *z, bool sign, pred_t pred,
         const stdvec_t *args)
 {
+    literal_t l;
     if (z == NULL) {
-        stdvec_init(&l->z);
+        l.z = stdvec_init();
     } else {
-        stdvec_copy(&l->z, z);
+        l.z = stdvec_copy(z);
     }
-    l->sign = sign;
-    l->pred = pred;
-    stdvec_copy(&l->args, args);
+    l.sign = sign;
+    l.pred = pred;
+    l.args = stdvec_copy(args);
+    return l;
 }
 
 void literal_append(literal_t *l1, const literal_t *l2, stdname_t n)
 {
-    stdvec_copy_append(&l1->z, &l2->z, n);
+    l1->z = stdvec_copy_append(&l2->z, n);
     l1->sign = l2->sign;
     l1->pred = l2->pred;
     memcpy(&l1->args, &l2->args, sizeof(l1->args));

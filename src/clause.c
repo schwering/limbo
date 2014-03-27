@@ -26,24 +26,34 @@ static void generate_varmaps(
     }
 }
 
-void ground_clauses(setup_t *setup,
+setup_t ground_clauses(
         const univ_clause_t *univ_clauses[], int n_univ_clauses,
         const stdvecset_t *zs, const stdset_t *ns)
 {
-    setup_init(setup);
+    setup_t box_clauses = setup_init();
     // first ground the universal quantifiers
     // this is a bit complicated because we need to compute all possible
     // assignment of variables (elements from univ_clauses[i]->vars) and
     // standard names (elements of ns) for all i
     for (int i = 0; i < n_univ_clauses; ++i) {
-        varmap_t varmap;
-        varmap_init_with_size(&varmap, varset_size(&univ_clauses[i]->vars));
+        varmap_t varmap = varmap_init_with_size(
+                varset_size(&univ_clauses[i]->vars));
         generate_varmaps(
-                setup,
+                &box_clauses,
                 &varmap,
                 univ_clauses[i],
                 zs, ns, 0);
     }
-    // now add all prefixes of all elements from ns
+    // now elements from zs
+    setup_t setup = setup_init();
+    for (int i = 0; i < setup_size(&box_clauses); ++i) {
+        for (int j = 0; j < stdvecset_size(zs); ++j) {
+            const stdvec_t *z = stdvecset_get(zs, j);
+            for (int k = 0; k < stdvec_size(z); ++k) {
+                stdvec_t z_prefix = stdvec_sub(z, 0, k);
+            }
+        }
+    }
+    return setup;
 }
 

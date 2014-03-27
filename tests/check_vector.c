@@ -13,8 +13,8 @@ VECTOR_IMPL(ivec, long int, compar_long_int);
 
 START_TEST(test_vector_insert)
 {
-    ivec_t vec1; ivec_init(&vec1);
-    ivec_t vec2; ivec_init(&vec2);
+    ivec_t vec1 = ivec_init();
+    ivec_t vec2 = ivec_init();
     ck_assert(ivec_eq(&vec1, &vec2));
     ck_assert_int_eq(ivec_size(&vec1), 0);
     ivec_prepend(&vec1, 3);
@@ -53,8 +53,8 @@ END_TEST
 
 START_TEST(test_vector_insert_all)
 {
-    ivec_t vec1; ivec_init(&vec1);
-    ivec_t vec2; ivec_init(&vec2);
+    ivec_t vec1 = ivec_init();
+    ivec_t vec2 = ivec_init();
     for (int i = 0; i < 10; ++i) {
         ivec_append(&vec1, i);
     }
@@ -72,10 +72,10 @@ START_TEST(test_vector_insert_all)
         ck_assert_int_eq(ivec_get(&vec1, i-1) + 1, ivec_get(&vec1, i));
     }
     ivec_free(&vec2);
-    ivec_copy(&vec2, &vec1);
+    vec2 = ivec_copy(&vec1);
     ck_assert(ivec_eq(&vec1, &vec2));
     ivec_free(&vec2);
-    ivec_copy_range(&vec2, &vec1, 0, 10);
+    vec2 = ivec_copy_range(&vec1, 0, 10);
     ck_assert_int_eq(ivec_size(&vec2), 10);
     for (int i = 0; i < 10; ++i) {
         ck_assert_int_eq(ivec_get(&vec2, i), i);

@@ -19,18 +19,20 @@ int stdname_compar(stdname_t l, stdname_t r)
 
 VECTOR_IMPL(stdvec, stdname_t, NULL);
 
-void stdvec_prepend_copy(stdvec_t *dst, stdname_t n, const stdvec_t *src)
+stdvec_t stdvec_prepend_copy(stdname_t n, const stdvec_t *src)
 {
-    stdvec_init_with_size(dst, stdvec_size(src) + 1);
-    stdvec_append(dst, n);
-    stdvec_append_all(dst, src);
+    stdvec_t dst = stdvec_init_with_size(stdvec_size(src) + 1);
+    stdvec_append(&dst, n);
+    stdvec_append_all(&dst, src);
+    return dst;
 }
 
-void stdvec_copy_append(stdvec_t *dst, const stdvec_t *src, stdname_t n)
+stdvec_t stdvec_copy_append(const stdvec_t *src, stdname_t n)
 {
-    stdvec_init_with_size(dst, stdvec_size(src) + 1);
-    stdvec_append_all(dst, src);
-    stdvec_append(dst, n);
+    stdvec_t dst = stdvec_init_with_size(stdvec_size(src) + 1);
+    stdvec_append_all(&dst, src);
+    stdvec_append(&dst, n);
+    return dst;
 }
 
 SET_IMPL(stdvecset, stdvec_t *, stdvec_cmp);

@@ -42,13 +42,13 @@ typedef struct {
     compar_t compar;
 } set_t;
 
-void set_init(set_t *set, compar_t compar);
-void set_init_with_size(set_t *set, compar_t compar, int size);
-void set_copy(set_t *dst, const set_t *src);
-void set_singleton(set_t *set, compar_t compar, const void *elem);
-void set_union(set_t *set, const set_t *left, const set_t *right);
-void set_difference(set_t *set, const set_t *left, const set_t *right);
-void set_intersection(set_t *set, const set_t *left, const set_t *right);
+set_t set_init(compar_t compar);
+set_t set_init_with_size(compar_t compar, int size);
+set_t set_copy(const set_t *src);
+set_t set_singleton(compar_t compar, const void *elem);
+set_t set_union(const set_t *left, const set_t *right);
+set_t set_difference(const set_t *left, const set_t *right);
+set_t set_intersection(const set_t *left, const set_t *right);
 void set_free(set_t *set);
 
 int set_cmp(const set_t *set1, const set_t *set2);
@@ -68,15 +68,15 @@ void set_clear(set_t *set);
 
 #define SET_DECL(prefix, type) \
     typedef union { set_t s; } prefix##_t;\
-    void prefix##_init(prefix##_t *s);\
-    void prefix##_init_with_size(prefix##_t *s, int size);\
-    void prefix##_copy(prefix##_t *dst, const prefix##_t *src);\
-    void prefix##_singleton(prefix##_t *s, const type elem);\
-    void prefix##_union(prefix##_t *s,\
+    prefix##_t prefix##_init(void);\
+    prefix##_t prefix##_init_with_size(int size);\
+    prefix##_t prefix##_copy(const prefix##_t *src);\
+    prefix##_t prefix##_singleton(const type elem);\
+    prefix##_t prefix##_union(\
             const prefix##_t *left, const prefix##_t *right);\
-    void prefix##_difference(prefix##_t *s,\
+    prefix##_t prefix##_difference(\
             const prefix##_t *left, const prefix##_t *right);\
-    void prefix##_intersection(prefix##_t *s,\
+    prefix##_t prefix##_intersection(\
             const prefix##_t *left, const prefix##_t *right);\
     void prefix##_free(prefix##_t *s);\
     int prefix##_cmp(const prefix##_t *s1, const prefix##_t *s2);\
@@ -92,23 +92,25 @@ void set_clear(set_t *set);
     void prefix##_clear(prefix##_t *s);
 
 #define SET_IMPL(prefix, type, compar) \
-    void prefix##_init(prefix##_t *s) {\
-        set_init(&s->s, (compar_t) compar); }\
-    void prefix##_init_with_size(prefix##_t *s, int size) {\
-        set_init_with_size(&s->s, (compar_t) compar, size); }\
-    void prefix##_copy(prefix##_t *dst, const prefix##_t *src) {\
-        set_copy(&dst->s, &src->s); }\
-    void prefix##_singleton(prefix##_t *s, const type elem) {\
-        set_singleton(&s->s, (compar_t) compar, (const void *) elem); }\
-    void prefix##_union(prefix##_t *s,\
+    prefix##_t prefix##_init(void) {\
+        return (prefix##_t) { .s = set_init((compar_t) compar) }; }\
+    prefix##_t prefix##_init_with_size(int size) {\
+        return (prefix##_t) {\
+            .s = set_init_with_size((compar_t) compar, size) }; }\
+    prefix##_t prefix##_copy(const prefix##_t *src) {\
+        return (prefix##_t) { .s = set_copy(&src->s) }; }\
+    prefix##_t prefix##_singleton(const type elem) {\
+        return (prefix##_t) {\
+            .s = set_singleton((compar_t) compar, (const void *) elem) }; }\
+    prefix##_t prefix##_union(\
             const prefix##_t *left, const prefix##_t *right) {\
-        set_union(&s->s, &left->s, &right->s); }\
-    void prefix##_difference(prefix##_t *s,\
+        return (prefix##_t) { .s = set_union(&left->s, &right->s) }; }\
+    prefix##_t prefix##_difference(\
             const prefix##_t *left, const prefix##_t *right) {\
-        set_difference(&s->s, &left->s, &right->s); }\
-    void prefix##_intersection(prefix##_t *s,\
+        return (prefix##_t) { .s = set_difference(&left->s, &right->s) }; }\
+    prefix##_t prefix##_intersection(\
             const prefix##_t *left, const prefix##_t *right) {\
-        set_intersection(&s->s, &left->s, &right->s); }\
+        return (prefix##_t) { .s = set_intersection(&left->s, &right->s) }; }\
     void prefix##_free(prefix##_t *s) {\
         set_free(&s->s); }\
     int prefix##_cmp(const prefix##_t *s1,\

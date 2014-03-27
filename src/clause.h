@@ -3,6 +3,10 @@
  * The univ_clause attribute of univ_clause_t should return NULL if the clause
  * variable assignment is not permitted.
  *
+ * ground_clauses() substitutes all variables with standard names from ns. The
+ * result is a variable-free box clause. The box is then substituted by all
+ * prefixes of any action sequence from zs.
+ *
  * schwering@kbsg.rwth-aachen.de
  */
 #ifndef _CLAUSE_H_

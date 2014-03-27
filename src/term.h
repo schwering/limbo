@@ -22,8 +22,8 @@ VECTOR_DECL(varvec, var_t);
 SET_DECL(varset, var_t);
 
 VECTOR_DECL(stdvec, stdname_t);
-void stdvec_prepend_copy(stdvec_t *dst, stdname_t n, const stdvec_t *src);
-void stdvec_copy_append(stdvec_t *dst, const stdvec_t *src, stdname_t n);
+stdvec_t stdvec_prepend_copy(stdname_t n, const stdvec_t *src);
+stdvec_t stdvec_copy_append(const stdvec_t *src, stdname_t n);
 
 SET_DECL(stdvecset, stdvec_t *);
 

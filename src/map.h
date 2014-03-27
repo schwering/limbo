@@ -36,8 +36,8 @@ typedef struct {
 
 typedef int (*kv_compar_t)(const kv_t *, const kv_t *);
 
-void map_init(map_t *map, kv_compar_t compar);
-void map_init_with_size(map_t *map, kv_compar_t compar, int size);
+map_t map_init(kv_compar_t compar);
+map_t map_init_with_size(kv_compar_t compar, int size);
 void map_free(map_t *map);
 
 int map_find(const map_t *map, const void *key);
@@ -55,8 +55,8 @@ void map_clear(map_t *map);
 #define MAP_DECL(prefix, keytype, valtype) \
     typedef union { map_t m; } prefix##_t;\
     typedef struct { keytype key; valtype val; } prefix##_kv_t;\
-    void prefix##_init(prefix##_t *m);\
-    void prefix##_init_with_size(prefix##_t *m, int size);\
+    prefix##_t prefix##_init(void);\
+    prefix##_t prefix##_init_with_size(int size);\
     void prefix##_free(prefix##_t *m);\
     int prefix##_find(const prefix##_t *m, const keytype key);\
     bool prefix##_contains(const prefix##_t *m, const keytype key);\
@@ -72,10 +72,11 @@ void map_clear(map_t *map);
 #define MAP_IMPL(prefix, keytype, valtype, keycompar) \
     static inline int prefix##_kv_compar(const kv_t *l, const kv_t *r) {\
         return keycompar((const keytype) l->key, (const keytype) r->key); }\
-    void prefix##_init(prefix##_t *m) {\
-        map_init(&m->m, prefix##_kv_compar); }\
-    void prefix##_init_with_size(prefix##_t *m, int size) {\
-        map_init_with_size(&m->m, prefix##_kv_compar, size); }\
+    prefix##_t prefix##_init(void) {\
+        return (prefix##_t) { .m = map_init(prefix##_kv_compar) }; }\
+    prefix##_t prefix##_init_with_size(int size) {\
+        return (prefix##_t) { .m = map_init_with_size(prefix##_kv_compar,\
+                size) }; }\
     void prefix##_free(prefix##_t *m) {\
         map_free(&m->m); }\
     int prefix##_find(const prefix##_t *m, const keytype key) {\

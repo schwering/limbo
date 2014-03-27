@@ -2,14 +2,14 @@
 #include "map.h"
 #include <stdlib.h>
 
-void map_init(map_t *map, kv_compar_t compar)
+map_t map_init(kv_compar_t compar)
 {
-    set_init(&map->set, (compar_t) compar);
+    return (map_t) { .set = set_init((compar_t) compar) };
 }
 
-void map_init_with_size(map_t *map, kv_compar_t compar, int size)
+map_t map_init_with_size(kv_compar_t compar, int size)
 {
-    set_init_with_size(&map->set, (compar_t) compar, size);
+    return (map_t) { .set = set_init_with_size((compar_t) compar, size) };
 }
 
 void map_free(map_t *map)

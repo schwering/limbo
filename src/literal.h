@@ -4,6 +4,7 @@
  * A literal is a predicate symbol `pred' with vector of arguments `args'
  * which has an either positive or negative `sign'.
  *
+ * All literals created by the constructors own their own memory.
  * literal_append() creates a new literal with a new action appended to its
  * action sequence.
  *
@@ -22,7 +23,7 @@ typedef struct {
     stdvec_t args;
 } literal_t;
 
-void literal_init(literal_t *l, const stdvec_t *z, bool sign, pred_t pred,
+literal_t literal_init(const stdvec_t *z, bool sign, pred_t pred,
         const stdvec_t *args);
 void literal_append(literal_t *l1, const literal_t *l2, stdname_t n);
 void literal_flip(literal_t *l1, const literal_t *l2);
