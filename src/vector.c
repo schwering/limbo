@@ -37,13 +37,21 @@ vector_t vector_copy(const vector_t *src)
 vector_t vector_copy_range(const vector_t *src, int from, int to)
 {
     const int n_new_elems = to - from;
-    vector_t dst;
-    dst.capacity = MAX(n_new_elems, INIT_SIZE);
-    dst.array = malloc(src->capacity * sizeof(void *));
+    vector_t dst = vector_init_with_size(n_new_elems);
     memcpy(dst.array,
             src->array + from,
             n_new_elems * sizeof(void *));
     dst.size = n_new_elems;
+    return dst;
+}
+
+vector_t vector_from_array(const void *array[], int n)
+{
+    vector_t dst = vector_init_with_size(n);
+    memcpy(dst.array,
+            array,
+            n * sizeof(void *));
+    dst.size = n;
     return dst;
 }
 
@@ -92,7 +100,7 @@ int vector_cmp(const vector_t *vec1, const vector_t *vec2,
             }
         }
     } else {
-        const int cmp = memcmp(vec1->array, vec2->array, n);
+        const int cmp = memcmp(vec1->array, vec2->array, n * sizeof(void *));
         if (cmp != 0) {
             return cmp;
         }

@@ -33,11 +33,12 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
     clause_t *d = malloc(sizeof(clause_t));
     *d = clause_init_with_size(clause_size(c));
     for (int i = 0; i < clause_size(c); ++i) {
-        const literal_t *l1 = clause_get(c, i);
-        literal_t *l2 = malloc(sizeof(literal_t));
-        *l2 = literal_init(z, literal_sign(l1), literal_pred(l1),
-                literal_args(l1));
-        added = clause_add(d, l2);
+        const literal_t *l = clause_get(c, i);
+        const stdvec_t zz = stdvec_copy_append_all(z, literal_z(l));
+        literal_t *ll = malloc(sizeof(literal_t));
+        *ll = literal_init(&zz, literal_sign(l), literal_pred(l),
+                literal_args(l));
+        added = clause_add(d, ll);
         assert(added);
     }
     added = setup_add(setup, d);
@@ -49,21 +50,21 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
     }
 }
 
-static stdset_t hplus(const univ_clause_t *univ_clauses[], int n_univ_clauses,
+static stdset_t hplus(const univ_clause_t univ_clauses[], int n_univ_clauses,
         const stdset_t *query_names, int n_query_vars)
 {
     stdset_t names = stdset_copy(query_names);
     int max_vars = n_query_vars;
     for (int i = 0; i < n_univ_clauses; ++i) {
-        stdset_add_all(&names, &univ_clauses[i]->names);
-        max_vars = MAX(max_vars, varset_size(&univ_clauses[i]->vars));
+        stdset_add_all(&names, &univ_clauses[i].names);
+        max_vars = MAX(max_vars, varset_size(&univ_clauses[i].vars));
     }
     stdname_t max_name = 0;
     for (int i = 0; i < stdset_size(&names); ++i) {
         max_name = MAX(max_name, stdset_get(&names, i));
     }
     assert(max_name < STDNAME_MAX);
-    for (int i = 0; i < n_query_vars; ++i) {
+    for (int i = 0; i < max_vars; ++i) {
         assert(max_name + i + 1 < STDNAME_MAX);
         stdset_add(&names, max_name + i + 1);
     }
@@ -71,7 +72,7 @@ static stdset_t hplus(const univ_clause_t *univ_clauses[], int n_univ_clauses,
 }
 
 setup_t ground_clauses(
-        const univ_clause_t *univ_clauses[], int n_univ_clauses,
+        const univ_clause_t univ_clauses[], int n_univ_clauses,
         const stdvecset_t *query_zs, const stdset_t *query_ns, int n_query_vars)
 {
     const stdset_t ns = hplus(univ_clauses, n_univ_clauses,
@@ -79,12 +80,12 @@ setup_t ground_clauses(
     setup_t box_clauses = setup_init();
     // first ground the universal quantifiers
     // this is a bit complicated because we need to compute all possible
-    // assignment of variables (elements from univ_clauses[i]->vars) and
+    // assignment of variables (elements from univ_clauses[i].vars) and
     // standard names (elements of ns) for all i
     for (int i = 0; i < n_univ_clauses; ++i) {
         varmap_t varmap = varmap_init_with_size(
-                varset_size(&univ_clauses[i]->vars));
-        ground_univs(&box_clauses, &varmap, univ_clauses[i], &ns, 0);
+                varset_size(&univ_clauses[i].vars));
+        ground_univs(&box_clauses, &varmap, &univ_clauses[i], &ns, 0);
     }
     // ground each box by substituting it with the prefixes of all action
     // sequences

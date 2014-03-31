@@ -35,6 +35,14 @@ stdvec_t stdvec_copy_append(const stdvec_t *src, stdname_t n)
     return dst;
 }
 
+stdvec_t stdvec_copy_append_all(const stdvec_t *src, const stdvec_t *elems)
+{
+    stdvec_t dst = stdvec_init_with_size(stdvec_size(src) + 1);
+    stdvec_append_all(&dst, src);
+    stdvec_append_all(&dst, elems);
+    return dst;
+}
+
 SET_IMPL(stdvecset, stdvec_t *, stdvec_cmp);
 
 SET_IMPL(stdset, stdname_t, NULL);

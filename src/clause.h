@@ -7,6 +7,9 @@
  * result is a variable-free box clause. The box is then substituted by all
  * prefixes of any action sequence from zs.
  *
+ * TODO We need to rename the univ_clause_t to univ_box_clause_t and add another
+ * univ_clause_t. The latter ones are to be used for the static part of the KB.
+ *
  * schwering@kbsg.rwth-aachen.de
  */
 #ifndef _CLAUSE_H_
@@ -23,11 +26,11 @@ SET_DECL(setup, clause_t *);
 typedef struct {
     stdset_t names;
     varset_t vars;
-    clause_t *(*univ_clause)(const varmap_t *map);
+    const clause_t *(*univ_clause)(const varmap_t *map);
 } univ_clause_t;
 
 setup_t ground_clauses(
-        const univ_clause_t *univ_clauses[], int n_univ_clauses,
+        const univ_clause_t univ_clauses[], int n_univ_clauses,
         const stdvecset_t *query_zs, const stdset_t *query_ns,
         int n_query_vars);
 pelset_t pel(const setup_t *setup);

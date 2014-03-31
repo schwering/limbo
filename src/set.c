@@ -6,6 +6,11 @@
 
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 
+#define COMPAR(set, left, right) \
+    ((set)->compar != NULL ?\
+     (set)->compar((left), (right)) :\
+     (left) - (right))
+
 set_t set_init(compar_t compar)
 {
     return (set_t) {
@@ -44,7 +49,7 @@ set_t set_union(const set_t *l, const set_t *r)
     int i = 0;
     int j = 0;
     while (i < vector_size(&l->vec) && j < vector_size(&r->vec)) {
-        const int cmp = l->compar(
+        const int cmp = COMPAR(l,
                 vector_get(&l->vec, i),
                 vector_get(&r->vec, j));
         if (cmp < 0) {
@@ -72,7 +77,7 @@ set_t set_difference(const set_t *l, const set_t *r)
     int j = 0;
     while (i < vector_size(&l->vec)) {
         while (j < vector_size(&r->vec)) {
-            const int cmp = l->compar(
+            const int cmp = COMPAR(l,
                     vector_get(&l->vec, i),
                     vector_get(&r->vec, j));
             if (cmp < 0) {
@@ -97,7 +102,7 @@ set_t set_intersection(const set_t *l, const set_t *r)
     int i = 0;
     int j = 0;
     while (i < vector_size(&l->vec) && j < vector_size(&r->vec)) {
-        const int cmp = l->compar(
+        const int cmp = COMPAR(l,
                 vector_get(&l->vec, i),
                 vector_get(&r->vec, j));
         if (cmp < 0) {
@@ -137,7 +142,7 @@ static inline int search(const set_t *set, const void *obj)
     int hi = vector_size(&set->vec) - 1;
     while (lo <= hi) {
         const int i = (lo + hi) / 2;
-        const int cmp = set->compar(obj, vector_get(&set->vec, i));
+        const int cmp = COMPAR(set, obj, vector_get(&set->vec, i));
         if (cmp == 0) { // found
             return i;
         } else if (cmp < 0) { // left half
@@ -156,14 +161,12 @@ static inline int insert_pos(const set_t *set, const void *obj)
     int hi = vector_size(&set->vec) - 1;
     while (lo <= hi) {
         const int i = (lo + hi) / 2;
-        const int cmp = set->compar(obj, vector_get(&set->vec, i));
+        const int cmp = COMPAR(set, obj, vector_get(&set->vec, i));
         if (cmp == 0) { // element already present
             return -1;
         } else if (cmp <= 0) { // left half
-            if (i == 0 ||
-                    !(set->compar(obj,
-                            vector_get(&set->vec,
-                                i-1)) <= 0)) { // position found
+            if (i == 0 || COMPAR(set, obj, vector_get(&set->vec, i-1)) > 0) {
+                // position found
                 return i;
             } else { // left half
                 hi = i - 1;

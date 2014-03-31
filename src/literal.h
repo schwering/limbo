@@ -4,10 +4,6 @@
  * A literal is a predicate symbol `pred' with vector of arguments `args'
  * which has an either positive or negative `sign'.
  *
- * All literals created by the constructors just use shallow copies of the
- * action sequence and and argument vector. Therefore these objects should not
- * be modified after a literal is created.
- *
  * literal_append() creates a new literal with a new action appended to its
  * action sequence.
  *

@@ -7,7 +7,8 @@
  * map_init[_with_size](), map_free(), map_get(), map_size(), map_clear().
  *
  * map_find(), map_contains(), map_lookup() operate on keys instead of indices.
- * map_lookup() returns the value corrensponding to the key.
+ * map_lookup() returns the value corrensponding to the key or NULL if it is not
+ * present.
  *
  * map_add[_replace]() insert a new key/value pair. While map_add() returns
  * true iff the key was not present before, map_add_replace() overrides the

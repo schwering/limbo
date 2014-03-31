@@ -30,7 +30,7 @@ START_TEST(test_map_add)
         if (i == 1 || i == 3 || i == 5 || i == 7 || i == 9) {
             ck_assert_int_eq(iimap_remove(&map, ABS(i)), (2*ABS(i)));
         } else {
-            ck_assert_int_eq(iimap_remove(&map, ABS(i)), NULL);
+            ck_assert_ptr_eq(iimap_remove(&map, ABS(i)), NULL);
         }
     }
     ck_assert_int_eq(iimap_size(&map), 1);
