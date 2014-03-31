@@ -3,12 +3,8 @@
  * The univ_clause attribute of univ_clause_t should return NULL if the clause
  * variable assignment is not permitted.
  *
- * ground_clauses() substitutes all variables with standard names from ns. The
- * result is a variable-free box clause. The box is then substituted by all
- * prefixes of any action sequence from zs.
- *
- * TODO We need to rename the univ_clause_t to univ_box_clause_t and add another
- * univ_clause_t. The latter ones are to be used for the static part of the KB.
+ * clauses_ground() substitutes all variables with standard names from ns, and
+ * substitutes prepends all prefixes of elements from zs to the box formulas.
  *
  * schwering@kbsg.rwth-aachen.de
  */
@@ -29,17 +25,26 @@ typedef struct {
     const clause_t *(*univ_clause)(const varmap_t *map);
 } univ_clause_t;
 
-setup_t ground_clauses(
-        const univ_clause_t univ_clauses[], int n_univ_clauses,
-        const stdvecset_t *query_zs, const stdset_t *query_ns,
+typedef union { univ_clause_t c; } box_univ_clause_t;
+
+VECTOR_DECL(univ_clauses, univ_clause_t *);
+VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
+
+setup_t setup_ground_clauses(
+        const box_univ_clauses_t *dynamic_bat,
+        const univ_clauses_t *static_bat,
+        const stdvecset_t *query_zs,
+        const stdset_t *query_ns,
         int n_query_vars);
-pelset_t pel(const setup_t *setup);
+pelset_t setup_pel(const setup_t *setup);
 
 bool clause_resolvable(const clause_t *c, const literal_t *l);
 clause_t clause_resolve(const clause_t *c, const literal_t *l);
 
 bool clause_is_unit(const clause_t *c);
 literal_t clause_unit(const clause_t *c);
+
+void unit_propagataion(setup_t *setup);
 
 #endif
 

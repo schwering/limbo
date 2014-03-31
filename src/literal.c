@@ -43,6 +43,18 @@ void literal_free(literal_t *l)
 int literal_cmp(const literal_t *l1, const literal_t *l2)
 {
     int cmp;
+    if ((cmp = stdvec_cmp(&l1->z, &l2->z)) != 0) {
+        return cmp;
+    } else if ((cmp = l1->pred - l2->pred) != 0) {
+        return cmp;
+    } else if ((cmp = stdvec_cmp(&l1->args, &l2->args)) != 0) {
+        return cmp;
+    } else if ((cmp = (int) l1->pred - (int) l2->pred) != 0) {
+        return cmp;
+    } else {
+        return 0;
+    }
+    /*
     if ((cmp = l1->pred - l2->pred) != 0) {
         return cmp;
     } else if ((cmp = stdvec_cmp(&l1->z, &l2->z)) != 0) {
@@ -54,6 +66,7 @@ int literal_cmp(const literal_t *l1, const literal_t *l2)
     } else {
         return 0;
     }
+    */
 }
 
 bool literal_eq(const literal_t *l1, const literal_t *l2)
