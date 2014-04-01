@@ -123,27 +123,6 @@ set_t set_difference(const set_t *l, const set_t *r)
             j = k + 1;
         }
     }
-    /*
-    int i = 0;
-    int j = 0;
-    while (i < vector_size(&l->vec)) {
-        while (j < vector_size(&r->vec)) {
-            const int cmp = COMPAR(l,
-                    vector_get(&l->vec, i),
-                    vector_get(&r->vec, j));
-            if (cmp < 0) {
-                break;
-            } else if (cmp > 0) {
-                ++j;
-            } else {
-                goto skip;
-            }
-        }
-        vector_append(&set.vec, vector_get(&l->vec, i));
-skip:
-        ++i;
-    }
-    */
     return set;
 }
 
@@ -215,6 +194,24 @@ int set_find(const set_t *set, const void *elem)
 bool set_contains(const set_t *set, const void *elem)
 {
     return set_find(set, elem) != -1;
+}
+
+bool set_contains_all(const set_t *set, const set_t *elems)
+{
+    assert(set->compar == elems->compar);
+    if (set_size(set) < set_size(elems)) {
+        return false;
+    }
+    for (int i = 0, j = 0; i < vector_size(&elems->vec); ++i) {
+        const void *e = vector_get(&elems->vec, i);
+        const int k = search(set, e, j, vector_size(&set->vec) - 1);
+        if (k == -1) {
+            return false;
+        } else {
+            j = k + 1;
+        }
+    }
+    return true;
 }
 
 bool set_add(set_t *set, const void *elem)

@@ -57,6 +57,11 @@ const clause_t *clause_empty(void)
     return ptr;
 }
 
+bool clause_subsumes(const clause_t *c, const clause_t *d)
+{
+    return clause_contains_all(d, c);
+}
+
 static void ground_univ(setup_t *setup, varmap_t *varmap,
         const univ_clause_t *univ_clause, const stdset_t *ns, int i)
 {
@@ -248,49 +253,4 @@ void setup_propagate_units(setup_t *setup)
     } while (new_units);
     setup_free(&new_setup);
 }
-
-/* Old, safe version which uses much more allocation:
-static clause_t *clause_resolve(const clause_t *c, const litset_t *u)
-{
-    // We temporarily replace the comparison function of c and u by one that
-    // considers two literals equal when they have inverted signs. Thus we can
-    // compute the resolution (without intermediary clauses) of c and u without
-    // by using set_difference().
-    // That's quite hacky, but more efficient than copying the contents of u
-    // with inverted signs and then running set_difference().
-    clause_t cc = *c;
-    litset_t uu = *u;
-    cc.s.s.compar = (compar_t) literal_cmp_flipped;
-    uu.s.compar = (compar_t) literal_cmp_flipped;
-    clause_t *d = malloc(sizeof(clause_t));
-    *d = clause_difference(&cc, litset_to_clause(&uu));
-    d->s.s.compar = c->s.s.compar;
-    return d;
-}
-
-void setup_propagate_units(setup_t *setup)
-{
-    litset_t units = setup_unit_clauses(setup);
-    setup_t new_clauses = setup_init();
-    bool new_units;
-    do {
-        new_units = false;
-        for (int i = 0; i < setup_size(setup); ++i) {
-            const clause_t *c = setup_get(setup, i);
-            clause_t *d = clause_resolve(c, &units);
-            if (clause_is_unit(d)) {
-                const bool added = litset_add(&units, clause_unit(d));
-                if (added) {
-                    new_units = true;
-                }
-            }
-            const bool added = setup_add(&new_clauses, d);
-            if (!added) {
-                free(d);
-            }
-        }
-        setup_add_all(setup, &new_clauses);
-    } while (new_units);
-}
-*/
 

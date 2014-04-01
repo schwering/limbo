@@ -49,6 +49,7 @@ VECTOR_DECL(univ_clauses, univ_clause_t *);
 VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
 
 const clause_t *clause_empty(void);
+bool clause_subsumes(const clause_t *c, const clause_t *d);
 
 setup_t setup_ground_clauses(
         const box_univ_clauses_t *dynamic_bat,

@@ -64,6 +64,7 @@ const void **set_array(const set_t *set);
 int set_size(const set_t *set);
 int set_find(const set_t *set, const void *elem);
 bool set_contains(const set_t *set, const void *elem);
+bool set_contains_all(const set_t *set, const set_t *elems);
 
 bool set_add(set_t *set, const void *elem);
 void set_add_all(set_t *set, const set_t *elems);
@@ -94,6 +95,7 @@ void set_clear(set_t *set);
     int prefix##_size(const prefix##_t *s);\
     int prefix##_find(const prefix##_t *s, const type elem);\
     bool prefix##_contains(const prefix##_t *s, const type elem);\
+    bool prefix##_contains_all(const prefix##_t *s, const prefix##_t *elems);\
     bool prefix##_add(prefix##_t *s, const type elem);\
     void prefix##_add_all(prefix##_t *s, const prefix##_t *elems);\
     bool prefix##_remove(prefix##_t *s, const type elem);\
@@ -138,6 +140,8 @@ void set_clear(set_t *set);
         return set_find(&s->s, (const void *) elem); }\
     bool prefix##_contains(const prefix##_t *s, const type elem) {\
         return set_contains(&s->s, (const void *) elem); }\
+    bool prefix##_contains_all(const prefix##_t *s, const prefix##_t *elems) {\
+        return set_contains_all(&s->s, &elems->s); }\
     bool prefix##_add(prefix##_t *s, const type elem) {\
         return set_add(&s->s, (const void *) elem); }\
     void prefix##_add_all(prefix##_t *s, const prefix##_t *elems) {\
@@ -190,6 +194,9 @@ void set_clear(set_t *set);
          return prefix##_find(&s->s, elem); }\
     static inline bool alias##_contains(const alias##_t *s, const type elem) {\
          return prefix##_contains(&s->s, elem); }\
+    static inline bool alias##_contains_all(const alias##_t *s,\
+            const alias##_t *elems) {\
+         return prefix##_contains_all(&s->s, &elems->s); }\
     static inline bool alias##_add(alias##_t *s, const type elem) {\
          return prefix##_add(&s->s, elem); }\
     static inline void alias##_add_all(alias##_t *s, const alias##_t *elems) {\
