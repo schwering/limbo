@@ -28,9 +28,9 @@ START_TEST(test_map_add)
     ck_assert_int_eq(iimap_size(&map), 6);
     for (int i = 0; i < 10; i++) {
         if (i == 1 || i == 3 || i == 5 || i == 7 || i == 9) {
-            ck_assert_int_eq(iimap_remove(&map, ABS(i)), (2*ABS(i)));
+            ck_assert(iimap_remove(&map, ABS(i)));
         } else {
-            ck_assert_ptr_eq(iimap_remove(&map, ABS(i)), NULL);
+            ck_assert(!iimap_remove(&map, ABS(i)));
         }
     }
     ck_assert_int_eq(iimap_size(&map), 1);

@@ -370,6 +370,152 @@ START_TEST(test_set_difference)
 }
 END_TEST
 
+START_TEST(test_set_remove_all)
+{
+    iset_t set1 = iset_init();
+    iset_t set2 = iset_init();
+    iset_t set;
+    // left and right empty
+    ck_assert_int_eq(iset_size(&set1), 0);
+    ck_assert_int_eq(iset_size(&set2), 0);
+    set = iset_copy(&set1);
+    iset_remove_all(&set, &set2);
+    ck_assert_int_eq(iset_size(&set), 0);
+    ck_assert(iset_eq(&set, &set1));
+    iset_free(&set);
+    iset_clear(&set1);
+    iset_clear(&set2);
+    // left empty
+    ck_assert_int_eq(iset_size(&set1), 0);
+    for (int i = 0; i < 10; ++i) {
+        iset_add(&set2, i);
+    }
+    ck_assert_int_eq(iset_size(&set2), 10);
+    set = iset_copy(&set1);
+    iset_remove_all(&set, &set2);
+    ck_assert_int_eq(iset_size(&set), 0);
+    iset_free(&set);
+    iset_clear(&set1);
+    iset_clear(&set2);
+    // right empty
+    for (int i = 0; i < 10; ++i) {
+        iset_add(&set1, i);
+    }
+    ck_assert_int_eq(iset_size(&set1), 10);
+    ck_assert_int_eq(iset_size(&set2), 0);
+    set = iset_copy(&set1);
+    iset_remove_all(&set, &set2);
+    ck_assert_int_eq(iset_size(&set), 10);
+    ck_assert(iset_eq(&set, &set1));
+    iset_free(&set);
+    iset_clear(&set1);
+    iset_clear(&set2);
+    // left same as right
+    for (int i = 0; i < 10; ++i) {
+        iset_add(&set1, i);
+    }
+    ck_assert_int_eq(iset_size(&set1), 10);
+    for (int i = 0; i < 10; ++i) {
+        iset_add(&set2, i);
+    }
+    ck_assert_int_eq(iset_size(&set2), 10);
+    set = iset_copy(&set1);
+    iset_remove_all(&set, &set2);
+    ck_assert_int_eq(iset_size(&set), 0);
+    iset_free(&set);
+    iset_clear(&set1);
+    iset_clear(&set2);
+    // left subset of right
+    for (int i = 0; i < 10; ++i) {
+        iset_add(&set1, i);
+    }
+    ck_assert_int_eq(iset_size(&set1), 10);
+    for (int i = 0; i < 20; ++i) {
+        iset_add(&set2, i);
+    }
+    ck_assert_int_eq(iset_size(&set2), 20);
+    set = iset_copy(&set1);
+    iset_remove_all(&set, &set2);
+    ck_assert_int_eq(iset_size(&set), 0);
+    iset_free(&set);
+    iset_clear(&set1);
+    iset_clear(&set2);
+    // left superset of right
+    for (int i = 0; i < 20; ++i) {
+        iset_add(&set1, i);
+    }
+    ck_assert_int_eq(iset_size(&set1), 20);
+    for (int i = 0; i < 10; ++i) {
+        iset_add(&set2, i);
+    }
+    ck_assert_int_eq(iset_size(&set2), 10);
+    set = iset_copy(&set1);
+    iset_remove_all(&set, &set2);
+    ck_assert_int_eq(iset_size(&set), 10);
+    for (int i = 0; i < 10; ++i) {
+        ck_assert_int_eq(iset_get(&set, i), i + 10);
+    }
+    iset_free(&set);
+    iset_clear(&set1);
+    iset_clear(&set2);
+    // left and right intersect
+    for (int i = 0; i < 20; ++i) {
+        iset_add(&set1, i);
+    }
+    ck_assert_int_eq(iset_size(&set1), 20);
+    for (int i = 10; i < 30; ++i) {
+        iset_add(&set2, i);
+    }
+    ck_assert_int_eq(iset_size(&set2), 20);
+    set = iset_copy(&set1);
+    iset_remove_all(&set, &set2);
+    ck_assert_int_eq(iset_size(&set), 10);
+    for (int i = 0; i < 10; ++i) {
+        ck_assert_int_eq(iset_get(&set, i), i);
+    }
+    iset_free(&set);
+    iset_clear(&set1);
+    iset_clear(&set2);
+    // left and right intersect twice
+    for (int i = 0; i < 20; ++i) {
+        iset_add(&set1, i);
+        iset_add(&set1, (i + 40));
+    }
+    ck_assert_int_eq(iset_size(&set1), 40);
+    for (int i = 10; i < 30; ++i) {
+        iset_add(&set2, i);
+        iset_add(&set2, (i + 40));
+    }
+    ck_assert_int_eq(iset_size(&set2), 40);
+    set = iset_copy(&set1);
+    iset_remove_all(&set, &set2);
+    ck_assert_int_eq(iset_size(&set), 20);
+    for (int i = 0; i < 10; ++i) {
+        ck_assert_int_eq(iset_get(&set, i), i);
+        ck_assert_int_eq(iset_get(&set, i + 10), i + 40);
+    }
+    iset_free(&set);
+    iset_clear(&set1);
+    iset_clear(&set2);
+    // left and right don't intersect
+    for (int i = 0; i < 10; ++i) {
+        iset_add(&set1, i);
+    }
+    ck_assert_int_eq(iset_size(&set1), 10);
+    for (int i = 10; i < 20; ++i) {
+        iset_add(&set2, i);
+    }
+    ck_assert_int_eq(iset_size(&set2), 10);
+    set = iset_copy(&set1);
+    iset_remove_all(&set, &set2);
+    ck_assert_int_eq(iset_size(&set), 10);
+    ck_assert(iset_eq(&set, &set1));
+    iset_free(&set);
+    iset_free(&set1);
+    iset_free(&set2);
+}
+END_TEST
+
 START_TEST(test_set_intersection)
 {
     iset_t set1 = iset_init();
@@ -514,6 +660,7 @@ Suite *iset_suite(void)
   tcase_add_test(tc_core, test_set_singleton);
   tcase_add_test(tc_core, test_set_union);
   tcase_add_test(tc_core, test_set_difference);
+  tcase_add_test(tc_core, test_set_remove_all);
   tcase_add_test(tc_core, test_set_intersection);
   suite_add_tcase(s, tc_core);
   return s;

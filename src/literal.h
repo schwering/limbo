@@ -28,6 +28,7 @@ literal_t literal_append(const literal_t *l, stdname_t n);
 literal_t literal_flip(const literal_t *l);
 void literal_free(literal_t *l);
 
+int literal_cmp_flipped(const literal_t *l1, const literal_t *l2);
 int literal_cmp(const literal_t *l1, const literal_t *l2);
 bool literal_eq(const literal_t *l1, const literal_t *l2);
 

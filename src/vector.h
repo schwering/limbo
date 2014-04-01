@@ -12,8 +12,13 @@
  * the new one.
  * Deallocation is done with vector_free().
  *
- * vector_cmp() compares does byte-wise comparison if the compar parameter is
- * NULL and applies compar to all elements otherwise.
+ * vector_cmp() compares as follows. If the two vectors have different size,
+ * the shorter one is less than the the longer one. If both vectors have the
+ * same size, their elements are compared. If compar is NULL, this is done with
+ * memcmp on elements, which usually are just pointers; otherwise compar is
+ * called iteratively.
+ * Note that setup_unit_clauses() ultimately relies on this property to
+ * efficiently find unit clauses.
  *
  * After vector_insert(), vector_get() returns the inserted element for the
  * respective index. After vector_insert_all[_rang](), first element of the
@@ -75,6 +80,7 @@ void vector_insert_all_range(vector_t *vec, int index,
         const vector_t *elems, int from, int to);
 
 const void *vector_remove(vector_t *vec, int index);
+void vector_remove_all(vector_t *vec, const int *indices, int n_indices);
 void vector_clear(vector_t *vec);
 
 #define VECTOR_DECL(prefix, type) \
@@ -105,6 +111,7 @@ void vector_clear(vector_t *vec);
     void prefix##_insert_all_range(prefix##_t *v,\
             int index, const prefix##_t *elems, int from, int to);\
     const type prefix##_remove(prefix##_t *v, int index);\
+    void prefix##_remove_all(prefix##_t *v, const int *indices, int n_indices);\
     void prefix##_clear(prefix##_t *v);
 
 #define VECTOR_IMPL(prefix, type, compar) \
@@ -158,6 +165,9 @@ void vector_clear(vector_t *vec);
         vector_insert_all_range(&v->v, index, &elems->v, from, to); }\
     const type prefix##_remove(prefix##_t *v, int index) {\
         return (const type) vector_remove(&v->v, index); }\
+    void prefix##_remove_all(prefix##_t *v,\
+            const int *indices, int n_indices) {\
+        vector_remove_all(&v->v, indices, n_indices); }\
     void prefix##_clear(prefix##_t *v) {\
         vector_clear(&v->v); }
 

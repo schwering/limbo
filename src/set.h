@@ -12,7 +12,11 @@
  * set_free(), set_cmp(), set_eq(), set_size(), set_clear().
  *
  * The purpose of set_get() is mostly for iteration over the set's elements as
- * the indx depends on the element's order.
+ * the index depends on the element's order.
+ * There is also a set_get_unsafe() which returns a non-const pointer to the
+ * requested element. Modifying the element is dangerous as it may destroy the
+ * set's ordering. Furthermore this involves casting the const pointers to
+ * non-const pointers, which may be undefined if the memory actually is const.
  * set_find() returns the index of an element which is equal to the given one
  * according to the set's comparison function; it returns -1 if there is no
  * such element in the set.
@@ -55,6 +59,7 @@ int set_cmp(const set_t *set1, const set_t *set2);
 bool set_eq(const set_t *set1, const set_t *set2);
 
 const void *set_get(const set_t *set, int index);
+void *set_get_unsafe(set_t *set, int index);
 const void **set_array(const set_t *set);
 int set_size(const set_t *set);
 int set_find(const set_t *set, const void *elem);
@@ -64,6 +69,7 @@ bool set_add(set_t *set, const void *elem);
 void set_add_all(set_t *set, const set_t *elems);
 
 bool set_remove(set_t *set, const void *elem);
+void set_remove_all(set_t *set, const set_t *elems);
 const void *set_remove_index(set_t *set, int index);
 void set_clear(set_t *set);
 
@@ -83,6 +89,7 @@ void set_clear(set_t *set);
     int prefix##_cmp(const prefix##_t *s1, const prefix##_t *s2);\
     bool prefix##_eq(const prefix##_t *s1, const prefix##_t *s2);\
     const type prefix##_get(const prefix##_t *s, int index);\
+    type prefix##_get_unsafe(prefix##_t *s, int index);\
     const type *prefix##_array(const prefix##_t *s);\
     int prefix##_size(const prefix##_t *s);\
     int prefix##_find(const prefix##_t *s, const type elem);\
@@ -90,6 +97,7 @@ void set_clear(set_t *set);
     bool prefix##_add(prefix##_t *s, const type elem);\
     void prefix##_add_all(prefix##_t *s, const prefix##_t *elems);\
     bool prefix##_remove(prefix##_t *s, const type elem);\
+    void prefix##_remove_all(prefix##_t *s, const prefix##_t *elems);\
     const type prefix##_remove_index(prefix##_t *s, int index);\
     void prefix##_clear(prefix##_t *s);
 
@@ -113,24 +121,22 @@ void set_clear(set_t *set);
     prefix##_t prefix##_intersection(\
             const prefix##_t *left, const prefix##_t *right) {\
         return (prefix##_t) { .s = set_intersection(&left->s, &right->s) }; }\
-    void prefix##_free(prefix##_t *s) {\
-        set_free(&s->s); }\
-    int prefix##_cmp(const prefix##_t *s1,\
-            const prefix##_t *s2) {\
+    void prefix##_free(prefix##_t *s) { set_free(&s->s); }\
+    int prefix##_cmp(const prefix##_t *s1, const prefix##_t *s2) {\
         return set_cmp(&s1->s, &s2->s); }\
-    bool prefix##_eq(const prefix##_t *s1,\
-            const prefix##_t *s2) {\
+    bool prefix##_eq(const prefix##_t *s1, const prefix##_t *s2) {\
         return set_eq(&s1->s, &s2->s); }\
     const type prefix##_get(const prefix##_t *s, int index) {\
         return (const type) set_get(&s->s, index); }\
+    type prefix##_get_unsafe(prefix##_t *s, int index) {\
+        return (type) set_get_unsafe(&s->s, index); }\
     const type *prefix##_array(const prefix##_t *s) {\
         return (const type *) set_array(&s->s); }\
     int prefix##_size(const prefix##_t *s) {\
         return set_size(&s->s); }\
     int prefix##_find(const prefix##_t *s, const type elem) {\
         return set_find(&s->s, (const void *) elem); }\
-    bool prefix##_contains(const prefix##_t *s,\
-            const type elem) {\
+    bool prefix##_contains(const prefix##_t *s, const type elem) {\
         return set_contains(&s->s, (const void *) elem); }\
     bool prefix##_add(prefix##_t *s, const type elem) {\
         return set_add(&s->s, (const void *) elem); }\
@@ -138,10 +144,68 @@ void set_clear(set_t *set);
         return set_add_all(&s->s, &elems->s); }\
     bool prefix##_remove(prefix##_t *s, const type elem) {\
         return set_remove(&s->s, (const void *) elem); }\
+    void prefix##_remove_all(prefix##_t *s, const prefix##_t *elems) {\
+        set_remove_all(&s->s, &elems->s); }\
     const type prefix##_remove_index(prefix##_t *s, int index) {\
         return (const type) set_remove_index(&s->s, index); }\
-    void prefix##_clear(prefix##_t *s) {\
-        set_clear(&s->s); }
+    void prefix##_clear(prefix##_t *s) { set_clear(&s->s); }
+
+#define SET_ALIAS(alias, prefix, type) \
+    typedef union { prefix##_t s; } alias##_t;\
+    static inline alias##_t alias##_init(void) {\
+         return (alias##_t) { .s = prefix##_init() }; }\
+    static inline alias##_t alias##_init_with_size(int size) {\
+         return (alias##_t) { .s = prefix##_init_with_size(size) }; }\
+    static inline alias##_t alias##_copy(const alias##_t *src) {\
+         return (alias##_t) { .s = prefix##_copy(&src->s) }; }\
+    static inline alias##_t alias##_singleton(const type elem) {\
+         return (alias##_t) { .s = prefix##_singleton(elem) }; }\
+    static inline alias##_t alias##_union(\
+             const alias##_t *left, const alias##_t *right) {\
+         return (alias##_t) { .s = prefix##_union(&left->s, &right->s) }; }\
+    static inline alias##_t alias##_difference(\
+             const alias##_t *left, const alias##_t *right) {\
+         return (alias##_t) { .s = prefix##_difference(&left->s, &right->s) }; }\
+    static inline alias##_t alias##_intersection(\
+             const alias##_t *left, const alias##_t *right) {\
+         return (alias##_t) {\
+             .s = prefix##_intersection(&left->s, &right->s) }; }\
+    static inline void alias##_free(alias##_t *s) {\
+         prefix##_free(&s->s); }\
+    static inline int alias##_cmp(const alias##_t *s1,\
+             const alias##_t *s2) {\
+         return prefix##_cmp(&s1->s, &s2->s); }\
+    static inline bool alias##_eq(const alias##_t *s1,\
+             const alias##_t *s2) {\
+         return prefix##_eq(&s1->s, &s2->s); }\
+    static inline const type alias##_get(const alias##_t *s, int index) {\
+         return prefix##_get(&s->s, index); }\
+    static inline type alias##_get_unsafe(alias##_t *s, int index) {\
+         return prefix##_get_unsafe(&s->s, index); }\
+    static inline const type *alias##_array(const alias##_t *s) {\
+         return prefix##_array(&s->s); }\
+    static inline int alias##_size(const alias##_t *s) {\
+         return prefix##_size(&s->s); }\
+    static inline int alias##_find(const alias##_t *s, const type elem) {\
+         return prefix##_find(&s->s, elem); }\
+    static inline bool alias##_contains(const alias##_t *s, const type elem) {\
+         return prefix##_contains(&s->s, elem); }\
+    static inline bool alias##_add(alias##_t *s, const type elem) {\
+         return prefix##_add(&s->s, elem); }\
+    static inline void alias##_add_all(alias##_t *s, const alias##_t *elems) {\
+         return prefix##_add_all(&s->s, &elems->s); }\
+    static inline bool alias##_remove(alias##_t *s, const type elem) {\
+         return prefix##_remove(&s->s, elem); }\
+    static inline void alias##_remove_all(alias##_t *s,\
+            const alias##_t *elems) {\
+         prefix##_remove_all(&s->s, &elems->s); }\
+    static inline const type alias##_remove_index(alias##_t *s, int index) {\
+         return prefix##_remove_index(&s->s, index); }\
+    static inline void alias##_clear(alias##_t *s) { prefix##_clear(&s->s); }\
+    static inline const alias##_t *prefix##_to_##alias(const prefix##_t *s) {\
+        return (const alias##_t *) s; }\
+    static inline const prefix##_t *alias##_to_##prefix(const alias##_t *s) {\
+        return (const prefix##_t *) s; }
 
 #endif
 

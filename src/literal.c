@@ -49,24 +49,17 @@ int literal_cmp(const literal_t *l1, const literal_t *l2)
         return cmp;
     } else if ((cmp = stdvec_cmp(&l1->args, &l2->args)) != 0) {
         return cmp;
-    } else if ((cmp = (int) l1->pred - (int) l2->pred) != 0) {
+    } else if ((cmp = (int) l1->sign - (int) l2->sign) != 0) {
         return cmp;
     } else {
         return 0;
     }
-    /*
-    if ((cmp = l1->pred - l2->pred) != 0) {
-        return cmp;
-    } else if ((cmp = stdvec_cmp(&l1->z, &l2->z)) != 0) {
-        return cmp;
-    } else if ((cmp = stdvec_cmp(&l1->args, &l2->args)) != 0) {
-        return cmp;
-    } else if ((cmp = (int) l1->pred - (int) l2->pred) != 0) {
-        return cmp;
-    } else {
-        return 0;
-    }
-    */
+}
+
+int literal_cmp_flipped(const literal_t *l1, const literal_t *l2)
+{
+    const literal_t l3 = literal_flip(l2);
+    return literal_cmp(l1, &l3);
 }
 
 bool literal_eq(const literal_t *l1, const literal_t *l2)

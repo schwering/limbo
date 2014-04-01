@@ -11,6 +11,47 @@
      (set)->compar((left), (right)) :\
      (left) - (right))
 
+static inline int search(const set_t *set, const void *obj, int lo, int hi)
+{
+    // XXX could use Knuth's uniform binary search to safe some comparisons
+    assert(0 <= lo && hi <= vector_size(&set->vec) - 1);
+    while (lo <= hi) {
+        const int i = (lo + hi) / 2;
+        const int cmp = COMPAR(set, obj, vector_get(&set->vec, i));
+        if (cmp == 0) { // found
+            return i;
+        } else if (cmp < 0) { // left half
+            hi = i - 1;
+        } else { // right half
+            lo = i + 1;
+        }
+    }
+    return -1;
+}
+
+static inline int insert_pos(const set_t *set, const void *obj, int lo, int hi)
+{
+    // XXX could use Knuth's uniform binary search to safe some comparisons
+    assert(0 <= lo && hi <= vector_size(&set->vec) - 1);
+    while (lo <= hi) {
+        const int i = (lo + hi) / 2;
+        const int cmp = COMPAR(set, obj, vector_get(&set->vec, i));
+        if (cmp == 0) { // element already present
+            return -1;
+        } else if (cmp <= 0) { // left half
+            if (i == 0 || COMPAR(set, obj, vector_get(&set->vec, i-1)) > 0) {
+                // position found
+                return i;
+            } else { // left half
+                hi = i - 1;
+            }
+        } else { // right half
+            lo = i + 1;
+        }
+    }
+    return vector_size(&set->vec);
+}
+
 set_t set_init(compar_t compar)
 {
     return (set_t) {
@@ -73,6 +114,16 @@ set_t set_difference(const set_t *l, const set_t *r)
 {
     assert(l->compar == r->compar);
     set_t set = set_init_with_size(l->compar, set_size(l));
+    for (int i = 0, j = 0; i < vector_size(&l->vec); ++i) {
+        const void *e = vector_get(&l->vec, i);
+        const int k = search(r, e, j, vector_size(&r->vec) - 1);
+        if (k == -1) {
+            vector_append(&set.vec, vector_get(&l->vec, i));
+        } else {
+            j = k + 1;
+        }
+    }
+    /*
     int i = 0;
     int j = 0;
     while (i < vector_size(&l->vec)) {
@@ -92,6 +143,7 @@ set_t set_difference(const set_t *l, const set_t *r)
 skip:
         ++i;
     }
+    */
     return set;
 }
 
@@ -135,52 +187,14 @@ bool set_eq(const set_t *set1, const set_t *set2)
     return vector_eq(&set1->vec, &set2->vec, set1->compar);
 }
 
-static inline int search(const set_t *set, const void *obj)
-{
-    // XXX could use Knuth's uniform binary search to safe some comparisons
-    int lo = 0;
-    int hi = vector_size(&set->vec) - 1;
-    while (lo <= hi) {
-        const int i = (lo + hi) / 2;
-        const int cmp = COMPAR(set, obj, vector_get(&set->vec, i));
-        if (cmp == 0) { // found
-            return i;
-        } else if (cmp < 0) { // left half
-            hi = i - 1;
-        } else { // right half
-            lo = i + 1;
-        }
-    }
-    return -1;
-}
-
-static inline int insert_pos(const set_t *set, const void *obj)
-{
-    // XXX could use Knuth's uniform binary search to safe some comparisons
-    int lo = 0;
-    int hi = vector_size(&set->vec) - 1;
-    while (lo <= hi) {
-        const int i = (lo + hi) / 2;
-        const int cmp = COMPAR(set, obj, vector_get(&set->vec, i));
-        if (cmp == 0) { // element already present
-            return -1;
-        } else if (cmp <= 0) { // left half
-            if (i == 0 || COMPAR(set, obj, vector_get(&set->vec, i-1)) > 0) {
-                // position found
-                return i;
-            } else { // left half
-                hi = i - 1;
-            }
-        } else { // right half
-            lo = i + 1;
-        }
-    }
-    return vector_size(&set->vec);
-}
-
 const void *set_get(const set_t *set, int index)
 {
     return vector_get(&set->vec, index);
+}
+
+void *set_get_unsafe(set_t *set, int index)
+{
+    return (void *) set_get(set, index);
 }
 
 const void **set_array(const set_t *set)
@@ -195,7 +209,7 @@ int set_size(const set_t *set)
 
 int set_find(const set_t *set, const void *elem)
 {
-    return search(set, elem);
+    return search(set, elem, 0, vector_size(&set->vec) - 1);
 }
 
 bool set_contains(const set_t *set, const void *elem)
@@ -205,7 +219,7 @@ bool set_contains(const set_t *set, const void *elem)
 
 bool set_add(set_t *set, const void *elem)
 {
-    const int i = insert_pos(set, elem);
+    const int i = insert_pos(set, elem, 0, vector_size(&set->vec) - 1);
     if (i != -1) {
         vector_insert(&set->vec, i, elem);
         return true;
@@ -223,13 +237,30 @@ void set_add_all(set_t *set, const set_t *elems)
 
 bool set_remove(set_t *set, const void *elem)
 {
-    const int i = search(set, elem);
+    const int i = set_find(set, elem);
     if (i != -1) {
         vector_remove(&set->vec, i);
         return true;
     } else {
         return false;
     }
+}
+
+void set_remove_all(set_t *set, const set_t *elems)
+{
+    assert(set->compar == elems->compar);
+    int *indices = malloc(vector_size(&set->vec) * sizeof(int));
+    int n_indices = 0;
+    for (int i = 0, j = 0; i < vector_size(&set->vec); ++i) {
+        const void *e = vector_get(&set->vec, i);
+        const int k = search(elems, e, j, vector_size(&elems->vec) - 1);
+        if (k != -1) {
+            indices[n_indices] = i;
+            ++n_indices;
+            j = k + 1;
+        }
+    }
+    vector_remove_all(&set->vec, indices, n_indices);
 }
 
 const void *set_remove_index(set_t *set, int index)

@@ -91,6 +91,9 @@ int vector_cmp(const vector_t *vec1, const vector_t *vec2,
     if (vec1->array == vec2->array) {
         return vec1->size - vec2->size;
     }
+    if (vec1->size != vec2->size) {
+        return vec1->size - vec2->size;
+    }
     const int n = MIN(vec1->size, vec2->size);
     if (compar != NULL) {
         for (int i = 0; i < n; ++i) {
@@ -203,6 +206,22 @@ const void *vector_remove(vector_t *vec, int index)
             (vec->size - index - 1) * sizeof(void *));
     --vec->size;
     return elem;
+}
+
+void vector_remove_all(vector_t *vec, const int *indices, int n_indices)
+{
+    for (int i = n_indices - 1, lo = indices[i], hi = lo; i >= 0; --i) {
+        lo = indices[i];
+        if (i == 0 || lo-1 != indices[i-1]) {
+            memmove(vec->array + lo,
+                    vec->array + hi + 1,
+                    (vec->size - hi - 1) * sizeof(void *));
+            vec->size -= hi - lo + 1;
+            if (i > 0) {
+                hi = indices[i-1];
+            }
+        }
+    }
 }
 
 void vector_clear(vector_t *vec)

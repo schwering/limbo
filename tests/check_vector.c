@@ -98,12 +98,56 @@ START_TEST(test_vector_insert_all)
 }
 END_TEST
 
+START_TEST(test_vector_remove_all)
+{
+    ivec_t vec = ivec_init();
+    for (int i = 0; i < 10; ++i) {
+        ivec_append(&vec, i);
+    }
+    ck_assert_int_eq(ivec_size(&vec), 10);
+    ivec_remove_all(&vec, (int[]) {1,3,5,7,9}, 5);
+    ck_assert_int_eq(ivec_size(&vec), 5);
+    for (int i = 0; i < ivec_size(&vec); ++i) {
+        ck_assert_int_eq(ivec_get(&vec, i), 2*i);
+    }
+    ivec_remove_all(&vec, (int[]) {1,2,3}, 3);
+    ck_assert_int_eq(ivec_size(&vec), 2);
+    ck_assert_int_eq(ivec_get(&vec, 0), 0);
+    ck_assert_int_eq(ivec_get(&vec, 1), 8);
+    ivec_remove_all(&vec, (int[]) {0,1}, 2);
+    ck_assert_int_eq(ivec_size(&vec), 0);
+    for (int i = 0; i < 10; ++i) {
+        ivec_append(&vec, i);
+    }
+    ck_assert_int_eq(ivec_size(&vec), 10);
+    ivec_remove_all(&vec, (int[]) {0,2,4,6,8}, 5);
+    ck_assert_int_eq(ivec_size(&vec), 5);
+    for (int i = 0; i < ivec_size(&vec); ++i) {
+        ck_assert_int_eq(ivec_get(&vec, i), 2*i+1);
+    }
+    ivec_remove_all(&vec, (int[]) {}, 0);
+    ck_assert_int_eq(ivec_size(&vec), 5);
+    ivec_remove_all(&vec, (int[]) {0,1}, 2);
+    ck_assert_int_eq(ivec_size(&vec), 3);
+    ck_assert_int_eq(ivec_get(&vec, 0), 5);
+    ck_assert_int_eq(ivec_get(&vec, 1), 7);
+    ck_assert_int_eq(ivec_get(&vec, 2), 9);
+    ivec_remove_all(&vec, (int[]) {1,2}, 2);
+    ck_assert_int_eq(ivec_size(&vec), 1);
+    ck_assert_int_eq(ivec_get(&vec, 0), 5);
+    ivec_remove_all(&vec, (int[]) {0}, 1);
+    ck_assert_int_eq(ivec_size(&vec), 0);
+    ivec_free(&vec);
+}
+END_TEST
+
 Suite *ivec_suite(void)
 {
   Suite *s = suite_create("Vector");
   TCase *tc_core = tcase_create("Core");
   tcase_add_test(tc_core, test_vector_insert);
   tcase_add_test(tc_core, test_vector_insert_all);
+  tcase_add_test(tc_core, test_vector_remove_all);
   suite_add_tcase(s, tc_core);
   return s;
 }

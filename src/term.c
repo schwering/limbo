@@ -35,12 +35,12 @@ stdvec_t stdvec_copy_append(const stdvec_t *src, stdname_t n)
     return dst;
 }
 
-stdvec_t stdvec_copy_append_all(const stdvec_t *src, const stdvec_t *elems)
+stdvec_t stdvec_concat(const stdvec_t *left, const stdvec_t *right)
 {
-    stdvec_t dst = stdvec_init_with_size(stdvec_size(src) + 1);
-    stdvec_append_all(&dst, src);
-    stdvec_append_all(&dst, elems);
-    return dst;
+    stdvec_t v = stdvec_init_with_size( stdvec_size(left) + stdvec_size(right));
+    stdvec_append_all(&v, left);
+    stdvec_append_all(&v, right);
+    return v;
 }
 
 SET_IMPL(stdvecset, stdvec_t *, stdvec_cmp);

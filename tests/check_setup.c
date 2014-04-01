@@ -2,7 +2,7 @@
 #include <check.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "../src/clause.h"
+#include "../src/setup.h"
 
 static const stdname_t FORWARD = 1;
 static const stdname_t SONAR   = 2;
@@ -243,14 +243,14 @@ static void print_literal(const literal_t *l)
 
 static void print_clause(const clause_t *c)
 {
-    //printf("{ ");
+    printf("[ ");
     for (int i = 0; i < clause_size(c); ++i) {
-        if (i > 0) printf(" v ");
-        //if (i > 0) printf(", ");
+        //if (i > 0) printf(" v ");
+        if (i > 0) printf(", ");
         print_literal(clause_get(c, i));
     }
-    //printf(" }\n");
-    printf("\n");
+    //printf("\n");
+    printf(" ]\n");
 }
 
 static void print_setup(const setup_t *setup)
@@ -327,6 +327,9 @@ START_TEST(test_clause)
     print_setup(&setup);
     const pelset_t pel = setup_pel(&setup);
     print_pel(&pel);
+    setup_t setup_up = setup_copy_new_clauses(&setup);
+    setup_propagate_units(&setup_up);
+    print_setup(&setup_up);
 }
 END_TEST
 

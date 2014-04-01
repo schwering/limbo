@@ -1,5 +1,5 @@
-TESTS = check_vector check_set check_map check_literal check_clause
-check_PROGRAMS = check_vector check_set check_map check_literal check_clause
+TESTS = check_vector check_set check_map check_literal check_setup
+check_PROGRAMS = check_vector check_set check_map check_literal check_setup
 check_vector_SOURCES = check_vector.c $(top_builddir)/src/vector.h
 check_vector_CFLAGS = @CHECK_CFLAGS@
 check_vector_LDADD = $(top_builddir)/src/libesl.a -lrt -lm @CHECK_LIBS@
@@ -16,8 +16,8 @@ check_literal_SOURCES = check_literal.c $(top_builddir)/src/literal.h
 check_literal_CFLAGS = @CHECK_CFLAGS@
 check_literal_LDADD = $(top_builddir)/src/libesl.a -lrt -lm @CHECK_LIBS@
 check_literal_LDFLAGS = -pthread
-check_clause_SOURCES = check_clause.c $(top_builddir)/src/clause.h
-check_clause_CFLAGS = @CHECK_CFLAGS@
-check_clause_LDADD = $(top_builddir)/src/libesl.a -lrt -lm @CHECK_LIBS@
-check_clause_LDFLAGS = -pthread
+check_setup_SOURCES = check_setup.c $(top_builddir)/src/setup.h
+check_setup_CFLAGS = @CHECK_CFLAGS@
+check_setup_LDADD = $(top_builddir)/src/libesl.a -lrt -lm @CHECK_LIBS@
+check_setup_LDFLAGS = -pthread
 

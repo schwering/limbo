@@ -27,7 +27,7 @@ SET_DECL(varset, var_t);
 VECTOR_DECL(stdvec, stdname_t);
 stdvec_t stdvec_prepend_copy(stdname_t n, const stdvec_t *src);
 stdvec_t stdvec_copy_append(const stdvec_t *src, stdname_t n);
-stdvec_t stdvec_copy_append_all(const stdvec_t *src, const stdvec_t *elems);
+stdvec_t stdvec_concat(const stdvec_t *left, const stdvec_t *right);
 
 SET_DECL(stdvecset, stdvec_t *);
 
