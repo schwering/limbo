@@ -252,7 +252,109 @@ setup_t setup_propagate_units(const setup_t *setup, const litset_t *split)
     return s;
 }
 
-bool query_v(const setup_t *setup, litset_t *split,
+static stdset_t query_names(const query_t *phi)
+{
+    switch (phi->type) {
+        case EQ: {
+            stdset_t set = stdset_init_with_size(2);
+            stdset_add(&set, phi->u.eq.n1);
+            stdset_add(&set, phi->u.eq.n2);
+            return set;
+        }
+        case OR: {
+            stdset_t set1 = query_names(phi->u.or.phi1);
+            const stdset_t set2 = query_names(phi->u.or.phi2);
+            stdset_add_all(&set1, &set2);
+            return set1;
+        }
+        case NEG: {
+            return query_names(phi->u.neg.phi);
+        }
+        case EX: {
+            const query_t phi1 = phi->u.ex.phi(1);
+            const query_t phi2 = phi->u.ex.phi(2);
+            stdset_t set1 = query_names(&phi1);
+            stdset_t set2 = query_names(&phi2);
+            stdset_remove(&set1, 1);
+            stdset_remove(&set2, 2);
+            return stdset_union(&set1, &set2);
+        }
+        case ACT: {
+            stdset_t set = query_names(phi->u.act.phi);
+            stdset_add(&set, phi->u.act.n);
+            return set;
+        }
+        default: {
+            assert(false);
+            return stdset_init();
+        }
+    }
+}
+
+static query_t *ground_exists(query_t (*phi)(stdname_t n),
+        const stdset_t *hplus, int i)
+{
+    assert(0 <= i && i <= stdset_size(hplus));
+    query_t *psi = malloc(sizeof(query_t));
+    *psi = phi(stdset_get(hplus, i));
+    if (i + 1 == stdset_size(hplus)) {
+        return psi;
+    } else {
+        query_t *xi = malloc(sizeof(query_t));
+        xi->type = OR;
+        xi->u.or.phi1 = psi;
+        xi->u.or.phi2 = ground_exists(phi, hplus, i + 1);
+        return xi;
+    }
+}
+
+static query_t *query_preprocess(const query_t *phi)
+{
+    switch (phi->type) {
+        case EQ: {
+            query_t *psi = malloc(sizeof(query_t));
+            psi->type = EQ;
+            psi->u.eq.n1 = phi->u.eq.n1;
+            psi->u.eq.n2 = phi->u.eq.n2;
+            return psi;
+        }
+        case OR: {
+            query_t *psi = malloc(sizeof(query_t));
+            psi->type = OR;
+            psi->u.or.phi1 = query_preprocess(phi->u.or.phi1);
+            psi->u.or.phi2 = query_preprocess(phi->u.or.phi2);
+            return psi;
+        }
+        case NEG: {
+            query_t *psi = malloc(sizeof(query_t));
+            psi->type = NEG;
+            psi->u.neg.phi = query_preprocess(phi->u.neg.phi);
+            return psi;
+        }
+        case EX: {
+            stdset_t hplus = query_names(phi);
+            stdname_t max_name = 0;
+            for (int i = 0; i < stdset_size(&hplus); ++i) {
+                max_name = MAX(max_name, stdset_get(&hplus, i));
+            }
+            stdset_add(&hplus, max_name + 1);
+            return ground_exists(phi->u.ex.phi, &hplus, 0);
+        }
+        case ACT: {
+            query_t *psi = malloc(sizeof(query_t));
+            psi->type = ACT;
+            psi->u.act.n = phi->u.act.n;
+            psi->u.act.phi = query_preprocess(phi->u.act.phi);
+            return psi;
+        }
+        default: {
+            assert(false);
+            return NULL;
+        }
+    }
+}
+
+static bool query_v_split(const setup_t *setup, litset_t *split,
         const pelset_t *pel, const query_t *phi, const stdvec_t *z, int k)
 {
     if (k > 0) {
@@ -265,24 +367,59 @@ bool query_v(const setup_t *setup, litset_t *split,
             }
             tried = true;
             litset_add(split, &l1);
-            const bool r1 = query_v(setup, split, pel, phi, z, k - 1);
+            const bool r1 = query_v_split(setup, split, pel, phi, z, k - 1);
             litset_remove(split, &l1);
             if (!r1) {
                 continue;
             }
             litset_add(split, &l2);
-            const bool r2 = query_v(setup, split, pel, phi, z, k - 1);
+            const bool r2 = query_v_split(setup, split, pel, phi, z, k - 1);
             litset_remove(split, &l2);
             if (r1 && r2) {
                 return true;
             }
         }
         if (!tried) {
-            return query_v(setup, split, pel, phi, z, 0);
+            return query_v_split(setup, split, pel, phi, z, 0);
         }
         return false;
     } else {
         return false;
+    }
+}
+
+bool query_v(const setup_t *setup, const pelset_t *pel,
+        const query_t *phi, const stdvec_t *z, int k)
+{
+    query_t *psi = query_preprocess(phi);
+    litset_t split = litset_init();
+    const bool r = query_v_split(setup, &split, pel, phi, z, k);
+    query_free(psi);
+    return r;
+}
+
+void query_free(query_t *phi)
+{
+    switch (phi->type) {
+        case EQ:
+            free(phi);
+            break;
+        case OR:
+            query_free(phi->u.or.phi1);
+            query_free(phi->u.or.phi2);
+            free(phi);
+            break;
+        case NEG:
+            query_free(phi->u.neg.phi);
+            free(phi);
+            break;
+        case EX:
+            free(phi);
+            break;
+        case ACT:
+            query_free(phi->u.act.phi);
+            free(phi);
+            break;
     }
 }
 

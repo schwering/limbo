@@ -224,7 +224,11 @@ void set_clear(set_t *set);
     static inline void alias##_remove_all_indices(alias##_t *s,\
             const int indices[], int n_indices) {\
         prefix##_remove_all_indices(&s->s, indices, n_indices); }\
-    static inline void alias##_clear(alias##_t *s) { prefix##_clear(&s->s); }
+    static inline void alias##_clear(alias##_t *s) { prefix##_clear(&s->s); }\
+    static inline const alias##_t *prefix##_to_##alias(const prefix##_t *s) {\
+        return (const alias##_t *) s; }\
+    static inline const prefix##_t *alias##_to_##prefix(const alias##_t *s) {\
+        return (const prefix##_t *) s; }
 
 #endif
 

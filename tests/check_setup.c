@@ -327,7 +327,8 @@ START_TEST(test_clause)
     print_setup(&setup);
     const pelset_t pel = setup_pel(&setup);
     print_pel(&pel);
-    const setup_t setup_up = setup_propagate_units(&setup);
+    const litset_t split = litset_init();
+    const setup_t setup_up = setup_propagate_units(&setup, &split);
     print_setup(&setup_up);
 
     ck_assert(!setup_contains(&setup_up, clause_empty()));

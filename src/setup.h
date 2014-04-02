@@ -61,7 +61,7 @@ struct query {
         struct query_neg neg;
         struct query_ex ex;
         struct query_act act;
-    } q;
+    } u;
 };
 
 const clause_t *clause_empty(void);
@@ -76,8 +76,9 @@ setup_t setup_ground_clauses(
 pelset_t setup_pel(const setup_t *setup);
 setup_t setup_propagate_units(const setup_t *setup, const litset_t *split);
 
-bool query_v(const setup_t *setup, litset_t *split,
-        const pelset_t *pel, const query_t *phi, const stdvec_t *z, int k);
+bool query_v(const setup_t *setup, const pelset_t *pel,
+        const query_t *phi, const stdvec_t *z, int k);
+void query_free(query_t *phi);
 
 #endif
 
