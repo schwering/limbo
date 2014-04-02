@@ -7,7 +7,7 @@
 static const stdname_t FORWARD = 1;
 static const stdname_t SONAR   = 2;
 
-static const pred_t SF = -1;
+//static const pred_t SF = -1;
 #define D(i) ((pred_t) i)
 
 static const var_t a = 12345;

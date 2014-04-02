@@ -224,6 +224,16 @@ void vector_insert_all_range(vector_t *vec, int index,
     vec->size += n_new_elems;
 }
 
+const void *vector_remove_first(vector_t *vec)
+{
+    return vector_remove(vec, 0);
+}
+
+const void *vector_remove_last(vector_t *vec)
+{
+    return vector_remove(vec, vec->size - 1);
+}
+
 const void *vector_remove(vector_t *vec, int index)
 {
     const void *elem;

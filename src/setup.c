@@ -310,6 +310,7 @@ static query_t *ground_exists(query_t (*phi)(stdname_t n),
 
 static query_t *query_preprocess(const query_t *phi)
 {
+    // TODO help query_v_split() to recognize clauses
     switch (phi->type) {
         case EQ: {
             query_t *psi = malloc(sizeof(query_t));
@@ -354,8 +355,8 @@ static query_t *query_preprocess(const query_t *phi)
     }
 }
 
-static bool query_v_split(const setup_t *setup, litset_t *split,
-        const pelset_t *pel, const query_t *phi, const stdvec_t *z, int k)
+static bool v(const setup_t *setup, litset_t *split,
+        const pelset_t *pel, /*const*/ query_t *phi, stdvec_t *z, int k)
 {
     if (k > 0) {
         bool tried = false;
@@ -367,33 +368,93 @@ static bool query_v_split(const setup_t *setup, litset_t *split,
             }
             tried = true;
             litset_add(split, &l1);
-            const bool r1 = query_v_split(setup, split, pel, phi, z, k - 1);
+            const bool r1 = v(setup, split, pel, phi, z, k - 1);
             litset_remove(split, &l1);
             if (!r1) {
                 continue;
             }
             litset_add(split, &l2);
-            const bool r2 = query_v_split(setup, split, pel, phi, z, k - 1);
+            const bool r2 = v(setup, split, pel, phi, z, k - 1);
             litset_remove(split, &l2);
             if (r1 && r2) {
                 return true;
             }
         }
         if (!tried) {
-            return query_v_split(setup, split, pel, phi, z, 0);
+            return v(setup, split, pel, phi, z, 0);
         }
         return false;
     } else {
+        if (phi->type == EQ) {
+            return phi->u.eq.n1 == phi->u.eq.n2;
+        } else if (phi->type == NEG && phi->u.neg.phi->type == EQ) {
+            return phi->u.neg.phi->u.eq.n1 == phi->u.neg.phi->u.eq.n1;
+        } else if (phi->type == NEG && phi->u.neg.phi->type == NEG) {
+            /*const*/ query_t *psi = phi->u.neg.phi->u.neg.phi;
+            return v(setup, split, pel, psi, z, k);
+        } else if (phi->type == OR) {
+            /*const*/ query_t *psi1 = phi->u.or.phi1;
+            /*const*/ query_t *psi2 = phi->u.or.phi2;
+            return v(setup, split, pel, psi1, z, k) ||
+                v(setup, split, pel, psi2, z, k);
+        } else if (phi->type == NEG && phi->u.neg.phi->type == OR) {
+            /*const*/ query_t *psi1 = phi->u.neg.phi->u.or.phi1;
+            /*const*/ query_t *psi2 = phi->u.neg.phi->u.or.phi2;
+            return v(setup, split, pel, psi1, z, k) &&
+                v(setup, split, pel, psi2, z, k);
+        } else if (phi->type == EX) {
+            // preprocessing replaced it with OR
+            assert(false);
+            return false;
+        } else if (phi->type == NEG && phi->u.neg.phi->type == EX) {
+            // preprocessing replaced it with NEG and OR
+            assert(false);
+            return false;
+        } else if (phi->type == ACT) {
+            const stdname_t n = phi->u.act.n;
+            stdvec_t n_vec = stdvec_init_with_size(1);
+            stdvec_append(&n_vec, n);
+            const literal_t sf1 = literal_init(z, true, SF, &n_vec);
+            const literal_t sf2 = literal_flip(&sf1);
+            /*const*/ query_t *psi = phi->u.act.phi;
+            stdvec_append(z, n);
+            litset_add(split, &sf1);
+            bool r = v(setup, split, pel, psi, z, k);
+            litset_remove(split, &sf1);
+            if (r) {
+                litset_add(split, &sf2);
+                r &= v(setup, split, pel, psi, z, k);
+                litset_remove(split, &sf2);
+            }
+            stdvec_remove_last(z);
+            return r;
+        } else if (phi->type == NEG && phi->u.neg.phi->type == ACT) {
+            // move negation inwards
+            // XXX maybe that should go into preprocessing for sipmler clause
+            // recognition
+            const stdname_t n = phi->u.neg.phi->u.act.n;
+            phi->u.neg.phi->type = NEG;
+            phi->u.neg.phi->u.neg = (struct query_neg) {
+                .phi = phi->u.neg.phi->u.act.phi
+            };
+            phi->type = ACT;
+            phi->u.act = (struct query_act) {
+                .n = n,
+                .phi = phi->u.neg.phi
+            };
+            return v(setup, split, pel, phi, z, k);
+        }
         return false;
     }
 }
 
-bool query_v(const setup_t *setup, const pelset_t *pel,
-        const query_t *phi, const stdvec_t *z, int k)
+bool query_tests(const setup_t *setup, const pelset_t *pel,
+        const query_t *phi, int k)
 {
     query_t *psi = query_preprocess(phi);
     litset_t split = litset_init();
-    const bool r = query_v_split(setup, &split, pel, phi, z, k);
+    stdvec_t z = stdvec_init();
+    const bool r = v(setup, &split, pel, psi, &z, k);
     query_free(psi);
     return r;
 }
