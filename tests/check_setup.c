@@ -327,9 +327,22 @@ START_TEST(test_clause)
     print_setup(&setup);
     const pelset_t pel = setup_pel(&setup);
     print_pel(&pel);
-    setup_t setup_up = setup_copy_new_clauses(&setup);
-    setup_propagate_units(&setup_up);
+    const setup_t setup_up = setup_propagate_units(&setup);
     print_setup(&setup_up);
+
+    ck_assert(!setup_contains(&setup_up, clause_empty()));
+    for (int i = 0; i < setup_size(&setup); ++i) {
+        const clause_t *c = setup_get(&setup, i);
+        bool subsumed = false;
+        for (int j = 0; j < setup_size(&setup_up); ++j) {
+            const clause_t *d = setup_get(&setup_up, j);
+            if (clause_subsumes(d, c)) {
+                subsumed = true;
+                break;
+            }
+        }
+        ck_assert(subsumed);
+    }
 }
 END_TEST
 

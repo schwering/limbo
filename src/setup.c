@@ -27,23 +27,22 @@ static const literal_t *clause_unit(const clause_t *c)
     return clause_get(c, 0);
 }
 
-static void clause_resolve(clause_t *c, litset_t *u)
+static const clause_t *clause_resolve(const clause_t *c, const litset_t *u)
 {
-    // We temporarily replace the comparison function of c and u by one that
-    // considers two literals equal when they have inverted signs. Thus we can
-    // compute the resolution (without intermediary clauses) of c and u without
-    // by using set_remove_all(). We don't create a new clause but mutate c
-    // appropriately. Note that this means that this may affect the ordering of
-    // any set that contains c.
-    // That's quite hacky, but more efficient than copying the contents of u
-    // with inverted signs and then running set_difference().
-    const compar_t c_compar = c->s.s.compar;
-    const compar_t u_compar = u->s.compar;
-    c->s.s.compar = (compar_t) literal_cmp_flipped;
-    u->s.compar = (compar_t) literal_cmp_flipped;
-    clause_remove_all(c, litset_to_clause(u));
-    c->s.s.compar = c_compar;
-    u->s.compar = u_compar;
+    clause_t *d = malloc(sizeof(clause_t));
+    *d = clause_lazy_copy(c);
+    int *indices = malloc(clause_size(c) * sizeof(int));
+    int n_indices = 0;
+    for (int i = 0; i < litset_size(u); ++i) {
+        const literal_t l = literal_flip(litset_get(u, i));
+        const int j = clause_find(d, &l);
+        if (j != -1) {
+            indices[n_indices++] = j;
+        }
+    }
+    clause_remove_all_indices(d, indices, n_indices);
+    free(indices);
+    return d;
 }
 
 const clause_t *clause_empty(void)
@@ -164,7 +163,7 @@ setup_t setup_ground_clauses(
         for (int j = 0; j < stdvecset_size(query_zs); ++j) {
             const stdvec_t *z = stdvecset_get(query_zs, j);
             for (int k = 0; k <= stdvec_size(z); ++k) {
-                const stdvec_t z_prefix = stdvec_sub(z, 0, k);
+                const stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, k);
                 ground_box(&setup, &z_prefix, c);
             }
         }
@@ -194,15 +193,14 @@ pelset_t setup_pel(const setup_t *setup)
     return pel;
 }
 
-static litset_t setup_unit_clauses(const setup_t *setup)
+static void add_unit_clauses_from_setup(litset_t *ls, const setup_t *setup)
 {
-    litset_t ls = litset_init();
     for (int i = 0; i < setup_size(setup); ++i) {
         const clause_t *c = setup_get(setup, i);
         if (clause_is_empty(c)) {
             continue;
         } else if (clause_is_unit(c)) {
-            litset_add(&ls, clause_unit(c));
+            litset_add(ls, clause_unit(c));
         } else {
             // Clauses are sets, which are again stored as vectors, and
             // vector_cmp()'s first ordering criterion is the length.
@@ -213,44 +211,78 @@ static litset_t setup_unit_clauses(const setup_t *setup)
             break;
         }
     }
-    return ls;
 }
 
-setup_t setup_copy_new_clauses(const setup_t *setup)
+setup_t setup_propagate_units(const setup_t *setup, const litset_t *split)
 {
-    setup_t new_setup = setup_init_with_size(setup_size(setup));
-    for (int i = 0; i < setup_size(setup); ++i) {
-        clause_t *c = malloc(sizeof(clause_t));
-        *c = *setup_get(setup, i);
-        setup_add(&new_setup, c);
-    }
-    return new_setup;
-}
-
-void setup_propagate_units(setup_t *setup)
-{
-    litset_t units = setup_unit_clauses(setup);
-    setup_t new_setup = setup_init_with_size(setup_size(setup));
+    litset_t units = litset_lazy_copy(split);
+    add_unit_clauses_from_setup(&units, setup);
+    setup_t s = setup_lazy_copy(setup);
+    // XXX I think we don't have to add the split literals to the setup.
+    // Otherwise we have to add all elements from split to &s.
     bool new_units;
     do {
-        setup_clear(&new_setup);
         new_units = false;
-        for (int i = 0; i < setup_size(setup); ++i) {
-            clause_t *c = setup_get_unsafe(setup, i);
-            clause_resolve(c, &units);
-            if (clause_is_unit(c)) {
-                const bool added = litset_add(&units, clause_unit(c));
-                if (added) {
-                    new_units = true;
+        clause_t const **new_cs = malloc(setup_size(&s) * sizeof(clause_t *));
+        int *old_cs = malloc(setup_size(&s) * sizeof(int));
+        int n = 0;
+        for (int i = 0; i < setup_size(&s); ++i) {
+            const clause_t *c = setup_get(&s, i);
+            const clause_t *d = clause_resolve(c, &units);
+            if (!clause_eq(c, d)) {
+                new_cs[n] = d;
+                old_cs[n] = i;
+                ++n;
+                if (clause_is_unit(d)) {
+                    new_units |= litset_add(&units, clause_unit(d));
                 }
             }
-            const bool added = setup_add(&new_setup, c);
+        }
+        setup_remove_all_indices(&s, old_cs, n);
+        for (int i = 0; i < n; ++i) {
+            const clause_t *d = new_cs[i];
+            const bool added = setup_add(&s, d);
             if (!added) {
-                free(c);
+                free((clause_t *) d);
             }
         }
-        SWAP(*setup, new_setup);
+        free(old_cs);
+        free(new_cs);
     } while (new_units);
-    setup_free(&new_setup);
+    return s;
+}
+
+bool query_v(const setup_t *setup, litset_t *split,
+        const pelset_t *pel, const query_t *phi, const stdvec_t *z, int k)
+{
+    if (k > 0) {
+        bool tried = false;
+        for (int i = 0; i < pelset_size(pel); ++i) {
+            const literal_t l1 = *pelset_get(pel, i);
+            const literal_t l2 = literal_flip(&l1);
+            if (litset_contains(split, &l1) || litset_contains(split, &l2)) {
+                continue;
+            }
+            tried = true;
+            litset_add(split, &l1);
+            const bool r1 = query_v(setup, split, pel, phi, z, k - 1);
+            litset_remove(split, &l1);
+            if (!r1) {
+                continue;
+            }
+            litset_add(split, &l2);
+            const bool r2 = query_v(setup, split, pel, phi, z, k - 1);
+            litset_remove(split, &l2);
+            if (r1 && r2) {
+                return true;
+            }
+        }
+        if (!tried) {
+            return query_v(setup, split, pel, phi, z, 0);
+        }
+        return false;
+    } else {
+        return false;
+    }
 }
 

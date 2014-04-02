@@ -69,13 +69,54 @@ START_TEST(test_set_copy)
     ck_assert_int_eq(iset_size(&src), 0);
     dst = iset_copy(&src);
     ck_assert_int_eq(iset_size(&dst), 0);
+    iset_free(&dst);
     for (int i = 0; i < 100; ++i) {
         iset_add(&src, i);
     }
-    iset_free(&dst);
     ck_assert_int_eq(iset_size(&src), 100);
     dst = iset_copy(&src);
     ck_assert_int_eq(iset_size(&dst), 100);
+    iset_free(&dst);
+    iset_free(&src);
+}
+END_TEST
+
+START_TEST(test_set_lazy_copy)
+{
+    iset_t src = iset_init();
+    iset_t dst;
+    ck_assert_int_eq(iset_size(&src), 0);
+    dst = iset_lazy_copy(&src);
+    ck_assert_int_eq(iset_size(&dst), 0);
+    iset_free(&dst);
+    for (int i = 0; i < 100; ++i) {
+        iset_add(&src, i);
+    }
+    ck_assert_int_eq(iset_size(&src), 100);
+    dst = iset_lazy_copy(&src);
+    ck_assert(iset_eq(&src, &dst));
+    for (int i = 0; i < 100; ++i) {
+        ck_assert_int_eq(iset_get(&dst, i), i);
+    }
+    for (int i = 50; i >= 0; --i) {
+        iset_remove(&dst, 2*i);
+    }
+    ck_assert(!iset_eq(&src, &dst));
+    for (int i = 50; i >= 0; --i) {
+        iset_remove(&src, 2*i);
+    }
+    ck_assert(iset_eq(&src, &dst));
+    iset_free(&dst);
+    dst = iset_lazy_copy(&src);
+    ck_assert(iset_eq(&src, &dst));
+    for (int i = 50; i >= 0; --i) {
+        iset_add(&dst, 2*i);
+    }
+    ck_assert(!iset_eq(&src, &dst));
+    for (int i = 50; i >= 0; --i) {
+        iset_add(&src, 2*i);
+    }
+    ck_assert(iset_eq(&src, &dst));
     iset_free(&dst);
     iset_free(&src);
 }
@@ -675,6 +716,7 @@ Suite *iset_suite(void)
   TCase *tc_core = tcase_create("Core");
   tcase_add_test(tc_core, test_set_add);
   tcase_add_test(tc_core, test_set_copy);
+  tcase_add_test(tc_core, test_set_lazy_copy);
   tcase_add_test(tc_core, test_set_singleton);
   tcase_add_test(tc_core, test_set_union);
   tcase_add_test(tc_core, test_set_difference);

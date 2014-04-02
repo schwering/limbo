@@ -76,6 +76,14 @@ set_t set_copy(const set_t *src)
     };
 }
 
+set_t set_lazy_copy(const set_t *src)
+{
+    return (set_t) {
+        .vec = vector_lazy_copy(&src->vec),
+        .compar = src->compar
+    };
+}
+
 set_t set_singleton(compar_t compar, const void *elem)
 {
     set_t set = set_init_with_size(compar, 1);
@@ -265,6 +273,11 @@ const void *set_remove_index(set_t *set, int index)
     const void *elem = vector_get(&set->vec, index);
     vector_remove(&set->vec, index);
     return elem;
+}
+
+void set_remove_all_indices(set_t *set, const int indices[], int n_indices)
+{
+    vector_remove_all(&set->vec, indices, n_indices);
 }
 
 void set_clear(set_t *set)

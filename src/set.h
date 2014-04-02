@@ -49,6 +49,7 @@ typedef struct {
 set_t set_init(compar_t compar);
 set_t set_init_with_size(compar_t compar, int size);
 set_t set_copy(const set_t *src);
+set_t set_lazy_copy(const set_t *src);
 set_t set_singleton(compar_t compar, const void *elem);
 set_t set_union(const set_t *left, const set_t *right);
 set_t set_difference(const set_t *left, const set_t *right);
@@ -72,6 +73,7 @@ void set_add_all(set_t *set, const set_t *elems);
 bool set_remove(set_t *set, const void *elem);
 void set_remove_all(set_t *set, const set_t *elems);
 const void *set_remove_index(set_t *set, int index);
+void set_remove_all_indices(set_t *set, const int indices[], int n_indices);
 void set_clear(set_t *set);
 
 #define SET_DECL(prefix, type) \
@@ -79,6 +81,7 @@ void set_clear(set_t *set);
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
     prefix##_t prefix##_copy(const prefix##_t *src);\
+    prefix##_t prefix##_lazy_copy(const prefix##_t *src);\
     prefix##_t prefix##_singleton(const type elem);\
     prefix##_t prefix##_union(\
             const prefix##_t *left, const prefix##_t *right);\
@@ -101,6 +104,8 @@ void set_clear(set_t *set);
     bool prefix##_remove(prefix##_t *s, const type elem);\
     void prefix##_remove_all(prefix##_t *s, const prefix##_t *elems);\
     const type prefix##_remove_index(prefix##_t *s, int index);\
+    void prefix##_remove_all_indices(prefix##_t *s, const int indices[],\
+            int n_indices);\
     void prefix##_clear(prefix##_t *s);
 
 #define SET_IMPL(prefix, type, compar) \
@@ -111,6 +116,8 @@ void set_clear(set_t *set);
             .s = set_init_with_size((compar_t) compar, size) }; }\
     prefix##_t prefix##_copy(const prefix##_t *src) {\
         return (prefix##_t) { .s = set_copy(&src->s) }; }\
+    prefix##_t prefix##_lazy_copy(const prefix##_t *src) {\
+        return (prefix##_t) { .s = set_lazy_copy(&src->s) }; }\
     prefix##_t prefix##_singleton(const type elem) {\
         return (prefix##_t) {\
             .s = set_singleton((compar_t) compar, (const void *) elem) }; }\
@@ -152,6 +159,9 @@ void set_clear(set_t *set);
         set_remove_all(&s->s, &elems->s); }\
     const type prefix##_remove_index(prefix##_t *s, int index) {\
         return (const type) set_remove_index(&s->s, index); }\
+    void prefix##_remove_all_indices(prefix##_t *s, const int indices[],\
+            int n_indices) {\
+        set_remove_all_indices(&s->s, indices, n_indices); }\
     void prefix##_clear(prefix##_t *s) { set_clear(&s->s); }
 
 #define SET_ALIAS(alias, prefix, type) \
@@ -162,6 +172,8 @@ void set_clear(set_t *set);
          return (alias##_t) { .s = prefix##_init_with_size(size) }; }\
     static inline alias##_t alias##_copy(const alias##_t *src) {\
          return (alias##_t) { .s = prefix##_copy(&src->s) }; }\
+    static inline alias##_t alias##_lazy_copy(const alias##_t *src) {\
+         return (alias##_t) { .s = prefix##_lazy_copy(&src->s) }; }\
     static inline alias##_t alias##_singleton(const type elem) {\
          return (alias##_t) { .s = prefix##_singleton(elem) }; }\
     static inline alias##_t alias##_union(\
@@ -169,7 +181,8 @@ void set_clear(set_t *set);
          return (alias##_t) { .s = prefix##_union(&left->s, &right->s) }; }\
     static inline alias##_t alias##_difference(\
              const alias##_t *left, const alias##_t *right) {\
-         return (alias##_t) { .s = prefix##_difference(&left->s, &right->s) }; }\
+         return (alias##_t) {\
+             .s = prefix##_difference(&left->s, &right->s) }; }\
     static inline alias##_t alias##_intersection(\
              const alias##_t *left, const alias##_t *right) {\
          return (alias##_t) {\
@@ -208,11 +221,10 @@ void set_clear(set_t *set);
          prefix##_remove_all(&s->s, &elems->s); }\
     static inline const type alias##_remove_index(alias##_t *s, int index) {\
          return prefix##_remove_index(&s->s, index); }\
-    static inline void alias##_clear(alias##_t *s) { prefix##_clear(&s->s); }\
-    static inline const alias##_t *prefix##_to_##alias(const prefix##_t *s) {\
-        return (const alias##_t *) s; }\
-    static inline const prefix##_t *alias##_to_##prefix(const alias##_t *s) {\
-        return (const prefix##_t *) s; }
+    static inline void alias##_remove_all_indices(alias##_t *s,\
+            const int indices[], int n_indices) {\
+        prefix##_remove_all_indices(&s->s, indices, n_indices); }\
+    static inline void alias##_clear(alias##_t *s) { prefix##_clear(&s->s); }
 
 #endif
 

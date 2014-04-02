@@ -45,17 +45,12 @@ vector_t vector_copy_range(const vector_t *src, int from, int to)
     return dst;
 }
 
-vector_t vector_from_array(const void *array[], int n)
+vector_t vector_lazy_copy(const vector_t *src)
 {
-    vector_t dst = vector_init_with_size(n);
-    memcpy(dst.array,
-            array,
-            n * sizeof(void *));
-    dst.size = n;
-    return dst;
+    return vector_lazy_copy_range(src, 0, src->size);
 }
 
-const vector_t vector_sub(const vector_t *src, int from, int to)
+vector_t vector_lazy_copy_range(const vector_t *src, int from, int to)
 {
     const int n_new_elems = to - from;
     vector_t dst = {
@@ -63,6 +58,16 @@ const vector_t vector_sub(const vector_t *src, int from, int to)
         .capacity = -1,
         .size = n_new_elems
     };
+    return dst;
+}
+
+vector_t vector_from_array(const void *array[], int n)
+{
+    vector_t dst = vector_init_with_size(n);
+    memcpy(dst.array,
+            array,
+            n * sizeof(void *));
+    dst.size = n;
     return dst;
 }
 
@@ -74,6 +79,16 @@ void vector_free(vector_t *vec)
     vec->array = NULL;
     vec->size = 0;
     vec->capacity = 0;
+}
+
+static void alloc_if_lazy(vector_t *vec)
+{
+    if (vec->capacity < 0) {
+        void const **array = vec->array;
+        vec->capacity = MAX(vec->size, INIT_SIZE);
+        vec->array = malloc(vec->capacity * sizeof(void *));
+        memcpy(vec->array, array, vec->size * sizeof(void *));
+    }
 }
 
 const void *vector_get(const vector_t *vec, int index)
@@ -127,6 +142,12 @@ int vector_size(const vector_t *vec)
     return vec->size;
 }
 
+void vector_set(vector_t *vec, int index, const void *elem)
+{
+    assert(0 <= index && index <= vec->size);
+    vec->array[index] = elem;
+}
+
 void vector_prepend(vector_t *vec, const void *elem)
 {
     vector_insert(vec, 0, elem);
@@ -140,6 +161,7 @@ void vector_append(vector_t *vec, const void *elem)
 void vector_insert(vector_t *vec, int index, const void *elem)
 {
     assert(0 <= index && index <= vec->size);
+    alloc_if_lazy(vec);
     if (vec->size + 1 >= vec->capacity) {
         vec->capacity *= RESIZE_FACTOR;
         vec->array = realloc(vec->array, vec->capacity * sizeof(void *));
@@ -182,11 +204,17 @@ void vector_insert_all_range(vector_t *vec, int index,
         const vector_t *elems, int from, int to)
 {
     assert(0 <= index && index <= vec->size);
-    const int n_new_elems = to - from;
-    while (vec->size + n_new_elems >= vec->capacity) {
-        vec->capacity *= RESIZE_FACTOR;
+    if (elems->size == 0) {
+        return;
     }
-    vec->array = realloc(vec->array, vec->capacity * sizeof(void *));
+    alloc_if_lazy(vec);
+    const int n_new_elems = to - from;
+    if (vec->size + n_new_elems >= vec->capacity) {
+        while (vec->size + n_new_elems >= vec->capacity) {
+            vec->capacity *= RESIZE_FACTOR;
+        }
+        vec->array = realloc(vec->array, vec->capacity * sizeof(void *));
+    }
     memmove(vec->array + index + n_new_elems,
             vec->array + index,
             (vec->size - index) * sizeof(void *));
@@ -201,21 +229,30 @@ const void *vector_remove(vector_t *vec, int index)
     const void *elem;
     assert(0 <= index && index < vec->size);
     elem = vec->array[index];
-    memmove(vec->array + index,
-            vec->array + index + 1,
-            (vec->size - index - 1) * sizeof(void *));
+    if (index + 1 < vec->size) {
+        alloc_if_lazy(vec);
+        memmove(vec->array + index,
+                vec->array + index + 1,
+                (vec->size - index - 1) * sizeof(void *));
+    }
     --vec->size;
     return elem;
 }
 
-void vector_remove_all(vector_t *vec, const int *indices, int n_indices)
+void vector_remove_all(vector_t *vec, const int indices[], int n_indices)
 {
+    if (n_indices == 0) {
+        return;
+    }
     for (int i = n_indices - 1, lo = indices[i], hi = lo; i >= 0; --i) {
         lo = indices[i];
         if (i == 0 || lo-1 != indices[i-1]) {
-            memmove(vec->array + lo,
-                    vec->array + hi + 1,
-                    (vec->size - hi - 1) * sizeof(void *));
+            if (hi + 1 < vec->size) {
+                alloc_if_lazy(vec);
+                memmove(vec->array + lo,
+                        vec->array + hi + 1,
+                        (vec->size - hi - 1) * sizeof(void *));
+            }
             vec->size -= hi - lo + 1;
             if (i > 0) {
                 hi = indices[i-1];

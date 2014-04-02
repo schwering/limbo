@@ -9,7 +9,10 @@
  *
  * Each vector object needs to be initialized with vector_init[_with_size]()
  * or vector_copy[_range](). The latter ones copy [the range of] a vector into
- * the new one.
+ * the new one. The functions vector_lazy_copy[_range]() rely on the source
+ * vector not being modified afterwards; otherwise the behavior of the new
+ * vector is undefined. All lazy copies of a vector may be modified freely,
+ * however, without any interdependencies.
  * Deallocation is done with vector_free().
  *
  * vector_cmp() compares as follows. If the two vectors have different size,
@@ -51,8 +54,9 @@ vector_t vector_init(void);
 vector_t vector_init_with_size(int size);
 vector_t vector_copy(const vector_t *src);
 vector_t vector_copy_range(const vector_t *src, int from, int to);
+vector_t vector_lazy_copy(const vector_t *src);
+vector_t vector_lazy_copy_range(const vector_t *src, int from, int to);
 vector_t vector_from_array(const void *array[], int n);
-const vector_t vector_sub(const vector_t *src, int from, int to);
 void vector_free(vector_t *vec);
 
 const void *vector_get(const vector_t *vec, int index);
@@ -63,6 +67,8 @@ int vector_cmp(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *));
 bool vector_eq(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *));
+
+void vector_set(vector_t *vec, int index, const void *elem);
 
 void vector_prepend(vector_t *vec, const void *elem);
 void vector_append(vector_t *vec, const void *elem);
@@ -80,7 +86,7 @@ void vector_insert_all_range(vector_t *vec, int index,
         const vector_t *elems, int from, int to);
 
 const void *vector_remove(vector_t *vec, int index);
-void vector_remove_all(vector_t *vec, const int *indices, int n_indices);
+void vector_remove_all(vector_t *vec, const int indices[], int n_indices);
 void vector_clear(vector_t *vec);
 
 #define VECTOR_DECL(prefix, type) \
@@ -89,14 +95,17 @@ void vector_clear(vector_t *vec);
     prefix##_t prefix##_init_with_size(int size);\
     prefix##_t prefix##_copy(const prefix##_t *src);\
     prefix##_t prefix##_copy_range(const prefix##_t *src, int from, int to);\
+    prefix##_t prefix##_lazy_copy(const prefix##_t *src);\
+    prefix##_t prefix##_lazy_copy_range(const prefix##_t *src,\
+            int from, int to);\
     prefix##_t prefix##_from_array(const type array[], int n);\
-    const prefix##_t prefix##_sub(const prefix##_t *src, int from, int to);\
     void prefix##_free(prefix##_t *v);\
     const type prefix##_get(const prefix##_t *v, int index);\
     const type *prefix##_array(const prefix##_t *v);\
     int prefix##_size(const prefix##_t *v);\
     int prefix##_cmp(const prefix##_t *v1, const prefix##_t *v2);\
     bool prefix##_eq(const prefix##_t *v1, const prefix##_t *v2);\
+    void prefix##_set(prefix##_t *v, int index, const type elem);\
     void prefix##_prepend(prefix##_t *v, const type elem);\
     void prefix##_append(prefix##_t *v, const type elem);\
     void prefix##_insert(prefix##_t *v, int index, const type elem);\
@@ -111,7 +120,8 @@ void vector_clear(vector_t *vec);
     void prefix##_insert_all_range(prefix##_t *v,\
             int index, const prefix##_t *elems, int from, int to);\
     const type prefix##_remove(prefix##_t *v, int index);\
-    void prefix##_remove_all(prefix##_t *v, const int *indices, int n_indices);\
+    void prefix##_remove_all(prefix##_t *v, const int indices[],\
+            int n_indices);\
     void prefix##_clear(prefix##_t *v);
 
 #define VECTOR_IMPL(prefix, type, compar) \
@@ -123,10 +133,15 @@ void vector_clear(vector_t *vec);
         return (prefix##_t) { .v = vector_copy(&src->v) }; }\
     prefix##_t prefix##_copy_range(const prefix##_t *src, int from, int to) {\
         return (prefix##_t) { .v = vector_copy_range(&src->v, from, to) }; }\
+    prefix##_t prefix##_lazy_copy(const prefix##_t *src) {\
+        return (prefix##_t) { .v = vector_lazy_copy(&src->v) }; }\
+    prefix##_t prefix##_lazy_copy_range(const prefix##_t *src,\
+            int from, int to) {\
+        return (prefix##_t) { .v = vector_lazy_copy_range(&src->v,\
+                from, to) }; }\
     prefix##_t prefix##_from_array(const type array[], int n) {\
-        return (prefix##_t) { .v = vector_from_array((const void **) array, n) }; }\
-    const prefix##_t prefix##_sub(const prefix##_t *src, int from, int to) {\
-        return (prefix##_t) { .v = vector_sub(&src->v, from, to) }; }\
+        return (prefix##_t) {\
+            .v = vector_from_array((const void **) array, n) }; }\
     void prefix##_free(prefix##_t *v) {\
         vector_free(&v->v); }\
     const type prefix##_get(const prefix##_t *v, int index) {\
@@ -141,6 +156,8 @@ void vector_clear(vector_t *vec);
     bool prefix##_eq(const prefix##_t *v1, const prefix##_t *v2) {\
         return vector_eq(&v1->v, &v2->v,\
                 (int (*)(const void *, const void *)) compar); }\
+    void prefix##_set(prefix##_t *v, int index, const type elem) {\
+        vector_set(&v->v, index, (const void *) elem); }\
     void prefix##_prepend(prefix##_t *v, const type elem) {\
         vector_prepend(&v->v, (const void *) elem); }\
     void prefix##_append(prefix##_t *v, const type elem) {\
@@ -166,7 +183,7 @@ void vector_clear(vector_t *vec);
     const type prefix##_remove(prefix##_t *v, int index) {\
         return (const type) vector_remove(&v->v, index); }\
     void prefix##_remove_all(prefix##_t *v,\
-            const int *indices, int n_indices) {\
+            const int indices[], int n_indices) {\
         vector_remove_all(&v->v, indices, n_indices); }\
     void prefix##_clear(prefix##_t *v) {\
         vector_clear(&v->v); }
