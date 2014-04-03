@@ -12,12 +12,12 @@ map_t map_init_with_size(kv_compar_t compar, int size)
     return (map_t) { .set = set_init_with_size((compar_t) compar, size) };
 }
 
-void map_free(map_t *map)
+void map_cleanup(map_t *map)
 {
     for (int i = 0; i < set_size(&map->set); ++i) {
         free((void *) set_get(&map->set, i));
     }
-    set_free(&map->set);
+    set_cleanup(&map->set);
 }
 
 int map_find(const map_t *map, const void *key)

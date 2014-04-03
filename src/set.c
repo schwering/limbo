@@ -157,9 +157,9 @@ set_t set_intersection(const set_t *l, const set_t *r)
     return set;
 }
 
-void set_free(set_t *set)
+void set_cleanup(set_t *set)
 {
-    vector_free(&set->vec);
+    vector_cleanup(&set->vec);
 }
 
 int set_cmp(const set_t *set1, const set_t *set2)

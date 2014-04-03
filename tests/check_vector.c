@@ -46,8 +46,8 @@ START_TEST(test_vector_insert)
     for (int i = 0; i <= 1500; ++i) {
         ck_assert_int_eq(ivec_get(&vec1, i), i);
     }
-    ivec_free(&vec1);
-    ivec_free(&vec2);
+    ivec_cleanup(&vec1);
+    ivec_cleanup(&vec2);
 }
 END_TEST
 
@@ -71,10 +71,10 @@ START_TEST(test_vector_insert_all)
     for (int i = 1; i < ivec_size(&vec1); ++i) {
         ck_assert_int_eq(ivec_get(&vec1, i-1) + 1, ivec_get(&vec1, i));
     }
-    ivec_free(&vec2);
+    ivec_cleanup(&vec2);
     vec2 = ivec_copy(&vec1);
     ck_assert(ivec_eq(&vec1, &vec2));
-    ivec_free(&vec2);
+    ivec_cleanup(&vec2);
     vec2 = ivec_copy_range(&vec1, 0, 10);
     ck_assert_int_eq(ivec_size(&vec2), 10);
     for (int i = 0; i < 10; ++i) {
@@ -93,8 +93,8 @@ START_TEST(test_vector_insert_all)
         ck_assert_int_eq(ivec_get(&vec1, i + 10), i);
         ck_assert_int_eq(ivec_get(&vec1, i + 20), i);
     }
-    ivec_free(&vec1);
-    ivec_free(&vec2);
+    ivec_cleanup(&vec1);
+    ivec_cleanup(&vec2);
 }
 END_TEST
 
@@ -137,7 +137,7 @@ START_TEST(test_vector_remove_all)
     ck_assert_int_eq(ivec_get(&vec, 0), 5);
     ivec_remove_all(&vec, (int[]) {0}, 1);
     ck_assert_int_eq(ivec_size(&vec), 0);
-    ivec_free(&vec);
+    ivec_cleanup(&vec);
 }
 END_TEST
 

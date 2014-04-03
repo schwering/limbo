@@ -13,7 +13,7 @@
  * vector not being modified afterwards; otherwise the behavior of the new
  * vector is undefined. All lazy copies of a vector may be modified freely,
  * however, without any interdependencies.
- * Deallocation is done with vector_free().
+ * Deallocation is done with vector_cleanup().
  *
  * vector_cmp() compares as follows. If the two vectors have different size,
  * the shorter one is less than the the longer one. If both vectors have the
@@ -57,7 +57,7 @@ vector_t vector_copy_range(const vector_t *src, int from, int to);
 vector_t vector_lazy_copy(const vector_t *src);
 vector_t vector_lazy_copy_range(const vector_t *src, int from, int to);
 vector_t vector_from_array(const void *array[], int n);
-void vector_free(vector_t *vec);
+void vector_cleanup(vector_t *vec);
 
 const void *vector_get(const vector_t *vec, int index);
 const void **vector_array(const vector_t *vec);
@@ -101,7 +101,7 @@ void vector_clear(vector_t *vec);
     prefix##_t prefix##_lazy_copy_range(const prefix##_t *src,\
             int from, int to);\
     prefix##_t prefix##_from_array(const type array[], int n);\
-    void prefix##_free(prefix##_t *v);\
+    void prefix##_cleanup(prefix##_t *v);\
     const type prefix##_get(const prefix##_t *v, int index);\
     const type *prefix##_array(const prefix##_t *v);\
     int prefix##_size(const prefix##_t *v);\
@@ -146,8 +146,8 @@ void vector_clear(vector_t *vec);
     prefix##_t prefix##_from_array(const type array[], int n) {\
         return (prefix##_t) {\
             .v = vector_from_array((const void **) array, n) }; }\
-    void prefix##_free(prefix##_t *v) {\
-        vector_free(&v->v); }\
+    void prefix##_cleanup(prefix##_t *v) {\
+        vector_cleanup(&v->v); }\
     const type prefix##_get(const prefix##_t *v, int index) {\
         return (const type) vector_get(&v->v, index); }\
     const type *prefix##_array(const prefix##_t *v) {\

@@ -9,7 +9,7 @@
  *
  * The underlying data structure is vector_t. Most functions have a
  * corresponding counterpart in vector.h, for example, set_init[_with_size](),
- * set_free(), set_cmp(), set_eq(), set_size(), set_clear().
+ * set_cleanup(), set_cmp(), set_eq(), set_size(), set_clear().
  *
  * The purpose of set_get() is mostly for iteration over the set's elements as
  * the index depends on the element's order.
@@ -54,7 +54,7 @@ set_t set_singleton(compar_t compar, const void *elem);
 set_t set_union(const set_t *left, const set_t *right);
 set_t set_difference(const set_t *left, const set_t *right);
 set_t set_intersection(const set_t *left, const set_t *right);
-void set_free(set_t *set);
+void set_cleanup(set_t *set);
 
 int set_cmp(const set_t *set1, const set_t *set2);
 bool set_eq(const set_t *set1, const set_t *set2);
@@ -89,7 +89,7 @@ void set_clear(set_t *set);
             const prefix##_t *left, const prefix##_t *right);\
     prefix##_t prefix##_intersection(\
             const prefix##_t *left, const prefix##_t *right);\
-    void prefix##_free(prefix##_t *s);\
+    void prefix##_cleanup(prefix##_t *s);\
     int prefix##_cmp(const prefix##_t *s1, const prefix##_t *s2);\
     bool prefix##_eq(const prefix##_t *s1, const prefix##_t *s2);\
     const type prefix##_get(const prefix##_t *s, int index);\
@@ -130,7 +130,7 @@ void set_clear(set_t *set);
     prefix##_t prefix##_intersection(\
             const prefix##_t *left, const prefix##_t *right) {\
         return (prefix##_t) { .s = set_intersection(&left->s, &right->s) }; }\
-    void prefix##_free(prefix##_t *s) { set_free(&s->s); }\
+    void prefix##_cleanup(prefix##_t *s) { set_cleanup(&s->s); }\
     int prefix##_cmp(const prefix##_t *s1, const prefix##_t *s2) {\
         return set_cmp(&s1->s, &s2->s); }\
     bool prefix##_eq(const prefix##_t *s1, const prefix##_t *s2) {\
@@ -187,8 +187,8 @@ void set_clear(set_t *set);
              const alias##_t *left, const alias##_t *right) {\
          return (alias##_t) {\
              .s = prefix##_intersection(&left->s, &right->s) }; }\
-    static inline void alias##_free(alias##_t *s) {\
-         prefix##_free(&s->s); }\
+    static inline void alias##_cleanup(alias##_t *s) {\
+         prefix##_cleanup(&s->s); }\
     static inline int alias##_cmp(const alias##_t *s1,\
              const alias##_t *s2) {\
          return prefix##_cmp(&s1->s, &s2->s); }\

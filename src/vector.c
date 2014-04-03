@@ -71,7 +71,7 @@ vector_t vector_from_array(const void *array[], int n)
     return dst;
 }
 
-void vector_free(vector_t *vec)
+void vector_cleanup(vector_t *vec)
 {
     if (vec->capacity >= 0 && vec->array != NULL) {
         free(vec->array);

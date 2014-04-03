@@ -36,7 +36,7 @@ START_TEST(test_map_add)
     ck_assert_int_eq(iimap_size(&map), 1);
     iimap_clear(&map);
     ck_assert_int_eq(iimap_size(&map), 0);
-    iimap_free(&map);
+    iimap_cleanup(&map);
 }
 END_TEST
 

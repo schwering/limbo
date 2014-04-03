@@ -33,6 +33,7 @@ SET_DECL(litset, literal_t *);
 SET_ALIAS(clause, litset, literal_t *);
 SET_ALIAS(pelset, litset, literal_t *);
 SET_DECL(setup, clause_t *);
+SET_ALIAS(cnf, setup, clause_t *);
 
 typedef struct {
     stdset_t names;
@@ -45,22 +46,25 @@ typedef union { univ_clause_t c; } box_univ_clause_t;
 VECTOR_DECL(univ_clauses, univ_clause_t *);
 VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
 
-enum query_type { EQ, OR, NEG, EX, ACT };
+enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EX, ACT };
 struct query;
 typedef struct query query_t;
-struct query_eq { stdname_t n1; stdname_t n2; };
-struct query_or { query_t *phi1; query_t *phi2; };
-struct query_neg { query_t *phi; };
-struct query_ex { query_t (*phi)(stdname_t x); };
-struct query_act { stdname_t n; query_t *phi; };
+typedef struct { stdname_t n1; stdname_t n2; } query_names_t;
+typedef struct { query_t *phi; } query_unary_t;
+typedef struct { query_t *phi1; query_t *phi2; } query_binary_t;
+typedef struct { query_t *(*phi)(stdname_t x); } query_exists_t;
+typedef struct { stdname_t n; query_t *phi; } query_action_t;
 struct query {
     enum query_type type;
     union {
-        struct query_eq eq;
-        struct query_or or;
-        struct query_neg neg;
-        struct query_ex ex;
-        struct query_act act;
+        literal_t lit;
+        query_names_t eq;
+        query_names_t neq;
+        query_binary_t or;
+        query_binary_t and;
+        query_unary_t neg;
+        query_exists_t ex;
+        query_action_t act;
     } u;
 };
 
@@ -76,8 +80,8 @@ setup_t setup_ground_clauses(
 pelset_t setup_pel(const setup_t *setup);
 setup_t setup_propagate_units(const setup_t *setup, const litset_t *split);
 
-bool query_tests(const setup_t *setup, const pelset_t *pel,
-        const query_t *phi, int k);
+bool query_test(const setup_t *setup, const pelset_t *pel,
+        query_t *phi, int k);
 void query_free(query_t *phi);
 
 #endif

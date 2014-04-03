@@ -4,7 +4,7 @@
  * The comparison function shall only use the kv_t's key attribute.
  *
  * Most functions have a corresponding counterpart in map.h, for example,
- * map_init[_with_size](), map_free(), map_get(), map_size(), map_clear().
+ * map_init[_with_size](), map_cleanup(), map_get(), map_size(), map_clear().
  *
  * map_find(), map_contains(), map_lookup() operate on keys instead of indices.
  * map_lookup() returns the value corrensponding to the key or NULL if it is not
@@ -39,7 +39,7 @@ typedef int (*kv_compar_t)(const kv_t *, const kv_t *);
 
 map_t map_init(kv_compar_t compar);
 map_t map_init_with_size(kv_compar_t compar, int size);
-void map_free(map_t *map);
+void map_cleanup(map_t *map);
 
 int map_find(const map_t *map, const void *key);
 bool map_contains(const map_t *map, const void *key);
@@ -58,7 +58,7 @@ void map_clear(map_t *map);
     typedef struct { keytype key; valtype val; } prefix##_kv_t;\
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
-    void prefix##_free(prefix##_t *m);\
+    void prefix##_cleanup(prefix##_t *m);\
     int prefix##_find(const prefix##_t *m, const keytype key);\
     bool prefix##_contains(const prefix##_t *m, const keytype key);\
     const prefix##_kv_t *prefix##_get(const prefix##_t *m, int index);\
@@ -78,8 +78,8 @@ void map_clear(map_t *map);
     prefix##_t prefix##_init_with_size(int size) {\
         return (prefix##_t) { .m = map_init_with_size(prefix##_kv_compar,\
                 size) }; }\
-    void prefix##_free(prefix##_t *m) {\
-        map_free(&m->m); }\
+    void prefix##_cleanup(prefix##_t *m) {\
+        map_cleanup(&m->m); }\
     int prefix##_find(const prefix##_t *m, const keytype key) {\
         return map_find(&m->m, (const void *) key); }\
     bool prefix##_contains(const prefix##_t *m, const keytype key) {\
