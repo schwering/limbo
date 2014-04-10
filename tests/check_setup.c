@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "../src/setup.h"
+#include "../src/memory.h"
 
 static const stdname_t FORWARD = 1;
 static const stdname_t SONAR   = 2;
@@ -11,8 +12,6 @@ static const stdname_t SONAR   = 2;
 #define D(i) ((pred_t) i)
 
 static const var_t a = 12345;
-
-#define NEW(expr)    ({ typeof(expr) *ptr = malloc(sizeof(expr)); *ptr = expr; ptr; })
 
 static bool is_action(const stdname_t n)
 {
@@ -558,12 +557,12 @@ END_TEST
 
 Suite *clause_suite(void)
 {
-  Suite *s = suite_create("Setup");
-  TCase *tc_core = tcase_create("Core");
-  tcase_add_test(tc_core, test_grounding);
-  tcase_add_test(tc_core, test_entailment);
-  suite_add_tcase(s, tc_core);
-  return s;
+    Suite *s = suite_create("Setup");
+    TCase *tc_core = tcase_create("Core");
+    tcase_add_test(tc_core, test_grounding);
+    tcase_add_test(tc_core, test_entailment);
+    suite_add_tcase(s, tc_core);
+    return s;
 }
 
 int main(void)

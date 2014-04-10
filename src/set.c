@@ -1,5 +1,6 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include "set.h"
+#include "memory.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -254,7 +255,7 @@ bool set_remove(set_t *set, const void *elem)
 void set_remove_all(set_t *set, const set_t *elems)
 {
     assert(set->compar == elems->compar);
-    int *indices = malloc(vector_size(&set->vec) * sizeof(int));
+    int *indices = eslmalloc(vector_size(&set->vec) * sizeof(int));
     int n_indices = 0;
     for (int i = 0, j = 0; i < vector_size(&set->vec); ++i) {
         const void *e = vector_get(&set->vec, i);

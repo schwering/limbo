@@ -1,5 +1,6 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include "setup.h"
+#include "memory.h"
 #include <assert.h>
 #include <stdlib.h>
 
@@ -40,9 +41,9 @@ static const literal_t *clause_unit(const clause_t *c)
 
 static const clause_t *clause_resolve(const clause_t *c, const litset_t *u)
 {
-    clause_t *d = malloc(sizeof(clause_t));
+    clause_t *d = eslmalloc(sizeof(clause_t));
     *d = clause_lazy_copy(c);
-    int *indices = malloc(clause_size(c) * sizeof(int));
+    int *indices = eslmalloc(clause_size(c) * sizeof(int));
     int n_indices = 0;
     for (int i = 0; i < litset_size(u); ++i) {
         const literal_t l = literal_flip(litset_get(u, i));
@@ -52,7 +53,7 @@ static const clause_t *clause_resolve(const clause_t *c, const litset_t *u)
         }
     }
     clause_remove_all_indices(d, indices, n_indices);
-    free(indices);
+    eslfree(indices);
     return d;
 }
 
@@ -76,12 +77,12 @@ static void ground_univ(setup_t *setup, varmap_t *varmap,
 
 static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
 {
-    clause_t *d = malloc(sizeof(clause_t));
+    clause_t *d = eslmalloc(sizeof(clause_t));
     *d = clause_init_with_size(clause_size(c));
     for (int i = 0; i < clause_size(c); ++i) {
         const literal_t *l = clause_get(c, i);
         const stdvec_t zz = stdvec_concat(z, literal_z(l));
-        literal_t *ll = malloc(sizeof(literal_t));
+        literal_t *ll = eslmalloc(sizeof(literal_t));
         *ll = literal_init(&zz, literal_sign(l), literal_pred(l),
                 literal_args(l));
         const bool added = clause_add(d, ll);
@@ -90,9 +91,9 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
     const bool added = setup_add(setup, d);
     if (!added) {
         for (int i = 0; i < clause_size(d); ++i) {
-            free((literal_t *) clause_get(d, i));
+            eslfree((literal_t *) clause_get(d, i));
         }
-        free(d);
+        eslfree(d);
     }
 }
 
@@ -169,11 +170,11 @@ static void clause_pel(const clause_t *c, pelset_t *pel)
     for (int i = 0; i < clause_size(c); ++i) {
         const literal_t *l = clause_get(c, i);
         if (!literal_sign(l)) {
-            literal_t *ll = malloc(sizeof(literal_t));
+            literal_t *ll = eslmalloc(sizeof(literal_t));
             *ll = literal_flip(l);
             const bool added = pelset_add(pel, ll);
             if (!added) {
-                free(ll);
+                eslfree(ll);
             }
         } else {
             pelset_add(pel, l);
@@ -220,8 +221,8 @@ setup_t setup_propagate_units(const setup_t *setup, const litset_t *split)
     bool new_units;
     do {
         new_units = false;
-        clause_t const **new_cs = malloc(setup_size(&s) * sizeof(clause_t *));
-        int *old_cs = malloc(setup_size(&s) * sizeof(int));
+        clause_t const **new_cs = eslmalloc(setup_size(&s) * sizeof(clause_t *));
+        int *old_cs = eslmalloc(setup_size(&s) * sizeof(int));
         int n = 0;
         for (int i = 0; i < setup_size(&s); ++i) {
             const clause_t *c = setup_get(&s, i);
@@ -240,11 +241,11 @@ setup_t setup_propagate_units(const setup_t *setup, const litset_t *split)
             const clause_t *d = new_cs[i];
             const bool added = setup_add(&s, d);
             if (!added) {
-                free((clause_t *) d);
+                eslfree((clause_t *) d);
             }
         }
-        free(old_cs);
-        free(new_cs);
+        eslfree(old_cs);
+        eslfree(new_cs);
     } while (new_units);
     return s;
 }
@@ -282,7 +283,7 @@ static int query_n_vars(const query_t *phi)
         case EX: {
             query_t *psi = phi->u.ex.phi(1);
             int n = query_n_vars(psi);
-            free(psi);
+            eslfree(psi);
             return n;
         }
         case ACT:
@@ -340,8 +341,8 @@ static stdset_t query_names(const query_t *phi)
             query_t *phi2 = phi->u.ex.phi(2);
             stdset_t set1 = query_names(phi1);
             stdset_t set2 = query_names(phi2);
-            free(phi1);
-            free(phi2);
+            eslfree(phi1);
+            eslfree(phi2);
             stdset_remove(&set1, 1);
             stdset_remove(&set2, 2);
             return stdset_union(&set1, &set2);
@@ -364,7 +365,7 @@ static query_t *query_ground_quantifier(bool existential,
     if (i + 1 == stdset_size(hplus)) {
         return psi1;
     } else {
-        query_t *xi = malloc(sizeof(query_t));
+        query_t *xi = eslmalloc(sizeof(query_t));
         query_t *psi2 = query_ground_quantifier(existential, phi, hplus, i + 1);
         if (existential) {
             xi->type = OR;
@@ -441,20 +442,20 @@ static query_t *query_ennf_h(query_t *phi, const stdset_t *hplus,
         }
         case NEG: {
             query_t *psi = query_ennf_h(phi->u.neg.phi, hplus, !flip, z);
-            free(phi);
+            eslfree(phi);
             return psi;
         }
         case EX: {
             const bool is_existential = !flip;
             query_t *psi = query_ground_quantifier(is_existential,
                     phi->u.ex.phi, hplus, 0);
-            free(phi);
+            eslfree(phi);
             return query_ennf_h(psi, hplus, flip, z);
         }
         case ACT: {
             const stdvec_t zz = stdvec_copy_append(z, phi->u.act.n);
             query_t *psi = phi->u.act.phi;
-            free(phi);
+            eslfree(phi);
             return query_ennf_h(psi, hplus, flip, &zz);
         }
     }
@@ -516,11 +517,11 @@ static query_t *query_simplify(query_t *phi, bool *truth_value)
     switch (phi->type)
         case EQ: {
             *truth_value = phi->u.eq.n1 == phi->u.eq.n2;
-            free(phi);
+            eslfree(phi);
             return NULL;
         case NEQ:
             *truth_value = phi->u.neq.n1 != phi->u.neq.n2;
-            free(phi);
+            eslfree(phi);
             return NULL;
         case LIT:
             return phi;
@@ -537,11 +538,11 @@ static query_t *query_simplify(query_t *phi, bool *truth_value)
             }
             if (phi->u.or.phi1 == NULL) {
                 query_t *psi = phi->u.or.phi2;
-                free(phi);
+                eslfree(phi);
                 return psi;
             } else if (phi->u.or.phi2 == NULL) {
                 query_t *psi = phi->u.or.phi1;
-                free(phi);
+                eslfree(phi);
                 return psi;
             } else {
                 return phi;
@@ -559,11 +560,11 @@ static query_t *query_simplify(query_t *phi, bool *truth_value)
             }
             if (phi->u.and.phi1 == NULL) {
                 query_t *psi = phi->u.and.phi2;
-                free(phi);
+                eslfree(phi);
                 return psi;
             } else if (phi->u.and.phi2 == NULL) {
                 query_t *psi = phi->u.and.phi1;
-                free(phi);
+                eslfree(phi);
                 return psi;
             } else {
                 return phi;
@@ -571,7 +572,7 @@ static query_t *query_simplify(query_t *phi, bool *truth_value)
         case NEG:
             phi->u.neg.phi = query_simplify(phi->u.neg.phi, truth_value);
             if (phi->u.neg.phi == NULL) {
-                free(phi);
+                eslfree(phi);
                 return NULL;
             }
             return phi;
@@ -591,9 +592,9 @@ static cnf_t query_cnf(const query_t *phi)
     // LIT, OR, AND
     switch (phi->type) {
         case LIT: {
-            literal_t *l = malloc(sizeof(literal_t));
+            literal_t *l = eslmalloc(sizeof(literal_t));
             *l = phi->u.lit;
-            clause_t *c = malloc(sizeof(clause_t));
+            clause_t *c = eslmalloc(sizeof(clause_t));
             *c = clause_singleton(l);
             return cnf_singleton(c);
         }
@@ -605,19 +606,19 @@ static cnf_t query_cnf(const query_t *phi)
                 for (int j = 0; j < cnf_size(&cnf2); ++j) {
                     const clause_t *c1 = cnf_get(&cnf1, i);
                     const clause_t *c2 = cnf_get(&cnf2, j);
-                    clause_t *c = malloc(sizeof(clause_t));
+                    clause_t *c = eslmalloc(sizeof(clause_t));
                     *c = clause_union(c1, c2);
                     const bool added = cnf_add(&cnf, c);
                     if (!added) {
-                        free(c);
+                        eslfree(c);
                     }
                 }
             }
             for (int i = 0; i < cnf_size(&cnf1); ++i) {
-                free(cnf_get_unsafe(&cnf1, i));
+                eslfree(cnf_get_unsafe(&cnf1, i));
             }
             for (int i = 0; i < cnf_size(&cnf2); ++i) {
-                free(cnf_get_unsafe(&cnf2, i));
+                eslfree(cnf_get_unsafe(&cnf2, i));
             }
             cnf_cleanup(&cnf1);
             cnf_cleanup(&cnf2);
@@ -648,11 +649,11 @@ static stdvecset_t clause_action_sequences(const clause_t *c)
     for (int i = 0; i < clause_size(c); ++i) {
         const stdvec_t *z = literal_z(clause_get(c, i));
         for (int j = 0; j < stdvec_size(z); ++j) {
-            stdvec_t *z_prefix = malloc(sizeof(stdvec_t));
+            stdvec_t *z_prefix = eslmalloc(sizeof(stdvec_t));
             *z_prefix = stdvec_lazy_copy_range(z, 0, j);
             const bool added = stdvecset_add(&zs, z_prefix);
             if (!added) {
-                free(z_prefix);
+                eslfree(z_prefix);
             }
         }
     }
@@ -766,7 +767,7 @@ bool query_test(
         setup_t s = setup_ground_clauses(dynamic_bat, static_bat, &hplus, &zs);
         for (int i = 0; i < litset_size(sensing_results); ++i) {
             const literal_t *l = litset_get(sensing_results, i);
-            clause_t *c = malloc(sizeof(clause_t));
+            clause_t *c = eslmalloc(sizeof(clause_t));
             *c = clause_singleton(l);
             setup_add(&s, c);
         }
@@ -796,28 +797,28 @@ void query_free(query_t *phi)
         case EQ:
         case NEQ:
         case LIT:
-            free(phi);
+            eslfree(phi);
             break;
         case OR:
             query_free(phi->u.or.phi1);
             query_free(phi->u.or.phi2);
-            free(phi);
+            eslfree(phi);
             break;
         case AND:
             query_free(phi->u.and.phi1);
             query_free(phi->u.and.phi2);
-            free(phi);
+            eslfree(phi);
             break;
         case NEG:
             query_free(phi->u.neg.phi);
-            free(phi);
+            eslfree(phi);
             break;
         case EX:
-            free(phi);
+            eslfree(phi);
             break;
         case ACT:
             query_free(phi->u.act.phi);
-            free(phi);
+            eslfree(phi);
             break;
     }
 }
