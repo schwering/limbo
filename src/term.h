@@ -9,7 +9,6 @@
 
 #include "map.h"
 #include <limits.h>
-#include <stdlib.h>
 
 typedef long int stdname_t;
 typedef long int var_t;

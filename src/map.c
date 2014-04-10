@@ -1,7 +1,6 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include "map.h"
 #include "memory.h"
-#include <stdlib.h>
 
 map_t map_init(kv_compar_t compar)
 {

@@ -46,30 +46,7 @@ typedef union { univ_clause_t c; } box_univ_clause_t;
 VECTOR_DECL(univ_clauses, univ_clause_t *);
 VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
 
-enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EX, ACT };
-struct query;
-typedef struct query query_t;
-typedef struct { stdname_t n1; stdname_t n2; } query_names_t;
-typedef struct { query_t *phi; } query_unary_t;
-typedef struct { query_t *phi1; query_t *phi2; } query_binary_t;
-typedef struct { query_t *(*phi)(stdname_t x); } query_exists_t;
-typedef struct { stdname_t n; query_t *phi; } query_action_t;
-struct query {
-    enum query_type type;
-    union {
-        literal_t lit;
-        query_names_t eq;
-        query_names_t neq;
-        query_binary_t or;
-        query_binary_t and;
-        query_unary_t neg;
-        query_exists_t ex;
-        query_action_t act;
-    } u;
-};
-
 const clause_t *clause_empty(void);
-bool clause_subsumes(const clause_t *c, const clause_t *d);
 
 stdset_t bat_hplus(
         const box_univ_clauses_t *box_cs,
@@ -82,16 +59,14 @@ setup_t setup_ground_clauses(
         const univ_clauses_t *static_bat,
         const stdset_t *hplus,
         const stdvecset_t *query_zs);
+
+void clause_add_pel(const clause_t *c, pelset_t *pel);
 pelset_t setup_pel(const setup_t *setup);
+
 setup_t setup_propagate_units(const setup_t *setup, const litset_t *split);
 
-bool query_test(
-        const box_univ_clauses_t *dynamic_bat,
-        const univ_clauses_t *static_bat,
-        const litset_t *sensing_results,
-        query_t *phi,
-        int k);
-void query_free(query_t *phi);
+bool setup_subsumes(const setup_t *setup, const litset_t *split,
+        const clause_t *c);
 
 #endif
 

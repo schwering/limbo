@@ -2,7 +2,6 @@
 #include "set.h"
 #include "memory.h"
 #include <assert.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define MIN(x,y) ((x) < (y) ? (x) : (y))

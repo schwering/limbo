@@ -1,6 +1,5 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include "literal.h"
-#include <stdlib.h>
 #include <string.h>
 
 const pred_t SF = ~0;

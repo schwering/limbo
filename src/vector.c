@@ -6,7 +6,6 @@
 #include "vector.h"
 #include "memory.h"
 #include <assert.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define RESIZE_FACTOR 2
