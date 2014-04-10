@@ -186,6 +186,71 @@ static const clause_t *c12(const varmap_t *map)
     return c;
 }
 
+static const clause_t *c13(const varmap_t *map)
+{
+    // missing in the paper
+    const stdname_t n = varmap_lookup(map, a);
+    const bool cond = is_action(n);
+    const stdvec_t a_vec = stdvec_from_array(&n, 1);
+    const stdvec_t empty_vec = stdvec_init();
+    if (!cond) {
+        return NULL;
+    }
+    clause_t *c = NEW(clause_init());
+    clause_add(c, NEW(literal_init(&empty_vec, false, D(0), &empty_vec)));
+    clause_add(c, NEW(literal_init(&a_vec, true, D(0), &empty_vec)));
+    return c;
+}
+
+static const clause_t *c14(const varmap_t *map)
+{
+    // missing in the paper
+    const stdname_t n = varmap_lookup(map, a);
+    const bool cond = is_action(n) && n != FORWARD;
+    const stdvec_t a_vec = stdvec_from_array(&n, 1);
+    const stdvec_t empty_vec = stdvec_init();
+    if (!cond) {
+        return NULL;
+    }
+    clause_t *c = NEW(clause_init());
+    clause_add(c, NEW(literal_init(&a_vec, false, D(0), &empty_vec)));
+    clause_add(c, NEW(literal_init(&empty_vec, true, D(0), &empty_vec)));
+    return c;
+}
+
+static const clause_t *c15(const varmap_t *map)
+{
+    // missing in the paper
+    const stdname_t n = varmap_lookup(map, a);
+    const bool cond = is_action(n) && n == FORWARD;
+    const stdvec_t a_vec = stdvec_from_array(&n, 1);
+    const stdvec_t empty_vec = stdvec_init();
+    if (!cond) {
+        return NULL;
+    }
+    clause_t *c = NEW(clause_init());
+    clause_add(c, NEW(literal_init(&empty_vec, false, D(1), &empty_vec)));
+    clause_add(c, NEW(literal_init(&a_vec, true, D(0), &empty_vec)));
+    return c;
+}
+
+static const clause_t *c16(const varmap_t *map)
+{
+    // missing in the paper
+    const stdname_t n = varmap_lookup(map, a);
+    const bool cond = is_action(n) && n == FORWARD;
+    const stdvec_t a_vec = stdvec_from_array(&n, 1);
+    const stdvec_t empty_vec = stdvec_init();
+    if (!cond) {
+        return NULL;
+    }
+    clause_t *c = NEW(clause_init());
+    clause_add(c, NEW(literal_init(&a_vec, false, D(0), &empty_vec)));
+    clause_add(c, NEW(literal_init(&empty_vec, true, D(0), &empty_vec)));
+    clause_add(c, NEW(literal_init(&empty_vec, true, D(1), &empty_vec)));
+    return c;
+}
+
 // instantiate the generic clauses for some i > 0
 
 #define MAKE_UNIV_CLAUSES(i)\
@@ -206,9 +271,9 @@ MAKE_UNIV_CLAUSES(3);
 
 static void print_stdname(stdname_t n)
 {
-    if (n == FORWARD)       printf("f");
-    else if (n == SONAR)    printf("s");
-    else                    printf("#%ld", n);
+    if (n == 1)       printf("f");
+    else if (n == 2)  printf("s");
+    else              printf("#%ld", n);
 }
 
 static void print_pred(pred_t p)
@@ -274,16 +339,16 @@ static void print_pel(const pelset_t *pel)
     printf("---------------\n");
 }
 
-START_TEST(test_clause)
+static void make_bat(box_univ_clauses_t *dynamic_bat, univ_clauses_t *static_bat)
 {
-    const univ_clauses_t static_bat = ({
+    *static_bat = ({
         univ_clauses_t cs = univ_clauses_init();
         univ_clauses_append(&cs, NEW(((univ_clause_t) { .names = stdset_init(), .vars = varset_init(), .univ_clause = &c10 })));
         univ_clauses_append(&cs, NEW(((univ_clause_t) { .names = stdset_init(), .vars = varset_init(), .univ_clause = &c11 })));
         univ_clauses_append(&cs, NEW(((univ_clause_t) { .names = stdset_init(), .vars = varset_init(), .univ_clause = &c12 })));
         cs;
     });
-    const box_univ_clauses_t dynamic_bat = ({
+    *dynamic_bat = ({
         const varset_t vars = varset_singleton(a);
         stdset_t names = stdset_init();
         stdset_add(&names, FORWARD);
@@ -306,9 +371,19 @@ START_TEST(test_clause)
         box_univ_clauses_append(&cs, NEW(((box_univ_clause_t) { .c = (univ_clause_t) { .names = names, .vars = vars, .univ_clause = &c91 } })));
         box_univ_clauses_append(&cs, NEW(((box_univ_clause_t) { .c = (univ_clause_t) { .names = names, .vars = vars, .univ_clause = &c92 } })));
         box_univ_clauses_append(&cs, NEW(((box_univ_clause_t) { .c = (univ_clause_t) { .names = names, .vars = vars, .univ_clause = &c93 } })));
+        box_univ_clauses_append(&cs, NEW(((box_univ_clause_t) { .c = (univ_clause_t) { .names = names, .vars = vars, .univ_clause = &c13 } })));
+        box_univ_clauses_append(&cs, NEW(((box_univ_clause_t) { .c = (univ_clause_t) { .names = names, .vars = vars, .univ_clause = &c14 } })));
+        box_univ_clauses_append(&cs, NEW(((box_univ_clause_t) { .c = (univ_clause_t) { .names = names, .vars = vars, .univ_clause = &c15 } })));
+        box_univ_clauses_append(&cs, NEW(((box_univ_clause_t) { .c = (univ_clause_t) { .names = names, .vars = vars, .univ_clause = &c16 } })));
         cs;
     });
+}
 
+START_TEST(test_grounding)
+{
+    box_univ_clauses_t dynamic_bat;
+    univ_clauses_t static_bat;
+    make_bat(&dynamic_bat, &static_bat);
     const stdvec_t query_z = ({
         stdvec_t z = stdvec_init();
         stdvec_append(&z, FORWARD);
@@ -316,14 +391,16 @@ START_TEST(test_clause)
         z;
     });
     const stdvecset_t query_zs = stdvecset_singleton(&query_z);
-    const stdset_t query_ns = ({
+    const stdset_t hplus = ({
         stdset_t ns = stdset_init();
         stdset_add(&ns, FORWARD);
         stdset_add(&ns, SONAR);
-        ns;
+        const int n_vars = 0;
+        stdset_t hplus = bat_hplus(&dynamic_bat, &static_bat, &ns, n_vars);
+        stdset_add_all(&hplus, &ns);
+        hplus;
     });
-    const int n_query_vars = 0;
-    const setup_t setup = setup_ground_clauses(&dynamic_bat, &static_bat, &query_zs, &query_ns, n_query_vars);
+    const setup_t setup = setup_ground_clauses(&dynamic_bat, &static_bat, &hplus, &query_zs);
     print_setup(&setup);
     const pelset_t pel = setup_pel(&setup);
     print_pel(&pel);
@@ -337,7 +414,7 @@ START_TEST(test_clause)
         bool subsumed = false;
         for (int j = 0; j < setup_size(&setup_up); ++j) {
             const clause_t *d = setup_get(&setup_up, j);
-            if (clause_subsumes(d, c)) {
+            if (clause_contains_all(c, d)) {
                 subsumed = true;
                 break;
             }
@@ -347,11 +424,144 @@ START_TEST(test_clause)
 }
 END_TEST
 
+START_TEST(test_entailment)
+{
+    box_univ_clauses_t dynamic_bat;
+    univ_clauses_t static_bat;
+    make_bat(&dynamic_bat, &static_bat);
+    const stdvec_t empty_vec = stdvec_init();
+    const stdvec_t f_vec = stdvec_singleton(FORWARD);
+    const stdvec_t s_vec = stdvec_singleton(SONAR);
+    const literal_t sensing_forward = literal_init(&empty_vec, true, SF, &f_vec);
+    litset_t sensing_results = litset_singleton(&sensing_forward);
+
+    query_t *phi1 = NEW(((query_t) {
+        .type = NEG,
+        .u.neg = (query_unary_t) {
+            .phi = NEW(((query_t) {
+                .type = OR,
+                .u.or = (query_binary_t) {
+                    .phi1 = NEW(((query_t) {
+                        .type = LIT,
+                        .u.lit = literal_init(&empty_vec, true, D(0), &empty_vec)
+                    })),
+                    .phi2 = NEW(((query_t) {
+                        .type = LIT,
+                        .u.lit = literal_init(&empty_vec, true, D(1), &empty_vec)
+                    }))
+                }
+            }))
+        }
+    }));
+    ck_assert(query_test(&dynamic_bat, &static_bat, &sensing_results, phi1, 0));
+
+    query_t *phi2 = NEW(((query_t) {
+        .type = ACT,
+        .u.act = (query_action_t) {
+            .n = FORWARD,
+            .phi = NEW(((query_t) {
+                .type = OR,
+                .u.or = (query_binary_t) {
+                    .phi1 = NEW(((query_t) {
+                        .type = LIT,
+                        .u.lit = literal_init(&empty_vec, true, D(1), &empty_vec)
+                    })),
+                    .phi2 = NEW(((query_t) {
+                        .type = LIT,
+                        .u.lit = literal_init(&empty_vec, true, D(2), &empty_vec)
+                    }))
+                }
+            }))
+        }
+    }));
+    ck_assert(!query_test(&dynamic_bat, &static_bat, &sensing_results, phi2, 0));
+
+    query_t *phi3 = NEW(((query_t) {
+        .type = ACT,
+        .u.act = (query_action_t) {
+            .n = FORWARD,
+            .phi = NEW(((query_t) {
+                .type = OR,
+                .u.or = (query_binary_t) {
+                    .phi1 = NEW(((query_t) {
+                        .type = LIT,
+                        .u.lit = literal_init(&empty_vec, true, D(1), &empty_vec)
+                    })),
+                    .phi2 = NEW(((query_t) {
+                        .type = LIT,
+                        .u.lit = literal_init(&empty_vec, true, D(2), &empty_vec)
+                    }))
+                }
+            }))
+        }
+    }));
+    ck_assert(query_test(&dynamic_bat, &static_bat, &sensing_results, phi3, 1));
+
+    query_t *phi4 = NEW(((query_t) {
+        .type = ACT,
+        .u.act = (query_action_t) {
+            .n = FORWARD,
+            .phi = NEW(((query_t) {
+                .type = ACT,
+                .u.act = (query_action_t) {
+                    .n = SONAR,
+                    .phi = NEW(((query_t) {
+                        .type = OR,
+                        .u.or = (query_binary_t) {
+                            .phi1 = NEW(((query_t) {
+                                .type = LIT,
+                                .u.lit = literal_init(&empty_vec, true, D(0), &empty_vec)
+                            })),
+                            .phi2 = NEW(((query_t) {
+                                .type = LIT,
+                                .u.lit = literal_init(&empty_vec, true, D(1), &empty_vec)
+                            }))
+                        }
+                    }))
+                }
+            }))
+        }
+    }));
+    const literal_t sensing_sonar = literal_init(&f_vec, true, SF, &s_vec);
+    litset_add(&sensing_results, &sensing_sonar);
+    ck_assert(query_test(&dynamic_bat, &static_bat, &sensing_results, phi4, 1));
+
+    query_t *phi5 = NEW(((query_t) {
+        .type = ACT,
+        .u.act = (query_action_t) {
+            .n = FORWARD,
+            .phi = NEW(((query_t) {
+                .type = ACT,
+                .u.act = (query_action_t) {
+                    .n = SONAR,
+                    .phi = NEW(((query_t) {
+                        .type = OR,
+                        .u.or = (query_binary_t) {
+                            .phi1 = NEW(((query_t) {
+                                .type = LIT,
+                                .u.lit = literal_init(&empty_vec, true, D(0), &empty_vec)
+                            })),
+                            .phi2 = NEW(((query_t) {
+                                .type = LIT,
+                                .u.lit = literal_init(&empty_vec, true, D(1), &empty_vec)
+                            }))
+                        }
+                    }))
+                }
+            }))
+        }
+    }));
+    litset_clear(&sensing_results);
+    ck_assert(!query_test(&dynamic_bat, &static_bat, &sensing_results, phi5, 1));
+}
+END_TEST
+
 Suite *clause_suite(void)
 {
-  Suite *s = suite_create("Vector");
+  Suite *s = suite_create("Setup");
   TCase *tc_core = tcase_create("Core");
-  tcase_add_test(tc_core, test_clause);
+  tcase_add_test(tc_core, test_grounding);
+  tcase_add_test(tc_core, test_entailment);
   suite_add_tcase(s, tc_core);
   return s;
 }

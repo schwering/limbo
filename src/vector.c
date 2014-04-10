@@ -8,20 +8,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define INIT_SIZE 4
 #define RESIZE_FACTOR 2
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 
 vector_t vector_init(void)
 {
-    return vector_init_with_size(INIT_SIZE);
+    return vector_init_with_size(4);
 }
 
 vector_t vector_init_with_size(int size)
 {
     assert(size >= 0);
-    size = MAX(size, INIT_SIZE);
     return (vector_t) {
         .array = malloc(size * sizeof(void *)),
         .capacity = size,
@@ -61,6 +59,13 @@ vector_t vector_lazy_copy_range(const vector_t *src, int from, int to)
     return dst;
 }
 
+vector_t vector_singleton(const void *e)
+{
+    vector_t dst = vector_init_with_size(1);
+    vector_append(&dst, e);
+    return dst;
+}
+
 vector_t vector_from_array(const void *array[], int n)
 {
     vector_t dst = vector_init_with_size(n);
@@ -85,7 +90,7 @@ static void alloc_if_lazy(vector_t *vec)
 {
     if (vec->capacity < 0) {
         void const **array = vec->array;
-        vec->capacity = MAX(vec->size, INIT_SIZE);
+        vec->capacity = vec->size;
         vec->array = malloc(vec->capacity * sizeof(void *));
         memcpy(vec->array, array, vec->size * sizeof(void *));
     }
@@ -163,7 +168,7 @@ void vector_insert(vector_t *vec, int index, const void *elem)
     assert(0 <= index && index <= vec->size);
     alloc_if_lazy(vec);
     if (vec->size + 1 >= vec->capacity) {
-        vec->capacity *= RESIZE_FACTOR;
+        vec->capacity = (vec->capacity + 1) * RESIZE_FACTOR;
         vec->array = realloc(vec->array, vec->capacity * sizeof(void *));
     }
     memmove(vec->array + index + 1,
@@ -211,7 +216,7 @@ void vector_insert_all_range(vector_t *vec, int index,
     const int n_new_elems = to - from;
     if (vec->size + n_new_elems >= vec->capacity) {
         while (vec->size + n_new_elems >= vec->capacity) {
-            vec->capacity *= RESIZE_FACTOR;
+            vec->capacity = (vec->capacity + 1) * RESIZE_FACTOR;
         }
         vec->array = realloc(vec->array, vec->capacity * sizeof(void *));
     }

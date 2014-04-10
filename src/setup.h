@@ -71,17 +71,26 @@ struct query {
 const clause_t *clause_empty(void);
 bool clause_subsumes(const clause_t *c, const clause_t *d);
 
+stdset_t bat_hplus(
+        const box_univ_clauses_t *box_cs,
+        const univ_clauses_t *cs,
+        const stdset_t *query_names,
+        int n_query_vars);
+
 setup_t setup_ground_clauses(
         const box_univ_clauses_t *dynamic_bat,
         const univ_clauses_t *static_bat,
-        const stdvecset_t *query_zs,
-        const stdset_t *query_ns,
-        int n_query_vars);
+        const stdset_t *hplus,
+        const stdvecset_t *query_zs);
 pelset_t setup_pel(const setup_t *setup);
 setup_t setup_propagate_units(const setup_t *setup, const litset_t *split);
 
-bool query_test(const setup_t *setup, const pelset_t *pel,
-        query_t *phi, int k);
+bool query_test(
+        const box_univ_clauses_t *dynamic_bat,
+        const univ_clauses_t *static_bat,
+        const litset_t *sensing_results,
+        query_t *phi,
+        int k);
 void query_free(query_t *phi);
 
 #endif

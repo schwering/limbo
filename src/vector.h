@@ -56,6 +56,7 @@ vector_t vector_copy(const vector_t *src);
 vector_t vector_copy_range(const vector_t *src, int from, int to);
 vector_t vector_lazy_copy(const vector_t *src);
 vector_t vector_lazy_copy_range(const vector_t *src, int from, int to);
+vector_t vector_singleton(const void *e);
 vector_t vector_from_array(const void *array[], int n);
 void vector_cleanup(vector_t *vec);
 
@@ -100,6 +101,7 @@ void vector_clear(vector_t *vec);
     prefix##_t prefix##_lazy_copy(const prefix##_t *src);\
     prefix##_t prefix##_lazy_copy_range(const prefix##_t *src,\
             int from, int to);\
+    prefix##_t prefix##_singleton(const type e);\
     prefix##_t prefix##_from_array(const type array[], int n);\
     void prefix##_cleanup(prefix##_t *v);\
     const type prefix##_get(const prefix##_t *v, int index);\
@@ -143,6 +145,8 @@ void vector_clear(vector_t *vec);
             int from, int to) {\
         return (prefix##_t) { .v = vector_lazy_copy_range(&src->v,\
                 from, to) }; }\
+    prefix##_t prefix##_singleton(const type e) {\
+        return (prefix##_t) { .v = vector_singleton((const void *) e) }; }\
     prefix##_t prefix##_from_array(const type array[], int n) {\
         return (prefix##_t) {\
             .v = vector_from_array((const void **) array, n) }; }\
