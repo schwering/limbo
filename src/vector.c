@@ -21,7 +21,7 @@ vector_t vector_init_with_size(int size)
 {
     assert(size >= 0);
     return (vector_t) {
-        .array = eslmalloc(size * sizeof(void *)),
+        .array = MALLOC(size * sizeof(void *)),
         .capacity = size,
         .size = 0,
     };
@@ -79,7 +79,7 @@ vector_t vector_from_array(const void *array[], int n)
 void vector_cleanup(vector_t *vec)
 {
     if (vec->capacity >= 0 && vec->array != NULL) {
-        eslfree(vec->array);
+        FREE(vec->array);
     }
     vec->array = NULL;
     vec->size = 0;
@@ -91,7 +91,7 @@ static void alloc_if_lazy(vector_t *vec)
     if (vec->capacity < 0) {
         void const **array = vec->array;
         vec->capacity = vec->size;
-        vec->array = eslmalloc(vec->capacity * sizeof(void *));
+        vec->array = MALLOC(vec->capacity * sizeof(void *));
         memcpy(vec->array, array, vec->size * sizeof(void *));
     }
 }
@@ -169,7 +169,7 @@ void vector_insert(vector_t *vec, int index, const void *elem)
     alloc_if_lazy(vec);
     if (vec->size + 1 >= vec->capacity) {
         vec->capacity = (vec->capacity + 1) * RESIZE_FACTOR;
-        vec->array = eslrealloc(vec->array, vec->capacity * sizeof(void *));
+        vec->array = REALLOC(vec->array, vec->capacity * sizeof(void *));
     }
     memmove(vec->array + index + 1,
             vec->array + index,
@@ -218,7 +218,7 @@ void vector_insert_all_range(vector_t *vec, int index,
         while (vec->size + n_new_elems >= vec->capacity) {
             vec->capacity = (vec->capacity + 1) * RESIZE_FACTOR;
         }
-        vec->array = eslrealloc(vec->array, vec->capacity * sizeof(void *));
+        vec->array = REALLOC(vec->array, vec->capacity * sizeof(void *));
     }
     memmove(vec->array + index + n_new_elems,
             vec->array + index,

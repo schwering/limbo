@@ -4,7 +4,6 @@
 #include <assert.h>
 
 #define MAX(x,y)    ((x) > (y) ? (x) : (y))
-#define SWAP(x,y)   ({ const typeof(x) tmp = x; x = y; y = tmp; })
 
 SET_IMPL(litset, literal_t *, literal_cmp);
 SET_IMPL(setup, clause_t *, clause_cmp);
@@ -16,7 +15,7 @@ const clause_t *clause_empty(void)
     static clause_t c;
     static clause_t *ptr = NULL;
     if (ptr == NULL) {
-        c = clause_init_with_size(1);
+        c = clause_init_with_size(0);
         ptr = &c;
     }
     return ptr;
@@ -40,9 +39,9 @@ static const literal_t *clause_unit(const clause_t *c)
 
 static const clause_t *clause_resolve(const clause_t *c, const litset_t *u)
 {
-    clause_t *d = eslmalloc(sizeof(clause_t));
+    clause_t *d = MALLOC(sizeof(clause_t));
     *d = clause_lazy_copy(c);
-    int *indices = eslmalloc(clause_size(c) * sizeof(int));
+    int *indices = MALLOC(clause_size(c) * sizeof(int));
     int n_indices = 0;
     for (int i = 0; i < litset_size(u); ++i) {
         const literal_t l = literal_flip(litset_get(u, i));
@@ -52,7 +51,7 @@ static const clause_t *clause_resolve(const clause_t *c, const litset_t *u)
         }
     }
     clause_remove_all_indices(d, indices, n_indices);
-    eslfree(indices);
+    FREE(indices);
     return d;
 }
 
@@ -76,12 +75,12 @@ static void ground_univ(setup_t *setup, varmap_t *varmap,
 
 static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
 {
-    clause_t *d = eslmalloc(sizeof(clause_t));
+    clause_t *d = MALLOC(sizeof(clause_t));
     *d = clause_init_with_size(clause_size(c));
     for (int i = 0; i < clause_size(c); ++i) {
         const literal_t *l = clause_get(c, i);
         const stdvec_t zz = stdvec_concat(z, literal_z(l));
-        literal_t *ll = eslmalloc(sizeof(literal_t));
+        literal_t *ll = MALLOC(sizeof(literal_t));
         *ll = literal_init(&zz, literal_sign(l), literal_pred(l),
                 literal_args(l));
         const bool added = clause_add(d, ll);
@@ -90,9 +89,9 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
     const bool added = setup_add(setup, d);
     if (!added) {
         for (int i = 0; i < clause_size(d); ++i) {
-            eslfree((literal_t *) clause_get(d, i));
+            FREE((literal_t *) clause_get(d, i));
         }
-        eslfree(d);
+        FREE(d);
     }
 }
 
@@ -169,11 +168,11 @@ void clause_add_pel(const clause_t *c, pelset_t *pel)
     for (int i = 0; i < clause_size(c); ++i) {
         const literal_t *l = clause_get(c, i);
         if (!literal_sign(l)) {
-            literal_t *ll = eslmalloc(sizeof(literal_t));
+            literal_t *ll = MALLOC(sizeof(literal_t));
             *ll = literal_flip(l);
             const bool added = pelset_add(pel, ll);
             if (!added) {
-                eslfree(ll);
+                FREE(ll);
             }
         } else {
             pelset_add(pel, l);
@@ -220,8 +219,8 @@ setup_t setup_propagate_units(const setup_t *setup, const litset_t *split)
     bool new_units;
     do {
         new_units = false;
-        clause_t const **new_cs = eslmalloc(setup_size(&s) * sizeof(clause_t *));
-        int *old_cs = eslmalloc(setup_size(&s) * sizeof(int));
+        clause_t const **new_cs = MALLOC(setup_size(&s) * sizeof(clause_t *));
+        int *old_cs = MALLOC(setup_size(&s) * sizeof(int));
         int n = 0;
         for (int i = 0; i < setup_size(&s); ++i) {
             const clause_t *c = setup_get(&s, i);
@@ -240,11 +239,11 @@ setup_t setup_propagate_units(const setup_t *setup, const litset_t *split)
             const clause_t *d = new_cs[i];
             const bool added = setup_add(&s, d);
             if (!added) {
-                eslfree((clause_t *) d);
+                FREE((clause_t *) d);
             }
         }
-        eslfree(old_cs);
-        eslfree(new_cs);
+        FREE(old_cs);
+        FREE(new_cs);
     } while (new_units);
     return s;
 }

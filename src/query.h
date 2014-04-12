@@ -27,6 +27,7 @@ bool query_test(
         const litset_t *sensing_results,
         query_t *phi,
         int k);
+
 void query_free(query_t *phi);
 
 query_t *query_eq(stdname_t n1, stdname_t n2);

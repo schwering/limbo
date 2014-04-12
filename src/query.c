@@ -43,7 +43,7 @@ static int query_n_vars(const query_t *phi)
         case EX: {
             query_t *psi = phi->u.ex.phi(1);
             int n = query_n_vars(psi);
-            eslfree(psi);
+            FREE(psi);
             return n;
         }
         case ACT:
@@ -101,8 +101,8 @@ static stdset_t query_names(const query_t *phi)
             query_t *phi2 = phi->u.ex.phi(2);
             stdset_t set1 = query_names(phi1);
             stdset_t set2 = query_names(phi2);
-            eslfree(phi1);
-            eslfree(phi2);
+            FREE(phi1);
+            FREE(phi2);
             stdset_remove(&set1, 1);
             stdset_remove(&set2, 2);
             return stdset_union(&set1, &set2);
@@ -125,7 +125,7 @@ static query_t *query_ground_quantifier(bool existential,
     if (i + 1 == stdset_size(hplus)) {
         return psi1;
     } else {
-        query_t *xi = eslmalloc(sizeof(query_t));
+        query_t *xi = MALLOC(sizeof(query_t));
         query_t *psi2 = query_ground_quantifier(existential, phi, hplus, i + 1);
         if (existential) {
             xi->type = OR;
@@ -202,20 +202,20 @@ static query_t *query_ennf_h(query_t *phi, const stdset_t *hplus,
         }
         case NEG: {
             query_t *psi = query_ennf_h(phi->u.neg.phi, hplus, !flip, z);
-            eslfree(phi);
+            FREE(phi);
             return psi;
         }
         case EX: {
             const bool is_existential = !flip;
             query_t *psi = query_ground_quantifier(is_existential,
                     phi->u.ex.phi, hplus, 0);
-            eslfree(phi);
+            FREE(phi);
             return query_ennf_h(psi, hplus, flip, z);
         }
         case ACT: {
             const stdvec_t zz = stdvec_copy_append(z, phi->u.act.n);
             query_t *psi = phi->u.act.phi;
-            eslfree(phi);
+            FREE(phi);
             return query_ennf_h(psi, hplus, flip, &zz);
         }
     }
@@ -277,11 +277,11 @@ static query_t *query_simplify(query_t *phi, bool *truth_value)
     switch (phi->type)
         case EQ: {
             *truth_value = phi->u.eq.n1 == phi->u.eq.n2;
-            eslfree(phi);
+            FREE(phi);
             return NULL;
         case NEQ:
             *truth_value = phi->u.neq.n1 != phi->u.neq.n2;
-            eslfree(phi);
+            FREE(phi);
             return NULL;
         case LIT:
             return phi;
@@ -298,11 +298,11 @@ static query_t *query_simplify(query_t *phi, bool *truth_value)
             }
             if (phi->u.or.phi1 == NULL) {
                 query_t *psi = phi->u.or.phi2;
-                eslfree(phi);
+                FREE(phi);
                 return psi;
             } else if (phi->u.or.phi2 == NULL) {
                 query_t *psi = phi->u.or.phi1;
-                eslfree(phi);
+                FREE(phi);
                 return psi;
             } else {
                 return phi;
@@ -320,11 +320,11 @@ static query_t *query_simplify(query_t *phi, bool *truth_value)
             }
             if (phi->u.and.phi1 == NULL) {
                 query_t *psi = phi->u.and.phi2;
-                eslfree(phi);
+                FREE(phi);
                 return psi;
             } else if (phi->u.and.phi2 == NULL) {
                 query_t *psi = phi->u.and.phi1;
-                eslfree(phi);
+                FREE(phi);
                 return psi;
             } else {
                 return phi;
@@ -332,7 +332,7 @@ static query_t *query_simplify(query_t *phi, bool *truth_value)
         case NEG:
             phi->u.neg.phi = query_simplify(phi->u.neg.phi, truth_value);
             if (phi->u.neg.phi == NULL) {
-                eslfree(phi);
+                FREE(phi);
                 return NULL;
             }
             return phi;
@@ -352,9 +352,9 @@ static cnf_t query_cnf(const query_t *phi)
     // LIT, OR, AND
     switch (phi->type) {
         case LIT: {
-            literal_t *l = eslmalloc(sizeof(literal_t));
+            literal_t *l = MALLOC(sizeof(literal_t));
             *l = phi->u.lit;
-            clause_t *c = eslmalloc(sizeof(clause_t));
+            clause_t *c = MALLOC(sizeof(clause_t));
             *c = clause_singleton(l);
             return cnf_singleton(c);
         }
@@ -366,19 +366,19 @@ static cnf_t query_cnf(const query_t *phi)
                 for (int j = 0; j < cnf_size(&cnf2); ++j) {
                     const clause_t *c1 = cnf_get(&cnf1, i);
                     const clause_t *c2 = cnf_get(&cnf2, j);
-                    clause_t *c = eslmalloc(sizeof(clause_t));
+                    clause_t *c = MALLOC(sizeof(clause_t));
                     *c = clause_union(c1, c2);
                     const bool added = cnf_add(&cnf, c);
                     if (!added) {
-                        eslfree(c);
+                        FREE(c);
                     }
                 }
             }
             for (int i = 0; i < cnf_size(&cnf1); ++i) {
-                eslfree(cnf_get_unsafe(&cnf1, i));
+                FREE(cnf_get_unsafe(&cnf1, i));
             }
             for (int i = 0; i < cnf_size(&cnf2); ++i) {
-                eslfree(cnf_get_unsafe(&cnf2, i));
+                FREE(cnf_get_unsafe(&cnf2, i));
             }
             cnf_cleanup(&cnf1);
             cnf_cleanup(&cnf2);
@@ -409,11 +409,11 @@ static stdvecset_t clause_action_sequences(const clause_t *c)
     for (int i = 0; i < clause_size(c); ++i) {
         const stdvec_t *z = literal_z(clause_get(c, i));
         for (int j = 0; j < stdvec_size(z); ++j) {
-            stdvec_t *z_prefix = eslmalloc(sizeof(stdvec_t));
+            stdvec_t *z_prefix = MALLOC(sizeof(stdvec_t));
             *z_prefix = stdvec_lazy_copy_range(z, 0, j);
             const bool added = stdvecset_add(&zs, z_prefix);
             if (!added) {
-                eslfree(z_prefix);
+                FREE(z_prefix);
             }
         }
     }
@@ -527,7 +527,7 @@ bool query_test(
         setup_t s = setup_ground_clauses(dynamic_bat, static_bat, &hplus, &zs);
         for (int i = 0; i < litset_size(sensing_results); ++i) {
             const literal_t *l = litset_get(sensing_results, i);
-            clause_t *c = eslmalloc(sizeof(clause_t));
+            clause_t *c = MALLOC(sizeof(clause_t));
             *c = clause_singleton(l);
             setup_add(&s, c);
         }
@@ -557,28 +557,28 @@ void query_free(query_t *phi)
         case EQ:
         case NEQ:
         case LIT:
-            eslfree(phi);
+            FREE(phi);
             break;
         case OR:
             query_free(phi->u.or.phi1);
             query_free(phi->u.or.phi2);
-            eslfree(phi);
+            FREE(phi);
             break;
         case AND:
             query_free(phi->u.and.phi1);
             query_free(phi->u.and.phi2);
-            eslfree(phi);
+            FREE(phi);
             break;
         case NEG:
             query_free(phi->u.neg.phi);
-            eslfree(phi);
+            FREE(phi);
             break;
         case EX:
-            eslfree(phi);
+            FREE(phi);
             break;
         case ACT:
             query_free(phi->u.act.phi);
-            eslfree(phi);
+            FREE(phi);
             break;
     }
 }

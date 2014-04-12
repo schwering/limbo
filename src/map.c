@@ -15,7 +15,7 @@ map_t map_init_with_size(kv_compar_t compar, int size)
 void map_cleanup(map_t *map)
 {
     for (int i = 0; i < set_size(&map->set); ++i) {
-        eslfree((void *) set_get(&map->set, i));
+        FREE((void *) set_get(&map->set, i));
     }
     set_cleanup(&map->set);
 }
@@ -54,7 +54,7 @@ int map_size(const map_t *map)
 
 bool map_add(map_t *map, const void *key, const void *val)
 {
-    kv_t *kvp = eslmalloc(sizeof(kv_t));
+    kv_t *kvp = MALLOC(sizeof(kv_t));
     kvp->key = key;
     kvp->val = val;
     return set_add(&map->set, kvp);
@@ -70,7 +70,7 @@ const void *map_add_replace(map_t *map, const void *key, const void *val)
         ((kv_t *) kvp)->val = val;
         return old_val;
     } else {
-        kv_t *kvp = eslmalloc(sizeof(kv_t));
+        kv_t *kvp = MALLOC(sizeof(kv_t));
         kvp->key = key;
         kvp->val = val;
         set_add(&map->set, kvp);
@@ -84,7 +84,7 @@ const void *map_remove(map_t *map, const void *key)
     if (i != -1) {
         const kv_t *kvp = set_remove_index(&map->set, i);
         const void *old_val = kvp->val;
-        eslfree((kv_t *) kvp);
+        FREE((kv_t *) kvp);
         return old_val;
     } else {
         return NULL;

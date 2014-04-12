@@ -20,6 +20,9 @@
  * new setup anyway because the ordering could be confused otherwise. We use a
  * lazy copy to reduce the amount of copying.
  *
+ * setup_subsumes() returns true if unit propagation of the setup plus split
+ * literals contains a clause which is a subset of the given clause.
+ *
  * schwering@kbsg.rwth-aachen.de
  */
 #ifndef _SETUP_H_
