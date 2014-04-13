@@ -1,9 +1,14 @@
 *.a
+*.la
 *.o
+*.lo
 .*.swp
 *.log
 *.trs
 .deps
+ltmain.sh
+libtool
+m4/
 Makefile
 Makefile.in
 aclocal.m4

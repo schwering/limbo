@@ -11,6 +11,17 @@ int var_compar(var_t l, var_t r)
 
 VECTOR_IMPL(varvec, var_t, NULL);
 
+const stdvec_t *stdvec_empty(void)
+{
+    static stdvec_t c;
+    static stdvec_t *ptr = NULL;
+    if (ptr == NULL) {
+        c = stdvec_init_with_size(0);
+        ptr = &c;
+    }
+    return ptr;
+}
+
 SET_IMPL(varset, var_t, var_compar);
 
 int stdname_compar(stdname_t l, stdname_t r)

@@ -96,20 +96,20 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
 }
 
 stdset_t bat_hplus(
-        const box_univ_clauses_t *box_cs,
-        const univ_clauses_t *cs,
+        const univ_clauses_t *static_bat,
+        const box_univ_clauses_t *dynamic_bat,
         const stdset_t *query_names,
         int n_query_vars)
 {
     stdset_t names = stdset_copy(query_names);
     int max_vars = n_query_vars;
-    for (int i = 0; i < box_univ_clauses_size(box_cs); ++i) {
-        const box_univ_clause_t *c = box_univ_clauses_get(box_cs, i);
+    for (int i = 0; i < box_univ_clauses_size(dynamic_bat); ++i) {
+        const box_univ_clause_t *c = box_univ_clauses_get(dynamic_bat, i);
         stdset_add_all(&names, &c->c.names);
         max_vars = MAX(max_vars, varset_size(&c->c.vars));
     }
-    for (int i = 0; i < univ_clauses_size(cs); ++i) {
-        const univ_clause_t *c = univ_clauses_get(cs, i);
+    for (int i = 0; i < univ_clauses_size(static_bat); ++i) {
+        const univ_clause_t *c = univ_clauses_get(static_bat, i);
         stdset_add_all(&names, &c->names);
         max_vars = MAX(max_vars, varset_size(&c->vars));
     }
@@ -125,19 +125,24 @@ stdset_t bat_hplus(
     return names;
 }
 
-setup_t setup_ground_clauses(
-        const box_univ_clauses_t *dynamic_bat,
+setup_t setup_init_static(
         const univ_clauses_t *static_bat,
-        const stdset_t *hplus,
-        const stdvecset_t *query_zs)
+        const stdset_t *hplus)
 {
     setup_t setup = setup_init();
-    // first ground the static universally quantified clauses
     for (int i = 0; i < univ_clauses_size(static_bat); ++i) {
         const univ_clause_t *c = univ_clauses_get(static_bat, i);
         varmap_t varmap = varmap_init_with_size(varset_size(&c->vars));
         ground_univ(&setup, &varmap, c, hplus, 0);
     }
+    return setup;
+}
+
+setup_t setup_init_dynamic(
+        const box_univ_clauses_t *dynamic_bat,
+        const stdset_t *hplus,
+        const stdvecset_t *query_zs)
+{
     setup_t box_clauses = setup_init();
     // first ground the universal quantifiers
     // this is a bit complicated because we need to compute all possible
@@ -150,6 +155,7 @@ setup_t setup_ground_clauses(
     }
     // ground each box by substituting it with the prefixes of all action
     // sequences
+    setup_t setup = setup_init();
     for (int i = 0; i < setup_size(&box_clauses); ++i) {
         const clause_t *c = setup_get(&box_clauses, i);
         for (int j = 0; j < stdvecset_size(query_zs); ++j) {
@@ -160,10 +166,35 @@ setup_t setup_ground_clauses(
             }
         }
     }
+    setup_cleanup(&box_clauses);
     return setup;
 }
 
-void clause_add_pel(const clause_t *c, pelset_t *pel)
+setup_t setup_init_static_and_dynamic(
+        const univ_clauses_t *static_bat,
+        const box_univ_clauses_t *dynamic_bat,
+        const stdset_t *hplus,
+        const stdvecset_t *query_zs)
+{
+    setup_t static_setup = setup_init_static(static_bat, hplus);
+    setup_t dynamic_setup = setup_init_dynamic(dynamic_bat, hplus, query_zs);
+    setup_t setup = setup_union(&static_setup, &dynamic_setup);
+    setup_cleanup(&static_setup);
+    setup_cleanup(&dynamic_setup);
+    return setup;
+}
+
+void setup_add_sensing_results(setup_t *setup, const litset_t *sensing_results)
+{
+    for (int i = 0; i < litset_size(sensing_results); ++i) {
+        const literal_t *l = litset_get(sensing_results, i);
+        clause_t *c = MALLOC(sizeof(clause_t));
+        *c = clause_singleton(l);
+        setup_add(setup, c);
+    }
+}
+
+void add_pel_of_clause(pelset_t *pel, const clause_t *c)
 {
     for (int i = 0; i < clause_size(c); ++i) {
         const literal_t *l = clause_get(c, i);
@@ -184,7 +215,7 @@ pelset_t setup_pel(const setup_t *setup)
 {
     pelset_t pel = pelset_init();
     for (int i = 0; i < setup_size(setup); ++i) {
-        clause_add_pel(setup_get(setup, i), &pel);
+        add_pel_of_clause(&pel, setup_get(setup, i));
     }
     return pel;
 }
@@ -209,21 +240,28 @@ static void add_unit_clauses_from_setup(litset_t *ls, const setup_t *setup)
     }
 }
 
-setup_t setup_propagate_units(const setup_t *setup, const litset_t *split)
+static bool setup_contains_empty_clause(const setup_t *s)
 {
+    return setup_size(s) > 0 && clause_size(setup_get(s, 0)) == 0;
+}
+
+void setup_propagate_units(setup_t *setup, const litset_t *split)
+{
+    if (setup_contains_empty_clause(setup)) {
+        return;
+    }
     litset_t units = litset_lazy_copy(split);
     add_unit_clauses_from_setup(&units, setup);
-    setup_t s = setup_lazy_copy(setup);
     // XXX I think we don't have to add the split literals to the setup.
     // Otherwise we have to add all elements from split to &s.
     bool new_units;
     do {
         new_units = false;
-        clause_t const **new_cs = MALLOC(setup_size(&s) * sizeof(clause_t *));
-        int *old_cs = MALLOC(setup_size(&s) * sizeof(int));
+        clause_t const **new_cs = MALLOC(setup_size(setup) * sizeof(clause_t *));
+        int *old_cs = MALLOC(setup_size(setup) * sizeof(int));
         int n = 0;
-        for (int i = 0; i < setup_size(&s); ++i) {
-            const clause_t *c = setup_get(&s, i);
+        for (int i = 0; i < setup_size(setup); ++i) {
+            const clause_t *c = setup_get(setup, i);
             const clause_t *d = clause_resolve(c, &units);
             if (!clause_eq(c, d)) {
                 new_cs[n] = d;
@@ -234,27 +272,24 @@ setup_t setup_propagate_units(const setup_t *setup, const litset_t *split)
                 }
             }
         }
-        setup_remove_all_indices(&s, old_cs, n);
+        setup_remove_all_indices(setup, old_cs, n);
         for (int i = 0; i < n; ++i) {
             const clause_t *d = new_cs[i];
-            const bool added = setup_add(&s, d);
+            const bool added = setup_add(setup, d);
             if (!added) {
                 FREE((clause_t *) d);
             }
         }
         FREE(old_cs);
         FREE(new_cs);
-    } while (new_units);
-    return s;
+    } while (new_units && !setup_contains_empty_clause(setup));
 }
 
 bool setup_subsumes(const setup_t *setup, const litset_t *split,
         const clause_t *c)
 {
-    const setup_t s = setup_propagate_units(setup, split);
-    if (setup_size(&s) > 0 && clause_size(setup_get(&s, 0)) == 0) {
-        return true;
-    }
+    setup_t s = setup_lazy_copy(setup);
+    setup_propagate_units(&s, split);
     for (int i = 0; i < setup_size(&s); ++i) {
         if (clause_contains_all(c, setup_get(&s, i))) {
             return true;

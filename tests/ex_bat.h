@@ -336,7 +336,7 @@ static void print_pel(const pelset_t *pel)
     printf("---------------\n");
 }
 
-static void make_bat(box_univ_clauses_t *dynamic_bat, univ_clauses_t *static_bat)
+static void make_bat(univ_clauses_t *static_bat, box_univ_clauses_t *dynamic_bat)
 {
     *static_bat = ({
         univ_clauses_t cs = univ_clauses_init();

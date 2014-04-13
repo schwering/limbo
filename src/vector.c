@@ -79,11 +79,19 @@ vector_t vector_from_array(const void *array[], int n)
 void vector_cleanup(vector_t *vec)
 {
     if (vec->capacity >= 0 && vec->array != NULL) {
+#ifndef NDEBUG
+        memset(vec->array, 0, vec->capacity * sizeof(void *));
+#endif
         FREE(vec->array);
     }
     vec->array = NULL;
     vec->size = 0;
     vec->capacity = 0;
+}
+
+bool vector_is_lazy_copy(const vector_t *vec)
+{
+    return vec->capacity < 0;
 }
 
 static void alloc_if_lazy(vector_t *vec)
@@ -135,6 +143,16 @@ bool vector_eq(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *))
 {
     return vec1->size == vec2->size && vector_cmp(vec1, vec2, compar) == 0;
+}
+
+bool vector_is_prefix(const vector_t *vec1, const vector_t *vec2,
+        int (*compar)(const void *, const void *))
+{
+    if (vector_size(vec1) > vector_size(vec2)) {
+        return false;
+    }
+    const vector_t prefix = vector_lazy_copy_range(vec2, 0, vector_size(vec1));
+    return vector_eq(vec1, &prefix, compar);
 }
 
 const void **vector_array(const vector_t *vec)

@@ -141,6 +141,31 @@ START_TEST(test_vector_remove_all)
 }
 END_TEST
 
+START_TEST(test_vector_cmp)
+{
+    ivec_t vec1 = ivec_init();
+    ivec_t vec2 = ivec_init();
+    for (int i = 0; i < 10; ++i) {
+        ivec_append(&vec1, i);
+        ivec_append(&vec2, i);
+    }
+    ck_assert_int_eq(ivec_size(&vec1), 10);
+    ck_assert_int_eq(ivec_size(&vec2), 10);
+    ck_assert(ivec_eq(&vec1, &vec2));
+    ck_assert(ivec_is_prefix(&vec1, &vec2));
+    ivec_remove(&vec1, ivec_size(&vec1) - 1);
+    ck_assert(!ivec_eq(&vec1, &vec2));
+    ck_assert(ivec_is_prefix(&vec1, &vec2));
+    ck_assert(ivec_cmp(&vec1, &vec2) < 0);
+    ivec_append(&vec1, 0);
+    ck_assert(!ivec_eq(&vec1, &vec2));
+    ck_assert(!ivec_is_prefix(&vec1, &vec2));
+    ck_assert(ivec_cmp(&vec1, &vec2) < 0);
+    ivec_cleanup(&vec1);
+    ivec_cleanup(&vec2);
+}
+END_TEST
+
 Suite *ivec_suite(void)
 {
   Suite *s = suite_create("Vector");
@@ -148,6 +173,7 @@ Suite *ivec_suite(void)
   tcase_add_test(tc_core, test_vector_insert);
   tcase_add_test(tc_core, test_vector_insert_all);
   tcase_add_test(tc_core, test_vector_remove_all);
+  tcase_add_test(tc_core, test_vector_cmp);
   suite_add_tcase(s, tc_core);
   return s;
 }

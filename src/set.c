@@ -162,6 +162,11 @@ void set_cleanup(set_t *set)
     vector_cleanup(&set->vec);
 }
 
+bool set_is_lazy_copy(const set_t *set)
+{
+    return vector_is_lazy_copy(&set->vec);
+}
+
 int set_cmp(const set_t *set1, const set_t *set2)
 {
     assert(set1->compar == set2->compar);

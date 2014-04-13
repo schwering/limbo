@@ -22,6 +22,7 @@
  *
  * setup_subsumes() returns true if unit propagation of the setup plus split
  * literals contains a clause which is a subset of the given clause.
+ * Thus, setup_subsumes() is sound but not complete.
  *
  * schwering@kbsg.rwth-aachen.de
  */
@@ -52,21 +53,33 @@ VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
 const clause_t *clause_empty(void);
 
 stdset_t bat_hplus(
-        const box_univ_clauses_t *box_cs,
-        const univ_clauses_t *cs,
+        const univ_clauses_t *static_bat,
+        const box_univ_clauses_t *dynamic_bat,
         const stdset_t *query_names,
         int n_query_vars);
 
-setup_t setup_ground_clauses(
-        const box_univ_clauses_t *dynamic_bat,
+setup_t setup_init_static(
         const univ_clauses_t *static_bat,
+        const stdset_t *hplus);
+
+setup_t setup_init_dynamic(
+        const box_univ_clauses_t *dynamic_bat,
         const stdset_t *hplus,
         const stdvecset_t *query_zs);
 
-void clause_add_pel(const clause_t *c, pelset_t *pel);
+setup_t setup_init_static_and_dynamic(
+        const univ_clauses_t *static_bat,
+        const box_univ_clauses_t *dynamic_bat,
+        const stdset_t *hplus,
+        const stdvecset_t *query_zs);
+
+void setup_add_sensing_results(setup_t *setup, const litset_t *sensing_results);
+
+void add_pel_of_clause(pelset_t *pel, const clause_t *c);
+
 pelset_t setup_pel(const setup_t *setup);
 
-setup_t setup_propagate_units(const setup_t *setup, const litset_t *split);
+void setup_propagate_units(setup_t *setup, const litset_t *split);
 
 bool setup_subsumes(const setup_t *setup, const litset_t *split,
         const clause_t *c);

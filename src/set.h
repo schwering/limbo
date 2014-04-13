@@ -55,6 +55,7 @@ set_t set_union(const set_t *left, const set_t *right);
 set_t set_difference(const set_t *left, const set_t *right);
 set_t set_intersection(const set_t *left, const set_t *right);
 void set_cleanup(set_t *set);
+bool set_is_lazy_copy(const set_t *set);
 
 int set_cmp(const set_t *set1, const set_t *set2);
 bool set_eq(const set_t *set1, const set_t *set2);
@@ -90,6 +91,7 @@ void set_clear(set_t *set);
     prefix##_t prefix##_intersection(\
             const prefix##_t *left, const prefix##_t *right);\
     void prefix##_cleanup(prefix##_t *s);\
+    bool prefix##_is_lazy_copy(const prefix##_t *s);\
     int prefix##_cmp(const prefix##_t *s1, const prefix##_t *s2);\
     bool prefix##_eq(const prefix##_t *s1, const prefix##_t *s2);\
     const type prefix##_get(const prefix##_t *s, int index);\
@@ -131,6 +133,8 @@ void set_clear(set_t *set);
             const prefix##_t *left, const prefix##_t *right) {\
         return (prefix##_t) { .s = set_intersection(&left->s, &right->s) }; }\
     void prefix##_cleanup(prefix##_t *s) { set_cleanup(&s->s); }\
+    bool prefix##_is_lazy_copy(const prefix##_t *s) {\
+        return set_is_lazy_copy(&s->s); }\
     int prefix##_cmp(const prefix##_t *s1, const prefix##_t *s2) {\
         return set_cmp(&s1->s, &s2->s); }\
     bool prefix##_eq(const prefix##_t *s1, const prefix##_t *s2) {\
@@ -189,6 +193,8 @@ void set_clear(set_t *set);
              .s = prefix##_intersection(&left->s, &right->s) }; }\
     static inline void alias##_cleanup(alias##_t *s) {\
          prefix##_cleanup(&s->s); }\
+    static inline bool alias##_is_lazy_copy(const alias##_t *s) {\
+        return prefix##_is_lazy_copy(&s->s); }\
     static inline int alias##_cmp(const alias##_t *s1,\
              const alias##_t *s2) {\
          return prefix##_cmp(&s1->s, &s2->s); }\

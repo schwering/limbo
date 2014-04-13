@@ -13,7 +13,8 @@
  * vector not being modified afterwards; otherwise the behavior of the new
  * vector is undefined. All lazy copies of a vector may be modified freely,
  * however, without any interdependencies.
- * Deallocation is done with vector_cleanup().
+ * Deallocation is done with vector_cleanup(). It's not necessary to deallocate
+ * a lazy copy (unless it was modified and thus is not lazy anymore). 
  *
  * vector_cmp() compares as follows. If the two vectors have different size,
  * the shorter one is less than the the longer one. If both vectors have the
@@ -24,7 +25,7 @@
  * efficiently find unit clauses.
  *
  * After vector_insert(), vector_get() returns the inserted element for the
- * respective index. After vector_insert_all[_rang](), first element of the
+ * respective index. After vector_insert_all[_range](), first element of the
  * [indicated range of the] source is at the respective index of the target,
  * followed by the remaining elements from [the range of] the target.
  *
@@ -59,6 +60,7 @@ vector_t vector_lazy_copy_range(const vector_t *src, int from, int to);
 vector_t vector_singleton(const void *e);
 vector_t vector_from_array(const void *array[], int n);
 void vector_cleanup(vector_t *vec);
+bool vector_is_lazy_copy(const vector_t *vec);
 
 const void *vector_get(const vector_t *vec, int index);
 const void **vector_array(const vector_t *vec);
@@ -67,6 +69,8 @@ int vector_size(const vector_t *vec);
 int vector_cmp(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *));
 bool vector_eq(const vector_t *vec1, const vector_t *vec2,
+        int (*compar)(const void *, const void *));
+bool vector_is_prefix(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *));
 
 void vector_set(vector_t *vec, int index, const void *elem);
@@ -104,11 +108,13 @@ void vector_clear(vector_t *vec);
     prefix##_t prefix##_singleton(const type e);\
     prefix##_t prefix##_from_array(const type array[], int n);\
     void prefix##_cleanup(prefix##_t *v);\
+    bool prefix##_is_lazy_copy(const prefix##_t *v);\
     const type prefix##_get(const prefix##_t *v, int index);\
     const type *prefix##_array(const prefix##_t *v);\
     int prefix##_size(const prefix##_t *v);\
     int prefix##_cmp(const prefix##_t *v1, const prefix##_t *v2);\
     bool prefix##_eq(const prefix##_t *v1, const prefix##_t *v2);\
+    bool prefix##_is_prefix(const prefix##_t *v1, const prefix##_t *v2);\
     void prefix##_set(prefix##_t *v, int index, const type elem);\
     void prefix##_prepend(prefix##_t *v, const type elem);\
     void prefix##_append(prefix##_t *v, const type elem);\
@@ -152,6 +158,8 @@ void vector_clear(vector_t *vec);
             .v = vector_from_array((const void **) array, n) }; }\
     void prefix##_cleanup(prefix##_t *v) {\
         vector_cleanup(&v->v); }\
+    bool prefix##_is_lazy_copy(const prefix##_t *v) {\
+        return vector_is_lazy_copy(&v->v); }\
     const type prefix##_get(const prefix##_t *v, int index) {\
         return (const type) vector_get(&v->v, index); }\
     const type *prefix##_array(const prefix##_t *v) {\
@@ -163,6 +171,9 @@ void vector_clear(vector_t *vec);
                 (int (*)(const void *, const void *)) compar); }\
     bool prefix##_eq(const prefix##_t *v1, const prefix##_t *v2) {\
         return vector_eq(&v1->v, &v2->v,\
+                (int (*)(const void *, const void *)) compar); }\
+    bool prefix##_is_prefix(const prefix##_t *v1, const prefix##_t *v2) {\
+        return vector_is_prefix(&v1->v, &v2->v,\
                 (int (*)(const void *, const void *)) compar); }\
     void prefix##_set(prefix##_t *v, int index, const type elem) {\
         vector_set(&v->v, index, (const void *) elem); }\
