@@ -600,7 +600,7 @@ bool query_entailed_by_setup(
         stdvecset_t zs = query_ennf_zs(phi);
         stdvecset_contains_all(&ctx->query_zs, &zs);
         if (have_new_hplus || !stdvecset_contains_all(&ctx->query_zs, &zs)) {
-            setup_cleanup(&ctx->query_zs);
+            stdvecset_cleanup(&ctx->query_zs);
             setup_cleanup(&ctx->dynamic_setup);
             ctx->query_zs = stdvecset_init_with_size(stdvecset_size(&zs));
             for (int i = 0; i < stdvecset_size(&zs); ++i) {

@@ -141,14 +141,14 @@ START_TEST(test_setup_entailment)
 
     context_t ctx = context_init(&static_bat, &dynamic_bat, &context_z, &context_sf);
 
-    printf("Q0\n");
+    //printf("Q0\n");
     query_t *phi0 =
         query_and(
             query_lit(empty_vec, false, D(0), empty_vec),
             query_lit(empty_vec, false, D(1), empty_vec));
     ck_assert(query_entailed_by_setup(&ctx, false, phi0, 0));
 
-    printf("Q1\n");
+    //printf("Q1\n");
     query_t *phi1 =
         query_neg(
             query_or(
@@ -156,7 +156,7 @@ START_TEST(test_setup_entailment)
                 query_lit(empty_vec, true, D(1), empty_vec)));
     ck_assert(query_entailed_by_setup(&ctx, false, phi1, 0));
 
-    printf("Q2\n");
+    //printf("Q2\n");
     query_t *phi3 =
         query_act(FORWARD,
             query_or(
@@ -164,7 +164,7 @@ START_TEST(test_setup_entailment)
                 query_lit(empty_vec, true, D(2), empty_vec)));
     ck_assert(query_entailed_by_setup(&ctx, false, phi3, 1));
 
-    printf("Q3\n");
+    //printf("Q3\n");
     query_t *phi2 =
         query_act(FORWARD,
             query_or(
@@ -180,22 +180,22 @@ START_TEST(test_setup_entailment)
     litset_add(&context_sf, &sensing_sonar);
     ctx = context_init(&static_bat, &dynamic_bat, &context_z, &context_sf);
 
-    printf("Q4\n");
+    //printf("Q4\n");
     query_t *phi4 =
         query_or(
             query_lit(empty_vec, true, D(0), empty_vec),
             query_lit(empty_vec, true, D(1), empty_vec));
     ck_assert(query_entailed_by_setup(&ctx, false, phi4, 1));
 
-    printf("Q5\n");
+    //printf("Q5\n");
     query_t *phi5 = query_lit(empty_vec, true, D(0), empty_vec);
     ck_assert(!query_entailed_by_setup(&ctx, false, phi5, 1));
 
-    printf("Q6\n");
+    //printf("Q6\n");
     query_t *phi6 = query_lit(empty_vec, true, D(1), empty_vec);
     ck_assert(query_entailed_by_setup(&ctx, false, phi6, 1));
 
-    printf("Q7\n");
+    //printf("Q7\n");
     query_t *phi7 =
         query_act(SONAR,
             query_or(
@@ -203,7 +203,7 @@ START_TEST(test_setup_entailment)
                 query_lit(empty_vec, true, D(1), empty_vec)));
     ck_assert(query_entailed_by_setup(&ctx, false, phi7, 1));
 
-    printf("Q8\n");
+    //printf("Q8\n");
     query_t *phi8 =
         query_act(SONAR,
             query_act(SONAR,
@@ -212,7 +212,7 @@ START_TEST(test_setup_entailment)
                     query_lit(empty_vec, true, D(1), empty_vec))));
     ck_assert(query_entailed_by_setup(&ctx, false, phi8, 1));
 
-    printf("Q9\n");
+    //printf("Q9\n");
     query_t *phi9 =
         query_act(FORWARD,
             query_or(
@@ -220,7 +220,7 @@ START_TEST(test_setup_entailment)
                 query_lit(empty_vec, true, D(1), empty_vec)));
     ck_assert(query_entailed_by_setup(&ctx, false, phi9, 1));
 
-    printf("Q10\n");
+    //printf("Q10\n");
     query_t *phi10 =
         query_act(FORWARD,
             query_act(FORWARD,
