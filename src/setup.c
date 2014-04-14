@@ -191,7 +191,16 @@ void add_pel_of_clause(pelset_t *pel, const clause_t *c)
         const literal_t *l = clause_get(c, i);
         // XXX TODO is that still sound?
         // We don't add SF literals to PEL to keep the semantics equivalent to
-        // the ESL paper.
+        // the ESL paper: We want to treat SF literals which come from reasoning
+        // about actions (rule 11 and 12 in V in the KR-2014 paper) same like
+        // other split literals, as this simplifies the code. This however also
+        // affects the k parameter. Our solution is to let the splitting run
+        // until k = 0 (inclusive) and split non-SF literals only for k > 0 and
+        // split SF literals only for k = 0. Now if we would add SF literals
+        // from the sense axioms to PEL, these could always be split even for
+        // k = 0 and therefore we could get (sound) positive results which the
+        // formal semantics would not find, because it wouldn't split this SF
+        // literal.
         if (literal_pred(l) == SF) {
             continue;
         }

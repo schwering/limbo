@@ -390,9 +390,9 @@ static stdvecset_t clause_action_sequences_without_context(const clause_t *c,
 
 static bool query_test_split(
         const setup_t *original_setup,
+        const pelset_t *original_pel,
         setup_t *setup,
-        splitset_t *split,
-        const pelset_t *pel,
+        pelset_t *pel,
         const stdvec_t *context_z,
         const clause_t *c,
         int k)
@@ -404,25 +404,22 @@ static bool query_test_split(
     for (int i = 0; i < pelset_size(pel); ++i) {
         const literal_t *l1 = pelset_get(pel, i);
         const literal_t l2 = literal_flip(l1);
-        if (splitset_contains(split, l1) || splitset_contains(split, &l2) ||
-                ((literal_pred(l1) == SF) != (k == 0))) {
+        if ((literal_pred(l1) == SF) != (k == 0)) {
             continue;
         }
+        pelset_remove_index(pel, i--);
         const clause_t c1 = clause_singleton(l1);
         const clause_t c2 = clause_singleton(&l2);
-        splitset_add(split, l1);
+        const int k1 = (literal_pred(l1) == SF) ? k : k - 1;
         setup_t setup1 = setup_lazy_copy(setup);
         setup_add(&setup1, &c1);
-        bool r = query_test_split(original_setup, &setup1, split, pel, context_z, c, k - 1);
-        splitset_remove(split, l1);
+        bool r = query_test_split(original_setup, original_pel, &setup1, pel, context_z, c, k1);
         if (!r) {
             continue;
         }
-        splitset_add(split, &l2);
         setup_t setup2 = setup_lazy_copy(setup);
         setup_add(&setup2, &c2);
-        r &= query_test_split(original_setup, &setup2, split, pel, context_z, c, k - 1);
-        splitset_remove(split, &l2);
+        r &= query_test_split(original_setup, original_pel, &setup2, pel, context_z, c, k1);
         if (r) {
             return true;
         }
@@ -430,10 +427,10 @@ static bool query_test_split(
     return false;
 }
 
-static bool query_test_clause(const setup_t *setup, const pelset_t *pel,
+static bool query_test_clause(const setup_t *original_setup, const pelset_t *original_pel,
         const stdvec_t *context_z, const clause_t *c, int k)
 {
-    pelset_t pel_and_sf = pelset_lazy_copy(pel);
+    pelset_t pel_and_sf = pelset_lazy_copy(original_pel);
     const stdvecset_t zs = clause_action_sequences_without_context(c, context_z);
     for (int i = 0; i < stdvecset_size(&zs); ++i) {
         const stdvec_t *z = stdvecset_get(&zs, i);
@@ -444,9 +441,8 @@ static bool query_test_clause(const setup_t *setup, const pelset_t *pel,
         *sf = literal_init(&z_prefix, true, SF, &n_vec);
         pelset_add(&pel_and_sf, sf);
     }
-    splitset_t split = splitset_init_with_size(k);
-    setup_t working_setup = setup_lazy_copy(setup);
-    return query_test_split(setup, &working_setup, &split, &pel_and_sf, context_z, c, k);
+    setup_t setup = setup_lazy_copy(original_setup);
+    return query_test_split(original_setup, original_pel, &setup, &pel_and_sf, context_z, c, k);
 }
 
 context_t context_init(
