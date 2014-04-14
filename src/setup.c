@@ -2,6 +2,7 @@
 #include "setup.h"
 #include "memory.h"
 #include <assert.h>
+#include "../tests/ex_bat.h"
 
 #define MAX(x,y)    ((x) > (y) ? (x) : (y))
 
@@ -188,6 +189,12 @@ void add_pel_of_clause(pelset_t *pel, const clause_t *c)
 {
     for (int i = 0; i < clause_size(c); ++i) {
         const literal_t *l = clause_get(c, i);
+        // XXX TODO is that still sound?
+        // We don't add SF literals to PEL to keep the semantics equivalent to
+        // the ESL paper.
+        if (literal_pred(l) == SF) {
+            continue;
+        }
         if (!literal_sign(l)) {
             literal_t *ll = MALLOC(sizeof(literal_t));
             *ll = literal_flip(l);
@@ -232,7 +239,51 @@ static bool setup_contains_empty_clause(const setup_t *s)
     return setup_size(s) > 0 && clause_size(setup_get(s, 0)) == 0;
 }
 
-void setup_propagate_units(setup_t *setup, const splitset_t *split)
+void setup_propagate_units(setup_t *setup)
+{
+    if (setup_contains_empty_clause(setup)) {
+        return;
+    }
+    splitset_t units = splitset_init();
+    add_unit_clauses_from_setup(&units, setup);
+    bool new_units;
+    do {
+        new_units = false;
+        clause_t const **new_cs = MALLOC(setup_size(setup) * sizeof(clause_t *));
+        int *old_cs = MALLOC(setup_size(setup) * sizeof(int));
+        int n = 0;
+        for (int i = 0; i < setup_size(setup); ++i) {
+            const clause_t *c = setup_get(setup, i);
+            const clause_t *d = clause_resolve(c, &units);
+            if (!clause_eq(c, d)) {
+                new_cs[n] = d;
+                old_cs[n] = i;
+                ++n;
+                if (clause_is_unit(d)) {
+                    new_units |= splitset_add(&units, clause_unit(d));
+                }
+            }
+        }
+        setup_remove_all_indices(setup, old_cs, n);
+        for (int i = 0; i < n; ++i) {
+            const clause_t *d = new_cs[i];
+            setup_add(setup, d);
+        }
+    } while (new_units && !setup_contains_empty_clause(setup));
+}
+
+bool setup_subsumes(setup_t *setup, const clause_t *c)
+{
+    setup_propagate_units(setup);
+    for (int i = 0; i < setup_size(setup); ++i) {
+        if (clause_contains_all(c, setup_get(setup, i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void setup_propagate_units2(setup_t *setup, const splitset_t *split)
 {
     if (setup_contains_empty_clause(setup)) {
         return;
@@ -267,11 +318,11 @@ void setup_propagate_units(setup_t *setup, const splitset_t *split)
     } while (new_units && !setup_contains_empty_clause(setup));
 }
 
-bool setup_subsumes(const setup_t *setup, const splitset_t *split,
+bool setup_subsumes2(const setup_t *setup, const splitset_t *split,
         const clause_t *c)
 {
     setup_t s = setup_lazy_copy(setup);
-    setup_propagate_units(&s, split);
+    setup_propagate_units2(&s, split);
     for (int i = 0; i < setup_size(&s); ++i) {
         if (clause_contains_all(c, setup_get(&s, i))) {
             return true;

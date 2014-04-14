@@ -30,7 +30,7 @@ START_TEST(test_grounding)
     print_pel(&pel);
     const splitset_t split = splitset_init();
     setup_t setup_up = setup_lazy_copy(&setup);
-    setup_propagate_units(&setup_up, &split);
+    setup_propagate_units2(&setup_up, &split);
     print_setup(&setup_up);
 
     ck_assert(!setup_contains(&setup_up, clause_empty()));
@@ -80,68 +80,68 @@ START_TEST(test_entailment)
     clause_t d0d1 = clause_init();
     clause_add(&d0d1, &d0);
     clause_add(&d0d1, &d1);
-    ck_assert(!setup_subsumes(&setup, &split, &d0d1));
+    ck_assert(!setup_subsumes2(&setup, &split, &d0d1));
 
     clause_t d0d2 = clause_init();
     clause_add(&d0d1, &d0);
-    ck_assert(!setup_subsumes(&setup, &split, &d0d2));
+    ck_assert(!setup_subsumes2(&setup, &split, &d0d2));
 
     clause_t d1d2 = clause_init();
     clause_add(&d0d1, &d1);
     clause_add(&d0d1, &d2);
-    ck_assert(!setup_subsumes(&setup, &split, &d1d2));
+    ck_assert(!setup_subsumes2(&setup, &split, &d1d2));
 
     clause_t d2d3 = clause_init();
     clause_add(&d0d1, &d1);
     clause_add(&d0d1, &d2);
-    ck_assert(!setup_subsumes(&setup, &split, &d2d3));
+    ck_assert(!setup_subsumes2(&setup, &split, &d2d3));
 
     clause_t fd1fd2 = clause_init();
     clause_add(&fd1fd2, &fd1);
     clause_add(&fd1fd2, &fd2);
-    ck_assert(!setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(!setup_subsumes2(&setup, &split, &fd1fd2));
 
     // split d0
     splitset_clear(&split);
     splitset_add(&split, &d0);
-    ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
 
     splitset_clear(&split);
     splitset_add(&split, &nd0);
-    ck_assert(!setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(!setup_subsumes2(&setup, &split, &fd1fd2));
 
     // split d1
     splitset_clear(&split);
     splitset_add(&split, &d1);
-    ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
 
     splitset_clear(&split);
     splitset_add(&split, &nd1);
-    ck_assert(!setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(!setup_subsumes2(&setup, &split, &fd1fd2));
 
     // split d2
     splitset_clear(&split);
     splitset_add(&split, &d2);
-    ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
 
     splitset_clear(&split);
     splitset_add(&split, &nd2);
-    ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
 
     // split d3
     splitset_clear(&split);
     splitset_add(&split, &d3);
-    ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
 
     splitset_clear(&split);
     splitset_add(&split, &nd3);
-    ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
 
     // inconsistent split
     splitset_clear(&split);
     splitset_add(&split, &d4);
     splitset_add(&split, &nd4);
-    ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
+    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
 }
 END_TEST
 

@@ -81,9 +81,13 @@ void add_pel_of_clause(pelset_t *pel, const clause_t *c);
 
 pelset_t setup_pel(const setup_t *setup);
 
-void setup_propagate_units(setup_t *setup, const splitset_t *split);
+void setup_propagate_units(setup_t *setup);
+void setup_propagate_units2(setup_t *setup, const splitset_t *split);
 
 bool setup_subsumes(
+        setup_t *setup,
+        const clause_t *c);
+bool setup_subsumes2(
         const setup_t *setup,
         const splitset_t *split,
         const clause_t *c);
