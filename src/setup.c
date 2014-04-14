@@ -51,7 +51,6 @@ static const clause_t *clause_resolve(const clause_t *c, const litset_t *u)
         }
     }
     clause_remove_all_indices(d, indices, n_indices);
-    FREE(indices);
     return d;
 }
 
@@ -86,13 +85,7 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
         const bool added = clause_add(d, ll);
         assert(added);
     }
-    const bool added = setup_add(setup, d);
-    if (!added) {
-        for (int i = 0; i < clause_size(d); ++i) {
-            FREE((literal_t *) clause_get(d, i));
-        }
-        FREE(d);
-    }
+    setup_add(setup, d);
 }
 
 stdset_t bat_hplus(
@@ -166,7 +159,6 @@ setup_t setup_init_dynamic(
             }
         }
     }
-    setup_cleanup(&box_clauses);
     return setup;
 }
 
@@ -179,8 +171,6 @@ setup_t setup_init_static_and_dynamic(
     setup_t static_setup = setup_init_static(static_bat, hplus);
     setup_t dynamic_setup = setup_init_dynamic(dynamic_bat, hplus, query_zs);
     setup_t setup = setup_union(&static_setup, &dynamic_setup);
-    setup_cleanup(&static_setup);
-    setup_cleanup(&dynamic_setup);
     return setup;
 }
 
@@ -201,10 +191,7 @@ void add_pel_of_clause(pelset_t *pel, const clause_t *c)
         if (!literal_sign(l)) {
             literal_t *ll = MALLOC(sizeof(literal_t));
             *ll = literal_flip(l);
-            const bool added = pelset_add(pel, ll);
-            if (!added) {
-                FREE(ll);
-            }
+            pelset_add(pel, ll);
         } else {
             pelset_add(pel, l);
         }
@@ -275,13 +262,8 @@ void setup_propagate_units(setup_t *setup, const litset_t *split)
         setup_remove_all_indices(setup, old_cs, n);
         for (int i = 0; i < n; ++i) {
             const clause_t *d = new_cs[i];
-            const bool added = setup_add(setup, d);
-            if (!added) {
-                FREE((clause_t *) d);
-            }
+            setup_add(setup, d);
         }
-        FREE(old_cs);
-        FREE(new_cs);
     } while (new_units && !setup_contains_empty_clause(setup));
 }
 
