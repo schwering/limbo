@@ -98,6 +98,32 @@ START_TEST(test_vector_insert_all)
 }
 END_TEST
 
+START_TEST(test_vector_remove_range)
+{
+    ivec_t vec = ivec_init();
+    for (int from = 0; from < 10; ++from) {
+        for (int to = from; to <= 10; ++to) {
+            for (int i = 0; i < 10; ++i) {
+                ivec_append(&vec, i);
+            }
+            ck_assert_int_eq(ivec_size(&vec), 10);
+            ivec_remove_range(&vec, from, to);
+            ck_assert_int_eq(ivec_size(&vec), 10 - (to - from));
+            for (int i = 0; i < ivec_size(&vec); ++i) {
+                if (i < from) {
+                    ck_assert_int_eq(ivec_get(&vec, i), i);
+                } else {
+                    ck_assert_int_eq(ivec_get(&vec, i), i+(to-from));
+                }
+            }
+            ivec_remove_range(&vec, 0, ivec_size(&vec));
+            ck_assert_int_eq(ivec_size(&vec), 0);
+            ivec_cleanup(&vec);
+        }
+    }
+}
+END_TEST
+
 START_TEST(test_vector_remove_all)
 {
     ivec_t vec = ivec_init();
@@ -172,6 +198,7 @@ Suite *ivec_suite(void)
   TCase *tc_core = tcase_create("Core");
   tcase_add_test(tc_core, test_vector_insert);
   tcase_add_test(tc_core, test_vector_insert_all);
+  tcase_add_test(tc_core, test_vector_remove_range);
   tcase_add_test(tc_core, test_vector_remove_all);
   tcase_add_test(tc_core, test_vector_cmp);
   suite_add_tcase(s, tc_core);

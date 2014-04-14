@@ -395,7 +395,7 @@ static bool query_test_split(
         pelset_t *pel,
         const stdvec_t *context_z,
         const clause_t *c,
-        int k)
+        const int k)
 {
     bool r = setup_subsumes(setup, c);
     if (r || k < 0) {
@@ -403,10 +403,10 @@ static bool query_test_split(
     }
     for (int i = 0; i < pelset_size(pel); ++i) {
         const literal_t *l1 = pelset_get(pel, i);
-        const literal_t l2 = literal_flip(l1);
         if ((literal_pred(l1) == SF) != (k == 0)) {
             continue;
         }
+        const literal_t l2 = literal_flip(l1);
         pelset_remove_index(pel, i--);
         const clause_t c1 = clause_singleton(l1);
         const clause_t c2 = clause_singleton(&l2);
@@ -442,6 +442,7 @@ static bool query_test_clause(const setup_t *original_setup, const pelset_t *ori
         pelset_add(&pel_and_sf, sf);
     }
     setup_t setup = setup_lazy_copy(original_setup);
+    //pel_optimize(&pel_and_sf, &setup);
     return query_test_split(original_setup, original_pel, &setup, &pel_and_sf, context_z, c, k);
 }
 
@@ -458,6 +459,7 @@ context_t context_init(
     setup_t dynamic_setup = setup_init_dynamic(dynamic_bat, &hplus, &query_zs);
     setup_t setup = setup_union(&static_setup, &dynamic_setup);
     setup_add_sensing_results(&setup, context_sf);
+    setup_propagate_units(&setup);
     return (context_t) {
         .static_bat    = static_bat,
         .dynamic_bat   = dynamic_bat,
@@ -543,6 +545,7 @@ bool query_entailed_by_setup(
     }
     if (have_new_static_setup || have_new_dynamic_setup) {
         ctx->setup = setup_union(&ctx->static_setup, &ctx->dynamic_setup);
+        setup_propagate_units(&ctx->setup);
         setup_add_sensing_results(&ctx->setup, ctx->context_sf);
         ctx->setup_pel = setup_pel(&ctx->setup);
     }

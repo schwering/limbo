@@ -93,6 +93,7 @@ void vector_insert_all_range(vector_t *vec, int index,
 const void *vector_remove_first(vector_t *vec);
 const void *vector_remove_last(vector_t *vec);
 const void *vector_remove(vector_t *vec, int index);
+void vector_remove_range(vector_t *vec, int from, int to);
 void vector_remove_all(vector_t *vec, const int indices[], int n_indices);
 void vector_clear(vector_t *vec);
 
@@ -132,6 +133,7 @@ void vector_clear(vector_t *vec);
     const type prefix##_remove_first(prefix##_t *v);\
     const type prefix##_remove_last(prefix##_t *v);\
     const type prefix##_remove(prefix##_t *v, int index);\
+    void prefix##_remove_range(prefix##_t *v, int from, int to);\
     void prefix##_remove_all(prefix##_t *v, const int indices[],\
             int n_indices);\
     void prefix##_clear(prefix##_t *v);
@@ -205,6 +207,8 @@ void vector_clear(vector_t *vec);
         return (const type) vector_remove_last(&v->v); }\
     const type prefix##_remove(prefix##_t *v, int index) {\
         return (const type) vector_remove(&v->v, index); }\
+    void prefix##_remove_range(prefix##_t *v, int from, int to) {\
+        vector_remove_range(&v->v, from, to); }\
     void prefix##_remove_all(prefix##_t *v,\
             const int indices[], int n_indices) {\
         vector_remove_all(&v->v, indices, n_indices); }\

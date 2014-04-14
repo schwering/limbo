@@ -34,8 +34,8 @@
 #include "term.h"
 
 SET_DECL(clause, literal_t *);
-SET_ALIAS(pelset, clause, literal_t *);
 SET_ALIAS(splitset, clause, literal_t *);
+SET_ALIAS(pelset, clause, literal_t *);
 SET_DECL(setup, clause_t *);
 SET_ALIAS(cnf, setup, clause_t *);
 
@@ -78,7 +78,6 @@ void setup_add_sensing_results(
         const splitset_t *sensing_results);
 
 void add_pel_of_clause(pelset_t *pel, const clause_t *c);
-
 pelset_t setup_pel(const setup_t *setup);
 
 void setup_propagate_units(setup_t *setup);

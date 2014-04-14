@@ -275,9 +275,12 @@ void set_remove_all(set_t *set, const set_t *elems)
 
 const void *set_remove_index(set_t *set, int index)
 {
-    const void *elem = vector_get(&set->vec, index);
-    vector_remove(&set->vec, index);
-    return elem;
+    return vector_remove(&set->vec, index);
+}
+
+void set_remove_index_range(set_t *set, int from, int to)
+{
+    vector_remove_range(&set->vec, from, to);
 }
 
 void set_remove_all_indices(set_t *set, const int indices[], int n_indices)

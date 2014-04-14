@@ -272,6 +272,22 @@ const void *vector_remove(vector_t *vec, int index)
     return elem;
 }
 
+void vector_remove_range(vector_t *vec, int from, int to)
+{
+    const int n_less_elems = to - from;
+    if (n_less_elems <= 0) {
+        return;
+    }
+    assert(0 <= from && to <= vec->size);
+    if (to < vec->size) {
+        alloc_if_lazy(vec);
+        memmove(vec->array + from,
+                vec->array + to,
+                (vec->size - to) * sizeof(void *));
+    }
+    vec->size -= n_less_elems;
+}
+
 void vector_remove_all(vector_t *vec, const int indices[], int n_indices)
 {
     if (n_indices == 0) {

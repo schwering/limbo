@@ -2,7 +2,6 @@
 #include "setup.h"
 #include "memory.h"
 #include <assert.h>
-#include "../tests/ex_bat.h"
 
 #define MAX(x,y)    ((x) > (y) ? (x) : (y))
 
@@ -187,6 +186,9 @@ void setup_add_sensing_results(setup_t *setup, const splitset_t *sensing_results
 
 void add_pel_of_clause(pelset_t *pel, const clause_t *c)
 {
+    if (clause_is_unit(c)) {
+        return;
+    }
     for (int i = 0; i < clause_size(c); ++i) {
         const literal_t *l = clause_get(c, i);
         // XXX TODO is that still sound?
@@ -214,12 +216,30 @@ void add_pel_of_clause(pelset_t *pel, const clause_t *c)
     }
 }
 
+static void pel_optimize(pelset_t *pel, const setup_t *setup)
+{
+    for (int i = 0; i < pelset_size(pel); ++i) {
+        const literal_t *l1 = pelset_get(pel, i);
+        const literal_t l2 = literal_flip(l1);
+        for (int j = 0; j < setup_size(setup); ++j) {
+            const clause_t *c = setup_get(setup, j);
+            if (clause_is_unit(c)) {
+                if (clause_contains(c, l1) || clause_contains(c, &l2)) {
+                    pelset_remove_index(pel, i--);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 pelset_t setup_pel(const setup_t *setup)
 {
     pelset_t pel = pelset_init();
     for (int i = 0; i < setup_size(setup); ++i) {
         add_pel_of_clause(&pel, setup_get(setup, i));
     }
+    pel_optimize(&pel, setup);
     return pel;
 }
 

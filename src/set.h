@@ -74,6 +74,7 @@ void set_add_all(set_t *set, const set_t *elems);
 bool set_remove(set_t *set, const void *elem);
 void set_remove_all(set_t *set, const set_t *elems);
 const void *set_remove_index(set_t *set, int index);
+void set_remove_index_range(set_t *set, int from, int to);
 void set_remove_all_indices(set_t *set, const int indices[], int n_indices);
 void set_clear(set_t *set);
 
@@ -106,6 +107,7 @@ void set_clear(set_t *set);
     bool prefix##_remove(prefix##_t *s, const type elem);\
     void prefix##_remove_all(prefix##_t *s, const prefix##_t *elems);\
     const type prefix##_remove_index(prefix##_t *s, int index);\
+    void prefix##_remove_index_range(prefix##_t *s, int from, int to);\
     void prefix##_remove_all_indices(prefix##_t *s, const int indices[],\
             int n_indices);\
     void prefix##_clear(prefix##_t *s);
@@ -163,6 +165,8 @@ void set_clear(set_t *set);
         set_remove_all(&s->s, &elems->s); }\
     const type prefix##_remove_index(prefix##_t *s, int index) {\
         return (const type) set_remove_index(&s->s, index); }\
+    void prefix##_remove_index_range(prefix##_t *s, int from, int to) {\
+        set_remove_index_range(&s->s, from, to); }\
     void prefix##_remove_all_indices(prefix##_t *s, const int indices[],\
             int n_indices) {\
         set_remove_all_indices(&s->s, indices, n_indices); }\
@@ -227,6 +231,9 @@ void set_clear(set_t *set);
          prefix##_remove_all(&s->s, &elems->s); }\
     static inline const type alias##_remove_index(alias##_t *s, int index) {\
          return prefix##_remove_index(&s->s, index); }\
+    static inline void alias##_remove_index_range(alias##_t *s, int from,\
+            int to) {\
+        prefix##_remove_index_range(&s->s, from, to); }\
     static inline void alias##_remove_all_indices(alias##_t *s,\
             const int indices[], int n_indices) {\
         prefix##_remove_all_indices(&s->s, indices, n_indices); }\
