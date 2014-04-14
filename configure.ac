@@ -14,7 +14,9 @@ AC_ARG_ENABLE(gc,
 		       AC_DEFINE(USE_BOEHM_GC)
 	       fi
 	      ],
-	      memory_alloc="BOEHM_GC")
+	      [memory_alloc="BOEHM_GC"
+	       AC_DEFINE(USE_BOEHM_GC)
+	      ])
 AC_ARG_ENABLE(nedmalloc,
 	      [  --enable-nedmalloc      use nedmalloc for memory allocation [default=no]],
 	      [if test x$enableval = xyes
