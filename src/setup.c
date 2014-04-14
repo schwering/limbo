@@ -5,21 +5,7 @@
 
 #define MAX(x,y)    ((x) > (y) ? (x) : (y))
 
-static int splitset_literal_cmp(const literal_t *l1, const literal_t *l2)
-{
-    const pred_t p1 = literal_pred(l1);
-    const pred_t p2 = literal_pred(l2);
-    if (p1 == SF && p2 != SF) {
-        return -1;
-    } else if (p1 != SF && p2 == SF) {
-        return 1;
-    } else {
-        return literal_cmp(l1, l2);
-    }
-}
-
 SET_IMPL(clause, literal_t *, literal_cmp);
-SET_IMPL(splitset, literal_t *, splitset_literal_cmp);
 SET_IMPL(setup, clause_t *, clause_cmp);
 VECTOR_IMPL(univ_clauses, univ_clause_t *, NULL);
 VECTOR_IMPL(box_univ_clauses, box_univ_clause_t *, NULL);
