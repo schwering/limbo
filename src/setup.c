@@ -5,7 +5,21 @@
 
 #define MAX(x,y)    ((x) > (y) ? (x) : (y))
 
-SET_IMPL(litset, literal_t *, literal_cmp);
+static int splitset_literal_cmp(const literal_t *l1, const literal_t *l2)
+{
+    const pred_t p1 = literal_pred(l1);
+    const pred_t p2 = literal_pred(l2);
+    if (p1 == SF && p2 != SF) {
+        return -1;
+    } else if (p1 != SF && p2 == SF) {
+        return 1;
+    } else {
+        return literal_cmp(l1, l2);
+    }
+}
+
+SET_IMPL(clause, literal_t *, literal_cmp);
+SET_IMPL(splitset, literal_t *, splitset_literal_cmp);
 SET_IMPL(setup, clause_t *, clause_cmp);
 VECTOR_IMPL(univ_clauses, univ_clause_t *, NULL);
 VECTOR_IMPL(box_univ_clauses, box_univ_clause_t *, NULL);
@@ -37,14 +51,14 @@ static const literal_t *clause_unit(const clause_t *c)
     return clause_get(c, 0);
 }
 
-static const clause_t *clause_resolve(const clause_t *c, const litset_t *u)
+static const clause_t *clause_resolve(const clause_t *c, const splitset_t *u)
 {
     clause_t *d = MALLOC(sizeof(clause_t));
     *d = clause_lazy_copy(c);
     int *indices = MALLOC(clause_size(c) * sizeof(int));
     int n_indices = 0;
-    for (int i = 0; i < litset_size(u); ++i) {
-        const literal_t l = literal_flip(litset_get(u, i));
+    for (int i = 0; i < splitset_size(u); ++i) {
+        const literal_t l = literal_flip(splitset_get(u, i));
         const int j = clause_find(d, &l);
         if (j != -1) {
             indices[n_indices++] = j;
@@ -174,10 +188,10 @@ setup_t setup_init_static_and_dynamic(
     return setup;
 }
 
-void setup_add_sensing_results(setup_t *setup, const litset_t *sensing_results)
+void setup_add_sensing_results(setup_t *setup, const splitset_t *sensing_results)
 {
-    for (int i = 0; i < litset_size(sensing_results); ++i) {
-        const literal_t *l = litset_get(sensing_results, i);
+    for (int i = 0; i < splitset_size(sensing_results); ++i) {
+        const literal_t *l = splitset_get(sensing_results, i);
         clause_t *c = MALLOC(sizeof(clause_t));
         *c = clause_singleton(l);
         setup_add(setup, c);
@@ -207,14 +221,14 @@ pelset_t setup_pel(const setup_t *setup)
     return pel;
 }
 
-static void add_unit_clauses_from_setup(litset_t *ls, const setup_t *setup)
+static void add_unit_clauses_from_setup(splitset_t *ls, const setup_t *setup)
 {
     for (int i = 0; i < setup_size(setup); ++i) {
         const clause_t *c = setup_get(setup, i);
         if (clause_is_empty(c)) {
             continue;
         } else if (clause_is_unit(c)) {
-            litset_add(ls, clause_unit(c));
+            splitset_add(ls, clause_unit(c));
         } else {
             // Clauses are sets, which are again stored as vectors, and
             // vector_cmp()'s first ordering criterion is the length.
@@ -232,12 +246,12 @@ static bool setup_contains_empty_clause(const setup_t *s)
     return setup_size(s) > 0 && clause_size(setup_get(s, 0)) == 0;
 }
 
-void setup_propagate_units(setup_t *setup, const litset_t *split)
+void setup_propagate_units(setup_t *setup, const splitset_t *split)
 {
     if (setup_contains_empty_clause(setup)) {
         return;
     }
-    litset_t units = litset_lazy_copy(split);
+    splitset_t units = splitset_lazy_copy(split);
     add_unit_clauses_from_setup(&units, setup);
     // XXX I think we don't have to add the split literals to the setup.
     // Otherwise we have to add all elements from split to &s.
@@ -255,7 +269,7 @@ void setup_propagate_units(setup_t *setup, const litset_t *split)
                 old_cs[n] = i;
                 ++n;
                 if (clause_is_unit(d)) {
-                    new_units |= litset_add(&units, clause_unit(d));
+                    new_units |= splitset_add(&units, clause_unit(d));
                 }
             }
         }
@@ -267,7 +281,7 @@ void setup_propagate_units(setup_t *setup, const litset_t *split)
     } while (new_units && !setup_contains_empty_clause(setup));
 }
 
-bool setup_subsumes(const setup_t *setup, const litset_t *split,
+bool setup_subsumes(const setup_t *setup, const splitset_t *split,
         const clause_t *c)
 {
     setup_t s = setup_lazy_copy(setup);

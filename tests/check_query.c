@@ -14,11 +14,11 @@ START_TEST(test_bat_entailment)
     const literal_t sensing_forward = literal_init(&empty_vec, true, SF, &f_vec);
     const literal_t sensing_sonar = literal_init(&f_vec, true, SF, &s_vec);
     stdvec_t context_z = stdvec_init_with_size(0);
-    litset_t context_sf = litset_init_with_size(0);
+    splitset_t context_sf = splitset_init_with_size(0);
 
     stdvec_clear(&context_z);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_forward);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_forward);
     query_t *phi1 =
         query_neg(
             query_or(
@@ -27,8 +27,8 @@ START_TEST(test_bat_entailment)
     ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi1, 0));
 
     stdvec_clear(&context_z);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_forward);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_forward);
     query_t *phi2 =
         query_act(FORWARD,
             query_or(
@@ -38,8 +38,8 @@ START_TEST(test_bat_entailment)
 
     stdvec_clear(&context_z);
     stdvec_append(&context_z, FORWARD);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_forward);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_forward);
     phi2 =
         query_or(
             query_lit(empty_vec, true, D(1), empty_vec),
@@ -48,8 +48,8 @@ START_TEST(test_bat_entailment)
 
     stdvec_clear(&context_z);
     stdvec_append(&context_z, FORWARD);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_forward);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_forward);
     query_t *phi3 =
         query_or(
             query_lit(empty_vec, true, D(1), empty_vec),
@@ -57,8 +57,8 @@ START_TEST(test_bat_entailment)
     ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi3, 1));
 
     stdvec_clear(&context_z);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_forward);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_forward);
     phi3 =
         query_act(FORWARD,
             query_or(
@@ -69,9 +69,9 @@ START_TEST(test_bat_entailment)
     stdvec_clear(&context_z);
     stdvec_append(&context_z, FORWARD);
     stdvec_append(&context_z, SONAR);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_forward);
-    litset_add(&context_sf, &sensing_sonar);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_forward);
+    splitset_add(&context_sf, &sensing_sonar);
     query_t *phi4 =
         query_or(
             query_lit(empty_vec, true, D(0), empty_vec),
@@ -79,9 +79,9 @@ START_TEST(test_bat_entailment)
     ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi4, 1));
 
     stdvec_clear(&context_z);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_forward);
-    litset_add(&context_sf, &sensing_sonar);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_forward);
+    splitset_add(&context_sf, &sensing_sonar);
     phi4 =
         query_act(FORWARD,
             query_act(SONAR,
@@ -93,8 +93,8 @@ START_TEST(test_bat_entailment)
     stdvec_clear(&context_z);
     stdvec_append(&context_z, FORWARD);
     stdvec_append(&context_z, SONAR);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_forward);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_forward);
     query_t *phi5 =
         query_or(
             query_lit(empty_vec, true, D(0), empty_vec),
@@ -102,8 +102,8 @@ START_TEST(test_bat_entailment)
     ck_assert(!query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi5, 1));
 
     stdvec_clear(&context_z);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_forward);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_forward);
     phi5 =
         query_act(FORWARD,
             query_act(SONAR,
@@ -115,8 +115,8 @@ START_TEST(test_bat_entailment)
     stdvec_clear(&context_z);
     stdvec_append(&context_z, FORWARD);
     stdvec_append(&context_z, SONAR);
-    litset_clear(&context_sf);
-    litset_add(&context_sf, &sensing_sonar);
+    splitset_clear(&context_sf);
+    splitset_add(&context_sf, &sensing_sonar);
     query_t *phi6 =
         query_act(FORWARD,
             query_or(
@@ -137,7 +137,7 @@ START_TEST(test_setup_entailment)
     const literal_t sensing_forward = literal_init(&empty_vec, true, SF, &f_vec);
     const literal_t sensing_sonar = literal_init(&f_vec, true, SF, &s_vec);
     stdvec_t context_z = stdvec_init_with_size(0);
-    litset_t context_sf = litset_init_with_size(0);
+    splitset_t context_sf = splitset_init_with_size(0);
 
     context_t ctx = context_init(&static_bat, &dynamic_bat, &context_z, &context_sf);
 
@@ -175,8 +175,8 @@ START_TEST(test_setup_entailment)
 
     stdvec_append(&context_z, FORWARD);
     stdvec_append(&context_z, SONAR);
-    litset_add(&context_sf, &sensing_forward);
-    litset_add(&context_sf, &sensing_sonar);
+    splitset_add(&context_sf, &sensing_forward);
+    splitset_add(&context_sf, &sensing_sonar);
     ctx = context_init(&static_bat, &dynamic_bat, &context_z, &context_sf);
 
     //printf("Q4\n");

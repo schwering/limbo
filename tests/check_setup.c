@@ -28,7 +28,7 @@ START_TEST(test_grounding)
     print_setup(&setup);
     const pelset_t pel = setup_pel(&setup);
     print_pel(&pel);
-    const litset_t split = litset_init();
+    const splitset_t split = splitset_init();
     setup_t setup_up = setup_lazy_copy(&setup);
     setup_propagate_units(&setup_up, &split);
     print_setup(&setup_up);
@@ -75,7 +75,7 @@ START_TEST(test_entailment)
     const literal_t fd1 = literal_init(&f_vec, true, D(1), &empty_vec);
     const literal_t fd2 = literal_init(&f_vec, true, D(2), &empty_vec);
 
-    litset_t split = litset_init();
+    splitset_t split = splitset_init();
 
     clause_t d0d1 = clause_init();
     clause_add(&d0d1, &d0);
@@ -102,45 +102,45 @@ START_TEST(test_entailment)
     ck_assert(!setup_subsumes(&setup, &split, &fd1fd2));
 
     // split d0
-    litset_clear(&split);
-    litset_add(&split, &d0);
+    splitset_clear(&split);
+    splitset_add(&split, &d0);
     ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
 
-    litset_clear(&split);
-    litset_add(&split, &nd0);
+    splitset_clear(&split);
+    splitset_add(&split, &nd0);
     ck_assert(!setup_subsumes(&setup, &split, &fd1fd2));
 
     // split d1
-    litset_clear(&split);
-    litset_add(&split, &d1);
+    splitset_clear(&split);
+    splitset_add(&split, &d1);
     ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
 
-    litset_clear(&split);
-    litset_add(&split, &nd1);
+    splitset_clear(&split);
+    splitset_add(&split, &nd1);
     ck_assert(!setup_subsumes(&setup, &split, &fd1fd2));
 
     // split d2
-    litset_clear(&split);
-    litset_add(&split, &d2);
+    splitset_clear(&split);
+    splitset_add(&split, &d2);
     ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
 
-    litset_clear(&split);
-    litset_add(&split, &nd2);
+    splitset_clear(&split);
+    splitset_add(&split, &nd2);
     ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
 
     // split d3
-    litset_clear(&split);
-    litset_add(&split, &d3);
+    splitset_clear(&split);
+    splitset_add(&split, &d3);
     ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
 
-    litset_clear(&split);
-    litset_add(&split, &nd3);
+    splitset_clear(&split);
+    splitset_add(&split, &nd3);
     ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
 
     // inconsistent split
-    litset_clear(&split);
-    litset_add(&split, &d4);
-    litset_add(&split, &nd4);
+    splitset_clear(&split);
+    splitset_add(&split, &d4);
+    splitset_add(&split, &nd4);
     ck_assert(setup_subsumes(&setup, &split, &fd1fd2));
 }
 END_TEST

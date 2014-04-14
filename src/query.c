@@ -388,7 +388,8 @@ static stdvecset_t clause_action_sequences_without_context(const clause_t *c,
     return zs;
 }
 
-static bool query_test_sense(const setup_t *setup, litset_t *split,
+#if 0
+static bool query_test_sense(const setup_t *setup, splitset_t *split,
         const pelset_t *pel, const clause_t *c, stdvecset_t *zs)
 {
     if (setup_subsumes(setup, split, c)) {
@@ -402,13 +403,13 @@ static bool query_test_sense(const setup_t *setup, litset_t *split,
             const stdvec_t n_vec = stdvec_singleton(n);
             const literal_t sf1 = literal_init(&z_prefix, true, SF, &n_vec);
             const literal_t sf2 = literal_flip(&sf1);
-            litset_add(split, &sf1);
+            splitset_add(split, &sf1);
             bool r = query_test_sense(setup, split, pel, c, zs);
-            litset_remove(split, &sf1);
+            splitset_remove(split, &sf1);
             if (r) {
-                litset_add(split, &sf2);
+                splitset_add(split, &sf2);
                 r &= query_test_sense(setup, split, pel, c, zs);
-                litset_remove(split, &sf2);
+                splitset_remove(split, &sf2);
             }
             return r;
         } else {
@@ -418,8 +419,19 @@ static bool query_test_sense(const setup_t *setup, litset_t *split,
         return false;
     }
 }
+#endif
 
-static bool query_test_split(const setup_t *setup, litset_t *split,
+static long int rand(void)
+{
+    static long int a = 9301;
+    static long int c = 49297;
+    static long int m = 233280;
+    static long int i = 31;
+    i = ((i * a) + c) % m;
+    return i;
+}
+
+static bool query_test_split(const setup_t *setup, splitset_t *split,
         const pelset_t *pel, const stdvec_t *context_z, const clause_t *c,
         int k)
 {
@@ -427,55 +439,57 @@ static bool query_test_split(const setup_t *setup, litset_t *split,
         return true;
     }
     if (k > 0) {
-        bool tried = false;
         for (int i = 0; i < pelset_size(pel); ++i) {
             const literal_t l1 = *pelset_get(pel, i);
             const literal_t l2 = literal_flip(&l1);
-            if (litset_contains(split, &l1) || litset_contains(split, &l2)) {
+            if (splitset_contains(split, &l1) || splitset_contains(split, &l2)) {
                 continue;
             }
-            tried = true;
-            litset_add(split, &l1);
+            splitset_add(split, &l1);
             bool r = query_test_split(setup, split, pel, context_z, c, k-1);
-            litset_remove(split, &l1);
+            splitset_remove(split, &l1);
             if (!r) {
                 continue;
             }
-            litset_add(split, &l2);
+            splitset_add(split, &l2);
             r &= query_test_split(setup, split, pel, context_z, c, k-1);
-            litset_remove(split, &l2);
+            splitset_remove(split, &l2);
             if (r) {
                 return true;
             }
         }
-        if (!tried) {
-            stdvecset_t zs = clause_action_sequences_without_context(c,
-                    context_z);
-            return query_test_sense(setup, split, pel, c, &zs);
-        }
         return false;
     } else {
-        stdvecset_t zs = clause_action_sequences_without_context(c, context_z);
-        return query_test_sense(setup, split, pel, c, &zs);
+        return setup_subsumes(setup, split, c);
     }
 }
 
 static bool query_test_clause(const setup_t *setup, const pelset_t *pel,
         const stdvec_t *context_z, const clause_t *c, int k)
 {
-    litset_t split = litset_init_with_size(k);
+    splitset_t split = splitset_init_with_size(k);
     if (setup_subsumes(setup, &split, c)) {
         return true;
     }
-    const bool r = query_test_split(setup, &split, pel, context_z, c, k);
-    return r;
+    const stdvecset_t zs = clause_action_sequences_without_context(c, context_z);
+    for (int i = 0; i < stdvecset_size(&zs); ++i) {
+        const stdvec_t *z = stdvecset_get(&zs, i);
+        stdvec_t z_prefix = stdvec_lazy_copy(z);
+        const stdname_t n = stdvec_remove_last(&z_prefix);
+        const stdvec_t n_vec = stdvec_singleton(n);
+        literal_t *sf = MALLOC(sizeof(literal_t));
+        *sf = literal_init(&z_prefix, true, SF, &n_vec);
+        splitset_add(&split, sf);
+    }
+    k += stdvecset_size(&zs);
+    return query_test_split(setup, &split, pel, context_z, c, k);
 }
 
 context_t context_init(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
-        const litset_t *context_sf)
+        const splitset_t *context_sf)
 {
     stdset_t query_names = stdset_init_with_size(0);
     stdset_t hplus = bat_hplus(static_bat, dynamic_bat, &query_names, 0);
@@ -588,7 +602,7 @@ bool query_entailed_by_bat(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
-        const litset_t *context_sf,
+        const splitset_t *context_sf,
         query_t *phi,
         int k)
 {
@@ -610,8 +624,6 @@ bool query_entailed_by_bat(
         setup_t s = setup_init_static_and_dynamic(static_bat, dynamic_bat,
             &hplus, &zs);
         setup_add_sensing_results(&s, context_sf);
-        litset_t split = litset_init_with_size(0);
-        setup_propagate_units(&s, &split);
         s;
     });
     pelset_t bat_pel = setup_pel(&setup);

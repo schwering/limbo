@@ -33,9 +33,9 @@
 #include "set.h"
 #include "term.h"
 
-SET_DECL(litset, literal_t *);
-SET_ALIAS(clause, litset, literal_t *);
-SET_ALIAS(pelset, litset, literal_t *);
+SET_DECL(clause, literal_t *);
+SET_ALIAS(pelset, clause, literal_t *);
+SET_DECL(splitset, literal_t *);
 SET_DECL(setup, clause_t *);
 SET_ALIAS(cnf, setup, clause_t *);
 
@@ -73,15 +73,19 @@ setup_t setup_init_static_and_dynamic(
         const stdset_t *hplus,
         const stdvecset_t *query_zs);
 
-void setup_add_sensing_results(setup_t *setup, const litset_t *sensing_results);
+void setup_add_sensing_results(
+        setup_t *setup,
+        const splitset_t *sensing_results);
 
 void add_pel_of_clause(pelset_t *pel, const clause_t *c);
 
 pelset_t setup_pel(const setup_t *setup);
 
-void setup_propagate_units(setup_t *setup, const litset_t *split);
+void setup_propagate_units(setup_t *setup, const splitset_t *split);
 
-bool setup_subsumes(const setup_t *setup, const litset_t *split,
+bool setup_subsumes(
+        const setup_t *setup,
+        const splitset_t *split,
         const clause_t *c);
 
 #endif

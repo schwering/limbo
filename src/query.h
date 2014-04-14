@@ -8,9 +8,9 @@
  * are replaced with disjunctions or conjunctions over a set of standard names.
  * Then we bring the resulting formual into CNF, which may be a bad idea.
  * Anyway, then we check all these clauses for subsumption.
- * If necessary, this involves splitting k literals and adding the SF literals.
- * This of course increases complexity because we need to check positive and
- * negative outcomes for all split and SF literals.
+ * During that procedure we treat SF literals just like normal split literals.
+ * We therefore add them to the PEL set and increase the maximum split number by
+ * their count.
  *
  * To improve performance in cases where similar queries are evaluated wrt the
  * same BAT, we have the contexts which cache the setup etc.
@@ -32,7 +32,7 @@ typedef struct {
     const univ_clauses_t *static_bat;
     const box_univ_clauses_t *dynamic_bat;
     const stdvec_t *context_z;
-    const litset_t *context_sf;
+    const splitset_t *context_sf;
     // The following attributes are stored for caching purposes.
     stdset_t query_names;
     int query_n_vars;
@@ -48,7 +48,7 @@ context_t context_init(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
-        const litset_t *context_sf);
+        const splitset_t *context_sf);
 
 void context_cleanup(context_t *setup);
 
@@ -62,7 +62,7 @@ bool query_entailed_by_bat(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
-        const litset_t *sensing_results,
+        const splitset_t *sensing_results,
         query_t *phi,
         int k);
 
