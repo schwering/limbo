@@ -1,21 +1,55 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
- * Definitions and evaluation procedure for queries.
+ * Query constructors and query evaluation procedure for queries.
+ * Queries consist of the following elements: (in)equality of standard names,
+ * disjunction, conjunction, negation, existential quantification, universal
+ * quantification, actions, and evaluations (which are a vehicle for nested
+ * queries, see below).
  *
- * The procedure differs a bit from the KR paper about ESL.
+ * Queries are created by query_[n]eq(), query_[atom|lit](), query_neg(),
+ * query_[and|or](), query_[exists|forall](), query_act(), and query_eval().
+ *
+ * Query evaluation is done with query_entailed_by_bat().
+ * As a first step, this computes the setup for the given BAT.
+ * In the (usual) case of multiple queries wrt the same BAT, the functions
+ * query_is_entailed_by_setup() is more efficient.
+ * The context structure memorizes a some data needed for query answering;
+ * for the initial context use context_init().
+ *
+ * To improve performance in cases where similar queries are evaluated wrt the
+ * same BAT, we have the contexts which cache the setup etc.
+ * The pointers handed over to context_init() must survive the context
+ * lifecycle.
+ *
+ * The query evaluation procedure differs a bit from the KR paper about ESL.
  * We first convert the formula into ENNF (extended negation normal form), that
  * is, all actions and negations are pushed inwards. Additionally existentials
  * are replaced with disjunctions or conjunctions over a set of standard names.
  * Then we bring the resulting formual into CNF, which may be a bad idea.
  * Anyway, then we check all these clauses for subsumption.
  * During that procedure we treat SF literals just like normal split literals.
- * We therefore add them to the PEL set and increase the maximum split number by
- * their count.
+ * We therefore add them to the PEL set and increase the maximum split number
+ * by their count.
  *
- * To improve performance in cases where similar queries are evaluated wrt the
- * same BAT, we have the contexts which cache the setup etc.
- * The pointers handed over to context_init() must survive the context
- * lifecycle.
+ * To simplify this the procedure which converts a formula to CNF conversion,
+ * we directly implement conjunctions, whereas the paper just defines
+ * conjunction to be a negation of a disjunction.
+ *
+ * The evaluation construct represent an opaque sub-query which can only be
+ * evaluated at once. For that purpose it consists of an eval callback and a
+ * void pointer arg for optional payload. Additionally one needs to provide
+ * callbacks which compute the number of variables and the standard names in
+ * this sub-query.
+ * These evaluation constructs are evaluated already during query
+ * simplification. This is somewhat odd, as it could be seen as an indication
+ * that their evaluation always shall be cheap. (The other constructs
+ * evaluated already during simplification are (in)equality of standard names.)
+ * However, evaluation may be as complex as evaluating any other query by, say,
+ * calling query_entailed_by_setup().
+ * The standard use case is to evaluate the query wrt the same setup, which
+ * means that just the splits are dropped.
+ * Another use case for multi-agent reasoning is to evaluate the query wrt a
+ * setup which represents what the `outer' agent knows about the `inner' agent.
  *
  * schwering@kbsg.rwth-aachen.de
  */
@@ -54,29 +88,33 @@ void context_cleanup(context_t *setup);
 
 bool query_entailed_by_setup(
         context_t *setup,
-        bool force_keep_setup,
-        query_t *phi,
-        int k);
+        const bool force_keep_setup,
+        const query_t *phi,
+        const int k);
 
 bool query_entailed_by_bat(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
         const splitset_t *sensing_results,
-        query_t *phi,
-        int k);
+        const query_t *phi,
+        const int k);
 
-void query_free(query_t *phi);
-
-query_t *query_eq(stdname_t n1, stdname_t n2);
-query_t *query_neq(stdname_t n1, stdname_t n2);
-query_t *query_lit(stdvec_t z, bool sign, pred_t p, stdvec_t args);
-query_t *query_neg(query_t *phi);
-query_t *query_or(query_t *phi1, query_t *phi2);
-query_t *query_and(query_t *phi1, query_t *phi2);
-query_t *query_exists(query_t *(phi)(stdname_t x));
-query_t *query_forall(query_t *(phi)(stdname_t x));
-query_t *query_act(stdname_t n, query_t *phi);
+const query_t *query_eq(stdname_t n1, stdname_t n2);
+const query_t *query_neq(stdname_t n1, stdname_t n2);
+const query_t *query_atom(pred_t p, stdvec_t args);
+const query_t *query_lit(stdvec_t z, bool sign, pred_t p, stdvec_t args);
+const query_t *query_neg(const query_t *phi);
+const query_t *query_or(const query_t *phi1, const query_t *phi2);
+const query_t *query_and(const query_t *phi1, const query_t *phi2);
+const query_t *query_exists(const query_t *(phi)(stdname_t x));
+const query_t *query_forall(const query_t *(phi)(stdname_t x));
+const query_t *query_act(stdname_t n, const query_t *phi);
+const query_t *query_eval(
+        int (*n_vars)(void *arg),
+        stdset_t (*names)(void *arg),
+        bool (*eval)(const stdvec_t *context_z, void *arg),
+        void *arg);
 
 #endif
 

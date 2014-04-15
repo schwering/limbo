@@ -3,13 +3,20 @@
 #include "memory.h"
 #include <assert.h>
 
-enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EX, ACT };
+enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EX, ACT, EVAL };
 
 typedef struct { stdname_t n1; stdname_t n2; } query_names_t;
-typedef struct { query_t *phi; } query_unary_t;
-typedef struct { query_t *phi1; query_t *phi2; } query_binary_t;
-typedef struct { query_t *(*phi)(stdname_t x); } query_exists_t;
-typedef struct { stdname_t n; query_t *phi; } query_action_t;
+typedef struct { const query_t *phi; } query_unary_t;
+typedef struct { const query_t *phi1; const query_t *phi2; } query_binary_t;
+typedef struct { const query_t *(*phi)(stdname_t x); } query_exists_t;
+typedef struct { stdname_t n; const query_t *phi; } query_action_t;
+typedef struct {
+    int (*n_vars)(void *);
+    stdset_t (*names)(void *);
+    bool (*eval)(const stdvec_t *, void *);
+    void *arg;
+    stdvec_t context_z;
+} query_eval_t;
 
 struct query {
     enum query_type type;
@@ -17,11 +24,11 @@ struct query {
         literal_t lit;
         query_names_t eq;
         query_names_t neq;
-        query_binary_t or;
-        query_binary_t and;
-        query_unary_t neg;
+        query_binary_t bin;
+        query_unary_t un;
         query_exists_t ex;
         query_action_t act;
+        query_eval_t eval;
     } u;
 };
 
@@ -33,19 +40,17 @@ static int query_n_vars(const query_t *phi)
         case LIT:
             return 0;
         case OR:
-            return query_n_vars(phi->u.or.phi1) +
-                query_n_vars(phi->u.or.phi2);
         case AND:
-            return query_n_vars(phi->u.and.phi1) +
-                query_n_vars(phi->u.and.phi2);
+            return query_n_vars(phi->u.bin.phi1) +
+                query_n_vars(phi->u.bin.phi2);
         case NEG:
-            return query_n_vars(phi->u.neg.phi);
-        case EX: {
-            query_t *psi = phi->u.ex.phi(1);
-            return query_n_vars(psi);
-        }
+            return query_n_vars(phi->u.un.phi);
+        case EX:
+            return query_n_vars(phi->u.ex.phi(1));
         case ACT:
             return query_n_vars(phi->u.act.phi);
+        case EVAL:
+            return phi->u.eval.n_vars(phi->u.eval.arg);
     }
     assert(false);
     return -1;
@@ -79,24 +84,18 @@ static stdset_t query_names(const query_t *phi)
             }
             return set;
         }
-        case OR: {
-            stdset_t set1 = query_names(phi->u.or.phi1);
-            const stdset_t set2 = query_names(phi->u.or.phi2);
-            stdset_add_all(&set1, &set2);
-            return set1;
-        }
+        case OR:
         case AND: {
-            stdset_t set1 = query_names(phi->u.and.phi1);
-            const stdset_t set2 = query_names(phi->u.and.phi2);
+            stdset_t set1 = query_names(phi->u.bin.phi1);
+            const stdset_t set2 = query_names(phi->u.bin.phi2);
             stdset_add_all(&set1, &set2);
             return set1;
         }
-        case NEG: {
-            return query_names(phi->u.neg.phi);
-        }
+        case NEG:
+            return query_names(phi->u.un.phi);
         case EX: {
-            query_t *phi1 = phi->u.ex.phi(1);
-            query_t *phi2 = phi->u.ex.phi(2);
+            const query_t *phi1 = phi->u.ex.phi(1);
+            const query_t *phi2 = phi->u.ex.phi(2);
             stdset_t set1 = query_names(phi1);
             stdset_t set2 = query_names(phi2);
             stdset_remove(&set1, 1);
@@ -108,33 +107,36 @@ static stdset_t query_names(const query_t *phi)
             stdset_add(&set, phi->u.act.n);
             return set;
         }
+        case EVAL:
+            return phi->u.eval.names(phi->u.eval.arg);
     }
     assert(false);
     return stdset_init();
 }
 
-static query_t *query_ground_quantifier(bool existential,
-        query_t *(*phi)(stdname_t n), const stdset_t *hplus, int i)
+static const query_t *query_ground_quantifier(bool existential,
+        const query_t *(*phi)(stdname_t n), const stdset_t *hplus, int i)
 {
     assert(0 <= i && i <= stdset_size(hplus));
-    query_t *psi1 = phi(stdset_get(hplus, i));
+    const query_t *psi1 = phi(stdset_get(hplus, i));
     if (i + 1 == stdset_size(hplus)) {
         return psi1;
     } else {
+        const query_t *psi2 = query_ground_quantifier(existential, phi,
+                hplus, i + 1);
         query_t *xi = MALLOC(sizeof(query_t));
-        query_t *psi2 = query_ground_quantifier(existential, phi, hplus, i + 1);
-        if (existential) {
-            xi->type = OR;
-            xi->u.or = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 };
-        } else {
-            xi->type = AND;
-            xi->u.and = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 };
-        }
+        *xi = (query_t) {
+            .type = existential ? OR : AND,
+            .u.bin = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 }
+        };
         return xi;
     }
 }
 
-static query_t *query_ennf_h(const stdvec_t *z, query_t *phi,
+static const query_t *query_ennf(const stdvec_t *context_z, const query_t *phi,
+        const stdset_t *hplus);
+
+static const query_t *query_ennf_h(const stdvec_t *z, const query_t *phi,
         const stdset_t *hplus, bool flip)
 {
     // ENNF stands for Extended Negation Normal Form and means
@@ -143,123 +145,121 @@ static query_t *query_ennf_h(const stdvec_t *z, query_t *phi,
     // (3) quantifiers are grounded
     //
     // The resulting formula only consists of the following elements:
-    // EQ, NEQ, LIT, OR, AND
+    // EQ, NEQ, LIT, OR, AND, EVAL
     switch (phi->type) {
         case EQ: {
-            if (flip) {
-                *phi = (query_t) {
+            if (!flip) {
+                return phi;
+            } else {
+                query_t *psi = MALLOC(sizeof(query_t));
+                *psi = (query_t) {
                     .type = NEQ,
                     .u.neq = phi->u.eq
                 };
+                return psi;
             }
-            return phi;
         }
         case NEQ: {
-            if (flip) {
-                *phi = (query_t) {
+            if (!flip) {
+                return phi;
+            } else {
+                query_t *psi = MALLOC(sizeof(query_t));
+                *psi = (query_t) {
                     .type = NEQ,
                     .u.neq = phi->u.eq
                 };
+                return psi;
             }
-            return phi;
         }
         case LIT: {
-            if (flip) {
-                phi->u.lit = literal_flip(&phi->u.lit);
-            }
-            if (stdvec_size(z) > 0) {
-                phi->u.lit = literal_prepend_all(z, &phi->u.lit);
-            }
-            return phi;
-        }
-        case OR: {
-            query_t *psi1 = query_ennf_h(z, phi->u.or.phi1, hplus, flip);
-            query_t *psi2 = query_ennf_h(z, phi->u.or.phi2, hplus, flip);
-            if (flip) {
-                phi->type = AND;
-                phi->u.and = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 };
+            if (!flip && stdvec_size(z) == 0) {
+                return phi;
             } else {
-                phi->type = OR;
-                phi->u.or = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 };
+                query_t *psi = MALLOC(sizeof(query_t));
+                *psi = *phi;
+                if (flip) {
+                    psi->u.lit = literal_flip(&phi->u.lit);
+                }
+                if (stdvec_size(z) > 0) {
+                    psi->u.lit = literal_prepend_all(z, &phi->u.lit);
+                }
+                return psi;
             }
-            return phi;
         }
+        case OR:
         case AND: {
-            query_t *psi1 = query_ennf_h(z, phi->u.and.phi1, hplus, flip);
-            query_t *psi2 = query_ennf_h(z, phi->u.and.phi2, hplus, flip);
-            if (flip) {
-                phi->type = OR;
-                phi->u.or = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 };
-            } else {
-                phi->type = AND;
-                phi->u.and = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 };
-            }
-            return phi;
+            const query_t *psi1 = query_ennf_h(z, phi->u.bin.phi1, hplus, flip);
+            const query_t *psi2 = query_ennf_h(z, phi->u.bin.phi2, hplus, flip);
+            query_t *psi = MALLOC(sizeof(query_t));
+            *psi = (query_t) {
+                .type = (phi->type == OR) != flip ? OR : AND,
+                .u.bin = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 }
+            };
+            return psi;
         }
         case NEG: {
-            query_t *psi = query_ennf_h(z, phi->u.neg.phi, hplus, !flip);
-            return psi;
+            return query_ennf_h(z, phi->u.un.phi, hplus, !flip);
         }
         case EX: {
             const bool is_existential = !flip;
-            query_t *psi = query_ground_quantifier(is_existential,
+            const query_t *psi = query_ground_quantifier(is_existential,
                     phi->u.ex.phi, hplus, 0);
-            return query_ennf_h(z, psi, hplus, flip);
+            return query_ennf(z, psi, hplus);
         }
         case ACT: {
             const stdvec_t zz = stdvec_copy_append(z, phi->u.act.n);
-            query_t *psi = phi->u.act.phi;
-            return query_ennf_h(&zz, psi, hplus, flip);
+            return query_ennf_h(&zz, phi->u.act.phi, hplus, flip);
+        }
+        case EVAL: {
+            query_t *psi = MALLOC(sizeof(query_t));
+            *psi = *phi;
+            psi->u.eval.context_z = stdvec_lazy_copy(z);
+            return psi;
         }
     }
     assert(false);
     return NULL;
 }
 
-static query_t *query_ennf(const stdvec_t *context_z, query_t *phi,
+static const query_t *query_ennf(const stdvec_t *context_z, const query_t *phi,
         const stdset_t *hplus)
 {
     return query_ennf_h(context_z, phi, hplus, false);
 }
 
-static stdvecset_t query_ennf_zs(query_t *phi)
+static stdvecset_t query_ennf_zs(const query_t *phi)
 {
     switch (phi->type) {
         case EQ:
         case NEQ:
             return stdvecset_init_with_size(0);
-        case LIT: {
+        case LIT:
             return stdvecset_singleton(literal_z(&phi->u.lit));
-        }
-        case OR: {
-            stdvecset_t l = query_ennf_zs(phi->u.or.phi1);
-            stdvecset_t r = query_ennf_zs(phi->u.or.phi2);
-            const stdvecset_t s = stdvecset_union(&l, &r);
-            return s;
-        }
+        case OR:
         case AND: {
-            stdvecset_t l = query_ennf_zs(phi->u.and.phi1);
-            stdvecset_t r = query_ennf_zs(phi->u.and.phi2);
-            const stdvecset_t s = stdvecset_union(&l, &r);
-            return s;
+            stdvecset_t l = query_ennf_zs(phi->u.bin.phi1);
+            stdvecset_t r = query_ennf_zs(phi->u.bin.phi2);
+            return stdvecset_union(&l, &r);
         }
         case NEG:
-            return query_ennf_zs(phi->u.neg.phi);
+            return query_ennf_zs(phi->u.un.phi);
         case EX:
         case ACT:
             assert(false);
+            return stdvecset_init_with_size(0);
+        case EVAL:
             return stdvecset_init_with_size(0);
     }
     assert(false);
     return stdvecset_init_with_size(0);
 }
 
-static query_t *query_simplify(query_t *phi, bool *truth_value)
+static const query_t *query_simplify(const query_t *phi, bool *truth_value)
 {
     // Removes standard name (in)equalities from the formula.
     //
     // The given formula must mention no other elements but:
-    // EQ, NEQ, LIT, OR, AND
+    // EQ, NEQ, LIT, OR, AND, EVAL
     //
     // The resulting formula only consists of the following elements:
     // LIT, OR, AND
@@ -273,53 +273,44 @@ static query_t *query_simplify(query_t *phi, bool *truth_value)
         case LIT:
             return phi;
         case OR:
-            phi->u.or.phi1 = query_simplify(phi->u.or.phi1, truth_value);
-            if (phi->u.or.phi1 == NULL && truth_value) {
+        case AND: {
+            query_t *psi = MALLOC(sizeof(query_t));
+            psi->type = phi->type;
+            psi->u.bin.phi1 = query_simplify(phi->u.bin.phi1, truth_value);
+            if (psi->u.bin.phi1 == NULL && (psi->type == OR) == *truth_value) {
                 return NULL;
             }
-            phi->u.or.phi2 = query_simplify(phi->u.or.phi2, truth_value);
-            if (phi->u.or.phi2 == NULL && truth_value) {
+            psi->u.bin.phi2 = query_simplify(phi->u.bin.phi2, truth_value);
+            if (psi->u.bin.phi2 == NULL && (psi->type == OR) == *truth_value) {
                 return NULL;
             }
-            if (phi->u.or.phi1 == NULL) {
-                query_t *psi = phi->u.or.phi2;
-                return psi;
-            } else if (phi->u.or.phi2 == NULL) {
-                query_t *psi = phi->u.or.phi1;
-                return psi;
+            if (psi->u.bin.phi1 == NULL) {
+                return psi->u.bin.phi2;
+            } else if (psi->u.bin.phi2 == NULL) {
+                return psi->u.bin.phi1;
             } else {
-                return phi;
-            }
-        case AND:
-            phi->u.and.phi1 = query_simplify(phi->u.and.phi1, truth_value);
-            if (phi->u.and.phi1 == NULL && !truth_value) {
-                return NULL;
-            }
-            phi->u.and.phi2 = query_simplify(phi->u.and.phi2, truth_value);
-            if (phi->u.and.phi2 == NULL && !truth_value) {
-                return NULL;
-            }
-            if (phi->u.and.phi1 == NULL) {
-                query_t *psi = phi->u.and.phi2;
                 return psi;
-            } else if (phi->u.and.phi2 == NULL) {
-                query_t *psi = phi->u.and.phi1;
-                return psi;
-            } else {
-                return phi;
             }
-        case NEG:
-            phi->u.neg.phi = query_simplify(phi->u.neg.phi, truth_value);
-            if (phi->u.neg.phi == NULL) {
+        }
+        case NEG: {
+            query_t *psi = MALLOC(sizeof(query_t));
+            psi->type = phi->type;
+            psi->u.un.phi = query_simplify(phi->u.un.phi, truth_value);
+            if (psi->u.un.phi == NULL) {
                 return NULL;
             }
-            return phi;
+            return psi;
+        }
         case EX:
             assert(false);
             return phi;
         case ACT:
             assert(false);
             return phi;
+        case EVAL:
+            *truth_value = phi->u.eval.eval(&phi->u.eval.context_z,
+                    phi->u.eval.arg);
+            return NULL;
     }
     assert(false);
 }
@@ -337,8 +328,8 @@ static cnf_t query_cnf(const query_t *phi)
             return cnf_singleton(c);
         }
         case OR: {
-            cnf_t cnf1 = query_cnf(phi->u.or.phi1);
-            cnf_t cnf2 = query_cnf(phi->u.or.phi2);
+            cnf_t cnf1 = query_cnf(phi->u.bin.phi1);
+            cnf_t cnf2 = query_cnf(phi->u.bin.phi2);
             cnf_t cnf = cnf_init_with_size(cnf_size(&cnf1) * cnf_size(&cnf2));
             for (int i = 0; i < cnf_size(&cnf1); ++i) {
                 for (int j = 0; j < cnf_size(&cnf2); ++j) {
@@ -352,16 +343,16 @@ static cnf_t query_cnf(const query_t *phi)
             return cnf;
         }
         case AND: {
-            cnf_t cnf1 = query_cnf(phi->u.or.phi1);
-            cnf_t cnf2 = query_cnf(phi->u.or.phi2);
-            cnf_t cnf = cnf_union(&cnf1, &cnf2);
-            return cnf;
+            cnf_t cnf1 = query_cnf(phi->u.bin.phi1);
+            cnf_t cnf2 = query_cnf(phi->u.bin.phi2);
+            return cnf_union(&cnf1, &cnf2);
         }
         case EQ:
         case NEQ:
         case NEG:
         case EX:
         case ACT:
+        case EVAL:
             assert(false);
             break;
     }
@@ -413,13 +404,16 @@ static bool query_test_split(
         const int k1 = (literal_pred(l1) == SF) ? k : k - 1;
         setup_t setup1 = setup_lazy_copy(setup);
         setup_add(&setup1, &c1);
-        bool r = query_test_split(original_setup, original_pel, &setup1, pel, context_z, c, k1);
+        bool r;
+        r = query_test_split(original_setup, original_pel, &setup1, pel,
+                context_z, c, k1);
         if (!r) {
             continue;
         }
         setup_t setup2 = setup_lazy_copy(setup);
         setup_add(&setup2, &c2);
-        r &= query_test_split(original_setup, original_pel, &setup2, pel, context_z, c, k1);
+        r = query_test_split(original_setup, original_pel, &setup2, pel,
+                context_z, c, k1);
         if (r) {
             return true;
         }
@@ -427,11 +421,16 @@ static bool query_test_split(
     return false;
 }
 
-static bool query_test_clause(const setup_t *original_setup, const pelset_t *original_pel,
-        const stdvec_t *context_z, const clause_t *c, int k)
+static bool query_test_clause(
+        const setup_t *original_setup,
+        const pelset_t *original_pel,
+        const stdvec_t *context_z,
+        const clause_t *c,
+        const int k)
 {
     pelset_t pel_and_sf = pelset_lazy_copy(original_pel);
-    const stdvecset_t zs = clause_action_sequences_without_context(c, context_z);
+    const stdvecset_t zs = clause_action_sequences_without_context(c,
+            context_z);
     for (int i = 0; i < stdvecset_size(&zs); ++i) {
         const stdvec_t *z = stdvecset_get(&zs, i);
         stdvec_t z_prefix = stdvec_lazy_copy(z);
@@ -443,7 +442,8 @@ static bool query_test_clause(const setup_t *original_setup, const pelset_t *ori
     }
     setup_t setup = setup_lazy_copy(original_setup);
     //pel_optimize(&pel_and_sf, &setup);
-    return query_test_split(original_setup, original_pel, &setup, &pel_and_sf, context_z, c, k);
+    return query_test_split(original_setup, original_pel, &setup,
+            &pel_and_sf, context_z, c, k);
 }
 
 context_t context_init(
@@ -489,9 +489,9 @@ void context_cleanup(context_t *ctx)
 
 bool query_entailed_by_setup(
         context_t *ctx,
-        bool force_keep_setup,
-        query_t *phi,
-        int k)
+        const bool force_keep_setup,
+        const query_t *phi,
+        const int k)
 {
     // update hplus if necessary (needed for query rewriting and for setups)
     bool have_new_hplus = false;
@@ -530,7 +530,6 @@ bool query_entailed_by_setup(
     bool have_new_dynamic_setup = false;
     if (!force_keep_setup) {
         stdvecset_t zs = query_ennf_zs(phi);
-        stdvecset_contains_all(&ctx->query_zs, &zs);
         if (have_new_hplus || !stdvecset_contains_all(&ctx->query_zs, &zs)) {
             ctx->query_zs = stdvecset_init_with_size(stdvecset_size(&zs));
             for (int i = 0; i < stdvecset_size(&zs); ++i) {
@@ -556,7 +555,8 @@ bool query_entailed_by_setup(
         const clause_t *c = cnf_get(&cnf, i);
         pelset_t pel = pelset_lazy_copy(&ctx->setup_pel);
         add_pel_of_clause(&pel, c);
-        truth_value = query_test_clause(&ctx->setup, &pel, ctx->context_z, c, k);
+        truth_value = query_test_clause(&ctx->setup, &pel, ctx->context_z,
+                c, k);
     }
     return truth_value;
 }
@@ -566,7 +566,7 @@ bool query_entailed_by_bat(
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
         const splitset_t *context_sf,
-        query_t *phi,
+        const query_t *phi,
         int k)
 {
     const stdset_t hplus = ({
@@ -601,7 +601,7 @@ bool query_entailed_by_bat(
     return truth_value;
 }
 
-query_t *query_eq(stdname_t n1, stdname_t n2)
+const query_t *query_eq(stdname_t n1, stdname_t n2)
 {
     return NEW(((query_t) {
         .type = EQ,
@@ -612,7 +612,7 @@ query_t *query_eq(stdname_t n1, stdname_t n2)
     }));
 }
 
-query_t *query_neq(stdname_t n1, stdname_t n2)
+const query_t *query_neq(stdname_t n1, stdname_t n2)
 {
     return NEW(((query_t) {
         .type = NEQ,
@@ -623,7 +623,14 @@ query_t *query_neq(stdname_t n1, stdname_t n2)
     }));
 }
 
-query_t *query_lit(stdvec_t z, bool sign, pred_t p, stdvec_t args)
+const query_t *query_atom(pred_t p, stdvec_t args)
+{
+    const stdvec_t z = stdvec_init_with_size(0);
+    const bool sign = true;
+    return query_lit(z, sign, p, args);;
+}
+
+const query_t *query_lit(stdvec_t z, bool sign, pred_t p, stdvec_t args)
 {
     return NEW(((query_t) {
         .type = LIT,
@@ -631,39 +638,39 @@ query_t *query_lit(stdvec_t z, bool sign, pred_t p, stdvec_t args)
     }));
 }
 
-query_t *query_neg(query_t *phi)
+const query_t *query_neg(const query_t *phi)
 {
     return NEW(((query_t) {
         .type = NEG,
-        .u.neg = (query_unary_t) {
+        .u.un = (query_unary_t) {
             .phi = phi
         }
     }));
 }
 
-query_t *query_or(query_t *phi1, query_t *phi2)
+const query_t *query_or(const query_t *phi1, const query_t *phi2)
 {
     return NEW(((query_t) {
         .type = OR,
-        .u.or = (query_binary_t) {
+        .u.bin = (query_binary_t) {
             .phi1 = phi1,
             .phi2 = phi2
         }
     }));
 }
 
-query_t *query_and(query_t *phi1, query_t *phi2)
+const query_t *query_and(const query_t *phi1, const query_t *phi2)
 {
     return NEW(((query_t) {
         .type = AND,
-        .u.and = (query_binary_t) {
+        .u.bin = (query_binary_t) {
             .phi1 = phi1,
             .phi2 = phi2
         }
     }));
 }
 
-query_t *query_exists(query_t *(phi)(stdname_t x))
+const query_t *query_exists(const query_t *(phi)(stdname_t x))
 {
     return NEW(((query_t) {
         .type = EX,
@@ -673,18 +680,35 @@ query_t *query_exists(query_t *(phi)(stdname_t x))
     }));
 }
 
-query_t *query_forall(query_t *(phi)(stdname_t x))
+const query_t *query_forall(const query_t *(phi)(stdname_t x))
 {
     return query_neg(query_exists(phi));
 }
 
-query_t *query_act(stdname_t n, query_t *phi)
+const query_t *query_act(stdname_t n, const query_t *phi)
 {
     return NEW(((query_t) {
         .type = ACT,
         .u.act = (query_action_t) {
             .n = n,
             .phi = phi
+        }
+    }));
+}
+
+const query_t *query_eval(
+        int (*n_vars)(void *arg),
+        stdset_t (*names)(void *arg),
+        bool (*eval)(const stdvec_t *context_z, void *arg),
+        void *arg)
+{
+    return NEW(((query_t) {
+        .type = EVAL,
+        .u.eval = (query_eval_t) {
+            .n_vars = n_vars,
+            .names = names,
+            .eval = eval,
+            .arg = arg
         }
     }));
 }

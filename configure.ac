@@ -12,10 +12,12 @@ AC_ARG_ENABLE(gc,
 	       then
 		       memory_alloc="BOEHM_GC"
 		       AC_DEFINE(USE_BOEHM_GC)
+                       AC_CHECK_HEADER([gc.h], [], [AC_MSG_ERROR([Couldn't find or include gc.h])])
 	       fi
 	      ],
 	      [memory_alloc="BOEHM_GC"
 	       AC_DEFINE(USE_BOEHM_GC)
+               AC_CHECK_HEADER([gc.h], [], [AC_MSG_ERROR([Couldn't find or include gc.h])])
 	      ])
 AC_ARG_ENABLE(nedmalloc,
 	      [  --enable-nedmalloc      use nedmalloc for memory allocation [default=no]],
