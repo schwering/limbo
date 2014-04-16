@@ -3,7 +3,7 @@
 
 #define ck_assert(expr) 	if (!(expr)) { printf("%s:%d failed %s\n", __FILE__, __LINE__, #expr); }
 
-#include "tests/ex_bat.h"
+#include "ex_bat.h"
 
 stdvec_t *empty_vec = NULL;
 stdvec_t *f_vec = NULL;
@@ -126,8 +126,8 @@ void run(context_t *ctx)
 int main(int argc, char *argv[])
 {
     context_t ctx = make_context();
-    for (int i = 0; i < 200; ++i) {
-        printf("%d:\n", i);
+    for (int i = 0; i < 400; ++i) {
+        //printf("%d:\n", i);
         run(&ctx);
     }
     return 0;
