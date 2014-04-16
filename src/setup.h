@@ -6,19 +6,29 @@
  * The univ_clause attribute of univ_clause_t should return NULL if the clause
  * variable assignment is not permitted.
  *
- * setup_clauses_ground() substitutes all variables with standard names from ns,
- * and substitutes prepends all prefixes of elements from zs to the box
- * formulas.
+ * bat_hplus() computes the set of standard name that needs to be considered
+ * for quantification. Besides the BAT it depends on the standard names and
+ * number of variables in the query.
  *
- * setup_pel() comptues the positive versions of all literals in the setup. Note
- * that for the split literals, you also need to consider those from the query.
+ * setup_init_[static|dynamic|static_and_dynamic] create setups from the
+ * respective parts of a BAT. It does so by substituting all variables with
+ * standard names from hplus and, for the dynamic part, by instantiating the
+ * (implicit) box operators with all prefixes of action sequences in the
+ * query, query_zs.
  *
- * setup_propagate_units() computes a new setup which is closed under
- * resolution of its unit clauses with all other clauses. More precisely, for
- * each resolvent of a unit clause there is a clause in the new setup which
- * subsumes this resolvent. It may appear wasteful, but we need to create a
- * new setup anyway because the ordering could be confused otherwise. We use a
- * lazy copy to reduce the amount of copying.
+ * setup_pel() computes the positive versions of all literals in the setup.
+ * Note that for the split literals, you also need to consider those from the
+ * query.
+ * For that, add_pel_of_clause() may be useful.
+ * setup_would_be_needless_split() returns true if splitting the given literal
+ * would not give additional information to the setup. For example, splitting a
+ * literal when the setup already contains a unit clause with that literal or
+ * its negation is useless. That's currently the only sanity check done.
+ *
+ * setup_propagate_units() closes the given setup under resolution of its unit
+ * clauses with all other clauses. More precisely, for each resolvent of a
+ * unit clause there is a clause in the new setup which subsumes this
+ * resolvent.
  *
  * setup_subsumes() returns true if unit propagation of the setup plus split
  * literals contains a clause which is a subset of the given clause.
@@ -82,15 +92,8 @@ pelset_t setup_pel(const setup_t *setup);
 bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l);
 
 void setup_propagate_units(setup_t *setup);
-void setup_propagate_units2(setup_t *setup, const splitset_t *split);
 
-bool setup_subsumes(
-        setup_t *setup,
-        const clause_t *c);
-bool setup_subsumes2(
-        const setup_t *setup,
-        const splitset_t *split,
-        const clause_t *c);
+bool setup_subsumes(setup_t *setup, const clause_t *c);
 
 #endif
 

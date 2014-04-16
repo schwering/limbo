@@ -242,14 +242,15 @@ pelset_t setup_pel(const setup_t *setup)
     return pel;
 }
 
-static void add_unit_clauses_from_setup(splitset_t *ls, const setup_t *setup)
+static splitset_t setup_get_unit_clauses(const setup_t *setup)
 {
+    splitset_t ls = splitset_init();
     for (int i = 0; i < setup_size(setup); ++i) {
         const clause_t *c = setup_get(setup, i);
         if (clause_is_empty(c)) {
             continue;
         } else if (clause_is_unit(c)) {
-            splitset_add(ls, clause_unit(c));
+            splitset_add(&ls, clause_unit(c));
         } else {
             // Clauses are sets, which are again stored as vectors, and
             // vector_cmp()'s first ordering criterion is the length.
@@ -260,6 +261,7 @@ static void add_unit_clauses_from_setup(splitset_t *ls, const setup_t *setup)
             break;
         }
     }
+    return ls;
 }
 
 static bool setup_contains_empty_clause(const setup_t *s)
@@ -272,8 +274,7 @@ void setup_propagate_units(setup_t *setup)
     if (setup_contains_empty_clause(setup)) {
         return;
     }
-    splitset_t units = splitset_init();
-    add_unit_clauses_from_setup(&units, setup);
+    splitset_t units = setup_get_unit_clauses(setup);
     bool new_units;
     do {
         new_units = false;
@@ -305,54 +306,6 @@ bool setup_subsumes(setup_t *setup, const clause_t *c)
     setup_propagate_units(setup);
     for (int i = 0; i < setup_size(setup); ++i) {
         if (clause_contains_all(c, setup_get(setup, i))) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void setup_propagate_units2(setup_t *setup, const splitset_t *split)
-{
-    if (setup_contains_empty_clause(setup)) {
-        return;
-    }
-    splitset_t units = splitset_lazy_copy(split);
-    add_unit_clauses_from_setup(&units, setup);
-    // XXX I think we don't have to add the split literals to the setup.
-    // Otherwise we have to add all elements from split to &s.
-    bool new_units;
-    do {
-        new_units = false;
-        clause_t const **new_cs = MALLOC(setup_size(setup) * sizeof(clause_t *));
-        int *old_cs = MALLOC(setup_size(setup) * sizeof(int));
-        int n = 0;
-        for (int i = 0; i < setup_size(setup); ++i) {
-            const clause_t *c = setup_get(setup, i);
-            const clause_t *d = clause_resolve(c, &units);
-            if (!clause_eq(c, d)) {
-                new_cs[n] = d;
-                old_cs[n] = i;
-                ++n;
-                if (clause_is_unit(d)) {
-                    new_units |= splitset_add(&units, clause_unit(d));
-                }
-            }
-        }
-        setup_remove_all_indices(setup, old_cs, n);
-        for (int i = 0; i < n; ++i) {
-            const clause_t *d = new_cs[i];
-            setup_add(setup, d);
-        }
-    } while (new_units && !setup_contains_empty_clause(setup));
-}
-
-bool setup_subsumes2(const setup_t *setup, const splitset_t *split,
-        const clause_t *c)
-{
-    setup_t s = setup_lazy_copy(setup);
-    setup_propagate_units2(&s, split);
-    for (int i = 0; i < setup_size(&s); ++i) {
-        if (clause_contains_all(c, setup_get(&s, i))) {
             return true;
         }
     }

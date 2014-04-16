@@ -28,9 +28,8 @@ START_TEST(test_grounding)
     print_setup(&setup);
     const pelset_t pel = setup_pel(&setup);
     print_pel(&pel);
-    const splitset_t split = splitset_init();
     setup_t setup_up = setup_lazy_copy(&setup);
-    setup_propagate_units2(&setup_up, &split);
+    setup_propagate_units(&setup_up);
     print_setup(&setup_up);
 
     ck_assert(!setup_contains(&setup_up, clause_empty()));
@@ -62,86 +61,97 @@ START_TEST(test_entailment)
     const stdset_t hplus = bat_hplus(&static_bat, &dynamic_bat, &ns, 0);
     const stdvecset_t query_zs = stdvecset_singleton(&fs_vec);
     const setup_t setup = setup_init_static_and_dynamic(&static_bat, &dynamic_bat, &hplus, &query_zs);
-    const literal_t d0 = literal_init(&empty_vec, true, D(0), &empty_vec);
-    const literal_t d1 = literal_init(&empty_vec, true, D(1), &empty_vec);
-    const literal_t d2 = literal_init(&empty_vec, true, D(2), &empty_vec);
-    const literal_t d3 = literal_init(&empty_vec, true, D(3), &empty_vec);
-    const literal_t d4 = literal_init(&empty_vec, true, D(4), &empty_vec);
-    const literal_t nd0 = literal_flip(&d0);
-    const literal_t nd1 = literal_flip(&d1);
-    const literal_t nd2 = literal_flip(&d2);
-    const literal_t nd3 = literal_flip(&d3);
-    const literal_t nd4 = literal_flip(&d4);
-    const literal_t fd1 = literal_init(&f_vec, true, D(1), &empty_vec);
-    const literal_t fd2 = literal_init(&f_vec, true, D(2), &empty_vec);
+    const literal_t D0 = literal_init(&empty_vec, true, D(0), &empty_vec);
+    const literal_t D1 = literal_init(&empty_vec, true, D(1), &empty_vec);
+    const literal_t D2 = literal_init(&empty_vec, true, D(2), &empty_vec);
+    const literal_t D3 = literal_init(&empty_vec, true, D(3), &empty_vec);
+    const literal_t D4 = literal_init(&empty_vec, true, D(4), &empty_vec);
+    const literal_t ND0 = literal_flip(&D0);
+    const literal_t ND1 = literal_flip(&D1);
+    const literal_t ND2 = literal_flip(&D2);
+    const literal_t ND3 = literal_flip(&D3);
+    const literal_t ND4 = literal_flip(&D4);
+    const literal_t FD1 = literal_init(&f_vec, true, D(1), &empty_vec);
+    const literal_t FD2 = literal_init(&f_vec, true, D(2), &empty_vec);
 
-    splitset_t split = splitset_init();
+    clause_t d0 = clause_singleton(&D0);
+    clause_t d1 = clause_singleton(&D1);
+    clause_t d2 = clause_singleton(&D2);
+    clause_t d3 = clause_singleton(&D3);
+    clause_t d4 = clause_singleton(&D4);
+    clause_t nd0 = clause_singleton(&ND0);
+    clause_t nd1 = clause_singleton(&ND1);
+    clause_t nd2 = clause_singleton(&ND2);
+    clause_t nd3 = clause_singleton(&ND3);
+    clause_t nd4 = clause_singleton(&ND4);
 
     clause_t d0d1 = clause_init();
-    clause_add(&d0d1, &d0);
-    clause_add(&d0d1, &d1);
-    ck_assert(!setup_subsumes2(&setup, &split, &d0d1));
+    clause_add(&d0d1, &D0);
+    clause_add(&d0d1, &D1);
+    ck_assert(!setup_subsumes(&setup, &d0d1));
 
     clause_t d0d2 = clause_init();
-    clause_add(&d0d1, &d0);
-    ck_assert(!setup_subsumes2(&setup, &split, &d0d2));
+    clause_add(&d0d1, &D0);
+    ck_assert(!setup_subsumes(&setup, &d0d2));
 
     clause_t d1d2 = clause_init();
-    clause_add(&d0d1, &d1);
-    clause_add(&d0d1, &d2);
-    ck_assert(!setup_subsumes2(&setup, &split, &d1d2));
+    clause_add(&d0d1, &D1);
+    clause_add(&d0d1, &D2);
+    ck_assert(!setup_subsumes(&setup, &d1d2));
 
     clause_t d2d3 = clause_init();
-    clause_add(&d0d1, &d1);
-    clause_add(&d0d1, &d2);
-    ck_assert(!setup_subsumes2(&setup, &split, &d2d3));
+    clause_add(&d0d1, &D1);
+    clause_add(&d0d1, &D2);
+    ck_assert(!setup_subsumes(&setup, &d2d3));
 
     clause_t fd1fd2 = clause_init();
-    clause_add(&fd1fd2, &fd1);
-    clause_add(&fd1fd2, &fd2);
-    ck_assert(!setup_subsumes2(&setup, &split, &fd1fd2));
+    clause_add(&fd1fd2, &FD1);
+    clause_add(&fd1fd2, &FD2);
+    ck_assert(!setup_subsumes(&setup, &fd1fd2));
 
-    // split d0
-    splitset_clear(&split);
-    splitset_add(&split, &d0);
-    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
+    setup_t setup_up;
 
-    splitset_clear(&split);
-    splitset_add(&split, &nd0);
-    ck_assert(!setup_subsumes2(&setup, &split, &fd1fd2));
+    // split D0
+    setup_up = setup_lazy_copy(&setup);
+    setup_add(&setup_up, &nd0);
+    ck_assert(!setup_subsumes(&setup_up, &fd1fd2));
+
+    setup_up = setup_lazy_copy(&setup);
+    setup_add(&setup_up, &nd0);
+    ck_assert(!setup_subsumes(&setup_up, &fd1fd2));
 
     // split d1
-    splitset_clear(&split);
-    splitset_add(&split, &d1);
-    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
+    setup_up = setup_lazy_copy(&setup);
+    setup_add(&setup_up, &d1);
+    ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
-    splitset_clear(&split);
-    splitset_add(&split, &nd1);
-    ck_assert(!setup_subsumes2(&setup, &split, &fd1fd2));
+    setup_up = setup_lazy_copy(&setup);
+    setup_add(&setup_up, &nd1);
+    ck_assert(!setup_subsumes(&setup_up, &fd1fd2));
 
     // split d2
-    splitset_clear(&split);
-    splitset_add(&split, &d2);
-    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
+    setup_up = setup_lazy_copy(&setup);
+    setup_add(&setup_up, &d2);
+    ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
-    splitset_clear(&split);
-    splitset_add(&split, &nd2);
-    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
+    setup_up = setup_lazy_copy(&setup);
+    setup_add(&setup_up, &nd2);
+    ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     // split d3
-    splitset_clear(&split);
-    splitset_add(&split, &d3);
-    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
+    setup_up = setup_lazy_copy(&setup);
+    setup_add(&setup_up, &d3);
+    ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
-    splitset_clear(&split);
-    splitset_add(&split, &nd3);
-    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
+    setup_up = setup_lazy_copy(&setup);
+    setup_add(&setup_up, &nd3);
+    ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     // inconsistent split
-    splitset_clear(&split);
-    splitset_add(&split, &d4);
-    splitset_add(&split, &nd4);
-    ck_assert(setup_subsumes2(&setup, &split, &fd1fd2));
+    setup_up = setup_lazy_copy(&setup);
+    setup_add(&setup_up, &d4);
+    setup_add(&setup_up, &nd4);
+    ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 }
 END_TEST
 
