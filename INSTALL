@@ -1,0 +1,5 @@
+autoreconf --install
+./configure CFLAGS='-Wall -Wextra -Wno-ignored-qualifiers -O3'
+make all
+make check
+

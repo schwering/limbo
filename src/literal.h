@@ -22,7 +22,7 @@ typedef struct {
     stdvec_t args;
 } literal_t;
 
-const pred_t SF;
+extern const pred_t SF;
 
 literal_t literal_init(const stdvec_t *z, bool sign, pred_t pred,
         const stdvec_t *args);

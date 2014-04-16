@@ -16,6 +16,7 @@ typedef struct {
     bool (*eval)(const stdvec_t *, const splitset_t *, void *);
     void *arg;
     stdvec_t context_z;
+    bool sign;
 } query_eval_t;
 
 struct query {
@@ -219,6 +220,9 @@ static const query_t *query_ennf_h(
             query_t *psi = MALLOC(sizeof(query_t));
             *psi = *phi;
             psi->u.eval.context_z = stdvec_lazy_copy(z);
+            if (flip) {
+                psi->u.eval.sign = !psi->u.eval.sign;
+            }
             return psi;
         }
     }
@@ -320,7 +324,7 @@ static const query_t *query_simplify(
             return phi;
         case EVAL:
             *truth_value = phi->u.eval.eval(&phi->u.eval.context_z,
-                    context_sf, phi->u.eval.arg);
+                    context_sf, phi->u.eval.arg) == phi->u.eval.sign;
             return NULL;
     }
     assert(false);
@@ -416,7 +420,6 @@ static bool query_test_clause(
         const setup_t *original_setup,
         const pelset_t *original_pel,
         const stdvec_t *context_z,
-        const splitset_t *context_sf,
         const clause_t *c,
         const int k)
 {
@@ -552,7 +555,7 @@ bool query_entailed_by_setup(
         pelset_t pel = pelset_lazy_copy(&ctx->setup_pel);
         add_pel_of_clause(&pel, c, &ctx->setup);
         truth_value = query_test_clause(&ctx->setup, &pel, ctx->context_z,
-                ctx->context_sf, c, k);
+                c, k);
     }
     return truth_value;
 }
@@ -592,8 +595,7 @@ bool query_entailed_by_bat(
         const clause_t *c = cnf_get(&cnf, i);
         pelset_t pel = pelset_lazy_copy(&bat_pel);
         add_pel_of_clause(&pel, c, &setup);
-        truth_value = query_test_clause(&setup, &pel, context_z, context_sf,
-                c, k);
+        truth_value = query_test_clause(&setup, &pel, context_z, c, k);
     }
     return truth_value;
 }
@@ -705,7 +707,9 @@ const query_t *query_eval(
             .n_vars = n_vars,
             .names = names,
             .eval = eval,
-            .arg = arg
+            .arg = arg,
+            //.context_z = stdvec_init_with_size(0),
+            .sign = true
         }
     }));
 }
