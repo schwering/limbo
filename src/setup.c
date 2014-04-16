@@ -174,7 +174,9 @@ setup_t setup_init_static_and_dynamic(
     return setup;
 }
 
-void setup_add_sensing_results(setup_t *setup, const splitset_t *sensing_results)
+void setup_add_sensing_results(
+        setup_t *setup,
+        const splitset_t *sensing_results)
 {
     for (int i = 0; i < splitset_size(sensing_results); ++i) {
         const literal_t *l = splitset_get(sensing_results, i);

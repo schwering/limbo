@@ -85,36 +85,41 @@ START_TEST(test_entailment)
     clause_t nd3 = clause_singleton(&ND3);
     clause_t nd4 = clause_singleton(&ND4);
 
+    setup_t setup_up;
+
     clause_t d0d1 = clause_init();
     clause_add(&d0d1, &D0);
     clause_add(&d0d1, &D1);
-    ck_assert(!setup_subsumes(&setup, &d0d1));
+    setup_up = setup_lazy_copy(&setup);
+    ck_assert(!setup_subsumes(&setup_up, &d0d1));
 
     clause_t d0d2 = clause_init();
     clause_add(&d0d1, &D0);
-    ck_assert(!setup_subsumes(&setup, &d0d2));
+    setup_up = setup_lazy_copy(&setup);
+    ck_assert(!setup_subsumes(&setup_up, &d0d2));
 
     clause_t d1d2 = clause_init();
     clause_add(&d0d1, &D1);
     clause_add(&d0d1, &D2);
-    ck_assert(!setup_subsumes(&setup, &d1d2));
+    setup_up = setup_lazy_copy(&setup);
+    ck_assert(!setup_subsumes(&setup_up, &d1d2));
 
     clause_t d2d3 = clause_init();
     clause_add(&d0d1, &D1);
     clause_add(&d0d1, &D2);
-    ck_assert(!setup_subsumes(&setup, &d2d3));
+    setup_up = setup_lazy_copy(&setup);
+    ck_assert(!setup_subsumes(&setup_up, &d2d3));
 
     clause_t fd1fd2 = clause_init();
     clause_add(&fd1fd2, &FD1);
     clause_add(&fd1fd2, &FD2);
-    ck_assert(!setup_subsumes(&setup, &fd1fd2));
-
-    setup_t setup_up;
+    setup_up = setup_lazy_copy(&setup);
+    ck_assert(!setup_subsumes(&setup_up, &fd1fd2));
 
     // split D0
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &nd0);
-    ck_assert(!setup_subsumes(&setup_up, &fd1fd2));
+    setup_add(&setup_up, &d0);
+    ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     setup_up = setup_lazy_copy(&setup);
     setup_add(&setup_up, &nd0);

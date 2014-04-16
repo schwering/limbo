@@ -12,7 +12,10 @@
  * Query evaluation is done with query_entailed_by_bat().
  * As a first step, this computes the setup for the given BAT.
  * In the (usual) case of multiple queries wrt the same BAT, the functions
- * query_is_entailed_by_setup() is more efficient.
+ * query_is_entailed_by_setup() is more efficient. Its parameter
+ * force_no_update can be set to true to even avoid checking if the current
+ * context's structures are up to date. That is, force_no_update = true is
+ * fast but dangerous.
  * The context structure memorizes a some data needed for query answering;
  * for the initial context use context_init().
  *
@@ -93,11 +96,11 @@ context_t context_init(
         const stdvec_t *context_z,
         const splitset_t *context_sf);
 
-void context_cleanup(context_t *setup);
+void context_cleanup(context_t *ctx);
 
 bool query_entailed_by_setup(
-        context_t *setup,
-        const bool force_keep_setup,
+        context_t *ctx,
+        const bool force_no_update,
         const query_t *phi,
         const int k);
 

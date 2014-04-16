@@ -428,7 +428,7 @@ static bool query_test_clause(
     for (int i = 0; i < clause_size(c); ++i) {
         const stdvec_t *z = literal_z(clause_get(c, i));
         for (int j = 0; j < stdvec_size(z) - 1; ++j) {
-            stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, j);
+            const stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, j);
             const stdname_t n = stdvec_get(z, j);
             const stdvec_t n_vec = stdvec_singleton(n);
             literal_t *sf = MALLOC(sizeof(literal_t));
@@ -485,13 +485,13 @@ void context_cleanup(context_t *ctx)
 
 bool query_entailed_by_setup(
         context_t *ctx,
-        const bool force_keep_setup,
+        const bool force_no_update,
         const query_t *phi,
         const int k)
 {
     // update hplus if necessary (needed for query rewriting and for setups)
     bool have_new_hplus = false;
-    if (!force_keep_setup) {
+    if (!force_no_update) {
         stdset_t ns = query_names(phi);
         const int nv = query_n_vars(phi);
         if (ctx->query_n_vars < nv) {
@@ -516,7 +516,7 @@ bool query_entailed_by_setup(
 
     // now update the setups if necessary
     bool have_new_static_setup = false;
-    if (!force_keep_setup) {
+    if (!force_no_update) {
         if (have_new_hplus) {
             ctx->static_setup = setup_init_static(ctx->static_bat,
                     &ctx->hplus);
@@ -524,7 +524,7 @@ bool query_entailed_by_setup(
         }
     }
     bool have_new_dynamic_setup = false;
-    if (!force_keep_setup) {
+    if (!force_no_update) {
         stdvecset_t zs = query_ennf_zs(phi);
         if (have_new_hplus || !stdvecset_contains_all(&ctx->query_zs, &zs)) {
             ctx->query_zs = stdvecset_init_with_size(stdvecset_size(&zs));
