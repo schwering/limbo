@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #define MAX(x,y)    ((x) > (y) ? (x) : (y))
+#define SWAP(x,y)   ({ typeof(x) tmp = x; x = y; y = tmp; })
 
 SET_IMPL(clause, literal_t *, literal_cmp);
 SET_IMPL(setup, clause_t *, clause_cmp);
@@ -51,6 +52,7 @@ static const clause_t *clause_resolve(const clause_t *c, const splitset_t *u)
         }
     }
     clause_remove_all_indices(d, indices, n_indices);
+    FREE(indices);
     return d;
 }
 
@@ -82,8 +84,8 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
         literal_t *ll = MALLOC(sizeof(literal_t));
         *ll = literal_init(&zz, literal_sign(l), literal_pred(l),
                 literal_args(l));
-        const bool added = clause_add(d, ll);
-        assert(added);
+        const int index = clause_add(d, ll);
+        assert(index != -1);
     }
     setup_add(setup, d);
 }
@@ -277,30 +279,28 @@ void setup_propagate_units(setup_t *setup)
         return;
     }
     splitset_t units = setup_get_unit_clauses(setup);
-    bool new_units;
+    splitset_t new_units = splitset_init();
+    // we use pointers for faster swapping
+    splitset_t *units_ptr = &units;
+    splitset_t *new_units_ptr = &new_units;
     do {
-        new_units = false;
-        clause_t const **new_cs = MALLOC(setup_size(setup) * sizeof(clause_t *));
-        int *old_cs = MALLOC(setup_size(setup) * sizeof(int));
-        int n = 0;
+        splitset_clear(new_units_ptr);
         for (int i = 0; i < setup_size(setup); ++i) {
             const clause_t *c = setup_get(setup, i);
-            const clause_t *d = clause_resolve(c, &units);
+            const clause_t *d = clause_resolve(c, units_ptr);
             if (!clause_eq(c, d)) {
-                new_cs[n] = d;
-                old_cs[n] = i;
-                ++n;
+                setup_replace_index(setup, i, d);
                 if (clause_is_unit(d)) {
-                    new_units |= splitset_add(&units, clause_unit(d));
+                    const literal_t *l = clause_unit(d);
+                    if (!splitset_contains(units_ptr, l)) {
+                        splitset_add(new_units_ptr, l);
+                    }
                 }
             }
         }
-        setup_remove_all_indices(setup, old_cs, n);
-        for (int i = 0; i < n; ++i) {
-            const clause_t *d = new_cs[i];
-            setup_add(setup, d);
-        }
-    } while (new_units && !setup_contains_empty_clause(setup));
+        SWAP(units_ptr, new_units_ptr);
+    } while (splitset_size(units_ptr) > 0 &&
+            !setup_contains_empty_clause(setup));
 }
 
 bool setup_subsumes(setup_t *setup, const clause_t *c)

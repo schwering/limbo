@@ -62,6 +62,59 @@ START_TEST(test_set_add)
 }
 END_TEST
 
+void check_set(const iset_t *set, int n)
+{
+    ck_assert_int_eq(iset_size(set), n);
+    for (int i = 1; i < iset_size(set); ++i) {
+        ck_assert_int_lt(iset_get(set, i-1), iset_get(set, i));
+    }
+}
+
+START_TEST(test_set_replace)
+{
+    iset_t set = iset_init();
+    for (int i = 0; i < 100; ++i) {
+        iset_add(&set, i+1);
+    }
+    for (int i = 0; i < 100; ++i) {
+        ck_assert_int_eq(iset_get(&set, i), i+1);
+    }
+    check_set(&set, 100);
+    ck_assert_int_eq(iset_size(&set), 100);
+    for (int i = 0; i < 100; ++i) {
+        const int j = iset_replace(&set, i+1, i);
+        ck_assert_int_ne(j, -1);
+        ck_assert_int_eq(iset_size(&set), 100);
+        ck_assert_int_eq(j, i);
+        ck_assert_int_eq(iset_get(&set, j), i);
+        ck_assert_int_lt(i, iset_size(&set));
+        if (0 < i) {
+            ck_assert_int_lt(iset_get(&set, i-1), iset_get(&set, i));
+        }
+        if (i < iset_size(&set) - 1) {
+            ck_assert_int_lt(iset_get(&set, i), iset_get(&set, i+1));
+        }
+    }
+    check_set(&set, 100);
+    ck_assert_int_eq(iset_size(&set), 100);
+    for (int i = 0; i < 100; ++i) {
+        const int j = iset_replace(&set, i, 99-i);
+        ck_assert_int_eq(j, -1);
+    }
+    set_clear(&set);
+    for (int i = 0; i < 100; ++i) {
+        iset_add(&set, 2*i);
+    }
+    for (int i = 0; i < 100; ++i) {
+        const int j = 199 - 2*i;
+        const int k = iset_replace(&set, 2*i, j);
+        ck_assert_int_eq(iset_get(&set, k), j);
+        ck_assert_int_eq(iset_size(&set), 100);
+    }
+    check_set(&set, 100);
+}
+END_TEST
+
 START_TEST(test_set_copy)
 {
     iset_t src = iset_init();
@@ -715,6 +768,7 @@ Suite *iset_suite(void)
   Suite *s = suite_create("Set");
   TCase *tc_core = tcase_create("Core");
   tcase_add_test(tc_core, test_set_add);
+  tcase_add_test(tc_core, test_set_replace);
   tcase_add_test(tc_core, test_set_copy);
   tcase_add_test(tc_core, test_set_lazy_copy);
   tcase_add_test(tc_core, test_set_singleton);

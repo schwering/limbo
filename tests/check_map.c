@@ -18,10 +18,10 @@ START_TEST(test_map_add)
     iimap_t map = iimap_init();
     for (int i = -11; i < 10; i += 4) {
         ck_assert(!iimap_contains(&map, ABS(i)));
-        ck_assert(iimap_add(&map, ABS(i), ABS(i)));
+        ck_assert(iimap_add(&map, ABS(i), ABS(i)) != -1);
         ck_assert_int_eq(iimap_lookup(&map, ABS(i)), ABS(i));
         ck_assert(iimap_contains(&map, ABS(i)));
-        ck_assert(!iimap_add(&map, ABS(i), ABS(i)));
+        ck_assert(!iimap_add(&map, ABS(i), ABS(i)) != -1);
         ck_assert_int_eq(iimap_add_replace(&map, ABS(i), (2*ABS(i))), ABS(i));
         ck_assert_int_eq(iimap_lookup(&map, ABS(i)), (2*ABS(i)));
     }

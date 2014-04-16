@@ -11,8 +11,8 @@
  * present.
  *
  * map_add[_replace]() insert a new key/value pair. While map_add() returns
- * true iff the key was not present before, map_add_replace() overrides the
- * old one if necessary and returns the old value or NULL.
+ * the non-negative index iff the key was not present before, map_add_replace()
+ * overrides the old one if necessary and returns the old value or NULL.
  *
  * map_remove() also returns the old value if the given key is present.
  *
@@ -47,7 +47,7 @@ const kv_t *map_get(const map_t *map, int index);
 const void *map_lookup(const map_t *map, const void *key);
 int map_size(const map_t *map);
 
-bool map_add(map_t *map, const void *key, const void *val);
+int map_add(map_t *map, const void *key, const void *val);
 const void *map_add_replace(map_t *map, const void *key, const void *val);
 
 const void *map_remove(map_t *map, const void *key);
@@ -64,7 +64,7 @@ void map_clear(map_t *map);
     const prefix##_kv_t *prefix##_get(const prefix##_t *m, int index);\
     const valtype prefix##_lookup(const prefix##_t *m, const keytype key);\
     int prefix##_size(const prefix##_t *m);\
-    bool prefix##_add(prefix##_t *m, const keytype key, const valtype val);\
+    int prefix##_add(prefix##_t *m, const keytype key, const valtype val);\
     const valtype prefix##_add_replace(prefix##_t *m,\
             const keytype key, const valtype val);\
     const valtype prefix##_remove(prefix##_t *m, const keytype key);\
@@ -90,7 +90,7 @@ void map_clear(map_t *map);
         return (const valtype) map_lookup(&m->m, (const void *) key); }\
     int prefix##_size(const prefix##_t *m) {\
         return map_size(&m->m); }\
-    bool prefix##_add(prefix##_t *m, const keytype key, const valtype val) {\
+    int prefix##_add(prefix##_t *m, const keytype key, const valtype val) {\
         return map_add(&m->m, (const void *) key, (const void *) val); }\
     const valtype prefix##_add_replace(prefix##_t *m,\
             const keytype key, const valtype val) {\

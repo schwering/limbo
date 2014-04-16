@@ -17,12 +17,11 @@
  * context's structures are up to date. That is, force_no_update = true is
  * fast but dangerous.
  * The context structure memorizes a some data needed for query answering;
- * for the initial context use context_init().
+ * for the initial context use context_init(). Copies with additional physically
+ * executed actions can be created with context_copy_with_new_actions().
  *
  * To improve performance in cases where similar queries are evaluated wrt the
  * same BAT, we have the contexts which cache the setup etc.
- * The pointers handed over to context_init() must survive the context
- * lifecycle.
  *
  * The query evaluation procedure differs a bit from the KR paper about ESL.
  * We first convert the formula into ENNF (extended negation normal form), that
@@ -95,6 +94,11 @@ context_t context_init(
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
         const splitset_t *context_sf);
+
+context_t context_copy_with_new_actions(
+        const context_t *ctx,
+        const stdvec_t *add_context_z,
+        const splitset_t *add_context_sf);
 
 void context_cleanup(context_t *ctx);
 

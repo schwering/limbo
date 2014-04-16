@@ -227,14 +227,14 @@ bool set_contains_all(const set_t *set, const set_t *elems)
     return true;
 }
 
-bool set_add(set_t *set, const void *elem)
+int set_add(set_t *set, const void *elem)
 {
     const int i = insert_pos(set, elem, 0, vector_size(&set->vec) - 1);
     if (i != -1) {
         vector_insert(&set->vec, i, elem);
-        return true;
+        return i;
     } else {
-        return false;
+        return -1;
     }
 }
 
@@ -286,6 +286,37 @@ void set_remove_index_range(set_t *set, int from, int to)
 void set_remove_all_indices(set_t *set, const int indices[], int n_indices)
 {
     vector_remove_all(&set->vec, indices, n_indices);
+}
+
+int set_replace(set_t *set, const void *old_elem, const void *new_elem)
+{
+    const int i = set_find(set, old_elem);
+    if (i == -1) {
+        return -1;
+    }
+    return set_replace_index(set, i, new_elem);
+}
+
+int set_replace_index(set_t *set, int index, const void *new_elem)
+{
+    assert(0 <= index && index < vector_size(&set->vec));
+    const int i = insert_pos(set, new_elem, 0, vector_size(&set->vec) - 1);
+    if (i == -1) {
+        return -1;
+    } else if (i == index || i == index + 1) {
+        vector_set(&set->vec, index, new_elem);
+        return index;
+    } else if (i < index) {
+        // element to be removed comes after element to be inserted
+        vector_remove(&set->vec, index);
+        vector_insert(&set->vec, i, new_elem);
+        return i;
+    } else {
+        // element to be removed comes before element to be inserted
+        vector_remove(&set->vec, index);
+        vector_insert(&set->vec, i - 1, new_elem);
+        return i - 1;
+    }
 }
 
 void set_clear(set_t *set)

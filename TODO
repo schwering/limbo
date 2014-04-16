@@ -1,0 +1,16 @@
+(1) Rewrite set as a tree with shadowing/clones (maybe the B-tree ideas can be transferred to a red-black tree).
+(2) Add an index literal -> clause to each setup which gives all clauses that contain a given literal for faster unit propagatation.
+(3) For subsumption we currently iterate over the full setup. There are at least two alternatives:
+    (a) Compute all sub-clauses of the possibly subsumed clause and check if one of these sub-clauses is contained in the setup.
+        Suppose we have 2^n clauses in the setup and what to check if a clause of length m is subsumed by this setup.
+        When iterating over all clauses in the setup, the cost is 2^n is-subset operations.
+        Alternatively we can lookup all 2^m sub-clauses (which amounts to set-equality, which should be cheapter than the is-subset operation).
+        Then the total cost is 2^m * n set-equality operations.
+        Even if is-subset is as cheap as set-equality, the lookup of all sub-clauses are still cheaper than the setup iteration, if the following holds:
+        2^n > 2^m * n  iff
+        2^n / n > 2^m  iff
+        n - log(n) > m
+	For that to work well we need an efficient way to compute all sub-clauses.
+	Masking elements would be possible, but maybe there's a better way in combination with the tree set structure developed in (1).
+    (b) For each literal in the possibly subsumed clause, find all clauses in the setup which contain that literal (with the index to be created in (2)). Then we still need to check for the rest and I think that would just lead to (a). So we discard this idea.
+

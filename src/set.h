@@ -25,8 +25,12 @@
  * constructors, we could add variants which modify one of the operands.
  *
  * set_add() only inserts the element if it wasn't present before.
- * set_add() returns true iff the element was actually inserted.
+ * set_add() returns the non-negative index iff the element was actually
+ * inserted.
  * set_remove() returns true iff the element was actually removed.
+ * set_replace[_index]() only have an effect if the element to be replaced is
+ * actually present and the element to be inserted is not. Otherwise the set
+ * is not changed and -1 is returned.
  *
  * For typesafe usage there is a MAP macro which declares appropriate wrapper
  * functions.
@@ -68,7 +72,7 @@ int set_find(const set_t *set, const void *elem);
 bool set_contains(const set_t *set, const void *elem);
 bool set_contains_all(const set_t *set, const set_t *elems);
 
-bool set_add(set_t *set, const void *elem);
+int set_add(set_t *set, const void *elem);
 void set_add_all(set_t *set, const set_t *elems);
 
 bool set_remove(set_t *set, const void *elem);
@@ -76,6 +80,10 @@ void set_remove_all(set_t *set, const set_t *elems);
 const void *set_remove_index(set_t *set, int index);
 void set_remove_index_range(set_t *set, int from, int to);
 void set_remove_all_indices(set_t *set, const int indices[], int n_indices);
+
+int set_replace(set_t *set, const void *old_elem, const void *new_elem);
+int set_replace_index(set_t *set, int index, const void *new_elem);
+
 void set_clear(set_t *set);
 
 #define SET_DECL(prefix, type) \
@@ -102,7 +110,7 @@ void set_clear(set_t *set);
     int prefix##_find(const prefix##_t *s, const type elem);\
     bool prefix##_contains(const prefix##_t *s, const type elem);\
     bool prefix##_contains_all(const prefix##_t *s, const prefix##_t *elems);\
-    bool prefix##_add(prefix##_t *s, const type elem);\
+    int prefix##_add(prefix##_t *s, const type elem);\
     void prefix##_add_all(prefix##_t *s, const prefix##_t *elems);\
     bool prefix##_remove(prefix##_t *s, const type elem);\
     void prefix##_remove_all(prefix##_t *s, const prefix##_t *elems);\
@@ -110,6 +118,9 @@ void set_clear(set_t *set);
     void prefix##_remove_index_range(prefix##_t *s, int from, int to);\
     void prefix##_remove_all_indices(prefix##_t *s, const int indices[],\
             int n_indices);\
+    int prefix##_replace(prefix##_t *s, const type old_elem,\
+            const type new_elem);\
+    int prefix##_replace_index(prefix##_t *s, int index, const type new_elem);\
     void prefix##_clear(prefix##_t *s);
 
 #define SET_IMPL(prefix, type, compar) \
@@ -155,7 +166,7 @@ void set_clear(set_t *set);
         return set_contains(&s->s, (const void *) elem); }\
     bool prefix##_contains_all(const prefix##_t *s, const prefix##_t *elems) {\
         return set_contains_all(&s->s, &elems->s); }\
-    bool prefix##_add(prefix##_t *s, const type elem) {\
+    int prefix##_add(prefix##_t *s, const type elem) {\
         return set_add(&s->s, (const void *) elem); }\
     void prefix##_add_all(prefix##_t *s, const prefix##_t *elems) {\
         return set_add_all(&s->s, &elems->s); }\
@@ -170,6 +181,12 @@ void set_clear(set_t *set);
     void prefix##_remove_all_indices(prefix##_t *s, const int indices[],\
             int n_indices) {\
         set_remove_all_indices(&s->s, indices, n_indices); }\
+    int prefix##_replace(prefix##_t *s, const type old_elem,\
+            const type new_elem) {\
+        return set_replace(&s->s, (const void *) old_elem,\
+                (const void *) new_elem); }\
+    int prefix##_replace_index(prefix##_t *s, int index, const type new_elem) {\
+        return set_replace_index(&s->s, index, (const void *) new_elem); }\
     void prefix##_clear(prefix##_t *s) { set_clear(&s->s); }
 
 #define SET_ALIAS(alias, prefix, type) \
@@ -240,6 +257,12 @@ void set_clear(set_t *set);
     static inline void alias##_clear(alias##_t *s) { prefix##_clear(&s->s); }\
     static inline const alias##_t *prefix##_to_##alias(const prefix##_t *s) {\
         return (const alias##_t *) s; }\
+    static inline int alias##_replace(alias##_t *s, const type old_elem,\
+            const void *new_elem) {\
+        return prefix##_replace(&s->s, old_elem, new_elem); }\
+    static inline int alias##_replace_index(alias##_t *s, int index,\
+            const type new_elem) {\
+        return prefix##_replace_index(&s->s, index, new_elem); }\
     static inline const prefix##_t *alias##_to_##prefix(const alias##_t *s) {\
         return (const prefix##_t *) s; }
 

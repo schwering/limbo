@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include "../src/query.h"
 #include "../src/setup.h"
@@ -152,6 +153,7 @@ static const clause_t *gen_c9(int i, const varmap_t *map)
 
 static const clause_t *c10(const varmap_t *map)
 {
+    assert(varmap_size(map) >= 0); // suppress unused map
     const bool cond = true;
     const stdvec_t empty_vec = stdvec_init();
     if (!cond) {
@@ -162,6 +164,7 @@ static const clause_t *c10(const varmap_t *map)
 
 static const clause_t *c11(const varmap_t *map)
 {
+    assert(varmap_size(map) >= 0); // suppress unused map
     const bool cond = true;
     const stdvec_t empty_vec = stdvec_init();
     if (!cond) {
@@ -172,6 +175,7 @@ static const clause_t *c11(const varmap_t *map)
 
 static const clause_t *c12(const varmap_t *map)
 {
+    assert(varmap_size(map) >= 0); // suppress unused map
     const bool cond = true;
     const stdvec_t empty_vec = stdvec_init();
     if (!cond) {

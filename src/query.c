@@ -448,9 +448,14 @@ static bool query_test_clause(
 context_t context_init(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
-        const stdvec_t *context_z,
-        const splitset_t *context_sf)
+        const stdvec_t *orig_context_z,
+        const splitset_t *orig_context_sf)
 {
+    assert(stdvec_size(orig_context_z) == splitset_size(orig_context_sf));
+    stdvec_t *context_z = MALLOC(sizeof(stdvec_t));
+    *context_z = stdvec_copy(orig_context_z);
+    splitset_t *context_sf = MALLOC(sizeof(splitset_t));
+    *context_sf = splitset_copy(orig_context_sf);
     stdset_t query_names = stdset_init_with_size(0);
     stdset_t hplus = bat_hplus(static_bat, dynamic_bat, &query_names, 0);
     stdvecset_t query_zs = stdvecset_singleton(context_z);
@@ -469,6 +474,39 @@ context_t context_init(
         .hplus         = hplus,
         .query_zs      = query_zs,
         .static_setup  = static_setup,
+        .dynamic_setup = dynamic_setup,
+        .setup         = setup,
+        .setup_pel     = setup_pel(&setup)
+    };
+}
+
+context_t context_copy_with_new_actions(
+        const context_t *ctx,
+        const stdvec_t *add_context_z,
+        const splitset_t *add_context_sf)
+{
+    assert(stdvec_size(add_context_z) == splitset_size(add_context_sf));
+    stdvec_t *context_z = MALLOC(sizeof(stdvec_t));
+    *context_z = stdvec_concat(ctx->context_z, add_context_z);
+    splitset_t *context_sf = MALLOC(sizeof(splitset_t));
+    *context_sf = splitset_union(ctx->context_sf, add_context_sf);
+    assert(stdvec_size(context_z) == splitset_size(context_sf));
+    stdvecset_t query_zs = stdvecset_singleton(context_z);
+    setup_t dynamic_setup = setup_init_dynamic(ctx->dynamic_bat, &ctx->hplus,
+            &query_zs);
+    setup_t setup = setup_union(&ctx->static_setup, &dynamic_setup);
+    setup_add_sensing_results(&setup, add_context_sf);
+    setup_propagate_units(&setup);
+    return (context_t) {
+        .static_bat    = ctx->static_bat,
+        .dynamic_bat   = ctx->dynamic_bat,
+        .context_z     = context_z,
+        .context_sf    = context_sf,
+        .query_names   = stdset_copy(&ctx->query_names),
+        .query_n_vars  = ctx->query_n_vars,
+        .hplus         = stdset_copy(&ctx->hplus),
+        .query_zs      = query_zs,
+        .static_setup  = setup_copy(&ctx->static_setup),
         .dynamic_setup = dynamic_setup,
         .setup         = setup,
         .setup_pel     = setup_pel(&setup)

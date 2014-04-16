@@ -52,7 +52,7 @@ int map_size(const map_t *map)
     return set_size(&map->set);
 }
 
-bool map_add(map_t *map, const void *key, const void *val)
+int map_add(map_t *map, const void *key, const void *val)
 {
     kv_t *kvp = MALLOC(sizeof(kv_t));
     kvp->key = key;
