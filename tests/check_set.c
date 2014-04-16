@@ -96,16 +96,29 @@ START_TEST(test_set_replace)
         }
     }
     check_set(&set, 100);
+    /*
     ck_assert_int_eq(iset_size(&set), 100);
     for (int i = 0; i < 100; ++i) {
         const int j = iset_replace(&set, i, 99-i);
         ck_assert_int_eq(j, -1);
     }
-    set_clear(&set);
+    */
+    iset_clear(&set);
     for (int i = 0; i < 100; ++i) {
         iset_add(&set, 2*i);
     }
     for (int i = 0; i < 100; ++i) {
+        const int j = 199 - 2*i;
+        const int k = iset_replace(&set, 2*i, j);
+        ck_assert_int_eq(iset_get(&set, k), j);
+        ck_assert_int_eq(iset_size(&set), 100);
+    }
+    check_set(&set, 100);
+    iset_clear(&set);
+    for (int i = 0; i < 100; ++i) {
+        iset_add(&set, 2*i);
+    }
+    for (int i = 99; i >= 0; --i) {
         const int j = 199 - 2*i;
         const int k = iset_replace(&set, 2*i, j);
         ck_assert_int_eq(iset_get(&set, k), j);

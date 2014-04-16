@@ -45,6 +45,15 @@ START_TEST(test_grounding)
         }
         ck_assert(subsumed);
     }
+
+    const stdvec_t empty_vec = stdvec_init_with_size(0);
+    const stdvec_t f_vec = stdvec_singleton(FORWARD);
+    const literal_t neg_sf = literal_init(&empty_vec, false, SF, &f_vec);
+    const splitset_t sensing_results = splitset_singleton(&neg_sf);
+    setup_add_sensing_results(&setup_up, &sensing_results);
+    print_setup(&setup_up);
+    setup_propagate_units(&setup_up);
+    print_setup(&setup_up);
 }
 END_TEST
 
@@ -150,6 +159,8 @@ START_TEST(test_entailment)
 
     setup_up = setup_lazy_copy(&setup);
     setup_add(&setup_up, &nd3);
+    //setup_propagate_units(&setup_up);
+    print_setup(&setup_up);
     ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     // inconsistent split

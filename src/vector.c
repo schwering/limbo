@@ -113,6 +113,9 @@ const void *vector_get(const vector_t *vec, int index)
 int vector_cmp(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *))
 {
+    // Don't touch unless necessary.
+    // The fact that length is the first ordering criterion is used particularly
+    // in setup.c.
     if (vec1 == vec2) {
         return 0;
     }

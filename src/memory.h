@@ -53,9 +53,9 @@
     
 #define NEW(expr) \
     ({\
-        typeof(expr) *ptr = MALLOC(sizeof(expr));\
-        *ptr = expr;\
-        ptr;\
+        typeof(expr) *_NEW_ptr = MALLOC(sizeof(expr));\
+        *_NEW_ptr = expr;\
+        _NEW_ptr;\
     })
 
 #endif

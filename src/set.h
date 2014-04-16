@@ -25,12 +25,18 @@
  * constructors, we could add variants which modify one of the operands.
  *
  * set_add() only inserts the element if it wasn't present before.
- * set_add() returns the non-negative index iff the element was actually
- * inserted.
  * set_remove() returns true iff the element was actually removed.
- * set_replace[_index]() only have an effect if the element to be replaced is
- * actually present and the element to be inserted is not. Otherwise the set
- * is not changed and -1 is returned.
+ * set_replace[_index]() has the same effect as removing the old element /
+ * index and adding a new element afterwards, but may be more efficient.
+ * The value returned by set_add() and set_replace[_index]() is the index i at
+ * which the new element is stored unless it was present before already; in
+ * the latter case, 2*i-1 is returned. Use the macro ELEM_WAS_IN_SET to check
+ * if the index indicates that the element was present before and
+ * REAL_SET_INDEX to convert i or 2*i-1 to i, and UNREAL_SET_INDEX to convert i
+ * or 2*i-1 to 2*i-1.
+ * The most common purpose of these index computations is to adjust the loop
+ * counting variable appropriately after such an action.
+ * TODO Replace set loop variables with iterators.
  *
  * For typesafe usage there is a MAP macro which declares appropriate wrapper
  * functions.
@@ -71,6 +77,10 @@ int set_size(const set_t *set);
 int set_find(const set_t *set, const void *elem);
 bool set_contains(const set_t *set, const void *elem);
 bool set_contains_all(const set_t *set, const set_t *elems);
+
+#define ELEM_WAS_IN_SET(i)  ((i) < 0)
+#define UNREAL_SET_INDEX(i) (ELEM_WAS_IN_SET(i) ? (i) : -1 * (i) - 1)
+#define REAL_SET_INDEX(i)   (ELEM_WAS_IN_SET(i) ? -1 * ((i) + 1) : (i))
 
 int set_add(set_t *set, const void *elem);
 void set_add_all(set_t *set, const set_t *elems);

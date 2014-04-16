@@ -11,6 +11,8 @@ SET_IMPL(setup, clause_t *, clause_cmp);
 VECTOR_IMPL(univ_clauses, univ_clause_t *, NULL);
 VECTOR_IMPL(box_univ_clauses, box_univ_clause_t *, NULL);
 
+#define EMPTY_CLAUSE_INDEX 0
+
 const clause_t *clause_empty(void)
 {
     static clause_t c;
@@ -64,7 +66,7 @@ static void ground_univ(setup_t *setup, varmap_t *varmap,
         for (int j = 0; j < stdset_size(ns); ++j) {
             const stdname_t n = stdset_get(ns, j);
             varmap_add_replace(varmap, var, n);
-            ground_univ(setup, varmap, univ_clause, ns, i+1);
+            ground_univ(setup, varmap, univ_clause, ns, i + 1);
         }
     } else {
         const clause_t *c = univ_clause->univ_clause(varmap);
@@ -85,7 +87,7 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
         *ll = literal_init(&zz, literal_sign(l), literal_pred(l),
                 literal_args(l));
         const int index = clause_add(d, ll);
-        assert(index != -1);
+        assert(!ELEM_WAS_IN_SET(index));
     }
     setup_add(setup, d);
 }
@@ -270,7 +272,44 @@ static splitset_t setup_get_unit_clauses(const setup_t *setup)
 
 static bool setup_contains_empty_clause(const setup_t *s)
 {
-    return setup_size(s) > 0 && clause_size(setup_get(s, 0)) == 0;
+    return setup_size(s) > EMPTY_CLAUSE_INDEX &&
+        clause_is_empty(setup_get(s, EMPTY_CLAUSE_INDEX));
+}
+
+static int setup_minimize_wrt(setup_t *setup, int index, int ref_index)
+{
+    // Removes all clauses subsumed by the index-th clause.
+    // Returns the number of removed clauses whose index is <= ref_index.
+    // A special case is the empty clause: since that's it's easy to detect, we
+    // drop all other clauses and return -1.
+    if (setup_contains_empty_clause(setup)) {
+        setup_remove_index_range(setup, EMPTY_CLAUSE_INDEX + 1,
+                setup_size(setup));
+        return -1;
+    }
+    int drops = 0;
+    const clause_t *c = setup_get(setup, index);
+    for (int i = index + 1; i < setup_size(setup); ++i) {
+        const clause_t *d = setup_get(setup, i);
+        if (clause_size(d) > clause_size(c) && clause_contains_all(d, c)) {
+            setup_remove_index(setup, i--);
+            if (i < ref_index) {
+                ++drops;
+            }
+        }
+    }
+    return drops;
+}
+
+void setup_minimize(setup_t *setup)
+{
+    for (int i = 0; i < setup_size(setup); ++i) {
+        const int k = setup_minimize_wrt(setup, i, i);
+        if (k == -1) {
+            return;
+        }
+        i -= k;
+    }
 }
 
 void setup_propagate_units(setup_t *setup)
@@ -280,7 +319,6 @@ void setup_propagate_units(setup_t *setup)
     }
     splitset_t units = setup_get_unit_clauses(setup);
     splitset_t new_units = splitset_init();
-    // we use pointers for faster swapping
     splitset_t *units_ptr = &units;
     splitset_t *new_units_ptr = &new_units;
     do {
@@ -289,18 +327,28 @@ void setup_propagate_units(setup_t *setup)
             const clause_t *c = setup_get(setup, i);
             const clause_t *d = clause_resolve(c, units_ptr);
             if (!clause_eq(c, d)) {
-                setup_replace_index(setup, i, d);
-                if (clause_is_unit(d)) {
-                    const literal_t *l = clause_unit(d);
-                    if (!splitset_contains(units_ptr, l)) {
-                        splitset_add(new_units_ptr, l);
+                const int j = setup_replace_index(setup, i, d);
+                if (ELEM_WAS_IN_SET(j) || i < REAL_SET_INDEX(j)) {
+                    --i;
+                }
+                if (!ELEM_WAS_IN_SET(j)) {
+                    const int k = setup_minimize_wrt(setup,
+                            REAL_SET_INDEX(j), i);
+                    if (k == -1) {
+                        return;
+                    }
+                    i -= k;
+                    if (clause_is_unit(d)) {
+                        const literal_t *l = clause_unit(d);
+                        if (!splitset_contains(units_ptr, l)) {
+                            splitset_add(new_units_ptr, l);
+                        }
                     }
                 }
             }
         }
         SWAP(units_ptr, new_units_ptr);
-    } while (splitset_size(units_ptr) > 0 &&
-            !setup_contains_empty_clause(setup));
+    } while (splitset_size(units_ptr) > 0);
 }
 
 bool setup_subsumes(setup_t *setup, const clause_t *c)

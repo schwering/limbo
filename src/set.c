@@ -31,13 +31,19 @@ static inline int search(const set_t *set, const void *obj, int lo, int hi)
 
 static inline int insert_pos(const set_t *set, const void *obj, int lo, int hi)
 {
+    // Let i be the index in range [lo,hi] where obj should be inserted so that
+    // the order of the elements is monotone. If set does not yet contain obj, i
+    // is returned; otherwise (-1 * i) - 1 is returned.
+    // That is, negative values indicate that the value is already present, and
+    // by adding 1 and multiplying it with -1 you get the index where the
+    // element was stored.
     // XXX could use Knuth's uniform binary search to safe some comparisons
     assert(0 <= lo && hi <= vector_size(&set->vec) - 1);
     while (lo <= hi) {
         const int i = (lo + hi) / 2;
         const int cmp = COMPAR(set, obj, vector_get(&set->vec, i));
         if (cmp == 0) { // element already present
-            return -1;
+            return -1 * i - 1;
         } else if (cmp <= 0) { // left half
             if (i == 0 || COMPAR(set, obj, vector_get(&set->vec, i-1)) > 0) {
                 // position found
@@ -230,12 +236,10 @@ bool set_contains_all(const set_t *set, const set_t *elems)
 int set_add(set_t *set, const void *elem)
 {
     const int i = insert_pos(set, elem, 0, vector_size(&set->vec) - 1);
-    if (i != -1) {
+    if (i >= 0) {
         vector_insert(&set->vec, i, elem);
-        return i;
-    } else {
-        return -1;
     }
+    return i;
 }
 
 void set_add_all(set_t *set, const set_t *elems)
@@ -292,30 +296,35 @@ int set_replace(set_t *set, const void *old_elem, const void *new_elem)
 {
     const int i = set_find(set, old_elem);
     if (i == -1) {
-        return -1;
+        return set_add(set, new_elem);
+    } else {
+        return set_replace_index(set, i, new_elem);
     }
-    return set_replace_index(set, i, new_elem);
 }
 
 int set_replace_index(set_t *set, int index, const void *new_elem)
 {
     assert(0 <= index && index < vector_size(&set->vec));
     const int i = insert_pos(set, new_elem, 0, vector_size(&set->vec) - 1);
-    if (i == -1) {
-        return -1;
-    } else if (i == index || i == index + 1) {
+    const int j = REAL_SET_INDEX(i);
+    if (ELEM_WAS_IN_SET(i)) {
+        if (index != j) {
+            vector_remove(&set->vec, index);
+        }
+        return UNREAL_SET_INDEX(index < j ? j-1 : j);
+    } else if (j == index || j == index + 1) {
         vector_set(&set->vec, index, new_elem);
         return index;
-    } else if (i < index) {
+    } else if (j < index) {
         // element to be removed comes after element to be inserted
         vector_remove(&set->vec, index);
-        vector_insert(&set->vec, i, new_elem);
-        return i;
+        vector_insert(&set->vec, j, new_elem);
+        return j;
     } else {
         // element to be removed comes before element to be inserted
         vector_remove(&set->vec, index);
-        vector_insert(&set->vec, i - 1, new_elem);
-        return i - 1;
+        vector_insert(&set->vec, j - 1, new_elem);
+        return j - 1;
     }
 }
 

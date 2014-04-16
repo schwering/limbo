@@ -23,3 +23,5 @@ missing
 stamp-h1
 test-driver
 tests/check_*[^c]
+profile/profile
+gmon.out

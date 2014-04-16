@@ -463,6 +463,7 @@ context_t context_init(
     setup_t dynamic_setup = setup_init_dynamic(dynamic_bat, &hplus, &query_zs);
     setup_t setup = setup_union(&static_setup, &dynamic_setup);
     setup_add_sensing_results(&setup, context_sf);
+    //setup_minimize(&setup);
     setup_propagate_units(&setup);
     return (context_t) {
         .static_bat    = static_bat,
@@ -496,6 +497,7 @@ context_t context_copy_with_new_actions(
             &query_zs);
     setup_t setup = setup_union(&ctx->static_setup, &dynamic_setup);
     setup_add_sensing_results(&setup, add_context_sf);
+    //setup_minimize(&setup);
     setup_propagate_units(&setup);
     return (context_t) {
         .static_bat    = ctx->static_bat,
@@ -581,6 +583,7 @@ bool query_entailed_by_setup(
     }
     if (have_new_static_setup || have_new_dynamic_setup) {
         ctx->setup = setup_union(&ctx->static_setup, &ctx->dynamic_setup);
+        //setup_minimize(&ctx->setup);
         setup_propagate_units(&ctx->setup);
         setup_add_sensing_results(&ctx->setup, ctx->context_sf);
         ctx->setup_pel = setup_pel(&ctx->setup);

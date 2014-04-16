@@ -25,10 +25,14 @@
  * literal when the setup already contains a unit clause with that literal or
  * its negation is useless. That's currently the only sanity check done.
  *
+ * setup_minimize() removes all clauses subsumed by other clauses in the setup.
+ *
  * setup_propagate_units() closes the given setup under resolution of its unit
- * clauses with all other clauses. More precisely, for each resolvent of a
- * unit clause there is a clause in the new setup which subsumes this
- * resolvent.
+ * clauses with all other clauses. That is, for each resolvent of a unit clause
+ * there is a clause in the new setup which subsumes this resolvent.
+ * Moreoever, the returned setup is minimal if the given setup was minimal,
+ * where minimality means that no clause is subsumed by another one in the
+ * setup.
  *
  * setup_subsumes() returns true if unit propagation of the setup plus split
  * literals contains a clause which is a subset of the given clause.
@@ -90,6 +94,8 @@ void setup_add_sensing_results(
 void add_pel_of_clause(pelset_t *pel, const clause_t *c, const setup_t *setup);
 pelset_t setup_pel(const setup_t *setup);
 bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l);
+
+void setup_minimize(setup_t *setup);
 
 void setup_propagate_units(setup_t *setup);
 

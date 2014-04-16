@@ -21,8 +21,7 @@
  * same size, their elements are compared. If compar is NULL, this is done with
  * memcmp on elements, which usually are just pointers; otherwise compar is
  * called iteratively.
- * Note that setup_unit_clauses() ultimately relies on this property to
- * efficiently find unit clauses.
+ * This characteristic is exploited particularly by setup.c.
  *
  * After vector_insert(), vector_get() returns the inserted element for the
  * respective index. After vector_insert_all[_range](), first element of the
