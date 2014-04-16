@@ -36,10 +36,19 @@
  * conjunction to be a negation of a disjunction.
  *
  * The evaluation construct represent an opaque sub-query which can only be
- * evaluated at once. For that purpose it consists of an eval callback and a
- * void pointer arg for optional payload. Additionally one needs to provide
- * callbacks which compute the number of variables and the standard names in
- * this sub-query.
+ * evaluated at once.
+ * For that purpose it consists of an eval callback and a void pointer arg for
+ * optional payload. Besides that payload, the callback is given (1) a
+ * sequence of actions context_z, which contains the physically executed
+ * actions and those executed imaginary in the query at the place of the
+ * sub-query, and (2) a set of SF literals, which only contains the physical
+ * sensing results, but not the imaginary ones. Leaving out the imaginary
+ * sensing results is reasonable because query_test_clause() will add their SF
+ * literals to PEL anyway and thus query_test_split() will split them if
+ * necessary (regardless of k).
+ * 
+ * Additionally one needs to provide callbacks which compute the number of
+ * variables and the standard names in this sub-query.
  * These evaluation constructs are evaluated already during query
  * simplification. This is somewhat odd, as it could be seen as an indication
  * that their evaluation always shall be cheap. (The other constructs
@@ -113,7 +122,8 @@ const query_t *query_act(stdname_t n, const query_t *phi);
 const query_t *query_eval(
         int (*n_vars)(void *arg),
         stdset_t (*names)(void *arg),
-        bool (*eval)(const stdvec_t *context_z, void *arg),
+        bool (*eval)(const stdvec_t *context_z, const splitset_t *context_sf,
+            void *arg),
         void *arg);
 
 #endif

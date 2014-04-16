@@ -77,8 +77,9 @@ void setup_add_sensing_results(
         setup_t *setup,
         const splitset_t *sensing_results);
 
-void add_pel_of_clause(pelset_t *pel, const clause_t *c);
+void add_pel_of_clause(pelset_t *pel, const clause_t *c, const setup_t *setup);
 pelset_t setup_pel(const setup_t *setup);
+bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l);
 
 void setup_propagate_units(setup_t *setup);
 void setup_propagate_units2(setup_t *setup, const splitset_t *split);

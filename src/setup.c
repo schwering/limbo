@@ -184,7 +184,7 @@ void setup_add_sensing_results(setup_t *setup, const splitset_t *sensing_results
     }
 }
 
-void add_pel_of_clause(pelset_t *pel, const clause_t *c)
+void add_pel_of_clause(pelset_t *pel, const clause_t *c, const setup_t *setup)
 {
     if (clause_is_unit(c)) {
         return;
@@ -206,6 +206,9 @@ void add_pel_of_clause(pelset_t *pel, const clause_t *c)
         if (literal_pred(l) == SF) {
             continue;
         }
+        if (setup_would_be_needless_split(setup, l)) {
+            continue;
+        }
         if (!literal_sign(l)) {
             literal_t *ll = MALLOC(sizeof(literal_t));
             *ll = literal_flip(l);
@@ -216,30 +219,26 @@ void add_pel_of_clause(pelset_t *pel, const clause_t *c)
     }
 }
 
-static void pel_optimize(pelset_t *pel, const setup_t *setup)
+bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l)
 {
-    for (int i = 0; i < pelset_size(pel); ++i) {
-        const literal_t *l1 = pelset_get(pel, i);
-        const literal_t l2 = literal_flip(l1);
-        for (int j = 0; j < setup_size(setup); ++j) {
-            const clause_t *c = setup_get(setup, j);
-            if (clause_is_unit(c)) {
-                if (clause_contains(c, l1) || clause_contains(c, &l2)) {
-                    pelset_remove_index(pel, i--);
-                    break;
-                }
-            }
-        }
+    const clause_t c = clause_singleton(l);
+    if (setup_contains(setup, &c)) {
+        return true;
     }
+    const literal_t ll = literal_flip(l);
+    const clause_t d = clause_singleton(&ll);
+    if (setup_contains(setup, &d)) {
+        return true;
+    }
+    return false;
 }
 
 pelset_t setup_pel(const setup_t *setup)
 {
     pelset_t pel = pelset_init();
     for (int i = 0; i < setup_size(setup); ++i) {
-        add_pel_of_clause(&pel, setup_get(setup, i));
+        add_pel_of_clause(&pel, setup_get(setup, i), setup);
     }
-    pel_optimize(&pel, setup);
     return pel;
 }
 

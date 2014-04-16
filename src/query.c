@@ -13,7 +13,7 @@ typedef struct { stdname_t n; const query_t *phi; } query_action_t;
 typedef struct {
     int (*n_vars)(void *);
     stdset_t (*names)(void *);
-    bool (*eval)(const stdvec_t *, void *);
+    bool (*eval)(const stdvec_t *, const splitset_t *, void *);
     void *arg;
     stdvec_t context_z;
 } query_eval_t;
@@ -133,11 +133,16 @@ static const query_t *query_ground_quantifier(bool existential,
     }
 }
 
-static const query_t *query_ennf(const stdvec_t *context_z, const query_t *phi,
+static const query_t *query_ennf(
+        const stdvec_t *context_z,
+        const query_t *phi,
         const stdset_t *hplus);
 
-static const query_t *query_ennf_h(const stdvec_t *z, const query_t *phi,
-        const stdset_t *hplus, bool flip)
+static const query_t *query_ennf_h(
+        const stdvec_t *z,
+        const query_t *phi,
+        const stdset_t *hplus,
+        const bool flip)
 {
     // ENNF stands for Extended Negation Normal Form and means
     // (1) actions are moved inwards to the extended literals
@@ -254,7 +259,10 @@ static stdvecset_t query_ennf_zs(const query_t *phi)
     return stdvecset_init_with_size(0);
 }
 
-static const query_t *query_simplify(const query_t *phi, bool *truth_value)
+static const query_t *query_simplify(
+        const splitset_t *context_sf,
+        const query_t *phi,
+        bool *truth_value)
 {
     // Removes standard name (in)equalities from the formula.
     //
@@ -276,11 +284,13 @@ static const query_t *query_simplify(const query_t *phi, bool *truth_value)
         case AND: {
             query_t *psi = MALLOC(sizeof(query_t));
             psi->type = phi->type;
-            psi->u.bin.phi1 = query_simplify(phi->u.bin.phi1, truth_value);
+            psi->u.bin.phi1 = query_simplify(context_sf, phi->u.bin.phi1,
+                    truth_value);
             if (psi->u.bin.phi1 == NULL && (psi->type == OR) == *truth_value) {
                 return NULL;
             }
-            psi->u.bin.phi2 = query_simplify(phi->u.bin.phi2, truth_value);
+            psi->u.bin.phi2 = query_simplify(context_sf, phi->u.bin.phi2,
+                    truth_value);
             if (psi->u.bin.phi2 == NULL && (psi->type == OR) == *truth_value) {
                 return NULL;
             }
@@ -295,7 +305,8 @@ static const query_t *query_simplify(const query_t *phi, bool *truth_value)
         case NEG: {
             query_t *psi = MALLOC(sizeof(query_t));
             psi->type = phi->type;
-            psi->u.un.phi = query_simplify(phi->u.un.phi, truth_value);
+            psi->u.un.phi = query_simplify(context_sf, phi->u.un.phi,
+                    truth_value);
             if (psi->u.un.phi == NULL) {
                 return NULL;
             }
@@ -309,7 +320,7 @@ static const query_t *query_simplify(const query_t *phi, bool *truth_value)
             return phi;
         case EVAL:
             *truth_value = phi->u.eval.eval(&phi->u.eval.context_z,
-                    phi->u.eval.arg);
+                    context_sf, phi->u.eval.arg);
             return NULL;
     }
     assert(false);
@@ -359,26 +370,6 @@ static cnf_t query_cnf(const query_t *phi)
     assert(false);
 }
 
-static stdvecset_t clause_action_sequences_without_context(const clause_t *c,
-        const stdvec_t *context_z)
-{
-    stdvecset_t zs = stdvecset_init();
-    for (int i = 0; i < clause_size(c); ++i) {
-        const stdvec_t *z = literal_z(clause_get(c, i));
-        if (stdvec_is_prefix(z, context_z)) {
-            continue;
-        }
-        for (int j = 0; j < stdvec_size(z); ++j) {
-            stdvec_t *z_prefix = MALLOC(sizeof(stdvec_t));
-            *z_prefix = stdvec_lazy_copy_range(z, 0, j);
-            if (!stdvec_is_prefix(z_prefix, context_z)) {
-                stdvecset_add(&zs, z_prefix);
-            }
-        }
-    }
-    return zs;
-}
-
 static bool query_test_split(
         const setup_t *original_setup,
         const pelset_t *original_pel,
@@ -425,23 +416,28 @@ static bool query_test_clause(
         const setup_t *original_setup,
         const pelset_t *original_pel,
         const stdvec_t *context_z,
+        const splitset_t *context_sf,
         const clause_t *c,
         const int k)
 {
-    pelset_t pel_and_sf = pelset_lazy_copy(original_pel);
-    const stdvecset_t zs = clause_action_sequences_without_context(c,
-            context_z);
-    for (int i = 0; i < stdvecset_size(&zs); ++i) {
-        const stdvec_t *z = stdvecset_get(&zs, i);
-        stdvec_t z_prefix = stdvec_lazy_copy(z);
-        const stdname_t n = stdvec_remove_last(&z_prefix);
-        const stdvec_t n_vec = stdvec_singleton(n);
-        literal_t *sf = MALLOC(sizeof(literal_t));
-        *sf = literal_init(&z_prefix, true, SF, &n_vec);
-        pelset_add(&pel_and_sf, sf);
-    }
     setup_t setup = setup_lazy_copy(original_setup);
-    //pel_optimize(&pel_and_sf, &setup);
+    // We split SF literals from imaginarily executed actions only when needed
+    // in query_test_split(). For that, the PEL needs to contain the relevant SF
+    // atoms, though.
+    pelset_t pel_and_sf = pelset_lazy_copy(original_pel);
+    for (int i = 0; i < clause_size(c); ++i) {
+        const stdvec_t *z = literal_z(clause_get(c, i));
+        for (int j = 0; j < stdvec_size(z) - 1; ++j) {
+            stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, j);
+            const stdname_t n = stdvec_get(z, j);
+            const stdvec_t n_vec = stdvec_singleton(n);
+            literal_t *sf = MALLOC(sizeof(literal_t));
+            *sf = literal_init(&z_prefix, true, SF, &n_vec);
+            if (!setup_would_be_needless_split(&setup, sf)) {
+                pelset_add(&pel_and_sf, sf);
+            }
+        }
+    }
     return query_test_split(original_setup, original_pel, &setup,
             &pel_and_sf, context_z, c, k);
 }
@@ -513,7 +509,7 @@ bool query_entailed_by_setup(
     // prepare query, in some cases we have the result already
     bool truth_value;
     phi = query_ennf(ctx->context_z, phi, &ctx->hplus);
-    phi = query_simplify(phi, &truth_value);
+    phi = query_simplify(ctx->context_sf, phi, &truth_value);
     if (phi == NULL) {
         return truth_value;
     }
@@ -554,9 +550,9 @@ bool query_entailed_by_setup(
     for (int i = 0; i < cnf_size(&cnf) && truth_value; ++i) {
         const clause_t *c = cnf_get(&cnf, i);
         pelset_t pel = pelset_lazy_copy(&ctx->setup_pel);
-        add_pel_of_clause(&pel, c);
+        add_pel_of_clause(&pel, c, &ctx->setup);
         truth_value = query_test_clause(&ctx->setup, &pel, ctx->context_z,
-                c, k);
+                ctx->context_sf, c, k);
     }
     return truth_value;
 }
@@ -578,7 +574,7 @@ bool query_entailed_by_bat(
     });
     bool truth_value;
     phi = query_ennf(context_z, phi, &hplus);
-    phi = query_simplify(phi, &truth_value);
+    phi = query_simplify(context_sf, phi, &truth_value);
     if (phi == NULL) {
         return truth_value;
     }
@@ -595,8 +591,9 @@ bool query_entailed_by_bat(
     for (int i = 0; i < cnf_size(&cnf) && truth_value; ++i) {
         const clause_t *c = cnf_get(&cnf, i);
         pelset_t pel = pelset_lazy_copy(&bat_pel);
-        add_pel_of_clause(&pel, c);
-        truth_value = query_test_clause(&setup, &pel, context_z, c, k);
+        add_pel_of_clause(&pel, c, &setup);
+        truth_value = query_test_clause(&setup, &pel, context_z, context_sf,
+                c, k);
     }
     return truth_value;
 }
@@ -697,9 +694,9 @@ const query_t *query_act(stdname_t n, const query_t *phi)
 }
 
 const query_t *query_eval(
-        int (*n_vars)(void *arg),
-        stdset_t (*names)(void *arg),
-        bool (*eval)(const stdvec_t *context_z, void *arg),
+        int (*n_vars)(void *),
+        stdset_t (*names)(void *),
+        bool (*eval)(const stdvec_t *, const splitset_t *, void *),
         void *arg)
 {
     return NEW(((query_t) {
