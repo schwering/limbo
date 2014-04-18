@@ -710,6 +710,16 @@ const query_t *query_and(const query_t *phi1, const query_t *phi2)
     }));
 }
 
+const query_t *query_impl(const query_t *phi1, const query_t *phi2)
+{
+    return query_or(query_neg(phi1), phi2);
+}
+
+const query_t *query_equiv(const query_t *phi1, const query_t *phi2)
+{
+    return query_and(query_impl(phi1, phi2), query_impl(phi2, phi1));
+}
+
 const query_t *query_exists(const query_t *(phi)(stdname_t x))
 {
     return NEW(((query_t) {

@@ -2,6 +2,8 @@
 #include <check.h>
 #include <stdlib.h>
 #include "../src/literal.h"
+#include "../src/util.h"
+#include "../src/memory.h"
 
 START_TEST(test_literal)
 {
@@ -41,11 +43,87 @@ START_TEST(test_literal)
 }
 END_TEST
 
+START_TEST(test_substitution)
+{
+    const var_t x = -123;
+    const stdname_t n = 567;
+    const stdname_t m = 568;
+    const pred_t p = 890;
+    literal_t *l1;
+    literal_t *l2;
+    literal_t l3;
+
+    varmap_t varmap = varmap_init();
+    varmap_add(&varmap, x, n);
+
+    l1 = P(Z(x,x), p, Z(x,x));
+    l2 = P(Z(n,n), p, Z(n,n));
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(!literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+
+    l1 = P(Z(x,x), p, Z(x,m));
+    l2 = P(Z(n,n), p, Z(n,m));
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(!literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+
+    l1 = P(Z(x,x), p, Z(m,m));
+    l2 = P(Z(n,n), p, Z(m,m));
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(!literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+
+    l1 = P(Z(x), p, Z(m,m));
+    l2 = P(Z(n), p, Z(m,m));
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(!literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+
+    l1 = P(Z(), p, Z(m,m));
+    l2 = P(Z(), p, Z(m,m));
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+
+    l1 = P(Z(), p, Z(x,x));
+    l2 = P(Z(), p, Z(n,n));
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(!literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+
+    l1 = P(Z(x,x), p, Z(m));
+    l2 = P(Z(n,n), p, Z(m));
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(!literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+
+    l1 = P(Z(x,x), p, Z());
+    l2 = P(Z(n,n), p, Z());
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(!literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+
+    l1 = P(Z(x), p, Z());
+    l2 = P(Z(n), p, Z());
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(!literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+
+    l1 = P(Z(), p, Z());
+    l2 = P(Z(), p, Z());
+    l3 = literal_substitute(l1, &varmap);
+    ck_assert(literal_eq(l1, l2));
+    ck_assert(literal_eq(l2, &l3));
+}
+END_TEST
+
 Suite *literal_suite(void)
 {
   Suite *s = suite_create("Vector");
   TCase *tc_core = tcase_create("Core");
   tcase_add_test(tc_core, test_literal);
+  tcase_add_test(tc_core, test_substitution);
   suite_add_tcase(s, tc_core);
   return s;
 }

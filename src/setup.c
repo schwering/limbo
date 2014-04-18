@@ -8,8 +8,54 @@
 
 SET_IMPL(clause, literal_t *, literal_cmp);
 SET_IMPL(setup, clause_t *, clause_cmp);
-VECTOR_IMPL(univ_clauses, univ_clause_t *, NULL);
-VECTOR_IMPL(box_univ_clauses, box_univ_clause_t *, NULL);
+
+struct univ_clause {
+    bool (*check)(const void *arg, const varmap_t *map);
+    const void *check_arg;
+    const clause_t *clause;
+    stdset_t names;
+    varset_t vars;
+};
+
+union box_univ_clause { univ_clause_t c; };
+
+static int univ_clause_cmp(const univ_clause_t *c1, const univ_clause_t *c2)
+{
+    return clause_cmp(c1->clause, c2->clause);
+}
+
+static int box_univ_clause_cmp(const box_univ_clause_t *c1,
+        const box_univ_clause_t *c2)
+{
+    return clause_cmp(c1->c.clause, c2->c.clause);
+}
+
+SET_IMPL(univ_clauses, univ_clause_t *, univ_clause_cmp);
+SET_IMPL(box_univ_clauses, box_univ_clause_t *, box_univ_clause_cmp);
+
+const univ_clause_t *univ_clause_init(
+        bool (*check)(const void *check_arg, const varmap_t *map),
+        const void *check_arg,
+        const clause_t *clause)
+{
+    univ_clause_t *c = MALLOC(sizeof(univ_clause_t));
+    *c = (univ_clause_t) {
+        .check      = check,
+        .check_arg  = check_arg,
+        .clause     = clause,
+        .names      = clause_names(clause),
+        .vars       = clause_vars(clause)
+    };
+    return c;
+}
+
+const box_univ_clause_t *box_univ_clause_init(
+        bool (*check)(const void *check_arg, const varmap_t *map),
+        const void *check_arg,
+        const clause_t *clause)
+{
+    return (box_univ_clause_t *) univ_clause_init(check, check_arg, clause);
+}
 
 #define EMPTY_CLAUSE_INDEX 0
 
@@ -22,6 +68,48 @@ const clause_t *clause_empty(void)
         ptr = &c;
     }
     return ptr;
+}
+
+clause_t clause_substitute(const clause_t *c, const varmap_t *map)
+{
+    clause_t cc = clause_init_with_size(clause_size(c));
+    for (int i = 0; i < clause_size(c); ++i) {
+        const literal_t *l = clause_get(c, i);
+        literal_t *ll = MALLOC(sizeof(literal_t));
+        *ll = literal_substitute(l, map);
+        clause_add(&cc, ll);
+    }
+    return cc;
+}
+
+bool clause_is_ground(const clause_t *c)
+{
+    for (int i = 0; i < clause_size(c); ++i) {
+        if (!literal_is_ground(clause_get(c, i))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+varset_t clause_vars(const clause_t *c)
+{
+    varset_t vars = varset_init();
+    for (int i = 0; i < clause_size(c); ++i) {
+        const literal_t *l = clause_get(c, i);
+        literal_collect_vars(l, &vars);
+    }
+    return vars;
+}
+
+stdset_t clause_names(const clause_t *c)
+{
+    stdset_t names = stdset_init();
+    for (int i = 0; i < clause_size(c); ++i) {
+        const literal_t *l = clause_get(c, i);
+        literal_collect_names(l, &names);
+    }
+    return names;
 }
 
 static bool clause_is_empty(const clause_t *c)
@@ -69,8 +157,15 @@ static void ground_univ(setup_t *setup, varmap_t *varmap,
             ground_univ(setup, varmap, univ_clause, ns, i + 1);
         }
     } else {
-        const clause_t *c = univ_clause->univ_clause(varmap);
-        if (c != NULL) {
+        if (univ_clause->check(univ_clause->check_arg, varmap)) {
+            const clause_t *c;
+            if (varset_size(&univ_clause->vars) > 0) {
+                clause_t *d = MALLOC(sizeof(clause_t));
+                *d = clause_substitute(univ_clause->clause, varmap);
+                c = d;
+            } else {
+                c = univ_clause->clause;
+            }
             setup_add(setup, c);
         }
     }

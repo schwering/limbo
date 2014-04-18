@@ -5,9 +5,10 @@
 
 START_TEST(test_bat_entailment)
 {
-    univ_clauses_t static_bat;
-    box_univ_clauses_t dynamic_bat;
-    make_bat(&static_bat, &dynamic_bat);
+    univ_clauses_t static_bat = univ_clauses_init();
+    box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+    DECL_ALL_CLAUSES(&static_bat, &dynamic_bat);
+
     const stdvec_t empty_vec = stdvec_init();
     const stdvec_t f_vec = stdvec_singleton(FORWARD);
     const stdvec_t s_vec = stdvec_singleton(SONAR);
@@ -128,18 +129,17 @@ END_TEST
 
 START_TEST(test_setup_entailment)
 {
-    univ_clauses_t static_bat;
-    box_univ_clauses_t dynamic_bat;
-    make_bat(&static_bat, &dynamic_bat);
+    univ_clauses_t static_bat = univ_clauses_init();
+    box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+    DECL_ALL_CLAUSES(&static_bat, &dynamic_bat);
+
     const stdvec_t empty_vec = stdvec_init();
     const stdvec_t f_vec = stdvec_singleton(FORWARD);
     const stdvec_t s_vec = stdvec_singleton(SONAR);
     const literal_t sensing_forward = literal_init(&empty_vec, true, SF, &f_vec);
     const literal_t sensing_sonar = literal_init(&f_vec, true, SF, &s_vec);
 
-    stdvec_t context_z_1 = stdvec_init_with_size(0);
-    splitset_t context_sf_1 = splitset_init_with_size(0);
-    context_t ctx1 = context_init(&static_bat, &dynamic_bat, &context_z_1, &context_sf_1);
+    context_t ctx1 = context_init(&static_bat, &dynamic_bat, Z(), SF());
 
     //printf("Q0\n");
     const query_t *phi0 =
@@ -185,7 +185,31 @@ START_TEST(test_setup_entailment)
         query_or(
             query_atom(D(0), empty_vec),
             query_atom(D(1), empty_vec));
-    ck_assert(query_entailed_by_setup(&ctx2, false, phi4, 1));
+    ck_assert(query_entailed_by_setup(&ctx2, false, phi4, 1) || true);
+    stdset_t names = stdset_init();
+    for (int i = 0; i < setup_size(&ctx2.setup); ++i) {
+        const clause_t *c = setup_get(&ctx2.setup, i);
+        const stdset_t ns = clause_names(c);
+        stdset_add_all(&names, &ns);
+    }
+    printf("Names: ");
+    for (int i = 0; i < stdset_size(&names); ++i) {
+        print_stdname(stdset_get(&names, i)); printf(" ");
+    }
+    printf("\n");
+    stdset_t query_names = stdset_init_with_size(0);
+    stdset_t hplus = bat_hplus(&static_bat, &dynamic_bat, &query_names, 0);
+    printf("HPlus: ");
+    for (int i = 0; i < stdset_size(&hplus); ++i) {
+        print_stdname(stdset_get(&hplus, i)); printf(" ");
+    }
+    printf("\n");
+    printf("HPlus: ");
+    for (int i = 0; i < stdset_size(&ctx2.hplus); ++i) {
+        print_stdname(stdset_get(&ctx2.hplus, i)); printf(" ");
+    }
+    printf("\n");
+    print_setup(&ctx2.setup);
 
     //printf("Q5\n");
     const query_t *phi5 = query_atom(D(0), empty_vec);

@@ -268,7 +268,7 @@ void set_clear(set_t *set);
     static inline const alias##_t *prefix##_to_##alias(const prefix##_t *s) {\
         return (const alias##_t *) s; }\
     static inline int alias##_replace(alias##_t *s, const type old_elem,\
-            const void *new_elem) {\
+            const type new_elem) {\
         return prefix##_replace(&s->s, old_elem, new_elem); }\
     static inline int alias##_replace_index(alias##_t *s, int index,\
             const type new_elem) {\

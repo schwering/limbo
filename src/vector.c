@@ -59,11 +59,35 @@ vector_t vector_lazy_copy_range(const vector_t *src, int from, int to)
     return dst;
 }
 
+vector_t vector_prepend_copy(const void *elem, const vector_t *src)
+{
+    vector_t dst = vector_init_with_size(vector_size(src) + 1);
+    vector_append(&dst, elem);
+    vector_append_all(&dst, src);
+    return dst;
+}
+
+vector_t vector_copy_append(const vector_t *src, const void *elem)
+{
+    vector_t dst = vector_init_with_size(vector_size(src) + 1);
+    vector_append_all(&dst, src);
+    vector_append(&dst, elem);
+    return dst;
+}
+
 vector_t vector_singleton(const void *e)
 {
     vector_t dst = vector_init_with_size(1);
     vector_append(&dst, e);
     return dst;
+}
+
+vector_t vector_concat(const vector_t *vec1, const vector_t *vec2)
+{
+    vector_t vec = vector_init_with_size(vector_size(vec1) + vector_size(vec2));
+    vector_append_all(&vec, vec1);
+    vector_append_all(&vec, vec2);
+    return vec;
 }
 
 vector_t vector_from_array(const void *array[], int n)
@@ -171,6 +195,7 @@ int vector_size(const vector_t *vec)
 void vector_set(vector_t *vec, int index, const void *elem)
 {
     assert(0 <= index && index <= vec->size);
+    alloc_if_lazy(vec);
     vec->array[index] = elem;
 }
 

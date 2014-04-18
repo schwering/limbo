@@ -2,12 +2,18 @@
 /*
  * Type definitions for variables and standard names.
  *
+ * We choose convenience over type-safety here: variables are negative integers,
+ * standard names are non-negative integers.
+ *
  * schwering@kbsg.rwth-aachen.de
  */
 #ifndef _TERM_H_
 #define _TERM_H_
 
+#include "vector.h"
+#include "set.h"
 #include "map.h"
+#include <assert.h>
 #include <limits.h>
 
 typedef long int stdname_t;
@@ -15,24 +21,18 @@ typedef long int var_t;
 
 #define STDNAME_MAX LONG_MAX
 
-int stdname_compar(stdname_t l, stdname_t r);
+#define IS_VARIABLE(x) ((x) < 0)
+#define IS_STDNAME(x)  ((x) >= 0)
 
 MAP_DECL(varmap, var_t, stdname_t);
 
-VECTOR_DECL(varvec, var_t);
-
 SET_DECL(varset, var_t);
 
+SET_ALIAS(stdset, varset, stdname_t);
+
 VECTOR_DECL(stdvec, stdname_t);
-const stdvec_t *stdvec_empty(void);
-stdvec_t stdvec_prepend_copy(stdname_t n, const stdvec_t *src);
-stdvec_t stdvec_copy_append(const stdvec_t *src, stdname_t n);
-stdvec_t stdvec_concat(const stdvec_t *left, const stdvec_t *right);
-bool stdvec_is_prefix(const stdvec_t *left, const stdvec_t *right);
 
 SET_DECL(stdvecset, stdvec_t *);
-
-SET_DECL(stdset, stdname_t);
 
 #endif
 

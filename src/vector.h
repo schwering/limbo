@@ -56,7 +56,10 @@ vector_t vector_copy(const vector_t *src);
 vector_t vector_copy_range(const vector_t *src, int from, int to);
 vector_t vector_lazy_copy(const vector_t *src);
 vector_t vector_lazy_copy_range(const vector_t *src, int from, int to);
+vector_t vector_prepend_copy(const void *elem, const vector_t *src);
+vector_t vector_copy_append(const vector_t *src, const void *elem);
 vector_t vector_singleton(const void *e);
+vector_t vector_concat(const vector_t *vec1, const vector_t *vec2);
 vector_t vector_from_array(const void *array[], int n);
 void vector_cleanup(vector_t *vec);
 bool vector_is_lazy_copy(const vector_t *vec);
@@ -105,7 +108,10 @@ void vector_clear(vector_t *vec);
     prefix##_t prefix##_lazy_copy(const prefix##_t *src);\
     prefix##_t prefix##_lazy_copy_range(const prefix##_t *src,\
             int from, int to);\
+    prefix##_t prefix##_copy_append(const prefix##_t *src, const type elem);\
+    prefix##_t prefix##_prepend_copy(const type elem, const prefix##_t *src);\
     prefix##_t prefix##_singleton(const type e);\
+    prefix##_t prefix##_concat(const prefix##_t *vec1, const prefix##_t *vec2);\
     prefix##_t prefix##_from_array(const type array[], int n);\
     void prefix##_cleanup(prefix##_t *v);\
     bool prefix##_is_lazy_copy(const prefix##_t *v);\
@@ -152,8 +158,16 @@ void vector_clear(vector_t *vec);
             int from, int to) {\
         return (prefix##_t) { .v = vector_lazy_copy_range(&src->v,\
                 from, to) }; }\
+    prefix##_t prefix##_copy_append(const prefix##_t *src, const type elem) {\
+        return (prefix##_t) { .v = vector_copy_append(&src->v,\
+                (const void *) elem) }; }\
+    prefix##_t prefix##_prepend_copy(const type elem, const prefix##_t *src) {\
+        return (prefix##_t) { .v = vector_prepend_copy(\
+                (const void *) elem, &src->v) }; }\
     prefix##_t prefix##_singleton(const type e) {\
         return (prefix##_t) { .v = vector_singleton((const void *) e) }; }\
+    prefix##_t prefix##_concat(const prefix##_t *vec1, const prefix##_t *vec2) {\
+        return (prefix##_t) { .v = vector_concat(&vec1->v, &vec2->v) }; }\
     prefix##_t prefix##_from_array(const type array[], int n) {\
         return (prefix##_t) {\
             .v = vector_from_array((const void **) array, n) }; }\

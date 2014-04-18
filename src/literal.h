@@ -31,7 +31,12 @@ literal_t literal_prepend_all(const stdvec_t *z, const literal_t *l);
 literal_t literal_append(const literal_t *l, stdname_t n);
 literal_t literal_append_all(const literal_t *l, const stdvec_t *z);
 literal_t literal_flip(const literal_t *l);
+literal_t literal_substitute(const literal_t *l, const varmap_t *map);
 void literal_cleanup(literal_t *l);
+
+bool literal_is_ground(const literal_t *l);
+void literal_collect_vars(const literal_t *l, varset_t *vars);
+void literal_collect_names(const literal_t *l, stdset_t *names);
 
 int literal_cmp_flipped(const literal_t *l1, const literal_t *l2);
 int literal_cmp(const literal_t *l1, const literal_t *l2);

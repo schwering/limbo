@@ -123,6 +123,8 @@ const query_t *query_lit(stdvec_t z, bool sign, pred_t p, stdvec_t args);
 const query_t *query_neg(const query_t *phi);
 const query_t *query_or(const query_t *phi1, const query_t *phi2);
 const query_t *query_and(const query_t *phi1, const query_t *phi2);
+const query_t *query_impl(const query_t *phi1, const query_t *phi2);
+const query_t *query_equiv(const query_t *phi1, const query_t *phi2);
 const query_t *query_exists(const query_t *(phi)(stdname_t x));
 const query_t *query_forall(const query_t *(phi)(stdname_t x));
 const query_t *query_act(stdname_t n, const query_t *phi);

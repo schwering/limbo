@@ -1,9 +1,8 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include <stdio.h>
+#include "ex_bat.h"
 
 #define ck_assert(expr) 	if (!(expr)) { printf("%s:%d failed %s\n", __FILE__, __LINE__, #expr); }
-
-#include "ex_bat.h"
 
 stdvec_t *empty_vec = NULL;
 stdvec_t *f_vec = NULL;
@@ -33,9 +32,9 @@ context_t make_context(void)
         splitset_add(context_sf_2, sensing_sonar);
     }
 
-    univ_clauses_t *static_bat = MALLOC(sizeof(univ_clauses_t));
-    box_univ_clauses_t *dynamic_bat = MALLOC(sizeof(box_univ_clauses_t));
-    make_bat(static_bat, dynamic_bat);
+    univ_clauses_t *static_bat = NEW(univ_clauses_init());
+    box_univ_clauses_t *dynamic_bat = NEW(box_univ_clauses_init());
+    DECL_ALL_CLAUSES(static_bat, dynamic_bat);
 
     return context_init(static_bat, dynamic_bat, context_z_1, context_sf_1);
 }

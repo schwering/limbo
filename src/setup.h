@@ -53,18 +53,26 @@ SET_ALIAS(pelset, clause, literal_t *);
 SET_DECL(setup, clause_t *);
 SET_ALIAS(cnf, setup, clause_t *);
 
-typedef struct {
-    stdset_t names;
-    varset_t vars;
-    const clause_t *(*univ_clause)(const varmap_t *map);
-} univ_clause_t;
+typedef struct univ_clause univ_clause_t;
+typedef union box_univ_clause box_univ_clause_t;
 
-typedef union { univ_clause_t c; } box_univ_clause_t;
+SET_DECL(univ_clauses, univ_clause_t *);
+SET_DECL(box_univ_clauses, box_univ_clause_t *);
 
-VECTOR_DECL(univ_clauses, univ_clause_t *);
-VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
+const univ_clause_t *univ_clause_init(
+        bool (*check)(const void *check_arg, const varmap_t *map),
+        const void *check_arg,
+        const clause_t *clause);
+const box_univ_clause_t *box_univ_clause_init(
+        bool (*check)(const void *check_arg, const varmap_t *map),
+        const void *check_arg,
+        const clause_t *clause);
 
 const clause_t *clause_empty(void);
+clause_t clause_substitute(const clause_t *c, const varmap_t *map);
+bool clause_is_ground(const clause_t *c);
+varset_t clause_vars(const clause_t *c);
+stdset_t clause_names(const clause_t *c);
 
 stdset_t bat_hplus(
         const univ_clauses_t *static_bat,
