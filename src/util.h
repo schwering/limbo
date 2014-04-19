@@ -1,9 +1,30 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
+ * Macros for simpler definitions of BATs.
+ *
+ * There are some macros for ewff definition.
+ *
+ * The macro C is for clauses. The arguments typically have are literals, which
+ * again can be constructed with L, N, P (N for negative, P for positive
+ * literals). The action sequence argument is usually expressed with the macro
+ * Z, and the argument sequence with A.
+ *
+ * To express a set of sensing results, there's the macro SF which takes
+ * literals expressed with L, N, P.
+ *
  * schwering@kbsg.rwth-aachen.de
  */
 #ifndef _UTIL_H_
 #define _UTIL_H_
+
+// Shorthands for ewff definitions.
+#define TRUE            ewff_true()
+#define EQ(t1,t2)       ewff_eq(t1,t2)
+#define NEQ(t1,t2)      ewff_neq(t1,t2)
+#define SORT(t,sort)    ewff_sort(t, &is_##sort)
+#define NEG(e)          ewff_neg(e)
+#define OR(e1,e2)       ewff_or(e1,e2)
+#define AND(e1,e2)      ewff_and(e1,e2)
 
 // Action sequence Z. Use Z(a,b,c) to get an stdvec_t with a, b, c.
 #define Z(z...) \
@@ -15,18 +36,6 @@
 
 // Argument sequence A. Use A(a,b,c) to get an stdvec_t with a, b, c.
 #define A(a...)     Z(a)
-
-// Set of sensing literals SF. Use SF(l1,l2) to get an splitset_t with l1, l2.
-#define SF(l...)\
-    ({\
-        const literal_t *_SF_array[] = { l };\
-        const size_t _SF_n = sizeof(_SF_array) / sizeof(_SF_array[0]);\
-        splitset_t *_SF_set = NEW(splitset_init_with_size((int) _SF_n));\
-        for (int _SF_i = 0; _SF_i < (int) _SF_n; ++_SF_i) {\
-            splitset_add(_SF_set, _SF_array[_SF_i]);\
-        }\
-        _SF_set;\
-    })
 
 // Literal L, positive P and negative N. Use N(Z(a,b,c), p, A(x,y,z)) for as a
 // shorthand for a literal we would write like [a,b,c]~P(x,y,z).
@@ -46,20 +55,17 @@
                 _C_c;\
                 })
 
-// Lookup a variable in varmap.
-#define TRUE            ewff_true()
-#define EQ(t1,t2)       ewff_eq(t1,t2)
-#define NEQ(t1,t2)      ewff_neq(t1,t2)
-#define SORT(t,sort)    ewff_sort(t, &is_##sort)
-#define NEG(e)          ewff_neg(e)
-#define OR(e1,e2)       ewff_or(e1,e2)
-#define AND(e1,e2)      ewff_and(e1,e2)
-
-// Declares a clause. To be used in a function; then the check is a nested
-// function.
-#define DECL_CLAUSE(suffix, cond, clause) \
-    const ewff_t *cond_##suffix = cond;\
-    const clause_t *clause_##suffix = clause;
+// Set of sensing literals SF. Use SF(l1,l2) to get an splitset_t with l1, l2.
+#define SF(l...)\
+    ({\
+        const literal_t *_SF_array[] = { l };\
+        const size_t _SF_n = sizeof(_SF_array) / sizeof(_SF_array[0]);\
+        splitset_t *_SF_set = NEW(splitset_init_with_size((int) _SF_n));\
+        for (int _SF_i = 0; _SF_i < (int) _SF_n; ++_SF_i) {\
+            splitset_add(_SF_set, _SF_array[_SF_i]);\
+        }\
+        _SF_set;\
+    })
 
 #endif
 

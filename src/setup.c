@@ -149,7 +149,7 @@ static void ewff_collect_names(const ewff_t *e, stdset_t *names)
     }
 }
 
-static bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
+bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
 {
     switch (e->type) {
         case EWFF_EQ: {
@@ -180,45 +180,7 @@ static bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
     }
 }
 
-const univ_clause_t *univ_clause_init(
-        const ewff_t *cond,
-        const clause_t *clause)
-{
-    univ_clause_t *c = MALLOC(sizeof(univ_clause_t));
-    varset_t vars = clause_vars(clause);
-    ewff_collect_vars(cond, &vars);
-    stdset_t names = clause_names(clause);
-    ewff_collect_names(cond, &names);
-    *c = (univ_clause_t) {
-        .cond       = cond,
-        .clause     = clause,
-        .names      = names,
-        .vars       = vars
-    };
-    return c;
-}
-
-const box_univ_clause_t *box_univ_clause_init(
-        const ewff_t *cond,
-        const clause_t *clause)
-{
-    return (box_univ_clause_t *) univ_clause_init(cond, clause);
-}
-
-#define EMPTY_CLAUSE_INDEX 0
-
-const clause_t *clause_empty(void)
-{
-    static clause_t c;
-    static clause_t *ptr = NULL;
-    if (ptr == NULL) {
-        c = clause_init_with_size(0);
-        ptr = &c;
-    }
-    return ptr;
-}
-
-clause_t clause_substitute(const clause_t *c, const varmap_t *map)
+static clause_t clause_substitute(const clause_t *c, const varmap_t *map)
 {
     clause_t cc = clause_init_with_size(clause_size(c));
     for (int i = 0; i < clause_size(c); ++i) {
@@ -230,17 +192,7 @@ clause_t clause_substitute(const clause_t *c, const varmap_t *map)
     return cc;
 }
 
-bool clause_is_ground(const clause_t *c)
-{
-    for (int i = 0; i < clause_size(c); ++i) {
-        if (!literal_is_ground(clause_get(c, i))) {
-            return false;
-        }
-    }
-    return true;
-}
-
-varset_t clause_vars(const clause_t *c)
+static varset_t clause_vars(const clause_t *c)
 {
     varset_t vars = varset_init();
     for (int i = 0; i < clause_size(c); ++i) {
@@ -250,7 +202,7 @@ varset_t clause_vars(const clause_t *c)
     return vars;
 }
 
-stdset_t clause_names(const clause_t *c)
+static stdset_t clause_names(const clause_t *c)
 {
     stdset_t names = stdset_init();
     for (int i = 0; i < clause_size(c); ++i) {
@@ -292,6 +244,31 @@ static const clause_t *clause_resolve(const clause_t *c, const splitset_t *u)
     clause_remove_all_indices(d, indices, n_indices);
     FREE(indices);
     return d;
+}
+
+const univ_clause_t *univ_clause_init(
+        const ewff_t *cond,
+        const clause_t *clause)
+{
+    univ_clause_t *c = MALLOC(sizeof(univ_clause_t));
+    varset_t vars = clause_vars(clause);
+    ewff_collect_vars(cond, &vars);
+    stdset_t names = clause_names(clause);
+    ewff_collect_names(cond, &names);
+    *c = (univ_clause_t) {
+        .cond       = cond,
+        .clause     = clause,
+        .names      = names,
+        .vars       = vars
+    };
+    return c;
+}
+
+const box_univ_clause_t *box_univ_clause_init(
+        const ewff_t *cond,
+        const clause_t *clause)
+{
+    return (box_univ_clause_t *) univ_clause_init(cond, clause);
 }
 
 static void ground_univ(setup_t *setup, varmap_t *varmap,
@@ -512,6 +489,8 @@ static splitset_t setup_get_unit_clauses(const setup_t *setup)
     }
     return ls;
 }
+
+#define EMPTY_CLAUSE_INDEX 0
 
 static bool setup_contains_empty_clause(const setup_t *s)
 {

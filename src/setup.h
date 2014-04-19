@@ -3,8 +3,14 @@
  * Functions for generating setups from universally quantified static and boxed
  * clauses.
  *
- * The univ_clause attribute of univ_clause_t should return NULL if the clause
- * variable assignment is not permitted.
+ * Static formulas (for the initial situation) are expressed with
+ * univ_clause_init(), while dynamic formulas (for preconditions, successor
+ * state axioms, sensed fluent axioms) are expressed with
+ * box_univ_clause_init().
+ * Each of them consists of an ewff, which is a formula with only equality and
+ * no other literals and all variables are implicitly universally quantified.
+ * Variables are represented by negative values, standard names by non-negative
+ * integers.
  *
  * bat_hplus() computes the set of standard name that needs to be considered
  * for quantification. Besides the BAT it depends on the standard names and
@@ -68,6 +74,7 @@ const ewff_t *ewff_sort(term_t t, bool (*is_sort)(stdname_t n));
 const ewff_t *ewff_neg(const ewff_t *e1);
 const ewff_t *ewff_or(const ewff_t *e1, const ewff_t *e2);
 const ewff_t *ewff_and(const ewff_t *e1, const ewff_t *e2);
+bool ewff_eval(const ewff_t *e, const varmap_t *varmap);
 
 const univ_clause_t *univ_clause_init(
         const ewff_t *cond,
@@ -75,12 +82,6 @@ const univ_clause_t *univ_clause_init(
 const box_univ_clause_t *box_univ_clause_init(
         const ewff_t *cond,
         const clause_t *clause);
-
-const clause_t *clause_empty(void);
-clause_t clause_substitute(const clause_t *c, const varmap_t *map);
-bool clause_is_ground(const clause_t *c);
-varset_t clause_vars(const clause_t *c);
-stdset_t clause_names(const clause_t *c);
 
 stdset_t bat_hplus(
         const univ_clauses_t *static_bat,
