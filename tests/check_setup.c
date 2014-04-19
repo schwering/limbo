@@ -3,6 +3,43 @@
 #include <stdlib.h>
 #include "ex_bat.h"
 
+START_TEST(test_ewff)
+{
+    struct { const ewff_t *ewff; bool val; } tests[] = {
+        { ewff_true(), true },
+        { ewff_eq(100, 100), true },
+        { ewff_eq(-100, 100), true },
+        { ewff_eq(-100, -100), true },
+        { ewff_eq(-100, 101), false },
+        { ewff_eq(100, 101), false },
+        { ewff_eq(-100, 100), true },
+        { ewff_eq(-100, -101), false },
+        { ewff_eq(-100, -101), false },
+        { ewff_eq(-100, -102), false },
+        { ewff_eq(-101, -102), true },
+        { ewff_neq(100, 101), true }
+    };
+    varmap_t varmap = varmap_init();
+    varmap_add(&varmap, -100, 100);
+    varmap_add(&varmap, -101, 101);
+    varmap_add(&varmap, -102, 101);
+    const int n = (int) (sizeof(tests) / sizeof(tests[0]));
+    for (int i = 0; i < n; ++i) {
+        printf("i = %d\n", i);
+        ck_assert(ewff_eval(tests[i].ewff, &varmap) == tests[i].val);
+        ck_assert(ewff_eval(ewff_neg(tests[i].ewff), &varmap) == !tests[i].val);
+        for (int j = 0; j < n; j++) {
+            ck_assert(ewff_eval(ewff_and(tests[i].ewff, tests[j].ewff), &varmap) == (tests[i].val && tests[j].val));
+            ck_assert(ewff_eval(ewff_or(tests[i].ewff, tests[j].ewff), &varmap) == (tests[i].val || tests[j].val));
+            ck_assert(ewff_eval(ewff_or(ewff_neg(tests[i].ewff), tests[j].ewff), &varmap) == (!tests[i].val || tests[j].val));
+            ck_assert(ewff_eval(ewff_or(ewff_neg(tests[i].ewff), ewff_neg(tests[j].ewff)), &varmap) == (!tests[i].val || !tests[j].val));
+            ck_assert(ewff_eval(ewff_and(ewff_neg(tests[i].ewff), tests[j].ewff), &varmap) == (!tests[i].val && tests[j].val));
+            ck_assert(ewff_eval(ewff_and(ewff_neg(tests[i].ewff), ewff_neg(tests[j].ewff)), &varmap) == (!tests[i].val && !tests[j].val));
+        }
+    }
+}
+END_TEST
+
 START_TEST(test_grounding)
 {
     univ_clauses_t static_bat = univ_clauses_init();
@@ -70,12 +107,8 @@ START_TEST(test_entailment)
     const stdvec_t fs_vec = stdvec_concat(&f_vec, &s_vec);
     const stdset_t ns = stdset_init();
     const stdset_t hplus = bat_hplus(&static_bat, &dynamic_bat, &ns, 0);
-    const stdvecset_t query_zs = stdvecset_init();//singleton(&fs_vec);
-    context_t ctx1 = context_init(&static_bat, &dynamic_bat, Z(), SF());
-    print_setup(&ctx1.setup);
+    const stdvecset_t query_zs = stdvecset_singleton(&fs_vec);
     const setup_t setup = setup_init_static_and_dynamic(&static_bat, &dynamic_bat, &hplus, &query_zs);
-    print_setup(&setup);
-    return;
     const literal_t D0 = literal_init(&empty_vec, true, D(0), &empty_vec);
     const literal_t D1 = literal_init(&empty_vec, true, D(1), &empty_vec);
     const literal_t D2 = literal_init(&empty_vec, true, D(2), &empty_vec);
@@ -181,6 +214,7 @@ Suite *clause_suite(void)
 {
     Suite *s = suite_create("Setup");
     TCase *tc_core = tcase_create("Core");
+    tcase_add_test(tc_core, test_ewff);
     tcase_add_test(tc_core, test_grounding);
     tcase_add_test(tc_core, test_entailment);
     suite_add_tcase(s, tc_core);

@@ -46,7 +46,7 @@
                 _C_c;\
                 })
 
-// Lookup a variable in varmap.
+// Shorthands for ewff definitions.
 #define TRUE            ewff_true()
 #define EQ(t1,t2)       ewff_eq(t1,t2)
 #define NEQ(t1,t2)      ewff_neq(t1,t2)

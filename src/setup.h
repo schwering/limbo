@@ -68,6 +68,7 @@ const ewff_t *ewff_sort(term_t t, bool (*is_sort)(stdname_t n));
 const ewff_t *ewff_neg(const ewff_t *e1);
 const ewff_t *ewff_or(const ewff_t *e1, const ewff_t *e2);
 const ewff_t *ewff_and(const ewff_t *e1, const ewff_t *e2);
+bool ewff_eval(const ewff_t *e, const varmap_t *varmap);
 
 const univ_clause_t *univ_clause_init(
         const ewff_t *cond,

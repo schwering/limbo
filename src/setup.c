@@ -149,7 +149,7 @@ static void ewff_collect_names(const ewff_t *e, stdset_t *names)
     }
 }
 
-static bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
+bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
 {
     switch (e->type) {
         case EWFF_EQ: {
