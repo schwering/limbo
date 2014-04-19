@@ -125,9 +125,9 @@ const query_t *query_or(const query_t *phi1, const query_t *phi2);
 const query_t *query_and(const query_t *phi1, const query_t *phi2);
 const query_t *query_impl(const query_t *phi1, const query_t *phi2);
 const query_t *query_equiv(const query_t *phi1, const query_t *phi2);
-const query_t *query_exists(const query_t *(phi)(stdname_t x));
-const query_t *query_forall(const query_t *(phi)(stdname_t x));
-const query_t *query_act(stdname_t n, const query_t *phi);
+const query_t *query_exists(var_t x, const query_t *phi);
+const query_t *query_forall(var_t x, const query_t *phi);
+const query_t *query_act(term_t n, const query_t *phi);
 const query_t *query_eval(
         int (*n_vars)(void *arg),
         stdset_t (*names)(void *arg),

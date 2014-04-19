@@ -8,7 +8,7 @@ enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EX, ACT, EVAL };
 typedef struct { stdname_t n1; stdname_t n2; } query_names_t;
 typedef struct { const query_t *phi; } query_unary_t;
 typedef struct { const query_t *phi1; const query_t *phi2; } query_binary_t;
-typedef struct { const query_t *(*phi)(stdname_t x); } query_exists_t;
+typedef struct { var_t var; const query_t *phi; } query_exists_t;
 typedef struct { stdname_t n; const query_t *phi; } query_action_t;
 typedef struct {
     int (*n_vars)(void *);
@@ -24,7 +24,6 @@ struct query {
     union {
         literal_t lit;
         query_names_t eq;
-        query_names_t neq;
         query_binary_t bin;
         query_unary_t un;
         query_exists_t ex;
@@ -47,7 +46,7 @@ static int query_n_vars(const query_t *phi)
         case NEG:
             return query_n_vars(phi->u.un.phi);
         case EX:
-            return query_n_vars(phi->u.ex.phi(1));
+            return 1 + query_n_vars(phi->u.ex.phi);
         case ACT:
             return query_n_vars(phi->u.act.phi);
         case EVAL:
@@ -60,16 +59,11 @@ static int query_n_vars(const query_t *phi)
 static stdset_t query_names(const query_t *phi)
 {
     switch (phi->type) {
-        case EQ: {
+        case EQ:
+        case NEQ: {
             stdset_t set = stdset_init_with_size(2);
             stdset_add(&set, phi->u.eq.n1);
             stdset_add(&set, phi->u.eq.n2);
-            return set;
-        }
-        case NEQ: {
-            stdset_t set = stdset_init_with_size(2);
-            stdset_add(&set, phi->u.neq.n1);
-            stdset_add(&set, phi->u.neq.n2);
             return set;
         }
         case LIT: {
@@ -95,8 +89,8 @@ static stdset_t query_names(const query_t *phi)
         case NEG:
             return query_names(phi->u.un.phi);
         case EX: {
-            const query_t *phi1 = phi->u.ex.phi(1);
-            const query_t *phi2 = phi->u.ex.phi(2);
+            const query_t *phi1 = phi->u.ex.phi;
+            const query_t *phi2 = phi->u.ex.phi;
             stdset_t set1 = query_names(phi1);
             stdset_t set2 = query_names(phi2);
             stdset_remove(&set1, 1);
@@ -115,16 +109,75 @@ static stdset_t query_names(const query_t *phi)
     return stdset_init();
 }
 
+static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
+{
+    switch (phi->type) {
+        case EQ:
+        case NEQ: {
+            const stdname_t n1 = phi->u.eq.n1;
+            const stdname_t n2 = phi->u.eq.n2;
+            if (x != n1 && x != n2) {
+                return phi;
+            }
+            return query_eq(n1 == x ? n : n1, n2 == x ? n : n2);
+        }
+        case LIT: {
+            const literal_t *l = &phi->u.lit;
+            if (literal_is_ground(l)) {
+                return phi;
+            } else {
+                stdvec_t z = stdvec_lazy_copy(literal_z(l));
+                for (int i = 0; i < stdvec_size(&z); ++i) {
+                    if (stdvec_get(&z, i) == x) {
+                        stdvec_set(&z, i, n);
+                    }
+                }
+                stdvec_t args = stdvec_lazy_copy(literal_args(l));
+                for (int i = 0; i < stdvec_size(&args); ++i) {
+                    if (stdvec_get(&args, i) == x) {
+                        stdvec_set(&args, i, n);
+                    }
+                }
+                return query_lit(z, literal_sign(l), literal_pred(l), args);
+            }
+        }
+        case OR:
+            return query_or(query_substitute(phi->u.bin.phi1, x, n),
+                    query_substitute(phi->u.bin.phi2, x, n));
+        case AND:
+            return query_and(query_substitute(phi->u.bin.phi1, x, n),
+                    query_substitute(phi->u.bin.phi2, x, n));
+        case NEG:
+            return query_neg(query_substitute(phi->u.un.phi, x, n));
+        case EX:
+            if (x != phi->u.ex.var) {
+                return query_exists(phi->u.ex.var,
+                        query_substitute(phi->u.ex.phi, x, n));
+            } else {
+                return phi;
+            }
+        case ACT: {
+            term_t a = x == phi->u.act.n ? n : phi->u.act.n;
+            return query_act(a, phi->u.act.phi);
+        }
+        case EVAL:
+            // TODO Currently no quantifying-in!
+            return phi;
+    }
+    assert(false);
+    return NULL;
+}
+
 static const query_t *query_ground_quantifier(bool existential,
-        const query_t *(*phi)(stdname_t n), const stdset_t *hplus, int i)
+        const query_t *phi, var_t x, const const stdset_t *hplus, int i)
 {
     assert(0 <= i && i <= stdset_size(hplus));
-    const query_t *psi1 = phi(stdset_get(hplus, i));
+    const query_t *psi1 = query_substitute(phi, x, stdset_get(hplus, i));
     if (i + 1 == stdset_size(hplus)) {
         return psi1;
     } else {
         const query_t *psi2 = query_ground_quantifier(existential, phi,
-                hplus, i + 1);
+                x, hplus, i + 1);
         query_t *xi = MALLOC(sizeof(query_t));
         *xi = (query_t) {
             .type = existential ? OR : AND,
@@ -153,26 +206,15 @@ static const query_t *query_ennf_h(
     // The resulting formula only consists of the following elements:
     // EQ, NEQ, LIT, OR, AND, EVAL
     switch (phi->type) {
-        case EQ: {
-            if (!flip) {
-                return phi;
-            } else {
-                query_t *psi = MALLOC(sizeof(query_t));
-                *psi = (query_t) {
-                    .type = NEQ,
-                    .u.neq = phi->u.eq
-                };
-                return psi;
-            }
-        }
+        case EQ:
         case NEQ: {
             if (!flip) {
                 return phi;
             } else {
                 query_t *psi = MALLOC(sizeof(query_t));
                 *psi = (query_t) {
-                    .type = NEQ,
-                    .u.neq = phi->u.eq
+                    .type = (phi->type == EQ) != flip ? EQ : NEQ,
+                    .u.eq = phi->u.eq
                 };
                 return psi;
             }
@@ -209,7 +251,7 @@ static const query_t *query_ennf_h(
         case EX: {
             const bool is_existential = !flip;
             const query_t *psi = query_ground_quantifier(is_existential,
-                    phi->u.ex.phi, hplus, 0);
+                    phi->u.ex.phi, phi->u.ex.var, hplus, 0);
             return query_ennf(z, psi, hplus);
         }
         case ACT: {
@@ -280,7 +322,7 @@ static const query_t *query_simplify(
             *truth_value = phi->u.eq.n1 == phi->u.eq.n2;
             return NULL;
         case NEQ:
-            *truth_value = phi->u.neq.n1 != phi->u.neq.n2;
+            *truth_value = phi->u.eq.n1 != phi->u.eq.n2;
             return NULL;
         case LIT:
             return phi;
@@ -607,7 +649,7 @@ bool query_entailed_by_bat(
         const stdvec_t *context_z,
         const splitset_t *context_sf,
         const query_t *phi,
-        int k)
+        const int k)
 {
     const stdset_t hplus = ({
         const stdset_t ns = query_names(phi);
@@ -656,7 +698,7 @@ const query_t *query_neq(stdname_t n1, stdname_t n2)
 {
     return NEW(((query_t) {
         .type = NEQ,
-        .u.neq = (query_names_t) {
+        .u.eq = (query_names_t) {
             .n1 = n1,
             .n2 = n2
         }
@@ -667,7 +709,7 @@ const query_t *query_atom(pred_t p, stdvec_t args)
 {
     const stdvec_t z = stdvec_init_with_size(0);
     const bool sign = true;
-    return query_lit(z, sign, p, args);;
+    return query_lit(z, sign, p, args);
 }
 
 const query_t *query_lit(stdvec_t z, bool sign, pred_t p, stdvec_t args)
@@ -720,22 +762,23 @@ const query_t *query_equiv(const query_t *phi1, const query_t *phi2)
     return query_and(query_impl(phi1, phi2), query_impl(phi2, phi1));
 }
 
-const query_t *query_exists(const query_t *(phi)(stdname_t x))
+const query_t *query_exists(var_t x, const query_t *phi)
 {
     return NEW(((query_t) {
         .type = EX,
         .u.ex = (query_exists_t) {
+            .var = x,
             .phi = phi
         }
     }));
 }
 
-const query_t *query_forall(const query_t *(phi)(stdname_t x))
+const query_t *query_forall(var_t x, const query_t *phi)
 {
-    return query_neg(query_exists(phi));
+    return query_neg(query_exists(x, phi));
 }
 
-const query_t *query_act(stdname_t n, const query_t *phi)
+const query_t *query_act(term_t n, const query_t *phi)
 {
     return NEW(((query_t) {
         .type = ACT,
