@@ -101,13 +101,13 @@ static void print_pel(const pelset_t *pel)
 #define DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix, cond, clause) \
     const ewff_t *cond_##suffix = cond;\
     const clause_t *clause_##suffix = clause;\
-    clause_type_prefix##s_add(clauses_set, clause_type_prefix##_init(cond_##suffix, clause_##suffix));
+    clause_type_prefix##s_add(clauses_set, clause_type_prefix##_init(cond_##suffix, clause_##suffix))
 
 #define GEN_DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix, cond, clause) \
     DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix##_1, cond, ({ const int i = 1; clause; })); \
     DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix##_2, cond, ({ const int i = 2; clause; })); \
     DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix##_3, cond, ({ const int i = 3; clause; })); \
-    DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix##_4, cond, ({ const int i = 4; clause; }));
+    DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix##_4, cond, ({ const int i = 4; clause; }))
 
 #define DECL_ALL_CLAUSES(static_bat, dynamic_bat) \
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 1,\
@@ -157,5 +157,5 @@ static void print_pel(const pelset_t *pel)
             C(N(Z(), D(1), A()), P(Z(a), D(0), A())));\
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 16,\
             AND(SORT(a, action), EQ(a, FORWARD)),\
-            C(N(Z(a), D(0), A()), P(Z(), D(0), A()), P(Z(), D(1), A())));
+            C(N(Z(a), D(0), A()), P(Z(), D(0), A()), P(Z(), D(1), A())))
 
