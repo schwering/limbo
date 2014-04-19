@@ -9,9 +9,19 @@
 SET_IMPL(clause, literal_t *, literal_cmp);
 SET_IMPL(setup, clause_t *, clause_cmp);
 
+enum ewff_type { EWFF_EQ, EWFF_SORT, EWFF_NEG, EWFF_OR };
+struct ewff {
+    enum ewff_type type;
+    union {
+        struct { term_t t1; term_t t2; } eq;
+        struct { term_t t; bool (*is_sort)(stdname_t n); } sort;
+        struct { const ewff_t *e; } neg;
+        struct { const ewff_t *e1; const ewff_t *e2; } or;
+    } u;
+};
+
 struct univ_clause {
-    bool (*check)(const void *arg, const varmap_t *map);
-    const void *check_arg;
+    const ewff_t *cond;
     const clause_t *clause;
     stdset_t names;
     varset_t vars;
@@ -33,28 +43,166 @@ static int box_univ_clause_cmp(const box_univ_clause_t *c1,
 SET_IMPL(univ_clauses, univ_clause_t *, univ_clause_cmp);
 SET_IMPL(box_univ_clauses, box_univ_clause_t *, box_univ_clause_cmp);
 
+const ewff_t *ewff_true(void)
+{
+    return ewff_eq(0, 0);
+}
+
+const ewff_t *ewff_eq(term_t t1, term_t t2)
+{
+    ewff_t *e = MALLOC(sizeof(ewff_t));
+    e->type = EWFF_EQ;
+    e->u.eq.t1 = t1;
+    e->u.eq.t2 = t2;
+    return e;
+}
+
+const ewff_t *ewff_neq(term_t t1, term_t t2)
+{
+    return ewff_neg(ewff_eq(t1, t2));
+}
+
+const ewff_t *ewff_sort(term_t t, bool (*is_sort)(stdname_t n))
+{
+    ewff_t *e = MALLOC(sizeof(ewff_t));
+    e->type = EWFF_SORT;
+    e->u.sort.t = t;
+    e->u.sort.is_sort = is_sort;
+    return e;
+}
+
+const ewff_t *ewff_neg(const ewff_t *e1)
+{
+    ewff_t *e = MALLOC(sizeof(ewff_t));
+    e->type = EWFF_NEG;
+    e->u.neg.e = e1;
+    return e;
+}
+
+const ewff_t *ewff_or(const ewff_t *e1, const ewff_t *e2)
+{
+    ewff_t *e = MALLOC(sizeof(ewff_t));
+    e->type = EWFF_OR;
+    e->u.or.e1 = e1;
+    e->u.or.e2 = e2;
+    return e;
+}
+
+const ewff_t *ewff_and(const ewff_t *e1, const ewff_t *e2)
+{
+    return ewff_neg(ewff_or(ewff_neg(e1), ewff_neg(e2)));
+}
+
+static void ewff_collect_vars(const ewff_t *e, varset_t *vars)
+{
+    switch (e->type) {
+        case EWFF_EQ:
+            if (IS_VARIABLE(e->u.eq.t1)) {
+                varset_add(vars, e->u.eq.t1);
+            }
+            if (IS_VARIABLE(e->u.eq.t2)) {
+                varset_add(vars, e->u.eq.t2);
+            }
+            break;
+        case EWFF_SORT:
+            if (IS_VARIABLE(e->u.sort.t)) {
+                varset_add(vars, e->u.sort.t);
+            }
+            break;
+        case EWFF_NEG:
+            ewff_collect_vars(e->u.neg.e, vars);
+            break;
+        case EWFF_OR:
+            ewff_collect_vars(e->u.or.e1, vars);
+            ewff_collect_vars(e->u.or.e2, vars);
+            break;
+        default:
+            assert(false);
+    }
+}
+
+static void ewff_collect_names(const ewff_t *e, stdset_t *names)
+{
+    switch (e->type) {
+        case EWFF_EQ:
+            if (IS_STDNAME(e->u.eq.t1)) {
+                stdset_add(names, e->u.eq.t1);
+            }
+            if (IS_STDNAME(e->u.eq.t2)) {
+                stdset_add(names, e->u.eq.t2);
+            }
+            break;
+        case EWFF_SORT:
+            if (IS_STDNAME(e->u.sort.t)) {
+                stdset_add(names, e->u.sort.t);
+            }
+            break;
+        case EWFF_NEG:
+            ewff_collect_names(e->u.neg.e, names);
+            break;
+        case EWFF_OR:
+            ewff_collect_names(e->u.or.e1, names);
+            ewff_collect_names(e->u.or.e2, names);
+            break;
+        default:
+            assert(false);
+    }
+}
+
+static bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
+{
+    switch (e->type) {
+        case EWFF_EQ: {
+            const term_t t1 = e->u.eq.t1;
+            const term_t t2 = e->u.eq.t2;
+            const stdname_t n1 =
+                IS_VARIABLE(t1) ? varmap_lookup(varmap, t1) : t1;
+            const stdname_t n2 =
+                IS_VARIABLE(t2) ? varmap_lookup(varmap, t2) : t2;
+            assert(IS_STDNAME(n1));
+            assert(IS_STDNAME(n2));
+            return n1 == n2;
+        }
+        case EWFF_SORT: {
+            const term_t t = e->u.sort.t;
+            const stdname_t n = IS_VARIABLE(t) ? varmap_lookup(varmap, t) : t;
+            assert(IS_STDNAME(n));
+            return e->u.sort.is_sort(n);
+        }
+        case EWFF_NEG:
+            return !ewff_eval(e->u.neg.e, varmap);
+        case EWFF_OR:
+            return ewff_eval(e->u.or.e1, varmap) ||
+                ewff_eval(e->u.or.e2, varmap);
+        default:
+            assert(false);
+            return false;
+    }
+}
+
 const univ_clause_t *univ_clause_init(
-        bool (*check)(const void *check_arg, const varmap_t *map),
-        const void *check_arg,
+        const ewff_t *cond,
         const clause_t *clause)
 {
     univ_clause_t *c = MALLOC(sizeof(univ_clause_t));
+    varset_t vars = clause_vars(clause);
+    ewff_collect_vars(cond, &vars);
+    stdset_t names = clause_names(clause);
+    ewff_collect_names(cond, &names);
     *c = (univ_clause_t) {
-        .check      = check,
-        .check_arg  = check_arg,
+        .cond       = cond,
         .clause     = clause,
-        .names      = clause_names(clause),
-        .vars       = clause_vars(clause)
+        .names      = names,
+        .vars       = vars
     };
     return c;
 }
 
 const box_univ_clause_t *box_univ_clause_init(
-        bool (*check)(const void *check_arg, const varmap_t *map),
-        const void *check_arg,
+        const ewff_t *cond,
         const clause_t *clause)
 {
-    return (box_univ_clause_t *) univ_clause_init(check, check_arg, clause);
+    return (box_univ_clause_t *) univ_clause_init(cond, clause);
 }
 
 #define EMPTY_CLAUSE_INDEX 0
@@ -157,7 +305,7 @@ static void ground_univ(setup_t *setup, varmap_t *varmap,
             ground_univ(setup, varmap, univ_clause, ns, i + 1);
         }
     } else {
-        if (univ_clause->check(univ_clause->check_arg, varmap)) {
+        if (ewff_eval(univ_clause->cond, varmap)) {
             const clause_t *c;
             if (varset_size(&univ_clause->vars) > 0) {
                 clause_t *d = MALLOC(sizeof(clause_t));

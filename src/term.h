@@ -16,8 +16,9 @@
 #include <assert.h>
 #include <limits.h>
 
-typedef long int stdname_t;
-typedef long int var_t;
+typedef long int term_t;
+typedef term_t stdname_t;
+typedef term_t var_t;
 
 #define STDNAME_MAX LONG_MAX
 

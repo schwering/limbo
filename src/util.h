@@ -47,21 +47,18 @@
                 })
 
 // Lookup a variable in varmap.
-#define V(varname) \
-    ({\
-        assert(IS_VARIABLE(varname));\
-        assert(varmap_contains(varmap, varname));\
-        const stdname_t n = varmap_lookup(varmap, varname);\
-        assert(IS_STDNAME(n));\
-        n;\
-    })
+#define TRUE            ewff_true()
+#define EQ(t1,t2)       ewff_eq(t1,t2)
+#define NEQ(t1,t2)      ewff_neq(t1,t2)
+#define SORT(t,sort)    ewff_sort(t, &is_##sort)
+#define NEG(e)          ewff_neg(e)
+#define OR(e1,e2)       ewff_or(e1,e2)
+#define AND(e1,e2)      ewff_and(e1,e2)
 
 // Declares a clause. To be used in a function; then the check is a nested
 // function.
 #define DECL_CLAUSE(suffix, cond, clause) \
-    bool check_##suffix(const void *check_arg, const varmap_t *varmap) {\
-        return cond;\
-    }\
+    const ewff_t *cond_##suffix = cond;\
     const clause_t *clause_##suffix = clause;
 
 #endif

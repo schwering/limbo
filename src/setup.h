@@ -53,19 +53,27 @@ SET_ALIAS(pelset, clause, literal_t *);
 SET_DECL(setup, clause_t *);
 SET_ALIAS(cnf, setup, clause_t *);
 
+typedef struct ewff ewff_t;
+
 typedef struct univ_clause univ_clause_t;
 typedef union box_univ_clause box_univ_clause_t;
 
 SET_DECL(univ_clauses, univ_clause_t *);
 SET_DECL(box_univ_clauses, box_univ_clause_t *);
 
+const ewff_t *ewff_true(void);
+const ewff_t *ewff_eq(term_t t1, term_t t2);
+const ewff_t *ewff_neq(term_t t1, term_t t2);
+const ewff_t *ewff_sort(term_t t, bool (*is_sort)(stdname_t n));
+const ewff_t *ewff_neg(const ewff_t *e1);
+const ewff_t *ewff_or(const ewff_t *e1, const ewff_t *e2);
+const ewff_t *ewff_and(const ewff_t *e1, const ewff_t *e2);
+
 const univ_clause_t *univ_clause_init(
-        bool (*check)(const void *check_arg, const varmap_t *map),
-        const void *check_arg,
+        const ewff_t *cond,
         const clause_t *clause);
 const box_univ_clause_t *box_univ_clause_init(
-        bool (*check)(const void *check_arg, const varmap_t *map),
-        const void *check_arg,
+        const ewff_t *cond,
         const clause_t *clause);
 
 const clause_t *clause_empty(void);

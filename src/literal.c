@@ -70,17 +70,17 @@ literal_t literal_substitute(const literal_t *l, const varmap_t *map)
     stdvec_t z = stdvec_lazy_copy(&l->z);
     stdvec_t args = stdvec_lazy_copy(&l->args);
     for (int i = 0; i < stdvec_size(&z); ++i) {
-        const var_t x = stdvec_get(&z, i);
-        if (IS_VARIABLE(x)) {
-            assert(varmap_contains(map, x));
-            stdvec_set(&z, i, varmap_lookup(map, x));
+        const term_t t = stdvec_get(&z, i);
+        if (IS_VARIABLE(t)) {
+            assert(varmap_contains(map, t));
+            stdvec_set(&z, i, varmap_lookup(map, t));
         }
     }
     for (int i = 0; i < stdvec_size(&args); ++i) {
-        const var_t x = stdvec_get(&args, i);
-        if (IS_VARIABLE(x)) {
-            assert(varmap_contains(map, x));
-            stdvec_set(&args, i, varmap_lookup(map, x));
+        const term_t t = stdvec_get(&args, i);
+        if (IS_VARIABLE(t)) {
+            assert(varmap_contains(map, t));
+            stdvec_set(&args, i, varmap_lookup(map, t));
         }
     }
     return (literal_t) {
@@ -100,14 +100,14 @@ void literal_cleanup(literal_t *l)
 bool literal_is_ground(const literal_t *l)
 {
     for (int i = 0; i < stdvec_size(&l->z); ++i) {
-        const var_t x = stdvec_get(&l->z, i);
-        if (IS_VARIABLE(x)) {
+        const term_t t = stdvec_get(&l->z, i);
+        if (IS_VARIABLE(t)) {
             return false;
         }
     }
     for (int i = 0; i < stdvec_size(&l->args); ++i) {
-        const var_t x = stdvec_get(&l->args, i);
-        if (IS_VARIABLE(x)) {
+        const term_t t = stdvec_get(&l->args, i);
+        if (IS_VARIABLE(t)) {
             return false;
         }
     }
@@ -117,15 +117,15 @@ bool literal_is_ground(const literal_t *l)
 void literal_collect_vars(const literal_t *l, varset_t *vars)
 {
     for (int i = 0; i < stdvec_size(&l->z); ++i) {
-        const var_t x = stdvec_get(&l->z, i);
-        if (IS_VARIABLE(x)) {
-            varset_add(vars, x);
+        const term_t t = stdvec_get(&l->z, i);
+        if (IS_VARIABLE(t)) {
+            varset_add(vars, t);
         }
     }
     for (int i = 0; i < stdvec_size(&l->args); ++i) {
-        const var_t x = stdvec_get(&l->args, i);
-        if (IS_VARIABLE(x)) {
-            varset_add(vars, x);
+        const term_t t = stdvec_get(&l->args, i);
+        if (IS_VARIABLE(t)) {
+            varset_add(vars, t);
         }
     }
 }
@@ -133,15 +133,15 @@ void literal_collect_vars(const literal_t *l, varset_t *vars)
 void literal_collect_names(const literal_t *l, stdset_t *names)
 {
     for (int i = 0; i < stdvec_size(&l->z); ++i) {
-        const stdname_t n = stdvec_get(&l->z, i);
-        if (IS_STDNAME(n)) {
-            stdset_add(names, n);
+        const term_t t = stdvec_get(&l->z, i);
+        if (IS_STDNAME(t)) {
+            stdset_add(names, t);
         }
     }
     for (int i = 0; i < stdvec_size(&l->args); ++i) {
-        const stdname_t n = stdvec_get(&l->args, i);
-        if (IS_STDNAME(n)) {
-            stdset_add(names, n);
+        const term_t t = stdvec_get(&l->args, i);
+        if (IS_STDNAME(t)) {
+            stdset_add(names, t);
         }
     }
 }

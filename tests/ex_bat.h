@@ -393,8 +393,8 @@ static void make_bat(univ_clauses_t *static_bat, box_univ_clauses_t *dynamic_bat
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
 #define DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix, cond, clause) \
-    DECL_CLAUSE(suffix, ({ UNUSED(check_arg); cond; }), clause);\
-    clause_type_prefix##s_add(clauses_set, clause_type_prefix##_init(&check_##suffix, NULL, clause_##suffix));
+    DECL_CLAUSE(suffix, cond, clause);\
+    clause_type_prefix##s_add(clauses_set, clause_type_prefix##_init(cond_##suffix, clause_##suffix));
 
 #define GEN_DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix, cond, clause) \
     DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix##_1, cond, ({ const int i = 1; clause; })); \
@@ -404,51 +404,51 @@ static void make_bat(univ_clauses_t *static_bat, box_univ_clauses_t *dynamic_bat
 
 #define DECL_ALL_CLAUSES(static_bat, dynamic_bat) \
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 1,\
-            is_action(V(a)) && V(a) != FORWARD,\
+            AND(SORT(a, action), NEQ(a, FORWARD)),\
             C(N(Z(), SF, A(a)), P(Z(), D(0), A()), P(Z(), D(1), A())));\
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 2,\
-            is_action(V(a)) && V(a) != FORWARD && V(a) != SONAR,\
+            AND(SORT(a, action), AND(NEQ(a, FORWARD), NEQ(a, SONAR))),\
             C(N(Z(), SF, A(a))));\
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 3,\
-            is_action(V(a)) && V(a) == FORWARD,\
+            AND(SORT(a, action), EQ(a, FORWARD)),\
             C(P(Z(), SF, A(a))));\
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 4,\
-            is_action(V(a)) && V(a) == SONAR,\
+            AND(SORT(a, action), EQ(a, SONAR)),\
             C(N(Z(), D(0), A()), P(Z(), SF, A(a))));\
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 5,\
-            is_action(V(a)) && V(a) == SONAR,\
+            AND(SORT(a, action), EQ(a, SONAR)),\
             C(N(Z(), D(1), A()), P(Z(), SF, A(a))));\
     GEN_DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 6,\
-            is_action(V(a)) && V(a) == FORWARD,\
+            AND(SORT(a, action), EQ(a, FORWARD)),\
             C(N(Z(), D(i+1), A()), P(Z(a), D(i), A())));\
     GEN_DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 7,\
-            is_action(V(a)) && V(a) != FORWARD,\
+            AND(SORT(a, action), NEQ(a, FORWARD)),\
             C(N(Z(), D(i), A()), P(Z(a), D(i), A())));\
     GEN_DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 8,\
-            is_action(V(a)) && V(a) != FORWARD,\
+            AND(SORT(a, action), NEQ(a, FORWARD)),\
             C(N(Z(a), D(i), A()), P(Z(), D(i), A())));\
     GEN_DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 9,\
-            is_action(V(a)) && V(a) == FORWARD,\
+            AND(SORT(a, action), EQ(a, FORWARD)),\
             C(P(Z(a), D(i), A()), N(Z(), D(i+1), A())));\
     DECL_AND_ADD_CLAUSE(univ_clause, static_bat, 10,\
-            ({ UNUSED(varmap); true; }),\
+            TRUE,\
             C(N(Z(), D(0), A())));\
     DECL_AND_ADD_CLAUSE(univ_clause, static_bat, 11,\
-            ({ UNUSED(varmap); true; }),\
+            TRUE,\
             C(N(Z(), D(1), A())));\
     DECL_AND_ADD_CLAUSE(univ_clause, static_bat, 12,\
-            ({ UNUSED(varmap); true; }),\
+            TRUE,\
             C(P(Z(), D(2), A()), P(Z(), D(3), A())));\
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 13,\
-            is_action(V(a)),\
+            SORT(a, action),\
             C(N(Z(), D(0), A()), P(Z(a), D(0), A())));\
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 14,\
-            is_action(V(a)) && V(a) != FORWARD,\
+            AND(SORT(a, action), NEQ(a, FORWARD)),\
             C(N(Z(a), D(0), A()), P(Z(), D(0), A())));\
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 15,\
-            is_action(V(a)) && V(a) == FORWARD,\
+            AND(SORT(a, action), EQ(a, FORWARD)),\
             C(N(Z(), D(1), A()), P(Z(a), D(0), A())));\
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 16,\
-            is_action(V(a)) && V(a) == FORWARD,\
+            AND(SORT(a, action), EQ(a, FORWARD)),\
             C(N(Z(a), D(0), A()), P(Z(), D(0), A()), P(Z(), D(1), A())));
 

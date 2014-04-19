@@ -185,31 +185,7 @@ START_TEST(test_setup_entailment)
         query_or(
             query_atom(D(0), empty_vec),
             query_atom(D(1), empty_vec));
-    ck_assert(query_entailed_by_setup(&ctx2, false, phi4, 1) || true);
-    stdset_t names = stdset_init();
-    for (int i = 0; i < setup_size(&ctx2.setup); ++i) {
-        const clause_t *c = setup_get(&ctx2.setup, i);
-        const stdset_t ns = clause_names(c);
-        stdset_add_all(&names, &ns);
-    }
-    printf("Names: ");
-    for (int i = 0; i < stdset_size(&names); ++i) {
-        print_stdname(stdset_get(&names, i)); printf(" ");
-    }
-    printf("\n");
-    stdset_t query_names = stdset_init_with_size(0);
-    stdset_t hplus = bat_hplus(&static_bat, &dynamic_bat, &query_names, 0);
-    printf("HPlus: ");
-    for (int i = 0; i < stdset_size(&hplus); ++i) {
-        print_stdname(stdset_get(&hplus, i)); printf(" ");
-    }
-    printf("\n");
-    printf("HPlus: ");
-    for (int i = 0; i < stdset_size(&ctx2.hplus); ++i) {
-        print_stdname(stdset_get(&ctx2.hplus, i)); printf(" ");
-    }
-    printf("\n");
-    print_setup(&ctx2.setup);
+    ck_assert(query_entailed_by_setup(&ctx2, false, phi4, 1));
 
     //printf("Q5\n");
     const query_t *phi5 = query_atom(D(0), empty_vec);
