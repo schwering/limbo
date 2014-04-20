@@ -5,13 +5,13 @@
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
-static int compar_long_int(long int p, long int q)
-{
-    return p - q;
-}
+//static int compar_long_int(long int p, long int q)
+//{
+//    return p - q;
+//}
 
 MAP_DECL(iimap, long int, long int);
-MAP_IMPL(iimap, long int, long int, compar_long_int);
+MAP_IMPL(iimap, long int, long int, NULL);
 
 START_TEST(test_map_add)
 {

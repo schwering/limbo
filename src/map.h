@@ -72,7 +72,10 @@ void map_clear(map_t *map);
 
 #define MAP_IMPL(prefix, keytype, valtype, keycompar) \
     static inline int prefix##_kv_compar(const kv_t *l, const kv_t *r) {\
-        return keycompar((const keytype) l->key, (const keytype) r->key); }\
+        return keycompar != NULL\
+            ? ((int (*)(const keytype, const keytype)) keycompar)(\
+                    (const keytype) l->key, (const keytype) r->key)\
+            : l->key - r->key; }\
     prefix##_t prefix##_init(void) {\
         return (prefix##_t) { .m = map_init(prefix##_kv_compar) }; }\
     prefix##_t prefix##_init_with_size(int size) {\

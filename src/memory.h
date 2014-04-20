@@ -44,13 +44,13 @@
 #else
 
     #include <stdlib.h>
-    
+
     #define MALLOC(size)         malloc(size)
     #define REALLOC(mem, size)   realloc(mem, size)
     #define FREE(mem)            free(mem)
-    
-    #endif
-    
+
+#endif
+
 #define NEW(expr) \
     ({\
         typeof(expr) *_NEW_ptr = MALLOC(sizeof(expr));\
