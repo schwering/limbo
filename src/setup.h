@@ -1,7 +1,22 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
- * Functions for generating setups from universally quantified static and boxed
- * clauses.
+ * Setups are sets of ground clauses, which are disjunctions of (extended)
+ * literals (as defined in literal.h).
+ * Setups are the semantic primitive of ESL.
+ * In ESL a setup is usually closed under unit propagation and subsumption,
+ * and a setup entails a clause if it is contained in the setup.
+ * Query answering is answered in queries.h.
+ *
+ * This header provides functions to generate setups from proper+ basic action
+ * theories (BATs) and operations on setups, particularly subsumption test.
+ * Proper+ BATs consist of implications where all variables are universally
+ * quantified with maximum scope, the antecedent only is a so-called ewff, which
+ * is a formula which mentions no other predicate than equality, and the
+ * consequent is a disjunction of literals; formulas like successor state axioms
+ * and sensed fluent axioms are boxed, that is, have a leading box operator
+ * which says that they hold in any situation.
+ * We don't close setups under subsumption to keep them finite; instead we check
+ * if some clause in the setup subsumes the given one.
  *
  * Static formulas (for the initial situation) are expressed with
  * univ_clause_init(), while dynamic formulas (for preconditions, successor
@@ -21,11 +36,14 @@
  * standard names from hplus and, for the dynamic part, by instantiating the
  * (implicit) box operators with all prefixes of action sequences in the
  * query, query_zs.
+ * The returned setup is just the set containing all clauses resulting from the
+ * ground -- no minimization or unit propagation has been done yet. Thus the
+ * setup can be seen as the immediate result of grounding the clauses.
  *
  * setup_pel() computes the positive versions of all literals in the setup.
  * Note that for the split literals, you also need to consider those from the
  * query.
- * For that, add_pel_of_clause() may be useful.
+ * For that, clause_collect_pel() may be useful.
  * setup_would_be_needless_split() returns true if splitting the given literal
  * would not give additional information to the setup. For example, splitting a
  * literal when the setup already contains a unit clause with that literal or
@@ -40,9 +58,18 @@
  * where minimality means that no clause is subsumed by another one in the
  * setup.
  *
- * setup_subsumes() returns true if unit propagation of the setup plus split
- * literals contains a clause which is a subset of the given clause.
+ * setup_subsumes() returns true if unit propagation of the setup literals
+ * contains a clause which subsumes the given clause, that is, is a subset of
+ * the given clause.
  * Thus, setup_subsumes() is sound but not complete.
+ *
+ * setup_with_splits_subsumes() uses expands setup_subsumes() by reasoning by
+ * cases. It splits up to k non-SF literals from the PEL set. If no subsumption
+ * has been detected using these splits, it tries to split all SF literals in
+ * PEL.
+ * This handling of SF literals almost like normal split literals allows to
+ * handle both in a single function. The reason for splitting SF literals only
+ * if k = 0 is just to remain equivalent to the ESL paper.
  *
  * schwering@kbsg.rwth-aachen.de
  */
@@ -108,7 +135,7 @@ void setup_add_sensing_results(
         setup_t *setup,
         const splitset_t *sensing_results);
 
-void add_pel_of_clause(pelset_t *pel, const clause_t *c, const setup_t *setup);
+void clause_collect_pel(const clause_t *c, const setup_t *setup, pelset_t *pel);
 pelset_t setup_pel(const setup_t *setup);
 bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l);
 
@@ -117,6 +144,12 @@ void setup_minimize(setup_t *setup);
 void setup_propagate_units(setup_t *setup);
 
 bool setup_subsumes(setup_t *setup, const clause_t *c);
+
+bool setup_with_splits_subsumes(
+        setup_t *setup,
+        pelset_t *pel,
+        const clause_t *c,
+        const int k);
 
 #endif
 

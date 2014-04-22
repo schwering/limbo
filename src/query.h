@@ -27,11 +27,12 @@
  * We first convert the formula into ENNF (extended negation normal form), that
  * is, all actions and negations are pushed inwards. Additionally existentials
  * are replaced with disjunctions or conjunctions over a set of standard names.
- * Then we bring the resulting formual into CNF, which may be a bad idea.
+ * Then we bring the resulting formula into CNF, which may be a bad idea.
  * Anyway, then we check all these clauses for subsumption.
  * During that procedure we treat SF literals just like normal split literals.
- * We therefore add them to the PEL set and increase the maximum split number
- * by their count.
+ * We therefore add them to the PEL set. Then setup_with_splits_subsumes() from
+ * setup.h will split them after splitting k non-SF literals. This treatment
+ * should retain equivalence to the ESL paper.
  *
  * To simplify this the procedure which converts a formula to CNF conversion,
  * we directly implement conjunctions, whereas the paper just defines
@@ -46,8 +47,8 @@
  * sub-query, and (2) a set of SF literals, which only contains the physical
  * sensing results, but not the imaginary ones. Leaving out the imaginary
  * sensing results is reasonable because query_test_clause() will add their SF
- * literals to PEL anyway and thus query_test_split() will split them if
- * necessary (regardless of k).
+ * literals to PEL anyway and thus setup_with_splits_subsumes() will split them
+ * if necessary (regardless of k).
  * 
  * Additionally one needs to provide callbacks which compute the number of
  * variables and the standard names in this sub-query.
@@ -87,23 +88,23 @@ typedef struct {
     setup_t dynamic_setup;
     setup_t setup;
     pelset_t setup_pel;
-} context_t;
+} query_context_t;
 
-context_t context_init(
+query_context_t context_init(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
         const splitset_t *context_sf);
 
-context_t context_copy_with_new_actions(
-        const context_t *ctx,
+query_context_t context_copy_with_new_actions(
+        const query_context_t *ctx,
         const stdvec_t *add_context_z,
         const splitset_t *add_context_sf);
 
-void context_cleanup(context_t *ctx);
+void context_cleanup(query_context_t *ctx);
 
 bool query_entailed_by_setup(
-        context_t *ctx,
+        query_context_t *ctx,
         const bool force_no_update,
         const query_t *phi,
         const int k);

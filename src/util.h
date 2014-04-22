@@ -45,15 +45,16 @@
 
 // Clause C. Use C(P(...), N(...)) for a clause with a positive and a negative
 // literal.
-#define C(c...) ({\
-                    const literal_t *_C_array[] = { c };\
-                    const int _C_n = sizeof(_C_array) / sizeof(_C_array[0]);\
-                    clause_t *_C_c = NEW(clause_init_with_size(_C_n));\
-                    for (int _C_i = 0; _C_i < _C_n; ++_C_i) {\
-                        clause_add(_C_c, _C_array[_C_i]);\
-                    }\
-                _C_c;\
-                })
+#define C(c...) \
+    ({\
+        const literal_t *_C_array[] = { c };\
+        const int _C_n = sizeof(_C_array) / sizeof(_C_array[0]);\
+        clause_t *_C_c = NEW(clause_init_with_size(_C_n));\
+        for (int _C_i = 0; _C_i < _C_n; ++_C_i) {\
+            clause_add(_C_c, _C_array[_C_i]);\
+        }\
+    _C_c;\
+    })
 
 // Set of sensing literals SF. Use SF(l1,l2) to get an splitset_t with l1, l2.
 #define SF(l...)\

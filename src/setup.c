@@ -410,7 +410,7 @@ void setup_add_sensing_results(
     }
 }
 
-void add_pel_of_clause(pelset_t *pel, const clause_t *c, const setup_t *setup)
+void clause_collect_pel(const clause_t *c, const setup_t *setup, pelset_t *pel)
 {
     if (clause_is_unit(c)) {
         return;
@@ -463,7 +463,7 @@ pelset_t setup_pel(const setup_t *setup)
 {
     pelset_t pel = pelset_init();
     for (int i = 0; i < setup_size(setup); ++i) {
-        add_pel_of_clause(&pel, setup_get(setup, i), setup);
+        clause_collect_pel(setup_get(setup, i), setup, &pel);
     }
     return pel;
 }
@@ -578,6 +578,43 @@ bool setup_subsumes(setup_t *setup, const clause_t *c)
     setup_propagate_units(setup);
     for (int i = 0; i < setup_size(setup); ++i) {
         if (clause_contains_all(c, setup_get(setup, i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool setup_with_splits_subsumes(
+        setup_t *setup,
+        pelset_t *pel,
+        const clause_t *c,
+        const int k)
+{
+    bool r = setup_subsumes(setup, c);
+    if (r || k < 0) {
+        return r;
+    }
+    for (int i = 0; i < pelset_size(pel); ++i) {
+        const literal_t *l1 = pelset_get(pel, i);
+        if ((literal_pred(l1) == SF) != (k == 0)) {
+            continue;
+        }
+        const literal_t l2 = literal_flip(l1);
+        pelset_remove_index(pel, i--);
+        const clause_t c1 = clause_singleton(l1);
+        const clause_t c2 = clause_singleton(&l2);
+        const int k1 = (literal_pred(l1) == SF) ? k : k - 1;
+        setup_t setup1 = setup_lazy_copy(setup);
+        setup_add(&setup1, &c1);
+        bool r;
+        r = setup_with_splits_subsumes(&setup1, pel, c, k1);
+        if (!r) {
+            continue;
+        }
+        setup_t setup2 = setup_lazy_copy(setup);
+        setup_add(&setup2, &c2);
+        r = setup_with_splits_subsumes(&setup2, pel, c, k1);
+        if (r) {
             return true;
         }
     }

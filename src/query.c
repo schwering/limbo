@@ -162,6 +162,7 @@ static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
         }
         case EVAL:
             // TODO Currently no quantifying-in!
+            // Could be fixed by managing varmap and as part of EVAL structs.
             return phi;
     }
     assert(false);
@@ -416,59 +417,16 @@ static cnf_t query_cnf(const query_t *phi)
     assert(false);
 }
 
-static bool query_test_split(
-        const setup_t *original_setup,
-        const pelset_t *original_pel,
-        setup_t *setup,
-        pelset_t *pel,
-        const stdvec_t *context_z,
-        const clause_t *c,
-        const int k)
-{
-    bool r = setup_subsumes(setup, c);
-    if (r || k < 0) {
-        return r;
-    }
-    for (int i = 0; i < pelset_size(pel); ++i) {
-        const literal_t *l1 = pelset_get(pel, i);
-        if ((literal_pred(l1) == SF) != (k == 0)) {
-            continue;
-        }
-        const literal_t l2 = literal_flip(l1);
-        pelset_remove_index(pel, i--);
-        const clause_t c1 = clause_singleton(l1);
-        const clause_t c2 = clause_singleton(&l2);
-        const int k1 = (literal_pred(l1) == SF) ? k : k - 1;
-        setup_t setup1 = setup_lazy_copy(setup);
-        setup_add(&setup1, &c1);
-        bool r;
-        r = query_test_split(original_setup, original_pel, &setup1, pel,
-                context_z, c, k1);
-        if (!r) {
-            continue;
-        }
-        setup_t setup2 = setup_lazy_copy(setup);
-        setup_add(&setup2, &c2);
-        r = query_test_split(original_setup, original_pel, &setup2, pel,
-                context_z, c, k1);
-        if (r) {
-            return true;
-        }
-    }
-    return false;
-}
-
 static bool query_test_clause(
         const setup_t *original_setup,
         const pelset_t *original_pel,
-        const stdvec_t *context_z,
         const clause_t *c,
         const int k)
 {
     setup_t setup = setup_lazy_copy(original_setup);
     // We split SF literals from imaginarily executed actions only when needed
-    // in query_test_split(). For that, the PEL needs to contain the relevant SF
-    // atoms, though.
+    // in setup_with_splits_subsumes(). For that, the PEL needs to contain the
+    // relevant SF atoms, though.
     pelset_t pel_and_sf = pelset_lazy_copy(original_pel);
     for (int i = 0; i < clause_size(c); ++i) {
         const stdvec_t *z = literal_z(clause_get(c, i));
@@ -483,11 +441,10 @@ static bool query_test_clause(
             }
         }
     }
-    return query_test_split(original_setup, original_pel, &setup,
-            &pel_and_sf, context_z, c, k);
+    return setup_with_splits_subsumes(&setup, &pel_and_sf, c, k);
 }
 
-context_t context_init(
+query_context_t context_init(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *orig_context_z,
@@ -507,7 +464,7 @@ context_t context_init(
     setup_add_sensing_results(&setup, context_sf);
     //setup_minimize(&setup);
     setup_propagate_units(&setup);
-    return (context_t) {
+    return (query_context_t) {
         .static_bat    = static_bat,
         .dynamic_bat   = dynamic_bat,
         .context_z     = context_z,
@@ -523,8 +480,8 @@ context_t context_init(
     };
 }
 
-context_t context_copy_with_new_actions(
-        const context_t *ctx,
+query_context_t context_copy_with_new_actions(
+        const query_context_t *ctx,
         const stdvec_t *add_context_z,
         const splitset_t *add_context_sf)
 {
@@ -541,7 +498,7 @@ context_t context_copy_with_new_actions(
     setup_add_sensing_results(&setup, add_context_sf);
     //setup_minimize(&setup);
     setup_propagate_units(&setup);
-    return (context_t) {
+    return (query_context_t) {
         .static_bat    = ctx->static_bat,
         .dynamic_bat   = ctx->dynamic_bat,
         .context_z     = context_z,
@@ -557,7 +514,7 @@ context_t context_copy_with_new_actions(
     };
 }
 
-void context_cleanup(context_t *ctx)
+void context_cleanup(query_context_t *ctx)
 {
     stdset_cleanup(&ctx->query_names);
     stdset_cleanup(&ctx->hplus);
@@ -569,7 +526,7 @@ void context_cleanup(context_t *ctx)
 }
 
 bool query_entailed_by_setup(
-        context_t *ctx,
+        query_context_t *ctx,
         const bool force_no_update,
         const query_t *phi,
         const int k)
@@ -636,9 +593,8 @@ bool query_entailed_by_setup(
     for (int i = 0; i < cnf_size(&cnf) && truth_value; ++i) {
         const clause_t *c = cnf_get(&cnf, i);
         pelset_t pel = pelset_lazy_copy(&ctx->setup_pel);
-        add_pel_of_clause(&pel, c, &ctx->setup);
-        truth_value = query_test_clause(&ctx->setup, &pel, ctx->context_z,
-                c, k);
+        clause_collect_pel(c, &ctx->setup, &pel);
+        truth_value = query_test_clause(&ctx->setup, &pel, c, k);
     }
     return truth_value;
 }
@@ -677,8 +633,8 @@ bool query_entailed_by_bat(
     for (int i = 0; i < cnf_size(&cnf) && truth_value; ++i) {
         const clause_t *c = cnf_get(&cnf, i);
         pelset_t pel = pelset_lazy_copy(&bat_pel);
-        add_pel_of_clause(&pel, c, &setup);
-        truth_value = query_test_clause(&setup, &pel, context_z, c, k);
+        clause_collect_pel(c, &setup, &pel);
+        truth_value = query_test_clause(&setup, &pel, c, k);
     }
     return truth_value;
 }
