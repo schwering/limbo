@@ -444,7 +444,7 @@ static bool query_test_clause(
     return setup_with_splits_subsumes(&setup, &pel_and_sf, c, k);
 }
 
-query_context_t context_init(
+kcontext_t kcontext_init(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *orig_context_z,
@@ -464,7 +464,7 @@ query_context_t context_init(
     setup_add_sensing_results(&setup, context_sf);
     //setup_minimize(&setup);
     setup_propagate_units(&setup);
-    return (query_context_t) {
+    return (kcontext_t) {
         .static_bat    = static_bat,
         .dynamic_bat   = dynamic_bat,
         .context_z     = context_z,
@@ -480,8 +480,8 @@ query_context_t context_init(
     };
 }
 
-query_context_t context_copy_with_new_actions(
-        const query_context_t *ctx,
+kcontext_t kcontext_copy_with_new_actions(
+        const kcontext_t *ctx,
         const stdvec_t *add_context_z,
         const splitset_t *add_context_sf)
 {
@@ -498,7 +498,7 @@ query_context_t context_copy_with_new_actions(
     setup_add_sensing_results(&setup, add_context_sf);
     //setup_minimize(&setup);
     setup_propagate_units(&setup);
-    return (query_context_t) {
+    return (kcontext_t) {
         .static_bat    = ctx->static_bat,
         .dynamic_bat   = ctx->dynamic_bat,
         .context_z     = context_z,
@@ -514,7 +514,7 @@ query_context_t context_copy_with_new_actions(
     };
 }
 
-void context_cleanup(query_context_t *ctx)
+void context_cleanup(kcontext_t *ctx)
 {
     stdset_cleanup(&ctx->query_names);
     stdset_cleanup(&ctx->hplus);
@@ -526,7 +526,7 @@ void context_cleanup(query_context_t *ctx)
 }
 
 bool query_entailed_by_setup(
-        query_context_t *ctx,
+        kcontext_t *ctx,
         const bool force_no_update,
         const query_t *phi,
         const int k)
@@ -537,8 +537,7 @@ bool query_entailed_by_setup(
         stdset_t ns = query_names(phi);
         const int nv = query_n_vars(phi);
         if (ctx->query_n_vars < nv) {
-            ctx->hplus = bat_hplus(ctx->static_bat, ctx->dynamic_bat,
-                    &ns, nv);
+            ctx->hplus = bat_hplus(ctx->static_bat, ctx->dynamic_bat, &ns, nv);
             have_new_hplus = true;
         }
         if (!stdset_contains_all(&ctx->query_names, &ns)) {

@@ -88,11 +88,17 @@ SET_ALIAS(cnf, setup, clause_t *);
 
 typedef struct ewff ewff_t;
 
-typedef struct univ_clause univ_clause_t;
-typedef union box_univ_clause box_univ_clause_t;
+typedef struct {
+    const ewff_t *cond;
+    const clause_t *clause;
+    stdset_t names;
+    varset_t vars;
+} univ_clause_t;
 
-SET_DECL(univ_clauses, univ_clause_t *);
-SET_DECL(box_univ_clauses, box_univ_clause_t *);
+typedef union { univ_clause_t c; } box_univ_clause_t;
+
+VECTOR_DECL(univ_clauses, univ_clause_t *);
+VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
 
 const ewff_t *ewff_true(void);
 const ewff_t *ewff_eq(term_t t1, term_t t2);
@@ -102,6 +108,13 @@ const ewff_t *ewff_neg(const ewff_t *e1);
 const ewff_t *ewff_or(const ewff_t *e1, const ewff_t *e2);
 const ewff_t *ewff_and(const ewff_t *e1, const ewff_t *e2);
 bool ewff_eval(const ewff_t *e, const varmap_t *varmap);
+void ewff_ground(
+        const ewff_t *e,
+        const varset_t *vars,
+        const stdset_t *hplus,
+        void (*ground)(const varmap_t *));
+
+clause_t clause_substitute(const clause_t *c, const varmap_t *map);
 
 const univ_clause_t *univ_clause_init(
         const ewff_t *cond,

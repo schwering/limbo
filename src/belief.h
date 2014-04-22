@@ -29,10 +29,25 @@
 #define _BELIEF_H_
 
 #include "setup.h"
+#include "query.h"
 
 typedef struct belief_cond belief_cond_t;
 
-SET_DECL(belief_conds, belief_cond_t *);
+VECTOR_DECL(belief_conds, belief_cond_t *);
+VECTOR_DECL(ranked_setups, setup_t *);
+
+typedef struct bcontext bcontext_t;
+struct bcontext {
+    int plausibility;
+    kcontext_t ctx;
+    bcontext_t *next;
+};
+
+ranked_setups_t setup_init_beliefs(
+        const setup_t *static_bat_setup,
+        const belief_conds_t *beliefs,
+        const stdset_t *hplus,
+        const int k);
 
 #endif
 

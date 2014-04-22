@@ -101,7 +101,7 @@ static void print_pel(const pelset_t *pel)
 #define DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix, cond, clause) \
     const ewff_t *cond_##suffix = cond;\
     const clause_t *clause_##suffix = clause;\
-    clause_type_prefix##s_add(clauses_set, clause_type_prefix##_init(cond_##suffix, clause_##suffix))
+    clause_type_prefix##s_append(clauses_set, clause_type_prefix##_init(cond_##suffix, clause_##suffix))
 
 #define GEN_DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix, cond, clause) \
     DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix##_1, cond, ({ const int i = 1; clause; })); \

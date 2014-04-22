@@ -139,7 +139,7 @@ START_TEST(test_setup_entailment)
     const literal_t sensing_forward = literal_init(&empty_vec, true, SF, &f_vec);
     const literal_t sensing_sonar = literal_init(&f_vec, true, SF, &s_vec);
 
-    query_context_t ctx1 = context_init(&static_bat, &dynamic_bat, Z(), SF());
+    kcontext_t ctx1 = kcontext_init(&static_bat, &dynamic_bat, Z(), SF());
 
     //printf("Q0\n");
     const query_t *phi0 =
@@ -178,7 +178,7 @@ START_TEST(test_setup_entailment)
     stdvec_append(&context_z_2, SONAR);
     splitset_add(&context_sf_2, &sensing_forward);
     splitset_add(&context_sf_2, &sensing_sonar);
-    query_context_t ctx2 = context_copy_with_new_actions(&ctx1, &context_z_2, &context_sf_2);
+    kcontext_t ctx2 = kcontext_copy_with_new_actions(&ctx1, &context_z_2, &context_sf_2);
 
     //printf("Q4\n");
     const query_t *phi4 =

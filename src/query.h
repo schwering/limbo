@@ -17,8 +17,9 @@
  * context's structures are up to date. That is, force_no_update = true is
  * fast but dangerous.
  * The context structure memorizes a some data needed for query answering;
- * for the initial context use context_init(). Copies with additional physically
- * executed actions can be created with context_copy_with_new_actions().
+ * for the initial context use kcontext_init(). Copies with additional
+ * physically executed actions can be created with
+ * kcontext_copy_with_new_actions().
  *
  * To improve performance in cases where similar queries are evaluated wrt the
  * same BAT, we have the contexts which cache the setup etc.
@@ -88,23 +89,23 @@ typedef struct {
     setup_t dynamic_setup;
     setup_t setup;
     pelset_t setup_pel;
-} query_context_t;
+} kcontext_t;
 
-query_context_t context_init(
+kcontext_t kcontext_init(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
         const splitset_t *context_sf);
 
-query_context_t context_copy_with_new_actions(
-        const query_context_t *ctx,
+kcontext_t kcontext_copy_with_new_actions(
+        const kcontext_t *ctx,
         const stdvec_t *add_context_z,
         const splitset_t *add_context_sf);
 
-void context_cleanup(query_context_t *ctx);
+void context_cleanup(kcontext_t *ctx);
 
 bool query_entailed_by_setup(
-        query_context_t *ctx,
+        kcontext_t *ctx,
         const bool force_no_update,
         const query_t *phi,
         const int k);

@@ -20,28 +20,8 @@ struct ewff {
     } u;
 };
 
-struct univ_clause {
-    const ewff_t *cond;
-    const clause_t *clause;
-    stdset_t names;
-    varset_t vars;
-};
-
-union box_univ_clause { univ_clause_t c; };
-
-static int univ_clause_cmp(const univ_clause_t *c1, const univ_clause_t *c2)
-{
-    return clause_cmp(c1->clause, c2->clause);
-}
-
-static int box_univ_clause_cmp(const box_univ_clause_t *c1,
-        const box_univ_clause_t *c2)
-{
-    return clause_cmp(c1->c.clause, c2->c.clause);
-}
-
-SET_IMPL(univ_clauses, univ_clause_t *, univ_clause_cmp);
-SET_IMPL(box_univ_clauses, box_univ_clause_t *, box_univ_clause_cmp);
+VECTOR_IMPL(univ_clauses, univ_clause_t *, NULL);
+VECTOR_IMPL(box_univ_clauses, box_univ_clause_t *, NULL);
 
 const ewff_t *ewff_true(void)
 {
@@ -180,7 +160,38 @@ bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
     }
 }
 
-static clause_t clause_substitute(const clause_t *c, const varmap_t *map)
+static void ewff_ground_h(
+        const ewff_t *e,
+        const varset_t *vars,
+        const stdset_t *hplus,
+        void (*ground)(const varmap_t *),
+        varmap_t *varmap)
+{
+    if (varmap_size(varmap) < varset_size(vars)) {
+        const var_t x = varset_get(vars, varmap_size(varmap));
+        for (int i = 0; i < stdset_size(hplus); ++i) {
+            const stdname_t n = stdset_get(hplus, i);
+            varmap_add_replace(varmap, x, n);
+            ewff_ground_h(e, vars, hplus, ground, varmap);
+        }
+    } else {
+        if (ewff_eval(e, varmap)) {
+            ground(varmap);
+        }
+    }
+}
+
+void ewff_ground(
+        const ewff_t *e,
+        const varset_t *vars,
+        const stdset_t *hplus,
+        void (*ground)(const varmap_t *))
+{
+    varmap_t varmap = varmap_init_with_size(varset_size(vars));
+    ewff_ground_h(e, vars, hplus, ground, &varmap);
+}
+
+clause_t clause_substitute(const clause_t *c, const varmap_t *map)
 {
     clause_t cc = clause_init_with_size(clause_size(c));
     for (int i = 0; i < clause_size(c); ++i) {
@@ -256,10 +267,10 @@ const univ_clause_t *univ_clause_init(
     stdset_t names = clause_names(clause);
     ewff_collect_names(cond, &names);
     *c = (univ_clause_t) {
-        .cond       = cond,
-        .clause     = clause,
-        .names      = names,
-        .vars       = vars
+        .cond   = cond,
+        .clause = clause,
+        .names  = names,
+        .vars   = vars
     };
     return c;
 }
@@ -271,29 +282,24 @@ const box_univ_clause_t *box_univ_clause_init(
     return (box_univ_clause_t *) univ_clause_init(cond, clause);
 }
 
-static void ground_univ(setup_t *setup, varmap_t *varmap,
-        const univ_clause_t *univ_clause, const stdset_t *ns, int i)
+static void ground_univ(
+        setup_t *setup,
+        const univ_clause_t *univ_clause,
+        const stdset_t *hplus)
 {
-    if (i < varset_size(&univ_clause->vars)) {
-        const var_t var = varset_get(&univ_clause->vars, i);
-        for (int j = 0; j < stdset_size(ns); ++j) {
-            const stdname_t n = stdset_get(ns, j);
-            varmap_add_replace(varmap, var, n);
-            ground_univ(setup, varmap, univ_clause, ns, i + 1);
+    void ground_clause(const varmap_t *varmap) {
+        const clause_t *c;
+        if (varset_size(&univ_clause->vars) > 0) {
+            clause_t *d = MALLOC(sizeof(clause_t));
+            *d = clause_substitute(univ_clause->clause, varmap);
+            c = d;
+        } else {
+            c = univ_clause->clause;
         }
-    } else {
-        if (ewff_eval(univ_clause->cond, varmap)) {
-            const clause_t *c;
-            if (varset_size(&univ_clause->vars) > 0) {
-                clause_t *d = MALLOC(sizeof(clause_t));
-                *d = clause_substitute(univ_clause->clause, varmap);
-                c = d;
-            } else {
-                c = univ_clause->clause;
-            }
-            setup_add(setup, c);
-        }
+        setup_add(setup, c);
     }
+    ewff_ground(univ_clause->cond, &univ_clause->vars, hplus,
+            &ground_clause);
 }
 
 static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
@@ -349,8 +355,7 @@ setup_t setup_init_static(
     setup_t setup = setup_init();
     for (int i = 0; i < univ_clauses_size(static_bat); ++i) {
         const univ_clause_t *c = univ_clauses_get(static_bat, i);
-        varmap_t varmap = varmap_init_with_size(varset_size(&c->vars));
-        ground_univ(&setup, &varmap, c, hplus, 0);
+        ground_univ(&setup, c, hplus);
     }
     return setup;
 }
@@ -367,8 +372,7 @@ setup_t setup_init_dynamic(
     // standard names (elements of hplus) for all i
     for (int i = 0; i < box_univ_clauses_size(dynamic_bat); ++i) {
         const box_univ_clause_t *c = box_univ_clauses_get(dynamic_bat, i);
-        varmap_t varmap = varmap_init_with_size(varset_size(&c->c.vars));
-        ground_univ(&box_clauses, &varmap, &c->c, hplus, 0);
+        ground_univ(&box_clauses, &c->c, hplus);
     }
     // ground each box by substituting it with the prefixes of all action
     // sequences
