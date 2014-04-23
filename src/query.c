@@ -32,6 +32,8 @@ struct query {
     } u;
 };
 
+SET_ALIAS(cnf, setup, clause_t *);
+
 static int query_n_vars(const query_t *phi)
 {
     switch (phi->type) {
@@ -477,6 +479,24 @@ kcontext_t kcontext_init(
         .dynamic_setup = dynamic_setup,
         .setup         = setup,
         .setup_pel     = setup_pel(&setup)
+    };
+}
+
+kcontext_t kcontext_copy(const kcontext_t *ctx)
+{
+    return (kcontext_t) {
+        .static_bat    = ctx->static_bat,
+        .dynamic_bat   = ctx->dynamic_bat,
+        .context_z     = ctx->context_z,
+        .context_sf    = ctx->context_sf,
+        .query_names   = stdset_copy(&ctx->query_names),
+        .query_n_vars  = ctx->query_n_vars,
+        .hplus         = stdset_copy(&ctx->hplus),
+        .query_zs      = stdvecset_copy(&ctx->query_zs),
+        .static_setup  = setup_copy(&ctx->static_setup),
+        .dynamic_setup = setup_copy(&ctx->dynamic_setup),
+        .setup         = setup_copy(&ctx->setup),
+        .setup_pel     = pelset_copy(&ctx->setup_pel)
     };
 }
 

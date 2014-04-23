@@ -96,7 +96,7 @@ kcontext_t kcontext_init(
         const box_univ_clauses_t *dynamic_bat,
         const stdvec_t *context_z,
         const splitset_t *context_sf);
-
+kcontext_t kcontext_copy(const kcontext_t *ctx);
 kcontext_t kcontext_copy_with_new_actions(
         const kcontext_t *ctx,
         const stdvec_t *add_context_z,

@@ -14,7 +14,7 @@ splitset_t *context_sf_1 = NULL;
 stdvec_t *context_z_2 = NULL;
 splitset_t *context_sf_2 = NULL;
 
-context_t make_context(void)
+kcontext_t make_context(void)
 {
     if (empty_vec == NULL) {
         empty_vec = NEW(stdvec_init());
@@ -36,10 +36,10 @@ context_t make_context(void)
     box_univ_clauses_t *dynamic_bat = NEW(box_univ_clauses_init());
     DECL_ALL_CLAUSES(static_bat, dynamic_bat);
 
-    return context_init(static_bat, dynamic_bat, context_z_1, context_sf_1);
+    return kcontext_init(static_bat, dynamic_bat, context_z_1, context_sf_1);
 }
 
-void run(context_t *ctx)
+void run(kcontext_t *ctx)
 {
     //printf("Q0\n");
     const query_t *phi0 =
@@ -72,7 +72,7 @@ void run(context_t *ctx)
                 query_atom(D(2), *empty_vec)));
     ck_assert(!query_entailed_by_setup(ctx, false, phi2, 0));
 
-    context_t ctx2 = context_copy_with_new_actions(ctx, context_z_2, context_sf_2);
+    kcontext_t ctx2 = kcontext_copy_with_new_actions(ctx, context_z_2, context_sf_2);
 
     //printf("Q4\n");
     const query_t *phi4 =
@@ -124,7 +124,7 @@ void run(context_t *ctx)
 
 int main(int argc, char *argv[])
 {
-    context_t ctx = make_context();
+    kcontext_t ctx = make_context();
     for (int i = 0; i < 400; ++i) {
         //printf("%d:\n", i);
         run(&ctx);

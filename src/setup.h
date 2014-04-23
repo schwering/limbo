@@ -87,7 +87,6 @@ SET_DECL(clause, literal_t *);
 SET_ALIAS(splitset, clause, literal_t *);
 SET_ALIAS(pelset, clause, literal_t *);
 SET_DECL(setup, clause_t *);
-SET_ALIAS(cnf, setup, clause_t *);
 
 typedef struct ewff ewff_t;
 
