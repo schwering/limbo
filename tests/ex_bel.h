@@ -1,6 +1,6 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
- * The example from the KR paper on ESL.
+ * The example BAT from Morri & Co's AIJ paper on belief revision.
  *
  * schwering@kbsg.rwth-aachen.de
  */

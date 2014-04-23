@@ -408,6 +408,9 @@ void setup_add_sensing_results(
         setup_t *setup,
         const splitset_t *sensing_results)
 {
+    if (setup_is_inconsistent(setup)) {
+        return;
+    }
     for (int i = 0; i < splitset_size(sensing_results); ++i) {
         const literal_t *l = splitset_get(sensing_results, i);
         clause_t *c = MALLOC(sizeof(clause_t));
@@ -502,7 +505,7 @@ static int setup_minimize_wrt(setup_t *setup, int index, int ref_index)
     // Returns the number of removed clauses whose index is <= ref_index.
     // A special case is the empty clause: since that's it's easy to detect, we
     // drop all other clauses and return -1.
-    if (setup_contains_empty_clause(setup)) {
+    if (setup_is_inconsistent(setup)) {
         setup_remove_index_range(setup, EMPTY_CLAUSE_INDEX + 1,
                 setup_size(setup));
         return -1;
@@ -534,7 +537,7 @@ void setup_minimize(setup_t *setup)
 
 void setup_propagate_units(setup_t *setup)
 {
-    if (setup_contains_empty_clause(setup)) {
+    if (setup_is_inconsistent(setup)) {
         return;
     }
     splitset_t units = setup_get_unit_clauses(setup);
@@ -571,7 +574,7 @@ void setup_propagate_units(setup_t *setup)
     } while (splitset_size(units_ptr) > 0);
 }
 
-bool setup_contains_empty_clause(const setup_t *s)
+bool setup_is_inconsistent(const setup_t *s)
 {
     return setup_size(s) > EMPTY_CLAUSE_INDEX &&
         clause_is_empty(setup_get(s, EMPTY_CLAUSE_INDEX));

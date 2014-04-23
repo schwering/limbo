@@ -107,7 +107,6 @@ stdset_t bbat_hplus(
     return bat_hplus(static_bat, dynamic_bat, &names, max_vars);
 }
 
-#include "../tests/ex_bel.h"
 bsetup_t bsetup_init_beliefs(
         const setup_t *static_bat_setup,
         const belief_conds_t *beliefs,
@@ -115,9 +114,10 @@ bsetup_t bsetup_init_beliefs(
         const int k)
 {
     const int m = belief_conds_size(beliefs);
-    bsetup_t setups = bsetup_init_with_size(m+1);
+    bsetup_t setups = bsetup_init_with_size(m + 1);
     ground_belief_conds_t gbcs = beliefs_ground(beliefs, hplus);
-    while (ground_belief_conds_size(&gbcs) > 0 && bsetup_size(&setups) <= m) {
+    bool satisfied_belief_cond;
+    do {
         setup_t *setup = MALLOC(sizeof(setup_t));
         *setup = setup_copy(static_bat_setup);
         for (int i = 0; i < ground_belief_conds_size(&gbcs); ++i) {
@@ -127,17 +127,18 @@ bsetup_t bsetup_init_beliefs(
         //setup_minimize(setup);
         //setup_propagate_units(setup);
         const pelset_t orig_pel = setup_pel(setup);
+        satisfied_belief_cond = false;
         for (int i = 0; i < ground_belief_conds_size(&gbcs); ++i) {
             const ground_belief_cond_t *gbc = ground_belief_conds_get(&gbcs, i);
             pelset_t pel = pelset_lazy_copy(&orig_pel);
             if (!setup_with_splits_subsumes(setup, &pel, gbc->neg_phi, k)) {
-                printf("plausibility %d for ", bsetup_size(&setups));
-                print_clause(gbc->neg_phi_or_psi);
                 ground_belief_conds_remove_index(&gbcs, i--);
+                satisfied_belief_cond = true;
             }
         }
         bsetup_append(&setups, setup);
-    }
+    } while (satisfied_belief_cond);
+    assert(bsetup_size(&setups) <= m + 1);
     return setups;
 }
 
@@ -173,12 +174,29 @@ void bsetup_add_sensing_results(
     }
 }
 
-bool bsetup_subsumes(bsetup_t *setups, const clause_t *c, int *plausibility)
+pelset_t bsetup_pel(const bsetup_t *setups)
+{
+    pelset_t pel = pelset_init_with_size(0);
+    for (int i = 0; i < bsetup_size(setups); ++i) {
+        const setup_t *setup = bsetup_get(setups, i);
+        const pelset_t sub_pel = setup_pel(setup);
+        pelset_add_all(&pel, &sub_pel);
+    }
+    return pel;
+}
+
+bool bsetup_with_splits_subsumes(
+        bsetup_t *setups,
+        const pelset_t *orig_pel,
+        const clause_t *c,
+        const int k,
+        int *plausibility)
 {
     for (int i = 0; i < bsetup_size(setups); ++i) {
         setup_t *setup = bsetup_get_unsafe(setups, i);
-        const bool subsumes = setup_subsumes(setup, c);
-        if (setup_contains_empty_clause(setup)) {
+        pelset_t pel = pelset_lazy_copy(orig_pel);
+        const bool subsumes = setup_with_splits_subsumes(setup, &pel, c, k);
+        if (setup_is_inconsistent(setup)) {
             continue;
         }
         if (subsumes) {

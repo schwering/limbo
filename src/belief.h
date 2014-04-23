@@ -68,7 +68,14 @@ void bsetup_add_sensing_results(
         bsetup_t *setups,
         const splitset_t *sensing_results);
 
-bool bsetup_subsumes(bsetup_t *setups, const clause_t *c, int *plausibility);
+pelset_t bsetup_pel(const bsetup_t *setups);
+
+bool bsetup_with_splits_subsumes(
+        bsetup_t *setups,
+        const pelset_t *orig_pel,
+        const clause_t *c,
+        const int k,
+        int *plausibility);
 
 #endif
 

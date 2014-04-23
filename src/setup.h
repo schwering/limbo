@@ -70,6 +70,9 @@
  * This handling of SF literals almost like normal split literals allows to
  * handle both in a single function. The reason for splitting SF literals only
  * if k = 0 is just to remain equivalent to the ESL paper.
+ * Note that setup_with_splits_subsumes() does not change the setup besides unit
+ * propagation; the PEL, however, is totally consumed (should be empty on
+ * return).
  *
  * schwering@kbsg.rwth-aachen.de
  */
@@ -155,7 +158,7 @@ pelset_t setup_pel(const setup_t *setup);
 void setup_minimize(setup_t *setup);
 void setup_propagate_units(setup_t *setup);
 
-bool setup_contains_empty_clause(const setup_t *s);
+bool setup_is_inconsistent(const setup_t *s);
 bool setup_subsumes(setup_t *setup, const clause_t *c);
 bool setup_with_splits_subsumes(
         setup_t *setup,
