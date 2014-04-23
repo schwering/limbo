@@ -35,8 +35,11 @@ static void print_stdname(stdname_t n)
 
 static void print_pred(pred_t p)
 {
-    if (p == SF)    printf("SF");
-    else            printf("d%d", p);
+    if (p == SF)     printf("SF");
+    else if (p == 0) printf("R1");
+    else if (p == 1) printf("L1");
+    else if (p == 2) printf("L2");
+    else             printf("%d", p);
 }
 
 static void print_z(const stdvec_t *z)
@@ -111,45 +114,28 @@ static void print_pel(const pelset_t *pel)
     belief_conds_append(&belief_conds, belief_cond_init(cond, neg_phi, psi));
 
 #define DECL_ALL_CLAUSES \
-    DCLAUSE(AND(SORT(a, action), EQ(a, LV)),\
-            C(N(Z(a), R1, A()), N(Z(), R1, A())));\
-    DCLAUSE(AND(SORT(a, action), EQ(a, LV)),\
-            C(P(Z(a), R1, A()), P(Z(), R1, A())));\
-    DCLAUSE(AND(SORT(a, action), NEQ(a, LV)),\
-            C(N(Z(a), R1, A()), P(Z(), R1, A())));\
-    DCLAUSE(AND(SORT(a, action), NEQ(a, LV)),\
-            C(P(Z(a), R1, A()), N(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, LV)), C(N(Z(a), R1, A()), N(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, LV)), C(P(Z(a), R1, A()), P(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), NEQ(a, LV)), C(N(Z(a), R1, A()), P(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), NEQ(a, LV)), C(P(Z(a), R1, A()), N(Z(), R1, A())));\
     \
-    DCLAUSE(TRUE,\
-            C(N(Z(a), L1, A()), P(Z(), L1, A())));\
-    DCLAUSE(TRUE,\
-            C(P(Z(a), L1, A()), N(Z(), L1, A())));\
+    DCLAUSE(SORT(a, action), C(N(Z(a), L1, A()), P(Z(), L1, A())));\
+    DCLAUSE(SORT(a, action), C(P(Z(a), L1, A()), N(Z(), L1, A())));\
     \
-    DCLAUSE(TRUE,\
-            C(N(Z(a), L2, A()), P(Z(), L2, A())));\
-    DCLAUSE(TRUE,\
-            C(P(Z(a), L2, A()), N(Z(), L2, A())));\
+    DCLAUSE(SORT(a, action), C(N(Z(a), L2, A()), P(Z(), L2, A())));\
+    DCLAUSE(SORT(a, action), C(P(Z(a), L2, A()), N(Z(), L2, A())));\
     \
-    DCLAUSE(AND(SORT(a, action), EQ(a, SL)),\
-            C(N(Z(), SF, A(a)), P(Z(), L1, A()), P(Z(), L2, A())));\
-    DCLAUSE(AND(SORT(a, action), EQ(a, SL)),\
-            C(N(Z(), SF, A(a)), P(Z(), L1, A()), N(Z(), R1, A())));\
-    DCLAUSE(AND(SORT(a, action), EQ(a, SL)),\
-            C(N(Z(), SF, A(a)), P(Z(), R1, A()), P(Z(), L2, A())));\
-    DCLAUSE(AND(SORT(a, action), EQ(a, SL)),\
-            C(N(Z(), SF, A(a)), P(Z(), R1, A()), N(Z(), R1, A())));\
-    DCLAUSE(AND(SORT(a, action), EQ(a, SL)),\
-            C(P(Z(), SF, A(a)), N(Z(), L1, A()), N(Z(), R1, A())));\
-    DCLAUSE(AND(SORT(a, action), EQ(a, SL)),\
-            C(P(Z(), SF, A(a)), N(Z(), L2, A()), P(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, SL)), C(N(Z(), SF, A(a)), P(Z(), L1, A()), P(Z(), L2, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, SL)), C(N(Z(), SF, A(a)), P(Z(), L1, A()), N(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, SL)), C(N(Z(), SF, A(a)), P(Z(), R1, A()), P(Z(), L2, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, SL)), C(N(Z(), SF, A(a)), P(Z(), R1, A()), N(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, SL)), C(P(Z(), SF, A(a)), N(Z(), L1, A()), N(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, SL)), C(P(Z(), SF, A(a)), N(Z(), L2, A()), P(Z(), R1, A())));\
     \
-    DCLAUSE(AND(SORT(a, action), EQ(a, LV)),\
-            C(P(Z(), SF, A(a))));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, LV)), C(P(Z(), SF, A(a))));\
     \
-    DCLAUSE(AND(SORT(a, action), EQ(a, SR1)),\
-            C(N(Z(), SF, A(a)), P(Z(), R1, A())));\
-    DCLAUSE(AND(SORT(a, action), EQ(a, SR1)),\
-            C(P(Z(), SF, A(a)), N(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, SR1)), C(N(Z(), SF, A(a)), P(Z(), R1, A())));\
+    DCLAUSE(AND(SORT(a, action), EQ(a, SR1)), C(P(Z(), SF, A(a)), N(Z(), R1, A())));\
     \
     SBELIEF(TRUE,\
             C(),\
@@ -164,5 +150,5 @@ static void print_pel(const pelset_t *pel)
     \
     SBELIEF(TRUE,\
             C(P(Z(), R1, A())),\
-            C(N(Z(), L1, A())));
+            C(N(Z(), L2, A())));
 

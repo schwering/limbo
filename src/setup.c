@@ -6,6 +6,8 @@
 #define MAX(x,y)    ((x) > (y) ? (x) : (y))
 #define SWAP(x,y)   ({ typeof(x) tmp = x; x = y; y = tmp; })
 
+#define EMPTY_CLAUSE_INDEX 0
+
 SET_IMPL(clause, literal_t *, literal_cmp);
 SET_IMPL(setup, clause_t *, clause_cmp);
 
@@ -494,14 +496,6 @@ static splitset_t setup_get_unit_clauses(const setup_t *setup)
     return ls;
 }
 
-#define EMPTY_CLAUSE_INDEX 0
-
-static bool setup_contains_empty_clause(const setup_t *s)
-{
-    return setup_size(s) > EMPTY_CLAUSE_INDEX &&
-        clause_is_empty(setup_get(s, EMPTY_CLAUSE_INDEX));
-}
-
 static int setup_minimize_wrt(setup_t *setup, int index, int ref_index)
 {
     // Removes all clauses subsumed by the index-th clause.
@@ -575,6 +569,12 @@ void setup_propagate_units(setup_t *setup)
         }
         SWAP(units_ptr, new_units_ptr);
     } while (splitset_size(units_ptr) > 0);
+}
+
+bool setup_contains_empty_clause(const setup_t *s)
+{
+    return setup_size(s) > EMPTY_CLAUSE_INDEX &&
+        clause_is_empty(setup_get(s, EMPTY_CLAUSE_INDEX));
 }
 
 bool setup_subsumes(setup_t *setup, const clause_t *c)

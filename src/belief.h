@@ -34,7 +34,7 @@
 typedef struct belief_cond belief_cond_t;
 
 VECTOR_DECL(belief_conds, belief_cond_t *);
-VECTOR_DECL(ranked_setups, setup_t *);
+VECTOR_DECL(bsetup, setup_t *);
 
 typedef struct bcontext bcontext_t;
 struct bcontext {
@@ -55,11 +55,20 @@ stdset_t bbat_hplus(
         const stdset_t *query_names,
         int n_query_vars);
 
-ranked_setups_t setup_init_beliefs(
+bsetup_t bsetup_init_beliefs(
         const setup_t *static_bat_setup,
         const belief_conds_t *beliefs,
         const stdset_t *hplus,
         const int k);
+
+bsetup_t bsetup_deep_copy(const bsetup_t *setups);
+bsetup_t bsetup_lazy_deep_copy(const bsetup_t *setups);
+
+void bsetup_add_sensing_results(
+        bsetup_t *setups,
+        const splitset_t *sensing_results);
+
+bool bsetup_subsumes(bsetup_t *setups, const clause_t *c, int *plausibility);
 
 #endif
 

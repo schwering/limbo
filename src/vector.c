@@ -134,6 +134,11 @@ const void *vector_get(const vector_t *vec, int index)
     return vec->array[index];
 }
 
+void *vector_get_unsafe(vector_t *vec, int index)
+{
+    return (void *) vector_get(vec, index);
+}
+
 int vector_cmp(const vector_t *vec1, const vector_t *vec2,
         int (*compar)(const void *, const void *))
 {

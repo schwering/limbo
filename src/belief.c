@@ -22,7 +22,7 @@ static int ground_belief_cond_cmp(const ground_belief_cond_t *l,
 }
 
 VECTOR_IMPL(belief_conds, belief_cond_t *, NULL);
-VECTOR_IMPL(ranked_setups, setup_t *, setup_cmp);
+VECTOR_IMPL(bsetup, setup_t *, setup_cmp);
 SET_DECL(ground_belief_conds, ground_belief_cond_t *);
 SET_IMPL(ground_belief_conds, ground_belief_cond_t *, ground_belief_cond_cmp);
 
@@ -107,35 +107,90 @@ stdset_t bbat_hplus(
     return bat_hplus(static_bat, dynamic_bat, &names, max_vars);
 }
 
-ranked_setups_t setup_init_beliefs(
+#include "../tests/ex_bel.h"
+bsetup_t bsetup_init_beliefs(
         const setup_t *static_bat_setup,
         const belief_conds_t *beliefs,
         const stdset_t *hplus,
         const int k)
 {
     const int m = belief_conds_size(beliefs);
-    ranked_setups_t setups = ranked_setups_init_with_size(m+1);
+    bsetup_t setups = bsetup_init_with_size(m+1);
     ground_belief_conds_t gbcs = beliefs_ground(beliefs, hplus);
-    while (ground_belief_conds_size(&gbcs) > 0 &&
-            ranked_setups_size(&setups) <= m) {
+    while (ground_belief_conds_size(&gbcs) > 0 && bsetup_size(&setups) <= m) {
         setup_t *setup = MALLOC(sizeof(setup_t));
         *setup = setup_copy(static_bat_setup);
         for (int i = 0; i < ground_belief_conds_size(&gbcs); ++i) {
             const ground_belief_cond_t *gbc = ground_belief_conds_get(&gbcs, i);
             setup_add(setup, gbc->neg_phi_or_psi);
         }
-        setup_minimize(setup);
-        setup_propagate_units(setup);
+        //setup_minimize(setup);
+        //setup_propagate_units(setup);
         const pelset_t orig_pel = setup_pel(setup);
         for (int i = 0; i < ground_belief_conds_size(&gbcs); ++i) {
             const ground_belief_cond_t *gbc = ground_belief_conds_get(&gbcs, i);
             pelset_t pel = pelset_lazy_copy(&orig_pel);
             if (!setup_with_splits_subsumes(setup, &pel, gbc->neg_phi, k)) {
+                printf("plausibility %d for ", bsetup_size(&setups));
+                print_clause(gbc->neg_phi_or_psi);
                 ground_belief_conds_remove_index(&gbcs, i--);
             }
         }
-        ranked_setups_append(&setups, setup);
+        bsetup_append(&setups, setup);
     }
     return setups;
+}
+
+bsetup_t bsetup_deep_copy(const bsetup_t *setups)
+{
+    bsetup_t new_setups = bsetup_init_with_size(bsetup_size(setups));
+    for (int i = 0; i < bsetup_size(setups); ++i) {
+        setup_t *new_setup = MALLOC(sizeof(setup_t));
+        *new_setup = setup_copy(bsetup_get(setups, i));
+        bsetup_append(&new_setups, new_setup);
+    }
+    return new_setups;
+}
+
+bsetup_t bsetup_lazy_deep_copy(const bsetup_t *setups)
+{
+    bsetup_t new_setups = bsetup_init_with_size(bsetup_size(setups));
+    for (int i = 0; i < bsetup_size(setups); ++i) {
+        setup_t *new_setup = MALLOC(sizeof(setup_t));
+        *new_setup = setup_lazy_copy(bsetup_get(setups, i));
+        bsetup_append(&new_setups, new_setup);
+    }
+    return new_setups;
+}
+
+void bsetup_add_sensing_results(
+        bsetup_t *setups,
+        const splitset_t *sensing_results)
+{
+    for (int i = 0; i < bsetup_size(setups); ++i) {
+        setup_t *setup = bsetup_get_unsafe(setups, i);
+        setup_add_sensing_results(setup, sensing_results);
+    }
+}
+
+bool bsetup_subsumes(bsetup_t *setups, const clause_t *c, int *plausibility)
+{
+    for (int i = 0; i < bsetup_size(setups); ++i) {
+        setup_t *setup = bsetup_get_unsafe(setups, i);
+        const bool subsumes = setup_subsumes(setup, c);
+        if (setup_contains_empty_clause(setup)) {
+            continue;
+        }
+        if (subsumes) {
+            if (plausibility != NULL) {
+                *plausibility = i;
+            }
+            return true;
+        }
+    }
+    if (plausibility != NULL) {
+        *plausibility = -1;
+    }
+    return false;
 }
 

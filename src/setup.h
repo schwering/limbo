@@ -149,15 +149,14 @@ void setup_add_sensing_results(
         const splitset_t *sensing_results);
 
 void clause_collect_pel(const clause_t *c, const setup_t *setup, pelset_t *pel);
-pelset_t setup_pel(const setup_t *setup);
 bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l);
+pelset_t setup_pel(const setup_t *setup);
 
 void setup_minimize(setup_t *setup);
-
 void setup_propagate_units(setup_t *setup);
 
+bool setup_contains_empty_clause(const setup_t *s);
 bool setup_subsumes(setup_t *setup, const clause_t *c);
-
 bool setup_with_splits_subsumes(
         setup_t *setup,
         pelset_t *pel,

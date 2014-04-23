@@ -65,6 +65,7 @@ void vector_cleanup(vector_t *vec);
 bool vector_is_lazy_copy(const vector_t *vec);
 
 const void *vector_get(const vector_t *vec, int index);
+void *vector_get_unsafe(vector_t *vec, int index);
 const void **vector_array(const vector_t *vec);
 int vector_size(const vector_t *vec);
 
@@ -116,6 +117,7 @@ void vector_clear(vector_t *vec);
     void prefix##_cleanup(prefix##_t *v);\
     bool prefix##_is_lazy_copy(const prefix##_t *v);\
     const type prefix##_get(const prefix##_t *v, int index);\
+    type prefix##_get_unsafe(prefix##_t *v, int index);\
     const type *prefix##_array(const prefix##_t *v);\
     int prefix##_size(const prefix##_t *v);\
     int prefix##_cmp(const prefix##_t *v1, const prefix##_t *v2);\
@@ -177,6 +179,8 @@ void vector_clear(vector_t *vec);
         return vector_is_lazy_copy(&v->v); }\
     const type prefix##_get(const prefix##_t *v, int index) {\
         return (const type) vector_get(&v->v, index); }\
+    type prefix##_get_unsafe(prefix##_t *v, int index) {\
+        return (type) vector_get_unsafe(&v->v, index); }\
     const type *prefix##_array(const prefix##_t *v) {\
         return (const type *) vector_array(&v->v); }\
     int prefix##_size(const prefix##_t *v) {\
