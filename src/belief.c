@@ -3,6 +3,8 @@
 #include "memory.h"
 #include <assert.h>
 
+#define MAX(x,y)    ((x) > (y) ? (x) : (y))
+
 struct belief_cond {
     const univ_clause_t *neg_phi;
     const univ_clause_t *psi;
@@ -86,6 +88,25 @@ static ground_belief_conds_t beliefs_ground(
     return gbcs;
 }
 
+stdset_t bbat_hplus(
+        const univ_clauses_t *static_bat,
+        const belief_conds_t *beliefs,
+        const box_univ_clauses_t *dynamic_bat,
+        const stdset_t *query_names,
+        int n_query_vars)
+{
+    stdset_t names = stdset_copy(query_names);
+    int max_vars = n_query_vars;
+    for (int i = 0; i < belief_conds_size(beliefs); ++i) {
+        const belief_cond_t *bc = belief_conds_get(beliefs, i);
+        stdset_add_all(&names, &bc->neg_phi->names);
+        stdset_add_all(&names, &bc->psi->names);
+        const varset_t vars = varset_union(&bc->neg_phi->vars, &bc->psi->vars);
+        max_vars = MAX(max_vars, varset_size(&vars));
+    }
+    return bat_hplus(static_bat, dynamic_bat, &names, max_vars);
+}
+
 ranked_setups_t setup_init_beliefs(
         const setup_t *static_bat_setup,
         const belief_conds_t *beliefs,
@@ -109,7 +130,7 @@ ranked_setups_t setup_init_beliefs(
         for (int i = 0; i < ground_belief_conds_size(&gbcs); ++i) {
             const ground_belief_cond_t *gbc = ground_belief_conds_get(&gbcs, i);
             pelset_t pel = pelset_lazy_copy(&orig_pel);
-            if (setup_with_splits_subsumes(setup, &pel, gbc->neg_phi, k)) {
+            if (!setup_with_splits_subsumes(setup, &pel, gbc->neg_phi, k)) {
                 ground_belief_conds_remove_index(&gbcs, i--);
             }
         }

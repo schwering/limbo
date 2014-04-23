@@ -43,6 +43,18 @@ struct bcontext {
     bcontext_t *next;
 };
 
+const belief_cond_t *belief_cond_init(
+        const ewff_t *cond,
+        const clause_t *neg_phi,
+        const clause_t *psi);
+
+stdset_t bbat_hplus(
+        const univ_clauses_t *static_bat,
+        const belief_conds_t *beliefs,
+        const box_univ_clauses_t *dynamic_bat,
+        const stdset_t *query_names,
+        int n_query_vars);
+
 ranked_setups_t setup_init_beliefs(
         const setup_t *static_bat_setup,
         const belief_conds_t *beliefs,
