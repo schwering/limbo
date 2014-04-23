@@ -196,18 +196,13 @@ bool bsetup_with_splits_subsumes(
         setup_t *setup = bsetup_get_unsafe(setups, i);
         pelset_t pel = pelset_lazy_copy(orig_pel);
         const bool subsumes = setup_with_splits_subsumes(setup, &pel, c, k);
+        if (plausibility != NULL) {
+            *plausibility = i;
+        }
         if (setup_is_inconsistent(setup)) {
             continue;
         }
-        if (subsumes) {
-            if (plausibility != NULL) {
-                *plausibility = i;
-            }
-            return true;
-        }
-    }
-    if (plausibility != NULL) {
-        *plausibility = -1;
+        return subsumes;
     }
     return false;
 }

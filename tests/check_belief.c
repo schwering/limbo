@@ -79,11 +79,47 @@ START_TEST(test_morri_example)
 }
 END_TEST
 
+START_TEST(test_example_12)
+{
+    univ_clauses_t static_bat = univ_clauses_init();
+    belief_conds_t belief_conds = belief_conds_init();
+    box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+    const int k = 1;
+    const literal_t *A = P(Z(), 0, A());
+    const literal_t *B = P(Z(), 1, A());
+    const literal_t *negA = N(Z(), 0, A());
+    const literal_t *negB = N(Z(), 1, A());
+    const literal_t *negC = N(Z(), 2, A());
+    SBELIEF(TRUE, C(negA), C(B));
+    SBELIEF(TRUE, C(negC), C(A));
+    SBELIEF(TRUE, C(negC), C(negB));
+
+    const stdvec_t query_z = stdvec_init();
+    const stdvecset_t query_zs = stdvecset_singleton(&query_z);
+    const stdset_t hplus = stdset_init();
+    const setup_t static_setup = setup_init_static(&static_bat, &hplus);
+    const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
+    const setup_t static_and_dynamic_setup = setup_union(&static_setup, &dynamic_setup);
+    bsetup_t setups = bsetup_init_beliefs(&static_and_dynamic_setup, &belief_conds, &hplus, k);
+    pelset_t pel = bsetup_pel(&setups);
+
+    ck_assert_int_eq(bsetup_size(&setups), 3);
+
+    ck_assert(setup_with_splits_subsumes(bsetup_get(&setups, 0), &pel, C(negA, B), k));
+    ck_assert(setup_with_splits_subsumes(bsetup_get(&setups, 0), &pel, C(negC), k));
+    ck_assert(setup_with_splits_subsumes(bsetup_get(&setups, 1), &pel, C(negC, A), k));
+    ck_assert(setup_with_splits_subsumes(bsetup_get(&setups, 1), &pel, C(negC, negB), k));
+    ck_assert(!setup_with_splits_subsumes(bsetup_get(&setups, 1), &pel, C(A), k));
+    ck_assert(!setup_with_splits_subsumes(bsetup_get(&setups, 1), &pel, C(negB), k));
+}
+END_TEST
+
 Suite *clause_suite(void)
 {
     Suite *s = suite_create("Belief");
     TCase *tc_core = tcase_create("Core");
     tcase_add_test(tc_core, test_morri_example);
+    tcase_add_test(tc_core, test_example_12);
     suite_add_tcase(s, tc_core);
     return s;
 }
