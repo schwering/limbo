@@ -138,8 +138,7 @@ bool query_entailed_by_bat(
 
 const query_t *query_eq(stdname_t n1, stdname_t n2);
 const query_t *query_neq(stdname_t n1, stdname_t n2);
-const query_t *query_atom(pred_t p, stdvec_t args);
-const query_t *query_lit(stdvec_t z, bool sign, pred_t p, stdvec_t args);
+const query_t *query_lit(const literal_t *l);
 const query_t *query_neg(const query_t *phi);
 const query_t *query_or(const query_t *phi1, const query_t *phi2);
 const query_t *query_and(const query_t *phi1, const query_t *phi2);

@@ -71,6 +71,53 @@ START_TEST(test_morri_example)
 }
 END_TEST
 
+START_TEST(test_morri_example_with_context)
+{
+    univ_clauses_t static_bat = univ_clauses_init();
+    belief_conds_t belief_conds = belief_conds_init();
+    box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+    DECL_ALL_CLAUSES;
+    const int k = 2;
+    context_t ctx1 = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, k, Z(), SF());
+
+    ck_assert_int_eq(bsetup_size(&ctx1.u.b.setups), 3);
+
+    // Property 1
+    const query_t *phi1 = Q(N(Z(), L1, A()));
+    ck_assert(query_entailed_by_setup(&ctx1, false, phi1, k));
+
+    // Property 2
+    const query_t *phi2 = query_and(Q(P(Z(), L1, A())), Q(P(Z(), R1, A())));
+    context_t ctx2 = context_copy_with_new_actions(&ctx1, Z(SL), SF(P(Z(), SF, A(SL))));
+    ck_assert(query_entailed_by_setup(&ctx2, false, phi2, k));
+    ck_assert(!query_entailed_by_setup(&ctx1, false, phi2, k)); // sensing really really is required
+
+    // Property 3
+    const query_t *phi3 = Q(N(Z(), R1, A()));
+    context_t ctx3 = context_copy_with_new_actions(&ctx2, Z(SR1), SF(N(Z(SL), SF, A(SR1))));
+    ck_assert(query_entailed_by_setup(&ctx3, false, phi3, k));
+    ck_assert(!query_entailed_by_setup(&ctx2, false, phi3, k)); // sensing really really is required
+
+    // Property 5
+    const query_t *phi5a = Q(P(Z(), L1, A()));
+    const query_t *phi5b = Q(N(Z(), L1, A()));
+    ck_assert(!query_entailed_by_setup(&ctx3, false, phi5a, k));
+    ck_assert(!query_entailed_by_setup(&ctx3, false, phi5b, k));
+
+    // Property 6
+    const query_t *phi6 = Q(P(Z(), R1, A()));
+    context_t ctx4 = context_copy_with_new_actions(&ctx3, Z(LV), SF(P(Z(SL, SR1), SF, A(LV))));
+    ck_assert(query_entailed_by_setup(&ctx4, false, phi6, k));
+    ck_assert(!query_entailed_by_setup(&ctx3, false, phi6, k)); // sensing really really is required
+
+    // Property 7
+    const query_t *phi7 = Q(P(Z(), L1, A()));
+    context_t ctx5 = context_copy_with_new_actions(&ctx4, Z(SL), SF(P(Z(SL, SR1, LV), SF, A(SL))));
+    ck_assert(query_entailed_by_setup(&ctx5, false, phi7, k));
+    ck_assert(query_entailed_by_setup(&ctx4, false, phi6, k)); // sensing really really is required
+}
+END_TEST
+
 START_TEST(test_example_12)
 {
     univ_clauses_t static_bat = univ_clauses_init();
@@ -97,12 +144,12 @@ START_TEST(test_example_12)
 
     ck_assert_int_eq(bsetup_size(&setups), 3);
 
-    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get(&setups, 0), pelsets_get(&pels, 0), C(negA, B), k));
-    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get(&setups, 0), pelsets_get(&pels, 0), C(negC), k));
-    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get(&setups, 1), pelsets_get(&pels, 1), C(negC, A), k));
-    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get(&setups, 1), pelsets_get(&pels, 1), C(negC, negB), k));
-    ck_assert(!setup_with_splits_and_sf_subsumes(bsetup_get(&setups, 1), pelsets_get(&pels, 1), C(A), k));
-    ck_assert(!setup_with_splits_and_sf_subsumes(bsetup_get(&setups, 1), pelsets_get(&pels, 1), C(negB), k));
+    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 0), pelsets_get(&pels, 0), C(negA, B), k));
+    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 0), pelsets_get(&pels, 0), C(negC), k));
+    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 1), pelsets_get(&pels, 1), C(negC, A), k));
+    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 1), pelsets_get(&pels, 1), C(negC, negB), k));
+    ck_assert(!setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 1), pelsets_get(&pels, 1), C(A), k));
+    ck_assert(!setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 1), pelsets_get(&pels, 1), C(negB), k));
 }
 END_TEST
 
@@ -111,6 +158,7 @@ Suite *clause_suite(void)
     Suite *s = suite_create("Belief");
     TCase *tc_core = tcase_create("Core");
     tcase_add_test(tc_core, test_morri_example);
+    tcase_add_test(tc_core, test_morri_example_with_context);
     tcase_add_test(tc_core, test_example_12);
     suite_add_tcase(s, tc_core);
     return s;

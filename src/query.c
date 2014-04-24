@@ -128,19 +128,23 @@ static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
             if (literal_is_ground(l)) {
                 return phi;
             } else {
-                stdvec_t z = stdvec_lazy_copy(literal_z(l));
-                for (int i = 0; i < stdvec_size(&z); ++i) {
-                    if (stdvec_get(&z, i) == x) {
-                        stdvec_set(&z, i, n);
+                stdvec_t *z = MALLOC(sizeof(stdvec_t));
+                *z = stdvec_lazy_copy(literal_z(l));
+                for (int i = 0; i < stdvec_size(z); ++i) {
+                    if (stdvec_get(z, i) == x) {
+                        stdvec_set(z, i, n);
                     }
                 }
-                stdvec_t args = stdvec_lazy_copy(literal_args(l));
-                for (int i = 0; i < stdvec_size(&args); ++i) {
-                    if (stdvec_get(&args, i) == x) {
-                        stdvec_set(&args, i, n);
+                stdvec_t *args = MALLOC(sizeof(stdvec_t));
+                *args = stdvec_lazy_copy(literal_args(l));
+                for (int i = 0; i < stdvec_size(args); ++i) {
+                    if (stdvec_get(args, i) == x) {
+                        stdvec_set(args, i, n);
                     }
                 }
-                return query_lit(z, literal_sign(l), literal_pred(l), args);
+                literal_t *l = MALLOC(sizeof(literal_t));
+                *l = literal_init(z, literal_sign(l), literal_pred(l), args);
+                return query_lit(l);
             }
         }
         case OR:
@@ -731,18 +735,11 @@ const query_t *query_neq(stdname_t n1, stdname_t n2)
     }));
 }
 
-const query_t *query_atom(pred_t p, stdvec_t args)
-{
-    const stdvec_t z = stdvec_init_with_size(0);
-    const bool sign = true;
-    return query_lit(z, sign, p, args);
-}
-
-const query_t *query_lit(stdvec_t z, bool sign, pred_t p, stdvec_t args)
+const query_t *query_lit(const literal_t *l)
 {
     return NEW(((query_t) {
         .type = LIT,
-        .u.lit = literal_init(&z, sign, p, &args)
+        .u.lit = *l
     }));
 }
 

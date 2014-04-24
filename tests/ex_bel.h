@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "../src/belief.h"
 #include "../src/memory.h"
+#include "../src/query.h"
 #include "../src/util.h"
 
 static const stdname_t LV  = 1;

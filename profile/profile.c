@@ -36,7 +36,7 @@ context_t make_context(void)
     box_univ_clauses_t *dynamic_bat = NEW(box_univ_clauses_init());
     DECL_ALL_CLAUSES(static_bat, dynamic_bat);
 
-    return context_init(static_bat, dynamic_bat, context_z_1, context_sf_1);
+    return kcontext_init(static_bat, dynamic_bat, context_z_1, context_sf_1);
 }
 
 void run(context_t *ctx)
@@ -44,57 +44,63 @@ void run(context_t *ctx)
     //printf("Q0\n");
     const query_t *phi0 =
         query_and(
-            query_lit(*empty_vec, false, D(0), *empty_vec),
-            query_lit(*empty_vec, false, D(1), *empty_vec));
+            Q(N(Z(), D(0), A())),
+            Q(N(Z(), D(1), A())));
     ck_assert(query_entailed_by_setup(ctx, false, phi0, 0));
 
     //printf("Q1\n");
     const query_t *phi1 =
         query_neg(
             query_or(
-                query_atom(D(0), *empty_vec),
-                query_atom(D(1), *empty_vec)));
+                Q(P(Z(), D(0), A())),
+                Q(P(Z(), D(1), A()))));
     ck_assert(query_entailed_by_setup(ctx, false, phi1, 0));
 
     //printf("Q2\n");
     const query_t *phi3 =
         query_act(FORWARD,
             query_or(
-                query_atom(D(1), *empty_vec),
-                query_atom(D(2), *empty_vec)));
+                Q(P(Z(), D(1), A())),
+                Q(P(Z(), D(2), A()))));
     ck_assert(query_entailed_by_setup(ctx, false, phi3, 1));
 
     //printf("Q3\n");
     const query_t *phi2 =
         query_act(FORWARD,
             query_or(
-                query_atom(D(1), *empty_vec),
-                query_atom(D(2), *empty_vec)));
+                Q(P(Z(), D(1), A())),
+                Q(P(Z(), D(2), A()))));
     ck_assert(!query_entailed_by_setup(ctx, false, phi2, 0));
 
-    context_t ctx2 = context_copy_with_new_actions(ctx, context_z_2, context_sf_2);
+    stdvec_t context_z_2 = stdvec_init_with_size(0);
+    splitset_t context_sf_2 = splitset_init_with_size(0);
+    stdvec_append(&context_z_2, FORWARD);
+    stdvec_append(&context_z_2, SONAR);
+    splitset_add(&context_sf_2, P(Z(), SF, A(FORWARD)));
+    splitset_add(&context_sf_2, P(Z(FORWARD), SF, A(SONAR)));
+    context_t ctx2 = context_copy_with_new_actions(ctx, &context_z_2, &context_sf_2);
 
     //printf("Q4\n");
     const query_t *phi4 =
         query_or(
-            query_atom(D(0), *empty_vec),
-            query_atom(D(1), *empty_vec));
+            Q(P(Z(), D(0), A())),
+            Q(P(Z(), D(1), A())));
     ck_assert(query_entailed_by_setup(&ctx2, false, phi4, 1));
 
     //printf("Q5\n");
-    const query_t *phi5 = query_atom(D(0), *empty_vec);
+    const query_t *phi5 = Q(P(Z(), D(0), A()));
     ck_assert(!query_entailed_by_setup(&ctx2, false, phi5, 1));
 
     //printf("Q6\n");
-    const query_t *phi6 = query_atom(D(1), *empty_vec);
+    const query_t *phi6 = Q(P(Z(), D(1), A()));
     ck_assert(query_entailed_by_setup(&ctx2, false, phi6, 1));
 
     //printf("Q7\n");
     const query_t *phi7 =
         query_act(SONAR,
             query_or(
-                query_atom(D(0), *empty_vec),
-                query_atom(D(1), *empty_vec)));
+                Q(P(Z(), D(0), A())),
+                Q(P(Z(), D(1), A()))));
     ck_assert(query_entailed_by_setup(&ctx2, false, phi7, 1));
 
     //printf("Q8\n");
@@ -102,23 +108,23 @@ void run(context_t *ctx)
         query_act(SONAR,
             query_act(SONAR,
                 query_or(
-                    query_atom(D(0), *empty_vec),
-                    query_atom(D(1), *empty_vec))));
+                    Q(P(Z(), D(0), A())),
+                    Q(P(Z(), D(1), A())))));
     ck_assert(query_entailed_by_setup(&ctx2, false, phi8, 1));
 
     //printf("Q9\n");
     const query_t *phi9 =
         query_act(FORWARD,
             query_or(
-                query_atom(D(0), *empty_vec),
-                query_atom(D(1), *empty_vec)));
+                Q(P(Z(), D(0), A())),
+                Q(P(Z(), D(1), A()))));
     ck_assert(query_entailed_by_setup(&ctx2, false, phi9, 1));
 
     //printf("Q10\n");
     const query_t *phi10 =
         query_act(FORWARD,
             query_act(FORWARD,
-                query_atom(D(0), *empty_vec)));
+                Q(P(Z(), D(0), A()))));
     ck_assert(query_entailed_by_setup(&ctx2, false, phi10, 1));
 }
 

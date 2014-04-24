@@ -42,6 +42,7 @@
 #define L(z, sign, p, args) NEW(literal_init(z, sign, p, args))
 #define P(z, p, args)       L(z, true, p, args)
 #define N(z, p, args)       L(z, false, p, args)
+#define Q(l)                query_lit(l)
 
 // Clause C. Use C(P(...), N(...)) for a clause with a positive and a negative
 // literal.
