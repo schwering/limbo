@@ -29,19 +29,12 @@
 #define _BELIEF_H_
 
 #include "setup.h"
-#include "query.h"
 
 typedef struct belief_cond belief_cond_t;
 
 VECTOR_DECL(belief_conds, belief_cond_t *);
 VECTOR_DECL(bsetup, setup_t *);
-
-typedef struct bcontext bcontext_t;
-struct bcontext {
-    int plausibility;
-    kcontext_t ctx;
-    bcontext_t *next;
-};
+VECTOR_DECL(pelsets, pelset_t *);
 
 const belief_cond_t *belief_cond_init(
         const ewff_t *cond,
@@ -55,24 +48,28 @@ stdset_t bbat_hplus(
         const stdset_t *query_names,
         int n_query_vars);
 
+pelsets_t pelsets_deep_copy(const pelsets_t *pels);
+pelsets_t pelsets_deep_lazy_copy(const pelsets_t *pels);
+
 bsetup_t bsetup_init_beliefs(
         const setup_t *static_bat_setup,
         const belief_conds_t *beliefs,
         const stdset_t *hplus,
         const int k);
-
+bsetup_t bsetup_unions(const bsetup_t *l, const setup_t *r);
 bsetup_t bsetup_deep_copy(const bsetup_t *setups);
-bsetup_t bsetup_lazy_deep_copy(const bsetup_t *setups);
 
 void bsetup_add_sensing_results(
         bsetup_t *setups,
         const splitset_t *sensing_results);
 
-pelset_t bsetup_pel(const bsetup_t *setups);
+pelsets_t bsetup_pels(const bsetup_t *setups);
 
-bool bsetup_with_splits_subsumes(
+void bsetup_propagate_units(bsetup_t *setups);
+
+bool bsetup_with_splits_and_sf_subsumes(
         bsetup_t *setups,
-        const pelset_t *orig_pel,
+        const pelsets_t *pels,
         const clause_t *c,
         const int k,
         int *plausibility);

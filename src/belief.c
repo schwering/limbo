@@ -23,6 +23,7 @@ static int ground_belief_cond_cmp(const ground_belief_cond_t *l,
 
 VECTOR_IMPL(belief_conds, belief_cond_t *, NULL);
 VECTOR_IMPL(bsetup, setup_t *, setup_cmp);
+VECTOR_IMPL(pelsets, pelset_t *, pelset_cmp);
 SET_DECL(ground_belief_conds, ground_belief_cond_t *);
 SET_IMPL(ground_belief_conds, ground_belief_cond_t *, ground_belief_cond_cmp);
 
@@ -107,6 +108,28 @@ stdset_t bbat_hplus(
     return bat_hplus(static_bat, dynamic_bat, &names, max_vars);
 }
 
+pelsets_t pelsets_deep_copy(const pelsets_t *pels)
+{
+    pelsets_t copy = pelsets_init_with_size(pelsets_size(pels));
+    for (int i = 0; i < pelsets_size(pels); ++i) {
+        pelset_t *new_pel = MALLOC(sizeof(pelset_t));
+        *new_pel = pelset_copy(pelsets_get(pels, i));
+        pelsets_append(&copy, new_pel);
+    }
+    return copy;
+}
+
+pelsets_t pelsets_deep_lazy_copy(const pelsets_t *pels)
+{
+    pelsets_t copy = pelsets_init_with_size(pelsets_size(pels));
+    for (int i = 0; i < pelsets_size(pels); ++i) {
+        pelset_t *new_pel = MALLOC(sizeof(pelset_t));
+        *new_pel = pelset_lazy_copy(pelsets_get(pels, i));
+        pelsets_append(&copy, new_pel);
+    }
+    return copy;
+}
+
 bsetup_t bsetup_init_beliefs(
         const setup_t *static_bat_setup,
         const belief_conds_t *beliefs,
@@ -126,12 +149,12 @@ bsetup_t bsetup_init_beliefs(
         }
         //setup_minimize(setup);
         //setup_propagate_units(setup);
-        const pelset_t orig_pel = setup_pel(setup);
+        const pelset_t pel = setup_pel(setup);
         satisfied_belief_cond = false;
         for (int i = 0; i < ground_belief_conds_size(&gbcs); ++i) {
             const ground_belief_cond_t *gbc = ground_belief_conds_get(&gbcs, i);
-            pelset_t pel = pelset_lazy_copy(&orig_pel);
-            if (!setup_with_splits_subsumes(setup, &pel, gbc->neg_phi, k)) {
+            if (!setup_with_splits_and_sf_subsumes(setup, &pel,
+                        gbc->neg_phi, k)) {
                 ground_belief_conds_remove_index(&gbcs, i--);
                 satisfied_belief_cond = true;
             }
@@ -142,23 +165,23 @@ bsetup_t bsetup_init_beliefs(
     return setups;
 }
 
+bsetup_t bsetup_unions(const bsetup_t *l, const setup_t *r)
+{
+    bsetup_t us = bsetup_init_with_size(bsetup_size(l));
+    for (int i = 0; i < bsetup_size(l); ++i) {
+        setup_t *u = MALLOC(sizeof(setup_t));
+        *u = setup_union(bsetup_get(l, i), r);
+        bsetup_append(&us, u);
+    }
+    return us;
+}
+
 bsetup_t bsetup_deep_copy(const bsetup_t *setups)
 {
     bsetup_t new_setups = bsetup_init_with_size(bsetup_size(setups));
     for (int i = 0; i < bsetup_size(setups); ++i) {
         setup_t *new_setup = MALLOC(sizeof(setup_t));
         *new_setup = setup_copy(bsetup_get(setups, i));
-        bsetup_append(&new_setups, new_setup);
-    }
-    return new_setups;
-}
-
-bsetup_t bsetup_lazy_deep_copy(const bsetup_t *setups)
-{
-    bsetup_t new_setups = bsetup_init_with_size(bsetup_size(setups));
-    for (int i = 0; i < bsetup_size(setups); ++i) {
-        setup_t *new_setup = MALLOC(sizeof(setup_t));
-        *new_setup = setup_lazy_copy(bsetup_get(setups, i));
         bsetup_append(&new_setups, new_setup);
     }
     return new_setups;
@@ -174,35 +197,43 @@ void bsetup_add_sensing_results(
     }
 }
 
-pelset_t bsetup_pel(const bsetup_t *setups)
+pelsets_t bsetup_pels(const bsetup_t *setups)
 {
-    pelset_t pel = pelset_init_with_size(0);
+    pelsets_t pels = pelsets_init_with_size(bsetup_size(setups));
     for (int i = 0; i < bsetup_size(setups); ++i) {
         const setup_t *setup = bsetup_get(setups, i);
-        const pelset_t sub_pel = setup_pel(setup);
-        pelset_add_all(&pel, &sub_pel);
+        pelset_t *pel = MALLOC(sizeof(pelset_t));
+        *pel = setup_pel(setup);
+        pelsets_append(&pels, pel);
     }
-    return pel;
+    return pels;
 }
 
-bool bsetup_with_splits_subsumes(
+void bsetup_propagate_units(bsetup_t *setups)
+{
+    for (int i = 0; i < bsetup_size(setups); ++i) {
+        setup_propagate_units(bsetup_get_unsafe(setups, i));
+    }
+}
+
+bool bsetup_with_splits_and_sf_subsumes(
         bsetup_t *setups,
-        const pelset_t *orig_pel,
+        const pelsets_t *pels,
         const clause_t *c,
         const int k,
         int *plausibility)
 {
+    assert(bsetup_size(setups) == pelsets_size(pels));
     for (int i = 0; i < bsetup_size(setups); ++i) {
         setup_t *setup = bsetup_get_unsafe(setups, i);
-        pelset_t pel = pelset_lazy_copy(orig_pel);
-        const bool subsumes = setup_with_splits_subsumes(setup, &pel, c, k);
+        const pelset_t *pel = pelsets_get(pels, i);
+        const bool r = setup_with_splits_and_sf_subsumes(setup, pel, c, k);
         if (plausibility != NULL) {
             *plausibility = i;
         }
-        if (setup_is_inconsistent(setup)) {
-            continue;
+        if (!setup_is_inconsistent(setup)) {
+            return r;
         }
-        return subsumes;
     }
     return false;
 }

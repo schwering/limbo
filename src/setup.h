@@ -43,7 +43,7 @@
  * setup_pel() computes the positive versions of all literals in the setup.
  * Note that for the split literals, you also need to consider those from the
  * query.
- * For that, clause_collect_pel() may be useful.
+ * For that, clause_pel_and_sf() may be useful.
  * setup_would_be_needless_split() returns true if splitting the given literal
  * would not give additional information to the setup. For example, splitting a
  * literal when the setup already contains a unit clause with that literal or
@@ -63,16 +63,19 @@
  * the given clause.
  * Thus, setup_subsumes() is sound but not complete.
  *
- * setup_with_splits_subsumes() uses expands setup_subsumes() by reasoning by
- * cases. It splits up to k non-SF literals from the PEL set. If no subsumption
- * has been detected using these splits, it tries to split all SF literals in
- * PEL.
+ * setup_with_splits_and_sf_subsumes() uses setup_subsumes() for reasoning by
+ * cases.
+ * Firstly, it adds SF literals to PEL which correspond to the action sequences
+ * in the given clause and are actually worth splitting in the given setup.
+ * Then it splits up to k non-SF literals from the PEL set, and if still no
+ * subsumption has been detected using these splits, it tries to split the SF
+ * literals which were just added.
  * This handling of SF literals almost like normal split literals allows to
  * handle both in a single function. The reason for splitting SF literals only
  * if k = 0 is just to remain equivalent to the ESL paper.
  * Note that setup_with_splits_subsumes() does not change the setup besides unit
- * propagation; the PEL, however, is totally consumed (should be empty on
- * return).
+ * propagation, that is, the setup is, from a semantic standpoint, at least as
+ * good as before.
  *
  * schwering@kbsg.rwth-aachen.de
  */
@@ -150,7 +153,6 @@ void setup_add_sensing_results(
         setup_t *setup,
         const splitset_t *sensing_results);
 
-void clause_collect_pel(const clause_t *c, const setup_t *setup, pelset_t *pel);
 bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l);
 pelset_t setup_pel(const setup_t *setup);
 
@@ -159,9 +161,9 @@ void setup_propagate_units(setup_t *setup);
 
 bool setup_is_inconsistent(const setup_t *s);
 bool setup_subsumes(setup_t *setup, const clause_t *c);
-bool setup_with_splits_subsumes(
+bool setup_with_splits_and_sf_subsumes(
         setup_t *setup,
-        pelset_t *pel,
+        const pelset_t *pel,
         const clause_t *c,
         const int k);
 

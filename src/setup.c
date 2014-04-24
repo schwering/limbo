@@ -419,7 +419,10 @@ void setup_add_sensing_results(
     }
 }
 
-void clause_collect_pel(const clause_t *c, const setup_t *setup, pelset_t *pel)
+static void clause_collect_pel(
+        const clause_t *c,
+        const setup_t *setup,
+        pelset_t *pel)
 {
     if (clause_is_unit(c)) {
         return;
@@ -451,6 +454,34 @@ void clause_collect_pel(const clause_t *c, const setup_t *setup, pelset_t *pel)
         } else {
             pelset_add(pel, l);
         }
+    }
+}
+
+static void clause_collect_pel_with_sf(
+        const clause_t *c,
+        const setup_t *setup,
+        pelset_t *pel)
+{
+    // We split SF literals from imaginarily executed actions only when needed
+    // in setup_with_splits_and_sf_subsumes(). For that, the PEL needs to
+    // contain the relevant SF atoms, though.
+    clause_collect_pel(c, setup, pel);
+    stdvecset_t z_done = stdvecset_init();
+    for (int i = 0; i < clause_size(c); ++i) {
+        const stdvec_t *z = literal_z(clause_get(c, i));
+        if (!stdvecset_contains(&z_done, z)) {
+            for (int j = 0; j < stdvec_size(z) - 1; ++j) {
+                const stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, j);
+                const stdname_t n = stdvec_get(z, j);
+                const stdvec_t n_vec = stdvec_singleton(n);
+                literal_t *sf = MALLOC(sizeof(literal_t));
+                *sf = literal_init(&z_prefix, true, SF, &n_vec);
+                if (!setup_would_be_needless_split(setup, sf)) {
+                    pelset_add(pel, sf);
+                }
+            }
+        }
+        stdvecset_add(&z_done, z);
     }
 }
 
@@ -626,5 +657,17 @@ bool setup_with_splits_subsumes(
         }
     }
     return false;
+}
+
+bool setup_with_splits_and_sf_subsumes(
+        setup_t *setup,
+        const pelset_t *pel,
+        const clause_t *c,
+        const int k)
+{
+    //setup_t setup_copy = setup_lazy_copy(setup);
+    pelset_t pel_copy = pelset_lazy_copy(pel);
+    clause_collect_pel_with_sf(c, setup, &pel_copy);
+    return setup_with_splits_subsumes(setup, &pel_copy, c, k);
 }
 
