@@ -665,6 +665,9 @@ bool setup_with_splits_and_sf_subsumes(
         const clause_t *c,
         const int k)
 {
+    if (setup_is_inconsistent(setup)) {
+        return true;
+    }
     //setup_t setup_copy = setup_lazy_copy(setup);
     pelset_t pel_copy = pelset_lazy_copy(pel);
     clause_collect_pel_with_sf(c, setup, &pel_copy);
