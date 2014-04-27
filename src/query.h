@@ -117,22 +117,15 @@ context_t bcontext_init(
         const stdvec_t *context_z,
         const splitset_t *context_sf);
 context_t context_copy(const context_t *ctx);
-context_t context_copy_with_new_actions(
-        const context_t *ctx,
+
+void context_add_actions(
+        context_t *ctx,
         const stdvec_t *add_context_z,
         const splitset_t *add_context_sf);
 
-bool query_entailed_by_setup(
+bool query_entailed(
         context_t *ctx,
         const bool force_no_update,
-        const query_t *phi,
-        const int k);
-
-bool query_entailed_by_bat(
-        const univ_clauses_t *static_bat,
-        const box_univ_clauses_t *dynamic_bat,
-        const stdvec_t *context_z,
-        const splitset_t *sensing_results,
         const query_t *phi,
         const int k);
 

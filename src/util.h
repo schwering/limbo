@@ -69,5 +69,28 @@
         _SF_set;\
     })
 
+// Adds actions and their sensing results to the context. A convenient version
+// of context_add_actions() from query.c.
+// CONTEXT_ADD_ACTIONS(ctx, {A1,true}, {A2,false}) adds [A1,A2] to the context's
+// actions and SF(A1) and [A1]~SF(A2) to the setup.
+#define CONTEXT_ADD_ACTIONS(ctx, ab...)\
+    ({\
+        context_t *_ZSF_ctx = (ctx);\
+        const struct { stdname_t a; bool b; } _ZSF_array[] = { ab };\
+        const size_t _ZSF_n = sizeof(_ZSF_array) / sizeof(_ZSF_array[0]);\
+        stdvec_t *_ZSF_z = NEW(stdvec_init_with_size((int) _ZSF_n));\
+        splitset_t *_ZSF_set = NEW(splitset_init_with_size((int) _ZSF_n));\
+        for (int _ZSF_i = 0; _ZSF_i < (int) _ZSF_n; ++_ZSF_i) {\
+            literal_t *_ZSF_l = NEW(literal_init(\
+                    NEW(stdvec_concat(_ZSF_ctx->context_z, _ZSF_z)),\
+                    _ZSF_array[_ZSF_i].b,\
+                    SF,\
+                    NEW(stdvec_singleton(_ZSF_array[_ZSF_i].a))));\
+            splitset_add(_ZSF_set, _ZSF_l);\
+            stdvec_append(_ZSF_z, _ZSF_array[_ZSF_i].a);\
+        }\
+        context_add_actions(_ZSF_ctx, _ZSF_z, _ZSF_set);\
+    })
+
 #endif
 
