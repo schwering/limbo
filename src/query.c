@@ -194,16 +194,11 @@ static const query_t *query_ground_quantifier(bool existential,
     }
 }
 
-static const query_t *query_ennf(
-        const stdvec_t *context_z,
-        const query_t *phi,
-        const stdset_t *hplus);
-
 static const query_t *query_ennf_h(
         const stdvec_t *z,
         const query_t *phi,
         const stdset_t *hplus,
-        const bool flip)
+        const bool sign)
 {
     // ENNF stands for Extended Negation Normal Form and means
     // (1) actions are moved inwards to the extended literals
@@ -215,24 +210,24 @@ static const query_t *query_ennf_h(
     switch (phi->type) {
         case EQ:
         case NEQ: {
-            if (!flip) {
+            if (sign) {
                 return phi;
             } else {
                 query_t *psi = MALLOC(sizeof(query_t));
                 *psi = (query_t) {
-                    .type = (phi->type == EQ) != flip ? EQ : NEQ,
+                    .type = (phi->type == EQ) == sign ? EQ : NEQ,
                     .u.eq = phi->u.eq
                 };
                 return psi;
             }
         }
         case LIT: {
-            if (!flip && stdvec_size(z) == 0) {
+            if (sign && stdvec_size(z) == 0) {
                 return phi;
             } else {
                 query_t *psi = MALLOC(sizeof(query_t));
                 *psi = *phi;
-                if (flip) {
+                if (!sign) {
                     psi->u.lit = literal_flip(&phi->u.lit);
                 }
                 if (stdvec_size(z) > 0) {
@@ -243,33 +238,33 @@ static const query_t *query_ennf_h(
         }
         case OR:
         case AND: {
-            const query_t *psi1 = query_ennf_h(z, phi->u.bin.phi1, hplus, flip);
-            const query_t *psi2 = query_ennf_h(z, phi->u.bin.phi2, hplus, flip);
+            const query_t *psi1 = query_ennf_h(z, phi->u.bin.phi1, hplus, sign);
+            const query_t *psi2 = query_ennf_h(z, phi->u.bin.phi2, hplus, sign);
             query_t *psi = MALLOC(sizeof(query_t));
             *psi = (query_t) {
-                .type = (phi->type == OR) != flip ? OR : AND,
+                .type = (phi->type == OR) == sign ? OR : AND,
                 .u.bin = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 }
             };
             return psi;
         }
         case NEG: {
-            return query_ennf_h(z, phi->u.un.phi, hplus, !flip);
+            return query_ennf_h(z, phi->u.un.phi, hplus, !sign);
         }
         case EX: {
-            const bool is_existential = !flip;
+            const bool is_existential = sign;
             const query_t *psi = query_ground_quantifier(is_existential,
                     phi->u.ex.phi, phi->u.ex.var, hplus, 0);
-            return query_ennf(z, psi, hplus);
+            return query_ennf_h(z, psi, hplus, sign);
         }
         case ACT: {
             const stdvec_t zz = stdvec_copy_append(z, phi->u.act.n);
-            return query_ennf_h(&zz, phi->u.act.phi, hplus, flip);
+            return query_ennf_h(&zz, phi->u.act.phi, hplus, sign);
         }
         case EVAL: {
             query_t *psi = MALLOC(sizeof(query_t));
             *psi = *phi;
             psi->u.eval.context_z = stdvec_lazy_copy(z);
-            if (flip) {
+            if (!sign) {
                 psi->u.eval.sign = !psi->u.eval.sign;
             }
             return psi;
@@ -282,7 +277,7 @@ static const query_t *query_ennf_h(
 static const query_t *query_ennf(const stdvec_t *context_z, const query_t *phi,
         const stdset_t *hplus)
 {
-    return query_ennf_h(context_z, phi, hplus, false);
+    return query_ennf_h(context_z, phi, hplus, true);
 }
 
 static stdvecset_t query_ennf_zs(const query_t *phi)
@@ -798,7 +793,7 @@ const query_t *query_exists(var_t x, const query_t *phi)
 
 const query_t *query_forall(var_t x, const query_t *phi)
 {
-    return query_neg(query_exists(x, phi));
+    return query_neg(query_exists(x, query_neg(phi)));
 }
 
 const query_t *query_act(term_t n, const query_t *phi)
