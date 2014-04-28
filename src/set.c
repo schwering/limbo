@@ -333,3 +333,34 @@ void set_clear(set_t *set)
     vector_clear(&set->vec);
 }
 
+set_cursor_t set_cursor(const set_t *set)
+{
+    return (set_cursor_t) { .cursor = vector_cursor(&set->vec) };
+}
+
+set_cursor_t set_cursor_from(const set_t *set, int index)
+{
+    return (set_cursor_t) { .cursor = vector_cursor_from(&set->vec, index) };
+}
+
+void set_cursor_add_auditor(set_cursor_t *cursor,
+        set_cursor_t *auditor)
+{
+    vector_cursor_add_auditor(&cursor->cursor, &auditor->cursor);
+}
+
+bool set_cursor_has_next(const set_t *set, set_cursor_t *cursor)
+{
+    return vector_cursor_has_next(&set->vec, &cursor->cursor);
+}
+
+const void *set_cursor_next(const set_t *set, set_cursor_t *cursor)
+{
+    return vector_cursor_next(&set->vec, &cursor->cursor);
+}
+
+void set_cursor_remove(set_t *set, set_cursor_t *cursor)
+{
+    vector_cursor_remove(&set->vec, &cursor->cursor);
+}
+

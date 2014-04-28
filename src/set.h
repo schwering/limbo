@@ -36,7 +36,6 @@
  * or 2*i-1 to 2*i-1.
  * The most common purpose of these index computations is to adjust the loop
  * counting variable appropriately after such an action.
- * TODO Replace set loop variables with iterators.
  *
  * For typesafe usage there is a MAP macro which declares appropriate wrapper
  * functions.
@@ -55,6 +54,10 @@ typedef struct {
     vector_t vec;
     compar_t compar;
 } set_t;
+
+typedef struct {
+    vector_cursor_t cursor;
+} set_cursor_t;
 
 set_t set_init(compar_t compar);
 set_t set_init_with_size(compar_t compar, int size);
@@ -96,8 +99,16 @@ int set_replace_index(set_t *set, int index, const void *new_elem);
 
 void set_clear(set_t *set);
 
+set_cursor_t set_cursor(const set_t *set);
+set_cursor_t set_cursor_from(const set_t *set, int index);
+void set_cursor_add_auditor(set_cursor_t *cursor, set_cursor_t *auditor);
+bool set_cursor_has_next(const set_t *set, set_cursor_t *cursor);
+const void *set_cursor_next(const set_t *set, set_cursor_t *cursor);
+void set_cursor_remove(set_t *set, set_cursor_t *cursor);
+
 #define SET_DECL(prefix, type) \
     typedef union { set_t s; } prefix##_t;\
+    typedef union { set_cursor_t c; } prefix##_cursor_t;\
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
     prefix##_t prefix##_copy(const prefix##_t *src);\
@@ -131,7 +142,16 @@ void set_clear(set_t *set);
     int prefix##_replace(prefix##_t *s, const type old_elem,\
             const type new_elem);\
     int prefix##_replace_index(prefix##_t *s, int index, const type new_elem);\
-    void prefix##_clear(prefix##_t *s);
+    void prefix##_clear(prefix##_t *s);\
+    prefix##_cursor_t prefix##_cursor(const prefix##_t *vec);\
+    prefix##_cursor_t prefix##_cursor_from(const prefix##_t *vec, int index);\
+    void prefix##_cursor_add_auditor(prefix##_cursor_t *cursor,\
+            prefix##_cursor_t *auditor);\
+    bool prefix##_cursor_has_next(const prefix##_t *vec,\
+            prefix##_cursor_t *cursor);\
+    const type prefix##_cursor_next(const prefix##_t *vec,\
+            prefix##_cursor_t *cursor);\
+    void prefix##_cursor_remove(prefix##_t *vec, prefix##_cursor_t *cursor);
 
 #define SET_IMPL(prefix, type, compar) \
     prefix##_t prefix##_init(void) {\
@@ -197,10 +217,26 @@ void set_clear(set_t *set);
                 (const void *) new_elem); }\
     int prefix##_replace_index(prefix##_t *s, int index, const type new_elem) {\
         return set_replace_index(&s->s, index, (const void *) new_elem); }\
-    void prefix##_clear(prefix##_t *s) { set_clear(&s->s); }
+    void prefix##_clear(prefix##_t *s) { set_clear(&s->s); }\
+    prefix##_cursor_t prefix##_cursor(const prefix##_t *set) {\
+        return (prefix##_cursor_t) { .c = set_cursor(&set->s) }; }\
+    prefix##_cursor_t prefix##_cursor_from(const prefix##_t *set, int index) {\
+        return (prefix##_cursor_t) { .c = set_cursor_from(&set->s, index) }; }\
+    void prefix##_cursor_add_auditor(prefix##_cursor_t *cursor,\
+            prefix##_cursor_t *auditor) {\
+        set_cursor_add_auditor(&cursor->c, &auditor->c); }\
+    bool prefix##_cursor_has_next(const prefix##_t *set,\
+            prefix##_cursor_t *cursor) {\
+        return set_cursor_has_next(&set->s, &cursor->c); }\
+    const type prefix##_cursor_next(const prefix##_t *set,\
+            prefix##_cursor_t *cursor) {\
+        return (const type) set_cursor_next(&set->s, &cursor->c); }\
+    void prefix##_cursor_remove(prefix##_t *set, prefix##_cursor_t *cursor) {\
+        return set_cursor_remove(&set->s, &cursor->c); }
 
 #define SET_ALIAS(alias, prefix, type) \
     typedef union { prefix##_t s; } alias##_t;\
+    typedef union { prefix##_cursor_t c; } alias##_cursor_t;\
     static inline alias##_t alias##_init(void) {\
          return (alias##_t) { .s = prefix##_init() }; }\
     static inline alias##_t alias##_init_with_size(int size) {\
@@ -274,7 +310,25 @@ void set_clear(set_t *set);
             const type new_elem) {\
         return prefix##_replace_index(&s->s, index, new_elem); }\
     static inline const prefix##_t *alias##_to_##prefix(const alias##_t *s) {\
-        return (const prefix##_t *) s; }
+        return (const prefix##_t *) s; }\
+    static inline alias##_cursor_t alias##_cursor(const alias##_t *set) {\
+        return (alias##_cursor_t) { .c = prefix##_cursor(&set->s) }; }\
+    static inline alias##_cursor_t alias##_cursor_from(const alias##_t *set,\
+            int index) {\
+        return (alias##_cursor_t) {\
+            .c = prefix##_cursor_from(&set->s, index) }; }\
+    static inline void alias##_cursor_add_auditor(alias##_cursor_t *cursor,\
+            alias##_cursor_t *auditor) {\
+        prefix##_cursor_add_auditor(&cursor->c, &auditor->c); }\
+    static inline bool alias##_cursor_has_next(const alias##_t *set,\
+            alias##_cursor_t *cursor) {\
+        return prefix##_cursor_has_next(&set->s, &cursor->c); }\
+    static inline const type alias##_cursor_next(const alias##_t *set,\
+            alias##_cursor_t *cursor) {\
+        return (const type) prefix##_cursor_next(&set->s, &cursor->c); }\
+    static inline void alias##_cursor_remove(alias##_t *set,\
+            alias##_cursor_t *cursor) {\
+        return prefix##_cursor_remove(&set->s, &cursor->c); }
 
 #endif
 

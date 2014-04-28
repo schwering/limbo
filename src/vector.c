@@ -348,3 +348,64 @@ void vector_clear(vector_t *vec)
     vec->size = 0;
 }
 
+vector_cursor_t vector_cursor(const vector_t *vec)
+{
+    return vector_cursor_from(vec, 0);
+}
+
+vector_cursor_t vector_cursor_from(const vector_t *vec, int index)
+{
+    return (vector_cursor_t) {
+        .index = index - 1,
+        .audience = NULL
+#ifndef NDEBUG
+        , .vec = vec
+#endif
+    };
+}
+
+void vector_cursor_add_auditor(vector_cursor_t *cursor,
+        vector_cursor_t *auditor)
+{
+    assert(cursor->vec == auditor->vec);
+    int n;
+    for (n = 0; cursor->audience != NULL && cursor->audience[n] != NULL; ++n) {
+        // nothing
+    }
+    cursor->audience = REALLOC(cursor->audience, (n+2) * sizeof(void *));
+    cursor->audience[n] = auditor;
+    cursor->audience[n+1] = NULL;
+}
+
+bool vector_cursor_has_next(const vector_t *vec, vector_cursor_t *cursor)
+{
+    assert(cursor->vec == vec);
+    return cursor->index + 1 < vec->size;
+}
+
+const void *vector_cursor_next(const vector_t *vec, vector_cursor_t *cursor)
+{
+    assert(cursor->vec == vec);
+    return vector_get(vec, ++cursor->index);
+}
+
+static void dispatch_cursor_removals(vector_cursor_t *cursor, const int index)
+{
+    if (index <= cursor->index) {
+        --cursor->index;
+    }
+    for (int i = 0; cursor->audience != NULL && cursor->audience[i] != NULL;
+            ++i) {
+        if (index <= cursor->audience[i]->index) {
+            dispatch_cursor_removals(cursor->audience[i], index);
+        }
+    }
+}
+
+void vector_cursor_remove(vector_t *vec, vector_cursor_t *cursor)
+{
+    assert(cursor->vec == vec);
+    vector_remove(vec, cursor->index);
+    dispatch_cursor_removals(cursor, cursor->index);
+}
+

@@ -208,13 +208,7 @@ START_TEST(test_setup_entailment)
                 Q(P(Z(), D(2), A()))));
     ck_assert(!query_entailed(&ctx, false, phi2, 0));
 
-    stdvec_t context_z_2 = stdvec_init_with_size(0);
-    splitset_t context_sf_2 = splitset_init_with_size(0);
-    stdvec_append(&context_z_2, FORWARD);
-    stdvec_append(&context_z_2, SONAR);
-    splitset_add(&context_sf_2, P(Z(), SF, A(FORWARD)));
-    splitset_add(&context_sf_2, P(Z(FORWARD), SF, A(SONAR)));
-    context_add_actions(&ctx, &context_z_2, &context_sf_2);
+    CONTEXT_ADD_ACTIONS(&ctx, {FORWARD,true}, {SONAR,true});
 
     //printf("Q4\n");
     const query_t *phi4 =

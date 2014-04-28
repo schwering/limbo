@@ -50,6 +50,15 @@ typedef struct {
     int size;
 } vector_t;
 
+typedef struct vector_cursor vector_cursor_t;
+struct vector_cursor {
+    int index;
+    vector_cursor_t **audience;
+#ifndef NDEBUG
+    const vector_t *vec;
+#endif
+};
+
 vector_t vector_init(void);
 vector_t vector_init_with_size(int size);
 vector_t vector_copy(const vector_t *src);
@@ -100,8 +109,17 @@ void vector_remove_range(vector_t *vec, int from, int to);
 void vector_remove_all(vector_t *vec, const int indices[], int n_indices);
 void vector_clear(vector_t *vec);
 
+vector_cursor_t vector_cursor(const vector_t *vec);
+vector_cursor_t vector_cursor_from(const vector_t *vec, int index);
+void vector_cursor_add_auditor(vector_cursor_t *cursor,
+        vector_cursor_t *auditor);
+bool vector_cursor_has_next(const vector_t *vec, vector_cursor_t *cursor);
+const void *vector_cursor_next(const vector_t *vec, vector_cursor_t *cursor);
+void vector_cursor_remove(vector_t *vec, vector_cursor_t *cursor);
+
 #define VECTOR_DECL(prefix, type) \
     typedef union { vector_t v; } prefix##_t;\
+    typedef union { vector_cursor_t c; } prefix##_cursor_t;\
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
     prefix##_t prefix##_copy(const prefix##_t *src);\
@@ -143,7 +161,16 @@ void vector_clear(vector_t *vec);
     void prefix##_remove_range(prefix##_t *v, int from, int to);\
     void prefix##_remove_all(prefix##_t *v, const int indices[],\
             int n_indices);\
-    void prefix##_clear(prefix##_t *v);
+    void prefix##_clear(prefix##_t *v);\
+    prefix##_cursor_t prefix##_cursor(const prefix##_t *vec);\
+    prefix##_cursor_t prefix##_cursor_from(const prefix##_t *vec, int index);\
+    void prefix##_cursor_add_auditor(prefix##_cursor_t *cursor,\
+            prefix##_cursor_t *auditor);\
+    bool prefix##_cursor_has_next(const prefix##_t *vec,\
+            prefix##_cursor_t *cursor);\
+    const type prefix##_cursor_next(const prefix##_t *vec,\
+            prefix##_cursor_t *cursor);\
+    void prefix##_cursor_remove(prefix##_t *vec, prefix##_cursor_t *cursor);
 
 #define VECTOR_IMPL(prefix, type, compar) \
     prefix##_t prefix##_init(void) {\
@@ -230,7 +257,22 @@ void vector_clear(vector_t *vec);
             const int indices[], int n_indices) {\
         vector_remove_all(&v->v, indices, n_indices); }\
     void prefix##_clear(prefix##_t *v) {\
-        vector_clear(&v->v); }
+        vector_clear(&v->v); }\
+    prefix##_cursor_t prefix##_cursor(const prefix##_t *vec) {\
+        return (prefix##_cursor_t) { .c = vector_cursor(&vec->v) }; }\
+    prefix##_cursor_t prefix##_cursor_from(const prefix##_t *vec, int index) {\
+        return (prefix##_cursor_t) { .c = vector_cursor_from(&vec->v, index) }; }\
+    void prefix##_cursor_add_auditor(prefix##_cursor_t *cursor,\
+            prefix##_cursor_t *auditor) {\
+        vector_cursor_add_auditor(&cursor->c, &auditor->c); }\
+    bool prefix##_cursor_has_next(const prefix##_t *vec,\
+            prefix##_cursor_t *cursor) {\
+        return vector_cursor_has_next(&vec->v, &cursor->c); }\
+    const type prefix##_cursor_next(const prefix##_t *vec,\
+            prefix##_cursor_t *cursor) {\
+        return (const type) vector_cursor_next(&vec->v, &cursor->c); }\
+    void prefix##_cursor_remove(prefix##_t *vec, prefix##_cursor_t *cursor) {\
+        return vector_cursor_remove(&vec->v, &cursor->c); }
 
 #endif
 
