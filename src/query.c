@@ -374,6 +374,7 @@ static const query_t *query_simplify(
     assert(false);
 }
 
+#ifdef USE_QUERY_CNF
 static cnf_t query_cnf(const query_t *phi)
 {
     // The given formula must mention no other elements but:
@@ -417,6 +418,7 @@ static cnf_t query_cnf(const query_t *phi)
     }
     assert(false);
 }
+#endif
 
 static context_t context_init(
         const bool is_belief,
@@ -557,6 +559,92 @@ void context_add_actions(
     }
 }
 
+#ifndef USE_QUERY_CNF
+static bool clause_entailed(context_t *ctx, const clause_t *c, const int k)
+{
+    assert(c != NULL);
+    if (!ctx->is_belief) {
+        return setup_with_splits_and_sf_subsumes(&ctx->u.k.setup,
+                &ctx->u.k.pel, c, k);
+    } else {
+        return bsetup_with_splits_and_sf_subsumes(&ctx->u.b.setups,
+                &ctx->u.b.pels, c, k, NULL);
+    }
+}
+
+static void query_entailed_h(context_t *ctx, const query_t *phi, const int k,
+        clause_t **c, bool *r)
+{
+    // The given formula must mention no other elements but:
+    // LIT, OR, AND
+    switch (phi->type) {
+        case EQ:
+        case NEQ:
+            assert(false);
+            *c = NULL;
+            *r = false;
+            break;
+        case LIT: {
+            literal_t *l = MALLOC(sizeof(literal_t));
+            *l = phi->u.lit;
+            *c = MALLOC(sizeof(clause_t));
+            **c = clause_singleton(l);
+            *r = false;
+            break;
+        }
+        case OR: {
+            clause_t *c1, *c2;
+            bool r1, r2;
+            query_entailed_h(ctx, phi->u.bin.phi1, k, &c1, &r1);
+            query_entailed_h(ctx, phi->u.bin.phi2, k, &c2, &r2);
+            if (c1 != NULL && c2 != NULL) {
+                *c = MALLOC(sizeof(clause_t));
+                **c = clause_union(c1, c2);
+            } else if (c1 != NULL && c2 == NULL) {
+                *c = NULL;
+                *r = r2 || clause_entailed(ctx, c1, k);
+            } else if (c1 == NULL && c2 != NULL) {
+                *c = NULL;
+                *r = r1 || clause_entailed(ctx, c2, k);
+            } else {
+                *c = NULL;
+                *r = r1 || r2;
+            }
+            break;
+        }
+        case AND: {
+            clause_t *c1, *c2;
+            bool r1, r2;
+            query_entailed_h(ctx, phi->u.bin.phi1, k, &c1, &r1);
+            query_entailed_h(ctx, phi->u.bin.phi2, k, &c2, &r2);
+            if (c1 != NULL && c2 != NULL) {
+                *c = NULL;
+                *r = clause_entailed(ctx, c1, k) && clause_entailed(ctx, c2, k);
+            } else if (c1 != NULL && c2 == NULL) {
+                *c = NULL;
+                *r = r2 && clause_entailed(ctx, c1, k);
+            } else if (c1 == NULL && c2 != NULL) {
+                *c = NULL;
+                *r = r1 && clause_entailed(ctx, c2, k);
+            } else {
+                *c = NULL;
+                *r = r1 && r2;
+            }
+            break;
+        }
+        case NEG:
+        case EX:
+        case ACT:
+        case EVAL:
+        default:
+              assert(false);
+              *c = NULL;
+              *r = false;
+              break;
+    }
+}
+#endif
+
 bool query_entailed(
         context_t *ctx,
         const bool force_no_update,
@@ -641,6 +729,7 @@ bool query_entailed(
         }
     }
 
+#ifdef USE_QUERY_CNF
     cnf_t cnf = query_cnf(phi);
     truth_value = true;
     for (int i = 0; i < cnf_size(&cnf) && truth_value; ++i) {
@@ -654,6 +743,11 @@ bool query_entailed(
         }
     }
     return truth_value;
+#else
+    clause_t *c;
+    query_entailed_h(ctx, phi, k, &c, &truth_value);
+    return c != NULL ? clause_entailed(ctx, c, k) : truth_value;
+#endif
 }
 
 const query_t *query_eq(stdname_t n1, stdname_t n2)

@@ -28,12 +28,15 @@
  * We first convert the formula into ENNF (extended negation normal form), that
  * is, all actions and negations are pushed inwards. Additionally existentials
  * are replaced with disjunctions or conjunctions over a set of standard names.
- * Then we bring the resulting formula into CNF, which may be a bad idea.
- * Anyway, then we check all these clauses for subsumption.
+ * Then the query is decomposed and disjunctions of literals are taken as
+ * clauses for which subsumption is tested.
+ * If USE_QUERY_CNF is defined, the query is first converted to CNF and each of
+ * the clauses is tested for subsumption, however, the CNF may be exponential in
+ * size of the original formula.
  * During that procedure we treat SF literals just like normal split literals.
- * We therefore add them to the PEL set. Then setup_with_splits_subsumes() from
- * setup.h will split them after splitting k non-SF literals. This treatment
- * should retain equivalence to the ESL paper.
+ * We therefore add them to the PEL set and setup_with_splits_and_sf_subsumes()
+ * from setup.h will split them after splitting k non-SF literals. This
+ * treatment should retain equivalence to the ESL paper.
  *
  * To simplify this the procedure which converts a formula to CNF conversion,
  * we directly implement conjunctions, whereas the paper just defines
@@ -48,8 +51,8 @@
  * sub-query, and (2) a set of SF literals, which only contains the physical
  * sensing results, but not the imaginary ones. Leaving out the imaginary
  * sensing results is reasonable because query_test_clause() will add their SF
- * literals to PEL anyway and thus setup_with_splits_subsumes() will split them
- * if necessary (regardless of k).
+ * literals to PEL anyway and thus setup_with_splits_and_sf_subsumes() will
+ * split them if necessary (regardless of k).
  * 
  * Additionally one needs to provide callbacks which compute the number of
  * variables and the standard names in this sub-query.

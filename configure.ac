@@ -6,6 +6,13 @@ AM_PROG_CC_C_O
 AC_PROG_CC_STDC
 AM_PROG_AR
 LT_INIT([disable-shared])
+AC_ARG_ENABLE(cnf,
+	      [  --enable-cnf            convert queries to CNF and answer clause-wise [default=no]],
+	      [if test x$enableval = xyes
+	       then
+		       AC_DEFINE(USE_QUERY_CNF)
+	       fi
+	      ])
 AC_ARG_ENABLE(gc,
 	      [  --enable-gc             use Boehm GC for memory allocation [default=yes]],
 	      [if test x$enableval = xyes
