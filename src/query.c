@@ -5,11 +5,11 @@
 
 enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EX, ACT, EVAL };
 
-typedef struct { stdname_t n1; stdname_t n2; } query_names_t;
+typedef struct { term_t t1; term_t t2; } query_names_t;
 typedef struct { const query_t *phi; } query_unary_t;
 typedef struct { const query_t *phi1; const query_t *phi2; } query_binary_t;
 typedef struct { var_t var; const query_t *phi; } query_exists_t;
-typedef struct { stdname_t n; const query_t *phi; } query_action_t;
+typedef struct { term_t n; const query_t *phi; } query_action_t;
 typedef struct {
     int (*n_vars)(void *);
     stdset_t (*names)(void *);
@@ -64,8 +64,8 @@ static stdset_t query_names(const query_t *phi)
         case EQ:
         case NEQ: {
             stdset_t set = stdset_init_with_size(2);
-            stdset_add(&set, phi->u.eq.n1);
-            stdset_add(&set, phi->u.eq.n2);
+            stdset_add(&set, phi->u.eq.t1);
+            stdset_add(&set, phi->u.eq.t2);
             return set;
         }
         case LIT: {
@@ -116,12 +116,12 @@ static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
     switch (phi->type) {
         case EQ:
         case NEQ: {
-            const stdname_t n1 = phi->u.eq.n1;
-            const stdname_t n2 = phi->u.eq.n2;
-            if (x != n1 && x != n2) {
+            const term_t t1 = phi->u.eq.t1;
+            const term_t t2 = phi->u.eq.t2;
+            if (x != t1 && x != t2) {
                 return phi;
             }
-            return query_eq(n1 == x ? n : n1, n2 == x ? n : n2);
+            return query_eq(t1 == x ? n : t1, t2 == x ? n : t2);
         }
         case LIT: {
             const literal_t *l = &phi->u.lit;
@@ -321,10 +321,10 @@ static const query_t *query_simplify(
     // LIT, OR, AND
     switch (phi->type)
         case EQ: {
-            *truth_value = phi->u.eq.n1 == phi->u.eq.n2;
+            *truth_value = phi->u.eq.t1 == phi->u.eq.t2;
             return NULL;
         case NEQ:
-            *truth_value = phi->u.eq.n1 != phi->u.eq.n2;
+            *truth_value = phi->u.eq.t1 != phi->u.eq.t2;
             return NULL;
         case LIT:
             return phi;
@@ -750,24 +750,24 @@ bool query_entailed(
 #endif
 }
 
-const query_t *query_eq(stdname_t n1, stdname_t n2)
+const query_t *query_eq(term_t t1, term_t t2)
 {
     return NEW(((query_t) {
         .type = EQ,
         .u.eq = (query_names_t) {
-            .n1 = n1,
-            .n2 = n2
+            .t1 = t1,
+            .t2 = t2
         }
     }));
 }
 
-const query_t *query_neq(stdname_t n1, stdname_t n2)
+const query_t *query_neq(term_t t1, term_t t2)
 {
     return NEW(((query_t) {
         .type = NEQ,
         .u.eq = (query_names_t) {
-            .n1 = n1,
-            .n2 = n2
+            .t1 = t1,
+            .t2 = t2
         }
     }));
 }
