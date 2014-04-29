@@ -125,6 +125,7 @@ void context_add_actions(
         context_t *ctx,
         const stdvec_t *add_context_z,
         const splitset_t *add_context_sf);
+void context_prev(context_t *ctx);
 
 bool query_entailed(
         context_t *ctx,

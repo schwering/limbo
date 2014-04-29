@@ -545,14 +545,58 @@ void context_add_actions(
     if (!ctx->is_belief) {
         ctx->u.k.setup = setup_union(&ctx->u.k.static_setup,
                 &ctx->dynamic_setup);
-        setup_add_sensing_results(&ctx->u.k.setup, add_context_sf);
+        setup_add_sensing_results(&ctx->u.k.setup, ctx->context_sf);
         setup_propagate_units(&ctx->u.k.setup);
         //setup_minimize(&ctx->u.k.setup);
         ctx->u.k.pel = setup_pel(&ctx->u.k.setup);
     } else {
         ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
                 &ctx->dynamic_setup);
-        bsetup_add_sensing_results(&ctx->u.b.setups, add_context_sf);
+        bsetup_add_sensing_results(&ctx->u.b.setups, ctx->context_sf);
+        bsetup_propagate_units(&ctx->u.b.setups);
+        //bsetup_minimize(&ctx.u.b.setups);
+        ctx->u.b.pels = bsetup_pels(&ctx->u.b.setups);
+    }
+}
+
+void context_prev(context_t *ctx)
+{
+    assert(stdvec_size(ctx->context_z) == splitset_size(ctx->context_sf));
+    const int size = stdvec_size(ctx->context_z);
+    assert(size >= 1);
+    const stdname_t last_a = stdvec_get(ctx->context_z, size - 1);
+    ctx->context_z = ({
+        stdvec_t *context_z = MALLOC(sizeof(stdvec_t));
+        *context_z = stdvec_lazy_copy_range(ctx->context_z, 0, size - 1);
+        context_z;
+    });
+    ctx->context_sf = ({
+        const stdvec_t *z = ctx->context_z;
+        const stdvec_t args = stdvec_singleton(last_a);
+        const literal_t l1 = literal_init(z, true, SF, &args);
+        const literal_t l2 = literal_flip(&l1);
+        splitset_t *context_sf = MALLOC(sizeof(splitset_t));
+        *context_sf = splitset_lazy_copy(ctx->context_sf);
+        bool removed = splitset_remove(context_sf, &l1) ||
+                       splitset_remove(context_sf, &l2);
+        assert(removed);
+        context_sf;
+    });
+    ctx->query_zs = stdvecset_lazy_copy(&ctx->query_zs);
+    ctx->dynamic_setup = setup_init_dynamic(ctx->dynamic_bat, &ctx->hplus,
+                &ctx->query_zs);
+
+    if (!ctx->is_belief) {
+        ctx->u.k.setup = setup_union(&ctx->u.k.static_setup,
+                &ctx->dynamic_setup);
+        setup_add_sensing_results(&ctx->u.k.setup, ctx->context_sf);
+        setup_propagate_units(&ctx->u.k.setup);
+        //setup_minimize(&ctx->u.k.setup);
+        ctx->u.k.pel = setup_pel(&ctx->u.k.setup);
+    } else {
+        ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
+                &ctx->dynamic_setup);
+        bsetup_add_sensing_results(&ctx->u.b.setups, ctx->context_sf);
         bsetup_propagate_units(&ctx->u.b.setups);
         //bsetup_minimize(&ctx.u.b.setups);
         ctx->u.b.pels = bsetup_pels(&ctx->u.b.setups);
