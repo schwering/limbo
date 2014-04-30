@@ -420,6 +420,25 @@ static cnf_t query_cnf(const query_t *phi)
 }
 #endif
 
+static void context_rebuild_setup(context_t *ctx)
+{
+    if (!ctx->is_belief) {
+        ctx->u.k.setup = setup_union(&ctx->u.k.static_setup,
+                &ctx->dynamic_setup);
+        setup_add_sensing_results(&ctx->u.k.setup, ctx->context_sf);
+        setup_propagate_units(&ctx->u.k.setup);
+        //setup_minimize(&ctx->u.k.setup);
+        ctx->u.k.pel = setup_pel(&ctx->u.k.setup);
+    } else {
+        ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
+                &ctx->dynamic_setup);
+        bsetup_add_sensing_results(&ctx->u.b.setups, ctx->context_sf);
+        bsetup_propagate_units(&ctx->u.b.setups);
+        //bsetup_minimize(&ctx->u.b.setups);
+        ctx->u.b.pels = bsetup_pels(&ctx->u.b.setups);
+    }
+}
+
 static context_t context_init(
         const bool is_belief,
         const univ_clauses_t *static_bat,
@@ -455,21 +474,11 @@ static context_t context_init(
             &ctx.query_zs);
     if (!is_belief) {
         ctx.u.k.static_setup = static_setup;
-        ctx.u.k.setup = setup_union(&ctx.u.k.static_setup, &ctx.dynamic_setup);
-        setup_add_sensing_results(&ctx.u.k.setup, context_sf);
-        setup_propagate_units(&ctx.u.k.setup);
-        //setup_minimize(&ctx.u.k.setup);
-        ctx.u.k.pel = setup_pel(&ctx.u.k.setup);
     } else {
         ctx.u.b.static_setups = bsetup_init_beliefs(&static_setup, beliefs,
                 &ctx.hplus, belief_k);
-        ctx.u.b.setups = bsetup_unions(&ctx.u.b.static_setups,
-                &ctx.dynamic_setup);
-        bsetup_add_sensing_results(&ctx.u.b.setups, context_sf);
-        bsetup_propagate_units(&ctx.u.b.setups);
-        //bsetup_minimize(&ctx.u.b.setups);
-        ctx.u.b.pels = bsetup_pels(&ctx.u.b.setups);
     }
+    context_rebuild_setup(&ctx);
     return ctx;
 }
 
@@ -542,21 +551,7 @@ void context_add_actions(
     ctx->dynamic_setup = setup_init_dynamic(ctx->dynamic_bat, &ctx->hplus,
                 &ctx->query_zs);
 
-    if (!ctx->is_belief) {
-        ctx->u.k.setup = setup_union(&ctx->u.k.static_setup,
-                &ctx->dynamic_setup);
-        setup_add_sensing_results(&ctx->u.k.setup, ctx->context_sf);
-        setup_propagate_units(&ctx->u.k.setup);
-        //setup_minimize(&ctx->u.k.setup);
-        ctx->u.k.pel = setup_pel(&ctx->u.k.setup);
-    } else {
-        ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
-                &ctx->dynamic_setup);
-        bsetup_add_sensing_results(&ctx->u.b.setups, ctx->context_sf);
-        bsetup_propagate_units(&ctx->u.b.setups);
-        //bsetup_minimize(&ctx.u.b.setups);
-        ctx->u.b.pels = bsetup_pels(&ctx->u.b.setups);
-    }
+    context_rebuild_setup(ctx);
 }
 
 void context_prev(context_t *ctx)
@@ -564,43 +559,47 @@ void context_prev(context_t *ctx)
     assert(stdvec_size(ctx->context_z) == splitset_size(ctx->context_sf));
     const int size = stdvec_size(ctx->context_z);
     assert(size >= 1);
-    const stdname_t last_a = stdvec_get(ctx->context_z, size - 1);
     ctx->context_z = ({
         stdvec_t *context_z = MALLOC(sizeof(stdvec_t));
         *context_z = stdvec_lazy_copy_range(ctx->context_z, 0, size - 1);
         context_z;
     });
     ctx->context_sf = ({
-        const stdvec_t *z = ctx->context_z;
-        const stdvec_t args = stdvec_singleton(last_a);
-        const literal_t l1 = literal_init(z, true, SF, &args);
-        const literal_t l2 = literal_flip(&l1);
         splitset_t *context_sf = MALLOC(sizeof(splitset_t));
         *context_sf = splitset_lazy_copy(ctx->context_sf);
-        bool removed = splitset_remove(context_sf, &l1) ||
-                       splitset_remove(context_sf, &l2);
-        assert(removed);
         context_sf;
     });
     ctx->query_zs = stdvecset_lazy_copy(&ctx->query_zs);
     ctx->dynamic_setup = setup_init_dynamic(ctx->dynamic_bat, &ctx->hplus,
                 &ctx->query_zs);
 
-    if (!ctx->is_belief) {
-        ctx->u.k.setup = setup_union(&ctx->u.k.static_setup,
-                &ctx->dynamic_setup);
-        setup_add_sensing_results(&ctx->u.k.setup, ctx->context_sf);
-        setup_propagate_units(&ctx->u.k.setup);
-        //setup_minimize(&ctx->u.k.setup);
-        ctx->u.k.pel = setup_pel(&ctx->u.k.setup);
-    } else {
-        ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
-                &ctx->dynamic_setup);
-        bsetup_add_sensing_results(&ctx->u.b.setups, ctx->context_sf);
-        bsetup_propagate_units(&ctx->u.b.setups);
-        //bsetup_minimize(&ctx.u.b.setups);
-        ctx->u.b.pels = bsetup_pels(&ctx->u.b.setups);
+    context_rebuild_setup(ctx);
+}
+
+void context_remove_undone_sf(context_t *ctx)
+{
+    splitset_t *context_sf = MALLOC(sizeof(splitset_t));
+    *context_sf = splitset_init_with_size(splitset_size(ctx->context_sf));
+    for (int i = 1; i < stdvec_size(ctx->context_z); ++i) {
+        const stdvec_t z = stdvec_lazy_copy_range(ctx->context_z, 0, i);
+        const stdname_t n = stdvec_get(ctx->context_z, i);
+        const stdvec_t args = stdvec_singleton(n);
+        literal_t *l1 = MALLOC(sizeof(literal_t));
+        literal_t *l2 = MALLOC(sizeof(literal_t));
+        *l1 = literal_init(&z, true, SF, &args);
+        *l2 = literal_flip(l1);
+        if (splitset_contains(ctx->context_sf, l1)) {
+            splitset_add(context_sf, l1);
+        }
+        if (splitset_contains(ctx->context_sf, l2)) {
+            splitset_add(context_sf, l2);
+        }
     }
+    ctx->context_sf = context_sf;
+    ctx->dynamic_setup = setup_init_dynamic(ctx->dynamic_bat, &ctx->hplus,
+                &ctx->query_zs);
+
+    context_rebuild_setup(ctx);
 }
 
 #ifndef USE_QUERY_CNF
@@ -756,21 +755,7 @@ bool query_entailed(
         }
     }
     if (have_new_static_setup || have_new_dynamic_setup) {
-        if (!ctx->is_belief) {
-            ctx->u.k.setup = setup_union(&ctx->u.k.static_setup,
-                    &ctx->dynamic_setup);
-            setup_add_sensing_results(&ctx->u.k.setup, ctx->context_sf);
-            setup_propagate_units(&ctx->u.k.setup);
-            //setup_minimize(&ctx->u.k.setup);
-            ctx->u.k.pel = setup_pel(&ctx->u.k.setup);
-        } else {
-            ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
-                    &ctx->dynamic_setup);
-            bsetup_add_sensing_results(&ctx->u.b.setups, ctx->context_sf);
-            bsetup_propagate_units(&ctx->u.b.setups);
-            //bsetup_minimize(&ctx->u.b.setups);
-            ctx->u.b.pels = bsetup_pels(&ctx->u.b.setups);
-        }
+        context_rebuild_setup(ctx);
     }
 
 #ifdef USE_QUERY_CNF
