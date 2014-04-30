@@ -348,64 +348,77 @@ void vector_clear(vector_t *vec)
     vec->size = 0;
 }
 
-vector_cursor_t vector_cursor(const vector_t *vec)
+vector_iter_t vector_iter(vector_t *vec, int index)
 {
-    return vector_cursor_from(vec, 0);
-}
-
-vector_cursor_t vector_cursor_from(const vector_t *vec, int index)
-{
-    return (vector_cursor_t) {
+    return (vector_iter_t) {
+        .vec = vec,
         .index = index - 1,
+        .elem = NULL,
         .audience = NULL
-#ifndef NDEBUG
-        , .vec = vec
-#endif
     };
 }
 
-void vector_cursor_add_auditor(vector_cursor_t *cursor,
-        vector_cursor_t *auditor)
+bool vector_iter_next(vector_iter_t *iter)
 {
-    assert(cursor->vec == auditor->vec);
+    const bool r = ++iter->index < iter->vec->size;
+    iter->elem = r ? iter->vec->array[iter->index] : NULL;
+    return r;
+}
+
+const void *vector_iter_get(const vector_iter_t *iter)
+{
+    return iter->elem;
+}
+
+void vector_iter_add_auditor(vector_iter_t *iter, vector_iter_t *auditor)
+{
+    assert(iter->vec == auditor->vec);
     int n;
-    for (n = 0; cursor->audience != NULL && cursor->audience[n] != NULL; ++n) {
+    for (n = 0; iter->audience != NULL && iter->audience[n] != NULL; ++n) {
         // nothing
     }
-    cursor->audience = REALLOC(cursor->audience, (n+2) * sizeof(void *));
-    cursor->audience[n] = auditor;
-    cursor->audience[n+1] = NULL;
+    iter->audience = REALLOC(iter->audience, (n+2) * sizeof(void *));
+    iter->audience[n] = auditor;
+    iter->audience[n+1] = NULL;
 }
 
-bool vector_cursor_has_next(const vector_t *vec, vector_cursor_t *cursor)
+static void dispatch_iter_removals(vector_iter_t *iter, const int index)
 {
-    assert(cursor->vec == vec);
-    return cursor->index + 1 < vec->size;
-}
-
-const void *vector_cursor_next(const vector_t *vec, vector_cursor_t *cursor)
-{
-    assert(cursor->vec == vec);
-    return vector_get(vec, ++cursor->index);
-}
-
-static void dispatch_cursor_removals(vector_cursor_t *cursor, const int index)
-{
-    if (index <= cursor->index) {
-        --cursor->index;
+    if (index <= iter->index) {
+        --iter->index;
     }
-    for (int i = 0; cursor->audience != NULL && cursor->audience[i] != NULL;
+    for (int i = 0; iter->audience != NULL && iter->audience[i] != NULL;
             ++i) {
-        if (index <= cursor->audience[i]->index) {
-            dispatch_cursor_removals(cursor->audience[i], index);
+        if (index <= iter->audience[i]->index) {
+            dispatch_iter_removals(iter->audience[i], index);
         }
     }
 }
 
-void vector_cursor_remove(vector_t *vec, vector_cursor_t *cursor)
+void vector_iter_remove(vector_iter_t *iter)
 {
-    assert(cursor->vec == vec);
-    vector_remove(vec, cursor->index);
-    dispatch_cursor_removals(cursor, cursor->index);
+    vector_remove(iter->vec, iter->index);
+    dispatch_iter_removals(iter, iter->index);
+}
+
+vector_const_iter_t vector_const_iter(const vector_t *vec, int index)
+{
+    return (vector_const_iter_t) {
+        .vec = vec,
+        .index = index - 1,
+        .elem = NULL
+    };
+}
+
+bool vector_const_iter_next(vector_const_iter_t *iter)
+{
+    const bool r = ++iter->index < iter->vec->size;
+    iter->elem = r ? iter->vec->array[iter->index] : NULL;
+    return r;
+}
+
+const void *vector_const_iter_get(const vector_const_iter_t *iter)
+{
+    return iter->elem;
 }
 

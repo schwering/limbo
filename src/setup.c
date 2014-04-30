@@ -2,6 +2,7 @@
 #include "setup.h"
 #include "memory.h"
 #include <assert.h>
+#include <stdlib.h>
 
 #define MAX(x,y)    ((x) > (y) ? (x) : (y))
 #define SWAP(x,y)   ({ typeof(x) tmp = x; x = y; y = tmp; })
@@ -99,7 +100,7 @@ static void ewff_collect_vars(const ewff_t *e, varset_t *vars)
             ewff_collect_vars(e->u.or.e2, vars);
             break;
         default:
-            assert(false);
+            abort();
     }
 }
 
@@ -127,7 +128,7 @@ static void ewff_collect_names(const ewff_t *e, stdset_t *names)
             ewff_collect_names(e->u.or.e2, names);
             break;
         default:
-            assert(false);
+            abort();
     }
 }
 
@@ -157,8 +158,7 @@ bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
             return ewff_eval(e->u.or.e1, varmap) ||
                 ewff_eval(e->u.or.e2, varmap);
         default:
-            assert(false);
-            return false;
+            abort();
     }
 }
 

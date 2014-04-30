@@ -2,6 +2,7 @@
 #include "query.h"
 #include "memory.h"
 #include <assert.h>
+#include <stdlib.h>
 
 enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EX, ACT, EVAL };
 
@@ -54,8 +55,7 @@ static int query_n_vars(const query_t *phi)
         case EVAL:
             return phi->u.eval.n_vars(phi->u.eval.arg);
     }
-    assert(false);
-    return -1;
+    abort();
 }
 
 static stdset_t query_names(const query_t *phi)
@@ -107,8 +107,7 @@ static stdset_t query_names(const query_t *phi)
         case EVAL:
             return phi->u.eval.names(phi->u.eval.arg);
     }
-    assert(false);
-    return stdset_init();
+    abort();
 }
 
 static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
@@ -171,8 +170,7 @@ static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
             // Could be fixed by managing varmap and as part of EVAL structs.
             return phi;
     }
-    assert(false);
-    return NULL;
+    abort();
 }
 
 static const query_t *query_ground_quantifier(bool existential,
@@ -270,8 +268,7 @@ static const query_t *query_ennf_h(
             return psi;
         }
     }
-    assert(false);
-    return NULL;
+    abort();
 }
 
 static const query_t *query_ennf(const stdvec_t *context_z, const query_t *phi,
@@ -298,13 +295,11 @@ static stdvecset_t query_ennf_zs(const query_t *phi)
             return query_ennf_zs(phi->u.un.phi);
         case EX:
         case ACT:
-            assert(false);
-            return stdvecset_init_with_size(0);
+            abort();
         case EVAL:
             return stdvecset_init_with_size(0);
     }
-    assert(false);
-    return stdvecset_init_with_size(0);
+    abort();
 }
 
 static const query_t *query_simplify(
@@ -361,17 +356,15 @@ static const query_t *query_simplify(
             return psi;
         }
         case EX:
-            assert(false);
-            return phi;
+            abort();
         case ACT:
-            assert(false);
-            return phi;
+            abort();
         case EVAL:
             *truth_value = phi->u.eval.eval(&phi->u.eval.context_z,
                     context_sf, phi->u.eval.arg) == phi->u.eval.sign;
             return NULL;
     }
-    assert(false);
+    abort();
 }
 
 #ifdef USE_QUERY_CNF
@@ -413,10 +406,9 @@ static cnf_t query_cnf(const query_t *phi)
         case EX:
         case ACT:
         case EVAL:
-            assert(false);
-            break;
+            abort();
     }
-    assert(false);
+    abort();
 }
 #endif
 
@@ -623,10 +615,7 @@ static void query_entailed_h(context_t *ctx, const query_t *phi, const int k,
     switch (phi->type) {
         case EQ:
         case NEQ:
-            assert(false);
-            *c = NULL;
-            *r = false;
-            break;
+            abort();
         case LIT: {
             literal_t *l = MALLOC(sizeof(literal_t));
             *l = phi->u.lit;
@@ -680,10 +669,7 @@ static void query_entailed_h(context_t *ctx, const query_t *phi, const int k,
         case ACT:
         case EVAL:
         default:
-              assert(false);
-              *c = NULL;
-              *r = false;
-              break;
+          abort();
     }
 }
 #endif

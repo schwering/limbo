@@ -333,34 +333,43 @@ void set_clear(set_t *set)
     vector_clear(&set->vec);
 }
 
-set_cursor_t set_cursor(const set_t *set)
+set_iter_t set_iter(set_t *set, int index)
 {
-    return (set_cursor_t) { .cursor = vector_cursor(&set->vec) };
+    return (set_iter_t) { .iter = vector_iter(&set->vec, index) };
 }
 
-set_cursor_t set_cursor_from(const set_t *set, int index)
+bool set_iter_next(set_iter_t *iter)
 {
-    return (set_cursor_t) { .cursor = vector_cursor_from(&set->vec, index) };
+    return vector_iter_next(&iter->iter);
 }
 
-void set_cursor_add_auditor(set_cursor_t *cursor,
-        set_cursor_t *auditor)
+const void *set_iter_get(const set_iter_t *iter)
 {
-    vector_cursor_add_auditor(&cursor->cursor, &auditor->cursor);
+    return vector_iter_get(&iter->iter);
 }
 
-bool set_cursor_has_next(const set_t *set, set_cursor_t *cursor)
+void set_iter_add_auditor(set_iter_t *iter, set_iter_t *auditor)
 {
-    return vector_cursor_has_next(&set->vec, &cursor->cursor);
+    vector_iter_add_auditor(&iter->iter, &auditor->iter);
 }
 
-const void *set_cursor_next(const set_t *set, set_cursor_t *cursor)
+void set_iter_remove(set_iter_t *iter)
 {
-    return vector_cursor_next(&set->vec, &cursor->cursor);
+    vector_iter_remove(&iter->iter);
 }
 
-void set_cursor_remove(set_t *set, set_cursor_t *cursor)
+set_const_iter_t set_const_iter(const set_t *set, int index)
 {
-    vector_cursor_remove(&set->vec, &cursor->cursor);
+    return (set_const_iter_t) { .iter = vector_const_iter(&set->vec, index) };
+}
+
+bool set_const_iter_next(set_const_iter_t *iter)
+{
+    return vector_const_iter_next(&iter->iter);
+}
+
+const void *set_const_iter_get(const set_const_iter_t *iter)
+{
+    return vector_const_iter_get(&iter->iter);
 }
 

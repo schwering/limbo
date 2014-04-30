@@ -6,6 +6,7 @@
 *.log
 *.trs
 .deps
+*.gcda
 ltmain.sh
 libtool
 m4/

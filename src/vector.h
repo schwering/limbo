@@ -50,13 +50,18 @@ typedef struct {
     int size;
 } vector_t;
 
-typedef struct vector_cursor vector_cursor_t;
-struct vector_cursor {
-    int index;
-    vector_cursor_t **audience;
-#ifndef NDEBUG
+typedef struct {
     const vector_t *vec;
-#endif
+    int index;
+    const void *elem;
+} vector_const_iter_t;
+
+typedef struct vector_iter vector_iter_t;
+struct vector_iter {
+    vector_t *vec;
+    int index;
+    const void *elem;
+    vector_iter_t **audience;
 };
 
 vector_t vector_init(void);
@@ -109,17 +114,20 @@ void vector_remove_range(vector_t *vec, int from, int to);
 void vector_remove_all(vector_t *vec, const int indices[], int n_indices);
 void vector_clear(vector_t *vec);
 
-vector_cursor_t vector_cursor(const vector_t *vec);
-vector_cursor_t vector_cursor_from(const vector_t *vec, int index);
-void vector_cursor_add_auditor(vector_cursor_t *cursor,
-        vector_cursor_t *auditor);
-bool vector_cursor_has_next(const vector_t *vec, vector_cursor_t *cursor);
-const void *vector_cursor_next(const vector_t *vec, vector_cursor_t *cursor);
-void vector_cursor_remove(vector_t *vec, vector_cursor_t *cursor);
+vector_iter_t vector_iter(vector_t *vec, int index);
+bool vector_iter_next(vector_iter_t *iter);
+const void *vector_iter_get(const vector_iter_t *iter);
+void vector_iter_add_auditor(vector_iter_t *iter, vector_iter_t *auditor);
+void vector_iter_remove(vector_iter_t *iter);
+
+vector_const_iter_t vector_const_iter(const vector_t *vec, int index);
+bool vector_const_iter_next(vector_const_iter_t *iter);
+const void *vector_const_iter_get(const vector_const_iter_t *iter);
 
 #define VECTOR_DECL(prefix, type) \
     typedef union { vector_t v; } prefix##_t;\
-    typedef union { vector_cursor_t c; } prefix##_cursor_t;\
+    typedef union { vector_iter_t i; } prefix##_iter_t;\
+    typedef union { vector_const_iter_t i; } prefix##_const_iter_t;\
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
     prefix##_t prefix##_copy(const prefix##_t *src);\
@@ -162,15 +170,12 @@ void vector_cursor_remove(vector_t *vec, vector_cursor_t *cursor);
     void prefix##_remove_all(prefix##_t *v, const int indices[],\
             int n_indices);\
     void prefix##_clear(prefix##_t *v);\
-    prefix##_cursor_t prefix##_cursor(const prefix##_t *vec);\
-    prefix##_cursor_t prefix##_cursor_from(const prefix##_t *vec, int index);\
-    void prefix##_cursor_add_auditor(prefix##_cursor_t *cursor,\
-            prefix##_cursor_t *auditor);\
-    bool prefix##_cursor_has_next(const prefix##_t *vec,\
-            prefix##_cursor_t *cursor);\
-    const type prefix##_cursor_next(const prefix##_t *vec,\
-            prefix##_cursor_t *cursor);\
-    void prefix##_cursor_remove(prefix##_t *vec, prefix##_cursor_t *cursor);
+    prefix##_iter_t prefix##_iter(prefix##_t *vec, int index);\
+    bool prefix##_iter_has_next(prefix##_iter_t *iter);\
+    const type prefix##_iter_get(const prefix##_iter_t *iter);\
+    void prefix##_iter_add_auditor(prefix##_iter_t *iter,\
+            prefix##_iter_t *auditor);\
+    void prefix##_iter_remove(prefix##_iter_t *iter);
 
 #define VECTOR_IMPL(prefix, type, compar) \
     prefix##_t prefix##_init(void) {\
@@ -258,21 +263,17 @@ void vector_cursor_remove(vector_t *vec, vector_cursor_t *cursor);
         vector_remove_all(&v->v, indices, n_indices); }\
     void prefix##_clear(prefix##_t *v) {\
         vector_clear(&v->v); }\
-    prefix##_cursor_t prefix##_cursor(const prefix##_t *vec) {\
-        return (prefix##_cursor_t) { .c = vector_cursor(&vec->v) }; }\
-    prefix##_cursor_t prefix##_cursor_from(const prefix##_t *vec, int index) {\
-        return (prefix##_cursor_t) { .c = vector_cursor_from(&vec->v, index) }; }\
-    void prefix##_cursor_add_auditor(prefix##_cursor_t *cursor,\
-            prefix##_cursor_t *auditor) {\
-        vector_cursor_add_auditor(&cursor->c, &auditor->c); }\
-    bool prefix##_cursor_has_next(const prefix##_t *vec,\
-            prefix##_cursor_t *cursor) {\
-        return vector_cursor_has_next(&vec->v, &cursor->c); }\
-    const type prefix##_cursor_next(const prefix##_t *vec,\
-            prefix##_cursor_t *cursor) {\
-        return (const type) vector_cursor_next(&vec->v, &cursor->c); }\
-    void prefix##_cursor_remove(prefix##_t *vec, prefix##_cursor_t *cursor) {\
-        return vector_cursor_remove(&vec->v, &cursor->c); }
+    prefix##_iter_t prefix##_iter(prefix##_t *vec, int index) {\
+        return (prefix##_iter_t) { .i = vector_iter(&vec->v, index) }; }\
+    bool prefix##_iter_next(prefix##_iter_t *iter) {\
+        return vector_iter_next(&iter->i); }\
+    const type prefix##_iter_get(const prefix##_iter_t *iter) {\
+        return (const type) vector_iter_get(&iter->i); }\
+    void prefix##_iter_add_auditor(prefix##_iter_t *iter,\
+            prefix##_iter_t *auditor) {\
+        vector_iter_add_auditor(&iter->i, &auditor->i); }\
+    void prefix##_iter_remove(prefix##_iter_t *iter) {\
+        return vector_iter_remove(&iter->i); }
 
 #endif
 

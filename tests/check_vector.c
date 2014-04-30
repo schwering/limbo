@@ -192,7 +192,7 @@ START_TEST(test_vector_cmp)
 }
 END_TEST
 
-START_TEST(test_vector_cursor)
+START_TEST(test_vector_iter)
 {
     ivec_t vec1 = ivec_init();
     for (int i = 0; i < 100; ++i) {
@@ -200,58 +200,55 @@ START_TEST(test_vector_cursor)
     }
     int n;
     n = 0;
-    for (ivec_cursor_t c = ivec_cursor(&vec1);
-            ivec_cursor_has_next(&vec1, &c); ++n) {
-        int i = ivec_cursor_next(&vec1, &c);
-        ck_assert_int_eq(i, n);
+    for (ivec_iter_t c = ivec_iter(&vec1, 0); ivec_iter_next(&c); ++n) {
+        ck_assert_int_eq(ivec_iter_get(&c), n);
     }
     ck_assert_int_eq(ivec_size(&vec1), 100);
     ck_assert_int_eq(n, 100);
     n = 0;
-    for (ivec_cursor_t c = ivec_cursor(&vec1);
-            ivec_cursor_has_next(&vec1, &c); ++n) {
-        int i = ivec_cursor_next(&vec1, &c);
-        ivec_cursor_remove(&vec1, &c);
-        ck_assert_int_eq(i, n);
+    for (ivec_iter_t c = ivec_iter(&vec1, 0); ivec_iter_next(&c); ++n) {
+        ck_assert_int_eq(ivec_iter_get(&c), n);
+        ivec_iter_remove(&c);
+        ck_assert_int_eq(ivec_iter_get(&c), n);
     }
     ck_assert_int_eq(ivec_size(&vec1), 0);
     ck_assert_int_eq(n, 100);
-    ivec_cursor_t c1 = ivec_cursor(&vec1);
-    ivec_cursor_t c2 = ivec_cursor(&vec1);
-    ivec_cursor_t c3 = ivec_cursor(&vec1);
-    ivec_cursor_t c4 = ivec_cursor(&vec1);
-    ivec_cursor_add_auditor(&c1, &c2);
-    ivec_cursor_add_auditor(&c1, &c3);
+    ivec_iter_t c1 = ivec_iter(&vec1, 0);
+    ivec_iter_t c2 = ivec_iter(&vec1, 0);
+    ivec_iter_t c3 = ivec_iter(&vec1, 0);
+    ivec_iter_t c4 = ivec_iter(&vec1, 0);
+    ivec_iter_add_auditor(&c1, &c2);
+    ivec_iter_add_auditor(&c1, &c3);
     for (int i = 0; i < 100; ++i) {
         ivec_append(&vec1, i);
     }
     for (int i = 0; i < 100; ++i) {
         if (i < 25) {
-            ck_assert(ivec_cursor_has_next(&vec1, &c1));
-            int j = ivec_cursor_next(&vec1, &c1);
+            ck_assert(ivec_iter_next(&c1));
+            int j = ivec_iter_get(&c1);
             ck_assert_int_eq(i, j);
-            ivec_cursor_remove(&vec1, &c1);
+            ivec_iter_remove(&c1);
         } else if (i < 50) {
-            ck_assert(ivec_cursor_has_next(&vec1, &c2));
-            int j = ivec_cursor_next(&vec1, &c2);
+            ck_assert(ivec_iter_next(&c2));
+            int j = ivec_iter_get(&c2);
             ck_assert_int_eq(i, j);
-            ivec_cursor_remove(&vec1, &c2);
+            ivec_iter_remove(&c2);
         } else if (i < 75) {
-            ck_assert(ivec_cursor_has_next(&vec1, &c3));
-            int j = ivec_cursor_next(&vec1, &c3);
+            ck_assert(ivec_iter_next(&c3));
+            int j = ivec_iter_get(&c3);
             ck_assert_int_eq(i, j);
-            ivec_cursor_remove(&vec1, &c3);
+            ivec_iter_remove(&c3);
         } else {
-            ck_assert(ivec_cursor_has_next(&vec1, &c1));
-            int j = ivec_cursor_next(&vec1, &c1);
+            ck_assert(ivec_iter_next(&c1));
+            int j = ivec_iter_get(&c1);
             ck_assert_int_eq(i, j);
-            ivec_cursor_remove(&vec1, &c1);
+            ivec_iter_remove(&c1);
         }
     }
-    ck_assert(!ivec_cursor_has_next(&vec1, &c1));
-    ck_assert(!ivec_cursor_has_next(&vec1, &c2));
-    ck_assert(!ivec_cursor_has_next(&vec1, &c3));
-    ck_assert(!ivec_cursor_has_next(&vec1, &c4));
+    ck_assert(!ivec_iter_next(&c1));
+    ck_assert(!ivec_iter_next(&c2));
+    ck_assert(!ivec_iter_next(&c3));
+    ck_assert(!ivec_iter_next(&c4));
 }
 END_TEST
 
@@ -264,7 +261,7 @@ Suite *ivec_suite(void)
   tcase_add_test(tc_core, test_vector_remove_range);
   tcase_add_test(tc_core, test_vector_remove_all);
   tcase_add_test(tc_core, test_vector_cmp);
-  tcase_add_test(tc_core, test_vector_cursor);
+  tcase_add_test(tc_core, test_vector_iter);
   suite_add_tcase(s, tc_core);
   return s;
 }
