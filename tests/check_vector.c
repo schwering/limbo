@@ -202,14 +202,17 @@ START_TEST(test_vector_iter)
     n = 0;
     for (ivec_iter_t c = ivec_iter(&vec1, 0); ivec_iter_next(&c); ++n) {
         ck_assert_int_eq(ivec_iter_get(&c), n);
+        ck_assert_int_eq(ivec_iter_get(&c), c.val);
     }
     ck_assert_int_eq(ivec_size(&vec1), 100);
     ck_assert_int_eq(n, 100);
     n = 0;
     for (ivec_iter_t c = ivec_iter(&vec1, 0); ivec_iter_next(&c); ++n) {
         ck_assert_int_eq(ivec_iter_get(&c), n);
+        ck_assert_int_eq(ivec_iter_get(&c), c.val);
         ivec_iter_remove(&c);
         ck_assert_int_eq(ivec_iter_get(&c), n);
+        ck_assert_int_eq(ivec_iter_get(&c), c.val);
     }
     ck_assert_int_eq(ivec_size(&vec1), 0);
     ck_assert_int_eq(n, 100);
@@ -227,21 +230,25 @@ START_TEST(test_vector_iter)
             ck_assert(ivec_iter_next(&c1));
             int j = ivec_iter_get(&c1);
             ck_assert_int_eq(i, j);
+            ck_assert_int_eq(j, c1.val);
             ivec_iter_remove(&c1);
         } else if (i < 50) {
             ck_assert(ivec_iter_next(&c2));
             int j = ivec_iter_get(&c2);
             ck_assert_int_eq(i, j);
+            ck_assert_int_eq(j, c2.val);
             ivec_iter_remove(&c2);
         } else if (i < 75) {
             ck_assert(ivec_iter_next(&c3));
             int j = ivec_iter_get(&c3);
             ck_assert_int_eq(i, j);
+            ck_assert_int_eq(j, c3.val);
             ivec_iter_remove(&c3);
         } else {
             ck_assert(ivec_iter_next(&c1));
             int j = ivec_iter_get(&c1);
             ck_assert_int_eq(i, j);
+            ck_assert_int_eq(j, c1.val);
             ivec_iter_remove(&c1);
         }
     }

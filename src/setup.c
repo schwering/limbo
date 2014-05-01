@@ -171,8 +171,8 @@ static void ewff_ground_h(
 {
     if (varmap_size(varmap) < varset_size(vars)) {
         const var_t x = varset_get(vars, varmap_size(varmap));
-        for (int i = 0; i < stdset_size(hplus); ++i) {
-            const stdname_t n = stdset_get(hplus, i);
+        for (EACH_CONST(stdset, hplus, i)) {
+            const stdname_t n = i.val;
             varmap_add_replace(varmap, x, n);
             ewff_ground_h(e, vars, hplus, ground, varmap);
         }

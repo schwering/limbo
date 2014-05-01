@@ -115,8 +115,9 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
 
 #define SET_DECL(prefix, type) \
     typedef union { set_t s; } prefix##_t;\
-    typedef union { set_iter_t i; } prefix##_iter_t;\
-    typedef union { set_const_iter_t i; } prefix##_const_iter_t;\
+    typedef union { const type const val; set_iter_t i; } prefix##_iter_t;\
+    typedef union\
+        { const type const val; set_const_iter_t i; } prefix##_const_iter_t;\
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
     prefix##_t prefix##_copy(const prefix##_t *src);\
@@ -151,12 +152,16 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
             const type new_elem);\
     int prefix##_replace_index(prefix##_t *s, int index, const type new_elem);\
     void prefix##_clear(prefix##_t *s);\
-    prefix##_iter_t prefix##_iter(prefix##_t *vec, int index);\
+    prefix##_iter_t prefix##_iter(prefix##_t *set, int index);\
     bool prefix##_iter_next(prefix##_iter_t *iter);\
     const type prefix##_iter_get(const prefix##_iter_t *iter);\
     void prefix##_iter_add_auditor(prefix##_iter_t *iter,\
             prefix##_iter_t *auditor);\
-    void prefix##_iter_remove(prefix##_iter_t *iter);
+    void prefix##_iter_remove(prefix##_iter_t *iter);\
+    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *set,\
+            int index);\
+    bool prefix##_const_iter_next(prefix##_const_iter_t *iter);\
+    const type prefix##_const_iter_get(const prefix##_const_iter_t *iter);
 
 #define SET_IMPL(prefix, type, compar) \
     prefix##_t prefix##_init(void) {\
@@ -233,12 +238,21 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
             prefix##_iter_t *auditor) {\
         set_iter_add_auditor(&iter->i, &auditor->i); }\
     void prefix##_iter_remove(prefix##_iter_t *iter) {\
-        return set_iter_remove(&iter->i); }
+        return set_iter_remove(&iter->i); }\
+    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *set,\
+            int index) {\
+        return (prefix##_const_iter_t) {\
+            .i = set_const_iter(&set->s, index) }; }\
+    bool prefix##_const_iter_next(prefix##_const_iter_t *iter) {\
+        return set_const_iter_next(&iter->i); }\
+    const type prefix##_const_iter_get(const prefix##_const_iter_t *iter) {\
+        return (const type) set_const_iter_get(&iter->i); }
 
 #define SET_ALIAS(alias, prefix, type) \
     typedef union { prefix##_t s; } alias##_t;\
-    typedef union { prefix##_iter_t i; } alias##_iter_t;\
-    typedef union { prefix##_iter_t i; } alias##_const_iter_t;\
+    typedef union { const type const val; prefix##_iter_t i; } alias##_iter_t;\
+    typedef union {\
+        const type const val; prefix##_const_iter_t i; } alias##_const_iter_t;\
     static inline alias##_t alias##_init(void) {\
          return (alias##_t) { .s = prefix##_init() }; }\
     static inline alias##_t alias##_init_with_size(int size) {\
@@ -323,7 +337,16 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
             alias##_iter_t *auditor) {\
         prefix##_iter_add_auditor(&iter->i, &auditor->i); }\
     static inline void alias##_iter_remove(alias##_iter_t *iter) {\
-        return prefix##_iter_remove(&iter->i); }
+        return prefix##_iter_remove(&iter->i); }\
+    static inline alias##_const_iter_t alias##_const_iter(const alias##_t *set,\
+            int index) {\
+        return (alias##_const_iter_t) {\
+            .i = prefix##_const_iter(&set->s, index) }; }\
+    static inline bool alias##_const_iter_next(alias##_const_iter_t *iter) {\
+        return prefix##_const_iter_next(&iter->i); }\
+    static inline const type alias##_const_iter_get(\
+            alias##_const_iter_t *iter) {\
+        return (const type) prefix##_const_iter_get(&iter->i); }
 
 #endif
 

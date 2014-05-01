@@ -351,74 +351,78 @@ void vector_clear(vector_t *vec)
 vector_iter_t vector_iter(vector_t *vec, int index)
 {
     return (vector_iter_t) {
-        .vec = vec,
-        .index = index - 1,
-        .elem = NULL,
-        .audience = NULL
+        .i = {
+            .elem = NULL,
+            .vec = vec,
+            .index = index - 1,
+            .audience = NULL
+        }
     };
 }
 
 bool vector_iter_next(vector_iter_t *iter)
 {
-    const bool r = ++iter->index < iter->vec->size;
-    iter->elem = r ? iter->vec->array[iter->index] : NULL;
+    const bool r = ++iter->i.index < iter->i.vec->size;
+    iter->i.elem = r ? iter->i.vec->array[iter->i.index] : NULL;
     return r;
 }
 
 const void *vector_iter_get(const vector_iter_t *iter)
 {
-    return iter->elem;
+    return iter->i.elem;
 }
 
 void vector_iter_add_auditor(vector_iter_t *iter, vector_iter_t *auditor)
 {
-    assert(iter->vec == auditor->vec);
+    assert(iter->i.vec == auditor->i.vec);
     int n;
-    for (n = 0; iter->audience != NULL && iter->audience[n] != NULL; ++n) {
+    for (n = 0; iter->i.audience != NULL && iter->i.audience[n] != NULL; ++n) {
         // nothing
     }
-    iter->audience = REALLOC(iter->audience, (n+2) * sizeof(void *));
-    iter->audience[n] = auditor;
-    iter->audience[n+1] = NULL;
+    iter->i.audience = REALLOC(iter->i.audience, (n+2) * sizeof(void *));
+    iter->i.audience[n] = auditor;
+    iter->i.audience[n+1] = NULL;
 }
 
 static void dispatch_iter_removals(vector_iter_t *iter, const int index)
 {
-    if (index <= iter->index) {
-        --iter->index;
+    if (index <= iter->i.index) {
+        --iter->i.index;
     }
-    for (int i = 0; iter->audience != NULL && iter->audience[i] != NULL;
+    for (int i = 0; iter->i.audience != NULL && iter->i.audience[i] != NULL;
             ++i) {
-        if (index <= iter->audience[i]->index) {
-            dispatch_iter_removals(iter->audience[i], index);
+        if (index <= iter->i.audience[i]->i.index) {
+            dispatch_iter_removals(iter->i.audience[i], index);
         }
     }
 }
 
 void vector_iter_remove(vector_iter_t *iter)
 {
-    vector_remove(iter->vec, iter->index);
-    dispatch_iter_removals(iter, iter->index);
+    vector_remove(iter->i.vec, iter->i.index);
+    dispatch_iter_removals(iter, iter->i.index);
 }
 
 vector_const_iter_t vector_const_iter(const vector_t *vec, int index)
 {
     return (vector_const_iter_t) {
-        .vec = vec,
-        .index = index - 1,
-        .elem = NULL
+        .i = {
+            .elem = NULL,
+            .vec = vec,
+            .index = index - 1
+        }
     };
 }
 
 bool vector_const_iter_next(vector_const_iter_t *iter)
 {
-    const bool r = ++iter->index < iter->vec->size;
-    iter->elem = r ? iter->vec->array[iter->index] : NULL;
+    const bool r = ++iter->i.index < iter->i.vec->size;
+    iter->i.elem = r ? iter->i.vec->array[iter->i.index] : NULL;
     return r;
 }
 
 const void *vector_const_iter_get(const vector_const_iter_t *iter)
 {
-    return iter->elem;
+    return iter->i.elem;
 }
 
