@@ -352,9 +352,9 @@ vector_iter_t vector_iter(vector_t *vec, int index)
 {
     return (vector_iter_t) {
         .i = {
-            .elem = NULL,
-            .vec = vec,
+            .val = NULL,
             .index = index - 1,
+            .vec = vec,
             .audience = NULL
         }
     };
@@ -363,13 +363,18 @@ vector_iter_t vector_iter(vector_t *vec, int index)
 bool vector_iter_next(vector_iter_t *iter)
 {
     const bool r = ++iter->i.index < iter->i.vec->size;
-    iter->i.elem = r ? iter->i.vec->array[iter->i.index] : NULL;
+    iter->i.val = r ? iter->i.vec->array[iter->i.index] : NULL;
     return r;
 }
 
 const void *vector_iter_get(const vector_iter_t *iter)
 {
-    return iter->i.elem;
+    return iter->i.val;
+}
+
+int vector_iter_index(const vector_iter_t *iter)
+{
+    return iter->i.index;
 }
 
 void vector_iter_add_auditor(vector_iter_t *iter, vector_iter_t *auditor)
@@ -384,7 +389,7 @@ void vector_iter_add_auditor(vector_iter_t *iter, vector_iter_t *auditor)
     iter->i.audience[n+1] = NULL;
 }
 
-static void dispatch_iter_removals(vector_iter_t *iter, const int index)
+void vector_iter_dispatch_removals(vector_iter_t *iter, const int index)
 {
     if (index <= iter->i.index) {
         --iter->i.index;
@@ -392,7 +397,7 @@ static void dispatch_iter_removals(vector_iter_t *iter, const int index)
     for (int i = 0; iter->i.audience != NULL && iter->i.audience[i] != NULL;
             ++i) {
         if (index <= iter->i.audience[i]->i.index) {
-            dispatch_iter_removals(iter->i.audience[i], index);
+            vector_iter_dispatch_removals(iter->i.audience[i], index);
         }
     }
 }
@@ -400,16 +405,21 @@ static void dispatch_iter_removals(vector_iter_t *iter, const int index)
 void vector_iter_remove(vector_iter_t *iter)
 {
     vector_remove(iter->i.vec, iter->i.index);
-    dispatch_iter_removals(iter, iter->i.index);
+    vector_iter_dispatch_removals(iter, iter->i.index);
+}
+
+void vector_iter_replace(vector_iter_t *iter, const void *new_elem)
+{
+    vector_set(iter->i.vec, iter->i.index, new_elem);
 }
 
 vector_const_iter_t vector_const_iter(const vector_t *vec, int index)
 {
     return (vector_const_iter_t) {
         .i = {
-            .elem = NULL,
-            .vec = vec,
-            .index = index - 1
+            .val = NULL,
+            .index = index - 1,
+            .vec = vec
         }
     };
 }
@@ -417,12 +427,12 @@ vector_const_iter_t vector_const_iter(const vector_t *vec, int index)
 bool vector_const_iter_next(vector_const_iter_t *iter)
 {
     const bool r = ++iter->i.index < iter->i.vec->size;
-    iter->i.elem = r ? iter->i.vec->array[iter->i.index] : NULL;
+    iter->i.val = r ? iter->i.vec->array[iter->i.index] : NULL;
     return r;
 }
 
 const void *vector_const_iter_get(const vector_const_iter_t *iter)
 {
-    return iter->i.elem;
+    return iter->i.val;
 }
 

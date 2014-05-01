@@ -28,14 +28,20 @@
  * [indicated range of the] source is at the respective index of the target,
  * followed by the remaining elements from [the range of] the target.
  *
+ * There are (const) iterators. The non-const version also supports removal and
+ * replacement of the current element. [const_]iter_next() advances to the next
+ * element and must be called before accessing the first element.
+ * The element can be accessed with the attributes val and val_unsafe in
+ * vector_[const_]iter_t. This safes typing over vector_[const_]iter_get().
+ * For further convience there are macros EACH[_CONST][_FROM] which are supposed
+ * to be used within the brackets of a for-loop.
+ * Other containers like sets (for now, only sets) implement the same interface.
+ *
  * Indices start at 0.
  *
  * For all functions with _range in its name: the from index is meant
  * inclusively, the to index is exclusive. That is, the range has (to - from)
  * elements.
- *
- * For typesafe usage there is a MAP macro which declares appropriate wrapper
- * functions.
  *
  * schwering@kbsg.rwth-aachen.de
  */
@@ -52,10 +58,12 @@ typedef struct {
 
 union vector_const_iter {
     const void * const val;
+    void * const val_unsafe;
+    const int index;
     struct {
-        const void *elem;
-        const vector_t *vec;
+        const void *val;
         int index;
+        const vector_t *vec;
     } i;
 };
 typedef union vector_const_iter vector_const_iter_t;
@@ -63,8 +71,10 @@ typedef union vector_const_iter vector_const_iter_t;
 typedef union vector_iter vector_iter_t;
 union vector_iter {
     const void * const val;
+    void * const val_unsafe;
+    const int index;
     struct {
-        const void *elem;
+        const void *val;
         vector_t *vec;
         int index;
         vector_iter_t **audience;
@@ -124,8 +134,11 @@ void vector_clear(vector_t *vec);
 vector_iter_t vector_iter(vector_t *vec, int index);
 bool vector_iter_next(vector_iter_t *iter);
 const void *vector_iter_get(const vector_iter_t *iter);
+int vector_iter_index(const vector_iter_t *iter);
 void vector_iter_add_auditor(vector_iter_t *iter, vector_iter_t *auditor);
+void vector_iter_dispatch_removals(vector_iter_t *iter, const int index);
 void vector_iter_remove(vector_iter_t *iter);
+void vector_iter_replace(vector_iter_t *iter, const void *new_elem);
 
 #define EACH(prefix, container, itername) \
     EACH_FROM(prefix, container, itername, 0)
@@ -145,9 +158,16 @@ const void *vector_const_iter_get(const vector_const_iter_t *iter);
 
 #define VECTOR_DECL(prefix, type) \
     typedef union { vector_t v; } prefix##_t;\
-    typedef union { const type const val; vector_iter_t i; } prefix##_iter_t;\
     typedef union {\
-        const type const val; vector_const_iter_t i; } prefix##_const_iter_t;\
+        const type const val;\
+        type const val_unsafe;\
+        vector_iter_t i;\
+    } prefix##_iter_t;\
+    typedef union {\
+        const type const val;\
+        type const val_unsafe;\
+        vector_const_iter_t i;\
+    } prefix##_const_iter_t;\
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
     prefix##_t prefix##_copy(const prefix##_t *src);\
@@ -193,9 +213,11 @@ const void *vector_const_iter_get(const vector_const_iter_t *iter);
     prefix##_iter_t prefix##_iter(prefix##_t *vec, int index);\
     bool prefix##_iter_next(prefix##_iter_t *iter);\
     const type prefix##_iter_get(const prefix##_iter_t *iter);\
+    int prefix##_iter_index(const prefix##_iter_t *iter);\
     void prefix##_iter_add_auditor(prefix##_iter_t *iter,\
             prefix##_iter_t *auditor);\
     void prefix##_const_iter_remove(prefix##_const_iter_t *iter);\
+    void prefix##_iter_replace(prefix##_iter_t *iter, const type new_elem);\
     prefix##_const_iter_t prefix##_const_iter(const prefix##_t *vec,\
             int index);\
     bool prefix##_const_iter_next(prefix##_const_iter_t *iter);\
@@ -294,11 +316,15 @@ const void *vector_const_iter_get(const vector_const_iter_t *iter);
         return vector_iter_next(&iter->i); }\
     const type prefix##_iter_get(const prefix##_iter_t *iter) {\
         return (const type) vector_iter_get(&iter->i); }\
+    int prefix##_iter_index(const prefix##_iter_t *iter) {\
+        return vector_iter_index(&iter->i); }\
     void prefix##_iter_add_auditor(prefix##_iter_t *iter,\
             prefix##_iter_t *auditor) {\
         vector_iter_add_auditor(&iter->i, &auditor->i); }\
     void prefix##_iter_remove(prefix##_iter_t *iter) {\
         return vector_iter_remove(&iter->i); }\
+    void prefix##_iter_replace(prefix##_iter_t *iter, const type new_elem) {\
+        return vector_iter_replace(&iter->i, (const void *) new_elem); }\
     prefix##_const_iter_t prefix##_const_iter(const prefix##_t *vec,\
             int index) {\
         return (prefix##_const_iter_t) {\

@@ -1,4 +1,14 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+/*
+ * The value returned by set_add() and set_replace[_index]() is the index i at
+ * which the new element is stored unless it was present before already; in
+ * the latter case, 2*i-1 is returned. Use the macro ELEM_WAS_IN_SET to check
+ * if the index indicates that the element was present before and
+ * REAL_SET_INDEX to convert i or 2*i-1 to i, and UNREAL_SET_INDEX to convert i
+ * or 2*i-1 to 2*i-1.
+ * The most common purpose of these index computations is to adjust the loop
+ * counting variable appropriately after such an action.
+ */
 #include "set.h"
 #include "memory.h"
 #include <assert.h>
@@ -10,6 +20,11 @@
     ((set)->compar != NULL ?\
      (set)->compar((left), (right)) :\
      (left) - (right))
+
+
+#define ELEM_WAS_IN_SET(i)  ((i) < 0)
+#define UNREAL_SET_INDEX(i) (ELEM_WAS_IN_SET(i) ? (i) : -1 * (i) - 1)
+#define REAL_SET_INDEX(i)   (ELEM_WAS_IN_SET(i) ? -1 * ((i) + 1) : (i))
 
 static inline int search(const set_t *set, const void *obj, int lo, int hi)
 {
@@ -43,7 +58,7 @@ static inline int insert_pos(const set_t *set, const void *obj, int lo, int hi)
         const int i = (lo + hi) / 2;
         const int cmp = COMPAR(set, obj, vector_get(&set->vec, i));
         if (cmp == 0) { // element already present
-            return -1 * i - 1;
+            return UNREAL_SET_INDEX(i);
         } else if (cmp <= 0) { // left half
             if (i == 0 || COMPAR(set, obj, vector_get(&set->vec, i-1)) > 0) {
                 // position found
@@ -348,6 +363,11 @@ const void *set_iter_get(const set_iter_t *iter)
     return vector_iter_get(&iter->iter);
 }
 
+int set_iter_index(const set_iter_t *iter)
+{
+    return vector_iter_index(&iter->iter);
+}
+
 void set_iter_add_auditor(set_iter_t *iter, set_iter_t *auditor)
 {
     vector_iter_add_auditor(&iter->iter, &auditor->iter);
@@ -356,6 +376,17 @@ void set_iter_add_auditor(set_iter_t *iter, set_iter_t *auditor)
 void set_iter_remove(set_iter_t *iter)
 {
     vector_iter_remove(&iter->iter);
+}
+
+int set_iter_replace(set_iter_t *iter, const void *new_elem)
+{
+    set_t *set = (set_t *) iter->iter.i.vec;
+    const int i = iter->iter.i.index;
+    const int j = set_replace_index(set, i, new_elem);
+    if (ELEM_WAS_IN_SET(j) || i < REAL_SET_INDEX(j)) {
+        vector_iter_dispatch_removals(&iter->iter, i);
+    }
+    return j;
 }
 
 set_const_iter_t set_const_iter(const set_t *set, int index)

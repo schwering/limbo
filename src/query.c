@@ -73,11 +73,11 @@ static stdset_t query_names(const query_t *phi)
             const stdvec_t *args = literal_args(&phi->u.lit);
             stdset_t set = stdset_init_with_size(
                     stdvec_size(z) + stdvec_size(args));
-            for (int i = 0; i < stdvec_size(z); ++i) {
-                stdset_add(&set, stdvec_get(z, i));
+            for (EACH_CONST(stdvec, z, i)) {
+                stdset_add(&set, i.val);
             }
-            for (int i = 0; i < stdvec_size(args); ++i) {
-                stdset_add(&set, stdvec_get(args, i));
+            for (EACH_CONST(stdvec, args, i)) {
+                stdset_add(&set, i.val);
             }
             return set;
         }
@@ -129,16 +129,16 @@ static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
             } else {
                 stdvec_t *z = MALLOC(sizeof(stdvec_t));
                 *z = stdvec_lazy_copy(literal_z(l));
-                for (int i = 0; i < stdvec_size(z); ++i) {
-                    if (stdvec_get(z, i) == x) {
-                        stdvec_set(z, i, n);
+                for (EACH(stdvec, z, i)) {
+                    if (i.val == x) {
+                        stdvec_iter_replace(&i, n);
                     }
                 }
                 stdvec_t *args = MALLOC(sizeof(stdvec_t));
                 *args = stdvec_lazy_copy(literal_args(l));
-                for (int i = 0; i < stdvec_size(args); ++i) {
-                    if (stdvec_get(args, i) == x) {
-                        stdvec_set(args, i, n);
+                for (EACH(stdvec, args, i)) {
+                    if (i.val == x) {
+                        stdvec_iter_replace(&i, n);
                     }
                 }
                 literal_t *l = MALLOC(sizeof(literal_t));
@@ -384,10 +384,10 @@ static cnf_t query_cnf(const query_t *phi)
             cnf_t cnf1 = query_cnf(phi->u.bin.phi1);
             cnf_t cnf2 = query_cnf(phi->u.bin.phi2);
             cnf_t cnf = cnf_init_with_size(cnf_size(&cnf1) * cnf_size(&cnf2));
-            for (int i = 0; i < cnf_size(&cnf1); ++i) {
-                for (int j = 0; j < cnf_size(&cnf2); ++j) {
-                    const clause_t *c1 = cnf_get(&cnf1, i);
-                    const clause_t *c2 = cnf_get(&cnf2, j);
+            for (EACH_CONST(cnf, &cnf1, i)) {
+                for (EACH_CONST(cnf, &cnf2, j)) {
+                    const clause_t *c1 = i.val;
+                    const clause_t *c2 = j.val;
                     clause_t *c = MALLOC(sizeof(clause_t));
                     *c = clause_union(c1, c2);
                     cnf_add(&cnf, c);
@@ -730,9 +730,9 @@ bool query_entailed(
         stdvecset_t zs = query_ennf_zs(phi);
         if (have_new_hplus || !stdvecset_contains_all(&ctx->query_zs, &zs)) {
             ctx->query_zs = stdvecset_init_with_size(stdvecset_size(&zs));
-            for (int i = 0; i < stdvecset_size(&zs); ++i) {
+            for (EACH_CONST(stdvecset, &zs, i)) {
                 stdvec_t *z = MALLOC(sizeof(stdvec_t));
-                *z = stdvec_copy(stdvecset_get(&zs, i));
+                *z = stdvec_copy(i.val);
                 stdvecset_add(&ctx->query_zs, z);
             }
             ctx->dynamic_setup = setup_init_dynamic(ctx->dynamic_bat,
@@ -747,8 +747,11 @@ bool query_entailed(
 #ifdef USE_QUERY_CNF
     cnf_t cnf = query_cnf(phi);
     truth_value = true;
-    for (int i = 0; i < cnf_size(&cnf) && truth_value; ++i) {
-        const clause_t *c = cnf_get(&cnf, i);
+    for (EACH_CONST(cnf, &cnf, i)) {
+        if (!truth_value) {
+            break;
+        }
+        const clause_t *c = i.val;
         if (!ctx->is_belief) {
             truth_value = setup_with_splits_and_sf_subsumes(&ctx->u.k.setup,
                     &ctx->u.k.pel, c, k);

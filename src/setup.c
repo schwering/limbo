@@ -196,8 +196,8 @@ void ewff_ground(
 clause_t clause_substitute(const clause_t *c, const varmap_t *map)
 {
     clause_t cc = clause_init_with_size(clause_size(c));
-    for (int i = 0; i < clause_size(c); ++i) {
-        const literal_t *l = clause_get(c, i);
+    for (EACH_CONST(clause, c, i)) {
+        const literal_t *l = i.val;
         literal_t *ll = MALLOC(sizeof(literal_t));
         *ll = literal_substitute(l, map);
         clause_add(&cc, ll);
@@ -208,8 +208,8 @@ clause_t clause_substitute(const clause_t *c, const varmap_t *map)
 static varset_t clause_vars(const clause_t *c)
 {
     varset_t vars = varset_init();
-    for (int i = 0; i < clause_size(c); ++i) {
-        const literal_t *l = clause_get(c, i);
+    for (EACH_CONST(clause, c, i)) {
+        const literal_t *l = i.val;
         literal_collect_vars(l, &vars);
     }
     return vars;
@@ -218,8 +218,8 @@ static varset_t clause_vars(const clause_t *c)
 static stdset_t clause_names(const clause_t *c)
 {
     stdset_t names = stdset_init();
-    for (int i = 0; i < clause_size(c); ++i) {
-        const literal_t *l = clause_get(c, i);
+    for (EACH_CONST(clause, c, i)) {
+        const literal_t *l = i.val;
         literal_collect_names(l, &names);
     }
     return names;
@@ -247,8 +247,8 @@ static const clause_t *clause_resolve(const clause_t *c, const splitset_t *u)
     *d = clause_lazy_copy(c);
     int *indices = MALLOC(clause_size(c) * sizeof(int));
     int n_indices = 0;
-    for (int i = 0; i < splitset_size(u); ++i) {
-        const literal_t l = literal_flip(splitset_get(u, i));
+    for (EACH_CONST(splitset, u, i)) {
+        const literal_t l = literal_flip(i.val);
         const int j = clause_find(d, &l);
         if (j != -1) {
             indices[n_indices++] = j;
@@ -308,14 +308,14 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
 {
     clause_t *d = MALLOC(sizeof(clause_t));
     *d = clause_init_with_size(clause_size(c));
-    for (int i = 0; i < clause_size(c); ++i) {
-        const literal_t *l = clause_get(c, i);
+    for (EACH_CONST(clause, c, i)) {
+        const literal_t *l = i.val;
         const stdvec_t zz = stdvec_concat(z, literal_z(l));
         literal_t *ll = MALLOC(sizeof(literal_t));
         *ll = literal_init(&zz, literal_sign(l), literal_pred(l),
                 literal_args(l));
         const int index = clause_add(d, ll);
-        assert(!ELEM_WAS_IN_SET(index));
+        assert(index >= 0);
     }
     setup_add(setup, d);
 }
@@ -328,19 +328,19 @@ stdset_t bat_hplus(
 {
     stdset_t names = stdset_copy(query_names);
     int max_vars = n_query_vars;
-    for (int i = 0; i < box_univ_clauses_size(dynamic_bat); ++i) {
-        const box_univ_clause_t *c = box_univ_clauses_get(dynamic_bat, i);
+    for (EACH_CONST(box_univ_clauses, dynamic_bat, i)) {
+        const box_univ_clause_t *c = i.val;
         stdset_add_all(&names, &c->c.names);
         max_vars = MAX(max_vars, varset_size(&c->c.vars));
     }
-    for (int i = 0; i < univ_clauses_size(static_bat); ++i) {
-        const univ_clause_t *c = univ_clauses_get(static_bat, i);
+    for (EACH_CONST(univ_clauses, static_bat, i)) {
+        const univ_clause_t *c = i.val;
         stdset_add_all(&names, &c->names);
         max_vars = MAX(max_vars, varset_size(&c->vars));
     }
     stdname_t max_name = 0;
-    for (int i = 0; i < stdset_size(&names); ++i) {
-        max_name = MAX(max_name, stdset_get(&names, i));
+    for (EACH_CONST(stdset, &names, i)) {
+        max_name = MAX(max_name, i.val);
     }
     assert(max_name < STDNAME_MAX);
     for (int i = 0; i < max_vars; ++i) {
@@ -355,8 +355,8 @@ setup_t setup_init_static(
         const stdset_t *hplus)
 {
     setup_t setup = setup_init();
-    for (int i = 0; i < univ_clauses_size(static_bat); ++i) {
-        const univ_clause_t *c = univ_clauses_get(static_bat, i);
+    for (EACH_CONST(univ_clauses, static_bat, i)) {
+        const univ_clause_t *c = i.val;
         ground_univ(&setup, c, hplus);
     }
     return setup;
@@ -372,17 +372,17 @@ setup_t setup_init_dynamic(
     // this is a bit complicated because we need to compute all possible
     // assignment of variables (elements from univ_clauses[i].vars) and
     // standard names (elements of hplus) for all i
-    for (int i = 0; i < box_univ_clauses_size(dynamic_bat); ++i) {
-        const box_univ_clause_t *c = box_univ_clauses_get(dynamic_bat, i);
+    for (EACH_CONST(box_univ_clauses, dynamic_bat, i)) {
+        const box_univ_clause_t *c = i.val;
         ground_univ(&box_clauses, &c->c, hplus);
     }
     // ground each box by substituting it with the prefixes of all action
     // sequences
     setup_t setup = setup_init();
-    for (int i = 0; i < setup_size(&box_clauses); ++i) {
-        const clause_t *c = setup_get(&box_clauses, i);
-        for (int j = 0; j < stdvecset_size(query_zs); ++j) {
-            const stdvec_t *z = stdvecset_get(query_zs, j);
+    for (EACH_CONST(setup, &box_clauses, i)) {
+        const clause_t *c = i.val;
+        for (EACH_CONST(stdvecset, query_zs, j)) {
+            const stdvec_t *z = j.val;
             for (int k = 0; k <= stdvec_size(z); ++k) {
                 const stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, k);
                 ground_box(&setup, &z_prefix, c);
@@ -411,8 +411,8 @@ void setup_add_sensing_results(
     if (setup_is_inconsistent(setup)) {
         return;
     }
-    for (int i = 0; i < splitset_size(sensing_results); ++i) {
-        const literal_t *l = splitset_get(sensing_results, i);
+    for (EACH_CONST(splitset, sensing_results, i)) {
+        const literal_t *l = i.val;
         clause_t *c = MALLOC(sizeof(clause_t));
         *c = clause_singleton(l);
         setup_add(setup, c);
@@ -427,8 +427,8 @@ static void clause_collect_pel(
     if (clause_is_unit(c)) {
         return;
     }
-    for (int i = 0; i < clause_size(c); ++i) {
-        const literal_t *l = clause_get(c, i);
+    for (EACH_CONST(clause, c, i)) {
+        const literal_t *l = i.val;
         // XXX TODO is that still sound?
         // We don't add SF literals to PEL to keep the semantics equivalent to
         // the ESL paper: We want to treat SF literals which come from reasoning
@@ -467,8 +467,8 @@ static void clause_collect_pel_with_sf(
     // contain the relevant SF atoms, though.
     clause_collect_pel(c, setup, pel);
     stdvecset_t z_done = stdvecset_init();
-    for (int i = 0; i < clause_size(c); ++i) {
-        const stdvec_t *z = literal_z(clause_get(c, i));
+    for (EACH_CONST(clause, c, i)) {
+        const stdvec_t *z = literal_z(i.val);
         if (!stdvecset_contains(&z_done, z)) {
             for (int j = 0; j < stdvec_size(z) - 1; ++j) {
                 const stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, j);
@@ -502,8 +502,8 @@ bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l)
 pelset_t setup_pel(const setup_t *setup)
 {
     pelset_t pel = pelset_init();
-    for (int i = 0; i < setup_size(setup); ++i) {
-        clause_collect_pel(setup_get(setup, i), setup, &pel);
+    for (EACH_CONST(setup, setup, i)) {
+        clause_collect_pel(i.val, setup, &pel);
     }
     return pel;
 }
@@ -511,8 +511,8 @@ pelset_t setup_pel(const setup_t *setup)
 static splitset_t setup_get_unit_clauses(const setup_t *setup)
 {
     splitset_t ls = splitset_init();
-    for (int i = 0; i < setup_size(setup); ++i) {
-        const clause_t *c = setup_get(setup, i);
+    for (EACH_CONST(setup, setup, i)) {
+        const clause_t *c = i.val;
         if (clause_is_empty(c)) {
             continue;
         } else if (clause_is_unit(c)) {
@@ -530,7 +530,7 @@ static splitset_t setup_get_unit_clauses(const setup_t *setup)
     return ls;
 }
 
-static int setup_minimize_wrt(setup_t *setup, int index, int ref_index)
+static void setup_minimize_wrt(setup_t *setup, int index, setup_iter_t *iter)
 {
     // Removes all clauses subsumed by the index-th clause.
     // Returns the number of removed clauses whose index is <= ref_index.
@@ -539,30 +539,26 @@ static int setup_minimize_wrt(setup_t *setup, int index, int ref_index)
     if (setup_is_inconsistent(setup)) {
         setup_remove_index_range(setup, EMPTY_CLAUSE_INDEX + 1,
                 setup_size(setup));
-        return -1;
+        return;
     }
-    int drops = 0;
     const clause_t *c = setup_get(setup, index);
-    for (int i = index + 1; i < setup_size(setup); ++i) {
-        const clause_t *d = setup_get(setup, i);
+    setup_iter_t i = setup_iter(setup, index + 1);
+    setup_iter_add_auditor(&i, iter);
+    while (setup_iter_next(&i)) {
+        const clause_t *d = i.val;
         if (clause_size(d) > clause_size(c) && clause_contains_all(d, c)) {
-            setup_remove_index(setup, i--);
-            if (i < ref_index) {
-                ++drops;
-            }
+            setup_iter_remove(&i);
         }
     }
-    return drops;
 }
 
 void setup_minimize(setup_t *setup)
 {
-    for (int i = 0; i < setup_size(setup); ++i) {
-        const int k = setup_minimize_wrt(setup, i, i);
-        if (k == -1) {
+    for (EACH(setup, setup, i)) {
+        setup_minimize_wrt(setup, setup_iter_index(&i), &i);
+        if (setup_is_inconsistent(setup)) {
             return;
         }
-        i -= k;
     }
 }
 
@@ -577,21 +573,16 @@ void setup_propagate_units(setup_t *setup)
     splitset_t *new_units_ptr = &new_units;
     do {
         splitset_clear(new_units_ptr);
-        for (int i = 0; i < setup_size(setup); ++i) {
-            const clause_t *c = setup_get(setup, i);
+        for (EACH(setup, setup, i)) {
+            const clause_t *c = i.val;
             const clause_t *d = clause_resolve(c, units_ptr);
             if (!clause_eq(c, d)) {
-                const int j = setup_replace_index(setup, i, d);
-                if (ELEM_WAS_IN_SET(j) || i < REAL_SET_INDEX(j)) {
-                    --i;
-                }
-                if (!ELEM_WAS_IN_SET(j)) {
-                    const int k = setup_minimize_wrt(setup,
-                            REAL_SET_INDEX(j), i);
-                    if (k == -1) {
+                const int j = setup_iter_replace(&i, d);
+                if (j >= 0) {
+                    setup_minimize_wrt(setup, j, &i);
+                    if (setup_is_inconsistent(setup)) {
                         return;
                     }
-                    i -= k;
                     if (clause_is_unit(d)) {
                         const literal_t *l = clause_unit(d);
                         if (!splitset_contains(units_ptr, l)) {
@@ -614,8 +605,8 @@ bool setup_is_inconsistent(const setup_t *s)
 bool setup_subsumes(setup_t *setup, const clause_t *c)
 {
     setup_propagate_units(setup);
-    for (int i = 0; i < setup_size(setup); ++i) {
-        if (clause_contains_all(c, setup_get(setup, i))) {
+    for (EACH_CONST(setup, setup, i)) {
+        if (clause_contains_all(c, i.val)) {
             return true;
         }
     }
@@ -632,13 +623,13 @@ bool setup_with_splits_subsumes(
     if (r || k < 0) {
         return r;
     }
-    for (int i = 0; i < pelset_size(pel); ++i) {
-        const literal_t *l1 = pelset_get(pel, i);
+    for (EACH(pelset, pel, i)) {
+        const literal_t *l1 = i.val;
         if ((literal_pred(l1) == SF) != (k == 0)) {
             continue;
         }
         const literal_t l2 = literal_flip(l1);
-        pelset_remove_index(pel, i--);
+        pelset_iter_remove(&i);
         const clause_t c1 = clause_singleton(l1);
         const clause_t c2 = clause_singleton(&l2);
         const int k1 = (literal_pred(l1) == SF) ? k : k - 1;

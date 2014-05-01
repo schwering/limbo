@@ -45,8 +45,8 @@ static ground_belief_conds_t beliefs_ground(
         const stdset_t *hplus)
 {
     ground_belief_conds_t gbcs = ground_belief_conds_init();
-    for (int i = 0; i < belief_conds_size(beliefs); ++i) {
-        const belief_cond_t *bc = belief_conds_get(beliefs, i);
+    for (EACH_CONST(belief_conds, beliefs, i)) {
+        const belief_cond_t *bc = i.val;
         const varset_t vars = varset_union(&bc->neg_phi->vars, &bc->psi->vars);
         void ground_belief_cond(const varmap_t *varmap)
         {
@@ -98,8 +98,8 @@ stdset_t bbat_hplus(
 {
     stdset_t names = stdset_copy(query_names);
     int max_vars = n_query_vars;
-    for (int i = 0; i < belief_conds_size(beliefs); ++i) {
-        const belief_cond_t *bc = belief_conds_get(beliefs, i);
+    for (EACH_CONST(belief_conds, beliefs, i)) {
+        const belief_cond_t *bc = i.val;
         stdset_add_all(&names, &bc->neg_phi->names);
         stdset_add_all(&names, &bc->psi->names);
         const varset_t vars = varset_union(&bc->neg_phi->vars, &bc->psi->vars);
@@ -111,9 +111,10 @@ stdset_t bbat_hplus(
 pelsets_t pelsets_deep_copy(const pelsets_t *pels)
 {
     pelsets_t copy = pelsets_init_with_size(pelsets_size(pels));
-    for (int i = 0; i < pelsets_size(pels); ++i) {
+    for (EACH_CONST(pelsets, pels, i)) {
+        const pelset_t *pel = i.val;
         pelset_t *new_pel = MALLOC(sizeof(pelset_t));
-        *new_pel = pelset_copy(pelsets_get(pels, i));
+        *new_pel = pelset_copy(pel);
         pelsets_append(&copy, new_pel);
     }
     return copy;
@@ -122,9 +123,10 @@ pelsets_t pelsets_deep_copy(const pelsets_t *pels)
 pelsets_t pelsets_deep_lazy_copy(const pelsets_t *pels)
 {
     pelsets_t copy = pelsets_init_with_size(pelsets_size(pels));
-    for (int i = 0; i < pelsets_size(pels); ++i) {
+    for (EACH_CONST(pelsets, pels, i)) {
+        const pelset_t *pel = i.val;
         pelset_t *new_pel = MALLOC(sizeof(pelset_t));
-        *new_pel = pelset_lazy_copy(pelsets_get(pels, i));
+        *new_pel = pelset_lazy_copy(pel);
         pelsets_append(&copy, new_pel);
     }
     return copy;
@@ -143,19 +145,19 @@ bsetup_t bsetup_init_beliefs(
     do {
         setup_t *setup = MALLOC(sizeof(setup_t));
         *setup = setup_copy(static_bat_setup);
-        for (int i = 0; i < ground_belief_conds_size(&gbcs); ++i) {
-            const ground_belief_cond_t *gbc = ground_belief_conds_get(&gbcs, i);
+        for (EACH_CONST(ground_belief_conds, &gbcs, i)) {
+            const ground_belief_cond_t *gbc = i.val;
             setup_add(setup, gbc->neg_phi_or_psi);
         }
         //setup_minimize(setup);
         //setup_propagate_units(setup);
         const pelset_t pel = setup_pel(setup);
         satisfied_belief_cond = false;
-        for (int i = 0; i < ground_belief_conds_size(&gbcs); ++i) {
-            const ground_belief_cond_t *gbc = ground_belief_conds_get(&gbcs, i);
+        for (EACH(ground_belief_conds, &gbcs, i)) {
+            const ground_belief_cond_t *gbc = i.val;
             if (!setup_with_splits_and_sf_subsumes(setup, &pel,
                         gbc->neg_phi, k)) {
-                ground_belief_conds_remove_index(&gbcs, i--);
+                ground_belief_conds_iter_remove(&i);
                 satisfied_belief_cond = true;
             }
         }
@@ -168,9 +170,10 @@ bsetup_t bsetup_init_beliefs(
 bsetup_t bsetup_unions(const bsetup_t *l, const setup_t *r)
 {
     bsetup_t us = bsetup_init_with_size(bsetup_size(l));
-    for (int i = 0; i < bsetup_size(l); ++i) {
+    for (EACH_CONST(bsetup, l, i)) {
+        const setup_t *setup = i.val;
         setup_t *u = MALLOC(sizeof(setup_t));
-        *u = setup_union(bsetup_get(l, i), r);
+        *u = setup_union(setup, r);
         bsetup_append(&us, u);
     }
     return us;
@@ -179,9 +182,10 @@ bsetup_t bsetup_unions(const bsetup_t *l, const setup_t *r)
 bsetup_t bsetup_deep_copy(const bsetup_t *setups)
 {
     bsetup_t new_setups = bsetup_init_with_size(bsetup_size(setups));
-    for (int i = 0; i < bsetup_size(setups); ++i) {
+    for (EACH_CONST(bsetup, setups, i)) {
+        const setup_t *setup = i.val;
         setup_t *new_setup = MALLOC(sizeof(setup_t));
-        *new_setup = setup_copy(bsetup_get(setups, i));
+        *new_setup = setup_copy(setup);
         bsetup_append(&new_setups, new_setup);
     }
     return new_setups;
@@ -191,8 +195,8 @@ void bsetup_add_sensing_results(
         bsetup_t *setups,
         const splitset_t *sensing_results)
 {
-    for (int i = 0; i < bsetup_size(setups); ++i) {
-        setup_t *setup = bsetup_get_unsafe(setups, i);
+    for (EACH_CONST(bsetup, setups, i)) {
+        setup_t *setup = i.val_unsafe;
         setup_add_sensing_results(setup, sensing_results);
     }
 }
@@ -200,8 +204,8 @@ void bsetup_add_sensing_results(
 pelsets_t bsetup_pels(const bsetup_t *setups)
 {
     pelsets_t pels = pelsets_init_with_size(bsetup_size(setups));
-    for (int i = 0; i < bsetup_size(setups); ++i) {
-        const setup_t *setup = bsetup_get(setups, i);
+    for (EACH_CONST(bsetup, setups, i)) {
+        const setup_t *setup = i.val;
         pelset_t *pel = MALLOC(sizeof(pelset_t));
         *pel = setup_pel(setup);
         pelsets_append(&pels, pel);
@@ -211,8 +215,9 @@ pelsets_t bsetup_pels(const bsetup_t *setups)
 
 void bsetup_propagate_units(bsetup_t *setups)
 {
-    for (int i = 0; i < bsetup_size(setups); ++i) {
-        setup_propagate_units(bsetup_get_unsafe(setups, i));
+    for (EACH_CONST(bsetup, setups, i)) {
+        setup_t *setup = i.val_unsafe;
+        setup_propagate_units(setup);
     }
 }
 
@@ -224,12 +229,17 @@ bool bsetup_with_splits_and_sf_subsumes(
         int *plausibility)
 {
     assert(bsetup_size(setups) == pelsets_size(pels));
-    for (int i = 0; i < bsetup_size(setups); ++i) {
-        setup_t *setup = bsetup_get_unsafe(setups, i);
-        const pelset_t *pel = pelsets_get(pels, i);
+    bsetup_const_iter_t i = bsetup_const_iter(setups, 0);
+    pelsets_const_iter_t j = pelsets_const_iter(pels, 0);
+    if (plausibility != NULL) {
+        *plausibility = -1;
+    }
+    while (bsetup_const_iter_next(&i) && pelsets_const_iter_next(&j)) {
+        setup_t *setup = i.val_unsafe;
+        const pelset_t *pel = j.val;
         const bool r = setup_with_splits_and_sf_subsumes(setup, pel, c, k);
         if (plausibility != NULL) {
-            *plausibility = i;
+            ++(*plausibility);
         }
         if (!setup_is_inconsistent(setup)) {
             return r;

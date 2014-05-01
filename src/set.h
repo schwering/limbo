@@ -30,12 +30,12 @@
  * index and adding a new element afterwards, but may be more efficient.
  * The value returned by set_add() and set_replace[_index]() is the index i at
  * which the new element is stored unless it was present before already; in
- * the latter case, 2*i-1 is returned. Use the macro ELEM_WAS_IN_SET to check
- * if the index indicates that the element was present before and
- * REAL_SET_INDEX to convert i or 2*i-1 to i, and UNREAL_SET_INDEX to convert i
- * or 2*i-1 to 2*i-1.
- * The most common purpose of these index computations is to adjust the loop
- * counting variable appropriately after such an action.
+ * the latter case, a negative value is returned.
+ *
+ * Iterators behave like for vectors except that set_iter_replace() inserts the
+ * new element at its correct place according to the set's order and returns
+ * that index. If the new element was already present and thus no insertion
+ * happened, a negative value is returned.
  *
  * For typesafe usage there is a MAP macro which declares appropriate wrapper
  * functions.
@@ -55,11 +55,15 @@ typedef struct {
     compar_t compar;
 } set_t;
 
-typedef struct {
+typedef union {
+    const void * const val;
+    void * const val_unsafe;
     vector_iter_t iter;
 } set_iter_t;
 
-typedef struct {
+typedef union {
+    const void * const val;
+    void * const val_unsafe;
     vector_const_iter_t iter;
 } set_const_iter_t;
 
@@ -85,10 +89,6 @@ int set_find(const set_t *set, const void *elem);
 bool set_contains(const set_t *set, const void *elem);
 bool set_contains_all(const set_t *set, const set_t *elems);
 
-#define ELEM_WAS_IN_SET(i)  ((i) < 0)
-#define UNREAL_SET_INDEX(i) (ELEM_WAS_IN_SET(i) ? (i) : -1 * (i) - 1)
-#define REAL_SET_INDEX(i)   (ELEM_WAS_IN_SET(i) ? -1 * ((i) + 1) : (i))
-
 int set_add(set_t *set, const void *elem);
 void set_add_all(set_t *set, const set_t *elems);
 
@@ -106,8 +106,10 @@ void set_clear(set_t *set);
 set_iter_t set_iter(set_t *set, int index);
 bool set_iter_next(set_iter_t *iter);
 const void *set_iter_get(const set_iter_t *iter);
+int set_iter_index(const set_iter_t *iter);
 void set_iter_add_auditor(set_iter_t *iter, set_iter_t *auditor);
 void set_iter_remove(set_iter_t *iter);
+int set_iter_replace(set_iter_t *iter, const void *new_elem);
 
 set_const_iter_t set_const_iter(const set_t *set, int index);
 bool set_const_iter_next(set_const_iter_t *iter);
@@ -115,9 +117,16 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
 
 #define SET_DECL(prefix, type) \
     typedef union { set_t s; } prefix##_t;\
-    typedef union { const type const val; set_iter_t i; } prefix##_iter_t;\
-    typedef union\
-        { const type const val; set_const_iter_t i; } prefix##_const_iter_t;\
+    typedef union {\
+        const type const val;\
+        type const val_unsafe;\
+        set_iter_t i;\
+    } prefix##_iter_t;\
+    typedef union {\
+        const type const val;\
+        type const val_unsafe;\
+        set_const_iter_t i;\
+    } prefix##_const_iter_t;\
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
     prefix##_t prefix##_copy(const prefix##_t *src);\
@@ -155,9 +164,11 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
     prefix##_iter_t prefix##_iter(prefix##_t *set, int index);\
     bool prefix##_iter_next(prefix##_iter_t *iter);\
     const type prefix##_iter_get(const prefix##_iter_t *iter);\
+    int prefix##_iter_index(const prefix##_iter_t *iter);\
     void prefix##_iter_add_auditor(prefix##_iter_t *iter,\
             prefix##_iter_t *auditor);\
     void prefix##_iter_remove(prefix##_iter_t *iter);\
+    int prefix##_iter_replace(prefix##_iter_t *iter, const type new_elem);\
     prefix##_const_iter_t prefix##_const_iter(const prefix##_t *set,\
             int index);\
     bool prefix##_const_iter_next(prefix##_const_iter_t *iter);\
@@ -234,11 +245,15 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
         return set_iter_next(&iter->i); }\
     const type prefix##_iter_get(const prefix##_iter_t *iter) {\
         return (const type) set_iter_get(&iter->i); }\
+    int prefix##_iter_index(const prefix##_iter_t *iter) {\
+        return set_iter_index(&iter->i); }\
     void prefix##_iter_add_auditor(prefix##_iter_t *iter,\
             prefix##_iter_t *auditor) {\
         set_iter_add_auditor(&iter->i, &auditor->i); }\
     void prefix##_iter_remove(prefix##_iter_t *iter) {\
         return set_iter_remove(&iter->i); }\
+    int prefix##_iter_replace(prefix##_iter_t *iter, const type new_elem) {\
+        return set_iter_replace(&iter->i, (const void *) new_elem); }\
     prefix##_const_iter_t prefix##_const_iter(const prefix##_t *set,\
             int index) {\
         return (prefix##_const_iter_t) {\
@@ -250,9 +265,16 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
 
 #define SET_ALIAS(alias, prefix, type) \
     typedef union { prefix##_t s; } alias##_t;\
-    typedef union { const type const val; prefix##_iter_t i; } alias##_iter_t;\
     typedef union {\
-        const type const val; prefix##_const_iter_t i; } alias##_const_iter_t;\
+        const type const val;\
+        type const val_unsafe;\
+        prefix##_iter_t i;\
+    } alias##_iter_t;\
+    typedef union {\
+        const type const val;\
+        type const val_unsafe;\
+        prefix##_const_iter_t i;\
+    } alias##_const_iter_t;\
     static inline alias##_t alias##_init(void) {\
          return (alias##_t) { .s = prefix##_init() }; }\
     static inline alias##_t alias##_init_with_size(int size) {\
@@ -333,11 +355,16 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
         return prefix##_iter_next(&iter->i); }\
     static inline const type alias##_iter_get(alias##_iter_t *iter) {\
         return (const type) prefix##_iter_get(&iter->i); }\
+    static inline int alias##_iter_index(const alias##_iter_t *iter) {\
+        return prefix##_iter_index(&iter->i); }\
     static inline void alias##_iter_add_auditor(alias##_iter_t *iter,\
             alias##_iter_t *auditor) {\
         prefix##_iter_add_auditor(&iter->i, &auditor->i); }\
     static inline void alias##_iter_remove(alias##_iter_t *iter) {\
         return prefix##_iter_remove(&iter->i); }\
+    static inline int alias##_iter_replace(alias##_iter_t *iter,\
+            const type new_elem) {\
+        return prefix##_iter_replace(&iter->i, new_elem); }\
     static inline alias##_const_iter_t alias##_const_iter(const alias##_t *set,\
             int index) {\
         return (alias##_const_iter_t) {\
