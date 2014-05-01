@@ -229,8 +229,8 @@ bool bsetup_with_splits_and_sf_subsumes(
         int *plausibility)
 {
     assert(bsetup_size(setups) == pelsets_size(pels));
-    bsetup_const_iter_t i = bsetup_const_iter(setups, 0);
-    pelsets_const_iter_t j = pelsets_const_iter(pels, 0);
+    bsetup_const_iter_t i = bsetup_const_iter(setups);
+    pelsets_const_iter_t j = pelsets_const_iter(pels);
     if (plausibility != NULL) {
         *plausibility = -1;
     }

@@ -251,8 +251,9 @@ bool set_contains_all(const set_t *set, const set_t *elems)
 int set_add(set_t *set, const void *elem)
 {
     const int i = insert_pos(set, elem, 0, vector_size(&set->vec) - 1);
-    if (i >= 0) {
-        vector_insert(&set->vec, i, elem);
+    if (!ELEM_WAS_IN_SET(i)) {
+        const int j = REAL_SET_INDEX(i);
+        vector_insert(&set->vec, j, elem);
     }
     return i;
 }
@@ -348,9 +349,16 @@ void set_clear(set_t *set)
     vector_clear(&set->vec);
 }
 
-set_iter_t set_iter(set_t *set, int index)
+set_iter_t set_iter(set_t *set)
 {
-    return (set_iter_t) { .iter = vector_iter(&set->vec, index) };
+    return (set_iter_t) { .iter = vector_iter(&set->vec) };
+}
+
+set_iter_t set_iter_from(set_t *set, const void *elem)
+{
+    const int i = insert_pos(set, elem, 0, vector_size(&set->vec) - 1);
+    const int j = REAL_SET_INDEX(i);
+    return (set_iter_t) { .iter = vector_iter_from(&set->vec, j) };
 }
 
 bool set_iter_next(set_iter_t *iter)
@@ -389,9 +397,16 @@ int set_iter_replace(set_iter_t *iter, const void *new_elem)
     return j;
 }
 
-set_const_iter_t set_const_iter(const set_t *set, int index)
+set_const_iter_t set_const_iter(const set_t *set)
 {
-    return (set_const_iter_t) { .iter = vector_const_iter(&set->vec, index) };
+    return (set_const_iter_t) { .iter = vector_const_iter(&set->vec) };
+}
+
+set_const_iter_t set_const_iter_from(const set_t *set, const void *elem)
+{
+    const int i = insert_pos(set, elem, 0, vector_size(&set->vec) - 1);
+    const int j = REAL_SET_INDEX(i);
+    return (set_const_iter_t) { .iter = vector_const_iter_from(&set->vec, j) };
 }
 
 bool set_const_iter_next(set_const_iter_t *iter)

@@ -1,4 +1,15 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+/*
+ * Note that setup_get_unit_clauses() and EMPTY_CLAUSE_INDEX rely on the
+ * ordering structure of the sets, particularly of setups: the first criterion
+ * is the length of clauses. That is, the empty clause is always on the first
+ * position, and followed by all unit clauses.
+ *
+ * setup_minimize_wrt() removes all clauses subsumed by the given one.
+ * This of course makes setup_propagate_units() significantly more expensive,
+ * but it also keeps the setups smaller. For the examples in the unit tests, the
+ * extra work of setup_minimize_wrt() already pays off.
+ */
 #include "setup.h"
 #include "memory.h"
 #include <assert.h>
@@ -518,31 +529,24 @@ static splitset_t setup_get_unit_clauses(const setup_t *setup)
         } else if (clause_is_unit(c)) {
             splitset_add(&ls, clause_unit(c));
         } else {
-            // Clauses are sets, which are again stored as vectors, and
-            // vector_cmp()'s first ordering criterion is the length.
-            // Thus, a unit clause is shorter than all non-empty and non-unit
-            // clauses. Therefore we only need to iterate over the setup until
-            // we find the first non-empty and non-unit clause and can then
-            // stop.
+            // XXX Clauses with higher indices have >1 literal.
             break;
         }
     }
     return ls;
 }
 
-static void setup_minimize_wrt(setup_t *setup, int index, setup_iter_t *iter)
+static void setup_minimize_wrt(setup_t *setup, const clause_t *c,
+        setup_iter_t *iter)
 {
-    // Removes all clauses subsumed by the index-th clause.
-    // Returns the number of removed clauses whose index is <= ref_index.
-    // A special case is the empty clause: since that's it's easy to detect, we
-    // drop all other clauses and return -1.
     if (setup_is_inconsistent(setup)) {
-        setup_remove_index_range(setup, EMPTY_CLAUSE_INDEX + 1,
-                setup_size(setup));
+        const clause_t *empty_clause = setup_get(setup, EMPTY_CLAUSE_INDEX);
+        setup_clear(setup);
+        setup_add(setup, empty_clause);
+        assert(setup_is_inconsistent(setup) && setup_size(setup) == 1);
         return;
     }
-    const clause_t *c = setup_get(setup, index);
-    setup_iter_t i = setup_iter(setup, index + 1);
+    setup_iter_t i = setup_iter_from(setup, c);
     setup_iter_add_auditor(&i, iter);
     while (setup_iter_next(&i)) {
         const clause_t *d = i.val;
@@ -555,7 +559,7 @@ static void setup_minimize_wrt(setup_t *setup, int index, setup_iter_t *iter)
 void setup_minimize(setup_t *setup)
 {
     for (EACH(setup, setup, i)) {
-        setup_minimize_wrt(setup, setup_iter_index(&i), &i);
+        setup_minimize_wrt(setup, i.val, &i);
         if (setup_is_inconsistent(setup)) {
             return;
         }
@@ -579,7 +583,7 @@ void setup_propagate_units(setup_t *setup)
             if (!clause_eq(c, d)) {
                 const int j = setup_iter_replace(&i, d);
                 if (j >= 0) {
-                    setup_minimize_wrt(setup, j, &i);
+                    setup_minimize_wrt(setup, d, &i);
                     if (setup_is_inconsistent(setup)) {
                         return;
                     }

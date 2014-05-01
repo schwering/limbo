@@ -103,7 +103,8 @@ int set_replace_index(set_t *set, int index, const void *new_elem);
 
 void set_clear(set_t *set);
 
-set_iter_t set_iter(set_t *set, int index);
+set_iter_t set_iter(set_t *set);
+set_iter_t set_iter_from(set_t *set, const void *elem);
 bool set_iter_next(set_iter_t *iter);
 const void *set_iter_get(const set_iter_t *iter);
 int set_iter_index(const set_iter_t *iter);
@@ -111,7 +112,8 @@ void set_iter_add_auditor(set_iter_t *iter, set_iter_t *auditor);
 void set_iter_remove(set_iter_t *iter);
 int set_iter_replace(set_iter_t *iter, const void *new_elem);
 
-set_const_iter_t set_const_iter(const set_t *set, int index);
+set_const_iter_t set_const_iter(const set_t *set);
+set_const_iter_t set_const_iter_from(const set_t *set, const void *elem);
 bool set_const_iter_next(set_const_iter_t *iter);
 const void *set_const_iter_get(const set_const_iter_t *iter);
 
@@ -161,7 +163,8 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
             const type new_elem);\
     int prefix##_replace_index(prefix##_t *s, int index, const type new_elem);\
     void prefix##_clear(prefix##_t *s);\
-    prefix##_iter_t prefix##_iter(prefix##_t *set, int index);\
+    prefix##_iter_t prefix##_iter(prefix##_t *set);\
+    prefix##_iter_t prefix##_iter_from(prefix##_t *set, const type elem);\
     bool prefix##_iter_next(prefix##_iter_t *iter);\
     const type prefix##_iter_get(const prefix##_iter_t *iter);\
     int prefix##_iter_index(const prefix##_iter_t *iter);\
@@ -169,8 +172,9 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
             prefix##_iter_t *auditor);\
     void prefix##_iter_remove(prefix##_iter_t *iter);\
     int prefix##_iter_replace(prefix##_iter_t *iter, const type new_elem);\
-    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *set,\
-            int index);\
+    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *set);\
+    prefix##_const_iter_t prefix##_const_iter_from(const prefix##_t *set,\
+            const type elem);\
     bool prefix##_const_iter_next(prefix##_const_iter_t *iter);\
     const type prefix##_const_iter_get(const prefix##_const_iter_t *iter);
 
@@ -239,8 +243,11 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
     int prefix##_replace_index(prefix##_t *s, int index, const type new_elem) {\
         return set_replace_index(&s->s, index, (const void *) new_elem); }\
     void prefix##_clear(prefix##_t *s) { set_clear(&s->s); }\
-    prefix##_iter_t prefix##_iter(prefix##_t *set, int index) {\
-        return (prefix##_iter_t) { .i = set_iter(&set->s, index) }; }\
+    prefix##_iter_t prefix##_iter(prefix##_t *set) {\
+        return (prefix##_iter_t) { .i = set_iter(&set->s) }; }\
+    prefix##_iter_t prefix##_iter_from(prefix##_t *set, const type elem) {\
+        return (prefix##_iter_t) {\
+            .i = set_iter_from(&set->s, (const void *) elem) }; }\
     bool prefix##_iter_next(prefix##_iter_t *iter) {\
         return set_iter_next(&iter->i); }\
     const type prefix##_iter_get(const prefix##_iter_t *iter) {\
@@ -254,10 +261,12 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
         return set_iter_remove(&iter->i); }\
     int prefix##_iter_replace(prefix##_iter_t *iter, const type new_elem) {\
         return set_iter_replace(&iter->i, (const void *) new_elem); }\
-    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *set,\
-            int index) {\
+    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *set) {\
+        return (prefix##_const_iter_t) { .i = set_const_iter(&set->s) }; }\
+    prefix##_const_iter_t prefix##_const_iter_from(const prefix##_t *set,\
+            const type elem) {\
         return (prefix##_const_iter_t) {\
-            .i = set_const_iter(&set->s, index) }; }\
+            .i = set_const_iter_from(&set->s, (const void *) elem) }; }\
     bool prefix##_const_iter_next(prefix##_const_iter_t *iter) {\
         return set_const_iter_next(&iter->i); }\
     const type prefix##_const_iter_get(const prefix##_const_iter_t *iter) {\
@@ -349,8 +358,11 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
         return prefix##_replace_index(&s->s, index, new_elem); }\
     static inline const prefix##_t *alias##_to_##prefix(const alias##_t *s) {\
         return (const prefix##_t *) s; }\
-    static inline alias##_iter_t alias##_iter(alias##_t *set, int index) {\
-        return (alias##_iter_t) { .i = prefix##_iter(&set->s, index) }; }\
+    static inline alias##_iter_t alias##_iter(alias##_t *set) {\
+        return (alias##_iter_t) { .i = prefix##_iter(&set->s) }; }\
+    static inline alias##_iter_t alias##_iter_from(alias##_t *set,\
+            const type elem) {\
+        return (alias##_iter_t) { .i = prefix##_iter_from(&set->s, elem) }; }\
     static inline bool alias##_iter_next(alias##_iter_t *iter) {\
         return prefix##_iter_next(&iter->i); }\
     static inline const type alias##_iter_get(alias##_iter_t *iter) {\
@@ -365,10 +377,13 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
     static inline int alias##_iter_replace(alias##_iter_t *iter,\
             const type new_elem) {\
         return prefix##_iter_replace(&iter->i, new_elem); }\
-    static inline alias##_const_iter_t alias##_const_iter(const alias##_t *set,\
-            int index) {\
+    static inline alias##_const_iter_t alias##_const_iter(\
+            const alias##_t *set) {\
+        return (alias##_const_iter_t) { .i = prefix##_const_iter(&set->s) }; }\
+    static inline alias##_const_iter_t alias##_const_iter_from(\
+            const alias##_t *set, const type elem) {\
         return (alias##_const_iter_t) {\
-            .i = prefix##_const_iter(&set->s, index) }; }\
+            .i = prefix##_const_iter_from(&set->s, elem) }; }\
     static inline bool alias##_const_iter_next(alias##_const_iter_t *iter) {\
         return prefix##_const_iter_next(&iter->i); }\
     static inline const type alias##_const_iter_get(\

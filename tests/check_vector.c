@@ -200,14 +200,14 @@ START_TEST(test_vector_iter)
     }
     int n;
     n = 0;
-    for (ivec_iter_t c = ivec_iter(&vec1, 0); ivec_iter_next(&c); ++n) {
+    for (ivec_iter_t c = ivec_iter(&vec1); ivec_iter_next(&c); ++n) {
         ck_assert_int_eq(ivec_iter_get(&c), n);
         ck_assert_int_eq(ivec_iter_get(&c), c.val);
     }
     ck_assert_int_eq(ivec_size(&vec1), 100);
     ck_assert_int_eq(n, 100);
     n = 0;
-    for (ivec_iter_t c = ivec_iter(&vec1, 0); ivec_iter_next(&c); ++n) {
+    for (ivec_iter_t c = ivec_iter(&vec1); ivec_iter_next(&c); ++n) {
         ck_assert_int_eq(ivec_iter_get(&c), n);
         ck_assert_int_eq(ivec_iter_get(&c), c.val);
         ivec_iter_remove(&c);
@@ -216,10 +216,10 @@ START_TEST(test_vector_iter)
     }
     ck_assert_int_eq(ivec_size(&vec1), 0);
     ck_assert_int_eq(n, 100);
-    ivec_iter_t c1 = ivec_iter(&vec1, 0);
-    ivec_iter_t c2 = ivec_iter(&vec1, 0);
-    ivec_iter_t c3 = ivec_iter(&vec1, 0);
-    ivec_iter_t c4 = ivec_iter(&vec1, 0);
+    ivec_iter_t c1 = ivec_iter(&vec1);
+    ivec_iter_t c2 = ivec_iter(&vec1);
+    ivec_iter_t c3 = ivec_iter(&vec1);
+    ivec_iter_t c4 = ivec_iter(&vec1);
     ivec_iter_add_auditor(&c1, &c2);
     ivec_iter_add_auditor(&c1, &c3);
     for (int i = 0; i < 100; ++i) {

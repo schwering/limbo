@@ -348,7 +348,12 @@ void vector_clear(vector_t *vec)
     vec->size = 0;
 }
 
-vector_iter_t vector_iter(vector_t *vec, int index)
+vector_iter_t vector_iter(vector_t *vec)
+{
+    return vector_iter_from(vec, 0);
+}
+
+vector_iter_t vector_iter_from(vector_t *vec, int index)
 {
     return (vector_iter_t) {
         .i = {
@@ -413,7 +418,12 @@ void vector_iter_replace(vector_iter_t *iter, const void *new_elem)
     vector_set(iter->i.vec, iter->i.index, new_elem);
 }
 
-vector_const_iter_t vector_const_iter(const vector_t *vec, int index)
+vector_const_iter_t vector_const_iter(const vector_t *vec)
+{
+    return vector_const_iter_from(vec, 0);
+}
+
+vector_const_iter_t vector_const_iter_from(const vector_t *vec, int index)
 {
     return (vector_const_iter_t) {
         .i = {

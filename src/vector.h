@@ -56,7 +56,7 @@ typedef struct {
     int size;
 } vector_t;
 
-union vector_const_iter {
+typedef union {
     const void * const val;
     void * const val_unsafe;
     const int index;
@@ -65,8 +65,7 @@ union vector_const_iter {
         int index;
         const vector_t *vec;
     } i;
-};
-typedef union vector_const_iter vector_const_iter_t;
+} vector_const_iter_t;
 
 typedef union vector_iter vector_iter_t;
 union vector_iter {
@@ -131,7 +130,8 @@ void vector_remove_range(vector_t *vec, int from, int to);
 void vector_remove_all(vector_t *vec, const int indices[], int n_indices);
 void vector_clear(vector_t *vec);
 
-vector_iter_t vector_iter(vector_t *vec, int index);
+vector_iter_t vector_iter(vector_t *vec);
+vector_iter_t vector_iter_from(vector_t *vec, int index);
 bool vector_iter_next(vector_iter_t *iter);
 const void *vector_iter_get(const vector_iter_t *iter);
 int vector_iter_index(const vector_iter_t *iter);
@@ -141,19 +141,22 @@ void vector_iter_remove(vector_iter_t *iter);
 void vector_iter_replace(vector_iter_t *iter, const void *new_elem);
 
 #define EACH(prefix, container, itername) \
-    EACH_FROM(prefix, container, itername, 0)
+    prefix##_iter_t itername = prefix##_iter(container);\
+    prefix##_iter_next(&itername);
 #define EACH_FROM(prefix, container, itername, from) \
-    prefix##_iter_t itername = prefix##_iter(container, from);\
+    prefix##_iter_t itername = prefix##_iter_from(container, from);\
     prefix##_iter_next(&itername);
 
-vector_const_iter_t vector_const_iter(const vector_t *vec, int index);
+vector_const_iter_t vector_const_iter(const vector_t *vec);
+vector_const_iter_t vector_const_iter_from(const vector_t *vec, int index);
 bool vector_const_iter_next(vector_const_iter_t *iter);
 const void *vector_const_iter_get(const vector_const_iter_t *iter);
 
 #define EACH_CONST(prefix, container, itername) \
-    EACH_CONST_FROM(prefix, container, itername, 0)
+    prefix##_const_iter_t itername = prefix##_const_iter(container);\
+    prefix##_const_iter_next(&itername);
 #define EACH_CONST_FROM(prefix, container, itername, from) \
-    prefix##_const_iter_t itername = prefix##_const_iter(container, from);\
+    prefix##_const_iter_t itername = prefix##_const_iter_from(container, from);\
     prefix##_const_iter_next(&itername);
 
 #define VECTOR_DECL(prefix, type) \
@@ -210,7 +213,8 @@ const void *vector_const_iter_get(const vector_const_iter_t *iter);
     void prefix##_remove_all(prefix##_t *v, const int indices[],\
             int n_indices);\
     void prefix##_clear(prefix##_t *v);\
-    prefix##_iter_t prefix##_iter(prefix##_t *vec, int index);\
+    prefix##_iter_t prefix##_iter(prefix##_t *vec);\
+    prefix##_iter_t prefix##_iter_from(prefix##_t *vec, int index);\
     bool prefix##_iter_next(prefix##_iter_t *iter);\
     const type prefix##_iter_get(const prefix##_iter_t *iter);\
     int prefix##_iter_index(const prefix##_iter_t *iter);\
@@ -218,7 +222,8 @@ const void *vector_const_iter_get(const vector_const_iter_t *iter);
             prefix##_iter_t *auditor);\
     void prefix##_const_iter_remove(prefix##_const_iter_t *iter);\
     void prefix##_iter_replace(prefix##_iter_t *iter, const type new_elem);\
-    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *vec,\
+    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *vec);\
+    prefix##_const_iter_t prefix##_const_iter_from(const prefix##_t *vec,\
             int index);\
     bool prefix##_const_iter_next(prefix##_const_iter_t *iter);\
     const type prefix##_const_iter_get(const prefix##_const_iter_t *iter);
@@ -310,8 +315,10 @@ const void *vector_const_iter_get(const vector_const_iter_t *iter);
         vector_remove_all(&v->v, indices, n_indices); }\
     void prefix##_clear(prefix##_t *v) {\
         vector_clear(&v->v); }\
-    prefix##_iter_t prefix##_iter(prefix##_t *vec, int index) {\
-        return (prefix##_iter_t) { .i = vector_iter(&vec->v, index) }; }\
+    prefix##_iter_t prefix##_iter(prefix##_t *vec) {\
+        return (prefix##_iter_t) { .i = vector_iter(&vec->v) }; }\
+    prefix##_iter_t prefix##_iter_from(prefix##_t *vec, int index) {\
+        return (prefix##_iter_t) { .i = vector_iter_from(&vec->v, index) }; }\
     bool prefix##_iter_next(prefix##_iter_t *iter) {\
         return vector_iter_next(&iter->i); }\
     const type prefix##_iter_get(const prefix##_iter_t *iter) {\
@@ -325,10 +332,12 @@ const void *vector_const_iter_get(const vector_const_iter_t *iter);
         return vector_iter_remove(&iter->i); }\
     void prefix##_iter_replace(prefix##_iter_t *iter, const type new_elem) {\
         return vector_iter_replace(&iter->i, (const void *) new_elem); }\
-    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *vec,\
+    prefix##_const_iter_t prefix##_const_iter(const prefix##_t *vec) {\
+        return (prefix##_const_iter_t) { .i = vector_const_iter(&vec->v) }; }\
+    prefix##_const_iter_t prefix##_const_iter_from(const prefix##_t *vec,\
             int index) {\
         return (prefix##_const_iter_t) {\
-            .i = vector_const_iter(&vec->v, index) }; }\
+            .i = vector_const_iter_from(&vec->v, index) }; }\
     bool prefix##_const_iter_next(prefix##_const_iter_t *iter) {\
         return vector_const_iter_next(&iter->i); }\
     const type prefix##_const_iter_get(const prefix##_const_iter_t *iter) {\
