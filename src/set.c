@@ -233,16 +233,18 @@ bool set_contains(const set_t *set, const void *elem)
 bool set_contains_all(const set_t *set, const set_t *elems)
 {
     assert(set->compar == elems->compar);
-    if (set_size(set) < set_size(elems)) {
+    const int m = vector_size(&elems->vec);
+    const int n = vector_size(&set->vec);
+    if (n < m) {
         return false;
     }
-    for (int i = 0, j = 0; i < vector_size(&elems->vec); ++i) {
+    for (int i = m - 1, j = n - 1; i >= 0; --i) {
         const void *e = vector_get(&elems->vec, i);
-        const int k = search(set, e, j, vector_size(&set->vec) - 1);
+        const int k = search(set, e, 0, j);
         if (k == -1) {
             return false;
         } else {
-            j = k + 1;
+            j = k - 1;
         }
     }
     return true;

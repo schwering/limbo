@@ -39,14 +39,16 @@ context_t make_context(void)
     return kcontext_init(static_bat, dynamic_bat, context_z_1, context_sf_1);
 }
 
-void run(context_t *ctx)
+void run(const context_t *ctx_orig)
 {
+    context_t ctx = context_copy(ctx_orig);
+
     //printf("Q0\n");
     const query_t *phi0 =
         query_and(
             Q(N(Z(), D(0), A())),
             Q(N(Z(), D(1), A())));
-    ck_assert(query_entailed_by_setup(ctx, false, phi0, 0));
+    ck_assert(query_entailed(&ctx, false, phi0, 0));
 
     //printf("Q1\n");
     const query_t *phi1 =
@@ -54,7 +56,7 @@ void run(context_t *ctx)
             query_or(
                 Q(P(Z(), D(0), A())),
                 Q(P(Z(), D(1), A()))));
-    ck_assert(query_entailed_by_setup(ctx, false, phi1, 0));
+    ck_assert(query_entailed(&ctx, false, phi1, 0));
 
     //printf("Q2\n");
     const query_t *phi3 =
@@ -62,7 +64,7 @@ void run(context_t *ctx)
             query_or(
                 Q(P(Z(), D(1), A())),
                 Q(P(Z(), D(2), A()))));
-    ck_assert(query_entailed_by_setup(ctx, false, phi3, 1));
+    ck_assert(query_entailed(&ctx, false, phi3, 1));
 
     //printf("Q3\n");
     const query_t *phi2 =
@@ -70,30 +72,24 @@ void run(context_t *ctx)
             query_or(
                 Q(P(Z(), D(1), A())),
                 Q(P(Z(), D(2), A()))));
-    ck_assert(!query_entailed_by_setup(ctx, false, phi2, 0));
+    ck_assert(!query_entailed(&ctx, false, phi2, 0));
 
-    stdvec_t context_z_2 = stdvec_init_with_size(0);
-    splitset_t context_sf_2 = splitset_init_with_size(0);
-    stdvec_append(&context_z_2, FORWARD);
-    stdvec_append(&context_z_2, SONAR);
-    splitset_add(&context_sf_2, P(Z(), SF, A(FORWARD)));
-    splitset_add(&context_sf_2, P(Z(FORWARD), SF, A(SONAR)));
-    context_t ctx2 = context_copy_with_new_actions(ctx, &context_z_2, &context_sf_2);
+    CONTEXT_ADD_ACTIONS(&ctx, {FORWARD,true}, {SONAR,true});
 
     //printf("Q4\n");
     const query_t *phi4 =
         query_or(
             Q(P(Z(), D(0), A())),
             Q(P(Z(), D(1), A())));
-    ck_assert(query_entailed_by_setup(&ctx2, false, phi4, 1));
+    ck_assert(query_entailed(&ctx, false, phi4, 1));
 
     //printf("Q5\n");
     const query_t *phi5 = Q(P(Z(), D(0), A()));
-    ck_assert(!query_entailed_by_setup(&ctx2, false, phi5, 1));
+    ck_assert(!query_entailed(&ctx, false, phi5, 1));
 
     //printf("Q6\n");
     const query_t *phi6 = Q(P(Z(), D(1), A()));
-    ck_assert(query_entailed_by_setup(&ctx2, false, phi6, 1));
+    ck_assert(query_entailed(&ctx, false, phi6, 1));
 
     //printf("Q7\n");
     const query_t *phi7 =
@@ -101,7 +97,7 @@ void run(context_t *ctx)
             query_or(
                 Q(P(Z(), D(0), A())),
                 Q(P(Z(), D(1), A()))));
-    ck_assert(query_entailed_by_setup(&ctx2, false, phi7, 1));
+    ck_assert(query_entailed(&ctx, false, phi7, 1));
 
     //printf("Q8\n");
     const query_t *phi8 =
@@ -110,7 +106,7 @@ void run(context_t *ctx)
                 query_or(
                     Q(P(Z(), D(0), A())),
                     Q(P(Z(), D(1), A())))));
-    ck_assert(query_entailed_by_setup(&ctx2, false, phi8, 1));
+    ck_assert(query_entailed(&ctx, false, phi8, 1));
 
     //printf("Q9\n");
     const query_t *phi9 =
@@ -118,14 +114,14 @@ void run(context_t *ctx)
             query_or(
                 Q(P(Z(), D(0), A())),
                 Q(P(Z(), D(1), A()))));
-    ck_assert(query_entailed_by_setup(&ctx2, false, phi9, 1));
+    ck_assert(query_entailed(&ctx, false, phi9, 1));
 
     //printf("Q10\n");
     const query_t *phi10 =
         query_act(FORWARD,
             query_act(FORWARD,
                 Q(P(Z(), D(0), A()))));
-    ck_assert(query_entailed_by_setup(&ctx2, false, phi10, 1));
+    ck_assert(query_entailed(&ctx, false, phi10, 1));
 }
 
 int main(int argc, char *argv[])

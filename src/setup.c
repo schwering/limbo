@@ -256,17 +256,31 @@ static const clause_t *clause_resolve(const clause_t *c, const splitset_t *u)
 {
     clause_t *d = MALLOC(sizeof(clause_t));
     *d = clause_lazy_copy(c);
-    int *indices = MALLOC(clause_size(c) * sizeof(int));
-    int n_indices = 0;
-    for (EACH_CONST(splitset, u, i)) {
+    for (EACH(clause, d, i)) {
         const literal_t l = literal_flip(i.val);
-        const int j = clause_find(d, &l);
-        if (j != -1) {
-            indices[n_indices++] = j;
+        if (splitset_contains(u, &l)) {
+            clause_iter_remove(&i);
         }
     }
-    clause_remove_all_indices(d, indices, n_indices);
-    FREE(indices);
+#if 0
+    // In our examples the clauses are so small that looping over the clause is
+    // faster than over the splitset.
+    if (clause_size(c) <= splitset_size(u)) {
+        // above loop
+    } else {
+        int *indices = MALLOC(clause_size(c) * sizeof(int));
+        int n_indices = 0;
+        for (EACH_CONST(splitset, u, i)) {
+            const literal_t l = literal_flip(i.val);
+            const int j = clause_find(d, &l);
+            if (j != -1) {
+                indices[n_indices++] = j;
+            }
+        }
+        clause_remove_all_indices(d, indices, n_indices);
+        FREE(indices);
+    }
+#endif
     return d;
 }
 
@@ -379,16 +393,16 @@ setup_t setup_init_dynamic(
         const stdvecset_t *query_zs)
 {
     setup_t box_clauses = setup_init();
-    // first ground the universal quantifiers
-    // this is a bit complicated because we need to compute all possible
+    // First ground the universal quantifiers.
+    // This is a bit complicated because we need to compute all possible
     // assignment of variables (elements from univ_clauses[i].vars) and
-    // standard names (elements of hplus) for all i
+    // standard names (elements of hplus) for all i.
     for (EACH_CONST(box_univ_clauses, dynamic_bat, i)) {
         const box_univ_clause_t *c = i.val;
         ground_univ(&box_clauses, &c->c, hplus);
     }
-    // ground each box by substituting it with the prefixes of all action
-    // sequences
+    // Ground each box by substituting it with the prefixes of all action
+    // sequences.
     setup_t setup = setup_init();
     for (EACH_CONST(setup, &box_clauses, i)) {
         const clause_t *c = i.val;
