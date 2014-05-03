@@ -589,7 +589,7 @@ void setup_propagate_units(setup_t *setup)
     splitset_t new_units = splitset_init();
     splitset_t *units_ptr = &units;
     splitset_t *new_units_ptr = &new_units;
-    do {
+    while (splitset_size(units_ptr) > 0) {
         splitset_clear(new_units_ptr);
         for (EACH(setup, setup, i)) {
             const clause_t *c = i.val;
@@ -611,7 +611,7 @@ void setup_propagate_units(setup_t *setup)
             }
         }
         SWAP(units_ptr, new_units_ptr);
-    } while (splitset_size(units_ptr) > 0);
+    }
 }
 
 bool setup_is_inconsistent(const setup_t *s)
