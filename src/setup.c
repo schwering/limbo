@@ -236,6 +236,17 @@ static stdset_t clause_names(const clause_t *c)
     return names;
 }
 
+static const clause_t *clause_empty(void)
+{
+    static clause_t c;
+    static clause_t *c_ptr = NULL;
+    if (c_ptr == NULL) {
+        c = clause_init_with_size(0);
+        c_ptr = &c;
+    }
+    return c_ptr;
+}
+
 static bool clause_is_empty(const clause_t *c)
 {
     return clause_size(c) == 0;
@@ -554,9 +565,8 @@ static void setup_minimize_wrt(setup_t *setup, const clause_t *c,
         setup_iter_t *iter)
 {
     if (setup_is_inconsistent(setup)) {
-        const clause_t *empty_clause = setup_get(setup, EMPTY_CLAUSE_INDEX);
         setup_clear(setup);
-        setup_add(setup, empty_clause);
+        setup_add(setup, clause_empty());
         assert(setup_is_inconsistent(setup) && setup_size(setup) == 1);
         return;
     }

@@ -4,12 +4,12 @@
 #include <assert.h>
 #include <stdlib.h>
 
-enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EX, ACT, EVAL };
+enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EXISTS, FORALL, ACT, EVAL };
 
 typedef struct { term_t t1; term_t t2; } query_names_t;
 typedef struct { const query_t *phi; } query_unary_t;
 typedef struct { const query_t *phi1; const query_t *phi2; } query_binary_t;
-typedef struct { var_t var; const query_t *phi; } query_exists_t;
+typedef struct { var_t var; const query_t *phi; } query_quantified_t;
 typedef struct { term_t n; const query_t *phi; } query_action_t;
 typedef struct {
     int (*n_vars)(void *);
@@ -27,13 +27,11 @@ struct query {
         query_names_t eq;
         query_binary_t bin;
         query_unary_t un;
-        query_exists_t ex;
+        query_quantified_t qtf;
         query_action_t act;
         query_eval_t eval;
     } u;
 };
-
-SET_ALIAS(cnf, setup, clause_t *);
 
 static int query_n_vars(const query_t *phi)
 {
@@ -48,8 +46,9 @@ static int query_n_vars(const query_t *phi)
                 query_n_vars(phi->u.bin.phi2);
         case NEG:
             return query_n_vars(phi->u.un.phi);
-        case EX:
-            return 1 + query_n_vars(phi->u.ex.phi);
+        case EXISTS:
+        case FORALL:
+            return 1 + query_n_vars(phi->u.qtf.phi);
         case ACT:
             return query_n_vars(phi->u.act.phi);
         case EVAL:
@@ -90,9 +89,10 @@ static stdset_t query_names(const query_t *phi)
         }
         case NEG:
             return query_names(phi->u.un.phi);
-        case EX: {
-            const query_t *phi1 = phi->u.ex.phi;
-            const query_t *phi2 = phi->u.ex.phi;
+        case EXISTS:
+        case FORALL: {
+            const query_t *phi1 = phi->u.qtf.phi;
+            const query_t *phi2 = phi->u.qtf.phi;
             stdset_t set1 = query_names(phi1);
             stdset_t set2 = query_names(phi2);
             stdset_remove(&set1, 1);
@@ -154,10 +154,17 @@ static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
                     query_substitute(phi->u.bin.phi2, x, n));
         case NEG:
             return query_neg(query_substitute(phi->u.un.phi, x, n));
-        case EX:
-            if (x != phi->u.ex.var) {
-                return query_exists(phi->u.ex.var,
-                        query_substitute(phi->u.ex.phi, x, n));
+        case EXISTS:
+            if (x != phi->u.qtf.var) {
+                return query_exists(phi->u.qtf.var,
+                        query_substitute(phi->u.qtf.phi, x, n));
+            } else {
+                return phi;
+            }
+        case FORALL:
+            if (x != phi->u.qtf.var) {
+                return query_forall(phi->u.qtf.var,
+                        query_substitute(phi->u.qtf.phi, x, n));
             } else {
                 return phi;
             }
@@ -173,6 +180,7 @@ static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
     abort();
 }
 
+#ifdef USE_QUERY_CNF
 static const query_t *query_ground_quantifier(bool existential,
         const query_t *phi, var_t x, const const stdset_t *hplus, int i)
 {
@@ -191,6 +199,7 @@ static const query_t *query_ground_quantifier(bool existential,
         return xi;
     }
 }
+#endif
 
 static const query_t *query_ennf_h(
         const stdvec_t *z,
@@ -198,13 +207,14 @@ static const query_t *query_ennf_h(
         const stdset_t *hplus,
         const bool sign)
 {
-    // ENNF stands for Extended Negation Normal Form and means
+    // ENNF stands for Extended Negation Normal Form and means that
     // (1) actions are moved inwards to the extended literals
     // (2) negations are moved inwards to the extended literals
-    // (3) quantifiers are grounded
+    // (3) quantifiers are grounded.
     //
     // The resulting formula only consists of the following elements:
-    // EQ, NEQ, LIT, OR, AND, EVAL
+    // EQ, NEQ, LIT, OR, AND[, EXISTS, FORALL], EVAL
+    // where EXISTS and FORALL do not occur when USE_QUERY_CNF is defined.
     switch (phi->type) {
         case EQ:
         case NEQ: {
@@ -248,12 +258,33 @@ static const query_t *query_ennf_h(
         case NEG: {
             return query_ennf_h(z, phi->u.un.phi, hplus, !sign);
         }
-        case EX: {
+#ifdef USE_QUERY_CNF
+        case EXISTS: {
             const bool is_existential = sign;
             const query_t *psi = query_ground_quantifier(is_existential,
-                    phi->u.ex.phi, phi->u.ex.var, hplus, 0);
+                    phi->u.qtf.phi, phi->u.qtf.var, hplus, 0);
             return query_ennf_h(z, psi, hplus, sign);
         }
+        case FORALL: {
+            const bool is_existential = !sign;
+            const query_t *psi = query_ground_quantifier(is_existential,
+                    phi->u.qtf.phi, phi->u.qtf.var, hplus, 0);
+            return query_ennf_h(z, psi, hplus, sign);
+        }
+#else
+        case EXISTS:
+        case FORALL: {
+            query_t *psi = MALLOC(sizeof(query_t));
+            *psi = (query_t) {
+                .type = (phi->type == EXISTS) == sign ? EXISTS : FORALL,
+                .u.qtf = (query_quantified_t) {
+                    .var = phi->u.qtf.var,
+                    .phi = query_ennf_h(z, phi->u.qtf.phi, hplus, sign)
+                }
+            };
+            return psi;
+        }
+#endif
         case ACT: {
             const stdvec_t zz = stdvec_copy_append(z, phi->u.act.n);
             return query_ennf_h(&zz, phi->u.act.phi, hplus, sign);
@@ -293,7 +324,16 @@ static stdvecset_t query_ennf_zs(const query_t *phi)
         }
         case NEG:
             return query_ennf_zs(phi->u.un.phi);
-        case EX:
+#ifdef USE_QUERY_CNF
+        case EXISTS:
+        case FORALL:
+            abort();
+#else
+        case EXISTS:
+        case FORALL:
+            // variables don't quantify over actions
+            return query_ennf_zs(phi->u.qtf.phi);
+#endif
         case ACT:
             abort();
         case EVAL:
@@ -310,10 +350,11 @@ static const query_t *query_simplify(
     // Removes standard name (in)equalities from the formula.
     //
     // The given formula must mention no other elements but:
-    // EQ, NEQ, LIT, OR, AND, EVAL
+    // EQ, NEQ, LIT, OR, AND, EXISTS, FORALL, EVAL
     //
     // The resulting formula only consists of the following elements:
-    // LIT, OR, AND
+    // LIT, OR, AND[, EXISTS, FORALL]
+    // where EXISTS and FORALL only occur if they occurred in the given formula.
     switch (phi->type)
         case EQ: {
             *truth_value = phi->u.eq.t1 == phi->u.eq.t2;
@@ -355,8 +396,17 @@ static const query_t *query_simplify(
             }
             return psi;
         }
-        case EX:
-            abort();
+        case EXISTS:
+        case FORALL: {
+            query_t *psi = MALLOC(sizeof(query_t));
+            psi->type = phi->type;
+            psi->u.qtf.phi = query_simplify(context_sf, phi->u.qtf.phi,
+                    truth_value);
+            if (psi->u.qtf.phi == NULL) {
+                return NULL;
+            }
+            return psi;
+        }
         case ACT:
             abort();
         case EVAL:
@@ -368,6 +418,8 @@ static const query_t *query_simplify(
 }
 
 #ifdef USE_QUERY_CNF
+SET_ALIAS(cnf, setup, clause_t *);
+
 static cnf_t query_cnf(const query_t *phi)
 {
     // The given formula must mention no other elements but:
@@ -403,7 +455,7 @@ static cnf_t query_cnf(const query_t *phi)
         case EQ:
         case NEQ:
         case NEG:
-        case EX:
+        case EXISTS:
         case ACT:
         case EVAL:
             abort();
@@ -665,11 +717,35 @@ static void query_entailed_h(context_t *ctx, const query_t *phi, const int k,
             break;
         }
         case NEG:
-        case EX:
+            abort();
+#ifdef USE_QUERY_CNF
+        case EXISTS:
+        case FORALL:
+            abort();
+#else
+        case EXISTS:
+        case FORALL: {
+            *r = phi->type == FORALL;
+            for (EACH_CONST(stdset, &ctx->hplus, i)) {
+                const stdname_t n = i.val;
+                const query_t *psi = query_substitute(phi->u.qtf.phi,
+                        phi->u.qtf.var, n);
+                query_entailed_h(ctx, psi, k, c, r);
+                if (*c != NULL) {
+                    *c = NULL;
+                    *r = clause_entailed(ctx, *c, k);
+                }
+                if ((phi->type == EXISTS) == *r) {
+                    break;
+                }
+            }
+            break;
+        }
+#endif
         case ACT:
         case EVAL:
         default:
-          abort();
+            abort();
     }
 }
 #endif
@@ -843,8 +919,8 @@ const query_t *query_equiv(const query_t *phi1, const query_t *phi2)
 const query_t *query_exists(var_t x, const query_t *phi)
 {
     return NEW(((query_t) {
-        .type = EX,
-        .u.ex = (query_exists_t) {
+        .type = EXISTS,
+        .u.qtf = (query_quantified_t) {
             .var = x,
             .phi = phi
         }
@@ -853,7 +929,13 @@ const query_t *query_exists(var_t x, const query_t *phi)
 
 const query_t *query_forall(var_t x, const query_t *phi)
 {
-    return query_neg(query_exists(x, query_neg(phi)));
+    return NEW(((query_t) {
+        .type = FORALL,
+        .u.qtf = (query_quantified_t) {
+            .var = x,
+            .phi = phi
+        }
+    }));
 }
 
 const query_t *query_act(term_t n, const query_t *phi)

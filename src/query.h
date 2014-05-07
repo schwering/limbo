@@ -8,6 +8,9 @@
  *
  * Queries are created by query_[n]eq(), query_[atom|lit](), query_neg(),
  * query_[and|or](), query_[exists|forall](), query_act(), and query_eval().
+ * Note that queries are not allowed to quantify over actions.
+ * I think the only reason is that query_ennf_zs() wouldn't work correctly
+ * otherwise.
  *
  * Query evaluation is done with query_entailed_by_bat().
  * As a first step, this computes the setup for the given BAT.
@@ -26,8 +29,9 @@
  *
  * The query evaluation procedure differs a bit from the KR paper about ESL.
  * We first convert the formula into ENNF (extended negation normal form), that
- * is, all actions and negations are pushed inwards. Additionally existentials
- * are replaced with disjunctions or conjunctions over a set of standard names.
+ * is, all actions and negations are pushed inwards.
+ * If USE_QUERY_CNF is defined, quantifiers are replaced with disjunctions and
+ * conjunctions, respectively, over a set of standard names.
  * Then the query is decomposed and disjunctions of literals are taken as
  * clauses for which subsumption is tested.
  * If USE_QUERY_CNF is defined, the query is first converted to CNF and each of
