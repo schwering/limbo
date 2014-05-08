@@ -29,7 +29,7 @@ MAP_DECL(varmap, var_t, stdname_t);
 
 SET_DECL(varset, var_t);
 
-SET_ALIAS(stdset, varset, stdname_t);
+SET_DECL(stdset, stdname_t);
 
 VECTOR_DECL(stdvec, stdname_t);
 
