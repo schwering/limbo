@@ -161,6 +161,38 @@ START_TEST(test_example_12)
 }
 END_TEST
 
+START_TEST(test_inconsistency)
+{
+    univ_clauses_t static_bat = univ_clauses_init();
+    belief_conds_t belief_conds = belief_conds_init();
+    box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+    const literal_t *A = P(Z(), 0, A());
+    const literal_t *B = P(Z(), 1, A());
+    const literal_t *negA = N(Z(), 0, A());
+    const literal_t *negB = N(Z(), 1, A());
+    SBELIEF(TRUE, C(), C(   A,    B));
+    SBELIEF(TRUE, C(), C(   A, negB));
+    SBELIEF(TRUE, C(), C(negA,    B));
+    SBELIEF(TRUE, C(), C(negA, negB));
+
+    context_t ctx1 = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, 0, Z(), SF());
+
+    ck_assert_int_eq(bsetup_size(&ctx1.u.b.setups), 2);
+
+    //print_setup(bsetup_get(&ctx1.u.b.setups, 0));
+    //print_pel(pelsets_get(&ctx1.u.b.pels, 0));
+    //print_setup(bsetup_get(&ctx1.u.b.setups, 1));
+    //print_pel(pelsets_get(&ctx1.u.b.pels, 1));
+
+    ck_assert(setup_subsumes(bsetup_get_unsafe(&ctx1.u.b.setups, 0), C(A, B)));
+    ck_assert(!setup_subsumes(bsetup_get_unsafe(&ctx1.u.b.setups, 1), C(A, B)));
+
+    ck_assert(query_entailed(&ctx1, false, query_or(Q(A), Q(B)), 0));
+    ck_assert(!query_entailed(&ctx1, false, query_or(Q(A), Q(B)), 1));
+    ck_assert(query_entailed(&ctx1, false, query_or(Q(A), Q(B)), 0));
+}
+END_TEST
+
 Suite *clause_suite(void)
 {
     Suite *s = suite_create("Belief");
@@ -168,6 +200,7 @@ Suite *clause_suite(void)
     tcase_add_test(tc_core, test_morri_example);
     tcase_add_test(tc_core, test_morri_example_with_context);
     tcase_add_test(tc_core, test_example_12);
+    tcase_add_test(tc_core, test_inconsistency);
     suite_add_tcase(s, tc_core);
     return s;
 }

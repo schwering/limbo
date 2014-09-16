@@ -229,11 +229,11 @@ bool bsetup_with_splits_and_sf_subsumes(
         int *plausibility)
 {
     assert(bsetup_size(setups) == pelsets_size(pels));
-    bsetup_const_iter_t i = bsetup_const_iter(setups);
-    pelsets_const_iter_t j = pelsets_const_iter(pels);
     if (plausibility != NULL) {
         *plausibility = -1;
     }
+    bsetup_const_iter_t i = bsetup_const_iter(setups);
+    pelsets_const_iter_t j = pelsets_const_iter(pels);
     while (bsetup_const_iter_next(&i) && pelsets_const_iter_next(&j)) {
         setup_t *setup = i.val_unsafe;
         const pelset_t *pel = j.val;
@@ -241,7 +241,15 @@ bool bsetup_with_splits_and_sf_subsumes(
         if (plausibility != NULL) {
             ++(*plausibility);
         }
-        if (!setup_is_inconsistent(setup)) {
+        // Sadly, the following if-condition is quite expensive.
+        // It would be nicer to have use setup_is_inconsistent() instead, but
+        // the setup may turn out to be inconsistent only after a few splits,
+        // and then setup_is_inconsistent() doesn't detect inconsistency.
+        // A little bookkeeping could solve the issue: for each setup, memorize
+        // the smallest k for which the setup is inconsistent; then skip the
+        // loop for the setups inconsistent for the given k; within the loop
+        // then update the bookkeeping if necessary.
+        if (!setup_with_splits_and_sf_subsumes(setup, pel, clause_empty(), k)) {
             return r;
         }
     }

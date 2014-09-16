@@ -238,7 +238,7 @@ static stdset_t clause_names(const clause_t *c)
     return names;
 }
 
-static const clause_t *clause_empty(void)
+const clause_t *clause_empty(void)
 {
     static clause_t c;
     static clause_t *c_ptr = NULL;

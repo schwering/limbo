@@ -120,6 +120,7 @@ void ewff_ground(
         void (*ground)(const varmap_t *));
 
 clause_t clause_substitute(const clause_t *c, const varmap_t *map);
+const clause_t *clause_empty(void);
 
 const univ_clause_t *univ_clause_init(
         const ewff_t *cond,

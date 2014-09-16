@@ -130,6 +130,7 @@ void context_add_actions(
         const stdvec_t *add_context_z,
         const splitset_t *add_context_sf);
 void context_prev(context_t *ctx);
+void context_remove_undone_sf(context_t *ctx);
 
 bool query_entailed(
         context_t *ctx,
