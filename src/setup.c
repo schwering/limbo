@@ -457,7 +457,7 @@ void setup_add_sensing_results(
     }
 }
 
-static void clause_collect_pel(
+static void clause_collect_pel_without_sf(
         const clause_t *c,
         const setup_t *setup,
         pelset_t *pel)
@@ -467,18 +467,6 @@ static void clause_collect_pel(
     }
     for (EACH_CONST(clause, c, i)) {
         const literal_t *l = i.val;
-        // XXX TODO is that still sound?
-        // We don't add SF literals to PEL to keep the semantics equivalent to
-        // the ESL paper: We want to treat SF literals which come from reasoning
-        // about actions (rule 11 and 12 in V in the KR-2014 paper) same like
-        // other split literals, as this simplifies the code. This however also
-        // affects the k parameter. Our solution is to let the splitting run
-        // until k = 0 (inclusive) and split non-SF literals only for k > 0 and
-        // split SF literals only for k = 0. Now if we would add SF literals
-        // from the sense axioms to PEL, these could always be split even for
-        // k = 0 and therefore we could get (sound) positive results which the
-        // formal semantics would not find, because it wouldn't split this SF
-        // literal.
         if (literal_pred(l) == SF) {
             continue;
         }
@@ -500,13 +488,13 @@ static void clause_collect_pel_with_sf(
         const setup_t *setup,
         pelset_t *pel)
 {
-    // We split SF literals from imaginarily executed actions only when needed
-    // in setup_with_splits_and_sf_subsumes(). For that, the PEL needs to
-    // contain the relevant SF atoms, though.
-    clause_collect_pel(c, setup, pel);
+    // Build SF literals that correspond to actions executed within epistemic
+    // operator. They will be split in setup_with_splits_and_sf_subsumes().
+    clause_collect_pel_without_sf(c, setup, pel);
     stdvecset_t z_done = stdvecset_init();
     for (EACH_CONST(clause, c, i)) {
-        const stdvec_t *z = literal_z(i.val);
+        const literal_t *l = i.val;
+        const stdvec_t *z = literal_z(l);
         if (!stdvecset_contains(&z_done, z)) {
             for (int j = 0; j < stdvec_size(z) - 1; ++j) {
                 const stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, j);
@@ -541,7 +529,7 @@ pelset_t setup_pel(const setup_t *setup)
 {
     pelset_t pel = pelset_init();
     for (EACH_CONST(setup, setup, i)) {
-        clause_collect_pel(i.val, setup, &pel);
+        clause_collect_pel_without_sf(i.val, setup, &pel);
     }
     return pel;
 }
@@ -556,7 +544,7 @@ static splitset_t setup_get_unit_clauses(const setup_t *setup)
         } else if (clause_is_unit(c)) {
             splitset_add(&ls, clause_unit(c));
         } else {
-            // XXX Clauses with higher indices have >1 literal.
+            // Clauses with higher indices have >1 literal.
             break;
         }
     }
@@ -643,7 +631,7 @@ bool setup_subsumes(setup_t *setup, const clause_t *c)
     return false;
 }
 
-bool setup_with_splits_subsumes(
+static bool setup_with_splits_subsumes(
         setup_t *setup,
         pelset_t *pel,
         const clause_t *c,

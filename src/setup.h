@@ -28,8 +28,8 @@
  * integers.
  *
  * bat_hplus() computes the set of standard name that needs to be considered
- * for quantification. Besides the BAT it depends on the standard names and
- * number of variables in the query.
+ * for quantification. These are the standard names from the BAT and the query
+ * plus one additional standard name for each variable in the BAT and the query.
  *
  * setup_init_[static|dynamic|static_and_dynamic] create setups from the
  * respective parts of a BAT. It does so by substituting all variables with
@@ -40,14 +40,12 @@
  * ground -- no minimization or unit propagation has been done yet. Thus the
  * setup can be seen as the immediate result of grounding the clauses.
  *
- * setup_pel() computes the positive versions of all literals in the setup.
- * Note that for the split literals, you also need to consider those from the
- * query.
- * For that, clause_pel_and_sf() may be useful.
- * setup_would_be_needless_split() returns true if splitting the given literal
- * would not give additional information to the setup. For example, splitting a
- * literal when the setup already contains a unit clause with that literal or
- * its negation is useless. That's currently the only sanity check done.
+ * setup_pel() computes the positive extended literals (PEL) other than SF
+ * literals from the setup that are candidates for splitting.
+ * SF literals are not included because they are treated specifically in
+ * setup_with_splits_and_sf_subsumes().
+ * Moreover, literals that occur in the setup as unit clauses are not relevant
+ * for splitting.
  *
  * setup_minimize() removes all clauses subsumed by other clauses in the setup.
  *
@@ -63,16 +61,20 @@
  * the given clause.
  * Thus, setup_subsumes() is sound but not complete.
  *
- * setup_with_splits_and_sf_subsumes() uses setup_subsumes() for reasoning by
- * cases.
- * Firstly, it adds SF literals to PEL which correspond to the action sequences
- * in the given clause and are actually worth splitting in the given setup.
- * Then it splits up to k non-SF literals from the PEL set, and if still no
- * subsumption has been detected using these splits, it tries to split the SF
- * literals which were just added.
- * This handling of SF literals almost like normal split literals allows to
- * handle both in a single function. The reason for splitting SF literals only
- * if k = 0 is just to remain equivalent to the ESL paper.
+ * setup_with_splits_and_sf_subsumes() uses reasoning by cases and subsumption.
+ * The parameter k denotes the number of split non-SF PEL literals.
+ * After that many splits, the SF literals corresponding to the actions executed
+ * in the query are split as well.
+ * This treatment of SF literals differs from the semantics from the ESL paper
+ * (Lakemeyer and Levesque, KR-2014), but it simplifies the code because it lets
+ * us treat SF literals almost like non-SF literals, while the ESL paper splits
+ * them already while processing the query (rules 11 and 12 in the procedure V).
+ * Due to this treatment of SF literals, the implementation would not find that
+ * SF(a) v ~SF(a) is true even for k = 1 (c.f. test_eventual_completeness). For
+ * fluent queries, however, eventual completeness is preserved (I think). A
+ * formal analysis is pending.
+ * Once the clause is subsumed by the setup plus split literals as indicated by
+ * setup_subsumes(), the recursive descent stops with returning true.
  * Note that setup_with_splits_subsumes() does not change the setup besides unit
  * propagation, that is, the setup is, from a semantic standpoint, at least as
  * good as before.

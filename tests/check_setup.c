@@ -209,6 +209,63 @@ START_TEST(test_entailment)
 }
 END_TEST
 
+START_TEST(test_eventual_completeness)
+{
+    univ_clauses_t static_bat = univ_clauses_init();
+    box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+
+    const stdvec_t empty_vec = stdvec_init();
+    const stdset_t ns = stdset_init();
+    const stdset_t hplus = bat_hplus(&static_bat, &dynamic_bat, &ns, 0);
+    const stdvecset_t query_zs = stdvecset_init();
+    const setup_t setup = setup_init_static_and_dynamic(&static_bat, &dynamic_bat, &hplus, &query_zs);
+    const pelset_t pel = setup_pel(&setup);
+
+    print_setup(&setup);
+
+    ({
+        setup_t s = setup_lazy_copy(&setup);
+
+        const literal_t A = literal_init(&empty_vec, true, D(0), &empty_vec);
+        const literal_t negA = literal_flip(&A);
+
+        clause_t c = clause_init();
+        clause_add(&c, &A);
+        clause_add(&c, &negA);
+
+        print_clause(&c);
+
+        ck_assert(!setup_with_splits_and_sf_subsumes(&s, &pel, &c, 0));
+        ck_assert(setup_with_splits_and_sf_subsumes(&s, &pel, &c, 1));
+    });
+
+    ({
+        setup_t s = setup_lazy_copy(&setup);
+
+        const stdvec_t args = stdvec_singleton(FORWARD);
+        const literal_t SFa = literal_init(&empty_vec, true, SF, &args);
+        const literal_t negSFa = literal_flip(&SFa);
+
+        clause_t c = clause_init();
+        clause_add(&c, &SFa);
+        clause_add(&c, &negSFa);
+
+        print_clause(&c);
+
+        ck_assert(!setup_with_splits_and_sf_subsumes(&s, &pel, &c, 0));
+        // XXX TODO this is because of our special treatment of SF literals,
+        // which does not include SF literals in the PEL.
+        // This could be fixed by including all SF literals from the clause in
+        // clause_collect_pel_with_sf(), but then all SF literals in the query
+        // would be split regardsless of k (i.e., SF(f) v ~SF(f) would be
+        // entailed even for k = 0).
+        // Also see documentation in setup.h for details.
+        ck_assert(!setup_with_splits_and_sf_subsumes(&s, &pel, &c, 1));
+        // WANTED: ck_assert(setup_with_splits_and_sf_subsumes(&s, &pel, &c, 1));
+    });
+}
+END_TEST
+
 Suite *clause_suite(void)
 {
     Suite *s = suite_create("Setup");
@@ -216,6 +273,7 @@ Suite *clause_suite(void)
     tcase_add_test(tc_core, test_ewff);
     tcase_add_test(tc_core, test_grounding);
     tcase_add_test(tc_core, test_entailment);
+    tcase_add_test(tc_core, test_eventual_completeness);
     suite_add_tcase(s, tc_core);
     return s;
 }
