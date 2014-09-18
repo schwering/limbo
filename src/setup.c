@@ -442,6 +442,12 @@ setup_t setup_init_static_and_dynamic(
     return setup;
 }
 
+static bool setup_is_inconsistent(const setup_t *s)
+{
+    return setup_size(s) > EMPTY_CLAUSE_INDEX &&
+        clause_is_empty(setup_get(s, EMPTY_CLAUSE_INDEX));
+}
+
 void setup_add_sensing_results(
         setup_t *setup,
         const splitset_t *sensing_results)
@@ -612,12 +618,6 @@ void setup_propagate_units(setup_t *setup)
         }
         SWAP(units_ptr, new_units_ptr);
     }
-}
-
-bool setup_is_inconsistent(const setup_t *s)
-{
-    return setup_size(s) > EMPTY_CLAUSE_INDEX &&
-        clause_is_empty(setup_get(s, EMPTY_CLAUSE_INDEX));
 }
 
 bool setup_subsumes(setup_t *setup, const clause_t *c)

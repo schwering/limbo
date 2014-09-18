@@ -162,7 +162,6 @@ pelset_t setup_pel(const setup_t *setup);
 void setup_minimize(setup_t *setup);
 void setup_propagate_units(setup_t *setup);
 
-bool setup_is_inconsistent(const setup_t *s);
 bool setup_subsumes(setup_t *setup, const clause_t *c);
 bool setup_with_splits_and_sf_subsumes(
         setup_t *setup,
