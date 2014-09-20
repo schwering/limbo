@@ -17,6 +17,8 @@ static const stdname_t SONAR   = 2;
 #define D(i) ((pred_t) i)
 
 static const var_t a = -12345;
+static const var_t A0 = -12345;
+static const pred_t POSS = 11111;
 
 static bool is_action(const stdname_t n)
 {
@@ -98,10 +100,9 @@ static void print_pel(const pelset_t *pel)
     printf("---------------\n");
 }
 
+/*
 #define DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix, cond, clause) \
-    const ewff_t *cond_##suffix = cond;\
-    const clause_t *clause_##suffix = clause;\
-    clause_type_prefix##s_append(clauses_set, clause_type_prefix##_init(cond_##suffix, clause_##suffix))
+    clause_type_prefix##s_append(clauses_set, clause_type_prefix##_init(({ cond; }), ({ clause; })))
 
 #define GEN_DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix, cond, clause) \
     DECL_AND_ADD_CLAUSE(clause_type_prefix, clauses_set, suffix##_1, cond, ({ const int i = 1; clause; })); \
@@ -158,4 +159,43 @@ static void print_pel(const pelset_t *pel)
     DECL_AND_ADD_CLAUSE(box_univ_clause, dynamic_bat, 16,\
             AND(SORT(a, action), EQ(a, FORWARD)),\
             C(N(Z(a), D(0), A()), P(Z(), D(0), A()), P(Z(), D(1), A())))
+            */
+
+#define DECL_ALL_CLAUSES(static_bat, dynamic_bat) \
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),AND(NEQ(A0,SONAR),TRUE))),C(N(Z(),POSS,A(A0)))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,SONAR),TRUE)),C(N(Z(),POSS,A(A0)),N(Z(),D(0),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,FORWARD),TRUE)),C(P(Z(),D(0),A()),P(Z(),POSS,A(A0)))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,SONAR),TRUE)),C(P(Z(),POSS,A(A0)))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),AND(NEQ(A0,SONAR),TRUE))),C(N(Z(),SF,A(A0)))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),TRUE)),C(N(Z(),SF,A(A0)),P(Z(),D(0),A()),P(Z(),D(1),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,FORWARD),TRUE)),C(P(Z(),SF,A(A0)))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,SONAR),TRUE)),C(N(Z(),D(0),A()),P(Z(),SF,A(A0)))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,SONAR),TRUE)),C(N(Z(),D(1),A()),P(Z(),SF,A(A0)))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),TRUE)),C(N(Z(A0),D(0),A()),P(Z(),D(0),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),TRUE),C(N(Z(A0),D(0),A()),P(Z(),D(1),A()),P(Z(),D(0),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,FORWARD),TRUE)),C(N(Z(),D(1),A()),P(Z(A0),D(0),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),TRUE),C(N(Z(),D(0),A()),P(Z(A0),D(0),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),AND(EQ(A0,FORWARD),TRUE))),C(N(Z(A0),D(1),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),TRUE)),C(N(Z(A0),D(1),A()),P(Z(),D(1),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,FORWARD),TRUE)),C(N(Z(A0),D(1),A()),P(Z(),D(2),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),TRUE),C(N(Z(A0),D(1),A()),P(Z(),D(2),A()),P(Z(),D(1),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,FORWARD),TRUE)),C(N(Z(),D(2),A()),P(Z(A0),D(1),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),TRUE)),C(N(Z(),D(1),A()),P(Z(A0),D(1),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),AND(EQ(A0,FORWARD),TRUE))),C(N(Z(A0),D(2),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),TRUE)),C(N(Z(A0),D(2),A()),P(Z(),D(2),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,FORWARD),TRUE)),C(N(Z(A0),D(2),A()),P(Z(),D(3),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),TRUE),C(N(Z(A0),D(2),A()),P(Z(),D(3),A()),P(Z(),D(2),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,FORWARD),TRUE)),C(N(Z(),D(3),A()),P(Z(A0),D(2),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),TRUE)),C(N(Z(),D(2),A()),P(Z(A0),D(2),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),AND(EQ(A0,FORWARD),TRUE))),C(N(Z(A0),D(3),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),TRUE)),C(N(Z(A0),D(3),A()),P(Z(),D(3),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,FORWARD),TRUE)),C(N(Z(A0),D(3),A()),P(Z(),D(4),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),TRUE),C(N(Z(A0),D(3),A()),P(Z(),D(4),A()),P(Z(),D(3),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(EQ(A0,FORWARD),TRUE)),C(N(Z(),D(4),A()),P(Z(A0),D(3),A()))));\
+box_univ_clauses_append(dynamic_bat,box_univ_clause_init(AND(SORT(A0,action),AND(NEQ(A0,FORWARD),TRUE)),C(N(Z(),D(3),A()),P(Z(A0),D(3),A()))));\
+univ_clauses_append(static_bat,univ_clause_init(TRUE,C(N(Z(),D(0),A()))));\
+univ_clauses_append(static_bat,univ_clause_init(TRUE,C(N(Z(),D(1),A()))));\
+univ_clauses_append(static_bat,univ_clause_init(TRUE,C(P(Z(),D(2),A()),P(Z(),D(3),A()))));
+
+
 
