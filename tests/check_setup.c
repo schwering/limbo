@@ -1,7 +1,7 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include <check.h>
 #include <stdlib.h>
-#include "ex_bat.h"
+#include "bat-esl.h"
 
 START_TEST(test_ewff)
 {
@@ -43,19 +43,19 @@ START_TEST(test_grounding)
 {
     univ_clauses_t static_bat = univ_clauses_init();
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
-    DECL_ALL_CLAUSES(&static_bat, &dynamic_bat);
+    DECL_ALL_CLAUSES(&dynamic_bat, &static_bat, NULL);
 
     const stdvec_t query_z = ({
         stdvec_t z = stdvec_init();
-        stdvec_append(&z, FORWARD);
-        stdvec_append(&z, SONAR);
+        stdvec_append(&z, forward);
+        stdvec_append(&z, sonar);
         z;
     });
     const stdvecset_t query_zs = stdvecset_singleton(&query_z);
     const stdset_t hplus = ({
         stdset_t ns = stdset_init();
-        stdset_add(&ns, FORWARD);
-        stdset_add(&ns, SONAR);
+        stdset_add(&ns, forward);
+        stdset_add(&ns, sonar);
         const int n_vars = 0;
         stdset_t hplus = bat_hplus(&static_bat, &dynamic_bat, &ns, n_vars);
         stdset_add_all(&hplus, &ns);
@@ -84,7 +84,7 @@ START_TEST(test_grounding)
     }
 
     const stdvec_t empty_vec = stdvec_init_with_size(0);
-    const stdvec_t f_vec = stdvec_singleton(FORWARD);
+    const stdvec_t f_vec = stdvec_singleton(forward);
     const literal_t neg_sf = literal_init(&empty_vec, false, SF, &f_vec);
     const splitset_t sensing_results = splitset_singleton(&neg_sf);
     setup_add_sensing_results(&setup_up, &sensing_results);
@@ -98,28 +98,28 @@ START_TEST(test_entailment)
 {
     univ_clauses_t static_bat = univ_clauses_init();
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
-    DECL_ALL_CLAUSES(&static_bat, &dynamic_bat);
+    DECL_ALL_CLAUSES(&dynamic_bat, &static_bat, NULL);
 
     const stdvec_t empty_vec = stdvec_init();
-    const stdvec_t f_vec = stdvec_singleton(FORWARD);
-    const stdvec_t s_vec = stdvec_singleton(SONAR);
+    const stdvec_t f_vec = stdvec_singleton(forward);
+    const stdvec_t s_vec = stdvec_singleton(sonar);
     const stdvec_t fs_vec = stdvec_concat(&f_vec, &s_vec);
     const stdset_t ns = stdset_init();
     const stdset_t hplus = bat_hplus(&static_bat, &dynamic_bat, &ns, 0);
     const stdvecset_t query_zs = stdvecset_singleton(&fs_vec);
     const setup_t setup = setup_init_static_and_dynamic(&static_bat, &dynamic_bat, &hplus, &query_zs);
-    const literal_t D0 = literal_init(&empty_vec, true, D(0), &empty_vec);
-    const literal_t D1 = literal_init(&empty_vec, true, D(1), &empty_vec);
-    const literal_t D2 = literal_init(&empty_vec, true, D(2), &empty_vec);
-    const literal_t D3 = literal_init(&empty_vec, true, D(3), &empty_vec);
-    const literal_t D4 = literal_init(&empty_vec, true, D(4), &empty_vec);
+    const literal_t D0 = literal_init(&empty_vec, true, d0, &empty_vec);
+    const literal_t D1 = literal_init(&empty_vec, true, d1, &empty_vec);
+    const literal_t D2 = literal_init(&empty_vec, true, d2, &empty_vec);
+    const literal_t D3 = literal_init(&empty_vec, true, d3, &empty_vec);
+    const literal_t D4 = literal_init(&empty_vec, true, d4, &empty_vec);
     const literal_t ND0 = literal_flip(&D0);
     const literal_t ND1 = literal_flip(&D1);
     const literal_t ND2 = literal_flip(&D2);
     const literal_t ND3 = literal_flip(&D3);
     const literal_t ND4 = literal_flip(&D4);
-    const literal_t FD1 = literal_init(&f_vec, true, D(1), &empty_vec);
-    const literal_t FD2 = literal_init(&f_vec, true, D(2), &empty_vec);
+    const literal_t FD1 = literal_init(&f_vec, true, d1, &empty_vec);
+    const literal_t FD2 = literal_init(&f_vec, true, d2, &empty_vec);
 
     clause_t d0 = clause_singleton(&D0);
     clause_t d1 = clause_singleton(&D1);
@@ -226,7 +226,7 @@ START_TEST(test_eventual_completeness)
     ({
         setup_t s = setup_lazy_copy(&setup);
 
-        const literal_t A = literal_init(&empty_vec, true, D(0), &empty_vec);
+        const literal_t A = literal_init(&empty_vec, true, d0, &empty_vec);
         const literal_t negA = literal_flip(&A);
 
         clause_t c = clause_init();
@@ -242,7 +242,7 @@ START_TEST(test_eventual_completeness)
     ({
         setup_t s = setup_lazy_copy(&setup);
 
-        const stdvec_t args = stdvec_singleton(FORWARD);
+        const stdvec_t args = stdvec_singleton(forward);
         const literal_t SFa = literal_init(&empty_vec, true, SF, &args);
         const literal_t negSFa = literal_flip(&SFa);
 

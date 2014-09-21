@@ -9,7 +9,8 @@
 :- op(880, xfy, <->). /* Equivalence */
 :- op(890, xfy, =>).  /* Belief conditional */
 
-vsort(V, Sort) :- put_attr(V, sort, Sort).
+put_sort(V, Sort) :- put_attr(V, sort, Sort).
+is_sort(V, Sort) :- get_attr(V, sort, Sort).
 
 :- dynamic(box/1).
 :- dynamic(static/1).
@@ -54,7 +55,7 @@ ewffy([~(X\=Y)|As], [~(X=Y)|Es], Ls) :- !, ewffy(As, Es, Ls).
 ewffy([A|As], Es, [L|Ls]) :- varify(A, L, Es1), ewffy(As, Es2, Ls), append(Es1, Es2, Es).
 
 sortify([], []).
-sortify([V|Vs], [sort(V, Sort)|E]) :- get_attr(V, sort, Sort), !, sortify(Vs, E).
+sortify([V|Vs], [sort(V, Sort)|E]) :- is_sort(V, Sort), !, sortify(Vs, E).
 sortify([_|Vs], E) :- sortify(Vs, E).
 
 sortify(E, C, E2) :-
@@ -62,29 +63,60 @@ sortify(E, C, E2) :-
     sortify(Vars, E1),
     append(E1, E, E2).
 
-cnf_to_ecnf([], []).
-cnf_to_ecnf([C|Cs], ECs1) :- ewffy(C, E1, EC), sortify(E1, EC, E), ( (member((X1=Y1), E), member(~(X2=Y2), E), X1 == X2, Y1 == Y2) -> ECs1 = ECs ; ECs1 = [(E->EC)|ECs] ), cnf_to_ecnf(Cs, ECs).
 
 
-names([], _, []).
-names([V|Vs], I, [N=V|Ns]) :- get_attr(V, sort, action), !, atom_concat('A', I, N), I1 is I + 1, names(Vs, I1, Ns).
-names([V|Vs], I, [N=V|Ns]) :- atom_concat('X', I, N), I1 is I + 1, names(Vs, I1, Ns).
 
-print(ECnf) :-
-    term_variables(ECnf, Vars),
-    names(Vars, 0, Names),
-    write_term(ECnf, [variable_names(Names), nl(true)]),
-    nl.
+variable_names([], _, []).
+variable_names([V|Vs], I, [N=V|Ns]) :- is_sort(V, action), !, ( I = 0 -> N = 'A' ; atom_concat('A', I, N) ), I1 is I + 1, variable_names(Vs, I1, Ns).
+variable_names([V|Vs], I, [N=V|Ns]) :- ( I = 0 -> N = 'X' ; atom_concat('X', I, N) ), I1 is I + 1, variable_names(Vs, I1, Ns).
 
-print_all :-
-    (   box(Alpha1), cnf(Alpha1, Cnf1), cnf_to_ecnf(Cnf1, ECnf1), Alpha = box(Alpha1), ECnf = (ECnf1)
-    ;   static(Alpha1), cnf(Alpha1, Cnf1), cnf_to_ecnf(Cnf1, ECnf1), Alpha = static(Alpha1), ECnf = (ECnf1)
+extract_variable_names([], []).
+extract_variable_names([N=_|Mapping], [N|Names]) :- extract_variable_names(Mapping, Names).
+
+extract_standard_names([], []).
+extract_standard_names([sort(_,_)|Es], Names) :-
+    extract_standard_names(Es, Names).
+extract_standard_names([~(X=Y)|Es], Names) :-
+    extract_standard_names([(X=Y)|Es], Names).
+extract_standard_names([(X=Y)|Es], Names) :-
+    ( ground(X), ground(Y) ->
+        Names = [X,Y|Names1]
+    ; ground(X) ->
+        Names = [X|Names1]
+    ; ground(Y) ->
+        Names = [Y|Names1]
+    ;
+        Names = Names1
     ),
-    nl,
-    print(Alpha),
-    writeln('---------------------'),
-    maplist(print, ECnf),
-    writeln('---------------------').
+    extract_standard_names(Es, Names1).
+
+extract_sort_names([], []).
+extract_sort_names([sort(_,Sort)|Es], [Sort|Names]) :-
+    extract_sort_names(Es, Names).
+extract_sort_names([~(_=_)|Es], Names) :-
+    extract_sort_names(Es, Names).
+extract_sort_names([(_=_)|Es], Names) :-
+    extract_sort_names(Es, Names).
+
+extract_predicate_names([], []).
+extract_predicate_names([~L|Ls], Ps) :- !, extract_predicate_names([L|Ls], Ps).
+extract_predicate_names([_:L|Ls], Ps) :- !, extract_predicate_names([L|Ls], Ps).
+extract_predicate_names([L|Ls], [P|Ps]) :- functor(L, P, _), extract_predicate_names(Ls, Ps).
+
+declarations(E, Cs, VarNames, StdNames, SortNames, PredNames) :-
+    term_variables((E, Cs), Vars),
+    variable_names(Vars, 0, Names),
+    extract_variable_names(Names, VarNames),
+    extract_standard_names(E, StdNames),
+    extract_sort_names(E, SortNames),
+    ( Cs = (C1, C2) ->
+        extract_predicate_names(C1, PredNames1),
+        extract_predicate_names(C2, PredNames2),
+        append(PredNames1, PredNames2, PredNames)
+    ;
+        C = Cs,
+        extract_predicate_names(C, PredNames)
+    ).
 
 compile_ewff([], 'TRUE').
 compile_ewff([(X=Y)|E], 'AND'('EQ'(X, Y), E1)) :- compile_ewff(E, E1).
@@ -112,43 +144,45 @@ compile_clause(C, C_C) :-
     compile_literals(C, Ls_C),
     ( Ls_C = [] -> C_C =..['C', ''] ; C_C =..['C' | Ls_C] ).
 
-compile_box(E, Alpha, S) :-
+compile_box(E, Alpha, Code) :-
     term_variables((E, Alpha), Vars),
-    names(Vars, 0, Names),
+    variable_names(Vars, 0, Names),
     compile_ewff(E, E_C),
     compile_clause(Alpha, Alpha_C),
-    with_output_to(atom(S), write_term('box_univ_clauses_append'('dynamic_bat', 'box_univ_clause_init'(E_C, Alpha_C)), [variable_names(Names)])).
+    with_output_to(atom(Code), write_term('box_univ_clauses_append'('dynamic_bat', 'box_univ_clause_init'(E_C, Alpha_C)), [variable_names(Names)])).
 
-compile_static(E, Alpha, S) :-
+compile_static(E, Alpha, Code) :-
     term_variables((E, Alpha), Vars),
-    names(Vars, 0, Names),
+    variable_names(Vars, 0, Names),
     compile_ewff(E, E_C),
     compile_clause(Alpha, Alpha_C),
-    with_output_to(atom(S), write_term('univ_clauses_append'('static_bat', 'univ_clause_init'(E_C, Alpha_C)), [variable_names(Names)])).
+    with_output_to(atom(Code), write_term('univ_clauses_append'('static_bat', 'univ_clause_init'(E_C, Alpha_C)), [variable_names(Names)])).
 
-compile_belief(E, NegPhi, Psi, S) :-
+compile_belief(E, NegPhi, Psi, Code) :-
     term_variables((E, NegPhi, Psi), Vars),
-    names(Vars, 0, Names),
+    variable_names(Vars, 0, Names),
     compile_ewff(E, E_C),
     compile_clause(NegPhi, NegPhi_C),
     compile_clause(Psi, Psi_C),
-    with_output_to(atom(S), write_term('belief_conds_append'('belief_conds', 'belief_cond_init'(E_C, NegPhi_C, Psi_C)), [variable_names(Names)])).
+    with_output_to(atom(Code), write_term('belief_conds_append'('belief_conds', 'belief_cond_init'(E_C, NegPhi_C, Psi_C)), [variable_names(Names)])).
 
-compile(S) :-
+compile(VarNames, StdNames, SortNames, PredNames, Code) :-
     box(Alpha),
     cnf(Alpha, Cnf),
     member(Clause, Cnf),
     ewffy(Clause, E1, C),
     sortify(E1, C, E),
-    compile_box(E, C, S).
-compile(S) :-
+    declarations(E, C, VarNames, StdNames, SortNames, PredNames),
+    compile_box(E, C, Code).
+compile(VarNames, StdNames, SortNames, PredNames, Code) :-
     static(Alpha),
     cnf(Alpha, Cnf),
     member(Clause, Cnf),
     ewffy(Clause, E1, C),
     sortify(E1, C, E),
-    compile_static(E, C, S).
-compile(S) :-
+    declarations(E, C, VarNames, StdNames, SortNames, PredNames),
+    compile_static(E, C, Code).
+compile(VarNames, StdNames, SortNames, PredNames, Code) :-
     belief(Phi => Psi),
     cnf(~Phi, NegPhiCnf),
     cnf(Psi, PsiCnf),
@@ -159,13 +193,120 @@ compile(S) :-
     sortify(E11, C1, E1),
     sortify(E21, C2, E2),
     append(E1, E2, E),
-    compile_belief(E, C1, C2, S).
+    declarations(E, (C1, C2), VarNames, StdNames, SortNames, PredNames),
+    compile_belief(E, C1, C2, Code).
 
-compile_all :-
-    compile(S),
-    write(S),
-    write(';'),
+print_variable_name_declarations(_, []).
+print_variable_name_declarations(Stream, [V|Vs]) :-
+    length(Vs, I),
+    format(Stream, 'static const var_t ~w = -1 * (~w + 1);~n', [V, I]),
+    print_variable_name_declarations(Stream, Vs).
+
+print_standard_name_declarations(_, []).
+print_standard_name_declarations(Stream, [N|Ns]) :-
+    length(Ns, I),
+    format(Stream, 'static const stdname_t ~w = ~w + 1;~n', [N, I]),
+    print_standard_name_declarations(Stream, Ns).
+
+print_predicate_name_declarations(_, []).
+print_predicate_name_declarations(Stream, [P|Ps]) :-
+    length(Ps, I),
+    ( P = 'SF' -> true ; format(Stream, 'static const pred_t ~w = ~w;~n', [P, I]) ),
+    print_predicate_name_declarations(Stream, Ps).
+
+print_clauses_definitions(_, []).
+print_clauses_definitions(Stream, [C]) :- !, format(Stream, '    ~w;~n', [C]).
+print_clauses_definitions(Stream, [C|Cs]) :- format(Stream, '    ~w;\\~n', [C]), print_clauses_definitions(Stream, Cs).
+
+print_serialization(Stream, Name) :-
+    format(Stream, '    else if (name == ~w) printf("~w");~n', [Name, Name]).
+
+print_sort_names(_, [], _).
+print_sort_names(Stream, [Sort|Sorts], StdNames) :-
+    maplist(atom_concat(' || name == '), StdNames, DisjList),
+    foldl(atom_concat, DisjList, '', Disj),
+    format(Stream, 'static bool is_~w(stdname_t name) {~n', [Sort]),
+    format(Stream, '    return false~w;~n', [Disj]),
+    format(Stream, '}~n', []),
+    format(Stream, '~n', []),
+    print_sort_names(Stream, Sorts, StdNames).
+
+print_functions(Stream, StdNames, SortNames, PredNames) :-
+    format(Stream, 'static void print_stdname(stdname_t name) {~n', []),
+    format(Stream, '    if (false) printf("never occurs");~n', []),
+    maplist(print_serialization(Stream), StdNames),
+    format(Stream, '    else printf("#%ld", name);~n', []),
+    format(Stream, '}~n', []),
+    format(Stream, '~n', []),
+    format(Stream, 'static void print_pred(pred_t name) {~n', []),
+    format(Stream, '    if (false) printf("never occurs");~n', []),
+    maplist(print_serialization(Stream), PredNames),
+    format(Stream, '    else printf("%d", name);~n', []),
+    format(Stream, '}~n', []),
+    format(Stream, '~n', []),
+    print_sort_names(Stream, SortNames, StdNames).
+
+compile_all(Input, Output) :-
+    ( Output = stdout ->
+        current_output(Stream)
+    ;
+        open(Output, write, Stream)
+    ),
+    retractall(box(_)),
+    retractall(static(_)),
+    retractall(belief(_)),
+    consult(Input),
+    findall(r(VarNames, StdNames, SortNames, PredNames, Code), compile(VarNames, StdNames, SortNames, PredNames, Code), All),
+    maplist(arg(1), All, VarNames1),
+    maplist(arg(2), All, StdNames1),
+    maplist(arg(3), All, SortNames1),
+    maplist(arg(4), All, PredNames1),
+    maplist(arg(5), All, Code),
+    flatten(VarNames1, VarNames2),
+    flatten(StdNames1, StdNames2),
+    flatten(SortNames1, SortNames2),
+    flatten(PredNames1, PredNames2),
+    sort(VarNames2, VarNames),
+    sort(StdNames2, StdNames),
+    sort(SortNames2, SortNames),
+    sort(PredNames2, PredNames),
+    format(Stream, '#include "bat-common.h"~n', []),
+    format(Stream, '~n', []),
+    print_variable_name_declarations(Stream, VarNames),
+    format(Stream, '~n', []),
+    print_standard_name_declarations(Stream, StdNames),
+    format(Stream, '~n', []),
+    print_predicate_name_declarations(Stream, PredNames),
+    format(Stream, '~n', []),
+    print_functions(Stream, StdNames, SortNames, PredNames),
+    format(Stream, '#define DECL_ALL_CLAUSES(dynamic_bat, static_bat, belief_conds)\\~n', []),
+    print_clauses_definitions(Stream, Code),
+    format(Stream, '~n', []),
+    ( Output = stdout ->
+        true
+    ;
+        close(Stream)
+    ).
+
+
+
+
+cnf_to_ecnf([], []).
+cnf_to_ecnf([C|Cs], ECs1) :- ewffy(C, E1, EC), sortify(E1, EC, E), ( (member((X1=Y1), E), member(~(X2=Y2), E), X1 == X2, Y1 == Y2) -> ECs1 = ECs ; ECs1 = [(E->EC)|ECs] ), cnf_to_ecnf(Cs, ECs).
+
+print(ECnf) :-
+    term_variables(ECnf, Vars),
+    variable_names(Vars, 0, Names),
+    write_term(ECnf, [variable_names(Names), nl(true)]),
+    nl.
+
+print_all :-
+    (   box(Alpha1), cnf(Alpha1, Cnf1), cnf_to_ecnf(Cnf1, ECnf1), Alpha = box(Alpha1), ECnf = (ECnf1)
+    ;   static(Alpha1), cnf(Alpha1, Cnf1), cnf_to_ecnf(Cnf1, ECnf1), Alpha = static(Alpha1), ECnf = (ECnf1)
+    ),
     nl,
-    fail.
-compile_all.
+    print(Alpha),
+    writeln('---------------------'),
+    maplist(print, ECnf),
+    writeln('---------------------').
 

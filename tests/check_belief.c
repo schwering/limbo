@@ -1,7 +1,7 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include <check.h>
 #include <stdlib.h>
-#include "ex_bel.h"
+#include "bat-esb.h"
 
 START_TEST(test_morri_example)
 {
@@ -125,6 +125,15 @@ START_TEST(test_morri_example_with_context)
     ck_assert(query_entailed(&ctx4, false, phi6, k)); // sensing really really is required
 }
 END_TEST
+
+#define DCLAUSE(cond, clause) \
+    box_univ_clauses_append(&dynamic_bat, box_univ_clause_init(cond, clause))
+
+#define SCLAUSE(cond, clause) \
+    univ_clauses_append(&static_bat, univ_clause_init(cond, clause))
+
+#define SBELIEF(cond, neg_phi, psi) \
+    belief_conds_append(&belief_conds, belief_cond_init(cond, neg_phi, psi));
 
 START_TEST(test_example_12)
 {

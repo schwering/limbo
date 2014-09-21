@@ -1,19 +1,22 @@
-box('POSS'(A) <-> A = 'FORWARD' ^ ~ 'D(0)' v A = 'SONAR' ^ true) :- put_attr(A, sort, action).
+% Running example from:
+% Lakemeyer, Levesque: Decidable Reasoning in a Fragment of the Epistemic Situation Calculus, KR-2014
 
-box('SF'(A) <-> A = 'FORWARD' ^ true v A = 'SONAR' ^ ('D(0)' v 'D(1)')) :- put_attr(A, sort, action).
+box('POSS'(A) <-> A = forward ^ ~ d0 v A = sonar ^ true) :- put_sort(A, action).
 
-box(A:'D(0)' <-> A = 'FORWARD' ^ 'D(1)' v 'D(0)') :-
-    put_attr(A, sort, action).
-box(A:DI <-> A = 'FORWARD' ^ DI1 v A \= 'FORWARD' ^ DI) :-
+box('SF'(A) <-> A = forward ^ true v A = sonar ^ (d0 v d1)) :- put_sort(A, action).
+
+box(A:d0 <-> A = forward ^ d1 v d0) :-
+    put_sort(A, action).
+box(A:DI <-> A = forward ^ DI1 v A \= forward ^ DI) :-
     between(1, 3, I),
     I1 is I + 1,
-    with_output_to(atom(DI), write_term('D'(I), [])),
-    with_output_to(atom(DI1), write_term('D'(I1), [])),
-    put_attr(A, sort, action).
+    atom_concat('d', I, DI),
+    atom_concat('d', I1, DI1),
+    put_sort(A, action).
 
-static(~'D(0)').
-static(~'D(1)').
-static('D(2)' v 'D(3)').
+static(~d0).
+static(~d1).
+static('d2' v 'd3').
 
 belief(_ => _) :- fail.
 
