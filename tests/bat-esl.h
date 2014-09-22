@@ -32,7 +32,7 @@ static void print_pred(pred_t name) {
 }
 
 static bool is_action(stdname_t name) {
-    return false || name == sonar || name == forward;
+    return false || name == sonar || name == forward || (true && name > sonar && name > forward);
 }
 
 #define DECL_ALL_CLAUSES(dynamic_bat, static_bat, belief_conds)\

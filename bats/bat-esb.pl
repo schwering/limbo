@@ -1,3 +1,5 @@
+% vim:filetype=prolog:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+%
 % Running example from:
 % Schwering, Lakemeyer: A Semantic Account of Iterated Belief Revision in the Situation Calculus, ECAI-2014
 

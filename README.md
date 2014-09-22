@@ -35,8 +35,8 @@ and `bat-esb.pl`, and the corresponding proper+ versions are in the headers
 `tests/bat-esl.h` and `tests/bat-esb.h`.
 They can be updated as follows:
 ```
-$ swipl -f proper.pl
-?- compile_all('bat-esl.pl', `tests/bat-esl.h`).
-?- compile_all('bat-esb.pl', `tests/bat-esb.h`).
+$ swipl -f bats/proper.pl
+?- compile_all('bats/bat-esl.pl', 'tests/bat-esl.h').
+?- compile_all('bats/bat-esb.pl', 'tests/bat-esb.h').
 ```
 

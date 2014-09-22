@@ -30,7 +30,7 @@ static void print_pred(pred_t name) {
 }
 
 static bool is_action(stdname_t name) {
-    return false || name == SR1 || name == SL || name == LV;
+    return false || name == SR1 || name == SL || name == LV || (true && name > SR1 && name > SL && name > LV);
 }
 
 #define DECL_ALL_CLAUSES(dynamic_bat, static_bat, belief_conds)\

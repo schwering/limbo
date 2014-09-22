@@ -1,4 +1,56 @@
 % vim:filetype=prolog:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+%
+% Tool that generates a proper+ BAT represented in C code.
+%
+% The input BAT consists of Prolog clauses box/1, static/1, belief/1:
+%
+% For example, a sensing axiom can be written as
+%   box('SF'(A) <-> A = sonar ^ (d1 v d0)).
+% A successor state axiom can be written as
+%   box(A:d0 <-> A = forward ^ d1 v d0).
+%
+% The operators `^', `v', `~' represent conjunction, disjunction, and negation.
+% Implication and equivalence are written as `->' and `<->', and `true' can be
+% used as well.
+% The `box' indicates that the formula is surrounded by a Box operator in ES.
+%
+% The initial situation is axiomatized using `static' instead of `box':
+%   static(d2 v d3).
+%
+% Belief conditionals as in 
+%   belief(~d0 ^ ~d1 => d2 v d3).
+% As in ESB, the `=>' is read counterfactually is no stand-alone logical
+% operator but can only be used in connection as in belief(_ => _).
+%
+% Prolog variables in these Prolog clauses translate to ESBL variables. (Which
+% are objects of type `var_t' in the generated C code. Their naming may differ,
+% though, as they are called A, X, A1, X1, ...)
+%
+% Predicates and standard names (for actions or objects) need to be represented
+% as Prolog terms which must be legal C identifiers as wells. For example,
+% `'SF'' is the sensed fluent literal (which must be uppercase to conform with
+% the ESBL constant defined in literal.h). Similarly, `forward' and `sonar'
+% represent actions, and `d0', `d1', ... represent predicates. Observe that
+% `d(0)' would not have worked, because it's no legal identifier in C.
+%
+% A BAT then consists of a bunch of Prolog clauses of the above format. Suppose
+% a file `my-bat.pl' contains these clauses. Then the following command prints
+% the BAT in proper+ form:
+%   ?- print_all('bats/my-bat.pl').
+% And this command generates the corresponding C code in the specified C header:
+%   ?- compile_all('bats/my-bat.pl', 'my-generated-proper-plus-bat.h').
+%
+% It may improve performance to use different sorts for variables and standard
+% names. For example, in the above sensed fluent axiom we can require `A' to be
+% of sort `action':
+%   box('SF'(A) <-> A = sonar ^ (d1 v d0)) :- put_sort(A, action).
+% Then you need to adjust the disjunction in the generated C function
+% `is_action': it must return true for only those standard names from the BAT
+% which are of sort `action' and for those which have higher numbers than the
+% names of the BAT (standard names of that kind will be used to deal with
+% quantifiers).
+%
+% schwering@kbsg.rwth-aachen.de
 
 :- use_module(library(apply)).
 
@@ -225,8 +277,10 @@ print_sort_names(_, [], _).
 print_sort_names(Stream, [Sort|Sorts], StdNames) :-
     maplist(atom_concat(' || name == '), StdNames, DisjList),
     foldl(atom_concat, DisjList, '', Disj),
+    maplist(atom_concat(' && name > '), StdNames, ConjList),
+    foldl(atom_concat, ConjList, '', Conj),
     format(Stream, 'static bool is_~w(stdname_t name) {~n', [Sort]),
-    format(Stream, '    return false~w;~n', [Disj]),
+    format(Stream, '    return false~w || (true~w);~n', [Disj, Conj]),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
     print_sort_names(Stream, Sorts, StdNames).
@@ -297,16 +351,46 @@ cnf_to_ecnf([C|Cs], ECs1) :- ewffy(C, E1, EC), sortify(E1, EC, E), ( (member((X1
 print(ECnf) :-
     term_variables(ECnf, Vars),
     variable_names(Vars, 0, Names),
-    write_term(ECnf, [variable_names(Names), nl(true)]),
-    nl.
+    write_term(ECnf, [variable_names(Names), nl(true)]), nl.
 
-print_all :-
-    (   box(Alpha1), cnf(Alpha1, Cnf1), cnf_to_ecnf(Cnf1, ECnf1), Alpha = box(Alpha1), ECnf = (ECnf1)
-    ;   static(Alpha1), cnf(Alpha1, Cnf1), cnf_to_ecnf(Cnf1, ECnf1), Alpha = static(Alpha1), ECnf = (ECnf1)
+print_to_term('v', [], '~true').
+print_to_term(_, '^', [], 'true').
+print_to_term(Names, _, [X], T) :- !, with_output_to(atom(T), write_term(X, [variable_names(Names)])).
+print_to_term(Names, Op, [X|Xs], T) :- print_to_term(Names, Op, Xs, Ts), with_output_to(atom(T1), write_term(X, [variable_names(Names)])), with_output_to(atom(T), format('~w ~w ~w', [T1, Op, Ts])).
+
+print_all(Input) :-
+    retractall(box(_)),
+    retractall(static(_)),
+    retractall(belief(_)),
+    consult(Input),
+    (   box(Alpha),
+        print(box(Alpha)),
+        cnf(Alpha, Cnf), member(Clause, Cnf), ewffy(Clause, E, C),
+        term_variables(Alpha, Vars),
+        variable_names(Vars, 0, Names),
+        print_to_term(Names, '^', E, ETerm),
+        print_to_term(Names, 'v', C, CTerm),
+        Term = box(ETerm -> CTerm)
+    ;   static(Alpha),
+        print(Alpha),
+        cnf(Alpha, Cnf), member(Clause, Cnf), ewffy(Clause, E, C),
+        term_variables(Alpha, Vars),
+        variable_names(Vars, 0, Names),
+        print_to_term(Names, '^', E, ETerm),
+        print_to_term(Names, 'v', C, CTerm),
+        Term = (ETerm -> CTerm)
+    ;   belief(Phi => Psi),
+        print(Phi => Psi),
+        cnf(~Phi, NegPhiCnf), cnf(Psi, PsiCnf), member(NegPhiClause, NegPhiCnf), member(PsiClause, PsiCnf), ewffy(NegPhiClause, E1, C1), ewffy(PsiClause, E2, C2), append(E1, E2, E),
+        term_variables(Phi => Psi, Vars),
+        variable_names(Vars, 0, Names),
+        print_to_term(Names, '^', E, ETerm),
+        print_to_term(Names, 'v', C1, CTerm1),
+        print_to_term(Names, 'v', C2, CTerm2),
+        Term = (ETerm -> (CTerm1 => CTerm2))
     ),
-    nl,
-    print(Alpha),
-    writeln('---------------------'),
-    maplist(print, ECnf),
-    writeln('---------------------').
+    write('  '),
+    write_term(Term, [variable_names(Names), nl(true)]), nl,
+    fail.
+print_all(_).
 
