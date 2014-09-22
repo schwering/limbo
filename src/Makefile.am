@@ -12,8 +12,7 @@ NEDMALLOCH =
 NEDMALLOCC =
 endif
 
-noinst_LTLIBRARIES = libesl.la
-include_HEADERS = belief.h literal.h map.h memory.h query.h set.h setup.h term.h vector.h $(NEDMALLOCH)
+lib_LTLIBRARIES = libesl.la
+pkginclude_HEADERS = belief.h literal.h map.h memory.h query.h set.h setup.h term.h vector.h $(NEDMALLOCH)
 libesl_la_SOURCES = belief.c literal.c map.c memory.c query.c set.c setup.c term.c vector.c $(NEDMALLOCC)
 libesl_la_LIBADD = -lm -lrt -lpthread $(LIBGC)
-
