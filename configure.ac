@@ -5,7 +5,7 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_CC_STDC
 AM_PROG_AR
-LT_INIT([disable-shared])
+LT_INIT([disable-static])
 AC_ARG_ENABLE(cnf,
 	      [  --enable-cnf            convert queries to CNF and answer clause-wise [default=no]],
 	      [if test x$enableval = xyes
