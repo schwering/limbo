@@ -215,8 +215,8 @@ pelsets_t bsetup_pels(const bsetup_t *setups)
 
 void bsetup_propagate_units(bsetup_t *setups)
 {
-    for (EACH_CONST(bsetup, setups, i)) {
-        setup_t *setup = i.val_unsafe;
+    for (EACH(bsetup, setups, i)) {
+        setup_t *setup = i.val;
         setup_propagate_units(setup);
     }
 }
