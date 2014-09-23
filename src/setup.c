@@ -189,6 +189,7 @@ static void ewff_ground_h(
             varmap_add_replace(varmap, x, n);
             ewff_ground_h(e, vars, hplus, ground, varmap);
         }
+        varmap_remove(varmap, x);
     } else {
         if (ewff_eval(e, varmap)) {
             ground(varmap);
