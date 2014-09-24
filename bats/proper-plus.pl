@@ -251,14 +251,17 @@ compile(VarNames, StdNames, SortNames, PredNames, Code) :-
 print_variable_name_declarations(_, []).
 print_variable_name_declarations(Stream, [V|Vs]) :-
     length(Vs, I),
-    format(Stream, 'static const var_t ~w = -1 * (~w + 1);~n', [V, I]),
+    I1 is -1 * (I + 1),
+    format(Stream, 'static const var_t ~w = ~w;~n', [V, I1]),
     print_variable_name_declarations(Stream, Vs).
 
-print_standard_name_declarations(_, []).
-print_standard_name_declarations(Stream, [N|Ns]) :-
+print_standard_name_declarations(_, [], 0).
+print_standard_name_declarations(Stream, [N|Ns], MaxStdName) :-
     length(Ns, I),
-    format(Stream, 'static const stdname_t ~w = ~w + 1;~n', [N, I]),
-    print_standard_name_declarations(Stream, Ns).
+    I1 is I + 1,
+    format(Stream, 'static const stdname_t ~w = ~w;~n', [N, I1]),
+    print_standard_name_declarations(Stream, Ns, MaxStdName1),
+    MaxStdName is max(I1, MaxStdName1).
 
 print_predicate_name_declarations(_, []).
 print_predicate_name_declarations(Stream, [P|Ps]) :-
@@ -273,14 +276,15 @@ print_clauses_definitions(Stream, [C|Cs]) :- format(Stream, '    ~w;\\~n', [C]),
 print_serialization(Stream, Name) :-
     format(Stream, '    else if (name == ~w) printf("~w");~n', [Name, Name]).
 
+print_max_stdname(Stream, MaxStdName) :-
+    format(Stream, 'static const stdname_t MAX_STD_NAME = ~w;~n', [MaxStdName]).
+
 print_sort_names(_, [], _).
 print_sort_names(Stream, [Sort|Sorts], StdNames) :-
     maplist(atom_concat(' || name == '), StdNames, DisjList),
     foldl(atom_concat, DisjList, '', Disj),
-    maplist(atom_concat(' && name > '), StdNames, ConjList),
-    foldl(atom_concat, ConjList, '', Conj),
     format(Stream, 'static bool is_~w(stdname_t name) {~n', [Sort]),
-    format(Stream, '    return false~w || (true~w);~n', [Disj, Conj]),
+    format(Stream, '    return name > MAX_STD_NAME~w;~n', [Disj]),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
     print_sort_names(Stream, Sorts, StdNames).
@@ -328,7 +332,8 @@ compile_all(Input, Output) :-
     format(Stream, '~n', []),
     print_variable_name_declarations(Stream, VarNames),
     format(Stream, '~n', []),
-    print_standard_name_declarations(Stream, StdNames),
+    print_standard_name_declarations(Stream, StdNames, MaxStdName),
+    print_max_stdname(Stream, MaxStdName),
     format(Stream, '~n', []),
     print_predicate_name_declarations(Stream, PredNames),
     format(Stream, '~n', []),

@@ -1,10 +1,11 @@
 #include "bat-common.h"
 
-static const var_t A = -1 * (0 + 1);
+static const var_t A = -1;
 
-static const stdname_t LV = 2 + 1;
-static const stdname_t SL = 1 + 1;
-static const stdname_t SR1 = 0 + 1;
+static const stdname_t LV = 3;
+static const stdname_t SL = 2;
+static const stdname_t SR1 = 1;
+static const stdname_t MAX_STD_NAME = 3;
 
 static const pred_t L1 = 4;
 static const pred_t L2 = 3;
@@ -30,7 +31,7 @@ static void print_pred(pred_t name) {
 }
 
 static bool is_action(stdname_t name) {
-    return false || name == SR1 || name == SL || name == LV || (true && name > SR1 && name > SL && name > LV);
+    return name > MAX_STD_NAME || name == SR1 || name == SL || name == LV;
 }
 
 #define DECL_ALL_CLAUSES(dynamic_bat, static_bat, belief_conds)\
