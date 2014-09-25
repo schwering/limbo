@@ -3,6 +3,9 @@
 % Running example from:
 % Lakemeyer, Levesque: Decidable Reasoning in a Fragment of the Epistemic Situation Calculus, KR-2014
 
+sort_name(action, forward).
+sort_name(action, sonar).
+
 box('POSS'(A) <-> A = forward ^ ~ d0 v A = sonar ^ true) :- put_sort(A, action).
 
 box('SF'(A) <-> A = forward ^ true v A = sonar ^ (d0 v d1)) :- put_sort(A, action).

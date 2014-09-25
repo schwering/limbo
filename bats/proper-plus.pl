@@ -64,6 +64,7 @@
 put_sort(V, Sort) :- put_attr(V, sort, Sort).
 is_sort(V, Sort) :- get_attr(V, sort, Sort).
 
+:- dynamic(sort_name/2).
 :- dynamic(box/1).
 :- dynamic(static/1).
 :- dynamic(belief/1).
@@ -80,6 +81,8 @@ cnf(A1 <-> A2, B) :- !, cnf((A1 -> A2) ^ (A2 -> A1), B).
 cnf(A1 -> A2, B) :- !, cnf(~A1 v A2, B).
 cnf(A1 ^ A2, B) :- !, cnf(A1, B1), cnf(A2, B2), append(B1, B2, B).
 cnf(A1 v A2, B) :- !, cnf(A1, B1), cnf(A2, B2), cartesian(B1, B2, B).
+cnf(~(A1 <-> A2), B) :- !, cnf(~((A1 -> A2) ^ (A2 -> A1)), B).
+cnf(~(A1 -> A2), B) :- !, cnf(A1 ^ ~A2, B).
 cnf(~(A1 ^ A2), B) :- !, cnf(~A1 v ~A2, B).
 cnf(~(A1 v A2), B) :- !, cnf(~A1 ^ ~A2, B).
 cnf(~(~A), B) :- !, cnf(A, B).
@@ -115,8 +118,33 @@ sortify(E, C, E2) :-
     sortify(Vars, E1),
     append(E1, E, E2).
 
+ewff_unsat(E) :-
+    member((U=V), E),
+    member((X=Y), E),
+    ( var(U), ground(V), var(X), ground(Y) ->
+        U == X,
+        V \== Y
+    ; var(U), ground(V), ground(X), var(Y) ->
+        U == Y,
+        V \== X
+    ; ground(U), var(V), var(X), ground(Y) ->
+        V == X,
+        U \== X
+    ; ground(U), var(V), ground(X), var(Y) ->
+        V == Y,
+        U \== X
+    ).
+ewff_unsat(E) :-
+    member((U=V), E),
+    member(~(X=Y), E),
+    (   U == X, V \== Y
+    ;   U == Y, V \== X
+    ;   V == X, U \== Y
+    ;   V == Y, U \== X
+    ).
 
-
+ewff_sat(E) :-
+    \+ ewff_unsat(E).
 
 variable_names([], _, []).
 variable_names([V|Vs], I, [N=V|Ns]) :- is_sort(V, action), !, ( I = 0 -> N = 'A' ; atom_concat('A', I, N) ), I1 is I + 1, variable_names(Vs, I1, Ns).
@@ -224,6 +252,7 @@ compile(VarNames, StdNames, SortNames, PredNames, Code) :-
     member(Clause, Cnf),
     ewffy(Clause, E1, C),
     sortify(E1, C, E),
+    ewff_sat(E),
     declarations(E, C, VarNames, StdNames, SortNames, PredNames),
     compile_box(E, C, Code).
 compile(VarNames, StdNames, SortNames, PredNames, Code) :-
@@ -232,6 +261,7 @@ compile(VarNames, StdNames, SortNames, PredNames, Code) :-
     member(Clause, Cnf),
     ewffy(Clause, E1, C),
     sortify(E1, C, E),
+    ewff_sat(E),
     declarations(E, C, VarNames, StdNames, SortNames, PredNames),
     compile_static(E, C, Code).
 compile(VarNames, StdNames, SortNames, PredNames, Code) :-
@@ -245,6 +275,7 @@ compile(VarNames, StdNames, SortNames, PredNames, Code) :-
     sortify(E11, C1, E1),
     sortify(E21, C2, E2),
     append(E1, E2, E),
+    ewff_sat(E),
     declarations(E, (C1, C2), VarNames, StdNames, SortNames, PredNames),
     compile_belief(E, C1, C2, Code).
 
@@ -279,15 +310,16 @@ print_serialization(Stream, Name) :-
 print_max_stdname(Stream, MaxStdName) :-
     format(Stream, 'static const stdname_t MAX_STD_NAME = ~w;~n', [MaxStdName]).
 
-print_sort_names(_, [], _).
-print_sort_names(Stream, [Sort|Sorts], StdNames) :-
+print_sort_names(_, []).
+print_sort_names(Stream, [Sort|Sorts]) :-
+    findall(N, sort_name(Sort, N), StdNames),
     maplist(atom_concat(' || name == '), StdNames, DisjList),
     foldl(atom_concat, DisjList, '', Disj),
     format(Stream, 'static bool is_~w(stdname_t name) {~n', [Sort]),
     format(Stream, '    return name > MAX_STD_NAME~w;~n', [Disj]),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
-    print_sort_names(Stream, Sorts, StdNames).
+    print_sort_names(Stream, Sorts).
 
 print_functions(Stream, StdNames, SortNames, PredNames) :-
     format(Stream, 'static void print_stdname(stdname_t name) {~n', []),
@@ -302,7 +334,7 @@ print_functions(Stream, StdNames, SortNames, PredNames) :-
     format(Stream, '    else printf("%d", name);~n', []),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
-    print_sort_names(Stream, SortNames, StdNames).
+    print_sort_names(Stream, SortNames).
 
 compile_all(Input, Output) :-
     ( Output = stdout ->
@@ -310,6 +342,7 @@ compile_all(Input, Output) :-
     ;
         open(Output, write, Stream)
     ),
+    retractall(sort_name(_, _)),
     retractall(box(_)),
     retractall(static(_)),
     retractall(belief(_)),
@@ -364,6 +397,7 @@ print_to_term(Names, _, [X], T) :- !, with_output_to(atom(T), write_term(X, [var
 print_to_term(Names, Op, [X|Xs], T) :- print_to_term(Names, Op, Xs, Ts), with_output_to(atom(T1), write_term(X, [variable_names(Names)])), with_output_to(atom(T), format('~w ~w ~w', [T1, Op, Ts])).
 
 print_all(Input) :-
+    retractall(sort_name(_, _)),
     retractall(box(_)),
     retractall(static(_)),
     retractall(belief(_)),
@@ -371,6 +405,7 @@ print_all(Input) :-
     (   box(Alpha),
         print(box(Alpha)),
         cnf(Alpha, Cnf), member(Clause, Cnf), ewffy(Clause, E, C),
+        ewff_sat(E),
         term_variables((E, C), Vars),
         variable_names(Vars, 0, Names),
         print_to_term(Names, '^', E, ETerm),
@@ -379,6 +414,7 @@ print_all(Input) :-
     ;   static(Alpha),
         print(Alpha),
         cnf(Alpha, Cnf), member(Clause, Cnf), ewffy(Clause, E, C),
+        ewff_sat(E),
         term_variables((E, C), Vars),
         variable_names(Vars, 0, Names),
         print_to_term(Names, '^', E, ETerm),
@@ -387,6 +423,7 @@ print_all(Input) :-
     ;   belief(Phi => Psi),
         print(Phi => Psi),
         cnf(~Phi, NegPhiCnf), cnf(Psi, PsiCnf), member(NegPhiClause, NegPhiCnf), member(PsiClause, PsiCnf), ewffy(NegPhiClause, E1, C1), ewffy(PsiClause, E2, C2), append(E1, E2, E),
+        ewff_sat(E),
         term_variables((E, Phi, Psi), Vars),
         variable_names(Vars, 0, Names),
         print_to_term(Names, '^', E, ETerm),

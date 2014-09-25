@@ -3,6 +3,10 @@
 % Running example from:
 % Schwering, Lakemeyer: A Semantic Account of Iterated Belief Revision in the Situation Calculus, ECAI-2014
 
+sort_name(action, 'LV').
+sort_name(action, 'SL').
+sort_name(action, 'SR1').
+
 box('POSS'(A) <-> true) :- put_sort(A, action).
 
 box('SF'(A) <-> A = 'SL' ^ 'L1' ^ 'R1' v
