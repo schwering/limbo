@@ -152,7 +152,8 @@ START_TEST(test_example_12)
 
     const stdvec_t query_z = stdvec_init();
     const stdvecset_t query_zs = stdvecset_singleton(&query_z);
-    const stdset_t hplus = stdset_init();
+    const stdset_t query_names = stdset_init();
+    const stdset_t hplus = bbat_hplus(&static_bat, &belief_conds, &dynamic_bat, &query_names, 0);
     const setup_t static_setup = setup_init_static(&static_bat, &hplus);
     const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
     const setup_t static_and_dynamic_setup = setup_union(&static_setup, &dynamic_setup);

@@ -41,7 +41,7 @@ VECTOR_IMPL(box_univ_clauses, box_univ_clause_t *, NULL);
 
 const ewff_t *ewff_true(void)
 {
-    return ewff_eq(0, 0);
+    return ewff_eq(-1, -1);
 }
 
 const ewff_t *ewff_eq(term_t t1, term_t t2)
