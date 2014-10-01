@@ -361,7 +361,7 @@ compile_all(Input, Output) :-
     sort(StdNames2, StdNames),
     sort(SortNames2, SortNames),
     sort(PredNames2, PredNames),
-    format(Stream, '#include "bat-common.h"~n', []),
+    format(Stream, '#include "common.h"~n', []),
     format(Stream, '~n', []),
     print_variable_name_declarations(Stream, VarNames),
     format(Stream, '~n', []),

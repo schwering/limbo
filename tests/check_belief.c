@@ -1,7 +1,7 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include <check.h>
 #include <stdlib.h>
-#include "bat-esb.h"
+#include "../bats/ecai-2014.h"
 
 START_TEST(test_morri_example)
 {

@@ -1,7 +1,7 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include <check.h>
 #include <stdlib.h>
-#include "bat-esl.h"
+#include "../bats/kr-2014.h"
 
 // legacy function from query.c which is still useful for testing
 static bool query_entailed_by_bat(
