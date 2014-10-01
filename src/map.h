@@ -55,7 +55,7 @@ void map_clear(map_t *map);
 
 #define MAP_DECL(prefix, keytype, valtype) \
     typedef union { map_t m; } prefix##_t;\
-    typedef struct { keytype key; valtype val; } prefix##_kv_t;\
+    typedef struct { const keytype key; const valtype val; } prefix##_kv_t;\
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
     void prefix##_cleanup(prefix##_t *m);\
