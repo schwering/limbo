@@ -69,8 +69,7 @@ typedef union {
 
 typedef union vector_iter vector_iter_t;
 union vector_iter {
-    const void * const val;
-    void * const val_unsafe;
+    void * const val;
     const int index;
     struct {
         const void *val;
@@ -162,8 +161,7 @@ const void *vector_const_iter_get(const vector_const_iter_t *iter);
 #define VECTOR_DECL(prefix, type) \
     typedef union { vector_t v; } prefix##_t;\
     typedef union {\
-        const type const val;\
-        type const val_unsafe;\
+        type const val;\
         vector_iter_t i;\
     } prefix##_iter_t;\
     typedef union {\

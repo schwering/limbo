@@ -195,8 +195,8 @@ void bsetup_add_sensing_results(
         bsetup_t *setups,
         const splitset_t *sensing_results)
 {
-    for (EACH_CONST(bsetup, setups, i)) {
-        setup_t *setup = i.val_unsafe;
+    for (EACH(bsetup, setups, i)) {
+        setup_t *setup = i.val;
         setup_add_sensing_results(setup, sensing_results);
     }
 }
@@ -232,10 +232,10 @@ bool bsetup_with_splits_and_sf_subsumes(
     if (plausibility != NULL) {
         *plausibility = -1;
     }
-    bsetup_const_iter_t i = bsetup_const_iter(setups);
+    bsetup_iter_t i = bsetup_iter(setups);
     pelsets_const_iter_t j = pelsets_const_iter(pels);
-    while (bsetup_const_iter_next(&i) && pelsets_const_iter_next(&j)) {
-        setup_t *setup = i.val_unsafe;
+    while (bsetup_iter_next(&i) && pelsets_const_iter_next(&j)) {
+        setup_t *setup = i.val;
         const pelset_t *pel = j.val;
         const bool r = setup_with_splits_and_sf_subsumes(setup, pel, c, k);
         if (plausibility != NULL) {

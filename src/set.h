@@ -32,10 +32,13 @@
  * which the new element is stored unless it was present before already; in
  * the latter case, a negative value is returned.
  *
- * Iterators behave like for vectors except that set_iter_replace() inserts the
- * new element at its correct place according to the set's order and returns
- * that index. If the new element was already present and thus no insertion
- * happened, a negative value is returned.
+ * Iterators behave like for vectors with two exceptions. Firstly,
+ * set_iter_replace() inserts the new element at its correct place according to
+ * the set's order and returns that index. If the new element was already
+ * present and thus no insertion happened, a negative value is returned.
+ * Secondly, modifying elements is dangerous because it may invalidate the
+ * ordering of the set. For that reason, the val attribute even of non-const
+ * iterators is const (if you know what you're doing, use val_unsafe).
  *
  * For typesafe usage there is a MAP macro which declares appropriate wrapper
  * functions.
