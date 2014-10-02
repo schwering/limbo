@@ -1,7 +1,5 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
-#include "/home/chs/Programs/ECLiPSe-CLP/include/x86_64_linux/eclipse.h"
-// my findECLiPSe.cmake doesn't work for some reason
-// #include "eclipseclass.h"
+#include <eclipse-clp/eclipse.h>
 
 #include <assert.h>
 #include <stdbool.h>
@@ -9,7 +7,7 @@
 #include <string.h>
 #include <map.h>
 #include <query.h>
-#include "../bats/kr-2014.h"
+#include "../bats/common.h" // one of the BAT *.so libraries must be loaded dynamically through load/1.
 
 #define NEGATION    "~"
 #define CONJUNCTION "^"

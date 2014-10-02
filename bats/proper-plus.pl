@@ -279,53 +279,32 @@ compile(VarNames, StdNames, SortNames, PredNames, Code) :-
     declarations(E, (C1, C2), VarNames, StdNames, SortNames, PredNames),
     compile_belief(E, C1, C2, Code).
 
-print_variable_name_declarations(_, []).
-print_variable_name_declarations(Stream, [V|Vs]) :-
-    length(Vs, I),
-    I1 is -1 * (I + 1),
-    format(Stream, 'static const var_t ~w = ~w;~n', [V, I1]),
-    print_variable_name_declarations(Stream, Vs).
-
-print_standard_name_declarations(_, [], 0).
-print_standard_name_declarations(Stream, [N|Ns], MaxStdName) :-
+declare_standard_name_declarations(_, [], 0).
+declare_standard_name_declarations(Stream, [N|Ns], MaxStdName) :-
     length(Ns, I),
     I1 is I + 1,
     format(Stream, 'static const stdname_t ~w = ~w;~n', [N, I1]),
-    print_standard_name_declarations(Stream, Ns, MaxStdName1),
+    declare_standard_name_declarations(Stream, Ns, MaxStdName1),
     MaxStdName is max(I1, MaxStdName1).
 
-print_predicate_name_declarations(_, []).
-print_predicate_name_declarations(Stream, [P|Ps]) :-
+declare_max_stdname(Stream, MaxStdName) :-
+    format(Stream, 'const stdname_t MAX_STD_NAME = ~w;~n', [MaxStdName]).
+
+declare_predicate_name_declarations(_, []).
+declare_predicate_name_declarations(Stream, [P|Ps]) :-
     length(Ps, I),
     ( P = 'SF' -> true ; format(Stream, 'static const pred_t ~w = ~w;~n', [P, I]) ),
-    print_predicate_name_declarations(Stream, Ps).
+    declare_predicate_name_declarations(Stream, Ps).
 
-print_clauses_definitions(_, []).
-print_clauses_definitions(Stream, [C]) :- !, format(Stream, '    ~w;~n', [C]).
-print_clauses_definitions(Stream, [C|Cs]) :- format(Stream, '    ~w;\\~n', [C]), print_clauses_definitions(Stream, Cs).
+declare_variable_name_declarations(_, []).
+declare_variable_name_declarations(Stream, [V|Vs]) :-
+    length(Vs, I),
+    I1 is -1 * (I + 1),
+    format(Stream, 'static const var_t ~w = ~w;~n', [V, I1]),
+    declare_variable_name_declarations(Stream, Vs).
 
-print_serialization(Stream, Val) :-
-    format(Stream, '    else if (val == ~w) return "~w";~n', [Val, Val]).
-
-print_deserialization(Stream, Val) :-
-    format(Stream, '    else if (!strcmp(str, "~w")) return ~w;~n', [Val, Val]).
-
-print_max_stdname(Stream, MaxStdName) :-
-    format(Stream, 'static const stdname_t MAX_STD_NAME = ~w;~n', [MaxStdName]).
-
-print_sort_names(_, []).
-print_sort_names(Stream, [Sort|Sorts]) :-
-    findall(N, sort_name(Sort, N), StdNames),
-    maplist(atom_concat(' || name == '), StdNames, DisjList),
-    foldl(atom_concat, DisjList, '', Disj),
-    format(Stream, 'static bool is_~w(stdname_t name) {~n', [Sort]),
-    format(Stream, '    return name > MAX_STD_NAME~w;~n', [Disj]),
-    format(Stream, '}~n', []),
-    format(Stream, '~n', []),
-    print_sort_names(Stream, Sorts).
-
-print_functions(Stream, StdNames, SortNames, PredNames) :-
-    format(Stream, 'static const char *stdname_to_string(stdname_t val) {~n', []),
+define_functions(Stream, StdNames, SortNames, PredNames) :-
+    format(Stream, 'const char *stdname_to_string(stdname_t val) {~n', []),
     format(Stream, '    if (false) return "never occurs"; // never occurs~n', []),
     maplist(print_serialization(Stream), StdNames),
     format(Stream, '    static char buf[16];~n', []),
@@ -333,7 +312,7 @@ print_functions(Stream, StdNames, SortNames, PredNames) :-
     format(Stream, '    return buf;~n', []),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
-    format(Stream, 'static const char *pred_to_string(pred_t val) {~n', []),
+    format(Stream, 'const char *pred_to_string(pred_t val) {~n', []),
     format(Stream, '    if (false) return "never occurs"; // never occurs~n', []),
     maplist(print_serialization(Stream), PredNames),
     format(Stream, '    static char buf[16];~n', []),
@@ -341,25 +320,51 @@ print_functions(Stream, StdNames, SortNames, PredNames) :-
     format(Stream, '    return buf;~n', []),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
-    format(Stream, 'static stdname_t string_to_stdname(const char *str) {~n', []),
+    format(Stream, 'stdname_t string_to_stdname(const char *str) {~n', []),
     format(Stream, '    if (false) return -1; // never occurs;~n', []),
     maplist(print_deserialization(Stream), StdNames),
     format(Stream, '    else return -1;~n', []),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
-    format(Stream, 'static pred_t string_to_pred(const char *str) {~n', []),
+    format(Stream, 'pred_t string_to_pred(const char *str) {~n', []),
     format(Stream, '    if (false) return -1; // never occurs;~n', []),
     maplist(print_deserialization(Stream), PredNames),
     format(Stream, '    else return -1;~n', []),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
-    print_sort_names(Stream, SortNames).
+    define_sort_names(Stream, SortNames).
 
-compile_all(Input, Output) :-
-    ( Output = stdout ->
-        current_output(Stream)
+define_clauses(_, []).
+%define_clauses(Stream, [C]) :- !, format(Stream, '    ~w;~n', [C]).
+define_clauses(Stream, [C|Cs]) :- format(Stream, '    ~w;~n', [C]), define_clauses(Stream, Cs).
+
+print_serialization(Stream, Val) :-
+    format(Stream, '    else if (val == ~w) return "~w";~n', [Val, Val]).
+
+print_deserialization(Stream, Val) :-
+    format(Stream, '    else if (!strcmp(str, "~w")) return ~w;~n', [Val, Val]).
+
+define_sort_names(_, []).
+define_sort_names(Stream, [Sort|Sorts]) :-
+    findall(N, sort_name(Sort, N), StdNames),
+    maplist(atom_concat(' || name == '), StdNames, DisjList),
+    foldl(atom_concat, DisjList, '', Disj),
+    format(Stream, 'static bool is_~w(stdname_t name) {~n', [Sort]),
+    format(Stream, '    return name > MAX_STD_NAME~w;~n', [Disj]),
+    format(Stream, '}~n', []),
+    format(Stream, '~n', []),
+    define_sort_names(Stream, Sorts).
+
+compile_all(Input, Header, Body) :-
+    ( Header = stdout ->
+        current_output(HeaderStream)
     ;
-        open(Output, write, Stream)
+        open(Header, write, HeaderStream)
+    ),
+    ( Body = stdout ->
+        current_output(BodyStream)
+    ;
+        open(Body, write, BodyStream)
     ),
     retractall(sort_name(_, _)),
     retractall(box(_)),
@@ -380,25 +385,40 @@ compile_all(Input, Output) :-
     sort(StdNames2, StdNames),
     sort(SortNames2, SortNames),
     sort(PredNames2, PredNames),
-    format(Stream, '#include "common.h"~n', []),
-    format(Stream, '~n', []),
-    print_variable_name_declarations(Stream, VarNames),
-    format(Stream, '~n', []),
-    print_standard_name_declarations(Stream, StdNames, MaxStdName),
-    print_max_stdname(Stream, MaxStdName),
-    format(Stream, '~n', []),
-    print_predicate_name_declarations(Stream, PredNames),
-    format(Stream, '~n', []),
-    print_functions(Stream, StdNames, SortNames, PredNames),
-    format(Stream, '#define DECL_ALL_CLAUSES(dynamic_bat, static_bat, belief_conds)\\~n', []),
-    print_clauses_definitions(Stream, Code),
-    format(Stream, '~n', []),
-    ( Output = stdout ->
+    % header
+    format(HeaderStream, '#include "common.h"~n', []),
+    format(HeaderStream, '~n', []),
+    declare_standard_name_declarations(HeaderStream, StdNames, MaxStdName),
+    declare_max_stdname(HeaderStream, MaxStdName),
+    format(HeaderStream, '~n', []),
+    declare_predicate_name_declarations(HeaderStream, PredNames),
+    format(HeaderStream, '~n', []),
+    % body
+    format(BodyStream, '#include "~w"~n', [Header]),
+    format(BodyStream, '~n', []),
+    declare_variable_name_declarations(BodyStream, VarNames),
+    format(BodyStream, '~n', []),
+    define_functions(BodyStream, StdNames, SortNames, PredNames),
+    format(BodyStream, 'void init_bat(box_univ_clauses_t *dynamic_bat, univ_clauses_t *static_bat, belief_conds_t *belief_conds) {~n', []),
+    define_clauses(BodyStream, Code),
+    format(BodyStream, '}~n', []),
+    format(BodyStream, '~n', []),
+    ( Header = stdout ->
         true
     ;
-        close(Stream)
+        close(HeaderStream)
+    ),
+    ( Body = stdout ->
+        true
+    ;
+        close(BodyStream)
     ).
 
+compile_all(BAT) :-
+    atom_concat(BAT, '.pl', Prolog),
+    atom_concat(BAT, '.h', C_Header),
+    atom_concat(BAT, '.c', C_Body),
+    compile_all(Prolog, C_Header, C_Body).
 
 
 

@@ -3,7 +3,7 @@
  * This is an implementation of (most of the) queries proven in the ESL paper.
  */
 #include <stdio.h>
-#include "../bats/kr-2014.h"
+#include <kr2014.h>
 
 #define ASSERT(phi)     ((void) ((phi) || printf("Condition failed: " #phi)))
 
@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 {
     univ_clauses_t static_bat = univ_clauses_init();
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
-    DECL_ALL_CLAUSES(&dynamic_bat, &static_bat, NULL);
+    init_bat(&dynamic_bat, &static_bat, NULL);
 
     context_t ctx = kcontext_init(&static_bat, &dynamic_bat, Z(), SF());
 

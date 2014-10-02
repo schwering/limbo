@@ -16,7 +16,7 @@ target_link_libraries (check_vector LINK_PUBLIC ESBL ${CHECK_LIBRARIES} ${CMAKE_
 target_link_libraries (check_set LINK_PUBLIC ESBL ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries (check_map LINK_PUBLIC ESBL ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries (check_literal LINK_PUBLIC ESBL ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-target_link_libraries (check_setup LINK_PUBLIC ESBL ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-target_link_libraries (check_query LINK_PUBLIC ESBL ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-target_link_libraries (check_belief LINK_PUBLIC ESBL ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries (check_setup LINK_PUBLIC ESBL BAT-KR2014 ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries (check_query LINK_PUBLIC ESBL BAT-KR2014 ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries (check_belief LINK_PUBLIC ESBL BAT-ECAI2014 ${CHECK_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 

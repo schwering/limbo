@@ -1,7 +1,7 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include <check.h>
 #include <stdlib.h>
-#include "../bats/kr-2014.h"
+#include <kr2014.h>
 
 // legacy function from query.c which is still useful for testing
 static bool query_entailed_by_bat(
@@ -51,7 +51,7 @@ START_TEST(test_bat_entailment)
 {
     univ_clauses_t static_bat = univ_clauses_init();
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
-    DECL_ALL_CLAUSES(&dynamic_bat, &static_bat, NULL);
+    init_bat(&dynamic_bat, &static_bat, NULL);
 
     const stdvec_t empty_vec = stdvec_init();
     const stdvec_t f_vec = stdvec_singleton(forward);
@@ -173,7 +173,7 @@ START_TEST(test_setup_entailment)
 {
     univ_clauses_t static_bat = univ_clauses_init();
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
-    DECL_ALL_CLAUSES(&dynamic_bat, &static_bat, NULL);
+    init_bat(&dynamic_bat, &static_bat, NULL);
 
     context_t ctx = kcontext_init(&static_bat, &dynamic_bat, Z(), SF());
 

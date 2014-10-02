@@ -1,14 +1,14 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include <check.h>
 #include <stdlib.h>
-#include "../bats/ecai-2014.h"
+#include <ecai2014.h>
 
 START_TEST(test_morri_example)
 {
     univ_clauses_t static_bat = univ_clauses_init();
     belief_conds_t belief_conds = belief_conds_init();
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
-    DECL_ALL_CLAUSES(&dynamic_bat, &static_bat, &belief_conds);
+    init_bat(&dynamic_bat, &static_bat, &belief_conds);
     const int k = 2;
 
     const stdvec_t query_z = ({
@@ -76,7 +76,7 @@ START_TEST(test_morri_example_with_context)
     univ_clauses_t static_bat = univ_clauses_init();
     belief_conds_t belief_conds = belief_conds_init();
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
-    DECL_ALL_CLAUSES(&dynamic_bat, &static_bat, &belief_conds);
+    init_bat(&dynamic_bat, &static_bat, &belief_conds);
     const int k = 2;
     context_t ctx1 = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, k, Z(), SF());
 
