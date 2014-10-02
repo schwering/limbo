@@ -1,0 +1,9 @@
+FIND_PATH(ECLIPSE_CLP_INCLUDE_DIR eclipse-clp/eclipse.h)
+
+IF (ECLIPSE_CLP_INCLUDE_DIR)
+	MESSAGE(STATUS "Searching ECLiPSe-CLP - found")
+	SET(ECLIPSE_CLP_FOUND TRUE)
+ELSE()
+	MESSAGE(STATUS "Searching ECLiPSe-CLP - not found")
+ENDIF()
+
