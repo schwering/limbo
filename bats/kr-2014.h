@@ -13,23 +13,46 @@ static const pred_t d2 = 2;
 static const pred_t d3 = 1;
 static const pred_t d4 = 0;
 
-static void print_stdname(stdname_t name) {
-    if (false) printf("never occurs");
-    else if (name == forward) printf("forward");
-    else if (name == sonar) printf("sonar");
-    else printf("#%ld", name);
+static const char *stdname_to_string(stdname_t val) {
+    if (false) return "never occurs"; // never occurs
+    else if (val == forward) return "forward";
+    else if (val == sonar) return "sonar";
+    static char buf[16];
+    sprintf(buf, "#%ld", val);
+    return buf;
 }
 
-static void print_pred(pred_t name) {
-    if (false) printf("never occurs");
-    else if (name == POSS) printf("POSS");
-    else if (name == SF) printf("SF");
-    else if (name == d0) printf("d0");
-    else if (name == d1) printf("d1");
-    else if (name == d2) printf("d2");
-    else if (name == d3) printf("d3");
-    else if (name == d4) printf("d4");
-    else printf("%d", name);
+static const char *pred_to_string(pred_t val) {
+    if (false) return "never occurs"; // never occurs
+    else if (val == POSS) return "POSS";
+    else if (val == SF) return "SF";
+    else if (val == d0) return "d0";
+    else if (val == d1) return "d1";
+    else if (val == d2) return "d2";
+    else if (val == d3) return "d3";
+    else if (val == d4) return "d4";
+    static char buf[16];
+    sprintf(buf, "P%d", val);
+    return buf;
+}
+
+static stdname_t string_to_stdname(const char *str) {
+    if (false) return -1; // never occurs;
+    else if (!strcmp(str, "forward")) return forward;
+    else if (!strcmp(str, "sonar")) return sonar;
+    else return -1;
+}
+
+static pred_t string_to_pred(const char *str) {
+    if (false) return -1; // never occurs;
+    else if (!strcmp(str, "POSS")) return POSS;
+    else if (!strcmp(str, "SF")) return SF;
+    else if (!strcmp(str, "d0")) return d0;
+    else if (!strcmp(str, "d1")) return d1;
+    else if (!strcmp(str, "d2")) return d2;
+    else if (!strcmp(str, "d3")) return d3;
+    else if (!strcmp(str, "d4")) return d4;
+    else return -1;
 }
 
 static bool is_action(stdname_t name) {

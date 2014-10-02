@@ -304,8 +304,11 @@ print_clauses_definitions(_, []).
 print_clauses_definitions(Stream, [C]) :- !, format(Stream, '    ~w;~n', [C]).
 print_clauses_definitions(Stream, [C|Cs]) :- format(Stream, '    ~w;\\~n', [C]), print_clauses_definitions(Stream, Cs).
 
-print_serialization(Stream, Name) :-
-    format(Stream, '    else if (name == ~w) printf("~w");~n', [Name, Name]).
+print_serialization(Stream, Val) :-
+    format(Stream, '    else if (val == ~w) return "~w";~n', [Val, Val]).
+
+print_deserialization(Stream, Val) :-
+    format(Stream, '    else if (!strcmp(str, "~w")) return ~w;~n', [Val, Val]).
 
 print_max_stdname(Stream, MaxStdName) :-
     format(Stream, 'static const stdname_t MAX_STD_NAME = ~w;~n', [MaxStdName]).
@@ -322,16 +325,32 @@ print_sort_names(Stream, [Sort|Sorts]) :-
     print_sort_names(Stream, Sorts).
 
 print_functions(Stream, StdNames, SortNames, PredNames) :-
-    format(Stream, 'static void print_stdname(stdname_t name) {~n', []),
-    format(Stream, '    if (false) printf("never occurs");~n', []),
+    format(Stream, 'static const char *stdname_to_string(stdname_t val) {~n', []),
+    format(Stream, '    if (false) return "never occurs"; // never occurs~n', []),
     maplist(print_serialization(Stream), StdNames),
-    format(Stream, '    else printf("#%ld", name);~n', []),
+    format(Stream, '    static char buf[16];~n', []),
+    format(Stream, '    sprintf(buf, "#%ld", val);~n', []),
+    format(Stream, '    return buf;~n', []),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
-    format(Stream, 'static void print_pred(pred_t name) {~n', []),
-    format(Stream, '    if (false) printf("never occurs");~n', []),
+    format(Stream, 'static const char *pred_to_string(pred_t val) {~n', []),
+    format(Stream, '    if (false) return "never occurs"; // never occurs~n', []),
     maplist(print_serialization(Stream), PredNames),
-    format(Stream, '    else printf("%d", name);~n', []),
+    format(Stream, '    static char buf[16];~n', []),
+    format(Stream, '    sprintf(buf, "P%d", val);~n', []),
+    format(Stream, '    return buf;~n', []),
+    format(Stream, '}~n', []),
+    format(Stream, '~n', []),
+    format(Stream, 'static stdname_t string_to_stdname(const char *str) {~n', []),
+    format(Stream, '    if (false) return -1; // never occurs;~n', []),
+    maplist(print_deserialization(Stream), StdNames),
+    format(Stream, '    else return -1;~n', []),
+    format(Stream, '}~n', []),
+    format(Stream, '~n', []),
+    format(Stream, 'static pred_t string_to_pred(const char *str) {~n', []),
+    format(Stream, '    if (false) return -1; // never occurs;~n', []),
+    maplist(print_deserialization(Stream), PredNames),
+    format(Stream, '    else return -1;~n', []),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
     print_sort_names(Stream, SortNames).
@@ -386,7 +405,7 @@ compile_all(Input, Output) :-
 cnf_to_ecnf([], []).
 cnf_to_ecnf([C|Cs], ECs1) :- ewffy(C, E1, EC), sortify(E1, EC, E), ( (member((X1=Y1), E), member(~(X2=Y2), E), X1 == X2, Y1 == Y2) -> ECs1 = ECs ; ECs1 = [(E->EC)|ECs] ), cnf_to_ecnf(Cs, ECs).
 
-print(ECnf) :-
+print_ecnf(ECnf) :-
     term_variables(ECnf, Vars),
     variable_names(Vars, 0, Names),
     write_term(ECnf, [variable_names(Names), nl(true)]), nl.
@@ -403,7 +422,7 @@ print_all(Input) :-
     retractall(belief(_)),
     consult(Input),
     (   box(Alpha),
-        print(box(Alpha)),
+        print_ecnf(box(Alpha)),
         cnf(Alpha, Cnf), member(Clause, Cnf), ewffy(Clause, E, C),
         ewff_sat(E),
         term_variables((E, C), Vars),
@@ -412,7 +431,7 @@ print_all(Input) :-
         print_to_term(Names, 'v', C, CTerm),
         Term = box(ETerm -> CTerm)
     ;   static(Alpha),
-        print(Alpha),
+        print_ecnf(Alpha),
         cnf(Alpha, Cnf), member(Clause, Cnf), ewffy(Clause, E, C),
         ewff_sat(E),
         term_variables((E, C), Vars),
@@ -421,7 +440,7 @@ print_all(Input) :-
         print_to_term(Names, 'v', C, CTerm),
         Term = (ETerm -> CTerm)
     ;   belief(Phi => Psi),
-        print(Phi => Psi),
+        print_ecnf(Phi => Psi),
         cnf(~Phi, NegPhiCnf), cnf(Psi, PsiCnf), member(NegPhiClause, NegPhiCnf), member(PsiClause, PsiCnf), ewffy(NegPhiClause, E1, C1), ewffy(PsiClause, E2, C2), append(E1, E2, E),
         ewff_sat(E),
         term_variables((E, Phi, Psi), Vars),

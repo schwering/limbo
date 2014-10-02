@@ -12,22 +12,44 @@ static const pred_t L2 = 3;
 static const pred_t POSS = 2;
 static const pred_t R1 = 1;
 
-static void print_stdname(stdname_t name) {
-    if (false) printf("never occurs");
-    else if (name == LV) printf("LV");
-    else if (name == SL) printf("SL");
-    else if (name == SR1) printf("SR1");
-    else printf("#%ld", name);
+static const char *stdname_to_string(stdname_t val) {
+    if (false) return "never occurs"; // never occurs
+    else if (val == LV) return "LV";
+    else if (val == SL) return "SL";
+    else if (val == SR1) return "SR1";
+    static char buf[16];
+    sprintf(buf, "#%ld", val);
+    return buf;
 }
 
-static void print_pred(pred_t name) {
-    if (false) printf("never occurs");
-    else if (name == L1) printf("L1");
-    else if (name == L2) printf("L2");
-    else if (name == POSS) printf("POSS");
-    else if (name == R1) printf("R1");
-    else if (name == SF) printf("SF");
-    else printf("%d", name);
+static const char *pred_to_string(pred_t val) {
+    if (false) return "never occurs"; // never occurs
+    else if (val == L1) return "L1";
+    else if (val == L2) return "L2";
+    else if (val == POSS) return "POSS";
+    else if (val == R1) return "R1";
+    else if (val == SF) return "SF";
+    static char buf[16];
+    sprintf(buf, "P%d", val);
+    return buf;
+}
+
+static stdname_t string_to_stdname(const char *str) {
+    if (false) return -1; // never occurs;
+    else if (!strcmp(str, "LV")) return LV;
+    else if (!strcmp(str, "SL")) return SL;
+    else if (!strcmp(str, "SR1")) return SR1;
+    else return -1;
+}
+
+static pred_t string_to_pred(const char *str) {
+    if (false) return -1; // never occurs;
+    else if (!strcmp(str, "L1")) return L1;
+    else if (!strcmp(str, "L2")) return L2;
+    else if (!strcmp(str, "POSS")) return POSS;
+    else if (!strcmp(str, "R1")) return R1;
+    else if (!strcmp(str, "SF")) return SF;
+    else return -1;
 }
 
 static bool is_action(stdname_t name) {

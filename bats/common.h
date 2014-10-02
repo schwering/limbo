@@ -6,20 +6,42 @@
  */
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include "../src/belief.h"
 #include "../src/memory.h"
 #include "../src/query.h"
 #include "../src/util.h"
 
-static void print_stdname(stdname_t name);
-static void print_pred(pred_t name);
+static const char *stdname_to_string(stdname_t name);
+static const char *pred_to_string(pred_t name);
+
+static void print_stdname(stdname_t name)
+{
+    printf("%s", stdname_to_string(name));
+}
+
+static void print_term(term_t term)
+{
+    if (IS_VARIABLE(term)) {
+        printf("x%ld", -1 * term);
+    } else if (IS_STDNAME(term)) {
+        print_stdname(term);
+    } else {
+        printf("%ld", term);
+    }
+}
+
+static void print_pred(pred_t name)
+{
+    printf("%s", pred_to_string(name));
+}
 
 static void print_z(const stdvec_t *z)
 {
     printf("[");
     for (int i = 0; i < stdvec_size(z); ++i) {
         if (i > 0) printf(",");
-        print_stdname(stdvec_get(z, i));
+        print_term(stdvec_get(z, i));
     }
     printf("]");
 }
@@ -37,7 +59,7 @@ static void print_literal(const literal_t *l)
         printf("(");
         for (int i = 0; i < stdvec_size(literal_args(l)); ++i) {
             if (i > 0) printf(",");
-            print_stdname(stdvec_get(literal_args(l), i));
+            print_term(stdvec_get(literal_args(l), i));
         }
         printf(")");
     }
@@ -76,4 +98,75 @@ static void print_pel(const pelset_t *pel)
     printf("---------------\n");
 }
 
+static void print_query(const query_t *phi)
+{
+    switch (phi->type) {
+        case EQ: {
+            printf("(");
+            print_term(phi->u.eq.t1);
+            printf(" == ");
+            print_term(phi->u.eq.t2);
+            printf(")");
+            break;
+        }
+        case NEQ: {
+            printf("(");
+            print_term(phi->u.eq.t1);
+            printf(" /= ");
+            print_term(phi->u.eq.t2);
+            printf(")");
+            break;
+        }
+        case LIT: {
+            print_literal(&phi->u.lit);
+            break;
+        }
+        case OR: {
+            printf("(");
+            print_query(phi->u.bin.phi1);
+            printf(" v ");
+            print_query(phi->u.bin.phi2);
+            printf(")");
+            break;
+        }
+        case AND: {
+            printf("(");
+            print_query(phi->u.bin.phi1);
+            printf(" ^ ");
+            print_query(phi->u.bin.phi2);
+            printf(")");
+            break;
+        }
+        case NEG: {
+            printf("~");
+            print_query(phi->u.un.phi);
+            break;
+        }
+        case EXISTS: {
+            printf("(E ");
+            print_term(phi->u.qtf.var);
+            printf(") ");
+            print_query(phi->u.qtf.phi);
+            break;
+        }
+        case FORALL: {
+            printf("(");
+            print_term(phi->u.qtf.var);
+            printf(") ");
+            print_query(phi->u.qtf.phi);
+            break;
+        }
+        case ACT: {
+            printf("[");
+            print_term(phi->u.act.n);
+            printf("] ");
+            print_query(phi->u.act.phi);
+            break;
+        }
+        case EVAL: {
+            printf("<eval>");
+            break;
+        }
+    }
+}
 
