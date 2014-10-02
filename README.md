@@ -18,22 +18,15 @@ cmake .
 make
 make test
 ```
-There are also a few examples, which currently are just copy-paste of some unit tests.
-I'll add some explanatory output.
-They can be run as follows:
-```
-examples/kr-2014
-examples/ecai-2014
-```
-For a detailed discussion of both examples, see the corresponding papers.
-The basic action theories are encoded in Prolog code in the `bats/` directory.
-The Prolog code is translated to C code by the following command:
-```
-$ swipl -f bats/proper-plus.pl
-?- compile_all('bats/kr-2014.pl', 'bats/kr-2014.h').
-?- compile_all('bats/ecai-2014.pl', 'bats/ecai-2014.h').
-```
-That should be done by the cmake-generated Makefiles, by the way.
+
+The `bats` directory contains a few example basic action theories.
+More a detailed discussions, see the corresponding papers.
+Each basic action theory is written in Prolog (a `*.pl` file).
+At compile time, it is translated to a proper+ basic action theory in C code (a `*.h` and a `*.c` file).
+
+The `examples` directory contains a few examples which evaulate queries wrt the basic action theories.
+
+An interface to ECLiPSe-CLP is coming up.
 
 
 ## To-Do List
