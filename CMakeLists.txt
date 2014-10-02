@@ -13,6 +13,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 add_subdirectory (src)
 add_subdirectory (examples)
 add_subdirectory (tests)
+add_subdirectory (eclipse-clp)
 
 # Enable tests
 enable_testing ()
