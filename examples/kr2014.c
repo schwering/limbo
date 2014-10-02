@@ -9,8 +9,8 @@
 
 int main(int argc, char *argv[])
 {
-    univ_clauses_t static_bat = univ_clauses_init();
-    box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+    univ_clauses_t static_bat;
+    box_univ_clauses_t dynamic_bat;
     init_bat(&dynamic_bat, &static_bat, NULL);
 
     context_t ctx = kcontext_init(&static_bat, &dynamic_bat, Z(), SF());

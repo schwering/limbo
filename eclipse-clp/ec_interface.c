@@ -89,7 +89,7 @@ static term_t build_term(pword ec_term, evarmap_t *varmap, estdmap_t *stdmap)
     if (ec_get_atom(ec_term, &a) == 0) {
         const char *s = DidName(a);
         const stdname_t n = string_to_stdname(s);
-        if (n >= 0) {
+        if (0 <= n && n <= MAX_STD_NAME) {
             return n;
         }
     }
@@ -97,7 +97,7 @@ static term_t build_term(pword ec_term, evarmap_t *varmap, estdmap_t *stdmap)
     if (ec_get_functor(ec_term, &f) == 0 && DidArity(f) == 0) {
         const char *s = DidName(f);
         const stdname_t n = string_to_stdname(s);
-        if (n >= 0) {
+        if (0 <= n && n <= MAX_STD_NAME) {
             return n;
         }
     }
@@ -201,7 +201,10 @@ static box_univ_clauses_t dynamic_bat;
 static univ_clauses_t static_bat;
 static belief_conds_t belief_conds;
 
-void init_once()
+static bool global_context_initialized = false;
+static context_t global_context;
+
+void init_bat_once()
 {
     if (!bat_initialized) {
         init_bat(&dynamic_bat, &static_bat, &belief_conds);
@@ -240,10 +243,8 @@ int p_kcontext()
 {
     pword ec_var = ec_arg(1);
 
-    init_once();
-    const stdvec_t context_z = stdvec_init_with_size(0);
-    const splitset_t context_sf = splitset_init_with_size(0);
-    context_t ctx = kcontext_init(&static_bat, &dynamic_bat, &context_z, &context_sf);
+    init_bat_once();
+    context_t ctx = kcontext_init(&static_bat, &dynamic_bat, Z(), SF());
 
     t_ext_ptr data = malloc(sizeof(ctx));
     memcpy(data, &ctx, sizeof(ctx));
@@ -262,16 +263,52 @@ int p_bcontext()
         return TYPE_ERROR;
     }
 
-    init_once();
-    const stdvec_t context_z = stdvec_init_with_size(0);
-    const splitset_t context_sf = splitset_init_with_size(0);
-    context_t ctx = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, k, &context_z, &context_sf);
+    init_bat_once();
+    context_t ctx = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, k, Z(), SF());
 
     t_ext_ptr data = malloc(sizeof(ctx));
     memcpy(data, &ctx, sizeof(ctx));
     pword ec_ctx = ec_handle(&context_method_table, data);
 
     return ec_unify(ec_ctx, ec_var);
+}
+
+int p_executed()
+{
+    pword ec_ctx = ec_arg(1);
+    pword ec_action = ec_arg(2);
+    pword ec_result = ec_arg(3);
+
+    t_ext_ptr data;
+    if (ec_get_handle(ec_ctx, &context_method_table, &data) != 0) {
+        return TYPE_ERROR;
+    }
+    context_t *ctx = data;
+
+    dident a;
+
+    if (ec_get_atom(ec_action, &a) != 0) {
+        return TYPE_ERROR;
+    }
+    const stdname_t action = string_to_stdname(DidName(a));
+    if (action < 0) {
+        return TYPE_ERROR;
+    }
+
+    if (ec_get_atom(ec_result, &a) != 0) {
+        return TYPE_ERROR;
+    }
+    bool result;
+    if (!strcmp(DidName(a), "true")) {
+        result = true;
+    } else if (!strcmp(DidName(a), "false")) {
+        result = false;
+    } else {
+        return TYPE_ERROR;
+    }
+
+    CONTEXT_ADD_ACTIONS(ctx, {action, result});
+    return PSUCCEED;
 }
 
 int p_holds()
@@ -284,7 +321,7 @@ int p_holds()
     if (ec_get_handle(ec_ctx, &context_method_table, &data) != 0) {
         return TYPE_ERROR;
     }
-    const context_t *ctx = data;
+    context_t *ctx = data;
 
     long k;
     if (ec_get_long(ec_k, &k) != 0) {
