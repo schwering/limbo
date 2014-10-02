@@ -1,5 +1,6 @@
 *.a
 *.la
+*.so
 *.o
 *.lo
 .*.swp
@@ -28,7 +29,7 @@ tests/check_*[^c]
 profile/profile
 gmon.out
 *.cmake
-
 CMakeCache.txt
 Testing/
 CMakeFiles/
+
