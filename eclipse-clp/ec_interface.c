@@ -111,17 +111,26 @@ static term_t build_term(pword ec_term, evarmap_t *varmap, estdmap_t *stdmap)
 
 #define ARG_FORMULA(ec_alpha, beta, i) \
         pword ec_##beta;\
-        ec_get_arg(i, ec_alpha, &ec_##beta);\
-        const query_t *beta = build_query(ec_##beta, varmap, stdmap);
+        if (ec_get_arg(i, ec_alpha, &ec_##beta) != 0) {\
+            return NULL;\
+        }\
+        const query_t *beta = build_query(ec_##beta, varmap, stdmap);\
+        if (beta == NULL) {\
+            return NULL;\
+        }
 
 #define ARG_VAR(ec_alpha, var, i) \
         pword ec_##var;\
-        ec_get_arg(i, ec_alpha, &ec_##var);\
+        if (ec_get_arg(i, ec_alpha, &ec_##var) != 0) {\
+            return NULL;\
+        }\
         const var_t var = create_var(ec_##var, varmap);
 
 #define ARG_TERM(ec_alpha, term, i) \
         pword ec_##term;\
-        ec_get_arg(i, ec_alpha, &ec_##term);\
+        if (ec_get_arg(i, ec_alpha, &ec_##term) != 0) {\
+            return NULL;\
+        }\
         const term_t term = build_term(ec_##term, varmap, stdmap);
 
 static const query_t *build_query(pword ec_alpha, evarmap_t *varmap, estdmap_t *stdmap)
@@ -187,19 +196,115 @@ static const query_t *build_query(pword ec_alpha, evarmap_t *varmap, estdmap_t *
     }
 }
 
+static bool bat_initialized = false;
+static box_univ_clauses_t dynamic_bat;
+static univ_clauses_t static_bat;
+static belief_conds_t belief_conds;
+
+void init_once()
+{
+    if (!bat_initialized) {
+        init_bat(&dynamic_bat, &static_bat, &belief_conds);
+        bat_initialized = true;
+    }
+}
+
+void free_context(t_ext_ptr data)
+{
+    context_t *ctx = data;
+    free(ctx);
+}
+
+t_ext_ptr copy_context(t_ext_ptr old_data)
+{
+    const context_t *old_ctx = old_data;
+    context_t new_ctx = context_copy(old_ctx);
+    t_ext_ptr new_data = malloc(sizeof(new_ctx));
+    memcpy(new_data, &new_ctx, sizeof(new_ctx));
+    return new_data;
+}
+
+static const t_ext_type context_method_table = {
+    .free = free_context,
+    .copy = copy_context,
+    .mark_dids = NULL,
+    .string_size = NULL,
+    .to_string = NULL,
+    .equal = NULL,
+    .remote_copy = copy_context,
+    .get = NULL,
+    .set = NULL
+};
+
+int p_kcontext()
+{
+    pword ec_var = ec_arg(1);
+
+    init_once();
+    const stdvec_t context_z = stdvec_init_with_size(0);
+    const splitset_t context_sf = splitset_init_with_size(0);
+    context_t ctx = kcontext_init(&static_bat, &dynamic_bat, &context_z, &context_sf);
+
+    t_ext_ptr data = malloc(sizeof(ctx));
+    memcpy(data, &ctx, sizeof(ctx));
+    pword ec_ctx = ec_handle(&context_method_table, data);
+
+    return ec_unify(ec_ctx, ec_var);
+}
+
+int p_bcontext()
+{
+    pword ec_k = ec_arg(1);
+    pword ec_var = ec_arg(2);
+
+    long k;
+    if (ec_get_long(ec_k, &k) != 0) {
+        return TYPE_ERROR;
+    }
+
+    init_once();
+    const stdvec_t context_z = stdvec_init_with_size(0);
+    const splitset_t context_sf = splitset_init_with_size(0);
+    context_t ctx = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, k, &context_z, &context_sf);
+
+    t_ext_ptr data = malloc(sizeof(ctx));
+    memcpy(data, &ctx, sizeof(ctx));
+    pword ec_ctx = ec_handle(&context_method_table, data);
+
+    return ec_unify(ec_ctx, ec_var);
+}
+
 int p_holds()
 {
-    //univ_clauses_t static_bat = univ_clauses_init();
-    //box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
-    //DECL_ALL_CLAUSES(&dynamic_bat, &static_bat, NULL);
-    pword ec_alpha = ec_arg(1);
+    pword ec_ctx = ec_arg(1);
+    pword ec_k = ec_arg(2);
+    pword ec_alpha = ec_arg(3);
+
+    t_ext_ptr data;
+    if (ec_get_handle(ec_ctx, &context_method_table, &data) != 0) {
+        return TYPE_ERROR;
+    }
+    const context_t *ctx = data;
+
+    long k;
+    if (ec_get_long(ec_k, &k) != 0) {
+        return TYPE_ERROR;
+    }
+
     evarmap_t varmap = evarmap_init();
     estdmap_t stdmap = estdmap_init();
     const query_t *alpha = build_query(ec_alpha, &varmap, &stdmap);
+    if (alpha == NULL) {
+        return TYPE_ERROR;
+    }
+
     print_query(alpha);
     printf("\n");
+
+    bool holds = query_entailed(ctx, false, alpha, k);
+
     destroy_all_vars(&varmap);
     destroy_all_stdnames(&stdmap);
-    return 0;
+    return holds ? PSUCCEED : PFAIL;
 }
 
