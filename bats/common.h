@@ -98,6 +98,40 @@ static void print_pel(const pelset_t *pel)
     printf("---------------\n");
 }
 
+// Dirty hack: copy of the types from query.h for print_query().
+// Alternatively, we could copy this stuff to from query.c to query.h.
+// Alternatively, we could move print_query() to query.[hc].
+// But I think we can delete print_query() at some time anyway.
+
+enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EXISTS, FORALL, ACT, EVAL };
+
+typedef struct { term_t t1; term_t t2; } query_names_t;
+typedef struct { const query_t *phi; } query_unary_t;
+typedef struct { const query_t *phi1; const query_t *phi2; } query_binary_t;
+typedef struct { var_t var; const query_t *phi; } query_quantified_t;
+typedef struct { term_t n; const query_t *phi; } query_action_t;
+typedef struct {
+    int (*n_vars)(void *);
+    stdset_t (*names)(void *);
+    bool (*eval)(const stdvec_t *, const splitset_t *, void *);
+    void *arg;
+    stdvec_t context_z;
+    bool sign;
+} query_eval_t;
+
+struct query {
+    enum query_type type;
+    union {
+        literal_t lit;
+        query_names_t eq;
+        query_binary_t bin;
+        query_unary_t un;
+        query_quantified_t qtf;
+        query_action_t act;
+        query_eval_t eval;
+    } u;
+};
+
 static void print_query(const query_t *phi)
 {
     switch (phi->type) {
