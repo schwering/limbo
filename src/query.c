@@ -236,10 +236,10 @@ static const query_t *query_ennf_h(
                 query_t *psi = MALLOC(sizeof(query_t));
                 *psi = *phi;
                 if (!sign) {
-                    psi->u.lit = literal_flip(&phi->u.lit);
+                    psi->u.lit = literal_flip(&psi->u.lit);
                 }
                 if (stdvec_size(z) > 0) {
-                    psi->u.lit = literal_prepend_all(z, &phi->u.lit);
+                    psi->u.lit = literal_prepend_all(z, &psi->u.lit);
                 }
                 return psi;
             }
