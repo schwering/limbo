@@ -7,7 +7,7 @@
 :- ['../bats/proper-plus.pl'].
 
 % Load the BAT shared library:
-:- load('../bats/libBAT-ECAI2014.so').
+:- load('../bats/libBAT-ecai2014.so').
 
 % Load the ESBL interface:
 :- load('../eclipse-clp/libEclipseESBL.so').
