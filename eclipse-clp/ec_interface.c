@@ -1,4 +1,59 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+/*
+ * ECLiPSe-CLP interface to ESBL.
+ * The following defines external predicates:
+ * kcontext/1 (function p_kcontext()) interfaces kcontext_init().
+ * bcontext/2 (function p_bcontext()) interfaces bcontext_init().
+ * executed/3 (function p_executed()) interfaces context_add_actions().
+ * holds/3 (function p_holds()) interfaces query_entailed().
+ *
+ * From ECLiPSe-CLP, the interface can be loaded dynamically as follows:
+ *   :- load('bats/libBAT-KR2014.so'). % or some other BAT shared library
+ *   :- load('eclipse-clp/libEclipseESBL.so').
+ *   :- external(kcontext/1, p_kcontext).
+ *   :- external(bcontext/2, p_bcontext).
+ *   :- external(executed/3, p_executed).
+ *   :- external(holds/3, p_holds).
+ * It is not possible to handle more than BAT.
+ *
+ * Then, kcontext/1 or bcontext/2 can used to create a context. It's customary
+ * to save it an in non-logical variable:
+ *   :- kcontext(Ctx), setval(ctx, Ctx).
+ *
+ * We can evaluate queries against this context, 
+ *   :- getval(ctx, Ctx), holds(Ctx, 1, forward : (d1 v d2)).
+ *
+ * Now we can feed back action execution and their sensing results to the
+ * context:
+ *   :- getval(ctx, Ctx), executed(Ctx, forward, true).
+ *   :- getval(ctx, Ctx), executed(Ctx, sonar, true).
+ *
+ * Subsequent queries are evaluated in situation [forward.sonar] where both
+ * actions had a positive sensing result:
+ *   :- getval(ctx, Ctx), holds(Ctx, 1, d1)
+ *
+ * The set of queries is the least set such that
+ *   P(T1,...,TK)           (predicate)
+ *   ~ Alpha                (negation)
+ *   (Alpha1 ^ Alpha2)      (conjunction)
+ *   (Alpha1 v Alpha2)      (disjunction)
+ *   (Alpha1 -> Alpha2)     (implication)
+ *   (Alpha1 <-> Alpha2)    (equivalence)
+ *   exists(V, Alpha)       (existential)
+ *   forall(V, Alpha)       (universal)
+ *   (A : Alpha)            (action)
+ * where P(T1,...,Tk) is a Prolog literal and P usually exactly matches a
+ * predicate from the BAT; Alpha, Alpha1, Alpha2 are queries; V are arbitrary
+ * Prolog terms that represent variables; A is a ground Prolog atom that
+ * represents an action and usually exactly matches a standard name from the
+ * BAT.
+ * When P does not match a predicate symbol from the BAT, we interpret it as a
+ * new predicate symbol different from all other predicate symbols in the BAT
+ * and the query.
+ * When A or any ground T1,...,Tk does not match a standard name from the BAT,
+ * we interpret it as a new standard name different from all standard names in
+ * the BAT and the query.
+ */
 #include <eclipse-clp/eclipse.h>
 
 #define NO_GC
@@ -30,6 +85,9 @@ MAP_IMPL(evarmap, pword *, var_t, pword_ptr_compare);
 
 MAP_DECL(estdmap, pword *, stdname_t);
 MAP_IMPL(estdmap, pword *, stdname_t, pword_ptr_compare);
+
+MAP_DECL(epredmap, char *, pred_t);
+MAP_IMPL(epredmap, char *, pred_t, strcmp);
 
 static var_t create_var(pword ec_var, evarmap_t *varmap)
 {
@@ -76,6 +134,17 @@ static void destroy_all_stdnames(estdmap_t *stdmap)
     estdmap_clear(stdmap);
 }
 
+static void destroy_all_preds(epredmap_t *predmap)
+{
+    while (epredmap_size(predmap) > 0) {
+        const epredmap_kv_t *kv = epredmap_get(predmap, 0);
+        const char *copy = kv->key;
+        epredmap_remove(predmap, kv->key);
+        free((char *) copy);
+    }
+    epredmap_clear(predmap);
+}
+
 static term_t build_term(pword ec_term, evarmap_t *varmap, estdmap_t *stdmap)
 {
     // maybe it's a variable
@@ -111,12 +180,33 @@ static term_t build_term(pword ec_term, evarmap_t *varmap, estdmap_t *stdmap)
     return n;
 }
 
+static pred_t build_pred(dident f, epredmap_t *predmap)
+{
+    // maybe we saw the predicate already
+    if (epredmap_contains(predmap, DidName(f))) {
+        return epredmap_lookup(predmap, DidName(f));
+    }
+    // maybe it's a standard name from the basic action theory
+    {
+        const pred_t p = string_to_pred(DidName(f));
+        if (p <= MAX_PRED) {
+            return p;
+        }
+    }
+    // otherwise map the name to a new, otherwise unused pred_t
+    char *name = malloc((strlen(DidName(f)) + 1) * sizeof(char));
+    strcpy(name, DidName(f));
+    const pred_t p = MAX_PRED + 1 + epredmap_size(predmap);
+    epredmap_add(predmap, name, p);
+    return p;
+}
+
 #define ARG_FORMULA(ec_alpha, beta, i) \
         pword ec_##beta;\
         if (ec_get_arg(i, ec_alpha, &ec_##beta) != 0) {\
             return NULL;\
         }\
-        const query_t *beta = build_query(ec_##beta, varmap, stdmap);\
+        const query_t *beta = build_query(ec_##beta, varmap, stdmap, predmap);\
         if (beta == NULL) {\
             return NULL;\
         }
@@ -135,7 +225,8 @@ static term_t build_term(pword ec_term, evarmap_t *varmap, estdmap_t *stdmap)
         }\
         const term_t term = build_term(ec_##term, varmap, stdmap);
 
-static const query_t *build_query(pword ec_alpha, evarmap_t *varmap, estdmap_t *stdmap)
+static const query_t *build_query(pword ec_alpha, evarmap_t *varmap,
+        estdmap_t *stdmap, epredmap_t *predmap)
 {
     dident f;
     dident a;
@@ -176,7 +267,7 @@ static const query_t *build_query(pword ec_alpha, evarmap_t *varmap, estdmap_t *
         return query_act(term, beta);
     } else if (is_functor) {
         const stdvec_t z = stdvec_init_with_size(0);
-        const pred_t p = string_to_pred(DidName(f));
+        const pred_t p = build_pred(f, predmap);
         const bool sign = true;
         stdvec_t args = stdvec_init_with_size(DidArity(f));
         for (int i = 1; i <= DidArity(f); ++i) {
@@ -187,7 +278,7 @@ static const query_t *build_query(pword ec_alpha, evarmap_t *varmap, estdmap_t *
         return query_lit(&l);
     } else if (is_atom) {
         const stdvec_t z = stdvec_init_with_size(0);
-        const pred_t p = string_to_pred(DidName(a));
+        const pred_t p = build_pred(a, predmap);
         const bool sign = true;
         const stdvec_t args = stdvec_init_with_size(0);
         const literal_t l = literal_init(&z, sign, p, &args);
@@ -332,7 +423,8 @@ int p_holds()
 
     evarmap_t varmap = evarmap_init();
     estdmap_t stdmap = estdmap_init();
-    const query_t *alpha = build_query(ec_alpha, &varmap, &stdmap);
+    epredmap_t predmap = epredmap_init();
+    const query_t *alpha = build_query(ec_alpha, &varmap, &stdmap, &predmap);
     if (alpha == NULL) {
         return TYPE_ERROR;
     }
@@ -342,8 +434,9 @@ int p_holds()
 
     bool holds = query_entailed(ctx, false, alpha, k);
 
-    destroy_all_vars(&varmap);
     destroy_all_stdnames(&stdmap);
+    destroy_all_vars(&varmap);
+    destroy_all_preds(&predmap);
     return holds ? PSUCCEED : PFAIL;
 }
 
