@@ -290,11 +290,15 @@ declare_standard_name_declarations(Stream, [N|Ns], MaxStdName) :-
 declare_max_stdname(Stream, MaxStdName) :-
     format(Stream, 'const stdname_t MAX_STD_NAME = ~w;~n', [MaxStdName]).
 
-declare_predicate_name_declarations(_, []).
-declare_predicate_name_declarations(Stream, [P|Ps]) :-
+declare_max_pred(Stream, MaxPred) :-
+    format(Stream, 'const pred_t MAX_PRED = ~w;~n', [MaxPred]).
+
+declare_predicate_name_declarations(_, [], 0).
+declare_predicate_name_declarations(Stream, [P|Ps], MaxPred) :-
     length(Ps, I),
     ( P = 'SF' -> true ; format(Stream, 'static const pred_t ~w = ~w;~n', [P, I]) ),
-    declare_predicate_name_declarations(Stream, Ps).
+    declare_predicate_name_declarations(Stream, Ps, MaxPred1),
+    MaxPred is max(I, MaxPred1).
 
 declare_variable_name_declarations(_, []).
 declare_variable_name_declarations(Stream, [V|Vs]) :-
@@ -316,7 +320,7 @@ define_functions(Stream, StdNames, SortNames, PredNames) :-
     format(Stream, '    if (false) return "never occurs"; // never occurs~n', []),
     maplist(print_serialization(Stream), PredNames),
     format(Stream, '    static char buf[16];~n', []),
-    format(Stream, '    sprintf(buf, "P%d", val);~n', []),
+    format(Stream, '    sprintf(buf, "P%ld", val);~n', []),
     format(Stream, '    return buf;~n', []),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
@@ -329,7 +333,7 @@ define_functions(Stream, StdNames, SortNames, PredNames) :-
     format(Stream, 'pred_t string_to_pred(const char *str) {~n', []),
     format(Stream, '    if (false) return -1; // never occurs;~n', []),
     maplist(print_deserialization(Stream), PredNames),
-    format(Stream, '    else return -1;~n', []),
+    format(Stream, '    else return MAX_PRED + 1;~n', []),
     format(Stream, '}~n', []),
     format(Stream, '~n', []),
     define_sort_names(Stream, SortNames).
@@ -391,7 +395,8 @@ compile_all(Input, Header, Body) :-
     declare_standard_name_declarations(HeaderStream, StdNames, MaxStdName),
     declare_max_stdname(HeaderStream, MaxStdName),
     format(HeaderStream, '~n', []),
-    declare_predicate_name_declarations(HeaderStream, PredNames),
+    declare_predicate_name_declarations(HeaderStream, PredNames, MaxPred),
+    declare_max_pred(HeaderStream, MaxPred),
     format(HeaderStream, '~n', []),
     % body
     format(BodyStream, '#include "~w"~n', [Header]),

@@ -14,7 +14,7 @@
 
 #include "term.h"
 
-typedef int pred_t;
+typedef long int pred_t;
 typedef struct {
     stdvec_t z;
     bool sign;

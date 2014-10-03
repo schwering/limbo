@@ -4,6 +4,9 @@
  *
  * schwering@kbsg.rwth-aachen.de
  */
+#ifndef _COMMON_H_
+#define _COMMON_H_
+
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -15,6 +18,7 @@
 
 // The follow declarations are defined in the generated *.c file.
 extern const stdname_t MAX_STD_NAME;
+extern const pred_t MAX_PRED;
 extern const char *stdname_to_string(stdname_t val);
 extern const char *pred_to_string(pred_t val);
 extern stdname_t string_to_stdname(const char *str);
@@ -30,4 +34,6 @@ void print_clause(const clause_t *c);
 void print_setup(const setup_t *setup);
 void print_pel(const pelset_t *pel);
 void print_query(const query_t *phi);
+
+#endif
 
