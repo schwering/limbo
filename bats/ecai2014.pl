@@ -2,6 +2,8 @@
 %
 % Running example from:
 % Schwering, Lakemeyer: A Semantic Account of Iterated Belief Revision in the Situation Calculus, ECAI-2014
+%
+% schwering@kbsg.rwth-aachen.de
 
 sort_name(action, 'LV').
 sort_name(action, 'SL').

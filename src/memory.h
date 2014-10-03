@@ -3,6 +3,8 @@
  * Wrappers for memory allocation.
  *
  * Additionally there's a macro NEW for allocation plus initialization.
+ *
+ * schwering@kbsg.rwth-aachen.de
  */
 #ifndef _MEMORY_H_
 #define _MEMORY_H_

@@ -1,7 +1,4 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
-/*
- * schwering@kbsg.rwth-aachen.de
- */
 #include "common.h"
 
 void print_stdname(stdname_t name)

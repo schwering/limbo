@@ -1,6 +1,8 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
  * This is an implementation of (most of the) queries proven in the ESB paper.
+ *
+ * schwering@kbsg.rwth-aachen.de
  */
 #include <stdio.h>
 #include <ecai2014.h>

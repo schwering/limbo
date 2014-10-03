@@ -53,6 +53,8 @@
  * When A or any ground T1,...,Tk does not match a standard name from the BAT,
  * we interpret it as a new standard name different from all standard names in
  * the BAT and the query.
+ *
+ * schwering@kbsg.rwth-aachen.de
  */
 #include <eclipse-clp/eclipse.h>
 

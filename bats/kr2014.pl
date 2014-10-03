@@ -2,6 +2,8 @@
 %
 % Running example from:
 % Lakemeyer, Levesque: Decidable Reasoning in a Fragment of the Epistemic Situation Calculus, KR-2014
+%
+% schwering@kbsg.rwth-aachen.de
 
 sort_name(action, forward).
 sort_name(action, sonar).
