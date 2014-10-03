@@ -4,33 +4,42 @@
  * The following defines external predicates:
  * kcontext/1 (function p_kcontext()) interfaces kcontext_init().
  * bcontext/2 (function p_bcontext()) interfaces bcontext_init().
- * executed/3 (function p_executed()) interfaces context_add_actions().
- * holds/3 (function p_holds()) interfaces query_entailed().
+ * context_exec/3 (function p_context_exec()) interfaces context_add_actions().
+ * context_entails/3 (function p_context_entails()) interfaces query_entailed().
  *
  * From ECLiPSe-CLP, the interface can be loaded dynamically as follows:
  *   :- load('bats/libBAT-KR2014.so'). % or some other BAT shared library
  *   :- load('eclipse-clp/libEclipseESBL.so').
  *   :- external(kcontext/1, p_kcontext).
  *   :- external(bcontext/2, p_bcontext).
- *   :- external(executed/3, p_executed).
- *   :- external(holds/3, p_holds).
+ *   :- external(context_exec/3, p_context_exec).
+ *   :- external(context_entails/3, p_context_entails).
  * It is not possible to handle more than BAT.
  *
  * Then, kcontext/1 or bcontext/2 can used to create a context. It's customary
- * to save it an in non-logical variable:
- *   :- kcontext(Ctx), setval(ctx, Ctx).
+ * to save it non-logically:
+ *   :- kcontext(Ctx), store_context(id, Ctx).
  *
  * We can evaluate queries against this context, 
- *   :- getval(ctx, Ctx), holds(Ctx, 1, forward : (d1 v d2)).
+ *   :- retrieve_context(id, Ctx), context_entails(Ctx, 1, forward : (d1 v d2)).
+ *
+ * The first argument in [store|retrieve]_context/2 is an identifier, which must
+ * be a Prolog atom. Notice that [store|retrieve]_context/2 differs from
+ * [set|get]val/2 in that it does not copy the context. In most scenarios,
+ * [store|retrieve]_context/2 is thus what you want, as it copying over
+ * [set|get]val/2 and spares you another setval/2 after changing the context.
  *
  * Now we can feed back action execution and their sensing results to the
  * context:
- *   :- getval(ctx, Ctx), executed(Ctx, forward, true).
- *   :- getval(ctx, Ctx), executed(Ctx, sonar, true).
+ *   :- retrieve_context(id, Ctx), context_exec(Ctx, forward, true).
+ *   :- retrieve_context(id, Ctx), context_exec(Ctx, sonar, true).
+ * If we had used [set|get]val/2 instead of [store|retrieve]_context/2, we
+ * would have to memorize the new changed context with setval/2 after
+ * context_exec/3.
  *
  * Subsequent queries are evaluated in situation [forward.sonar] where both
  * actions had a positive sensing result:
- *   :- getval(ctx, Ctx), holds(Ctx, 1, d1)
+ *   :- retrieve_context(id, Ctx), context_entails(Ctx, 1, d1)
  *
  * The set of queries is the least set such that
  *   P(T1,...,TK)           (predicate)
@@ -82,80 +91,92 @@ static int pword_ptr_compare(const pword *l, const pword *r)
     return ec_compare(*l, *r);
 }
 
-MAP_DECL(evarmap, pword *, var_t);
-MAP_IMPL(evarmap, pword *, var_t, pword_ptr_compare);
+MAP_DECL(ec_varmap, pword *, var_t);
+MAP_IMPL(ec_varmap, pword *, var_t, pword_ptr_compare);
 
-MAP_DECL(estdmap, pword *, stdname_t);
-MAP_IMPL(estdmap, pword *, stdname_t, pword_ptr_compare);
+MAP_DECL(ec_stdmap, pword *, stdname_t);
+MAP_IMPL(ec_stdmap, pword *, stdname_t, pword_ptr_compare);
 
-MAP_DECL(epredmap, char *, pred_t);
-MAP_IMPL(epredmap, char *, pred_t, strcmp);
+MAP_DECL(ec_predmap, char *, pred_t);
+MAP_IMPL(ec_predmap, char *, pred_t, strcmp);
 
-static var_t create_var(pword ec_var, evarmap_t *varmap)
+MAP_DECL(ec_ctxmap, char *, context_t *);
+MAP_IMPL(ec_ctxmap, char *, context_t *, strcmp);
+
+static bool bat_initialized = false;
+static box_univ_clauses_t dynamic_bat;
+static univ_clauses_t static_bat;
+static belief_conds_t belief_conds;
+
+static bool ctxmap_initialized = false;
+static ec_ctxmap_t ctxmap;
+
+
+static var_t create_var(pword ec_var, ec_varmap_t *varmap)
 {
-    if (evarmap_contains(varmap, &ec_var)) {
-        return evarmap_lookup(varmap, &ec_var);
+    if (ec_varmap_contains(varmap, &ec_var)) {
+        return ec_varmap_lookup(varmap, &ec_var);
     }
     pword *copy = malloc(sizeof(pword));
     *copy = ec_var;
-    const var_t var = -1 - evarmap_size(varmap);
-    evarmap_add(varmap, copy, var);
+    const var_t var = -1 - ec_varmap_size(varmap);
+    ec_varmap_add(varmap, copy, var);
     return var;
 }
 
-static void destroy_var(pword ec_var, evarmap_t *varmap)
+static void destroy_var(pword ec_var, ec_varmap_t *varmap)
 {
-    const int i = evarmap_find(varmap, &ec_var);
+    const int i = ec_varmap_find(varmap, &ec_var);
     assert(i >= 0);
-    const evarmap_kv_t *kv = evarmap_get(varmap, i);
+    const ec_varmap_kv_t *kv = ec_varmap_get(varmap, i);
     assert(kv != NULL);
     const pword *copy = kv->key;
-    evarmap_remove(varmap, kv->key);
+    ec_varmap_remove(varmap, kv->key);
     free((pword *) copy);
 }
 
-static void destroy_all_vars(evarmap_t *varmap)
+static void destroy_all_vars(ec_varmap_t *varmap)
 {
-    while (evarmap_size(varmap) > 0) {
-        const evarmap_kv_t *kv = evarmap_get(varmap, 0);
+    while (ec_varmap_size(varmap) > 0) {
+        const ec_varmap_kv_t *kv = ec_varmap_get(varmap, 0);
         const pword *copy = kv->key;
-        evarmap_remove(varmap, kv->key);
+        ec_varmap_remove(varmap, kv->key);
         free((pword *) copy);
     }
-    evarmap_clear(varmap);
+    ec_varmap_clear(varmap);
 }
 
-static void destroy_all_stdnames(estdmap_t *stdmap)
+static void destroy_all_stdnames(ec_stdmap_t *stdmap)
 {
-    while (estdmap_size(stdmap) > 0) {
-        const estdmap_kv_t *kv = estdmap_get(stdmap, 0);
+    while (ec_stdmap_size(stdmap) > 0) {
+        const ec_stdmap_kv_t *kv = ec_stdmap_get(stdmap, 0);
         const pword *copy = kv->key;
-        estdmap_remove(stdmap, kv->key);
+        ec_stdmap_remove(stdmap, kv->key);
         free((pword *) copy);
     }
-    estdmap_clear(stdmap);
+    ec_stdmap_clear(stdmap);
 }
 
-static void destroy_all_preds(epredmap_t *predmap)
+static void destroy_all_preds(ec_predmap_t *predmap)
 {
-    while (epredmap_size(predmap) > 0) {
-        const epredmap_kv_t *kv = epredmap_get(predmap, 0);
+    while (ec_predmap_size(predmap) > 0) {
+        const ec_predmap_kv_t *kv = ec_predmap_get(predmap, 0);
         const char *copy = kv->key;
-        epredmap_remove(predmap, kv->key);
+        ec_predmap_remove(predmap, kv->key);
         free((char *) copy);
     }
-    epredmap_clear(predmap);
+    ec_predmap_clear(predmap);
 }
 
-static term_t build_term(pword ec_term, evarmap_t *varmap, estdmap_t *stdmap)
+static term_t build_term(pword ec_term, ec_varmap_t *varmap, ec_stdmap_t *stdmap)
 {
     // maybe it's a variable
-    if (evarmap_contains(varmap, &ec_term)) {
-        return evarmap_lookup(varmap, &ec_term);
+    if (ec_varmap_contains(varmap, &ec_term)) {
+        return ec_varmap_lookup(varmap, &ec_term);
     }
     // maybe we saw the stdname already
-    if (estdmap_contains(stdmap, &ec_term)) {
-        return estdmap_lookup(stdmap, &ec_term);
+    if (ec_stdmap_contains(stdmap, &ec_term)) {
+        return ec_stdmap_lookup(stdmap, &ec_term);
     }
     // maybe it's a standard name from the basic action theory
     dident a;
@@ -177,16 +198,16 @@ static term_t build_term(pword ec_term, evarmap_t *varmap, estdmap_t *stdmap)
     // otherwise map the name to a new, otherwise unused stdname_t
     pword *copy = malloc(sizeof(pword));
     *copy = ec_term;
-    const stdname_t n = MAX_STD_NAME + 1 + estdmap_size(stdmap);
-    estdmap_add(stdmap, copy, n);
+    const stdname_t n = MAX_STD_NAME + 1 + ec_stdmap_size(stdmap);
+    ec_stdmap_add(stdmap, copy, n);
     return n;
 }
 
-static pred_t build_pred(dident f, epredmap_t *predmap)
+static pred_t build_pred(dident f, ec_predmap_t *predmap)
 {
     // maybe we saw the predicate already
-    if (epredmap_contains(predmap, DidName(f))) {
-        return epredmap_lookup(predmap, DidName(f));
+    if (ec_predmap_contains(predmap, DidName(f))) {
+        return ec_predmap_lookup(predmap, DidName(f));
     }
     // maybe it's a standard name from the basic action theory
     {
@@ -198,8 +219,8 @@ static pred_t build_pred(dident f, epredmap_t *predmap)
     // otherwise map the name to a new, otherwise unused pred_t
     char *name = malloc((strlen(DidName(f)) + 1) * sizeof(char));
     strcpy(name, DidName(f));
-    const pred_t p = MAX_PRED + 1 + epredmap_size(predmap);
-    epredmap_add(predmap, name, p);
+    const pred_t p = MAX_PRED + 1 + ec_predmap_size(predmap);
+    ec_predmap_add(predmap, name, p);
     return p;
 }
 
@@ -227,8 +248,8 @@ static pred_t build_pred(dident f, epredmap_t *predmap)
         }\
         const term_t term = build_term(ec_##term, varmap, stdmap);
 
-static const query_t *build_query(pword ec_alpha, evarmap_t *varmap,
-        estdmap_t *stdmap, epredmap_t *predmap)
+static const query_t *build_query(pword ec_alpha, ec_varmap_t *varmap,
+        ec_stdmap_t *stdmap, ec_predmap_t *predmap)
 {
     dident f;
     dident a;
@@ -291,14 +312,6 @@ static const query_t *build_query(pword ec_alpha, evarmap_t *varmap,
     }
 }
 
-static bool bat_initialized = false;
-static box_univ_clauses_t dynamic_bat;
-static univ_clauses_t static_bat;
-static belief_conds_t belief_conds;
-
-static bool global_context_initialized = false;
-static context_t global_context;
-
 void init_bat_once()
 {
     if (!bat_initialized) {
@@ -310,6 +323,12 @@ void init_bat_once()
 void free_context(t_ext_ptr data)
 {
     context_t *ctx = data;
+    for (int i = 0; i < ec_ctxmap_size(&ctxmap); ++i) {
+        const ec_ctxmap_kv_t *kv = ec_ctxmap_get(&ctxmap, i);
+        if (kv->val == ctx) {
+            return;
+        }
+    }
     free(ctx);
 }
 
@@ -368,7 +387,61 @@ int p_bcontext()
     return ec_unify(ec_ctx, ec_var);
 }
 
-int p_executed()
+int p_store_context()
+{
+    pword ec_id = ec_arg(1);
+    pword ec_ctx = ec_arg(2);
+
+    if (!ctxmap_initialized) {
+        ctxmap_initialized = true;
+        ec_ctxmap_t map = ec_ctxmap_init();
+        memcpy(&ctxmap, &map, sizeof(ec_ctxmap_t));
+    }
+
+    dident a;
+    if (ec_get_atom(ec_id, &a) != 0) {
+        return TYPE_ERROR;
+    }
+
+    t_ext_ptr data;
+    if (ec_get_handle(ec_ctx, &context_method_table, &data) != 0) {
+        return TYPE_ERROR;
+    }
+    context_t *ctx = data;
+
+    char *name = malloc((strlen(DidName(a)) + 1) * sizeof(char));
+    strcpy(name, DidName(a));
+    ec_ctxmap_add_replace(&ctxmap, name, ctx);
+
+    return PSUCCEED;
+}
+
+int p_retrieve_context()
+{
+    pword ec_id = ec_arg(1);
+    pword ec_var = ec_arg(2);
+
+    if (!ctxmap_initialized) {
+        return PFAIL;
+    }
+
+    dident a;
+    if (ec_get_atom(ec_id, &a) != 0) {
+        return TYPE_ERROR;
+    }
+
+    const context_t *ctx = ec_ctxmap_lookup(&ctxmap, DidName(a));
+    if (ctx == NULL) {
+        return PFAIL;
+    }
+
+    t_ext_ptr data = (context_t *) ctx;
+    pword ec_ctx = ec_handle(&context_method_table, data);
+
+    return ec_unify(ec_ctx, ec_var);
+}
+
+int p_context_exec()
 {
     pword ec_ctx = ec_arg(1);
     pword ec_action = ec_arg(2);
@@ -406,7 +479,7 @@ int p_executed()
     return PSUCCEED;
 }
 
-int p_holds()
+int p_context_entails()
 {
     pword ec_ctx = ec_arg(1);
     pword ec_k = ec_arg(2);
@@ -423,21 +496,21 @@ int p_holds()
         return TYPE_ERROR;
     }
 
-    evarmap_t varmap = evarmap_init();
-    estdmap_t stdmap = estdmap_init();
-    epredmap_t predmap = epredmap_init();
+    ec_varmap_t varmap = ec_varmap_init();
+    ec_stdmap_t stdmap = ec_stdmap_init();
+    ec_predmap_t predmap = ec_predmap_init();
+
     const query_t *alpha = build_query(ec_alpha, &varmap, &stdmap, &predmap);
     if (alpha == NULL) {
         return TYPE_ERROR;
     }
 
-    print_query(alpha);
-    printf("\n");
+    //print_query(alpha); printf("\n");
 
     bool holds = query_entailed(ctx, false, alpha, k);
 
-    destroy_all_stdnames(&stdmap);
     destroy_all_vars(&varmap);
+    destroy_all_stdnames(&stdmap);
     destroy_all_preds(&predmap);
     return holds ? PSUCCEED : PFAIL;
 }
