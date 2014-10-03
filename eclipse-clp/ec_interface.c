@@ -1,6 +1,8 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include <eclipse-clp/eclipse.h>
 
+#define NO_GC
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>

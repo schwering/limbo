@@ -7,11 +7,25 @@
 #ifndef _MEMORY_H_
 #define _MEMORY_H_
 
+#define NO_GC
+
+#ifndef NO_GC
+
 #include <gc.h>
 
 #define MALLOC(size)         GC_MALLOC(size)
 #define REALLOC(mem, size)   GC_REALLOC(mem, size)
 #define FREE(mem)            GC_FREE(mem)
+
+#else
+
+#include <stdlib.h>
+
+#define MALLOC(size)         malloc(size)
+#define REALLOC(mem, size)   realloc(mem, size)
+#define FREE(mem)            free(mem)
+
+#endif
 
 #define NEW(expr) \
     ({\

@@ -1,3 +1,4 @@
+%:- set_flag(gc, on).
 :- ['bats/proper-plus.pl'].
 :- load('bats/libBAT-KR2014.so'), writeln('libBAT-KR2014 geladen').
 :- load('eclipse-clp/libEclipseESBL.so'), writeln('libEclipseESBL geladen').
@@ -6,12 +7,12 @@
 :- external(executed/3, p_executed), writeln('executed geladen').
 :- external(holds/3, p_holds).
 
-%:- kcontext(Ctx), writeln(Ctx).
+:- kcontext(Ctx), writeln(Ctx).
 :- kcontext(Ctx), writeln(Ctx), setval(ctx, Ctx).
 %:- getval(ctx, Ctx), is_handle(Ctx), writeln(Ctx).
 :-
-	kcontext(Ctx),
-	%getval(ctx, Ctx),
+	%kcontext(Ctx),
+	getval(ctx, Ctx),
 	writeln(Ctx),
 	writeln(holds),
 	holds(Ctx, 0, ~d0 ^ ~d1), writeln('Property 0 OK'),
@@ -26,5 +27,7 @@
 	holds(Ctx, 1, sonar : (d0 v d1)), writeln('Property 7 OK'),
 	holds(Ctx, 1, sonar : sonar : (d0 v d1)), writeln('Property 8 OK'),
 	holds(Ctx, 1, forward : sonar : (d0 v d1)), writeln('Property 9 OK'),
-	holds(Ctx, 1, forward : forward : d0), writeln('Property 10 OK').
+	holds(Ctx, 1, forward : forward : d0), writeln('Property 10 OK'),
+	holds(Ctx, 1, p v ~p), writeln('Valid formula OK'),
+	\+ holds(Ctx, 1, p v ~q), writeln('Non-valid formula OK').
 
