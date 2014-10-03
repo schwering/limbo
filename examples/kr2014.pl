@@ -1,4 +1,5 @@
 % vim:filetype=prolog:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+%
 % Run this file with the following command:
 %   $ eclipse-clp -f examples/kr2014.pl
 
@@ -19,6 +20,9 @@
 
 % Create a context and store it in an extra-logical variable:
 :- kcontext(Ctx), store_context(myctx, Ctx).
+
+% Now test the properties (some are taken from the KR-2014 paper, some are
+% additional tests; they also match the kr2014.c example):
 :- retrieve_context(myctx, Ctx), write('Testing property 0 ... '),          context_entails(Ctx, 0, ~d0 ^ ~d1),                   write('OK'), nl.
 :- retrieve_context(myctx, Ctx), write('Testing property 1 ... '),          context_entails(Ctx, 0, ~(d0 v d1)),                  write('OK'), nl.
 :- retrieve_context(myctx, Ctx), write('Testing property 2 ... '),          context_entails(Ctx, 1, forward : (d1 v d2)),         write('OK'), nl.
