@@ -431,18 +431,6 @@ setup_t setup_init_dynamic(
     return setup;
 }
 
-setup_t setup_init_static_and_dynamic(
-        const univ_clauses_t *static_bat,
-        const box_univ_clauses_t *dynamic_bat,
-        const stdset_t *hplus,
-        const stdvecset_t *query_zs)
-{
-    setup_t static_setup = setup_init_static(static_bat, hplus);
-    setup_t dynamic_setup = setup_init_dynamic(dynamic_bat, hplus, query_zs);
-    setup_t setup = setup_union(&static_setup, &dynamic_setup);
-    return setup;
-}
-
 static bool setup_is_inconsistent(const setup_t *s)
 {
     return setup_size(s) > EMPTY_CLAUSE_INDEX &&

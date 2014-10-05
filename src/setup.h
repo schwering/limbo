@@ -31,14 +31,15 @@
  * for quantification. These are the standard names from the BAT and the query
  * plus one additional standard name for each variable in the BAT and the query.
  *
- * setup_init_[static|dynamic|static_and_dynamic] create setups from the
- * respective parts of a BAT. It does so by substituting all variables with
- * standard names from hplus and, for the dynamic part, by instantiating the
- * (implicit) box operators with all prefixes of action sequences in the
- * query, query_zs.
+ * setup_init_[static|dynamic]() create setups from the respective parts of a
+ * BAT. It does so by substituting all variables with standard names from hplus
+ * and, for the dynamic part, by instantiating the (implicit) box operators with
+ * all prefixes of action sequences in the query, query_zs.
  * The returned setup is just the set containing all clauses resulting from the
  * ground -- no minimization or unit propagation has been done yet. Thus the
  * setup can be seen as the immediate result of grounding the clauses.
+ * The setup_union() of the static and dynamic setups is perhaps what the user
+ * is interested in. It is recommonded to minimize that setup once.
  *
  * setup_pel() computes the positive extended literals (PEL) other than SF
  * literals from the setup that are candidates for splitting.
@@ -48,6 +49,9 @@
  * for splitting.
  *
  * setup_minimize() removes all clauses subsumed by other clauses in the setup.
+ * One the one hand, minimization may improve performance drastically. On the
+ * other hand, it is itself quite expensive. It is hence recommonded to minimize
+ * new setups and to avoid redundant minimizations.
  *
  * setup_propagate_units() closes the given setup under resolution of its unit
  * clauses with all other clauses. That is, for each resolvent of a unit clause
@@ -142,12 +146,6 @@ setup_t setup_init_static(
         const stdset_t *hplus);
 
 setup_t setup_init_dynamic(
-        const box_univ_clauses_t *dynamic_bat,
-        const stdset_t *hplus,
-        const stdvecset_t *query_zs);
-
-setup_t setup_init_static_and_dynamic(
-        const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
         const stdset_t *hplus,
         const stdvecset_t *query_zs);

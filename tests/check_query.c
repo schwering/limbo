@@ -28,8 +28,9 @@ static bool query_entailed_by_bat(
     }
     setup_t setup = ({
         const stdvecset_t zs = query_ennf_zs(phi);
-        setup_t s = setup_init_static_and_dynamic(static_bat, dynamic_bat,
-            &hplus, &zs);
+        const setup_t static_setup = setup_init_static(static_bat, &hplus);
+        const setup_t dynamic_setup = setup_init_dynamic(dynamic_bat, &hplus, &zs);
+        const setup_t s = setup_union(&static_setup, &dynamic_setup);
         setup_add_sensing_results(&s, context_sf);
         s;
     });

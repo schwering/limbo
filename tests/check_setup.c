@@ -61,7 +61,9 @@ START_TEST(test_grounding)
         stdset_add_all(&hplus, &ns);
         hplus;
     });
-    const setup_t setup = setup_init_static_and_dynamic(&static_bat, &dynamic_bat, &hplus, &query_zs);
+    const setup_t static_setup = setup_init_static(&static_bat, &hplus);
+    const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
+    const setup_t setup = setup_union(&static_setup, &dynamic_setup);
     print_setup(&setup);
     const pelset_t pel = setup_pel(&setup);
     print_pel(&pel);
@@ -107,7 +109,9 @@ START_TEST(test_entailment)
     const stdset_t ns = stdset_init();
     const stdset_t hplus = bat_hplus(&static_bat, &dynamic_bat, &ns, 0);
     const stdvecset_t query_zs = stdvecset_singleton(&fs_vec);
-    const setup_t setup = setup_init_static_and_dynamic(&static_bat, &dynamic_bat, &hplus, &query_zs);
+    const setup_t static_setup = setup_init_static(&static_bat, &hplus);
+    const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
+    const setup_t setup = setup_union(&static_setup, &dynamic_setup);
     const literal_t D0 = literal_init(&empty_vec, true, d0, &empty_vec);
     const literal_t D1 = literal_init(&empty_vec, true, d1, &empty_vec);
     const literal_t D2 = literal_init(&empty_vec, true, d2, &empty_vec);
@@ -218,7 +222,9 @@ START_TEST(test_eventual_completeness)
     const stdset_t ns = stdset_init();
     const stdset_t hplus = bat_hplus(&static_bat, &dynamic_bat, &ns, 0);
     const stdvecset_t query_zs = stdvecset_init();
-    const setup_t setup = setup_init_static_and_dynamic(&static_bat, &dynamic_bat, &hplus, &query_zs);
+    const setup_t static_setup = setup_init_static(&static_bat, &hplus);
+    const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
+    const setup_t setup = setup_union(&static_setup, &dynamic_setup);
     const pelset_t pel = setup_pel(&setup);
 
     print_setup(&setup);

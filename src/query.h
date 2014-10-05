@@ -46,7 +46,7 @@
  * we directly implement conjunctions, whereas the paper just defines
  * conjunction to be a negation of a disjunction.
  *
- * The evaluation construct represent an opaque sub-query which can only be
+ * The evaluation construct represents an opaque sub-query which can only be
  * evaluated at once.
  * For that purpose it consists of an eval callback and a void pointer arg for
  * optional payload. Besides that payload, the callback is given (1) a

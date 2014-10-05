@@ -149,8 +149,6 @@ bsetup_t bsetup_init_beliefs(
             const ground_belief_cond_t *gbc = i.val;
             setup_add(setup, gbc->neg_phi_or_psi);
         }
-        //setup_minimize(setup);
-        //setup_propagate_units(setup);
         const pelset_t pel = setup_pel(setup);
         satisfied_belief_cond = false;
         for (EACH(ground_belief_conds, &gbcs, i)) {
@@ -211,6 +209,14 @@ pelsets_t bsetup_pels(const bsetup_t *setups)
         pelsets_append(&pels, pel);
     }
     return pels;
+}
+
+void bsetup_minimize(bsetup_t *setups)
+{
+    for (EACH(bsetup, setups, i)) {
+        setup_t *setup = i.val;
+        setup_minimize(setup);
+    }
 }
 
 void bsetup_propagate_units(bsetup_t *setups)

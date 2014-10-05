@@ -471,14 +471,14 @@ static void context_rebuild_setup(context_t *ctx)
                 &ctx->dynamic_setup);
         setup_add_sensing_results(&ctx->u.k.setup, ctx->context_sf);
         setup_propagate_units(&ctx->u.k.setup);
-        //setup_minimize(&ctx->u.k.setup);
+        setup_minimize(&ctx->u.k.setup);
         ctx->u.k.pel = setup_pel(&ctx->u.k.setup);
     } else {
         ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
                 &ctx->dynamic_setup);
         bsetup_add_sensing_results(&ctx->u.b.setups, ctx->context_sf);
         bsetup_propagate_units(&ctx->u.b.setups);
-        //bsetup_minimize(&ctx->u.b.setups);
+        bsetup_minimize(&ctx->u.b.setups);
         ctx->u.b.pels = bsetup_pels(&ctx->u.b.setups);
     }
 }

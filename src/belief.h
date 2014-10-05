@@ -65,6 +65,7 @@ void bsetup_add_sensing_results(
 
 pelsets_t bsetup_pels(const bsetup_t *setups);
 
+void bsetup_minimize(bsetup_t *setups);
 void bsetup_propagate_units(bsetup_t *setups);
 
 bool bsetup_with_splits_and_sf_subsumes(
