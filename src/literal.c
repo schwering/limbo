@@ -2,7 +2,7 @@
 #include "literal.h"
 #include <string.h>
 
-const pred_t SF = ~0;
+const pred_t SF = -1;
 
 literal_t literal_init(const stdvec_t *z, bool sign, pred_t pred,
         const stdvec_t *args)

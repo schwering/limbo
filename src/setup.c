@@ -496,20 +496,6 @@ void setup_add_sensing_results(
     }
 }
 
-static bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l)
-{
-    const clause_t c = clause_singleton(l);
-    if (setup_contains(setup, &c)) {
-        return true;
-    }
-    const literal_t ll = literal_flip(l);
-    const clause_t d = clause_singleton(&ll);
-    if (setup_contains(setup, &d)) {
-        return true;
-    }
-    return false;
-}
-
 static pelset_t setup_clause_full_pel(const setup_t *setup, const clause_t *c)
 {
     pelset_t pel = clause_sf(c);
@@ -517,8 +503,8 @@ static pelset_t setup_clause_full_pel(const setup_t *setup, const clause_t *c)
     pelset_add_all(&pel, &cp);
     for (EACH_CONST(setup, setup, i)) {
         const clause_t *d = i.val;
-        const pelset_t cp = clause_pel(d);
-        pelset_add_all(&pel, &cp);
+        const pelset_t dp = clause_pel(d);
+        pelset_add_all(&pel, &dp);
     }
     return pel;
 }
@@ -532,13 +518,50 @@ static pelset_t setup_clause_small_pel(const setup_t *setup, const clause_t *c)
         size = new_size;
         for (EACH_CONST(setup, setup, i)) {
             const clause_t *d = i.val;
-            const pelset_t cp = clause_pel(d);
-            if (!pelset_disjoint(&pel, &cp)) {
-                pelset_add_all(&pel, &cp);
+            const pelset_t dp = clause_pel(d);
+            if (!pelset_disjoint(&pel, &dp)) {
+                pelset_add_all(&pel, &dp);
             }
         }
     }
     return pel;
+}
+
+static bool setup_relevant_split(
+        const setup_t *setup,
+        const clause_t *c,
+        const literal_t *l,
+        const int k)
+{
+    const clause_t lc = clause_singleton(l);
+    if (setup_contains(setup, &lc)) {
+        return false;
+    }
+    const literal_t ll = literal_flip(l);
+    const clause_t llc = clause_singleton(&ll);
+    if (setup_contains(setup, &llc)) {
+        return false;
+    }
+    if (clause_contains(c, l) || clause_contains(c, &ll)) {
+        return true;
+    }
+    const pelset_t cp = clause_pel(c);
+    for (EACH_CONST(setup, setup, i)) {
+        const clause_t *d = i.val;
+        if ((!clause_contains(d, l) && !clause_contains(d, &ll)) ||
+                clause_size(d) <= 1) {
+            continue;
+        }
+        if (clause_size(c) <= k+1) {
+            return true;
+        }
+        const pelset_t dp = clause_pel(d);
+        const pelset_t diff = pelset_difference(&dp, &cp);
+        if (pelset_size(&diff) <= k) {
+            return true;
+        }
+    }
+    return false;
 }
 
 static splitset_t setup_get_unit_clauses(const setup_t *setup)
@@ -644,14 +667,16 @@ static bool setup_with_splits_subsumes(
     }
     for (EACH(pelset, pel, i)) {
         const literal_t *l1 = i.val;
-        if ((literal_pred(l1) == SF) != (k == 0)) {
+        const pred_t p = literal_pred(l1);
+        if ((p == SF) != (k == 0) ||
+                !setup_relevant_split(setup, c, l1, k)) {
             continue;
         }
         const literal_t l2 = literal_flip(l1);
         pelset_iter_remove(&i);
         const clause_t c1 = clause_singleton(l1);
         const clause_t c2 = clause_singleton(&l2);
-        const int k1 = (literal_pred(l1) == SF) ? k : k - 1;
+        const int k1 = (p == SF) ? k : k - 1;
         setup_t setup1 = setup_lazy_copy(setup);
         setup_add(&setup1, &c1);
         bool r;
