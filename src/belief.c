@@ -193,7 +193,6 @@ bool bsetup_entails(bsetup_t *setups, const clause_t *c, const int k, int *pl)
     if (pl != NULL) {
         *pl = -1;
     }
-    bsetup_iter_t i = bsetup_iter(setups);
     for (EACH(bsetup, setups, i)) {
         setup_t *setup = i.val;
         if (pl != NULL) {
