@@ -23,7 +23,6 @@ static int ground_belief_cond_cmp(const ground_belief_cond_t *l,
 
 VECTOR_IMPL(belief_conds, belief_cond_t *, NULL);
 VECTOR_IMPL(bsetup, setup_t *, setup_cmp);
-VECTOR_IMPL(pelsets, pelset_t *, pelset_cmp);
 SET_DECL(ground_belief_conds, ground_belief_cond_t *);
 SET_IMPL(ground_belief_conds, ground_belief_cond_t *, ground_belief_cond_cmp);
 
@@ -108,30 +107,6 @@ stdset_t bbat_hplus(
     return bat_hplus(static_bat, dynamic_bat, &names, max_vars);
 }
 
-pelsets_t pelsets_deep_copy(const pelsets_t *pels)
-{
-    pelsets_t copy = pelsets_init_with_size(pelsets_size(pels));
-    for (EACH_CONST(pelsets, pels, i)) {
-        const pelset_t *pel = i.val;
-        pelset_t *new_pel = MALLOC(sizeof(pelset_t));
-        *new_pel = pelset_copy(pel);
-        pelsets_append(&copy, new_pel);
-    }
-    return copy;
-}
-
-pelsets_t pelsets_deep_lazy_copy(const pelsets_t *pels)
-{
-    pelsets_t copy = pelsets_init_with_size(pelsets_size(pels));
-    for (EACH_CONST(pelsets, pels, i)) {
-        const pelset_t *pel = i.val;
-        pelset_t *new_pel = MALLOC(sizeof(pelset_t));
-        *new_pel = pelset_lazy_copy(pel);
-        pelsets_append(&copy, new_pel);
-    }
-    return copy;
-}
-
 bsetup_t bsetup_init_beliefs(
         const setup_t *static_bat_setup,
         const belief_conds_t *beliefs,
@@ -149,12 +124,10 @@ bsetup_t bsetup_init_beliefs(
             const ground_belief_cond_t *gbc = i.val;
             setup_add(setup, gbc->neg_phi_or_psi);
         }
-        const pelset_t pel = setup_pel(setup);
         satisfied_belief_cond = false;
         for (EACH(ground_belief_conds, &gbcs, i)) {
             const ground_belief_cond_t *gbc = i.val;
-            if (!setup_with_splits_and_sf_subsumes(setup, &pel,
-                        gbc->neg_phi, k)) {
+            if (!setup_entails(setup, gbc->neg_phi, k)) {
                 ground_belief_conds_iter_remove(&i);
                 satisfied_belief_cond = true;
             }
@@ -199,18 +172,6 @@ void bsetup_add_sensing_results(
     }
 }
 
-pelsets_t bsetup_pels(const bsetup_t *setups)
-{
-    pelsets_t pels = pelsets_init_with_size(bsetup_size(setups));
-    for (EACH_CONST(bsetup, setups, i)) {
-        const setup_t *setup = i.val;
-        pelset_t *pel = MALLOC(sizeof(pelset_t));
-        *pel = setup_pel(setup);
-        pelsets_append(&pels, pel);
-    }
-    return pels;
-}
-
 void bsetup_minimize(bsetup_t *setups)
 {
     for (EACH(bsetup, setups, i)) {
@@ -227,25 +188,16 @@ void bsetup_propagate_units(bsetup_t *setups)
     }
 }
 
-bool bsetup_with_splits_and_sf_subsumes(
-        bsetup_t *setups,
-        const pelsets_t *pels,
-        const clause_t *c,
-        const int k,
-        int *plausibility)
+bool bsetup_entails(bsetup_t *setups, const clause_t *c, const int k, int *pl)
 {
-    assert(bsetup_size(setups) == pelsets_size(pels));
-    if (plausibility != NULL) {
-        *plausibility = -1;
+    if (pl != NULL) {
+        *pl = -1;
     }
     bsetup_iter_t i = bsetup_iter(setups);
-    pelsets_const_iter_t j = pelsets_const_iter(pels);
-    while (bsetup_iter_next(&i) && pelsets_const_iter_next(&j)) {
+    for (EACH(bsetup, setups, i)) {
         setup_t *setup = i.val;
-        const pelset_t *pel = j.val;
-        const bool r = setup_with_splits_and_sf_subsumes(setup, pel, c, k);
-        if (plausibility != NULL) {
-            ++(*plausibility);
+        if (pl != NULL) {
+            ++(*pl);
         }
         // Sadly, the following if-condition is quite expensive.
         // It would be nicer to have use setup_is_inconsistent() instead, but
@@ -255,8 +207,8 @@ bool bsetup_with_splits_and_sf_subsumes(
         // the smallest k for which the setup is inconsistent; then skip the
         // loop for the setups inconsistent for the given k; within the loop
         // then update the bookkeeping if necessary.
-        if (!setup_with_splits_and_sf_subsumes(setup, pel, clause_empty(), k)) {
-            return r;
+        if (!setup_inconsistent(setup, k)) {
+            return setup_entails(setup, c, k);
         }
     }
     return false;

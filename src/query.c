@@ -472,14 +472,12 @@ static void context_rebuild_setup(context_t *ctx)
         setup_add_sensing_results(&ctx->u.k.setup, ctx->context_sf);
         setup_propagate_units(&ctx->u.k.setup);
         setup_minimize(&ctx->u.k.setup);
-        ctx->u.k.pel = setup_pel(&ctx->u.k.setup);
     } else {
         ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
                 &ctx->dynamic_setup);
         bsetup_add_sensing_results(&ctx->u.b.setups, ctx->context_sf);
         bsetup_propagate_units(&ctx->u.b.setups);
         bsetup_minimize(&ctx->u.b.setups);
-        ctx->u.b.pels = bsetup_pels(&ctx->u.b.setups);
     }
 }
 
@@ -567,11 +565,9 @@ context_t context_copy(const context_t *ctx)
     if (!ctx->is_belief) {
         copy.u.k.static_setup = setup_copy(&ctx->u.k.static_setup);
         copy.u.k.setup = setup_copy(&ctx->u.k.setup);
-        copy.u.k.pel = pelset_copy(&ctx->u.k.pel);
     } else {
         copy.u.b.static_setups = bsetup_deep_copy(&ctx->u.b.static_setups);
         copy.u.b.setups = bsetup_deep_copy(&ctx->u.b.setups);
-        copy.u.b.pels = pelsets_deep_copy(&ctx->u.b.pels);
     }
     return copy;
 }
@@ -651,11 +647,9 @@ static bool clause_entailed(context_t *ctx, const clause_t *c, const int k)
 {
     assert(c != NULL);
     if (!ctx->is_belief) {
-        return setup_with_splits_and_sf_subsumes(&ctx->u.k.setup,
-                &ctx->u.k.pel, c, k);
+        return setup_entails(&ctx->u.k.setup, c, k);
     } else {
-        return bsetup_with_splits_and_sf_subsumes(&ctx->u.b.setups,
-                &ctx->u.b.pels, c, k, NULL);
+        return bsetup_entails(&ctx->u.b.setups, c, k, NULL);
     }
 }
 
@@ -829,11 +823,9 @@ bool query_entailed(
         }
         const clause_t *c = i.val;
         if (!ctx->is_belief) {
-            truth_value = setup_with_splits_and_sf_subsumes(&ctx->u.k.setup,
-                    &ctx->u.k.pel, c, k);
+            truth_value = setup_entails(&ctx->u.k.setup, c, k);
         } else {
-            truth_value = bsetup_with_splits_and_sf_subsumes(&ctx->u.b.setups,
-                    &ctx->u.b.pels, c, k, NULL);
+            truth_value = bsetup_entails(&ctx->u.b.setups, c, k, NULL);
         }
     }
     return truth_value;

@@ -65,8 +65,6 @@ START_TEST(test_grounding)
     const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
     const setup_t setup = setup_union(&static_setup, &dynamic_setup);
     print_setup(&setup);
-    const pelset_t pel = setup_pel(&setup);
-    print_pel(&pel);
     setup_t setup_up = setup_lazy_copy(&setup);
     setup_propagate_units(&setup_up);
     print_setup(&setup_up);
@@ -225,7 +223,6 @@ START_TEST(test_eventual_completeness)
     const setup_t static_setup = setup_init_static(&static_bat, &hplus);
     const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
     const setup_t setup = setup_union(&static_setup, &dynamic_setup);
-    const pelset_t pel = setup_pel(&setup);
 
     print_setup(&setup);
 
@@ -241,8 +238,8 @@ START_TEST(test_eventual_completeness)
 
         print_clause(&c);
 
-        ck_assert(!setup_with_splits_and_sf_subsumes(&s, &pel, &c, 0));
-        ck_assert(setup_with_splits_and_sf_subsumes(&s, &pel, &c, 1));
+        ck_assert(!setup_entails(&s, &c, 0));
+        ck_assert(setup_entails(&s, &c, 1));
     });
 
     ({
@@ -258,7 +255,7 @@ START_TEST(test_eventual_completeness)
 
         print_clause(&c);
 
-        ck_assert(!setup_with_splits_and_sf_subsumes(&s, &pel, &c, 0));
+        ck_assert(!setup_entails(&s, &c, 0));
         // XXX TODO this is because of our special treatment of SF literals,
         // which does not include SF literals in the PEL.
         // This could be fixed by including all SF literals from the clause in
@@ -266,8 +263,8 @@ START_TEST(test_eventual_completeness)
         // would be split regardsless of k (i.e., SF(f) v ~SF(f) would be
         // entailed even for k = 0).
         // Also see documentation in setup.h for details.
-        ck_assert(!setup_with_splits_and_sf_subsumes(&s, &pel, &c, 1));
-        // WANTED: ck_assert(setup_with_splits_and_sf_subsumes(&s, &pel, &c, 1));
+        ck_assert(!setup_entails(&s, &c, 1));
+        // WANTED: ck_assert(setup_entails(&s, &c, 1));
     });
 }
 END_TEST

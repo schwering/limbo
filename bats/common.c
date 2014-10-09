@@ -73,17 +73,6 @@ void print_setup(const setup_t *setup)
     printf("---------------\n");
 }
 
-void print_pel(const pelset_t *pel)
-{
-    printf("PEL:\n");
-    printf("---------------\n");
-    for (int i = 0; i < pelset_size(pel); ++i) {
-        print_literal(pelset_get(pel, i));
-        printf("\n");
-    }
-    printf("---------------\n");
-}
-
 // Dirty hack: copy of the types from query.h for print_query().
 // Alternatively, we could copy this stuff to from query.c to query.h.
 // Alternatively, we could move print_query() to query.[hc].

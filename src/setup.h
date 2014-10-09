@@ -94,7 +94,6 @@
 
 SET_DECL(clause, literal_t *);
 SET_DECL(splitset, literal_t *);
-SET_DECL(pelset, literal_t *);
 SET_DECL(setup, clause_t *);
 
 typedef struct ewff ewff_t;
@@ -154,18 +153,12 @@ void setup_add_sensing_results(
         setup_t *setup,
         const splitset_t *sensing_results);
 
-bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l);
-pelset_t setup_pel(const setup_t *setup);
-
 void setup_minimize(setup_t *setup);
 void setup_propagate_units(setup_t *setup);
 
 bool setup_subsumes(setup_t *setup, const clause_t *c);
-bool setup_with_splits_and_sf_subsumes(
-        setup_t *setup,
-        const pelset_t *pel,
-        const clause_t *c,
-        const int k);
+bool setup_inconsistent(setup_t *setup, int k);
+bool setup_entails(setup_t *setup, const clause_t *c, const int k);
 
 #endif
 

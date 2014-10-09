@@ -34,12 +34,11 @@ static bool query_entailed_by_bat(
         setup_add_sensing_results(&s, context_sf);
         s;
     });
-    pelset_t pel = setup_pel(&setup);
     cnf_t cnf = query_cnf(phi);
     truth_value = true;
     for (int i = 0; i < cnf_size(&cnf) && truth_value; ++i) {
         const clause_t *c = cnf_get(&cnf, i);
-        truth_value = setup_with_splits_and_sf_subsumes(&setup, &pel, c, k);
+        truth_value = setup_entails(&setup, c, k);
     }
     return truth_value;
 #endif

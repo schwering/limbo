@@ -507,6 +507,7 @@ int p_context_entails()
 
     //print_query(alpha); printf("\n");
 
+    //printf("%d | %d\n", setup_size(&ctx->u.k.setup), pelset_size(&ctx->u.k.pel));
     bool holds = query_entailed(ctx, false, alpha, k);
 
     destroy_all_vars(&varmap);

@@ -250,6 +250,26 @@ bool set_contains_all(const set_t *set, const set_t *elems)
     return true;
 }
 
+bool set_disjoint(const set_t *set1, const set_t *set2)
+{
+    assert(set1->compar == set2->compar);
+    int i = 0;
+    int j = 0;
+    while (i < vector_size(&set1->vec) && j < vector_size(&set2->vec)) {
+        const int cmp = COMPAR(set1,
+                vector_get(&set1->vec, i),
+                vector_get(&set2->vec, j));
+        if (cmp < 0) {
+            ++i;
+        } else if (cmp > 0) {
+            ++j;
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
+
 int set_add(set_t *set, const void *elem)
 {
     const int i = insert_pos(set, elem, 0, vector_size(&set->vec) - 1);

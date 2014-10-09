@@ -20,6 +20,8 @@
 
 #define EMPTY_CLAUSE_INDEX 0
 
+SET_DECL(pelset, literal_t *);
+
 SET_IMPL(clause, literal_t *, literal_cmp);
 SET_IMPL(splitset, literal_t *, literal_cmp);
 SET_IMPL(pelset, literal_t *, literal_cmp);
@@ -298,6 +300,48 @@ static const clause_t *clause_resolve(const clause_t *c, const splitset_t *u)
     return d;
 }
 
+static pelset_t clause_pel(const clause_t *c)
+{
+    pelset_t pel = pelset_init_with_size(clause_size(c));
+    for (EACH_CONST(clause, c, i)) {
+        const literal_t *l = i.val;
+        if (literal_pred(l) == SF) {
+            continue;
+        }
+        if (!literal_sign(l)) {
+            literal_t *ll = MALLOC(sizeof(literal_t));
+            *ll = literal_flip(l);
+            pelset_add(&pel, ll);
+        } else {
+            pelset_add(&pel, l);
+        }
+    }
+    return pel;
+}
+
+static pelset_t clause_sf(const clause_t *c)
+{
+    // Build SF literals that correspond to actions executed within epistemic
+    // operator. They will be split in setup_with_splits_and_sf_subsumes().
+    pelset_t pel = pelset_init();
+    stdvecset_t z_done = stdvecset_init();
+    for (EACH_CONST(clause, c, i)) {
+        const literal_t *l = i.val;
+        const stdvec_t *z = literal_z(l);
+        if (!stdvecset_contains(&z_done, z)) {
+            for (int j = 0; j < stdvec_size(z) - 1; ++j) {
+                const stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, j);
+                const stdname_t n = stdvec_get(z, j);
+                const stdvec_t n_vec = stdvec_singleton(n);
+                literal_t *sf = MALLOC(sizeof(literal_t));
+                *sf = literal_init(&z_prefix, true, SF, &n_vec);
+            }
+        }
+        stdvecset_add(&z_done, z);
+    }
+    return pel;
+}
+
 const univ_clause_t *univ_clause_init(
         const ewff_t *cond,
         const clause_t *clause)
@@ -431,7 +475,7 @@ setup_t setup_init_dynamic(
     return setup;
 }
 
-static bool setup_is_inconsistent(const setup_t *s)
+static bool setup_contains_empty_clause(const setup_t *s)
 {
     return setup_size(s) > EMPTY_CLAUSE_INDEX &&
         clause_is_empty(setup_get(s, EMPTY_CLAUSE_INDEX));
@@ -441,7 +485,7 @@ void setup_add_sensing_results(
         setup_t *setup,
         const splitset_t *sensing_results)
 {
-    if (setup_is_inconsistent(setup)) {
+    if (setup_contains_empty_clause(setup)) {
         return;
     }
     for (EACH_CONST(splitset, sensing_results, i)) {
@@ -452,61 +496,7 @@ void setup_add_sensing_results(
     }
 }
 
-static void clause_collect_pel_without_sf(
-        const clause_t *c,
-        const setup_t *setup,
-        pelset_t *pel)
-{
-    if (clause_is_unit(c)) {
-        return;
-    }
-    for (EACH_CONST(clause, c, i)) {
-        const literal_t *l = i.val;
-        if (literal_pred(l) == SF) {
-            continue;
-        }
-        if (setup_would_be_needless_split(setup, l)) {
-            continue;
-        }
-        if (!literal_sign(l)) {
-            literal_t *ll = MALLOC(sizeof(literal_t));
-            *ll = literal_flip(l);
-            pelset_add(pel, ll);
-        } else {
-            pelset_add(pel, l);
-        }
-    }
-}
-
-static void clause_collect_pel_with_sf(
-        const clause_t *c,
-        const setup_t *setup,
-        pelset_t *pel)
-{
-    // Build SF literals that correspond to actions executed within epistemic
-    // operator. They will be split in setup_with_splits_and_sf_subsumes().
-    clause_collect_pel_without_sf(c, setup, pel);
-    stdvecset_t z_done = stdvecset_init();
-    for (EACH_CONST(clause, c, i)) {
-        const literal_t *l = i.val;
-        const stdvec_t *z = literal_z(l);
-        if (!stdvecset_contains(&z_done, z)) {
-            for (int j = 0; j < stdvec_size(z) - 1; ++j) {
-                const stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, j);
-                const stdname_t n = stdvec_get(z, j);
-                const stdvec_t n_vec = stdvec_singleton(n);
-                literal_t *sf = MALLOC(sizeof(literal_t));
-                *sf = literal_init(&z_prefix, true, SF, &n_vec);
-                if (!setup_would_be_needless_split(setup, sf)) {
-                    pelset_add(pel, sf);
-                }
-            }
-        }
-        stdvecset_add(&z_done, z);
-    }
-}
-
-bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l)
+static bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l)
 {
     const clause_t c = clause_singleton(l);
     if (setup_contains(setup, &c)) {
@@ -520,11 +510,33 @@ bool setup_would_be_needless_split(const setup_t *setup, const literal_t *l)
     return false;
 }
 
-pelset_t setup_pel(const setup_t *setup)
+static pelset_t setup_clause_full_pel(const setup_t *setup, const clause_t *c)
 {
-    pelset_t pel = pelset_init();
+    pelset_t pel = clause_sf(c);
+    const pelset_t cp = clause_pel(c);
+    pelset_add_all(&pel, &cp);
     for (EACH_CONST(setup, setup, i)) {
-        clause_collect_pel_without_sf(i.val, setup, &pel);
+        const clause_t *d = i.val;
+        const pelset_t cp = clause_pel(d);
+        pelset_add_all(&pel, &cp);
+    }
+    return pel;
+}
+
+static pelset_t setup_clause_small_pel(const setup_t *setup, const clause_t *c)
+{
+    pelset_t pel = clause_sf(c);
+    const pelset_t cp = clause_pel(c);
+    pelset_add_all(&pel, &cp);
+    for (int size = 0, new_size; size != (new_size = pelset_size(&pel)); ) {
+        size = new_size;
+        for (EACH_CONST(setup, setup, i)) {
+            const clause_t *d = i.val;
+            const pelset_t cp = clause_pel(d);
+            if (!pelset_disjoint(&pel, &cp)) {
+                pelset_add_all(&pel, &cp);
+            }
+        }
     }
     return pel;
 }
@@ -549,10 +561,10 @@ static splitset_t setup_get_unit_clauses(const setup_t *setup)
 static void setup_minimize_wrt(setup_t *setup, const clause_t *c,
         setup_iter_t *iter)
 {
-    if (setup_is_inconsistent(setup)) {
+    if (setup_contains_empty_clause(setup)) {
         setup_clear(setup);
         setup_add(setup, clause_empty());
-        assert(setup_is_inconsistent(setup) && setup_size(setup) == 1);
+        assert(setup_contains_empty_clause(setup) && setup_size(setup) == 1);
         return;
     }
     setup_iter_t i = setup_iter_from(setup, c);
@@ -569,7 +581,7 @@ void setup_minimize(setup_t *setup)
 {
     for (EACH(setup, setup, i)) {
         setup_minimize_wrt(setup, i.val, &i);
-        if (setup_is_inconsistent(setup)) {
+        if (setup_contains_empty_clause(setup)) {
             return;
         }
     }
@@ -577,7 +589,7 @@ void setup_minimize(setup_t *setup)
 
 void setup_propagate_units(setup_t *setup)
 {
-    if (setup_is_inconsistent(setup)) {
+    if (setup_contains_empty_clause(setup)) {
         return;
     }
     splitset_t units = setup_get_unit_clauses(setup);
@@ -593,7 +605,7 @@ void setup_propagate_units(setup_t *setup)
                 const int j = setup_iter_replace(&i, d);
                 if (j >= 0) {
                     setup_minimize_wrt(setup, d, &i);
-                    if (setup_is_inconsistent(setup)) {
+                    if (setup_contains_empty_clause(setup)) {
                         return;
                     }
                     if (clause_is_unit(d)) {
@@ -657,18 +669,22 @@ static bool setup_with_splits_subsumes(
     return false;
 }
 
-bool setup_with_splits_and_sf_subsumes(
-        setup_t *setup,
-        const pelset_t *pel,
-        const clause_t *c,
-        const int k)
+bool setup_inconsistent(setup_t *setup, int k)
 {
-    if (setup_is_inconsistent(setup)) {
+    if (setup_contains_empty_clause(setup)) {
         return true;
     }
-    //setup_t setup_copy = setup_lazy_copy(setup);
-    pelset_t pel_copy = pelset_lazy_copy(pel);
-    clause_collect_pel_with_sf(c, setup, &pel_copy);
-    return setup_with_splits_subsumes(setup, &pel_copy, c, k);
+    pelset_t pel = k == 0 ? pelset_init() : setup_clause_full_pel(setup,
+            clause_empty());
+    return setup_with_splits_subsumes(setup, &pel, clause_empty(), k);
+}
+
+bool setup_entails(setup_t *setup, const clause_t *c, const int k)
+{
+    if (setup_contains_empty_clause(setup)) {
+        return true;
+    }
+    pelset_t pel = k == 0 ? pelset_init() : setup_clause_small_pel(setup, c);
+    return setup_with_splits_subsumes(setup, &pel, c, k);
 }
 

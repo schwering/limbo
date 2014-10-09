@@ -101,12 +101,10 @@ typedef struct {
         struct {
             setup_t static_setup;
             setup_t setup;
-            pelset_t pel;
         } k;
         struct {
             bsetup_t static_setups;
             bsetup_t setups;
-            pelsets_t pels;
         } b;
     } u;
 } context_t;
