@@ -9,8 +9,15 @@ It is based on the logic ESL and, for the belief revision part, on the logic ESB
 
 ## Installation
 
-ESBL is written in C (C99 plus a few GCC extensions).
+ESBL is a library written in C (C99 plus a few GCC extensions).
 It uses the Boehm garbage collector.
+Additionally there are Prolog interfaces to write basic action theories and to evaluate queries.
+
+Dependencies:
+* GCC with C99
+* Boehm GC
+* To translate of Prolog basic action theories (`bats/*.pl`): SWI Prolog executable `swipl` (that should be replaced with ECLiPSe-CLP)
+* To run the Prolog examples (`examples/*.pl`): ECLiPSe-CLP executable `eclipse-clp` and header `eclipse-clp/eclipse.h`
 
 To compile everything and run the tests, run the following commands:
 ```
