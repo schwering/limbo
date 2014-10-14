@@ -141,12 +141,6 @@ const query_t *query_equiv(const query_t *phi1, const query_t *phi2);
 const query_t *query_exists(var_t x, const query_t *phi);
 const query_t *query_forall(var_t x, const query_t *phi);
 const query_t *query_act(term_t n, const query_t *phi);
-const query_t *query_eval(
-        int (*n_vars)(void *arg),
-        stdset_t (*names)(void *arg),
-        bool (*eval)(const stdvec_t *situation, const bitmap_t *sensings,
-            void *arg),
-        void *arg);
 
 #endif
 

@@ -6,21 +6,13 @@
 
 VECTOR_IMPL(bitmap, bool, NULL);
 
-enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EXISTS, FORALL, ACT, EVAL };
+enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EXISTS, FORALL, ACT };
 
 typedef struct { term_t t1; term_t t2; } query_names_t;
 typedef struct { const query_t *phi; } query_unary_t;
 typedef struct { const query_t *phi1; const query_t *phi2; } query_binary_t;
 typedef struct { var_t var; const query_t *phi; } query_quantified_t;
 typedef struct { term_t n; const query_t *phi; } query_action_t;
-typedef struct {
-    int (*n_vars)(void *);
-    stdset_t (*names)(void *);
-    bool (*eval)(const stdvec_t *, const bitmap_t *, void *);
-    void *arg;
-    stdvec_t situation;
-    bool sign;
-} query_eval_t;
 
 struct query {
     enum query_type type;
@@ -31,7 +23,6 @@ struct query {
         query_unary_t un;
         query_quantified_t qtf;
         query_action_t act;
-        query_eval_t eval;
     } u;
 };
 
@@ -53,8 +44,6 @@ static int query_n_vars(const query_t *phi)
             return 1 + query_n_vars(phi->u.qtf.phi);
         case ACT:
             return query_n_vars(phi->u.act.phi);
-        case EVAL:
-            return phi->u.eval.n_vars(phi->u.eval.arg);
     }
     abort();
 }
@@ -106,8 +95,6 @@ static stdset_t query_names(const query_t *phi)
             stdset_add(&set, phi->u.act.n);
             return set;
         }
-        case EVAL:
-            return phi->u.eval.names(phi->u.eval.arg);
     }
     abort();
 }
@@ -174,10 +161,6 @@ static const query_t *query_substitute(const query_t *phi, var_t x, stdname_t n)
             term_t a = x == phi->u.act.n ? n : phi->u.act.n;
             return query_act(a, phi->u.act.phi);
         }
-        case EVAL:
-            // TODO Currently no quantifying-in!
-            // Could be fixed by managing varmap and as part of EVAL structs.
-            return phi;
     }
     abort();
 }
@@ -215,7 +198,7 @@ static const query_t *query_ennf_h(
     // (3) quantifiers are grounded.
     //
     // The resulting formula only consists of the following elements:
-    // EQ, NEQ, LIT, OR, AND[, EXISTS, FORALL], EVAL
+    // EQ, NEQ, LIT, OR, AND[, EXISTS, FORALL]
     // where EXISTS and FORALL do not occur when USE_QUERY_CNF is defined.
     switch (phi->type) {
         case EQ:
@@ -291,15 +274,6 @@ static const query_t *query_ennf_h(
             const stdvec_t zz = stdvec_copy_append(z, phi->u.act.n);
             return query_ennf_h(&zz, phi->u.act.phi, hplus, sign);
         }
-        case EVAL: {
-            query_t *psi = MALLOC(sizeof(query_t));
-            *psi = *phi;
-            psi->u.eval.situation = stdvec_lazy_copy(z);
-            if (!sign) {
-                psi->u.eval.sign = !psi->u.eval.sign;
-            }
-            return psi;
-        }
     }
     abort();
 }
@@ -338,21 +312,16 @@ static stdvecset_t query_ennf_zs(const query_t *phi)
 #endif
         case ACT:
             abort();
-        case EVAL:
-            return stdvecset_init_with_size(0);
     }
     abort();
 }
 
-static const query_t *query_simplify(
-        const bitmap_t *sensings,
-        const query_t *phi,
-        bool *truth_value)
+static const query_t *query_simplify(const query_t *phi, bool *truth_value)
 {
     // Removes standard name (in)equalities from the formula.
     //
     // The given formula must mention no other elements but:
-    // EQ, NEQ, LIT, OR, AND, EXISTS, FORALL, EVAL
+    // EQ, NEQ, LIT, OR, AND, EXISTS, FORALL
     //
     // The resulting formula only consists of the following elements:
     // LIT, OR, AND[, EXISTS, FORALL]
@@ -370,13 +339,11 @@ static const query_t *query_simplify(
         case AND: {
             query_t *psi = MALLOC(sizeof(query_t));
             psi->type = phi->type;
-            psi->u.bin.phi1 = query_simplify(sensings, phi->u.bin.phi1,
-                    truth_value);
+            psi->u.bin.phi1 = query_simplify(phi->u.bin.phi1, truth_value);
             if (psi->u.bin.phi1 == NULL && (psi->type == OR) == *truth_value) {
                 return NULL;
             }
-            psi->u.bin.phi2 = query_simplify(sensings, phi->u.bin.phi2,
-                    truth_value);
+            psi->u.bin.phi2 = query_simplify(phi->u.bin.phi2, truth_value);
             if (psi->u.bin.phi2 == NULL && (psi->type == OR) == *truth_value) {
                 return NULL;
             }
@@ -391,8 +358,7 @@ static const query_t *query_simplify(
         case NEG: {
             query_t *psi = MALLOC(sizeof(query_t));
             psi->type = phi->type;
-            psi->u.un.phi = query_simplify(sensings, phi->u.un.phi,
-                    truth_value);
+            psi->u.un.phi = query_simplify(phi->u.un.phi, truth_value);
             if (psi->u.un.phi == NULL) {
                 return NULL;
             }
@@ -402,8 +368,7 @@ static const query_t *query_simplify(
         case FORALL: {
             query_t *psi = MALLOC(sizeof(query_t));
             psi->type = phi->type;
-            psi->u.qtf.phi = query_simplify(sensings, phi->u.qtf.phi,
-                    truth_value);
+            psi->u.qtf.phi = query_simplify(phi->u.qtf.phi, truth_value);
             if (psi->u.qtf.phi == NULL) {
                 return NULL;
             }
@@ -411,10 +376,6 @@ static const query_t *query_simplify(
         }
         case ACT:
             abort();
-        case EVAL:
-            *truth_value = phi->u.eval.eval(&phi->u.eval.situation,
-                    sensings, phi->u.eval.arg) == phi->u.eval.sign;
-            return NULL;
     }
     abort();
 }
@@ -459,7 +420,6 @@ static cnf_t query_cnf(const query_t *phi)
         case NEG:
         case EXISTS:
         case ACT:
-        case EVAL:
             abort();
     }
     abort();
@@ -712,7 +672,6 @@ static void query_entailed_h(context_t *ctx, const query_t *phi, const int k,
         }
 #endif
         case ACT:
-        case EVAL:
         default:
             abort();
     }
@@ -750,7 +709,7 @@ bool query_entailed(
     // prepare query, in some cases we have the result already
     bool truth_value;
     phi = query_ennf(ctx->situation, phi, &ctx->hplus);
-    phi = query_simplify(ctx->sensings, phi, &truth_value);
+    phi = query_simplify(phi, &truth_value);
     if (phi == NULL) {
         return truth_value;
     }
@@ -911,25 +870,6 @@ const query_t *query_act(term_t n, const query_t *phi)
         .u.act = (query_action_t) {
             .n = n,
             .phi = phi
-        }
-    }));
-}
-
-const query_t *query_eval(
-        int (*n_vars)(void *),
-        stdset_t (*names)(void *),
-        bool (*eval)(const stdvec_t *, const bitmap_t *, void *),
-        void *arg)
-{
-    return NEW(((query_t) {
-        .type = EVAL,
-        .u.eval = (query_eval_t) {
-            .n_vars = n_vars,
-            .names = names,
-            .eval = eval,
-            .arg = arg,
-            //.situation = stdvec_init_with_size(0),
-            .sign = true
         }
     }));
 }
