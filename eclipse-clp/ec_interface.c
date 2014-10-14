@@ -358,7 +358,7 @@ int p_kcontext()
     pword ec_var = ec_arg(1);
 
     init_bat_once();
-    context_t ctx = kcontext_init(&static_bat, &dynamic_bat, Z(), SF());
+    context_t ctx = kcontext_init(&static_bat, &dynamic_bat);
 
     t_ext_ptr data = malloc(sizeof(ctx));
     memcpy(data, &ctx, sizeof(ctx));
@@ -378,7 +378,7 @@ int p_bcontext()
     }
 
     init_bat_once();
-    context_t ctx = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, k, Z(), SF());
+    context_t ctx = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, k);
 
     t_ext_ptr data = malloc(sizeof(ctx));
     memcpy(data, &ctx, sizeof(ctx));
@@ -475,7 +475,7 @@ int p_context_exec()
         return TYPE_ERROR;
     }
 
-    CONTEXT_ADD_ACTIONS(ctx, {action, result});
+    context_add_action(ctx, action, result);
     return PSUCCEED;
 }
 

@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <stdlib.h>
 
+VECTOR_IMPL(bitmap, bool, NULL);
+
 enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EXISTS, FORALL, ACT, EVAL };
 
 typedef struct { term_t t1; term_t t2; } query_names_t;
@@ -14,9 +16,9 @@ typedef struct { term_t n; const query_t *phi; } query_action_t;
 typedef struct {
     int (*n_vars)(void *);
     stdset_t (*names)(void *);
-    bool (*eval)(const stdvec_t *, const splitset_t *, void *);
+    bool (*eval)(const stdvec_t *, const bitmap_t *, void *);
     void *arg;
-    stdvec_t context_z;
+    stdvec_t situation;
     bool sign;
 } query_eval_t;
 
@@ -292,7 +294,7 @@ static const query_t *query_ennf_h(
         case EVAL: {
             query_t *psi = MALLOC(sizeof(query_t));
             *psi = *phi;
-            psi->u.eval.context_z = stdvec_lazy_copy(z);
+            psi->u.eval.situation = stdvec_lazy_copy(z);
             if (!sign) {
                 psi->u.eval.sign = !psi->u.eval.sign;
             }
@@ -302,10 +304,10 @@ static const query_t *query_ennf_h(
     abort();
 }
 
-static const query_t *query_ennf(const stdvec_t *context_z, const query_t *phi,
+static const query_t *query_ennf(const stdvec_t *situation, const query_t *phi,
         const stdset_t *hplus)
 {
-    return query_ennf_h(context_z, phi, hplus, true);
+    return query_ennf_h(situation, phi, hplus, true);
 }
 
 static stdvecset_t query_ennf_zs(const query_t *phi)
@@ -343,7 +345,7 @@ static stdvecset_t query_ennf_zs(const query_t *phi)
 }
 
 static const query_t *query_simplify(
-        const splitset_t *context_sf,
+        const bitmap_t *sensings,
         const query_t *phi,
         bool *truth_value)
 {
@@ -368,12 +370,12 @@ static const query_t *query_simplify(
         case AND: {
             query_t *psi = MALLOC(sizeof(query_t));
             psi->type = phi->type;
-            psi->u.bin.phi1 = query_simplify(context_sf, phi->u.bin.phi1,
+            psi->u.bin.phi1 = query_simplify(sensings, phi->u.bin.phi1,
                     truth_value);
             if (psi->u.bin.phi1 == NULL && (psi->type == OR) == *truth_value) {
                 return NULL;
             }
-            psi->u.bin.phi2 = query_simplify(context_sf, phi->u.bin.phi2,
+            psi->u.bin.phi2 = query_simplify(sensings, phi->u.bin.phi2,
                     truth_value);
             if (psi->u.bin.phi2 == NULL && (psi->type == OR) == *truth_value) {
                 return NULL;
@@ -389,7 +391,7 @@ static const query_t *query_simplify(
         case NEG: {
             query_t *psi = MALLOC(sizeof(query_t));
             psi->type = phi->type;
-            psi->u.un.phi = query_simplify(context_sf, phi->u.un.phi,
+            psi->u.un.phi = query_simplify(sensings, phi->u.un.phi,
                     truth_value);
             if (psi->u.un.phi == NULL) {
                 return NULL;
@@ -400,7 +402,7 @@ static const query_t *query_simplify(
         case FORALL: {
             query_t *psi = MALLOC(sizeof(query_t));
             psi->type = phi->type;
-            psi->u.qtf.phi = query_simplify(context_sf, phi->u.qtf.phi,
+            psi->u.qtf.phi = query_simplify(sensings, phi->u.qtf.phi,
                     truth_value);
             if (psi->u.qtf.phi == NULL) {
                 return NULL;
@@ -410,8 +412,8 @@ static const query_t *query_simplify(
         case ACT:
             abort();
         case EVAL:
-            *truth_value = phi->u.eval.eval(&phi->u.eval.context_z,
-                    context_sf, phi->u.eval.arg) == phi->u.eval.sign;
+            *truth_value = phi->u.eval.eval(&phi->u.eval.situation,
+                    sensings, phi->u.eval.arg) == phi->u.eval.sign;
             return NULL;
     }
     abort();
@@ -466,16 +468,28 @@ static cnf_t query_cnf(const query_t *phi)
 
 static void context_rebuild_setup(context_t *ctx)
 {
+    assert(stdvec_size(ctx->situation) == bitmap_size(ctx->sensings));
+    assert(stdvecset_contains(&ctx->query_zs, ctx->situation));
     if (!ctx->is_belief) {
         ctx->u.k.setup = setup_union(&ctx->u.k.static_setup,
                 &ctx->dynamic_setup);
-        setup_add_sensing_results(&ctx->u.k.setup, ctx->context_sf);
+        for (int i = 0; i < stdvec_size(ctx->situation); ++i) {
+            const stdvec_t z = stdvec_lazy_copy_range(ctx->situation, 0, i);
+            const stdname_t n = stdvec_get(ctx->situation, i);
+            const bool r = bitmap_get(ctx->sensings, i);
+            setup_add_sensing_result(&ctx->u.k.setup, &z, n, r);
+        }
         setup_propagate_units(&ctx->u.k.setup);
         setup_minimize(&ctx->u.k.setup);
     } else {
         ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
                 &ctx->dynamic_setup);
-        bsetup_add_sensing_results(&ctx->u.b.setups, ctx->context_sf);
+        for (int i = 0; i < stdvec_size(ctx->situation); ++i) {
+            const stdvec_t z = stdvec_lazy_copy_range(ctx->situation, 0, i);
+            const stdname_t n = stdvec_get(ctx->situation, i);
+            const bool r = bitmap_get(ctx->sensings, i);
+            bsetup_add_sensing_result(&ctx->u.b.setups, &z, n, r);
+        }
         bsetup_propagate_units(&ctx->u.b.setups);
         bsetup_minimize(&ctx->u.b.setups);
     }
@@ -486,24 +500,26 @@ static context_t context_init(
         const univ_clauses_t *static_bat,
         const belief_conds_t *beliefs,
         const box_univ_clauses_t *dynamic_bat,
-        const int belief_k,
-        const stdvec_t *context_z,
-        const splitset_t *context_sf)
+        const int belief_k)
 {
-    assert(stdvec_size(context_z) == splitset_size(context_sf));
     context_t ctx = (context_t) {
         .is_belief   = is_belief,
         .belief_k    = belief_k,
         .static_bat  = static_bat,
         .beliefs     = beliefs,
-        .dynamic_bat = dynamic_bat,
-        .context_z   = context_z,
-        .context_sf  = context_sf,
+        .dynamic_bat = dynamic_bat
     };
 
+    stdvec_t *situation = MALLOC(sizeof(stdvec_t));
+    *situation = stdvec_init_with_size(0);
+    bitmap_t *sensings = MALLOC(sizeof(bitmap_t));
+    *sensings = bitmap_init_with_size(0);
+
+    ctx.situation = situation;
+    ctx.sensings = sensings;
     ctx.query_names = stdset_init_with_size(0);
     ctx.query_n_vars = 0;
-    ctx.query_zs = stdvecset_singleton(context_z);
+    ctx.query_zs = stdvecset_singleton(situation);
     if (!is_belief) {
         ctx.hplus = bat_hplus(static_bat, dynamic_bat,
                 &ctx.query_names, ctx.query_n_vars);
@@ -511,7 +527,7 @@ static context_t context_init(
         ctx.hplus = bbat_hplus(static_bat, beliefs, dynamic_bat,
                 &ctx.query_names, ctx.query_n_vars);
     }
-    setup_t static_setup = setup_init_static(static_bat, &ctx.hplus);
+    const setup_t static_setup = setup_init_static(static_bat, &ctx.hplus);
     ctx.dynamic_setup = setup_init_dynamic(dynamic_bat, &ctx.hplus,
             &ctx.query_zs);
     if (!is_belief) {
@@ -526,24 +542,18 @@ static context_t context_init(
 
 context_t kcontext_init(
         const univ_clauses_t *static_bat,
-        const box_univ_clauses_t *dynamic_bat,
-        const stdvec_t *context_z,
-        const splitset_t *context_sf)
+        const box_univ_clauses_t *dynamic_bat)
 {
-    return context_init(false, static_bat, NULL, dynamic_bat, 0,
-            context_z, context_sf);
+    return context_init(false, static_bat, NULL, dynamic_bat, 0);
 }
 
 context_t bcontext_init(
         const univ_clauses_t *static_bat,
         const belief_conds_t *beliefs,
         const box_univ_clauses_t *dynamic_bat,
-        const int belief_k,
-        const stdvec_t *context_z,
-        const splitset_t *context_sf)
+        const int belief_k)
 {
-    return context_init(true, static_bat, beliefs, dynamic_bat, belief_k,
-            context_z, context_sf);
+    return context_init(true, static_bat, beliefs, dynamic_bat, belief_k);
 }
 
 context_t context_copy(const context_t *ctx)
@@ -554,8 +564,8 @@ context_t context_copy(const context_t *ctx)
         .static_bat    = ctx->static_bat,
         .beliefs       = ctx->beliefs,
         .dynamic_bat   = ctx->dynamic_bat,
-        .context_z     = ctx->context_z,
-        .context_sf    = ctx->context_sf,
+        .situation     = ctx->situation,
+        .sensings      = ctx->sensings,
         .query_names   = stdset_copy(&ctx->query_names),
         .query_n_vars  = ctx->query_n_vars,
         .query_zs      = stdvecset_copy(&ctx->query_zs),
@@ -572,73 +582,38 @@ context_t context_copy(const context_t *ctx)
     return copy;
 }
 
-void context_add_actions(
-        context_t *ctx,
-        const stdvec_t *add_context_z,
-        const splitset_t *add_context_sf)
+void context_add_action(context_t *ctx, const stdname_t n, bool r)
 {
-    assert(stdvec_size(add_context_z) == splitset_size(add_context_sf));
-    ctx->context_z = ({
-        stdvec_t *context_z = MALLOC(sizeof(stdvec_t));
-        *context_z = stdvec_concat(ctx->context_z, add_context_z);
-        context_z;
-    });
-    ctx->context_sf = ({
-        splitset_t *context_sf = MALLOC(sizeof(splitset_t));
-        *context_sf = splitset_union(ctx->context_sf, add_context_sf);
-        context_sf;
-    });
-    ctx->dynamic_setup = setup_init_dynamic(ctx->dynamic_bat, &ctx->hplus,
-                &ctx->query_zs);
+    stdvec_t *situation = MALLOC(sizeof(stdvec_t));
+    *situation = stdvec_copy_append(ctx->situation, n);
+    bitmap_t *sensings = MALLOC(sizeof(bitmap_t));
+    *sensings = bitmap_copy_append(ctx->sensings, r);
 
+    stdvecset_replace(&ctx->query_zs, ctx->situation, situation);
+    ctx->situation = situation;
+    ctx->sensings = sensings;
+
+    ctx->dynamic_setup = setup_init_dynamic(ctx->dynamic_bat, &ctx->hplus,
+            &ctx->query_zs);
     context_rebuild_setup(ctx);
 }
 
 void context_prev(context_t *ctx)
 {
-    assert(stdvec_size(ctx->context_z) == splitset_size(ctx->context_sf));
-    const int size = stdvec_size(ctx->context_z);
+    const int size = stdvec_size(ctx->situation);
     assert(size >= 1);
-    ctx->context_z = ({
-        stdvec_t *context_z = MALLOC(sizeof(stdvec_t));
-        *context_z = stdvec_lazy_copy_range(ctx->context_z, 0, size - 1);
-        context_z;
-    });
-    ctx->context_sf = ({
-        splitset_t *context_sf = MALLOC(sizeof(splitset_t));
-        *context_sf = splitset_lazy_copy(ctx->context_sf);
-        context_sf;
-    });
-    ctx->query_zs = stdvecset_lazy_copy(&ctx->query_zs);
+
+    stdvec_t *situation = MALLOC(sizeof(stdvec_t));
+    *situation = stdvec_copy_range(ctx->situation, 0, size - 1);
+    bitmap_t *sensings = MALLOC(sizeof(bitmap_t));
+    *sensings = bitmap_copy_range(ctx->sensings, 0, size - 1);
+
+    stdvecset_replace(&ctx->query_zs, ctx->situation, situation);
+    ctx->situation = situation;
+    ctx->sensings = sensings;
+
     ctx->dynamic_setup = setup_init_dynamic(ctx->dynamic_bat, &ctx->hplus,
-                &ctx->query_zs);
-
-    context_rebuild_setup(ctx);
-}
-
-void context_remove_undone_sf(context_t *ctx)
-{
-    splitset_t *context_sf = MALLOC(sizeof(splitset_t));
-    *context_sf = splitset_init_with_size(splitset_size(ctx->context_sf));
-    for (int i = 1; i < stdvec_size(ctx->context_z); ++i) {
-        const stdvec_t z = stdvec_lazy_copy_range(ctx->context_z, 0, i);
-        const stdname_t n = stdvec_get(ctx->context_z, i);
-        const stdvec_t args = stdvec_singleton(n);
-        literal_t *l1 = MALLOC(sizeof(literal_t));
-        literal_t *l2 = MALLOC(sizeof(literal_t));
-        *l1 = literal_init(&z, true, SF, &args);
-        *l2 = literal_flip(l1);
-        if (splitset_contains(ctx->context_sf, l1)) {
-            splitset_add(context_sf, l1);
-        }
-        if (splitset_contains(ctx->context_sf, l2)) {
-            splitset_add(context_sf, l2);
-        }
-    }
-    ctx->context_sf = context_sf;
-    ctx->dynamic_setup = setup_init_dynamic(ctx->dynamic_bat, &ctx->hplus,
-                &ctx->query_zs);
-
+            &ctx->query_zs);
     context_rebuild_setup(ctx);
 }
 
@@ -774,8 +749,8 @@ bool query_entailed(
 
     // prepare query, in some cases we have the result already
     bool truth_value;
-    phi = query_ennf(ctx->context_z, phi, &ctx->hplus);
-    phi = query_simplify(ctx->context_sf, phi, &truth_value);
+    phi = query_ennf(ctx->situation, phi, &ctx->hplus);
+    phi = query_simplify(ctx->sensings, phi, &truth_value);
     if (phi == NULL) {
         return truth_value;
     }
@@ -799,7 +774,6 @@ bool query_entailed(
     if (!force_no_update) {
         stdvecset_t zs = query_ennf_zs(phi);
         if (have_new_hplus || !stdvecset_contains_all(&ctx->query_zs, &zs)) {
-            ctx->query_zs = stdvecset_init_with_size(stdvecset_size(&zs));
             for (EACH_CONST(stdvecset, &zs, i)) {
                 stdvec_t *z = MALLOC(sizeof(stdvec_t));
                 *z = stdvec_copy(i.val);
@@ -944,7 +918,7 @@ const query_t *query_act(term_t n, const query_t *phi)
 const query_t *query_eval(
         int (*n_vars)(void *),
         stdset_t (*names)(void *),
-        bool (*eval)(const stdvec_t *, const splitset_t *, void *),
+        bool (*eval)(const stdvec_t *, const bitmap_t *, void *),
         void *arg)
 {
     return NEW(((query_t) {
@@ -954,7 +928,7 @@ const query_t *query_eval(
             .names = names,
             .eval = eval,
             .arg = arg,
-            //.context_z = stdvec_init_with_size(0),
+            //.situation = stdvec_init_with_size(0),
             .sign = true
         }
     }));

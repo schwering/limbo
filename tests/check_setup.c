@@ -84,10 +84,7 @@ START_TEST(test_grounding)
     }
 
     const stdvec_t empty_vec = stdvec_init_with_size(0);
-    const stdvec_t f_vec = stdvec_singleton(forward);
-    const literal_t neg_sf = literal_init(&empty_vec, false, SF, &f_vec);
-    const splitset_t sensing_results = splitset_singleton(&neg_sf);
-    setup_add_sensing_results(&setup_up, &sensing_results);
+    setup_add_sensing_result(&setup_up, &empty_vec, forward, false);
     print_setup(&setup_up);
     setup_propagate_units(&setup_up);
     print_setup(&setup_up);

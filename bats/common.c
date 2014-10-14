@@ -88,7 +88,7 @@ typedef struct { term_t n; const query_t *phi; } query_action_t;
 typedef struct {
     int (*n_vars)(void *);
     stdset_t (*names)(void *);
-    bool (*eval)(const stdvec_t *, const splitset_t *, void *);
+    bool (*eval)(const stdvec_t *, const bitmap_t *, void *);
     void *arg;
     stdvec_t context_z;
     bool sign;

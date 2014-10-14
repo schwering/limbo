@@ -1,6 +1,6 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
- * Query constructors and query evaluation procedure for queries.
+ * Constructors and evaluation procedure for queries.
  * Queries consist of the following elements: (in)equality of standard names,
  * disjunction, conjunction, negation, existential quantification, universal
  * quantification, actions, and evaluations (which are a vehicle for nested
@@ -79,6 +79,8 @@
 #include "setup.h"
 #include "belief.h"
 
+VECTOR_DECL(bitmap, bool);
+
 typedef struct query query_t;
 
 typedef struct {
@@ -89,8 +91,8 @@ typedef struct {
     const univ_clauses_t *static_bat;
     const belief_conds_t *beliefs;
     const box_univ_clauses_t *dynamic_bat;
-    const stdvec_t *context_z;
-    const splitset_t *context_sf;
+    const stdvec_t *situation;
+    const bitmap_t *sensings;
     // The following attributes are stored for caching purposes.
     stdset_t query_names;
     int query_n_vars;
@@ -111,24 +113,16 @@ typedef struct {
 
 context_t kcontext_init(
         const univ_clauses_t *static_bat,
-        const box_univ_clauses_t *dynamic_bat,
-        const stdvec_t *context_z,
-        const splitset_t *context_sf);
+        const box_univ_clauses_t *dynamic_bat);
 context_t bcontext_init(
         const univ_clauses_t *static_bat,
         const belief_conds_t *beliefs,
         const box_univ_clauses_t *dynamic_bat,
-        const int belief_k,
-        const stdvec_t *context_z,
-        const splitset_t *context_sf);
+        const int belief_k);
 context_t context_copy(const context_t *ctx);
 
-void context_add_actions(
-        context_t *ctx,
-        const stdvec_t *add_context_z,
-        const splitset_t *add_context_sf);
+void context_add_action(context_t *ctx, const stdname_t n, bool r);
 void context_prev(context_t *ctx);
-void context_remove_undone_sf(context_t *ctx);
 
 bool query_entailed(
         context_t *ctx,
@@ -150,7 +144,7 @@ const query_t *query_act(term_t n, const query_t *phi);
 const query_t *query_eval(
         int (*n_vars)(void *arg),
         stdset_t (*names)(void *arg),
-        bool (*eval)(const stdvec_t *context_z, const splitset_t *context_sf,
+        bool (*eval)(const stdvec_t *situation, const bitmap_t *sensings,
             void *arg),
         void *arg);
 

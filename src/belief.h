@@ -55,9 +55,11 @@ bsetup_t bsetup_init_beliefs(
 bsetup_t bsetup_unions(const bsetup_t *l, const setup_t *r);
 bsetup_t bsetup_deep_copy(const bsetup_t *setups);
 
-void bsetup_add_sensing_results(
+void bsetup_add_sensing_result(
         bsetup_t *setups,
-        const splitset_t *sensing_results);
+        const stdvec_t *z,
+        const stdname_t n,
+        const bool r);
 
 void bsetup_minimize(bsetup_t *setups);
 void bsetup_propagate_units(bsetup_t *setups);

@@ -20,6 +20,7 @@
 
 #define EMPTY_CLAUSE_INDEX 0
 
+SET_DECL(splitset, literal_t *);
 SET_DECL(pelset, literal_t *);
 
 SET_IMPL(clause, literal_t *, literal_cmp);
@@ -481,19 +482,21 @@ static bool setup_contains_empty_clause(const setup_t *s)
         clause_is_empty(setup_get(s, EMPTY_CLAUSE_INDEX));
 }
 
-void setup_add_sensing_results(
+void setup_add_sensing_result(
         setup_t *setup,
-        const splitset_t *sensing_results)
+        const stdvec_t *z,
+        const stdname_t n,
+        const bool r)
 {
     if (setup_contains_empty_clause(setup)) {
         return;
     }
-    for (EACH_CONST(splitset, sensing_results, i)) {
-        const literal_t *l = i.val;
-        clause_t *c = MALLOC(sizeof(clause_t));
-        *c = clause_singleton(l);
-        setup_add(setup, c);
-    }
+    const stdvec_t args = stdvec_singleton(n);
+    literal_t *l = MALLOC(sizeof(literal_t));
+    *l = literal_init(z, r, SF, &args);
+    clause_t *c = MALLOC(sizeof(clause_t));
+    *c = clause_singleton(l);
+    setup_add(setup, c);
 }
 
 static pelset_t setup_clause_full_pel(const setup_t *setup, const clause_t *c)

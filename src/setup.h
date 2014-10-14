@@ -93,7 +93,6 @@
 #include "term.h"
 
 SET_DECL(clause, literal_t *);
-SET_DECL(splitset, literal_t *);
 SET_DECL(setup, clause_t *);
 
 typedef struct ewff ewff_t;
@@ -149,9 +148,11 @@ setup_t setup_init_dynamic(
         const stdset_t *hplus,
         const stdvecset_t *query_zs);
 
-void setup_add_sensing_results(
+void setup_add_sensing_result(
         setup_t *setup,
-        const splitset_t *sensing_results);
+        const stdvec_t *z,
+        const stdname_t n,
+        const bool r);
 
 void setup_minimize(setup_t *setup);
 void setup_propagate_units(setup_t *setup);

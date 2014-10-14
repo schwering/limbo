@@ -162,13 +162,15 @@ bsetup_t bsetup_deep_copy(const bsetup_t *setups)
     return new_setups;
 }
 
-void bsetup_add_sensing_results(
+void bsetup_add_sensing_result(
         bsetup_t *setups,
-        const splitset_t *sensing_results)
+        const stdvec_t *z,
+        const stdname_t n,
+        const bool r)
 {
     for (EACH(bsetup, setups, i)) {
         setup_t *setup = i.val;
-        setup_add_sensing_results(setup, sensing_results);
+        setup_add_sensing_result(setup, z, n, r);
     }
 }
 

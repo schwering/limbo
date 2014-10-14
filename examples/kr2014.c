@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     box_univ_clauses_t dynamic_bat;
     init_bat(&dynamic_bat, &static_bat, NULL);
 
-    context_t ctx = kcontext_init(&static_bat, &dynamic_bat, Z(), SF());
+    context_t ctx = kcontext_init(&static_bat, &dynamic_bat);
 
     //printf("Q0\n");
     const query_t *phi0 =
@@ -48,7 +48,8 @@ int main(int argc, char *argv[])
                 Q(P(Z(), d2, A()))));
     ASSERT(!query_entailed(&ctx, false, phi2, 0));
 
-    CONTEXT_ADD_ACTIONS(&ctx, {forward,true}, {sonar,true});
+    context_add_action(&ctx, forward, true);
+    context_add_action(&ctx, sonar, true);
 
     //printf("Q4\n");
     const query_t *phi4 =
@@ -97,7 +98,7 @@ int main(int argc, char *argv[])
                 Q(P(Z(), d0, A()))));
     ASSERT(query_entailed(&ctx, false, phi10, 1));
 
-    printf("Example from GL's paper works\n");
+    printf("Example from the KR-2014 paper works\n");
     return 0;
 }
 
