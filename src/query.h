@@ -3,34 +3,31 @@
  * Constructors and evaluation procedure for queries.
  * Queries consist of the following elements: (in)equality of standard names,
  * disjunction, conjunction, negation, existential quantification, universal
- * quantification, actions, and evaluations (which are a vehicle for nested
- * queries, see below).
+ * quantification, and actions.
  *
  * Queries are created by query_[n]eq(), query_[atom|lit](), query_neg(),
- * query_[and|or](), query_[exists|forall](), query_act(), and query_eval().
+ * query_[and|or](), query_[exists|forall](), and query_act().
  * Note that queries are not allowed to quantify over actions.
  * I think the only reason is that query_ennf_zs() wouldn't work correctly
  * otherwise.
  *
- * Query evaluation is done with query_entailed_by_bat().
- * As a first step, this computes the setup for the given BAT.
- * In the (usual) case of multiple queries wrt the same BAT, the functions
- * query_is_entailed_by_setup() is more efficient. Its parameter
- * force_no_update can be set to true to even avoid checking if the current
- * context's structures are up to date. That is, force_no_update = true is
- * fast but dangerous.
- * The context structure memorizes a some data needed for query answering;
- * for the initial context use context_init(). Copies with additional
- * physically executed actions can be created with
- * context_copy_with_new_actions().
+ * Queries are evaluated against a context, which encapsulates, for example, the
+ * setup and the current situation. The context is initialized through
+ * [k|b]context_init(), whose arguments must live as long as the context or
+ * copies of the context created by context_copy().
+ * The current situation can be changed through context_add_action() and
+ * context_prev().
  *
- * To improve performance in cases where similar queries are evaluated wrt the
- * same BAT, we have the contexts which cache the setup etc.
+ * Query evaluation is done with query_entailed(). As a first step, this
+ * computes the setup for the given BAT. In case the query mentions standard
+ * names or more variables than the previous queries, it updates the internal
+ * structures, which may be expensive. These checks are skipped iff
+ * force_no_update = true, which, however, is obviously dangerous.
  *
  * The query evaluation procedure differs a bit from the KR paper about ESL.
  * We first convert the formula into ENNF (extended negation normal form), that
- * is, all actions and negations are pushed inwards.
- * If USE_QUERY_CNF is defined, quantifiers are replaced with disjunctions and
+ * is, all actions and negations are pushed inwards. If USE_QUERY_CNF is
+ * defined, quantifiers are replaced with disjunctions and
  * conjunctions, respectively, over a set of standard names.
  * Then the query is decomposed and disjunctions of literals are taken as
  * clauses for which subsumption is tested.
@@ -45,31 +42,6 @@
  * To simplify this the procedure which converts a formula to CNF conversion,
  * we directly implement conjunctions, whereas the paper just defines
  * conjunction to be a negation of a disjunction.
- *
- * The evaluation construct represents an opaque sub-query which can only be
- * evaluated at once.
- * For that purpose it consists of an eval callback and a void pointer arg for
- * optional payload. Besides that payload, the callback is given (1) a
- * sequence of actions context_z, which contains the physically executed
- * actions and those executed imaginary in the query at the place of the
- * sub-query, and (2) a set of SF literals, which only contains the physical
- * sensing results, but not the imaginary ones. Leaving out the imaginary
- * sensing results is reasonable because query_test_clause() will add their SF
- * literals to PEL anyway and thus setup_with_splits_and_sf_subsumes() will
- * split them if necessary (regardless of k).
- * 
- * Additionally one needs to provide callbacks which compute the number of
- * variables and the standard names in this sub-query.
- * These evaluation constructs are evaluated already during query
- * simplification. This is somewhat odd, as it could be seen as an indication
- * that their evaluation always shall be cheap. (The other constructs
- * evaluated already during simplification are (in)equality of standard names.)
- * However, evaluation may be as complex as evaluating any other query by, say,
- * calling query_entailed_by_setup().
- * The standard use case is to evaluate the query wrt the same setup, which
- * means that just the splits are dropped.
- * Another use case for multi-agent reasoning is to evaluate the query wrt a
- * setup which represents what the `outer' agent knows about the `inner' agent.
  *
  * schwering@kbsg.rwth-aachen.de
  */
