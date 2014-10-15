@@ -1,6 +1,6 @@
 // vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
- * Note that setup_get_unit_clauses() and EMPTY_CLAUSE_INDEX rely on the
+ * Note that setup_unit_clauses() and EMPTY_CLAUSE_INDEX rely on the
  * ordering structure of the sets, particularly of setups: the first criterion
  * is the length of clauses. That is, the empty clause is always on the first
  * position, and followed by all unit clauses.
@@ -671,7 +671,7 @@ void setup_propagate_units(setup_t *setup)
     if (setup_contains_empty_clause(setup)) {
         return;
     }
-    splitset_t units = setup_get_unit_clauses(setup);
+    splitset_t units = setup_unit_clauses(setup);
     splitset_t new_units = splitset_init();
     splitset_t *units_ptr = &units;
     splitset_t *new_units_ptr = &new_units;
