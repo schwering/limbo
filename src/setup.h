@@ -88,14 +88,14 @@
 #ifndef _SETUP_H_
 #define _SETUP_H_
 
+#include "bitmap.h"
 #include "literal.h"
 #include "set.h"
 #include "term.h"
 
-SET_DECL(clause, literal_t *);
-SET_DECL(setup, clause_t *);
-
 typedef struct ewff ewff_t;
+
+SET_DECL(clause, literal_t *);
 
 typedef struct {
     const ewff_t *cond;
@@ -108,6 +108,13 @@ typedef union { univ_clause_t c; } box_univ_clause_t;
 
 VECTOR_DECL(univ_clauses, univ_clause_t *);
 VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
+
+SET_DECL(clauses, clause_t *);
+
+typedef struct {
+    clauses_t clauses;
+    bitmap_t incons;
+} setup_t;
 
 const ewff_t *ewff_true(void);
 const ewff_t *ewff_eq(term_t t1, term_t t2);
@@ -148,6 +155,13 @@ setup_t setup_init_dynamic(
         const stdset_t *hplus,
         const stdvecset_t *query_zs);
 
+setup_t setup_union(const setup_t *setup1, const setup_t *setup2);
+
+setup_t setup_copy(const setup_t *setup);
+setup_t setup_lazy_copy(const setup_t *setup);
+
+int setup_cmp(const setup_t *setup1, const setup_t *setup2);
+
 void setup_add_sensing_result(
         setup_t *setup,
         const stdvec_t *z,
@@ -158,7 +172,7 @@ void setup_minimize(setup_t *setup);
 void setup_propagate_units(setup_t *setup);
 
 bool setup_subsumes(setup_t *setup, const clause_t *c);
-bool setup_inconsistent(setup_t *setup, int k);
+bool setup_inconsistent(setup_t *setup, const int k);
 bool setup_entails(setup_t *setup, const clause_t *c, const int k);
 
 #endif

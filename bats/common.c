@@ -67,8 +67,8 @@ void print_setup(const setup_t *setup)
 {
     printf("Setup:\n");
     printf("---------------\n");
-    for (int i = 0; i < setup_size(setup); ++i) {
-        print_clause(setup_get(setup, i));
+    for (int i = 0; i < clauses_size(&setup->clauses); ++i) {
+        print_clause(clauses_get(&setup->clauses, i));
     }
     printf("---------------\n");
 }

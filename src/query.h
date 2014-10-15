@@ -51,8 +51,6 @@
 #include "setup.h"
 #include "belief.h"
 
-VECTOR_DECL(bitmap, bool);
-
 typedef struct query query_t;
 
 typedef struct {

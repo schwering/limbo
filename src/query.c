@@ -4,8 +4,6 @@
 #include <assert.h>
 #include <stdlib.h>
 
-VECTOR_IMPL(bitmap, bool, NULL);
-
 enum query_type { EQ, NEQ, LIT, OR, AND, NEG, EXISTS, FORALL, ACT };
 
 typedef struct { term_t t1; term_t t2; } query_names_t;

@@ -122,7 +122,7 @@ bsetup_t bsetup_init_beliefs(
         *setup = setup_copy(static_bat_setup);
         for (EACH_CONST(ground_belief_conds, &gbcs, i)) {
             const ground_belief_cond_t *gbc = i.val;
-            setup_add(setup, gbc->neg_phi_or_psi);
+            clauses_add(&setup->clauses, gbc->neg_phi_or_psi);
         }
         satisfied_belief_cond = false;
         for (EACH(ground_belief_conds, &gbcs, i)) {

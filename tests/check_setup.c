@@ -69,12 +69,12 @@ START_TEST(test_grounding)
     setup_propagate_units(&setup_up);
     print_setup(&setup_up);
 
-    ck_assert(!setup_contains(&setup_up, C()));
-    for (int i = 0; i < setup_size(&setup); ++i) {
-        const clause_t *c = setup_get(&setup, i);
+    ck_assert(!clauses_contains(&setup_up.clauses, C()));
+    for (int i = 0; i < clauses_size(&setup.clauses); ++i) {
+        const clause_t *c = clauses_get(&setup.clauses, i);
         bool subsumed = false;
-        for (int j = 0; j < setup_size(&setup_up); ++j) {
-            const clause_t *d = setup_get(&setup_up, j);
+        for (int j = 0; j < clauses_size(&setup_up.clauses); ++j) {
+            const clause_t *d = clauses_get(&setup_up.clauses, j);
             if (clause_contains_all(c, d)) {
                 subsumed = true;
                 break;
@@ -164,46 +164,46 @@ START_TEST(test_entailment)
 
     // split D0
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &d0);
+    clauses_add(&setup_up.clauses, &d0);
     ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &nd0);
+    clauses_add(&setup_up.clauses, &nd0);
     ck_assert(!setup_subsumes(&setup_up, &fd1fd2));
 
     // split d1
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &d1);
+    clauses_add(&setup_up.clauses, &d1);
     ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &nd1);
+    clauses_add(&setup_up.clauses, &nd1);
     ck_assert(!setup_subsumes(&setup_up, &fd1fd2));
 
     // split d2
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &d2);
+    clauses_add(&setup_up.clauses, &d2);
     ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &nd2);
+    clauses_add(&setup_up.clauses, &nd2);
     ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     // split d3
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &d3);
+    clauses_add(&setup_up.clauses, &d3);
     ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &nd3);
+    clauses_add(&setup_up.clauses, &nd3);
     //setup_propagate_units(&setup_up);
     print_setup(&setup_up);
     ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 
     // inconsistent split
     setup_up = setup_lazy_copy(&setup);
-    setup_add(&setup_up, &d4);
-    setup_add(&setup_up, &nd4);
+    clauses_add(&setup_up.clauses, &d4);
+    clauses_add(&setup_up.clauses, &nd4);
     ck_assert(setup_subsumes(&setup_up, &fd1fd2));
 }
 END_TEST

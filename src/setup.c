@@ -26,7 +26,7 @@ SET_DECL(pelset, literal_t *);
 SET_IMPL(clause, literal_t *, literal_cmp);
 SET_IMPL(splitset, literal_t *, literal_cmp);
 SET_IMPL(pelset, literal_t *, literal_cmp);
-SET_IMPL(setup, clause_t *, clause_cmp);
+SET_IMPL(clauses, clause_t *, clause_cmp);
 
 enum ewff_type { EWFF_EQ, EWFF_SORT, EWFF_NEG, EWFF_OR };
 struct ewff {
@@ -382,7 +382,7 @@ static void ground_univ(
         } else {
             c = univ_clause->clause;
         }
-        setup_add(setup, c);
+        clauses_add(&setup->clauses, c);
     }
     ewff_ground(univ_clause->cond, &univ_clause->vars, hplus,
             &ground_clause);
@@ -401,7 +401,7 @@ static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
         const int index = clause_add(d, ll);
         assert(index >= 0);
     }
-    setup_add(setup, d);
+    clauses_add(&setup->clauses, d);
 }
 
 stdset_t bat_hplus(
@@ -438,7 +438,10 @@ setup_t setup_init_static(
         const univ_clauses_t *static_bat,
         const stdset_t *hplus)
 {
-    setup_t setup = setup_init();
+    setup_t setup = (setup_t) {
+        .clauses = clauses_init(),
+        .incons  = bitmap_init()
+    };
     for (EACH_CONST(univ_clauses, static_bat, i)) {
         const univ_clause_t *c = i.val;
         ground_univ(&setup, c, hplus);
@@ -451,7 +454,10 @@ setup_t setup_init_dynamic(
         const stdset_t *hplus,
         const stdvecset_t *query_zs)
 {
-    setup_t box_clauses = setup_init();
+    setup_t box_clauses = (setup_t) {
+        .clauses = clauses_init(),
+        .incons  = bitmap_init()
+    };
     // First ground the universal quantifiers.
     // This is a bit complicated because we need to compute all possible
     // assignment of variables (elements from univ_clauses[i].vars) and
@@ -462,8 +468,11 @@ setup_t setup_init_dynamic(
     }
     // Ground each box by substituting it with the prefixes of all action
     // sequences.
-    setup_t setup = setup_init();
-    for (EACH_CONST(setup, &box_clauses, i)) {
+    setup_t setup = (setup_t) {
+        .clauses = clauses_init(),
+        .incons  = bitmap_init()
+    };
+    for (EACH_CONST(clauses, &box_clauses.clauses, i)) {
         const clause_t *c = i.val;
         for (EACH_CONST(stdvecset, query_zs, j)) {
             const stdvec_t *z = j.val;
@@ -476,10 +485,39 @@ setup_t setup_init_dynamic(
     return setup;
 }
 
-static bool setup_contains_empty_clause(const setup_t *s)
+setup_t setup_union(const setup_t *setup1, const setup_t *setup2)
 {
-    return setup_size(s) > EMPTY_CLAUSE_INDEX &&
-        clause_is_empty(setup_get(s, EMPTY_CLAUSE_INDEX));
+    return (setup_t) {
+        .clauses = clauses_union(&setup1->clauses, &setup2->clauses),
+        .incons  = bitmap_or(&setup1->incons, &setup2->incons)
+    };
+}
+
+setup_t setup_copy(const setup_t *setup)
+{
+    return (setup_t) {
+        .clauses = clauses_copy(&setup->clauses),
+        .incons  = bitmap_copy(&setup->incons)
+    };
+}
+
+setup_t setup_lazy_copy(const setup_t *setup)
+{
+    return (setup_t) {
+        .clauses = clauses_lazy_copy(&setup->clauses),
+        .incons  = bitmap_lazy_copy(&setup->incons)
+    };
+}
+
+int setup_cmp(const setup_t *setup1, const setup_t *setup2)
+{
+    return clauses_cmp(&setup1->clauses, &setup2->clauses);
+}
+
+static bool setup_contains_empty_clause(const setup_t *setup)
+{
+    return clauses_size(&setup->clauses) > EMPTY_CLAUSE_INDEX &&
+        clause_is_empty(clauses_get(&setup->clauses, EMPTY_CLAUSE_INDEX));
 }
 
 void setup_add_sensing_result(
@@ -491,20 +529,30 @@ void setup_add_sensing_result(
     if (setup_contains_empty_clause(setup)) {
         return;
     }
+
     const stdvec_t args = stdvec_singleton(n);
     literal_t *l = MALLOC(sizeof(literal_t));
     *l = literal_init(z, r, SF, &args);
     clause_t *c = MALLOC(sizeof(clause_t));
     *c = clause_singleton(l);
-    setup_add(setup, c);
+    clauses_add(&setup->clauses, c);
+
+    const literal_t ll = literal_flip(l);
+    clause_t d = clause_singleton(&ll);
+    for (int k = 0; k < bitmap_size(&setup->incons); ++k) {
+        if (!bitmap_get(&setup->incons, k) && setup_entails(setup, &d, k)) {
+            bitmap_set(&setup->incons, k, true);
+            for (; k < bitmap_size(&setup->incons); ++k) {
+                bitmap_set(&setup->incons, k, true);
+            }
+        }
+    }
 }
 
-static pelset_t setup_clause_full_pel(const setup_t *setup, const clause_t *c)
+static pelset_t setup_full_pel(const setup_t *setup)
 {
-    pelset_t pel = clause_sf(c);
-    const pelset_t cp = clause_pel(c);
-    pelset_add_all(&pel, &cp);
-    for (EACH_CONST(setup, setup, i)) {
+    pelset_t pel = pelset_init();
+    for (EACH_CONST(clauses, &setup->clauses, i)) {
         const clause_t *d = i.val;
         const pelset_t dp = clause_pel(d);
         pelset_add_all(&pel, &dp);
@@ -519,7 +567,7 @@ static pelset_t setup_clause_small_pel(const setup_t *setup, const clause_t *c)
     pelset_add_all(&pel, &cp);
     for (int size = 0, new_size; size != (new_size = pelset_size(&pel)); ) {
         size = new_size;
-        for (EACH_CONST(setup, setup, i)) {
+        for (EACH_CONST(clauses, &setup->clauses, i)) {
             const clause_t *d = i.val;
             const pelset_t dp = clause_pel(d);
             if (!pelset_disjoint(&pel, &dp)) {
@@ -537,19 +585,19 @@ static bool setup_relevant_split(
         const int k)
 {
     const clause_t lc = clause_singleton(l);
-    if (setup_contains(setup, &lc)) {
+    if (clauses_contains(&setup->clauses, &lc)) {
         return false;
     }
     const literal_t ll = literal_flip(l);
     const clause_t llc = clause_singleton(&ll);
-    if (setup_contains(setup, &llc)) {
+    if (clauses_contains(&setup->clauses, &llc)) {
         return false;
     }
     if (clause_contains(c, l) || clause_contains(c, &ll)) {
         return true;
     }
     const pelset_t cp = clause_pel(c);
-    for (EACH_CONST(setup, setup, i)) {
+    for (EACH_CONST(clauses, &setup->clauses, i)) {
         const clause_t *d = i.val;
         if ((!clause_contains(d, l) && !clause_contains(d, &ll)) ||
                 clause_size(d) <= 1) {
@@ -567,10 +615,10 @@ static bool setup_relevant_split(
     return false;
 }
 
-static splitset_t setup_get_unit_clauses(const setup_t *setup)
+static splitset_t setup_unit_clauses(const setup_t *setup)
 {
     splitset_t ls = splitset_init();
-    for (EACH_CONST(setup, setup, i)) {
+    for (EACH_CONST(clauses, &setup->clauses, i)) {
         const clause_t *c = i.val;
         if (clause_is_empty(c)) {
             continue;
@@ -585,27 +633,32 @@ static splitset_t setup_get_unit_clauses(const setup_t *setup)
 }
 
 static void setup_minimize_wrt(setup_t *setup, const clause_t *c,
-        setup_iter_t *iter)
+        clauses_iter_t *iter)
 {
     if (setup_contains_empty_clause(setup)) {
-        setup_clear(setup);
-        setup_add(setup, clause_empty());
-        assert(setup_contains_empty_clause(setup) && setup_size(setup) == 1);
+        clauses_clear(&setup->clauses);
+        bitmap_clear(&setup->incons);
+        clauses_add(&setup->clauses, clause_empty());
+        bitmap_insert(&setup->incons, 0, true);
+        assert(setup_contains_empty_clause(setup));
+        assert(clauses_size(&setup->clauses) == 1);
+        assert(bitmap_size(&setup->incons) == 1);
+        assert(bitmap_get(&setup->incons, 0));
         return;
     }
-    setup_iter_t i = setup_iter_from(setup, c);
-    setup_iter_add_auditor(&i, iter);
-    while (setup_iter_next(&i)) {
+    clauses_iter_t i = clauses_iter_from(&setup->clauses, c);
+    clauses_iter_add_auditor(&i, iter);
+    while (clauses_iter_next(&i)) {
         const clause_t *d = i.val;
         if (clause_size(d) > clause_size(c) && clause_contains_all(d, c)) {
-            setup_iter_remove(&i);
+            clauses_iter_remove(&i);
         }
     }
 }
 
 void setup_minimize(setup_t *setup)
 {
-    for (EACH(setup, setup, i)) {
+    for (EACH(clauses, &setup->clauses, i)) {
         setup_minimize_wrt(setup, i.val, &i);
         if (setup_contains_empty_clause(setup)) {
             return;
@@ -624,11 +677,11 @@ void setup_propagate_units(setup_t *setup)
     splitset_t *new_units_ptr = &new_units;
     while (splitset_size(units_ptr) > 0) {
         splitset_clear(new_units_ptr);
-        for (EACH(setup, setup, i)) {
+        for (EACH(clauses, &setup->clauses, i)) {
             const clause_t *c = i.val;
             const clause_t *d = clause_resolve(c, units_ptr);
             if (!clause_eq(c, d)) {
-                const int j = setup_iter_replace(&i, d);
+                const int j = clauses_iter_replace(&i, d);
                 if (j >= 0) {
                     setup_minimize_wrt(setup, d, &i);
                     if (setup_contains_empty_clause(setup)) {
@@ -650,7 +703,7 @@ void setup_propagate_units(setup_t *setup)
 bool setup_subsumes(setup_t *setup, const clause_t *c)
 {
     setup_propagate_units(setup);
-    for (EACH_CONST(setup, setup, i)) {
+    for (EACH_CONST(clauses, &setup->clauses, i)) {
         if (clause_contains_all(c, i.val)) {
             return true;
         }
@@ -664,7 +717,7 @@ static bool setup_with_splits_subsumes(
         const clause_t *c,
         const int k)
 {
-    bool r = setup_subsumes(setup, c);
+    const bool r = setup_subsumes(setup, c);
     if (r || k < 0) {
         return r;
     }
@@ -681,35 +734,52 @@ static bool setup_with_splits_subsumes(
         const clause_t c2 = clause_singleton(&l2);
         const int k1 = (p == SF) ? k : k - 1;
         setup_t setup1 = setup_lazy_copy(setup);
-        setup_add(&setup1, &c1);
-        bool r;
-        r = setup_with_splits_subsumes(&setup1, pel, c, k1);
-        if (!r) {
+        clauses_add(&setup1.clauses, &c1);
+        if (!setup_with_splits_subsumes(&setup1, pel, c, k1)) {
             continue;
         }
         setup_t setup2 = setup_lazy_copy(setup);
-        setup_add(&setup2, &c2);
-        r = setup_with_splits_subsumes(&setup2, pel, c, k1);
-        if (r) {
+        clauses_add(&setup2.clauses, &c2);
+        if (setup_with_splits_subsumes(&setup2, pel, c, k1)) {
             return true;
         }
     }
     return false;
 }
 
-bool setup_inconsistent(setup_t *setup, int k)
+bool setup_inconsistent(setup_t *setup, const int k)
 {
     if (setup_contains_empty_clause(setup)) {
         return true;
     }
-    pelset_t pel = k == 0 ? pelset_init() : setup_clause_full_pel(setup,
-            clause_empty());
-    return setup_with_splits_subsumes(setup, &pel, clause_empty(), k);
+    int l = bitmap_size(&setup->incons);
+    if (l > 0) {
+        if (k < l) {
+            return bitmap_get(&setup->incons, MAX(0, k));
+        }
+        if (bitmap_get(&setup->incons, l-1)) {
+            return true;
+        }
+    }
+    const pelset_t pel = k <= 0 ? pelset_init() : setup_full_pel(setup);
+    const clause_t *c = clause_empty();
+    for (; l <= k; ++l) {
+        pelset_t pel_copy = pelset_lazy_copy(&pel);
+        const bool r = setup_with_splits_subsumes(setup, &pel_copy, c, l);
+        bitmap_insert(&setup->incons, l, r);
+        if (r) {
+            for (++l; l <= k; ++l) {
+                bitmap_insert(&setup->incons, l, r);
+            }
+        }
+    }
+    assert(k < bitmap_size(&setup->incons));
+    return bitmap_get(&setup->incons, k);
 }
 
 bool setup_entails(setup_t *setup, const clause_t *c, const int k)
 {
-    if (setup_contains_empty_clause(setup)) {
+    if (setup_inconsistent(setup, k)) {
         return true;
     }
     pelset_t pel = k == 0 ? pelset_init() : setup_clause_small_pel(setup, c);
