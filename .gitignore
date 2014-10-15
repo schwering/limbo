@@ -34,6 +34,6 @@ Testing/
 CMakeFiles/
 bats/kr2014.[hc]
 bats/ecai2014.[hc]
-bats/demo.[hc]
+bats/kitchen.[hc]
 examples/Example-*
 
