@@ -23,13 +23,17 @@
 
 % Now test the properties (some are taken from the KR-2014 paper, some are
 % additional tests; they also match the kr2014.c example):
-:-  retrieve_context(myctx, Ctx), writeln('Los'),
+test_tautology :-
+    retrieve_context(myctx, Ctx),
     cputime(T0),
     context_entails(Ctx, 1, p v ~p),
     \+ context_entails(Ctx, 1, p v q),
     cputime(T1),
     T is T1 - T0,
     write('OK: '), writeln(T).
+
+:- test_tautology.
+:- test_tautology.
 
 :- exit(0).
 

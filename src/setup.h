@@ -94,10 +94,10 @@
  * will not help to prove the query.
  * The second optimization is that during splitting at level k, a non-SF literal
  * is considered relevant only if
- *  (1) there is no unit clause [a] or [~a] in the setup AND
- *  (2) (a) c contains a or ~a OR
- *      (b) some clause d from the setup contains a or ~a AND
- *          (i)  |d| <= k+1, i.e., it might trigger unit propagation OR
+ *  (1) there is no unit clause [a] or [~a] in the setup and
+ *  (2) (a) c contains a or ~a or
+ *      (b) some clause d from the setup contains a or ~a and
+ *          (i)  |d| <= k+1, i.e., it might trigger unit propagation or
  *          (ii) |d\c| <= k, i.e., it might lead to subsumption.
  * (Depending on the size on the size of the setup, the second optimiziation may
  * be very expensive and perhaps should be skipped.)
@@ -106,13 +106,17 @@
  * may not detect inconsistency through splitting. To conclusively show
  * inconsistency for a given k, one needs to consider all atoms from the setup
  * as PEL and try to prove the empty clause.
- * To optimize this, we do this only once and memorize the result, that is,
- * memorize whether or not for the specific k the setup is inconsistent.
- * The only safe to the setup change allowed from the outside is by means of
- * setup_add_sensing_result(). If the setup was consistent before but becomes
+ *
+ * To optimize consistency checks, we do it by the paper with the full PEL only
+ * the first time for each given k. When new sensing results are added to the
+ * setup through setup_add_sensing_result(), we update the memorized consistency
+ * results as follows: If the setup was consistent before but becomes
  * inconsistent with the newly added SF literal, its negation would follow.
  * Hence it is enough to test setup_entails() for that negated SF literal, which
  * can again be shown for the minimized PEL and hence is relatively cheap.
+ *
+ * Notice that this optimization is based on the fact that the only safe way to
+ * change the setup from the outside is setup_add_sensing_result().
  *
  * To perform this inconsistency caching, our setup is not just a set of clauses
  * but also has a bitmap attribute.
@@ -169,7 +173,6 @@ void ewff_ground(
         void (*ground)(const varmap_t *));
 
 clause_t clause_substitute(const clause_t *c, const varmap_t *map);
-const clause_t *clause_empty(void);
 
 const univ_clause_t *univ_clause_init(
         const ewff_t *cond,

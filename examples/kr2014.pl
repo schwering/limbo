@@ -27,7 +27,7 @@
 :- retrieve_context(myctx, Ctx), write('Testing property 1 ... '),          context_entails(Ctx, 0, ~(d0 v d1)),                  write('OK'), nl.
 :- retrieve_context(myctx, Ctx), write('Testing property 2 ... '),          context_entails(Ctx, 1, forward : (d1 v d2)),         write('OK'), nl.
 :- retrieve_context(myctx, Ctx), write('Testing property 3 ... '),          \+ context_entails(Ctx, 0, forward : (d1 v d2)),      write('OK'), nl.
-:- retrieve_context(myctx, Ctx), write('Adding forward/true ... '),          context_exec(Ctx, forward, true),                    write('OK'), nl.
+:- retrieve_context(myctx, Ctx), write('Adding forward/true ... '),         context_exec(Ctx, forward, true),                    write('OK'), nl.
 :- retrieve_context(myctx, Ctx), write('Adding sonar/true ... '),           context_exec(Ctx, sonar, true),                       write('OK'), nl.
 :- retrieve_context(myctx, Ctx), write('Testing property 4 ... '),          context_entails(Ctx, 1, d0 v d1),                     write('OK'), nl.
 :- retrieve_context(myctx, Ctx), write('Testing property 5 ... '),          \+ context_entails(Ctx, 1, d0),                       write('OK'), nl.
