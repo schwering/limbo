@@ -39,14 +39,7 @@
  * ground -- no minimization or unit propagation has been done yet. Thus the
  * setup can be seen as the immediate result of grounding the clauses.
  * The setup_union() of the static and dynamic setups is perhaps what the user
- * is interested in. It is recommonded to minimize that setup once.
- *
- * setup_pel() computes the positive extended literals (PEL) other than SF
- * literals from the setup that are candidates for splitting.
- * SF literals are not included because they are treated specifically in
- * setup_with_splits_and_sf_subsumes().
- * Moreover, literals that occur in the setup as unit clauses are not relevant
- * for splitting.
+ * is interested in. It is recommended to minimize that setup once.
  *
  * setup_minimize() removes all clauses subsumed by other clauses in the setup.
  * One the one hand, minimization may improve performance drastically. On the
@@ -65,23 +58,68 @@
  * the given clause.
  * Thus, setup_subsumes() is sound but not complete.
  *
- * setup_with_splits_and_sf_subsumes() uses reasoning by cases and subsumption.
- * The parameter k denotes the number of split non-SF PEL literals.
- * After that many splits, the SF literals corresponding to the actions executed
- * in the query are split as well.
- * This treatment of SF literals differs from the semantics from the ESL paper
- * (Lakemeyer and Levesque, KR-2014), but it simplifies the code because it lets
- * us treat SF literals almost like non-SF literals, while the ESL paper splits
- * them already while processing the query (rules 11 and 12 in the procedure V).
- * Due to this treatment of SF literals, the implementation would not find that
- * SF(a) v ~SF(a) is true even for k = 1 (c.f. test_eventual_completeness). For
- * fluent queries, however, eventual completeness is preserved (I think). A
- * formal analysis is pending.
- * Once the clause is subsumed by the setup plus split literals as indicated by
- * setup_subsumes(), the recursive descent stops with returning true.
- * Note that setup_with_splits_subsumes() does not change the setup besides unit
- * propagation, that is, the setup is, from a semantic standpoint, at least as
- * good as before.
+ * setup_[inconsistent|entails]() indicate if inconsistency or a given clause,
+ * respectively, can be proven for a given k. The parameter k denotes the number
+ * splits, which means that the positive and negative case for k-many literals
+ * is considered. In a way, k can be considered a search depth.
+ * setup_[consistent|entails]() are equivalent to the semantics in the ESL paper
+ * (Lakemeyer and Levesque, KR-2014) provided that the clause does not mention
+ * SF literals (see below why).
+ *
+ * There are two differences between the implementation and the KR-2014 paper:
+ *
+ * Firstly, SF literals are treated differently. In ESL, an action operator
+ * immediately leads to reasoning by cases for positive and negative SF. This is
+ * skipped by our implementation. Instead, we split SF literals in the function
+ * setup_with_splits_subsumes(), and they do not count towards the limit k.
+ * (All non-SF literals do count towards that limit.)
+ * As a consequence, the implementation proves (SF(a) v ~SF(a)) for any k, while
+ * it can be proven only for k >= 1 in the KR-2014 paper. In a way, the
+ * implementation is thus `more correct' wrt standard ES than ESL.
+ * (The KR-2014 paper splits the SF literals in rules 11 and 12 of the procedure
+ * V, that is, while processing the query. If we followed that approach, we
+ * would have to do splitting in query.c, which looks messy to me. Also, our
+ * approach keeps the equivalence f,w,z |= [n] alpha iff f,w,z.n |= alpha.)
+ *
+ * Secondly, PEL (positive extended literals) of a setup and a query clause are
+ * minimized in the implementation. Splitting forms a tree of depth k and
+ * branching factor |PEL|. Reducing PEL is hence more efficient. We apply two
+ * optimizations:
+ * The initial PEL is the least set that contains
+ *  (1) the atoms from the query clause, and
+ *  (2) if an atom is in the PEL and mentioned in a clause from the setup, the
+ *      PEL contains the atoms from that clause as well.
+ * The idea here is that the setup may contain independent clauses (because, for
+ * example, it may talk about totally unrelated issues), whose literals hence
+ * will not help to prove the query.
+ * The second optimization is that during splitting at level k, a non-SF literal
+ * is considered relevant only if
+ *  (1) there is no unit clause [a] or [~a] in the setup AND
+ *  (2) (a) c contains a or ~a OR
+ *      (b) some clause d from the setup contains a or ~a AND
+ *          (i)  |d| <= k+1, i.e., it might trigger unit propagation OR
+ *          (ii) |d\c| <= k, i.e., it might lead to subsumption.
+ * (Depending on the size on the size of the setup, the second optimiziation may
+ * be very expensive and perhaps should be skipped.)
+ *
+ * A consequence of the first PEL optimization (see above) is that our procedure
+ * may not detect inconsistency through splitting. To conclusively show
+ * inconsistency for a given k, one needs to consider all atoms from the setup
+ * as PEL and try to prove the empty clause.
+ * To optimize this, we do this only once and memorize the result, that is,
+ * memorize whether or not for the specific k the setup is inconsistent.
+ * The only safe to the setup change allowed from the outside is by means of
+ * setup_add_sensing_result(). If the setup was consistent before but becomes
+ * inconsistent with the newly added SF literal, its negation would follow.
+ * Hence it is enough to test setup_entails() for that negated SF literal, which
+ * can again be shown for the minimized PEL and hence is relatively cheap.
+ *
+ * To perform this inconsistency caching, our setup is not just a set of clauses
+ * but also has a bitmap attribute.
+ * Notice that the inconsistency checks and caching are performed in
+ * setup_[inconsistent|entails](). Hence, it is safe to add or remove clauses
+ * to the setup before the first call to these functions. (This is relevant for
+ * belief.c.)
  *
  * schwering@kbsg.rwth-aachen.de
  */
