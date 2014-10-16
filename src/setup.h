@@ -141,9 +141,15 @@
 #include "set.h"
 #include "term.h"
 
-typedef struct ewff ewff_t;
-
 SET_DECL(clause, literal_t *);
+SET_DECL(clauses, clause_t *);
+
+typedef struct {
+    clauses_t clauses;
+    bitmap_t incons;
+} setup_t;
+
+typedef struct ewff ewff_t;
 
 typedef struct {
     const ewff_t *cond;
@@ -156,13 +162,6 @@ typedef union { univ_clause_t c; } box_univ_clause_t;
 
 VECTOR_DECL(univ_clauses, univ_clause_t *);
 VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
-
-SET_DECL(clauses, clause_t *);
-
-typedef struct {
-    clauses_t clauses;
-    bitmap_t incons;
-} setup_t;
 
 const ewff_t *ewff_true(void);
 const ewff_t *ewff_eq(term_t t1, term_t t2);

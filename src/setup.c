@@ -23,9 +23,9 @@
 SET_DECL(splitset, literal_t *);
 SET_DECL(pelset, literal_t *);
 
-SET_IMPL(clause, literal_t *, literal_cmp);
 SET_IMPL(splitset, literal_t *, literal_cmp);
 SET_IMPL(pelset, literal_t *, literal_cmp);
+SET_IMPL(clause, literal_t *, literal_cmp);
 SET_IMPL(clauses, clause_t *, clause_cmp);
 
 enum ewff_type { EWFF_EQ, EWFF_SORT, EWFF_NEG, EWFF_OR };

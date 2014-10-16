@@ -93,6 +93,8 @@ context_t bcontext_init(
         const int belief_k);
 context_t context_copy(const context_t *ctx);
 
+void context_guarantee_consistency(context_t *ctx, const int k);
+
 void context_add_action(context_t *ctx, const stdname_t n, bool r);
 void context_prev(context_t *ctx);
 
