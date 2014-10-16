@@ -31,14 +31,7 @@ An interface to ECLiPSe-CLP is coming up.
 
 ## To-Do List
 
-* Avoid needless splits (need proofs):
-  * Let `PEL(c)` be the least set such that (1) if `a` or `~a` is in `c`, then `a` is in `PEL(c)` and (2) if `c'` is in the setup, `a` is in `PEL(c)` and `a` or `~a` is in `c'`, then `PEL(c')` is a subset of `PEL(c)`.
-    Then only the literals from `PEL(c)` are relevant for splitting unless the initial setup is inconsistent.
-  * Suppose `c` is a clause from the setup, `d` is the query clause, `k` splits remaining.
-    If `|c| > k+1` and `|c\d| > k`, then the PEL of c are not split-relevant at the current `k` (unless for some other clause `c'` from the setup), because (1) it won't trigger any unit propagation and (2) it won't lead to subsumption.
-    This check perhaps should be performed in setup_with_splits_subsumes().
-    As they depend on `k` and hence on the current setup (after unit propatations), it cannot be precomputed (except for the first iteration, which may a useful optimization in practice).
-    Hence, to test if a literal `l` from PEL is in fact split-relevant, we need to check whether there is a clause `c` in the setup plus `d` such that `|c| <= k+1` or `|c\d| <= k` holds.
+* Unit test that shows necessity of `clause_sf()` in `setup_clause_small_pel()`.
 * Heuristically rank split literals (decision theory).
 * Try a B+tree (or red-black tree or whatever) index with shadowing and clones for faster set operations.
 * ~~Add an index `literal -> clause` to each setup which gives all clauses that contain a given literal for faster unit propagatation.~~
