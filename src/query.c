@@ -422,6 +422,9 @@ static void context_rebuild_setup(context_t *ctx)
     if (!ctx->is_belief) {
         ctx->u.k.setup = setup_union(&ctx->u.k.static_setup,
                 &ctx->dynamic_setup);
+        if (ctx->consistency_k > 0) {
+            setup_guarantee_consistency(&ctx->u.k.setup, ctx->consistency_k);
+        }
         for (int i = 0; i < stdvec_size(ctx->situation); ++i) {
             const stdvec_t z = stdvec_lazy_copy_range(ctx->situation, 0, i);
             const stdname_t n = stdvec_get(ctx->situation, i);
@@ -433,6 +436,9 @@ static void context_rebuild_setup(context_t *ctx)
     } else {
         ctx->u.b.setups = bsetup_unions(&ctx->u.b.static_setups,
                 &ctx->dynamic_setup);
+        if (ctx->consistency_k > 0) {
+            bsetup_guarantee_consistency(&ctx->u.b.setups, ctx->consistency_k);
+        }
         for (int i = 0; i < stdvec_size(ctx->situation); ++i) {
             const stdvec_t z = stdvec_lazy_copy_range(ctx->situation, 0, i);
             const stdname_t n = stdvec_get(ctx->situation, i);
@@ -461,6 +467,7 @@ static context_t context_init(
         .sensings    = NEW(bitmap_init_with_size(0))
     };
 
+    ctx.consistency_k = -1;
     ctx.query_names = stdset_init_with_size(0);
     ctx.query_n_vars = 0;
     ctx.query_zs = stdvecset_singleton(ctx.situation);
@@ -510,6 +517,7 @@ context_t context_copy(const context_t *ctx)
         .dynamic_bat   = ctx->dynamic_bat,
         .situation     = ctx->situation,
         .sensings      = ctx->sensings,
+        .consistency_k = ctx->consistency_k,
         .query_names   = stdset_copy(&ctx->query_names),
         .query_n_vars  = ctx->query_n_vars,
         .query_zs      = stdvecset_copy(&ctx->query_zs),
@@ -524,6 +532,16 @@ context_t context_copy(const context_t *ctx)
         copy.u.b.setups = bsetup_deep_copy(&ctx->u.b.setups);
     }
     return copy;
+}
+
+void context_guarantee_consistency(context_t *ctx, const int k)
+{
+    ctx->consistency_k = k;
+    if (!ctx->is_belief) {
+        setup_guarantee_consistency(&ctx->u.k.setup, k);
+    } else {
+        bsetup_guarantee_consistency(&ctx->u.b.setups, k);
+    }
 }
 
 void context_add_action(context_t *ctx, const stdname_t n, bool r)

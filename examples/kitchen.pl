@@ -13,18 +13,19 @@
 :- load('../eclipse-clp/libEclipseESBL.so').
 :- external(kcontext/1, p_kcontext).
 :- external(bcontext/2, p_bcontext).
-:- external(store_context/2, p_store_context).
-:- external(retrieve_context/2, p_retrieve_context).
+:- external(context_store/2, p_context_store).
+:- external(context_retrieve/2, p_context_retrieve).
+:- external(context_guarantee_consistency/2, p_context_guarantee_consistency).
 :- external(context_exec/3, p_context_exec).
 :- external(context_entails/3, p_context_entails).
 
 % Create a context and store it in an extra-logical variable:
-:- kcontext(Ctx), store_context(myctx, Ctx).
+:- kcontext(Ctx), context_guarantee_consistency(Ctx, 1), context_store(myctx, Ctx).
 
 % Now test the properties (some are taken from the KR-2014 paper, some are
 % additional tests; they also match the kr2014.c example):
 test_tautology :-
-    retrieve_context(myctx, Ctx),
+    context_retrieve(myctx, Ctx),
     cputime(T0),
     context_entails(Ctx, 1, p v ~p),
     \+ context_entails(Ctx, 1, p v q),

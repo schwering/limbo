@@ -65,6 +65,7 @@ typedef struct {
     const stdvec_t *situation;
     const bitmap_t *sensings;
     // The following attributes are stored for caching purposes.
+    int consistency_k;
     stdset_t query_names;
     int query_n_vars;
     stdvecset_t query_zs;

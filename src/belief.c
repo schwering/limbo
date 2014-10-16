@@ -138,6 +138,14 @@ bsetup_t bsetup_deep_copy(const bsetup_t *setups)
     return new_setups;
 }
 
+void bsetup_guarantee_consistency(bsetup_t *setups, const int k)
+{
+    for (EACH(bsetup, setups, i)) {
+        setup_t *setup = i.val;
+        setup_guarantee_consistency(setup, k);
+    }
+}
+
 void bsetup_add_sensing_result(
         bsetup_t *setups,
         const stdvec_t *z,

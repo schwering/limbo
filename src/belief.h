@@ -55,6 +55,8 @@ bsetup_t bsetup_init_beliefs(
 bsetup_t bsetup_unions(const bsetup_t *l, const setup_t *r);
 bsetup_t bsetup_deep_copy(const bsetup_t *setups);
 
+void bsetup_guarantee_consistency(bsetup_t *setups, const int k);
+
 void bsetup_add_sensing_result(
         bsetup_t *setups,
         const stdvec_t *z,

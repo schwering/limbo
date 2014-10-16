@@ -18,10 +18,10 @@
  *
  * Then, kcontext/1 or bcontext/2 can used to create a context. It's customary
  * to save it non-logically:
- *   :- kcontext(Ctx), store_context(id, Ctx).
+ *   :- kcontext(Ctx), context_store(id, Ctx).
  *
  * We can evaluate queries against this context, 
- *   :- retrieve_context(id, Ctx), context_entails(Ctx, 1, forward : (d1 v d2)).
+ *   :- context_retrieve(id, Ctx), context_entails(Ctx, 1, forward : (d1 v d2)).
  *
  * The first argument in [store|retrieve]_context/2 is an identifier, which must
  * be a Prolog atom. Notice that [store|retrieve]_context/2 differs from
@@ -31,15 +31,15 @@
  *
  * Now we can feed back action execution and their sensing results to the
  * context:
- *   :- retrieve_context(id, Ctx), context_exec(Ctx, forward, true).
- *   :- retrieve_context(id, Ctx), context_exec(Ctx, sonar, true).
+ *   :- context_retrieve(id, Ctx), context_exec(Ctx, forward, true).
+ *   :- context_retrieve(id, Ctx), context_exec(Ctx, sonar, true).
  * If we had used [set|get]val/2 instead of [store|retrieve]_context/2, we
  * would have to memorize the new changed context with setval/2 after
  * context_exec/3.
  *
  * Subsequent queries are evaluated in situation [forward.sonar] where both
  * actions had a positive sensing result:
- *   :- retrieve_context(id, Ctx), context_entails(Ctx, 1, d1)
+ *   :- context_retrieve(id, Ctx), context_entails(Ctx, 1, d1)
  *
  * The set of queries is the least set such that
  *   P(T1,...,TK)           (predicate)
@@ -387,7 +387,7 @@ int p_bcontext()
     return ec_unify(ec_ctx, ec_var);
 }
 
-int p_store_context()
+int p_context_store()
 {
     pword ec_id = ec_arg(1);
     pword ec_ctx = ec_arg(2);
@@ -416,7 +416,7 @@ int p_store_context()
     return PSUCCEED;
 }
 
-int p_retrieve_context()
+int p_context_retrieve()
 {
     pword ec_id = ec_arg(1);
     pword ec_var = ec_arg(2);
@@ -476,6 +476,26 @@ int p_context_exec()
     }
 
     context_add_action(ctx, action, result);
+    return PSUCCEED;
+}
+
+int p_context_guarantee_consistency()
+{
+    pword ec_ctx = ec_arg(1);
+    pword ec_k = ec_arg(2);
+
+    t_ext_ptr data;
+    if (ec_get_handle(ec_ctx, &context_method_table, &data) != 0) {
+        return TYPE_ERROR;
+    }
+    context_t *ctx = data;
+
+    long k;
+    if (ec_get_long(ec_k, &k) != 0) {
+        return TYPE_ERROR;
+    }
+
+    context_guarantee_consistency(ctx, k);
     return PSUCCEED;
 }
 
