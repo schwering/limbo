@@ -49,11 +49,11 @@ const ewff_t *ewff_true(void)
 
 const ewff_t *ewff_eq(term_t t1, term_t t2)
 {
-    ewff_t *e = MALLOC(sizeof(ewff_t));
-    e->type = EWFF_EQ;
-    e->u.eq.t1 = t1;
-    e->u.eq.t2 = t2;
-    return e;
+    return NEW(((ewff_t) {
+        .type = EWFF_EQ,
+        .u.eq.t1 = t1,
+        .u.eq.t2 = t2
+    }));
 }
 
 const ewff_t *ewff_neq(term_t t1, term_t t2)
@@ -63,28 +63,28 @@ const ewff_t *ewff_neq(term_t t1, term_t t2)
 
 const ewff_t *ewff_sort(term_t t, bool (*is_sort)(stdname_t n))
 {
-    ewff_t *e = MALLOC(sizeof(ewff_t));
-    e->type = EWFF_SORT;
-    e->u.sort.t = t;
-    e->u.sort.is_sort = is_sort;
-    return e;
+    return NEW(((ewff_t) {
+        .type = EWFF_SORT,
+        .u.sort.t = t,
+        .u.sort.is_sort = is_sort
+    }));
 }
 
 const ewff_t *ewff_neg(const ewff_t *e1)
 {
-    ewff_t *e = MALLOC(sizeof(ewff_t));
-    e->type = EWFF_NEG;
-    e->u.neg.e = e1;
-    return e;
+    return NEW(((ewff_t) {
+        .type = EWFF_NEG,
+        .u.neg.e = e1
+    }));
 }
 
 const ewff_t *ewff_or(const ewff_t *e1, const ewff_t *e2)
 {
-    ewff_t *e = MALLOC(sizeof(ewff_t));
-    e->type = EWFF_OR;
-    e->u.or.e1 = e1;
-    e->u.or.e2 = e2;
-    return e;
+    return NEW(((ewff_t) {
+        .type = EWFF_OR,
+        .u.or.e1 = e1,
+        .u.or.e2 = e2
+    }));
 }
 
 const ewff_t *ewff_and(const ewff_t *e1, const ewff_t *e2)
@@ -215,8 +215,7 @@ clause_t clause_substitute(const clause_t *c, const varmap_t *map)
     clause_t cc = clause_init_with_size(clause_size(c));
     for (EACH_CONST(clause, c, i)) {
         const literal_t *l = i.val;
-        literal_t *ll = MALLOC(sizeof(literal_t));
-        *ll = literal_substitute(l, map);
+        const literal_t *ll = NEW(literal_substitute(l, map));
         clause_add(&cc, ll);
     }
     return cc;
@@ -271,8 +270,7 @@ static const literal_t *clause_unit(const clause_t *c)
 
 static const clause_t *clause_resolve(const clause_t *c, const splitset_t *u)
 {
-    clause_t *d = MALLOC(sizeof(clause_t));
-    *d = clause_lazy_copy(c);
+    clause_t *d = NEW(clause_lazy_copy(c));
     for (EACH(clause, d, i)) {
         const literal_t l = literal_flip(i.val);
         if (splitset_contains(u, &l)) {
@@ -310,9 +308,7 @@ static pelset_t clause_pel(const clause_t *c)
             continue;
         }
         if (!literal_sign(l)) {
-            literal_t *ll = MALLOC(sizeof(literal_t));
-            *ll = literal_flip(l);
-            pelset_add(&pel, ll);
+            pelset_add(&pel, NEW(literal_flip(l)));
         } else {
             pelset_add(&pel, l);
         }
@@ -322,8 +318,6 @@ static pelset_t clause_pel(const clause_t *c)
 
 static pelset_t clause_sf(const clause_t *c)
 {
-    // Build SF literals that correspond to actions executed within epistemic
-    // operator. They will be split in setup_with_splits_and_sf_subsumes().
     pelset_t pel = pelset_init();
     stdvecset_t z_done = stdvecset_init();
     for (EACH_CONST(clause, c, i)) {
@@ -334,8 +328,9 @@ static pelset_t clause_sf(const clause_t *c)
                 const stdvec_t z_prefix = stdvec_lazy_copy_range(z, 0, j);
                 const stdname_t n = stdvec_get(z, j);
                 const stdvec_t n_vec = stdvec_singleton(n);
-                literal_t *sf = MALLOC(sizeof(literal_t));
-                *sf = literal_init(&z_prefix, true, SF, &n_vec);
+                const literal_t *sf = NEW(literal_init(&z_prefix, true, SF,
+                            &n_vec));
+                pelset_add(&pel, sf);
             }
         }
         stdvecset_add(&z_done, z);
@@ -347,18 +342,16 @@ const univ_clause_t *univ_clause_init(
         const ewff_t *cond,
         const clause_t *clause)
 {
-    univ_clause_t *c = MALLOC(sizeof(univ_clause_t));
     varset_t vars = clause_vars(clause);
     ewff_collect_vars(cond, &vars);
     stdset_t names = clause_names(clause);
     ewff_collect_names(cond, &names);
-    *c = (univ_clause_t) {
+    return NEW(((univ_clause_t) {
         .cond   = cond,
         .clause = clause,
         .names  = names,
         .vars   = vars
-    };
-    return c;
+    }));
 }
 
 const box_univ_clause_t *box_univ_clause_init(
@@ -376,28 +369,23 @@ static void ground_univ(
     void ground_clause(const varmap_t *varmap) {
         const clause_t *c;
         if (varset_size(&univ_clause->vars) > 0) {
-            clause_t *d = MALLOC(sizeof(clause_t));
-            *d = clause_substitute(univ_clause->clause, varmap);
+            const clause_t *d = NEW(clause_substitute(univ_clause->clause,
+                        varmap));
             c = d;
         } else {
             c = univ_clause->clause;
         }
         clauses_add(&setup->clauses, c);
     }
-    ewff_ground(univ_clause->cond, &univ_clause->vars, hplus,
-            &ground_clause);
+    ewff_ground(univ_clause->cond, &univ_clause->vars, hplus, &ground_clause);
 }
 
 static void ground_box(setup_t *setup, const stdvec_t *z, const clause_t *c)
 {
-    clause_t *d = MALLOC(sizeof(clause_t));
-    *d = clause_init_with_size(clause_size(c));
+    clause_t *d = NEW(clause_init_with_size(clause_size(c)));
     for (EACH_CONST(clause, c, i)) {
         const literal_t *l = i.val;
-        const stdvec_t zz = stdvec_concat(z, literal_z(l));
-        literal_t *ll = MALLOC(sizeof(literal_t));
-        *ll = literal_init(&zz, literal_sign(l), literal_pred(l),
-                literal_args(l));
+        const literal_t *ll = NEW(literal_prepend_all(z, l));
         const int index = clause_add(d, ll);
         assert(index >= 0);
     }
@@ -538,10 +526,8 @@ void setup_add_sensing_result(
     }
 
     const stdvec_t args = stdvec_singleton(n);
-    literal_t *l = MALLOC(sizeof(literal_t));
-    *l = literal_init(z, r, SF, &args);
-    clause_t *c = MALLOC(sizeof(clause_t));
-    *c = clause_singleton(l);
+    const literal_t *l = NEW(literal_init(z, r, SF, &args));
+    const clause_t *c = NEW(clause_singleton(l));
     clauses_add(&setup->clauses, c);
 
     const literal_t ll = literal_flip(l);
