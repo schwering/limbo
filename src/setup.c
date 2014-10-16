@@ -520,6 +520,13 @@ static bool setup_contains_empty_clause(const setup_t *setup)
         clause_is_empty(clauses_get(&setup->clauses, EMPTY_CLAUSE_INDEX));
 }
 
+void setup_guarantee_consistency(setup_t *setup, const int k)
+{
+    for (int l = bitmap_size(&setup->incons); l <= k; ++l) {
+        bitmap_insert(&setup->incons, l, false);
+    }
+}
+
 void setup_add_sensing_result(
         setup_t *setup,
         const stdvec_t *z,

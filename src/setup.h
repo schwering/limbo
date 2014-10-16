@@ -118,6 +118,12 @@
  * Notice that this optimization is based on the fact that the only safe way to
  * change the setup from the outside is setup_add_sensing_result().
  *
+ * The first inconsistency check is performed on the first call of
+ * setup_[inconsistent|entails](). As this needs the full PEL, it may be very
+ * expensive; hence the user may use setup_guarantee_consistency() to skip the
+ * first check. Subsequent setup_add_sensing_result() update the memorized
+ * inconsistency results.
+ *
  * To perform this inconsistency caching, our setup is not just a set of clauses
  * but also has a bitmap attribute.
  * Notice that the inconsistency checks and caching are performed in
@@ -202,6 +208,8 @@ setup_t setup_copy(const setup_t *setup);
 setup_t setup_lazy_copy(const setup_t *setup);
 
 int setup_cmp(const setup_t *setup1, const setup_t *setup2);
+
+void setup_guarantee_consistency(setup_t *setup, const int k);
 
 void setup_add_sensing_result(
         setup_t *setup,
