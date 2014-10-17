@@ -715,6 +715,7 @@ static bool setup_with_splits_subsumes(
         return r;
     }
     for (EACH(pelset, pel, i)) {
+        pelset_iter_remove(&i);
         const literal_t *l1 = i.val;
         const pred_t p = literal_pred(l1);
         if ((p == SF) != (k == 0) ||
@@ -722,18 +723,19 @@ static bool setup_with_splits_subsumes(
             continue;
         }
         const literal_t l2 = literal_flip(l1);
-        pelset_iter_remove(&i);
         const clause_t c1 = clause_singleton(l1);
         const clause_t c2 = clause_singleton(&l2);
         const int k1 = (p == SF) ? k : k - 1;
         setup_t setup1 = setup_lazy_copy(setup);
+        pelset_t pel1 = pelset_lazy_copy(pel);
         clauses_add(&setup1.clauses, &c1);
-        if (!setup_with_splits_subsumes(&setup1, pel, c, k1)) {
+        if (!setup_with_splits_subsumes(&setup1, &pel1, c, k1)) {
             continue;
         }
         setup_t setup2 = setup_lazy_copy(setup);
+        pelset_t pel2 = pelset_lazy_copy(pel);
         clauses_add(&setup2.clauses, &c2);
-        if (setup_with_splits_subsumes(&setup2, pel, c, k1)) {
+        if (setup_with_splits_subsumes(&setup2, &pel2, c, k1)) {
             return true;
         }
     }
