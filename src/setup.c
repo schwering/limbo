@@ -705,9 +705,11 @@ static bool setup_with_splits_subsumes(
         const clause_t *c,
         const int k)
 {
-    const bool r = setup_subsumes(setup, c);
-    if (r || k <= 0) {
-        return r;
+    if (setup_subsumes(setup, c)) {
+        return true;
+    }
+    if (k == 0) {
+        pel = NEW(clause_sf(c));
     }
     for (EACH(pelset, pel, i)) {
         pelset_iter_remove(&i);
@@ -736,6 +738,7 @@ static bool setup_with_splits_subsumes(
 
 bool setup_inconsistent(setup_t *setup, const int k)
 {
+    assert(k >= 0);
     if (setup_contains_empty_clause(setup)) {
         return true;
     }
@@ -766,6 +769,7 @@ bool setup_inconsistent(setup_t *setup, const int k)
 
 bool setup_entails(setup_t *setup, const clause_t *c, const int k)
 {
+    assert(k >= 0);
     if (setup_inconsistent(setup, k)) {
         return true;
     }
