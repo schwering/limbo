@@ -31,9 +31,9 @@ START_TEST(test_morri_example)
         hplus;
     });
     const setup_t static_setup = setup_init_static(&static_bat, &hplus);
+    const bsetup_t static_setups = bsetup_init_beliefs(&static_setup, &belief_conds, &hplus, k);
     const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
-    const setup_t static_and_dynamic_setup = setup_union(&static_setup, &dynamic_setup);
-    bsetup_t setups = bsetup_init_beliefs(&static_and_dynamic_setup, &belief_conds, &hplus, k);
+    bsetup_t setups = bsetup_unions(&static_setups, &dynamic_setup);
     int pl;
 
     ck_assert_int_eq(bsetup_size(&setups), 3);
@@ -203,7 +203,8 @@ Suite *clause_suite(void)
 {
     Suite *s = suite_create("Belief");
     TCase *tc_core = tcase_create("Core");
-    //tcase_add_test(tc_core, test_morri_example);
+    tcase_set_timeout(tc_core, 8);
+    tcase_add_test(tc_core, test_morri_example);
     tcase_add_test(tc_core, test_morri_example_with_context);
     tcase_add_test(tc_core, test_example_12);
     tcase_add_test(tc_core, test_inconsistency);

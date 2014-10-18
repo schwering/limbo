@@ -253,7 +253,10 @@ START_TEST(test_eventual_completeness)
         print_clause(&c);
 
         ck_assert(!setup_entails(&s, &c, 0));
-        // XXX TODO this is because of our special treatment of SF literals,
+        // EDIT: the following works with the current treatment of, i.e., the
+        // following comment is outdated and the "wanted" test actually holds.
+        // OUTDATED:
+        // This is because of our special treatment of SF literals,
         // which does not include SF literals in the PEL.
         // This could be fixed by including all SF literals from the clause in
         // clause_collect_pel_with_sf(), but then all SF literals in the query
