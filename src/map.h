@@ -39,6 +39,8 @@ typedef int (*kv_compar_t)(const kv_t *, const kv_t *);
 
 map_t map_init(kv_compar_t compar);
 map_t map_init_with_size(kv_compar_t compar, int size);
+map_t map_copy(const map_t *src);
+map_t map_lazy_copy(const map_t *src);
 void map_cleanup(map_t *map);
 
 int map_find(const map_t *map, const void *key);
@@ -58,6 +60,8 @@ void map_clear(map_t *map);
     typedef struct { const keytype key; const valtype val; } prefix##_kv_t;\
     prefix##_t prefix##_init(void);\
     prefix##_t prefix##_init_with_size(int size);\
+    prefix##_t prefix##_copy(const prefix##_t *src);\
+    prefix##_t prefix##_lazy_copy(const prefix##_t *src);\
     void prefix##_cleanup(prefix##_t *m);\
     int prefix##_find(const prefix##_t *m, const keytype key);\
     bool prefix##_contains(const prefix##_t *m, const keytype key);\
@@ -81,6 +85,10 @@ void map_clear(map_t *map);
     prefix##_t prefix##_init_with_size(int size) {\
         return (prefix##_t) { .m = map_init_with_size(prefix##_kv_compar,\
                 size) }; }\
+    prefix##_t prefix##_copy(const prefix##_t *src) {\
+        return (prefix##_t) { .m = map_copy(&src->m) }; }\
+    prefix##_t prefix##_lazy_copy(const prefix##_t *src) {\
+        return (prefix##_t) { .m = map_lazy_copy(&src->m) }; }\
     void prefix##_cleanup(prefix##_t *m) {\
         map_cleanup(&m->m); }\
     int prefix##_find(const prefix##_t *m, const keytype key) {\
