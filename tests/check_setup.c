@@ -260,8 +260,9 @@ START_TEST(test_eventual_completeness)
         // would be split regardsless of k (i.e., SF(f) v ~SF(f) would be
         // entailed even for k = 0).
         // Also see documentation in setup.h for details.
-        ck_assert(!setup_entails(&s, &c, 1));
-        // WANTED: ck_assert(setup_entails(&s, &c, 1));
+        //ck_assert(!setup_entails(&s, &c, 1));
+        // WANTED:
+        ck_assert(setup_entails(&s, &c, 1));
     });
 }
 END_TEST

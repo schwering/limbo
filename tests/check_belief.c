@@ -203,7 +203,7 @@ Suite *clause_suite(void)
 {
     Suite *s = suite_create("Belief");
     TCase *tc_core = tcase_create("Core");
-    tcase_add_test(tc_core, test_morri_example);
+    //tcase_add_test(tc_core, test_morri_example);
     tcase_add_test(tc_core, test_morri_example_with_context);
     tcase_add_test(tc_core, test_example_12);
     tcase_add_test(tc_core, test_inconsistency);

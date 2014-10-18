@@ -304,9 +304,6 @@ static pelset_t clause_pel(const clause_t *c)
     pelset_t pel = pelset_init_with_size(clause_size(c));
     for (EACH_CONST(clause, c, i)) {
         const literal_t *l = i.val;
-        if (literal_pred(l) == SF) {
-            continue;
-        }
         if (!literal_sign(l)) {
             pelset_add(&pel, NEW(literal_flip(l)));
         } else {
@@ -555,9 +552,7 @@ static pelset_t setup_full_pel(const setup_t *setup)
 
 static pelset_t setup_clause_small_pel(const setup_t *setup, const clause_t *c)
 {
-    pelset_t pel = clause_sf(c);
-    const pelset_t cp = clause_pel(c);
-    pelset_add_all(&pel, &cp);
+    pelset_t pel = clause_pel(c);
     for (int size = 0, new_size; size != (new_size = pelset_size(&pel)); ) {
         size = new_size;
         for (EACH_CONST(clauses, &setup->clauses, i)) {
@@ -711,31 +706,28 @@ static bool setup_with_splits_subsumes(
         const int k)
 {
     const bool r = setup_subsumes(setup, c);
-    if (r || k < 0) {
+    if (r || k <= 0) {
         return r;
     }
     for (EACH(pelset, pel, i)) {
         pelset_iter_remove(&i);
         const literal_t *l1 = i.val;
-        const pred_t p = literal_pred(l1);
-        if ((p == SF) != (k == 0) ||
-                !setup_relevant_split(setup, c, l1, k)) {
+        if (!setup_relevant_split(setup, c, l1, k)) {
             continue;
         }
         const literal_t l2 = literal_flip(l1);
         const clause_t c1 = clause_singleton(l1);
         const clause_t c2 = clause_singleton(&l2);
-        const int k1 = (p == SF) ? k : k - 1;
         setup_t setup1 = setup_lazy_copy(setup);
         pelset_t pel1 = pelset_lazy_copy(pel);
         clauses_add(&setup1.clauses, &c1);
-        if (!setup_with_splits_subsumes(&setup1, &pel1, c, k1)) {
+        if (!setup_with_splits_subsumes(&setup1, &pel1, c, k-1)) {
             continue;
         }
         setup_t setup2 = setup_lazy_copy(setup);
         pelset_t pel2 = pelset_lazy_copy(pel);
         clauses_add(&setup2.clauses, &c2);
-        if (setup_with_splits_subsumes(&setup2, &pel2, c, k1)) {
+        if (setup_with_splits_subsumes(&setup2, &pel2, c, k-1)) {
             return true;
         }
     }
