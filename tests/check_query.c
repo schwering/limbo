@@ -260,12 +260,40 @@ START_TEST(test_setup_entailment)
 }
 END_TEST
 
+START_TEST(test_eventual_completeness)
+{
+    univ_clauses_t static_bat = univ_clauses_init();
+    box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+    const literal_t *A = P(Z(), 0, A());
+    const literal_t *B = P(Z(), 1, A());
+    const literal_t *negA = N(Z(), 0, A());
+    const literal_t *negB = N(Z(), 1, A());
+
+    context_t ctx1 = kcontext_init(&static_bat, &dynamic_bat);
+
+    ck_assert(!query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_and(Q(negA), Q(negB))), 0));
+    ck_assert(query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_and(Q(negA), Q(negB))), 1));
+
+    ck_assert(!query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_neg(query_or(Q(A), Q(B)))), 0));
+    ck_assert(query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_neg(query_or(Q(A), Q(B)))), 1));
+
+    ck_assert(!query_entailed(&ctx1, false, query_or(Q(A), query_or(Q(B), query_neg(query_or(Q(A), Q(B))))), 0));
+    ck_assert(query_entailed(&ctx1, false, query_or(Q(A), query_or(Q(B), query_neg(query_or(Q(A), Q(B))))), 1));
+
+    var_t x = -1;
+    const literal_t *p = P(Z(), 0, A(x));
+    ck_assert(!query_entailed(&ctx1, false, query_exists(x, query_or(Q(p), query_neg(Q(p)))), 0));
+    ck_assert(query_entailed(&ctx1, false, query_exists(x, query_or(Q(p), query_neg(Q(p)))), 1));
+}
+END_TEST
+
 Suite *clause_suite(void)
 {
     Suite *s = suite_create("Query");
     TCase *tc_core = tcase_create("Core");
     tcase_add_test(tc_core, test_bat_entailment);
     tcase_add_test(tc_core, test_setup_entailment);
+    tcase_add_test(tc_core, test_eventual_completeness);
     suite_add_tcase(s, tc_core);
     return s;
 }
