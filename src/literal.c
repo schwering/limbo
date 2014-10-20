@@ -99,19 +99,7 @@ void literal_cleanup(literal_t *l)
 
 bool literal_is_ground(const literal_t *l)
 {
-    for (int i = 0; i < stdvec_size(&l->z); ++i) {
-        const term_t t = stdvec_get(&l->z, i);
-        if (IS_VARIABLE(t)) {
-            return false;
-        }
-    }
-    for (int i = 0; i < stdvec_size(&l->args); ++i) {
-        const term_t t = stdvec_get(&l->args, i);
-        if (IS_VARIABLE(t)) {
-            return false;
-        }
-    }
-    return true;
+    return stdvec_is_ground(&l->z) && stdvec_is_ground(&l->args);
 }
 
 void literal_collect_vars(const literal_t *l, varset_t *vars)
