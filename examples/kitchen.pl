@@ -24,17 +24,23 @@
 
 % Now test the properties (some are taken from the KR-2014 paper, some are
 % additional tests; they also match the kr2014.c example):
-test_tautology :-
+measure(Ctx, Call) :-
     context_retrieve(myctx, Ctx),
     cputime(T0),
-    context_entails(Ctx, 1, p v ~p),
-    \+ context_entails(Ctx, 1, p v q),
+    call(Call),
     cputime(T1),
     T is T1 - T0,
     write('OK: '), writeln(T).
 
-:- test_tautology.
-:- test_tautology.
+:- measure(Ctx, context_entails(Ctx, 1, p v ~p)).
+:- measure(Ctx, \+ context_entails(Ctx, 1, p v q)).
+:- measure(Ctx, context_entails(Ctx, 1, p v q v ~(p ^ q))).
+:- measure(Ctx, context_entails(Ctx, 1, p v ~(p ^ q) v q)).
+:- measure(Ctx, context_entails(Ctx, 1, p(n) v ~p(n))).
+:- measure(Ctx, context_entails(Ctx, 1, p(1) v ~p(1))).
+:- measure(Ctx, context_entails(Ctx, 1, forall(X, p(X) v ~p(X)))).
+:- writeln(ok).
+%:- measure(Ctx, context_entails(Ctx, 1, (p(1) v p(1)) -> exists(X, p(X)))).
 
 :- exit(0).
 

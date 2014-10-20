@@ -264,6 +264,7 @@ START_TEST(test_eventual_completeness_tautology)
 {
     univ_clauses_t static_bat = univ_clauses_init();
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+    init_bat(&dynamic_bat, &static_bat, NULL);
     const literal_t *A = P(Z(), 0, A());
     const literal_t *B = P(Z(), 1, A());
     const literal_t *negA = N(Z(), 0, A());
@@ -286,6 +287,11 @@ START_TEST(test_eventual_completeness_tautology)
     const literal_t *p = P(Z(), 0, A(x));
     ck_assert(!query_entailed(&ctx1, false, query_exists(x, query_or(Q(p), query_neg(Q(p)))), 0));
     ck_assert(query_entailed(&ctx1, false, query_exists(x, query_or(Q(p), query_neg(Q(p)))), 1));
+
+    // tests tautology (x) (P(x) v ~P(x))
+    const literal_t *q = P(Z(), 7, A(x));
+    ck_assert(!query_entailed(&ctx1, false, query_forall(x, query_or(Q(q), query_neg(Q(q)))), 0));
+    ck_assert(query_entailed(&ctx1, false, query_forall(x, query_or(Q(q), query_neg(Q(q)))), 1));
 }
 END_TEST
 
@@ -294,6 +300,7 @@ START_TEST(test_eventual_completeness_entailments)
     ({
         univ_clauses_t static_bat = univ_clauses_init();
         box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+        init_bat(&dynamic_bat, &static_bat, NULL);
         const literal_t *P1 = P(Z(), 0, A(1));
         const literal_t *P2 = P(Z(), 0, A(2));
         univ_clauses_append(&static_bat,univ_clause_init(TRUE,C(P1, P2)));
@@ -311,6 +318,7 @@ START_TEST(test_eventual_completeness_entailments)
     ({
         univ_clauses_t static_bat = univ_clauses_init();
         box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+        init_bat(&dynamic_bat, &static_bat, NULL);
         const literal_t *P1 = P(Z(), 0, A(1));
         const literal_t *P2 = P(Z(), 0, A(2));
         const literal_t *Q3 = P(Z(), 1, A(2));

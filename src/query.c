@@ -55,8 +55,12 @@ static stdset_t query_names(const query_t *phi)
         case EQ:
         case NEQ: {
             stdset_t set = stdset_init_with_size(2);
-            stdset_add(&set, phi->u.eq.t1);
-            stdset_add(&set, phi->u.eq.t2);
+            if (IS_STDNAME(phi->u.eq.t1)) {
+                stdset_add(&set, phi->u.eq.t1);
+            }
+            if (IS_STDNAME(phi->u.eq.t2)) {
+                stdset_add(&set, phi->u.eq.t2);
+            }
             return set;
         }
         case LIT: {
@@ -65,10 +69,16 @@ static stdset_t query_names(const query_t *phi)
             stdset_t set = stdset_init_with_size(
                     stdvec_size(z) + stdvec_size(args));
             for (EACH_CONST(stdvec, z, i)) {
-                stdset_add(&set, i.val);
+                const term_t t = i.val;
+                if (IS_STDNAME(t)) {
+                    stdset_add(&set, t);
+                }
             }
             for (EACH_CONST(stdvec, args, i)) {
-                stdset_add(&set, i.val);
+                const term_t t = i.val;
+                if (IS_STDNAME(t)) {
+                    stdset_add(&set, t);
+                }
             }
             return set;
         }
@@ -87,13 +97,13 @@ static stdset_t query_names(const query_t *phi)
             const query_t *phi2 = phi->u.qtf.phi;
             stdset_t set1 = query_names(phi1);
             stdset_t set2 = query_names(phi2);
-            stdset_remove(&set1, 1);
-            stdset_remove(&set2, 2);
             return stdset_union(&set1, &set2);
         }
         case ACT: {
             stdset_t set = query_names(phi->u.act.phi);
-            stdset_add(&set, phi->u.act.n);
+            if (IS_STDNAME(phi->u.act.n)) {
+                stdset_add(&set, phi->u.act.n);
+            }
             return set;
         }
     }
