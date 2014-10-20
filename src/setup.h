@@ -164,12 +164,14 @@ VECTOR_DECL(univ_clauses, univ_clause_t *);
 VECTOR_DECL(box_univ_clauses, box_univ_clause_t *);
 
 const ewff_t *ewff_true(void);
+const ewff_t *ewff_false(void);
 const ewff_t *ewff_eq(term_t t1, term_t t2);
 const ewff_t *ewff_neq(term_t t1, term_t t2);
 const ewff_t *ewff_sort(term_t t, bool (*is_sort)(stdname_t n));
 const ewff_t *ewff_neg(const ewff_t *e1);
 const ewff_t *ewff_or(const ewff_t *e1, const ewff_t *e2);
 const ewff_t *ewff_and(const ewff_t *e1, const ewff_t *e2);
+int ewff_cmp(const ewff_t *e1, const ewff_t *e2);
 bool ewff_eval(const ewff_t *e, const varmap_t *varmap);
 void ewff_ground(
         const ewff_t *e,

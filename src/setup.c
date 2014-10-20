@@ -44,7 +44,20 @@ VECTOR_IMPL(box_univ_clauses, box_univ_clause_t *, NULL);
 
 const ewff_t *ewff_true(void)
 {
-    return ewff_eq(-1, -1);
+    static const ewff_t *e = NULL;
+    if (e == NULL) {
+        e = ewff_eq(FIRST_VAR, FIRST_VAR);
+    }
+    return e;
+}
+
+const ewff_t *ewff_false(void)
+{
+    static const ewff_t *e = NULL;
+    if (e == NULL) {
+        e = ewff_neg(ewff_true());
+    }
+    return e;
 }
 
 const ewff_t *ewff_eq(term_t t1, term_t t2)
@@ -90,6 +103,27 @@ const ewff_t *ewff_or(const ewff_t *e1, const ewff_t *e2)
 const ewff_t *ewff_and(const ewff_t *e1, const ewff_t *e2)
 {
     return ewff_neg(ewff_or(ewff_neg(e1), ewff_neg(e2)));
+}
+
+int ewff_cmp(const ewff_t *e1, const ewff_t *e2)
+{
+    if (e1->type != e2->type) {
+        return e1->type < e2->type ? -1 : 1;
+    }
+    switch (e1->type) {
+        case EWFF_EQ:
+            return memcmp(&e1->u.eq, &e2->u.eq, sizeof(e1->u.eq));
+        case EWFF_SORT:
+            return memcmp(&e1->u.sort, &e2->u.sort, sizeof(e1->u.sort));
+        case EWFF_NEG:
+            return ewff_cmp(e1->u.neg.e, e2->u.neg.e);
+        case EWFF_OR: {
+            int i = ewff_cmp(e1->u.or.e1, e2->u.or.e1);
+            return i != 0 ? i : ewff_cmp(e1->u.or.e2, e2->u.or.e2);
+        }
+        default:
+            abort();
+    }
 }
 
 static void ewff_collect_vars(const ewff_t *e, varset_t *vars)
@@ -154,6 +188,11 @@ bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
         case EWFF_EQ: {
             const term_t t1 = e->u.eq.t1;
             const term_t t2 = e->u.eq.t2;
+            if (t1 == t2) {
+                return true;
+            }
+            assert(!IS_VARIABLE(t1) || varmap_contains(varmap, t1));
+            assert(!IS_VARIABLE(t2) || varmap_contains(varmap, t2));
             const stdname_t n1 =
                 IS_VARIABLE(t1) ? varmap_lookup(varmap, t1) : t1;
             const stdname_t n2 =
