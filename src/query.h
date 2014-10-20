@@ -7,9 +7,8 @@
  *
  * Queries are created by query_[n]eq(), query_[atom|lit](), query_neg(),
  * query_[and|or](), query_[exists|forall](), and query_act().
- * Note that queries are not allowed to quantify over actions.
- * I think the only reason is that query_ennf_zs() wouldn't work correctly
- * otherwise.
+ * Other than in standard ESL, actions may be variables. (That is fine here
+ * because quantifiers are grounde, see below.)
  *
  * Queries are evaluated against a context, which encapsulates, for example, the
  * setup and the current situation. The context is initialized through
@@ -25,23 +24,47 @@
  * force_no_update = true, which, however, is obviously dangerous.
  *
  * The query evaluation procedure differs a bit from the KR paper about ESL.
- * We first convert the formula into ENNF (extended negation normal form), that
- * is, all actions and negations are pushed inwards. If USE_QUERY_CNF is
- * defined, quantifiers are replaced with disjunctions and
- * conjunctions, respectively, over a set of standard names.
- * Then the query is decomposed and disjunctions of literals are taken as
- * clauses for which subsumption is tested.
- * If USE_QUERY_CNF is defined, the query is first converted to CNF and each of
- * the clauses is tested for subsumption, however, the CNF may be exponential in
- * size of the original formula.
- * During that procedure we treat SF literals just like normal split literals.
- * We therefore add them to the PEL set and setup_with_splits_and_sf_subsumes()
- * from setup.h will split them after splitting k non-SF literals. This
- * treatment should retain equivalence to the ESL paper.
+ * We first convert the formula into ENNF (extended negation normal form), which
+ * means that actions and negations are pushed inwards and quantifiers are
+ * grounded. Quantifiers are grounded by replacing them with disjunctions (for
+ * existentials) or conjunctions (for universals) over H+, the set of standard
+ * names from the BAT and query plus one additional for each variable in the
+ * query. Then, all equality expressions can be eliminated, because they only
+ * involve standard names. The resulting query is converted to CNF and each of
+ * the clauses is tested for subsumption using setup_entails().
+ *
+ * The conversion to CNF is necessary because, to make the decision procedure
+ * deterministic, literals are only split in setup_entails(), that is, only
+ * clause-wise. However, splitting literals across conjunctions or quantifiers
+ * is sometimes necessary:
+ * Example 1: Consider the tautology (p v q v (~p ^ ~q)). It can be shown in ESL
+ * for k = 2 by splitting p and q and then decomposing the query (if both split
+ * literals are negative, [~p] and [~q] hold and otherwise [p,q] holds). The
+ * implementation computes the CNF ((p v q v ~p) ^ (p v q v ~q)) and then both
+ * clauses can be shown even for k = 1.
+ * Example 2: Given a KB (P(#1) v P(#2)), in ESL (E x . P(x)) follows because
+ * we can first split P(#1) and then P(#2) and then proceed with the semantics
+ * of the existential, which requires to show P(#1) or to show P(#2). The
+ * implementation obtains (P(#1) v P(#2)) after grounding the query and thus
+ * proves the query even for k = 0.
+ *
+ * Notice that SF literals due to action occurrences in the query are split
+ * during setup_entails() as well.
+ *
+ * The above treatment helps to keep splitting locally in setup_entails() and
+ * thus makes the decision procedure deterministic, and the quantifier grounding
+ * allows to handle equality atoms.
+ * However, nested beliefs will not be compatible with that treatment. For
+ * example, consider ([n]p v [n]B(~p)) where SF(n) <-> p. This is a tautology
+ * because SF(n) is split and retained within the nested belief operator.
  *
  * To simplify this the procedure which converts a formula to CNF conversion,
  * we directly implement conjunctions, whereas the paper just defines
  * conjunction to be a negation of a disjunction.
+ *
+ * A version of the decision procedure with more closely follows the paper but
+ * is incorrect is still present but outcommented with #if 0 ... #endif in
+ * query.c.
  *
  * schwering@kbsg.rwth-aachen.de
  */

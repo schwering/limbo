@@ -164,21 +164,21 @@ static const query_t *query_substitute(const query_t *phi, var_t x, term_t t)
     abort();
 }
 
-static const query_t *query_ground_quantifier(bool existential,
-        const query_t *phi, var_t x, const const stdset_t *hplus, int i)
+static const query_t *query_ground_quantifier(const bool existential,
+        const query_t *phi, const var_t x, const stdset_t *hplus)
 {
-    assert(0 <= i && i <= stdset_size(hplus));
-    const query_t *psi1 = query_substitute(phi, x, stdset_get(hplus, i));
-    if (i + 1 == stdset_size(hplus)) {
-        return psi1;
-    } else {
-        const query_t *psi2 = query_ground_quantifier(existential, phi,
-                x, hplus, i + 1);
-        return NEW(((query_t) {
-            .type = existential ? OR : AND,
-            .u.bin = (query_binary_t) { .phi1 = psi1, .phi2 = psi2 }
-        }));
+    const query_t *psi = NULL;
+    for (EACH_CONST(stdset, hplus, i)) {
+        const stdname_t n = i.val;
+        const query_t *xi = query_substitute(phi, x, n);
+        if (psi == NULL) {
+            psi = xi;
+        } else {
+            psi = existential ? query_or(psi, xi) : query_and(psi, xi);
+        }
     }
+    assert(psi != NULL);
+    return psi;
 }
 
 static const query_t *query_ennf_h(
@@ -238,13 +238,13 @@ static const query_t *query_ennf_h(
         case EXISTS: {
             const bool is_existential = sign;
             const query_t *psi = query_ground_quantifier(is_existential,
-                    phi->u.qtf.phi, phi->u.qtf.var, hplus, 0);
+                    phi->u.qtf.phi, phi->u.qtf.var, hplus);
             return query_ennf_h(z, psi, hplus, sign);
         }
         case FORALL: {
             const bool is_existential = !sign;
             const query_t *psi = query_ground_quantifier(is_existential,
-                    phi->u.qtf.phi, phi->u.qtf.var, hplus, 0);
+                    phi->u.qtf.phi, phi->u.qtf.var, hplus);
             return query_ennf_h(z, psi, hplus, sign);
         }
         case ACT: {
@@ -271,8 +271,8 @@ static stdvecset_t query_ennf_zs(const query_t *phi)
             return stdvecset_singleton(literal_z(&phi->u.lit));
         case OR:
         case AND: {
-            stdvecset_t l = query_ennf_zs(phi->u.bin.phi1);
-            stdvecset_t r = query_ennf_zs(phi->u.bin.phi2);
+            const stdvecset_t l = query_ennf_zs(phi->u.bin.phi1);
+            const stdvecset_t r = query_ennf_zs(phi->u.bin.phi2);
             return stdvecset_union(&l, &r);
         }
         case NEG:
@@ -296,12 +296,14 @@ static const query_t *query_simplify(const query_t *phi, bool *truth_value)
     // The resulting formula only consists of the following elements:
     // LIT, OR, AND[, EXISTS, FORALL]
     // where EXISTS and FORALL only occur if they occurred in the given formula.
-    switch (phi->type)
-        case EQ: {
+    switch (phi->type) {
+        case EQ:
+            assert(!IS_VARIABLE(phi->u.eq.t1) && !IS_VARIABLE(phi->u.eq.t2));
             *truth_value = phi->u.eq.t1 == phi->u.eq.t2;
             return NULL;
         case NEQ:
-            *truth_value = phi->u.eq.t1 != phi->u.eq.t2; // XXX wrong for variables
+            assert(!IS_VARIABLE(phi->u.eq.t1) && !IS_VARIABLE(phi->u.eq.t2));
+            *truth_value = phi->u.eq.t1 != phi->u.eq.t2;
             return NULL;
         case LIT:
             return phi;

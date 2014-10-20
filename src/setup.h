@@ -66,22 +66,21 @@
  * (Lakemeyer and Levesque, KR-2014) provided that the clause does not mention
  * SF literals (see below why).
  *
- * There are two differences between the implementation and the KR-2014 paper:
+ * There are three differences between the implementation and the KR-2014 paper:
  *
- * Firstly, SF literals are treated differently. In ESL, an action operator
- * immediately leads to reasoning by cases for positive and negative SF. This is
- * skipped by our implementation. Instead, we split SF literals in the function
- * setup_with_splits_subsumes(), and they do not count towards the limit k.
- * (All non-SF literals do count towards that limit.)
- * As a consequence, the implementation proves (SF(a) v ~SF(a)) for any k, while
- * it can be proven only for k >= 1 in the KR-2014 paper. In a way, the
- * implementation is thus `more correct' wrt standard ES than ESL.
- * (The KR-2014 paper splits the SF literals in rules 11 and 12 of the procedure
- * V, that is, while processing the query. If we followed that approach, we
- * would have to do splitting in query.c, which looks messy to me. Also, our
- * approach keeps the equivalence f,w,z |= [n] alpha iff f,w,z.n |= alpha.)
+ * Firstly, as splitting belongs to the territory of setups, it only takes place
+ * while checking whether a clause is entailed. In contrast, the order of query
+ * decomposition and splitting is nondeterministic in ESL. This is important
+ * because for example proving the tautology p v q v (~p ^ ~q) depends on first
+ * splitting p and q and only then decomposing the query. This needs is taken
+ * care of by preprocessing the query appropriately in query.c (conversion to
+ * CNF and grounding of quantifiers).
  *
- * Secondly, PEL (positive extended literals) of a setup and a query clause are
+ * Secondly, for each action in the query clause, the corresponding SF literal
+ * is split during setup_entails(). These SF splits do not count towards the
+ * split limit k.
+ *
+ * Thirdly, PEL (positive extended literals) of a setup and a query clause are
  * minimized in the implementation. Splitting forms a tree of depth k and
  * branching factor |PEL|. Reducing PEL is hence more efficient. We apply two
  * optimizations:

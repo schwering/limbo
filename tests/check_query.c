@@ -260,7 +260,7 @@ START_TEST(test_setup_entailment)
 }
 END_TEST
 
-START_TEST(test_eventual_completeness)
+START_TEST(test_eventual_completeness_tautology)
 {
     univ_clauses_t static_bat = univ_clauses_init();
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
@@ -271,6 +271,7 @@ START_TEST(test_eventual_completeness)
 
     context_t ctx1 = kcontext_init(&static_bat, &dynamic_bat);
 
+    // tests tautology p v q v (~p ^ ~q)
     ck_assert(!query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_and(Q(negA), Q(negB))), 0));
     ck_assert(query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_and(Q(negA), Q(negB))), 1));
 
@@ -280,10 +281,53 @@ START_TEST(test_eventual_completeness)
     ck_assert(!query_entailed(&ctx1, false, query_or(Q(A), query_or(Q(B), query_neg(query_or(Q(A), Q(B))))), 0));
     ck_assert(query_entailed(&ctx1, false, query_or(Q(A), query_or(Q(B), query_neg(query_or(Q(A), Q(B))))), 1));
 
+    // tests tautology (E x) (P(x) v ~P(x))
     var_t x = -1;
     const literal_t *p = P(Z(), 0, A(x));
     ck_assert(!query_entailed(&ctx1, false, query_exists(x, query_or(Q(p), query_neg(Q(p)))), 0));
     ck_assert(query_entailed(&ctx1, false, query_exists(x, query_or(Q(p), query_neg(Q(p)))), 1));
+}
+END_TEST
+
+START_TEST(test_eventual_completeness_entailments)
+{
+    ({
+        univ_clauses_t static_bat = univ_clauses_init();
+        box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+        const literal_t *P1 = P(Z(), 0, A(1));
+        const literal_t *P2 = P(Z(), 0, A(2));
+        univ_clauses_append(&static_bat,univ_clause_init(TRUE,C(P1, P2)));
+
+        context_t ctx1 = kcontext_init(&static_bat, &dynamic_bat);
+
+        // tests entailment P(#1) v P(#2) |= (E x) P(x)
+        var_t x = -1;
+        const literal_t *P = P(Z(), 0, A(x));
+        ck_assert(query_entailed(&ctx1, false, query_exists(x, Q(P)), 0));
+        ck_assert(query_entailed(&ctx1, false, query_exists(x, Q(P)), 1));
+        ck_assert(query_entailed(&ctx1, false, query_exists(x, Q(P)), 2));
+    });
+
+    ({
+        univ_clauses_t static_bat = univ_clauses_init();
+        box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+        const literal_t *P1 = P(Z(), 0, A(1));
+        const literal_t *P2 = P(Z(), 0, A(2));
+        const literal_t *Q3 = P(Z(), 1, A(2));
+        const literal_t *negQ3 = N(Z(), 1, A(2));
+        univ_clauses_append(&static_bat,univ_clause_init(TRUE,C(P1, P2, Q3)));
+        univ_clauses_append(&static_bat,univ_clause_init(TRUE,C(P1, P2, negQ3)));
+
+        context_t ctx1 = kcontext_init(&static_bat, &dynamic_bat);
+
+        // tests entailment
+        // (P(#1) v P(#2) v Q(#3)) ^ (P(#1) v P(#2) v ~Q(#3)) |= (E x) P(x)
+        var_t x = -1;
+        const literal_t *P = P(Z(), 0, A(x));
+        ck_assert(!query_entailed(&ctx1, false, query_exists(x, Q(P)), 0));
+        ck_assert(query_entailed(&ctx1, false, query_exists(x, Q(P)), 1));
+        ck_assert(query_entailed(&ctx1, false, query_exists(x, Q(P)), 2));
+    });
 }
 END_TEST
 
@@ -293,7 +337,8 @@ Suite *clause_suite(void)
     TCase *tc_core = tcase_create("Core");
     tcase_add_test(tc_core, test_bat_entailment);
     tcase_add_test(tc_core, test_setup_entailment);
-    tcase_add_test(tc_core, test_eventual_completeness);
+    tcase_add_test(tc_core, test_eventual_completeness_tautology);
+    tcase_add_test(tc_core, test_eventual_completeness_entailments);
     suite_add_tcase(s, tc_core);
     return s;
 }
