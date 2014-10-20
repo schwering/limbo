@@ -32,7 +32,6 @@ void print_z(const stdvec_t *z);
 void print_literal(const literal_t *l);
 void print_clause(const clause_t *c);
 void print_setup(const setup_t *setup);
-void print_pel(const pelset_t *pel);
 void print_query(const query_t *phi);
 
 #endif

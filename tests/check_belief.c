@@ -31,42 +31,41 @@ START_TEST(test_morri_example)
         hplus;
     });
     const setup_t static_setup = setup_init_static(&static_bat, &hplus);
+    const bsetup_t static_setups = bsetup_init_beliefs(&static_setup, &belief_conds, &hplus, k);
     const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
-    const setup_t static_and_dynamic_setup = setup_union(&static_setup, &dynamic_setup);
-    bsetup_t setups = bsetup_init_beliefs(&static_and_dynamic_setup, &belief_conds, &hplus, k);
-    pelsets_t pels = bsetup_pels(&setups);
+    bsetup_t setups = bsetup_unions(&static_setups, &dynamic_setup);
     int pl;
 
     ck_assert_int_eq(bsetup_size(&setups), 3);
 
     // Property 1
-    ck_assert(bsetup_with_splits_and_sf_subsumes(&setups, &pels, C(N(Z(), L1, A())), k, &pl));
+    ck_assert(bsetup_entails(&setups, C(N(Z(), L1, A())), k, &pl));
     ck_assert(pl == 0);
 
     // Property 2
-    bsetup_add_sensing_results(&setups, SF(P(Z(), SF, A(SL))));
-    ck_assert(bsetup_with_splits_and_sf_subsumes(&setups, &pels, C(P(Z(SL), L1, A())), k, &pl));
+    bsetup_add_sensing_result(&setups, Z(), SL, true);
+    ck_assert(bsetup_entails(&setups, C(P(Z(SL), L1, A())), k, &pl));
     ck_assert_int_eq(pl, 1);
-    ck_assert(bsetup_with_splits_and_sf_subsumes(&setups, &pels, C(P(Z(SL), R1, A())), k, &pl));
+    ck_assert(bsetup_entails(&setups, C(P(Z(SL), R1, A())), k, &pl));
     ck_assert_int_eq(pl, 1);
 
     // Property 3
-    bsetup_add_sensing_results(&setups, SF(N(Z(SL), SF, A(SR1))));
-    ck_assert(bsetup_with_splits_and_sf_subsumes(&setups, &pels, C(N(Z(SL, SR1), R1, A())), k, &pl));
+    bsetup_add_sensing_result(&setups, Z(SL), SR1, false);
+    ck_assert(bsetup_entails(&setups, C(N(Z(SL, SR1), R1, A())), k, &pl));
     ck_assert_int_eq(pl, 2);
 
     // Property 5
-    ck_assert(!bsetup_with_splits_and_sf_subsumes(&setups, &pels, C(P(Z(), L1, A())), k, &pl));
-    ck_assert(!bsetup_with_splits_and_sf_subsumes(&setups, &pels, C(N(Z(), L1, A())), k, &pl));
+    ck_assert(!bsetup_entails(&setups, C(P(Z(), L1, A())), k, &pl));
+    ck_assert(!bsetup_entails(&setups, C(N(Z(), L1, A())), k, &pl));
 
     // Property 6
-    bsetup_add_sensing_results(&setups, SF(P(Z(SL, SR1), SF, A(LV))));
-    ck_assert(bsetup_with_splits_and_sf_subsumes(&setups, &pels, C(P(Z(SL, SR1, LV), R1, A())), k, &pl));
+    bsetup_add_sensing_result(&setups, Z(SL, SR1), LV, true);
+    ck_assert(bsetup_entails(&setups, C(P(Z(SL, SR1, LV), R1, A())), k, &pl));
     ck_assert_int_eq(pl, 2);
 
     // Property 7
-    bsetup_add_sensing_results(&setups, SF(P(Z(SL, SR1, LV), SF, A(SL))));
-    ck_assert(bsetup_with_splits_and_sf_subsumes(&setups, &pels, C(P(Z(SL, SR1, LV, SL), L1, A())), k, &pl));
+    bsetup_add_sensing_result(&setups, Z(SL, SR1, LV), SL, true);
+    ck_assert(bsetup_entails(&setups, C(P(Z(SL, SR1, LV, SL), L1, A())), k, &pl));
     ck_assert_int_eq(pl, 2);
 }
 END_TEST
@@ -78,7 +77,7 @@ START_TEST(test_morri_example_with_context)
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
     init_bat(&dynamic_bat, &static_bat, &belief_conds);
     const int k = 2;
-    context_t ctx1 = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, k, Z(), SF());
+    context_t ctx1 = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, k);
 
     ck_assert_int_eq(bsetup_size(&ctx1.u.b.setups), 3);
 
@@ -90,7 +89,7 @@ START_TEST(test_morri_example_with_context)
     const query_t *phi2 = query_and(Q(P(Z(), L1, A())), Q(P(Z(), R1, A())));
     context_t ctx2 = context_copy(&ctx1);
     //context_add_actions(&ctx2, Z(SL), SF(P(Z(), SF, A(SL))));
-    CONTEXT_ADD_ACTIONS(&ctx2, {SL,true});
+    context_add_action(&ctx2, SL, true);
     ck_assert(query_entailed(&ctx2, false, phi2, k));
     ck_assert(!query_entailed(&ctx1, false, phi2, k)); // sensing really really is required
 
@@ -98,7 +97,7 @@ START_TEST(test_morri_example_with_context)
     const query_t *phi3 = Q(N(Z(), R1, A()));
     context_t ctx3 = context_copy(&ctx2);
     //context_add_actions(&ctx3, Z(SR1), SF(N(Z(SL), SF, A(SR1))));
-    CONTEXT_ADD_ACTIONS(&ctx3, {SR1,false});
+    context_add_action(&ctx3, SR1, false);
     ck_assert(query_entailed(&ctx3, false, phi3, k));
     ck_assert(!query_entailed(&ctx2, false, phi3, k)); // sensing really really is required
 
@@ -112,7 +111,7 @@ START_TEST(test_morri_example_with_context)
     const query_t *phi6 = Q(P(Z(), R1, A()));
     context_t ctx4 = context_copy(&ctx3);
     //context_add_actions(&ctx4, Z(LV), SF(P(Z(SL, SR1), SF, A(LV))));
-    CONTEXT_ADD_ACTIONS(&ctx4, {LV,true});
+    context_add_action(&ctx4, LV, true);
     ck_assert(query_entailed(&ctx4, false, phi6, k));
     ck_assert(!query_entailed(&ctx3, false, phi6, k)); // sensing really really is required
 
@@ -120,7 +119,7 @@ START_TEST(test_morri_example_with_context)
     const query_t *phi7 = Q(P(Z(), L1, A()));
     context_t ctx5 = context_copy(&ctx4);
     //context_add_actions(&ctx5, Z(SL), SF(P(Z(SL, SR1, LV), SF, A(SL))));
-    CONTEXT_ADD_ACTIONS(&ctx5, {SL,true});
+    context_add_action(&ctx5, SL, true);
     ck_assert(query_entailed(&ctx5, false, phi7, k));
     ck_assert(query_entailed(&ctx4, false, phi6, k)); // sensing really really is required
 }
@@ -158,16 +157,15 @@ START_TEST(test_example_12)
     const setup_t dynamic_setup = setup_init_dynamic(&dynamic_bat, &hplus, &query_zs);
     const setup_t static_and_dynamic_setup = setup_union(&static_setup, &dynamic_setup);
     bsetup_t setups = bsetup_init_beliefs(&static_and_dynamic_setup, &belief_conds, &hplus, k);
-    pelsets_t pels = bsetup_pels(&setups);
 
     ck_assert_int_eq(bsetup_size(&setups), 3);
 
-    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 0), pelsets_get(&pels, 0), C(negA, B), k));
-    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 0), pelsets_get(&pels, 0), C(negC), k));
-    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 1), pelsets_get(&pels, 1), C(negC, A), k));
-    ck_assert(setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 1), pelsets_get(&pels, 1), C(negC, negB), k));
-    ck_assert(!setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 1), pelsets_get(&pels, 1), C(A), k));
-    ck_assert(!setup_with_splits_and_sf_subsumes(bsetup_get_unsafe(&setups, 1), pelsets_get(&pels, 1), C(negB), k));
+    ck_assert(setup_entails(bsetup_get_unsafe(&setups, 0), C(negA, B), k));
+    ck_assert(setup_entails(bsetup_get_unsafe(&setups, 0), C(negC), k));
+    ck_assert(setup_entails(bsetup_get_unsafe(&setups, 1), C(negC, A), k));
+    ck_assert(setup_entails(bsetup_get_unsafe(&setups, 1), C(negC, negB), k));
+    ck_assert(!setup_entails(bsetup_get_unsafe(&setups, 1), C(A), k));
+    ck_assert(!setup_entails(bsetup_get_unsafe(&setups, 1), C(negB), k));
 }
 END_TEST
 
@@ -185,14 +183,12 @@ START_TEST(test_inconsistency)
     SBELIEF(TRUE, C(), C(negA,    B));
     SBELIEF(TRUE, C(), C(negA, negB));
 
-    context_t ctx1 = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, 0, Z(), SF());
+    context_t ctx1 = bcontext_init(&static_bat, &belief_conds, &dynamic_bat, 0);
 
     ck_assert_int_eq(bsetup_size(&ctx1.u.b.setups), 2);
 
     //print_setup(bsetup_get(&ctx1.u.b.setups, 0));
-    //print_pel(pelsets_get(&ctx1.u.b.pels, 0));
     //print_setup(bsetup_get(&ctx1.u.b.setups, 1));
-    //print_pel(pelsets_get(&ctx1.u.b.pels, 1));
 
     ck_assert(setup_subsumes(bsetup_get_unsafe(&ctx1.u.b.setups, 0), C(A, B)));
     ck_assert(!setup_subsumes(bsetup_get_unsafe(&ctx1.u.b.setups, 1), C(A, B)));
@@ -207,6 +203,7 @@ Suite *clause_suite(void)
 {
     Suite *s = suite_create("Belief");
     TCase *tc_core = tcase_create("Core");
+    tcase_set_timeout(tc_core, 8);
     tcase_add_test(tc_core, test_morri_example);
     tcase_add_test(tc_core, test_morri_example_with_context);
     tcase_add_test(tc_core, test_example_12);

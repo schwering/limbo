@@ -67,19 +67,8 @@ void print_setup(const setup_t *setup)
 {
     printf("Setup:\n");
     printf("---------------\n");
-    for (int i = 0; i < setup_size(setup); ++i) {
-        print_clause(setup_get(setup, i));
-    }
-    printf("---------------\n");
-}
-
-void print_pel(const pelset_t *pel)
-{
-    printf("PEL:\n");
-    printf("---------------\n");
-    for (int i = 0; i < pelset_size(pel); ++i) {
-        print_literal(pelset_get(pel, i));
-        printf("\n");
+    for (int i = 0; i < clauses_size(&setup->clauses); ++i) {
+        print_clause(clauses_get(&setup->clauses, i));
     }
     printf("---------------\n");
 }
@@ -99,7 +88,7 @@ typedef struct { term_t n; const query_t *phi; } query_action_t;
 typedef struct {
     int (*n_vars)(void *);
     stdset_t (*names)(void *);
-    bool (*eval)(const stdvec_t *, const splitset_t *, void *);
+    bool (*eval)(const stdvec_t *, const bitmap_t *, void *);
     void *arg;
     stdvec_t context_z;
     bool sign;

@@ -7,8 +7,8 @@
 static bool query_entailed_by_bat(
         const univ_clauses_t *static_bat,
         const box_univ_clauses_t *dynamic_bat,
-        const stdvec_t *context_z,
-        const splitset_t *context_sf,
+        const stdvec_t *situation,
+        const bitmap_t *sensings,
         const query_t *phi,
         const int k)
 {
@@ -21,8 +21,8 @@ static bool query_entailed_by_bat(
         hplus;
     });
     bool truth_value;
-    phi = query_ennf(context_z, phi, &hplus);
-    phi = query_simplify(context_sf, phi, &truth_value);
+    phi = query_ennf(situation, phi, &hplus);
+    phi = query_simplify(sensings, phi, &truth_value);
     if (phi == NULL) {
         return truth_value;
     }
@@ -31,19 +31,23 @@ static bool query_entailed_by_bat(
         const setup_t static_setup = setup_init_static(static_bat, &hplus);
         const setup_t dynamic_setup = setup_init_dynamic(dynamic_bat, &hplus, &zs);
         const setup_t s = setup_union(&static_setup, &dynamic_setup);
-        setup_add_sensing_results(&s, context_sf);
+        setup_add_sensing_results(&s, sensings);
         s;
     });
-    pelset_t pel = setup_pel(&setup);
     cnf_t cnf = query_cnf(phi);
     truth_value = true;
     for (int i = 0; i < cnf_size(&cnf) && truth_value; ++i) {
         const clause_t *c = cnf_get(&cnf, i);
-        truth_value = setup_with_splits_and_sf_subsumes(&setup, &pel, c, k);
+        truth_value = setup_entails(&setup, c, k);
     }
     return truth_value;
 #endif
-    context_t ctx = kcontext_init(static_bat, dynamic_bat, context_z, context_sf);
+    context_t ctx = kcontext_init(static_bat, dynamic_bat);
+    for (int i = 0; i < stdvec_size(situation); ++i) {
+        const stdname_t n = stdvec_get(situation, i);
+        const bool r = bitmap_get(sensings, i);
+        context_add_action(&ctx, n, r);
+    }
     return query_entailed(&ctx, false, phi, k);
 }
 
@@ -54,119 +58,114 @@ START_TEST(test_bat_entailment)
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
     init_bat(&dynamic_bat, &static_bat, NULL);
 
-    const stdvec_t empty_vec = stdvec_init();
-    const stdvec_t f_vec = stdvec_singleton(forward);
-    const stdvec_t s_vec = stdvec_singleton(sonar);
-    const literal_t sensing_forward = literal_init(&empty_vec, true, SF, &f_vec);
-    const literal_t sensing_sonar = literal_init(&f_vec, true, SF, &s_vec);
-    stdvec_t context_z = stdvec_init_with_size(0);
-    splitset_t context_sf = splitset_init_with_size(0);
+    stdvec_t situation = stdvec_init_with_size(0);
+    bitmap_t sensings = bitmap_init_with_size(0);
 
-    stdvec_clear(&context_z);
-    splitset_clear(&context_sf);
+    stdvec_clear(&situation);
+    bitmap_clear(&sensings);
     const query_t *phi1 =
         query_neg(
             query_or(
                 Q(P(Z(), d0, A())),
                 Q(P(Z(), d1, A()))));
-    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi1, 0));
+    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi1, 0));
 
-    stdvec_clear(&context_z);
-    splitset_clear(&context_sf);
+    stdvec_clear(&situation);
+    bitmap_clear(&sensings);
     const query_t *phi2 =
         query_act(forward,
             query_or(
                 Q(P(Z(), d1, A())),
                 Q(P(Z(), d2, A()))));
-    ck_assert(!query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi2, 0));
+    ck_assert(!query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi2, 0));
 
-    stdvec_clear(&context_z);
-    stdvec_append(&context_z, forward);
-    splitset_clear(&context_sf);
-    splitset_add(&context_sf, &sensing_forward);
+    stdvec_clear(&situation);
+    stdvec_append(&situation, forward);
+    bitmap_clear(&sensings);
+    bitmap_append(&sensings, true);
     phi2 =
         query_or(
             Q(P(Z(), d1, A())),
             Q(P(Z(), d2, A())));
-    ck_assert(!query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi2, 0));
+    ck_assert(!query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi2, 0));
 
-    stdvec_clear(&context_z);
-    stdvec_append(&context_z, forward);
-    splitset_clear(&context_sf);
-    splitset_add(&context_sf, &sensing_forward);
-    ck_assert_int_eq(stdvec_size(&context_z), 1);
-    ck_assert_int_eq(splitset_size(&context_sf), 1);
+    stdvec_clear(&situation);
+    stdvec_append(&situation, forward);
+    bitmap_clear(&sensings);
+    bitmap_append(&sensings, true);
+    ck_assert_int_eq(stdvec_size(&situation), 1);
+    ck_assert_int_eq(bitmap_size(&sensings), 1);
     const query_t *phi3 =
         query_or(
             Q(P(Z(), d1, A())),
             Q(P(Z(), d2, A())));
-    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi3, 1));
+    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi3, 1));
 
-    stdvec_clear(&context_z);
-    splitset_clear(&context_sf);
+    stdvec_clear(&situation);
+    bitmap_clear(&sensings);
     phi3 =
         query_act(forward,
             query_or(
                 Q(P(Z(), d1, A())),
                 Q(P(Z(), d2, A()))));
-    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi3, 1));
+    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi3, 1));
 
-    stdvec_clear(&context_z);
-    stdvec_append(&context_z, forward);
-    stdvec_append(&context_z, sonar);
-    splitset_clear(&context_sf);
-    splitset_add(&context_sf, &sensing_forward);
-    splitset_add(&context_sf, &sensing_sonar);
+    stdvec_clear(&situation);
+    stdvec_append(&situation, forward);
+    stdvec_append(&situation, sonar);
+    bitmap_clear(&sensings);
+    bitmap_append(&sensings, true);
+    bitmap_append(&sensings, true);
     const query_t *phi4 =
         query_or(
             Q(P(Z(), d0, A())),
             Q(P(Z(), d1, A())));
-    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi4, 1));
+    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi4, 1));
 
-    stdvec_clear(&context_z);
-    splitset_clear(&context_sf);
+    stdvec_clear(&situation);
+    bitmap_clear(&sensings);
     phi4 =
         query_act(forward,
             query_act(sonar,
                 query_or(
                     Q(P(Z(), d0, A())),
                     Q(P(Z(), d1, A())))));
-    ck_assert(!query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi4, 1));
+    ck_assert(!query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi4, 1));
 
-    stdvec_clear(&context_z);
-    stdvec_append(&context_z, forward);
-    stdvec_append(&context_z, sonar);
-    splitset_clear(&context_sf);
-    splitset_add(&context_sf, &sensing_forward);
-    splitset_add(&context_sf, &sensing_sonar);
+    stdvec_clear(&situation);
+    stdvec_append(&situation, forward);
+    stdvec_append(&situation, sonar);
+    bitmap_clear(&sensings);
+    bitmap_append(&sensings, true);
+    bitmap_append(&sensings, true);
     const query_t *phi5 =
         query_or(
             Q(P(Z(), d0, A())),
             Q(P(Z(), d1, A())));
-    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi5, 1));
+    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi5, 1));
 
-    stdvec_clear(&context_z);
-    splitset_clear(&context_sf);
+    stdvec_clear(&situation);
+    bitmap_clear(&sensings);
     phi5 =
         query_act(forward,
             query_act(sonar,
                 query_or(
                     Q(P(Z(), d0, A())),
                     Q(P(Z(), d1, A())))));
-    ck_assert(!query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi5, 1));
+    ck_assert(!query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi5, 1));
 
-    stdvec_clear(&context_z);
-    stdvec_append(&context_z, forward);
-    stdvec_append(&context_z, sonar);
-    splitset_clear(&context_sf);
-    splitset_add(&context_sf, &sensing_forward);
-    splitset_add(&context_sf, &sensing_sonar);
+    stdvec_clear(&situation);
+    stdvec_append(&situation, forward);
+    stdvec_append(&situation, sonar);
+    bitmap_clear(&sensings);
+    bitmap_append(&sensings, true);
+    bitmap_append(&sensings, true);
     const query_t *phi6 =
         query_act(forward,
             query_or(
                 Q(P(Z(), d0, A())),
                 Q(P(Z(), d1, A()))));
-    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &context_z, &context_sf, phi6, 1));
+    ck_assert(query_entailed_by_bat(&static_bat, &dynamic_bat, &situation, &sensings, phi6, 1));
 }
 END_TEST
 
@@ -176,7 +175,7 @@ START_TEST(test_setup_entailment)
     box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
     init_bat(&dynamic_bat, &static_bat, NULL);
 
-    context_t ctx = kcontext_init(&static_bat, &dynamic_bat, Z(), SF());
+    context_t ctx = kcontext_init(&static_bat, &dynamic_bat);
 
     //printf("Q0\n");
     const query_t *phi0 =
@@ -209,7 +208,8 @@ START_TEST(test_setup_entailment)
                 Q(P(Z(), d2, A()))));
     ck_assert(!query_entailed(&ctx, false, phi2, 0));
 
-    CONTEXT_ADD_ACTIONS(&ctx, {forward,true}, {sonar,true});
+    context_add_action(&ctx, forward, true);
+    context_add_action(&ctx, sonar, true);
 
     //printf("Q4\n");
     const query_t *phi4 =
@@ -260,12 +260,40 @@ START_TEST(test_setup_entailment)
 }
 END_TEST
 
+START_TEST(test_eventual_completeness)
+{
+    univ_clauses_t static_bat = univ_clauses_init();
+    box_univ_clauses_t dynamic_bat = box_univ_clauses_init();
+    const literal_t *A = P(Z(), 0, A());
+    const literal_t *B = P(Z(), 1, A());
+    const literal_t *negA = N(Z(), 0, A());
+    const literal_t *negB = N(Z(), 1, A());
+
+    context_t ctx1 = kcontext_init(&static_bat, &dynamic_bat);
+
+    ck_assert(!query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_and(Q(negA), Q(negB))), 0));
+    ck_assert(query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_and(Q(negA), Q(negB))), 1));
+
+    ck_assert(!query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_neg(query_or(Q(A), Q(B)))), 0));
+    ck_assert(query_entailed(&ctx1, false, query_or(query_or(Q(A), Q(B)), query_neg(query_or(Q(A), Q(B)))), 1));
+
+    ck_assert(!query_entailed(&ctx1, false, query_or(Q(A), query_or(Q(B), query_neg(query_or(Q(A), Q(B))))), 0));
+    ck_assert(query_entailed(&ctx1, false, query_or(Q(A), query_or(Q(B), query_neg(query_or(Q(A), Q(B))))), 1));
+
+    var_t x = -1;
+    const literal_t *p = P(Z(), 0, A(x));
+    ck_assert(!query_entailed(&ctx1, false, query_exists(x, query_or(Q(p), query_neg(Q(p)))), 0));
+    ck_assert(query_entailed(&ctx1, false, query_exists(x, query_or(Q(p), query_neg(Q(p)))), 1));
+}
+END_TEST
+
 Suite *clause_suite(void)
 {
     Suite *s = suite_create("Query");
     TCase *tc_core = tcase_create("Core");
     tcase_add_test(tc_core, test_bat_entailment);
     tcase_add_test(tc_core, test_setup_entailment);
+    tcase_add_test(tc_core, test_eventual_completeness);
     suite_add_tcase(s, tc_core);
     return s;
 }

@@ -1,4 +1,4 @@
-add_library (ESBL SHARED belief.c literal.c map.c query.c set.c setup.c term.c vector.c)
+add_library (ESBL SHARED term.c literal.c vector.c bitmap.c set.c map.c setup.c belief.c query.c)
 
 find_package (GC REQUIRED)
 include_directories (${BOEHM_GC_INCLUDE_DIRS})

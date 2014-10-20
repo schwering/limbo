@@ -22,16 +22,22 @@ typedef term_t var_t;
 
 #define STDNAME_MAX LONG_MAX
 
-#define IS_VARIABLE(x) ((x) < 0)
-#define IS_STDNAME(x)  ((x) >= 0)
+#define IS_VARIABLE(x)  ((x) < 0)
+#define IS_STDNAME(x)   ((x) >= 0)
 
-MAP_DECL(varmap, var_t, stdname_t);
+#define FIRST_VAR        (-1)
+
+MAP_DECL(varmap, var_t, term_t);
+
+term_t varmap_lookup_or_id(const varmap_t *varmap, var_t x);
 
 SET_DECL(varset, var_t);
 
 SET_DECL(stdset, stdname_t);
 
 VECTOR_DECL(stdvec, stdname_t);
+
+bool stdvec_is_ground(const stdvec_t *v);
 
 SET_DECL(stdvecset, stdvec_t *);
 

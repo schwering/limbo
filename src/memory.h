@@ -3,6 +3,7 @@
  * Wrappers for memory allocation.
  *
  * Additionally there's a macro NEW for allocation plus initialization.
+ * To create heap allocated copies of const objects, there's a variant NEWC.
  *
  * schwering@kbsg.rwth-aachen.de
  */
@@ -34,6 +35,15 @@
         typeof(expr) *_NEW_ptr = MALLOC(sizeof(expr));\
         *_NEW_ptr = expr;\
         _NEW_ptr;\
+    })
+
+#include <string.h>
+
+#define NEWC(expr) \
+    ({\
+        void *_NEW_ptr = MALLOC(sizeof(expr));\
+        memcpy(_NEW_ptr, &expr, sizeof(expr));\
+        (typeof(expr) *) _NEW_ptr;\
     })
 
 #endif

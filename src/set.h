@@ -91,6 +91,7 @@ int set_size(const set_t *set);
 int set_find(const set_t *set, const void *elem);
 bool set_contains(const set_t *set, const void *elem);
 bool set_contains_all(const set_t *set, const set_t *elems);
+bool set_disjoint(const set_t *set1, const set_t *set2);
 
 int set_add(set_t *set, const void *elem);
 void set_add_all(set_t *set, const set_t *elems);
@@ -154,6 +155,7 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
     int prefix##_find(const prefix##_t *s, const type elem);\
     bool prefix##_contains(const prefix##_t *s, const type elem);\
     bool prefix##_contains_all(const prefix##_t *s, const prefix##_t *elems);\
+    bool prefix##_disjoint(const prefix##_t *s1, const prefix##_t *s2);\
     int prefix##_add(prefix##_t *s, const type elem);\
     void prefix##_add_all(prefix##_t *s, const prefix##_t *elems);\
     bool prefix##_remove(prefix##_t *s, const type elem);\
@@ -224,6 +226,8 @@ const void *set_const_iter_get(const set_const_iter_t *iter);
         return set_contains(&s->s, (const void *) elem); }\
     bool prefix##_contains_all(const prefix##_t *s, const prefix##_t *elems) {\
         return set_contains_all(&s->s, &elems->s); }\
+    bool prefix##_disjoint(const prefix##_t *s1, const prefix##_t *s2) {\
+        return set_disjoint(&s1->s, &s2->s); }\
     int prefix##_add(prefix##_t *s, const type elem) {\
         return set_add(&s->s, (const void *) elem); }\
     void prefix##_add_all(prefix##_t *s, const prefix##_t *elems) {\

@@ -12,6 +12,20 @@ map_t map_init_with_size(kv_compar_t compar, int size)
     return (map_t) { .set = set_init_with_size((compar_t) compar, size) };
 }
 
+map_t map_copy(const map_t *src)
+{
+    return (map_t) {
+        .set = set_copy(&src->set)
+    };
+}
+
+map_t map_lazy_copy(const map_t *src)
+{
+    return (map_t) {
+        .set = set_lazy_copy(&src->set)
+    };
+}
+
 void map_cleanup(map_t *map)
 {
     for (int i = 0; i < set_size(&map->set); ++i) {

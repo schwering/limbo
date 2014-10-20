@@ -4,8 +4,12 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (ESBL)
 
-set(CMAKE_C_FLAGS "-std=gnu99")
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+set (CMAKE_C_FLAGS "-std=gnu99")
+set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+
+if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+endif()
 
 # Recurse into the "src" and "examples" subdirectories. This does not actually
 # cause another cmake executable to run. The same process will walk through

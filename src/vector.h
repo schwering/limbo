@@ -11,8 +11,8 @@
  * or vector_copy[_range](). The latter ones copy [the range of] a vector into
  * the new one. The functions vector_lazy_copy[_range]() rely on the source
  * vector not being modified afterwards; otherwise the behavior of the new
- * vector is undefined. All lazy copies of a vector may be modified freely,
- * however, without any interdependencies.
+ * vector is undefined. All lazy copies of a vector may be modified freely
+ * without any interdependencies.
  * Deallocation is done with vector_cleanup(). It's not necessary to deallocate
  * a lazy copy (unless it was modified and thus is not lazy anymore). 
  *
