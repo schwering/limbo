@@ -33,15 +33,11 @@ At compile time, it is translated to a proper+ basic action theory in C code (a 
 
 The `examples` directory contains a few examples which evaulate queries wrt the basic action theories.
 
-An interface to ECLiPSe-CLP is coming up.
-
 
 ## To-Do List
 
-* Unit test that shows necessity of `clause_sf()` in `setup_clause_small_pel()`.
-* Heuristically rank split literals (decision theory).
+* Use planning to implement the decision procedure as in the KR-2014 paper.
 * Try a B+tree (or red-black tree or whatever) index with shadowing and clones for faster set operations.
-* ~~Add an index `literal -> clause` to each setup which gives all clauses that contain a given literal for faster unit propagatation.~~
 * For subsumption we currently iterate over the full setup to look for a clause that is a superset of the query.
   Alternatively, we could compute all sub-clauses of the query clause and check if one of them is contained in the setup.
   That should be faster in many scenarios:
