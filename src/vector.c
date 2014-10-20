@@ -346,6 +346,9 @@ void vector_remove_all(vector_t *vec, const int indices[], int n_indices)
 void vector_clear(vector_t *vec)
 {
     vec->size = 0;
+    if (vec->array != NULL) {
+        memset(vec->array, 0, vec->size * sizeof(void *));
+    }
 }
 
 vector_iter_t vector_iter(vector_t *vec)
