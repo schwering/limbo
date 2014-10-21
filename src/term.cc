@@ -1,34 +1,28 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// schwering@kbsg.rwth-aachen.de
+
 #include "term.h"
-#include <stdlib.h>
 
-MAP_IMPL(varmap, var_t, term_t, NULL);
-
-term_t varmap_lookup_or_id(const varmap_t *varmap, var_t x)
-{
-    if (varmap_contains(varmap, x)) {
-        return varmap_lookup(varmap, x);
-    } else {
-        return x;
-    }
+Term::Term()
+  : type_(DUMMY), id_(0) {
 }
 
-SET_IMPL(varset, var_t, NULL);
-
-SET_IMPL(stdset, stdname_t, NULL);
-
-VECTOR_IMPL(stdvec, stdname_t, NULL);
-
-bool stdvec_is_ground(const stdvec_t *z)
-{
-    for (int i = 0; i < stdvec_size(z); ++i) {
-        const term_t t = stdvec_get(z, i);
-        if (IS_VARIABLE(t)) {
-            return false;
-        }
-    }
-    return true;
+Term::Term(Type type, int id) : type_(type), id_(id) {
 }
 
-SET_IMPL(stdvecset, stdvec_t *, stdvec_cmp);
+Term Term::CreateVariable(VarId id) {
+  return Term(VAR, id);
+}
+
+Term Term::CreateStdName(NameId id) {
+  return Term(NAME, id);
+}
+
+bool Term::operator==(const Term& t) const {
+  return type_ == t.type_ && id_ == t.id_;
+}
+
+bool Term::operator<(const Term& t) const {
+  return type_ < t.type_ || (type_ == t.type_ && id_ < t.id_);
+}
 

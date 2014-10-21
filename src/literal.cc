@@ -1,184 +1,36 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// schwering@kbsg.rwth-aachen.de
+
 #include "literal.h"
-#include <string.h>
 
-const pred_t SF = -1;
-
-literal_t literal_init(const stdvec_t *z, bool sign, pred_t pred,
-        const stdvec_t *args)
-{
-    return (literal_t) {
-        .z = (z == NULL) ? stdvec_init() : stdvec_copy(z),
-        .sign = sign,
-        .pred = pred,
-        .args = stdvec_copy(args)
-    };
+Literal::Literal(const std::vector<Term>& z, bool sign, PredId id,
+                 const std::vector<Term>& args)
+  : Atom(z, id, args), sign_(sign) {
 }
 
-literal_t literal_prepend(stdname_t n, const literal_t *l)
-{
-    return (literal_t) {
-        .z = stdvec_prepend_copy(n, &l->z),
-        .sign = l->sign,
-        .pred = l->pred,
-        .args = l->args
-    };
+Literal Literal::Flip() const {
+  Literal l = *this;
+  l.sign_ = !l.sign_;
+  return l;
 }
 
-literal_t literal_prepend_all(const stdvec_t *z, const literal_t *l)
-{
-    return (literal_t) {
-        .z = stdvec_concat(z, &l->z),
-        .sign = l->sign,
-        .pred = l->pred,
-        .args = l->args
-    };
+Literal Literal::Positive() const {
+  Literal l = *this;
+  l.sign_ = true;
+  return l;
 }
 
-literal_t literal_append(const literal_t *l, stdname_t n)
-{
-    return (literal_t) {
-        .z = stdvec_copy_append(&l->z, n),
-        .sign = l->sign,
-        .pred = l->pred,
-        .args = l->args
-    };
+Literal Literal::Negative() const {
+  Literal l = *this;
+  l.sign_ = false;
+  return l;
 }
 
-literal_t literal_append_all(const literal_t *l, const stdvec_t *z)
-{
-    return (literal_t) {
-        .z = stdvec_concat(&l->z, z),
-        .sign = l->sign,
-        .pred = l->pred,
-        .args = l->args
-    };
+bool Literal::operator==(const Literal& l) const {
+  return Atom::operator==(l) && sign_ == l.sign_;
 }
 
-literal_t literal_flip(const literal_t *l)
-{
-    return (literal_t) {
-        .z = l->z,
-        .sign = !l->sign,
-        .pred = l->pred,
-        .args = l->args
-    };
-}
-
-literal_t literal_substitute(const literal_t *l, const varmap_t *map)
-{
-    stdvec_t z = stdvec_lazy_copy(&l->z);
-    stdvec_t args = stdvec_lazy_copy(&l->args);
-    for (int i = 0; i < stdvec_size(&z); ++i) {
-        const term_t t = stdvec_get(&z, i);
-        if (IS_VARIABLE(t)) {
-            assert(varmap_contains(map, t));
-            stdvec_set(&z, i, varmap_lookup(map, t));
-        }
-    }
-    for (int i = 0; i < stdvec_size(&args); ++i) {
-        const term_t t = stdvec_get(&args, i);
-        if (IS_VARIABLE(t)) {
-            assert(varmap_contains(map, t));
-            stdvec_set(&args, i, varmap_lookup(map, t));
-        }
-    }
-    return (literal_t) {
-        .z = z,
-        .sign = l->sign,
-        .pred = l->pred,
-        .args = args
-    };
-}
-
-void literal_cleanup(literal_t *l)
-{
-    stdvec_cleanup(&l->z);
-    stdvec_cleanup(&l->args);
-}
-
-bool literal_is_ground(const literal_t *l)
-{
-    return stdvec_is_ground(&l->z) && stdvec_is_ground(&l->args);
-}
-
-void literal_collect_vars(const literal_t *l, varset_t *vars)
-{
-    for (int i = 0; i < stdvec_size(&l->z); ++i) {
-        const term_t t = stdvec_get(&l->z, i);
-        if (IS_VARIABLE(t)) {
-            varset_add(vars, t);
-        }
-    }
-    for (int i = 0; i < stdvec_size(&l->args); ++i) {
-        const term_t t = stdvec_get(&l->args, i);
-        if (IS_VARIABLE(t)) {
-            varset_add(vars, t);
-        }
-    }
-}
-
-void literal_collect_names(const literal_t *l, stdset_t *names)
-{
-    for (int i = 0; i < stdvec_size(&l->z); ++i) {
-        const term_t t = stdvec_get(&l->z, i);
-        if (IS_STDNAME(t)) {
-            stdset_add(names, t);
-        }
-    }
-    for (int i = 0; i < stdvec_size(&l->args); ++i) {
-        const term_t t = stdvec_get(&l->args, i);
-        if (IS_STDNAME(t)) {
-            stdset_add(names, t);
-        }
-    }
-}
-
-int literal_cmp(const literal_t *l1, const literal_t *l2)
-{
-    int cmp;
-    if ((cmp = stdvec_cmp(&l1->z, &l2->z)) != 0) {
-        return cmp;
-    } else if ((cmp = l1->pred - l2->pred) != 0) {
-        return cmp;
-    } else if ((cmp = stdvec_cmp(&l1->args, &l2->args)) != 0) {
-        return cmp;
-    } else if ((cmp = (int) l1->sign - (int) l2->sign) != 0) {
-        return cmp;
-    } else {
-        return 0;
-    }
-}
-
-int literal_cmp_flipped(const literal_t *l1, const literal_t *l2)
-{
-    const literal_t l3 = literal_flip(l2);
-    return literal_cmp(l1, &l3);
-}
-
-bool literal_eq(const literal_t *l1, const literal_t *l2)
-{
-    return l1->pred == l2->pred && l1->sign == l2->sign &&
-        stdvec_eq(&l1->z, &l2->z) && stdvec_eq(&l1->args, &l2->args);
-}
-
-const stdvec_t *literal_z(const literal_t *l)
-{
-    return &l->z;
-}
-
-bool literal_sign(const literal_t *l)
-{
-    return l->sign;
-}
-
-pred_t literal_pred(const literal_t *l)
-{
-    return l->pred;
-}
-
-const stdvec_t *literal_args(const literal_t *l)
-{
-    return &l->args;
+bool Literal::operator<(const Literal& l) const {
+  return Atom::operator<(l) && sign_ < l.sign_;
 }
 

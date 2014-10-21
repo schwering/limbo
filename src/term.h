@@ -1,45 +1,34 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
-/*
- * Type definitions for variables and standard names.
- *
- * We choose convenience over type-safety here: variables are negative integers,
- * standard names are non-negative integers.
- *
- * schwering@kbsg.rwth-aachen.de
- */
+// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// schwering@kbsg.rwth-aachen.de
+
 #ifndef _TERM_H_
 #define _TERM_H_
 
-#include "vector.h"
-#include "set.h"
-#include "map.h"
-#include <assert.h>
-#include <limits.h>
+class Term {
+ public:
+  typedef int VarId;
+  typedef int NameId;
 
-typedef long int term_t;
-typedef term_t stdname_t;
-typedef term_t var_t;
+  static Term CreateVariable(VarId id);
+  static Term CreateStdName(NameId id);
 
-#define STDNAME_MAX LONG_MAX
+  Term();
 
-#define IS_VARIABLE(x)  ((x) < 0)
-#define IS_STDNAME(x)   ((x) >= 0)
+  bool operator==(const Term& t) const;
+  bool operator<(const Term& t) const;
 
-#define FIRST_VAR        (-1)
+  inline bool is_variable() const { return type_ == VAR; }
+  inline bool is_name() const { return type_ == NAME; }
+  inline bool is_ground() const { return type_ == VAR; }
 
-MAP_DECL(varmap, var_t, term_t);
+ private:
+  enum Type { DUMMY, VAR, NAME };
 
-term_t varmap_lookup_or_id(const varmap_t *varmap, var_t x);
+  Term(Type type, int id);
 
-SET_DECL(varset, var_t);
-
-SET_DECL(stdset, stdname_t);
-
-VECTOR_DECL(stdvec, stdname_t);
-
-bool stdvec_is_ground(const stdvec_t *v);
-
-SET_DECL(stdvecset, stdvec_t *);
+  Type type_;
+  int id_;
+};
 
 #endif
 
