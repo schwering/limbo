@@ -10,6 +10,8 @@ class Literal : public Atom {
  public:
   Literal(const std::vector<Term>& z, bool sign, PredId pred,
           const std::vector<Term>& args);
+  Literal(const Literal&) = default;
+  Literal& operator=(const Literal&) = default;
 
   Literal Flip() const;
   Literal Positive() const;

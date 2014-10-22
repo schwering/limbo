@@ -16,6 +16,8 @@ class Atom {
   static const PredId SF;
 
   Atom(const std::vector<Term>& z, PredId pred, const std::vector<Term>& args);
+  Atom(const Atom&) = default;
+  Atom& operator=(const Atom&) = default;
 
   Atom PrependAction(const Term& t) const;
   Atom AppendAction(const Term& t) const;
@@ -34,7 +36,7 @@ class Atom {
   const std::vector<Term>& args() const { return args_; }
 
   bool is_ground() const;
-  std::set<Term> variables() ;
+  std::set<Term> variables() const;
   std::set<Term> names() const;
 
  private:

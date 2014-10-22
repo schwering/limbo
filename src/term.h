@@ -4,6 +4,8 @@
 #ifndef _TERM_H_
 #define _TERM_H_
 
+#include <map>
+
 class Term {
  public:
   typedef int VarId;
@@ -13,9 +15,13 @@ class Term {
   static Term CreateStdName(NameId id);
 
   Term();
+  Term(const Term&) = default;
+  Term& operator=(const Term&) = default;
 
   bool operator==(const Term& t) const;
   bool operator<(const Term& t) const;
+
+  const Term &Substitute(const std::map<Term,Term>& theta) const;
 
   inline bool is_variable() const { return type_ == VAR; }
   inline bool is_name() const { return type_ == NAME; }

@@ -37,16 +37,10 @@ Atom Atom::AppendActions(const std::vector<Term>& z) const {
 Atom Atom::Substitute(const std::map<Term,Term> theta) const {
   Atom a = *this;
   for (Term& t : a.z_) {
-    std::map<Term,Term>::const_iterator i = theta.find(t);
-    if (i != theta.end()) {
-      t = i->second;
-    }
+    t = t.Substitute(theta);
   }
   for (Term& t : a.args_) {
-    std::map<Term,Term>::const_iterator i = theta.find(t);
-    if (i != theta.end()) {
-      t = i->second;
-    }
+    t = t.Substitute(theta);
   }
   return a;
 }
@@ -98,7 +92,7 @@ bool Atom::is_ground() const {
                      [](const Term& t) { return t.is_ground(); });
 }
 
-std::set<Term> Atom::variables() {
+std::set<Term> Atom::variables() const{
   std::vector<Term> vs;
   std::copy_if(z_.begin(), z_.end(), vs.begin(),
                [](const Term& t) { return t.is_variable(); });

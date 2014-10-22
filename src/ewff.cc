@@ -1,181 +1,276 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// schwering@kbsg.rwth-aachen.de
+
 #include "ewff.h"
-#include "memory.h"
+#include <memory>
 
-const ewff_t *ewff_true(void)
-{
-    static const ewff_t *e = NULL;
-    if (e == NULL) {
-        e = ewff_eq(FIRST_VAR, FIRST_VAR);
-    }
-    return e;
+class Ewff::Equality : public Ewff {
+ public:
+  Equality(const Term& t1, const Term& t2);
+
+  virtual std::unique_ptr<Ewff> Substitute(
+      const std::map<Term,Term>& theta) const override;
+  virtual Truth Eval(bool sign) const override;
+
+  virtual bool is_ground() const override;
+
+ protected:
+  virtual void CollectVariables(std::set<Term>& vs) const override;
+  virtual void CollectNames(std::set<Term>& ns) const override;
+
+ private:
+  const Term t1_;
+  const Term t2_;
+};
+
+Ewff::Equality::Equality(const Term& t1, const Term& t2)
+  : t1_(t1), t2_(t2) {
 }
 
-const ewff_t *ewff_false(void)
-{
-    static const ewff_t *e = NULL;
-    if (e == NULL) {
-        e = ewff_neg(ewff_true());
-    }
-    return e;
+std::unique_ptr<Ewff> Ewff::Equality::Substitute(
+    const std::map<Term,Term>& theta) const {
+  Equality *e = new Equality(t1_.Substitute(theta), t2_.Substitute(theta));
+  return std::unique_ptr<Ewff>(e);
 }
 
-const ewff_t *ewff_eq(term_t t1, term_t t2)
-{
-    return NEW(((ewff_t) {
-        .type = EWFF_EQ,
-        .u.eq.t1 = t1,
-        .u.eq.t2 = t2
-    }));
+Ewff::Truth Ewff::Equality::Eval(bool sign) const {
+  if (t1_ == t2_) {
+    return kTrue;
+  }
+  if (t1_.is_ground() && t2_.is_ground()) {
+    return t1_ == t2_ ? kTrue : kFalse;
+  }
+  return kUnknown;
 }
 
-const ewff_t *ewff_neq(term_t t1, term_t t2)
-{
-    return ewff_neg(ewff_eq(t1, t2));
+bool Ewff::Equality::is_ground() const {
+  return t1_.is_ground() && t2_.is_ground();
 }
 
-const ewff_t *ewff_sort(term_t t, bool (*is_sort)(stdname_t n))
-{
-    return NEW(((ewff_t) {
-        .type = EWFF_SORT,
-        .u.sort.t = t,
-        .u.sort.is_sort = is_sort
-    }));
+void Ewff::Equality::CollectVariables(std::set<Term>& vs) const {
+  if (t1_.is_variable()) {
+    vs.insert(t1_);
+  }
+  if (t2_.is_variable()) {
+    vs.insert(t2_);
+  }
 }
 
-const ewff_t *ewff_neg(const ewff_t *e1)
-{
-    return NEW(((ewff_t) {
-        .type = EWFF_NEG,
-        .u.neg.e = e1
-    }));
+void Ewff::Equality::CollectNames(std::set<Term>& ns) const {
+  if (t1_.is_name()) {
+    ns.insert(t1_);
+  }
+  if (t2_.is_name()) {
+    ns.insert(t2_);
+  }
 }
 
-const ewff_t *ewff_or(const ewff_t *e1, const ewff_t *e2)
-{
-    return NEW(((ewff_t) {
-        .type = EWFF_OR,
-        .u.or.e1 = e1,
-        .u.or.e2 = e2
-    }));
+
+class Ewff::Negation : public Ewff {
+ public:
+  explicit Negation(std::unique_ptr<Ewff>&& e);
+
+  virtual std::unique_ptr<Ewff> Substitute(
+      const std::map<Term,Term>& theta) const override;
+  virtual Truth Eval(bool sign) const override;
+
+  virtual bool is_ground() const override;
+
+ protected:
+  virtual void CollectVariables(std::set<Term>& vs) const override;
+  virtual void CollectNames(std::set<Term>& ns) const override;
+
+ private:
+  std::unique_ptr<Ewff> e_;
+};
+
+Ewff::Negation::Negation(std::unique_ptr<Ewff>&& e)
+  : e_(std::move(e)) {
 }
 
-const ewff_t *ewff_and(const ewff_t *e1, const ewff_t *e2)
-{
-    return ewff_neg(ewff_or(ewff_neg(e1), ewff_neg(e2)));
+std::unique_ptr<Ewff> Ewff::Negation::Substitute(
+    const std::map<Term,Term>& theta) const {
+  return std::unique_ptr<Ewff>(new Negation(e_->Substitute(theta)));
 }
 
-int ewff_cmp(const ewff_t *e1, const ewff_t *e2)
-{
-    if (e1->type != e2->type) {
-        return e1->type < e2->type ? -1 : 1;
-    }
-    switch (e1->type) {
-        case EWFF_EQ:
-            return memcmp(&e1->u.eq, &e2->u.eq, sizeof(e1->u.eq));
-        case EWFF_SORT:
-            return memcmp(&e1->u.sort, &e2->u.sort, sizeof(e1->u.sort));
-        case EWFF_NEG:
-            return ewff_cmp(e1->u.neg.e, e2->u.neg.e);
-        case EWFF_OR: {
-            int i = ewff_cmp(e1->u.or.e1, e2->u.or.e1);
-            return i != 0 ? i : ewff_cmp(e1->u.or.e2, e2->u.or.e2);
-        }
-        default:
-            abort();
-    }
+Ewff::Truth Ewff::Negation::Eval(bool sign) const {
+  switch (e_->Eval(!sign)) {
+    case kTrue: return kFalse;
+    case kFalse: return kTrue;
+    case kUnknown: return kUnknown;
+  }
 }
 
-void ewff_collect_vars(const ewff_t *e, varset_t *vars)
-{
-    switch (e->type) {
-        case EWFF_EQ:
-            if (IS_VARIABLE(e->u.eq.t1)) {
-                varset_add(vars, e->u.eq.t1);
-            }
-            if (IS_VARIABLE(e->u.eq.t2)) {
-                varset_add(vars, e->u.eq.t2);
-            }
-            break;
-        case EWFF_SORT:
-            if (IS_VARIABLE(e->u.sort.t)) {
-                varset_add(vars, e->u.sort.t);
-            }
-            break;
-        case EWFF_NEG:
-            ewff_collect_vars(e->u.neg.e, vars);
-            break;
-        case EWFF_OR:
-            ewff_collect_vars(e->u.or.e1, vars);
-            ewff_collect_vars(e->u.or.e2, vars);
-            break;
-        default:
-            abort();
-    }
+bool Ewff::Negation::is_ground() const {
+  return e_->is_ground();
 }
 
-void ewff_collect_names(const ewff_t *e, stdset_t *names)
-{
-    switch (e->type) {
-        case EWFF_EQ:
-            if (IS_STDNAME(e->u.eq.t1)) {
-                stdset_add(names, e->u.eq.t1);
-            }
-            if (IS_STDNAME(e->u.eq.t2)) {
-                stdset_add(names, e->u.eq.t2);
-            }
-            break;
-        case EWFF_SORT:
-            if (IS_STDNAME(e->u.sort.t)) {
-                stdset_add(names, e->u.sort.t);
-            }
-            break;
-        case EWFF_NEG:
-            ewff_collect_names(e->u.neg.e, names);
-            break;
-        case EWFF_OR:
-            ewff_collect_names(e->u.or.e1, names);
-            ewff_collect_names(e->u.or.e2, names);
-            break;
-        default:
-            abort();
-    }
+void Ewff::Negation::CollectVariables(std::set<Term>& vs) const {
+  e_->CollectVariables(vs);
 }
 
-bool ewff_eval(const ewff_t *e, const varmap_t *varmap)
-{
-    switch (e->type) {
-        case EWFF_EQ: {
-            const term_t t1 = e->u.eq.t1;
-            const term_t t2 = e->u.eq.t2;
-            if (t1 == t2) {
-                return true;
-            }
-            assert(!IS_VARIABLE(t1) || varmap_contains(varmap, t1));
-            assert(!IS_VARIABLE(t2) || varmap_contains(varmap, t2));
-            const stdname_t n1 =
-                IS_VARIABLE(t1) ? varmap_lookup(varmap, t1) : t1;
-            const stdname_t n2 =
-                IS_VARIABLE(t2) ? varmap_lookup(varmap, t2) : t2;
-            assert(IS_STDNAME(n1));
-            assert(IS_STDNAME(n2));
-            return n1 == n2;
-        }
-        case EWFF_SORT: {
-            const term_t t = e->u.sort.t;
-            const stdname_t n = IS_VARIABLE(t) ? varmap_lookup(varmap, t) : t;
-            assert(IS_STDNAME(n));
-            return e->u.sort.is_sort(n);
-        }
-        case EWFF_NEG:
-            return !ewff_eval(e->u.neg.e, varmap);
-        case EWFF_OR:
-            return ewff_eval(e->u.or.e1, varmap) ||
-                ewff_eval(e->u.or.e2, varmap);
-        default:
-            abort();
-    }
+void Ewff::Negation::CollectNames(std::set<Term>& ns) const {
+  e_->CollectNames(ns);
 }
+
+
+class Ewff::Disjunction : public Ewff {
+ public:
+  explicit Disjunction(std::unique_ptr<Ewff>&& e1, std::unique_ptr<Ewff>&& e2);
+
+  virtual std::unique_ptr<Ewff> Substitute(
+      const std::map<Term,Term>& theta) const override;
+  virtual Truth Eval(bool sign) const override;
+
+  virtual bool is_ground() const override;
+
+ protected:
+  virtual void CollectVariables(std::set<Term>& vs) const override;
+  virtual void CollectNames(std::set<Term>& ns) const override;
+
+ private:
+  std::unique_ptr<Ewff> e1_;
+  std::unique_ptr<Ewff> e2_;
+};
+
+Ewff::Disjunction::Disjunction(std::unique_ptr<Ewff>&& e1,
+                               std::unique_ptr<Ewff>&& e2)
+  : e1_(std::move(e1)), e2_(std::move(e2)) {
+}
+
+std::unique_ptr<Ewff> Ewff::Disjunction::Substitute(
+    const std::map<Term,Term>& theta) const {
+  return std::unique_ptr<Ewff>(new Disjunction(e1_->Substitute(theta),
+                                               e2_->Substitute(theta)));
+}
+
+Ewff::Truth Ewff::Disjunction::Eval(bool sign) const {
+  const Truth t1 = e1_->Eval(sign);
+  const Truth t2 = e2_->Eval(sign);
+  if (t1 == t2) {
+    return t1;
+  }
+  if (sign && (t1 == kTrue || t2 == kTrue)) {
+    return kTrue;
+  }
+  if (!sign && (t1 == kFalse || t2 == kFalse)) {
+    return kFalse;
+  }
+  return kUnknown;
+}
+
+bool Ewff::Disjunction::is_ground() const {
+  return e1_->is_ground() && e2_->is_ground();
+}
+
+void Ewff::Disjunction::CollectVariables(std::set<Term>& vs) const {
+  e1_->CollectVariables(vs);
+  e2_->CollectVariables(vs);
+}
+
+void Ewff::Disjunction::CollectNames(std::set<Term>& ns) const {
+  e1_->CollectNames(ns);
+  e2_->CollectNames(ns);
+}
+
+
+class Ewff::SortCheck : public Ewff {
+ public:
+  SortCheck(const Term& t, const std::function<Truth(const Term& t)> &f);
+
+  virtual std::unique_ptr<Ewff> Substitute(
+      const std::map<Term,Term>& theta) const override;
+  virtual Truth Eval(bool sign) const override;
+
+  virtual bool is_ground() const override;
+
+ protected:
+  virtual void CollectVariables(std::set<Term>& vs) const override;
+  virtual void CollectNames(std::set<Term>& ns) const override;
+
+ private:
+  const Term t_;
+  const std::function<Truth(const Term& t)> f_;
+};
+
+Ewff::SortCheck::SortCheck(const Term& t,
+                           const std::function<Truth(const Term& t)> &f)
+  : t_(t), f_(f) {
+}
+
+std::unique_ptr<Ewff> Ewff::SortCheck::Substitute(
+    const std::map<Term,Term>& theta) const {
+  const Term t = t_.Substitute(theta);
+  if (t.is_ground()) {
+    return f_(t) ? Ewff::True() : Ewff::False();
+  } else {
+    SortCheck *e = new SortCheck(t, f_);
+    return std::unique_ptr<Ewff>(e);
+  }
+}
+
+Ewff::Truth Ewff::SortCheck::Eval(bool sign) const {
+  return !is_ground() ? kUnknown : f_(t_) ? kTrue : kFalse;
+}
+
+bool Ewff::SortCheck::is_ground() const {
+  return t_.is_ground();
+}
+
+void Ewff::SortCheck::CollectVariables(std::set<Term>& vs) const {
+  if (t_.is_variable()) {
+    vs.insert(t_);
+  }
+}
+
+void Ewff::SortCheck::CollectNames(std::set<Term>& ns) const {
+  if (t_.is_name()) {
+    ns.insert(t_);
+  }
+}
+
+
+Ewff::~Ewff() {
+}
+
+std::unique_ptr<Ewff> Ewff::True() {
+  const int v = 999; // some integer
+  return Equal(Term::CreateVariable(v), Term::CreateVariable(v));
+}
+
+std::unique_ptr<Ewff> Ewff::False() {
+  return Neg(True());
+}
+
+std::unique_ptr<Ewff> Ewff::Equal(const Term& t1, const Term& t2) {
+  return std::unique_ptr<Ewff>(new Equality(t1, t2));
+}
+
+std::unique_ptr<Ewff> Ewff::Unequal(const Term& t1, const Term& t2) {
+  return Neg(Equal(t1, t2));
+}
+
+Ewff::Truth Ewff::Eval(bool sign) const {
+  return Eval(true);
+}
+
+bool Ewff::is_ground() const {
+  return !variables().empty();
+}
+
+std::set<Term> Ewff::variables() const {
+  std::set<Term> vs;
+  CollectVariables(vs);
+  return vs;
+}
+
+std::set<Term> Ewff::names() const {
+  std::set<Term> ns;
+  CollectNames(ns);
+  return ns;
+}
+
+#if 0
 
 static void ewff_ground_h(
         const ewff_t *e,
@@ -208,5 +303,5 @@ void ewff_ground(
     varmap_t varmap = varmap_init_with_size(varset_size(vars));
     ewff_ground_h(e, vars, hplus, ground, &varmap);
 }
-
+#endif
 
