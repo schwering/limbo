@@ -3,9 +3,21 @@
 
 #include "literal.h"
 
+Literal::Literal(bool sign, const Atom& a)
+  : Atom(a), sign_(sign) {
+}
+
 Literal::Literal(const std::vector<Term>& z, bool sign, PredId id,
                  const std::vector<Term>& args)
   : Atom(z, id, args), sign_(sign) {
+}
+
+Literal Literal::Positive(const Atom& a) {
+  return Literal(true, a);
+}
+
+Literal Literal::Negative(const Atom& a) {
+  return Literal(false, a);
 }
 
 Literal Literal::Flip() const {

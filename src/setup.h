@@ -1,4 +1,4 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+// vim:filetype=cpp:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
  * Setups are sets of ground clauses, which are disjunctions of (extended)
  * literals (as defined in literal.h).

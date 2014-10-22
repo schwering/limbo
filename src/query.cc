@@ -1,4 +1,4 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+// vim:filetype=cpp:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 #include "query.h"
 #include "memory.h"
 #include <assert.h>

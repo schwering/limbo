@@ -234,8 +234,8 @@ Ewff::~Ewff() {
 }
 
 std::unique_ptr<Ewff> Ewff::True() {
-  const int v = 999; // some integer
-  return Equal(Term::CreateVariable(v), Term::CreateVariable(v));
+  const Term t = Term::CreateVariable();
+  return Equal(t, t);
 }
 
 std::unique_ptr<Ewff> Ewff::False() {
@@ -271,7 +271,6 @@ std::set<Term> Ewff::names() const {
 }
 
 #if 0
-
 static void ewff_ground_h(
         const ewff_t *e,
         const varset_t *vars,

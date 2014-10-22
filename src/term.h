@@ -8,10 +8,9 @@
 
 class Term {
  public:
-  typedef int VarId;
-  typedef int NameId;
+  typedef unsigned long NameId;
 
-  static Term CreateVariable(VarId id);
+  static Term CreateVariable();
   static Term CreateStdName(NameId id);
 
   Term();
@@ -28,7 +27,10 @@ class Term {
   inline bool is_ground() const { return type_ == VAR; }
 
  private:
+  typedef unsigned long long VarId;
   enum Type { DUMMY, VAR, NAME };
+
+  static VarId var_id_;
 
   Term(Type type, int id);
 

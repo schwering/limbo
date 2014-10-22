@@ -1,4 +1,4 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+// vim:filetype=cpp:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
  * Constructors and evaluation procedure for queries.
  * Queries consist of the following elements: (in)equality of standard names,

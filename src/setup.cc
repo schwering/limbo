@@ -1,4 +1,4 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
+// vim:filetype=cpp:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 /*
  * Note that setup_unit_clauses() and EMPTY_CLAUSE_INDEX rely on the
  * ordering structure of the sets, particularly of setups: the first criterion

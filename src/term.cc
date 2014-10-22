@@ -3,6 +3,8 @@
 
 #include "term.h"
 
+Term::VarId Term::var_id_ = 0;
+
 Term::Term()
   : type_(DUMMY), id_(0) {
 }
@@ -10,8 +12,8 @@ Term::Term()
 Term::Term(Type type, int id) : type_(type), id_(id) {
 }
 
-Term Term::CreateVariable(VarId id) {
-  return Term(VAR, id);
+Term Term::CreateVariable() {
+  return Term(VAR, var_id_++);
 }
 
 Term Term::CreateStdName(NameId id) {
