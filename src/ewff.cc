@@ -6,10 +6,10 @@
 #include <cassert>
 #include <memory>
 
-Ewff::Conj::Conj(const std::map<Term::Var, Term::Name>& eq_name,
-                 const std::multimap<Term::Var, Term::Var>& eq_var,
-                 const std::multimap<Term::Var, Term::Name>& neq_name,
-                 const std::multimap<Term::Var, Term::Var>& neq_var)
+Ewff::Conj::Conj(const std::map<Variable, StdName>& eq_name,
+                 const std::multimap<Variable, Variable>& eq_var,
+                 const std::multimap<Variable, StdName>& neq_name,
+                 const std::multimap<Variable, Variable>& neq_var)
   : eq_name_(eq_name),
     eq_var_(eq_var),
     neq_name_(neq_name),
@@ -75,7 +75,20 @@ bool Ewff::Conj::operator<(const Conj& c) {
   }
 }
 
-bool Ewff::Conj::CheckModel(const Term::Assignment& theta) const {
+bool Ewff::Conj::Ground(const Assignment& theta, Conj* c) const {
+  for (const auto& xen : theta) {
+    const auto r = c->eq_name_.insert(xen);
+    if (r.second) {
+      return false;
+    }
+    c->fix_vars_.insert(xen.first);
+    c->var_vars_.erase(xen.first);
+    c->names_.insert(xen.second);
+  }
+  return true;
+}
+
+bool Ewff::Conj::CheckModel(const Assignment& theta) const {
   const auto& end = theta.end();
   for (const auto& xey : eq_var_) {
     assert(xey.first.is_variable());
@@ -114,16 +127,16 @@ bool Ewff::Conj::CheckModel(const Term::Assignment& theta) const {
   return true;
 }
 
-void Ewff::Conj::GenerateModels(const Term::VarSet::const_iterator var_first,
-                                const Term::VarSet::const_iterator var_last,
-                                const Term::NameSet& hplus,
-                                Term::Assignment* theta,
-                                std::list<Term::Assignment> *models) const {
-  if (var_first != var_last) {
-    const Term::Var& x = *var_first;
-    for (const Term::Name& n : hplus) {
+void Ewff::Conj::GenerateModels(const std::set<Variable>::const_iterator first,
+                                const std::set<Variable>::const_iterator last,
+                                const std::set<StdName>& hplus,
+                                Assignment* theta,
+                                std::list<Assignment> *models) const {
+  if (first != last) {
+    const Variable& x = *first;
+    for (const StdName& n : hplus) {
       (*theta)[x] = n;
-      GenerateModels(std::next(var_first), var_last, hplus, theta, models);
+      GenerateModels(std::next(first), last, hplus, theta, models);
     }
     theta->erase(x);
   } else if (CheckModel(*theta)) {
@@ -131,17 +144,17 @@ void Ewff::Conj::GenerateModels(const Term::VarSet::const_iterator var_first,
   }
 }
 
-void Ewff::Conj::FindModels(const Term::NameSet& hplus,
-                            std::list<Term::Assignment> *models) const {
-  Term::Assignment theta;
+void Ewff::Conj::FindModels(const std::set<StdName>& hplus,
+                            std::list<Assignment> *models) const {
+  Assignment theta = eq_name_;
   GenerateModels(var_vars_.begin(), var_vars_.end(), hplus, &theta, models);
 }
 
-const Term::VarSet& Ewff::Conj::variables() const {
+const std::set<Variable>& Ewff::Conj::variables() const {
   return vars_;
 }
 
-const Term::NameSet& Ewff::Conj::names() const {
+const std::set<StdName>& Ewff::Conj::names() const {
   return names_;
 }
 
@@ -150,34 +163,45 @@ Ewff::Ewff(std::initializer_list<Ewff::Conj> cs) {
   cs_.insert(cs_.end(), cs.begin(), cs.end());
 }
 
-bool Ewff::CheckModel(const Term::Assignment& theta) const {
+bool Ewff::Ground(const Assignment& theta, Ewff* e) const {
+  for (const auto& c1 : cs_) {
+    Conj c2;
+    const bool r = c1.Ground(theta, &c2);
+    if (r) {
+      e->cs_.push_back(c2);
+    }
+  }
+  return !e->cs_.empty();
+}
+
+bool Ewff::CheckModel(const Assignment& theta) const {
   for (auto& c : cs_) {
     c.CheckModel(theta);
   }
   return false;
 }
 
-std::list<Term::Assignment> Ewff::FindModels(const Term::NameSet& hplus) const {
-  std::list<Term::Assignment> models;
+std::list<Assignment> Ewff::FindModels(const std::set<StdName>& hplus) const {
+  std::list<Assignment> models;
   for (auto& c : cs_) {
     c.FindModels(hplus, &models);
   }
   return models;
 }
 
-Term::VarSet Ewff::variables() const {
-  Term::VarSet vars;
+std::set<Variable> Ewff::variables() const {
+  std::set<Variable> vars;
   for (auto& c : cs_) {
-    const Term::VarSet& vs = c.variables();
+    const std::set<Variable>& vs = c.variables();
     std::copy(vs.begin(), vs.end(), std::inserter(vars, vars.begin()));
   }
   return vars;
 }
 
-Term::NameSet Ewff::names() const {
-  Term::NameSet names;
+std::set<StdName> Ewff::names() const {
+  std::set<StdName> names;
   for (auto& c : cs_) {
-    const Term::NameSet& ns = c.names();
+    const std::set<StdName>& ns = c.names();
     std::copy(ns.begin(), ns.end(), std::inserter(names, names.begin()));
   }
   return names;

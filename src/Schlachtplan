@@ -12,12 +12,16 @@
 	(2) wenn l in REL, e->c in Setup, l' in c, l = l'.theta fuer ein theta,
 	    |= e.theta.theta' fuer ein theta', l'' in c.theta.theta',
 	    dann ~l'' in REL
+	Impl.: sollte einen Index Praedikatssymbol auf Klausel der BAT geben, so
+	dass Klauseln mit l und ~l schnell gefunden werden koennen. (Der Index
+	ist auch fuer die UP beim Splitten hilfreich.)
 
 
 	PEL: Menge der zu splittenden Atome
 	Idee (1): { a | a oder ~a in REL }
 	Idee (2): { a | a und ~a in REL }
 	Idee (2) koennte funktionieren, vgl. Beispiel (1)
+	Impl.: ziemlich kostenlos aus REL
 
 
 	Beim Splitten operieren wir auf den Klauseln mit jeweiliger Ewff:
@@ -30,7 +34,7 @@
 	testen; um das zu beschleunigen sollte in jeder Klausel eine Menge der
 	Praedikatssymbole verwaltet werden.)
 
-	Wenn gesplittet wird, nimm ein Literal l aus PEL, entferne es.  Wenn l
+	Wenn gesplittet wird, nimm ein Literal l aus PEL, entferne es. Wenn l
 	oder ~l nicht split-relevant sind, verwirf es. Ansonsten verzweige
 	dafuer. Ein Literal ist split-relevant, wenn
 	(1) es nicht als Unit-Klausel vorkommt und
@@ -38,6 +42,10 @@
 	    (b) eine Klausel d im Setup enthaelt l oder ~l und
 		(i) |d| <= k+1, d.h. d kann noch UP in Gang setzen, oder
 		(ii) |d\c| <= k, d.h. d kann c noch subsumieren.
+	Fuer jede Klausel d, die die (2)(a) oder (2)(b) erfuellt, unifiziere l
+	mit allen Praedikaten mit selbem Praedikatssymbol in d. Wende den MGU
+	auf die Klausel an. Es entsteht eine neue Klausel mit ewff, die ebenso
+	wie das Split-Literal zusaetzlich zur BAT gemerkt werden muss.
 	Impl.: Index Praedikatssymbol auf Klausel verwalten, evtl. einen fuer
 	positive und einen fuer negative Vorkommnisse. So schnell kommen wir an
 	die Kandidaten, die l oder ~l enthalten koennten, dann noch Unifikation.

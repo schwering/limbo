@@ -24,10 +24,10 @@ class Atom {
   Atom PrependActions(const std::vector<Term>& z) const;
   Atom AppendActions(const std::vector<Term>& z) const;
 
-  Atom Substitute(const Term::Unifier theta) const;
-  bool Unify(const Atom& a, Term::Unifier theta) const;
+  Atom Substitute(const Unifier theta) const;
+  bool Unify(const Atom& a, Unifier theta) const;
 
-  static bool Unify(const Atom& a, const Atom& b, Term::Unifier theta);
+  static bool Unify(const Atom& a, const Atom& b, Unifier theta);
 
   bool operator==(const Atom& a) const;
   bool operator<(const Atom& a) const;
@@ -37,8 +37,8 @@ class Atom {
   const std::vector<Term>& args() const { return args_; }
 
   bool is_ground() const;
-  Term::VarSet variables() const;
-  Term::NameSet names() const;
+  std::set<Variable> variables() const;
+  std::set<StdName> names() const;
 
  private:
   std::vector<Term> z_;

@@ -12,12 +12,12 @@ Term::Term()
 Term::Term(Type type, int id, Sort sort) : type_(type), id_(id), sort_(sort) {
 }
 
-Term::Var Term::CreateVariable(Sort sort) {
-  return Var(Term(VAR, var_id_++, sort));
+Variable Term::CreateVariable(Sort sort) {
+  return Variable(Term(VAR, var_id_++, sort));
 }
 
-Term::Name Term::CreateStdName(Id id, Sort sort) {
-  return Name(Term(NAME, id, sort));
+StdName Term::CreateStdName(Id id, Sort sort) {
+  return StdName(Term(NAME, id, sort));
 }
 
 bool Term::operator==(const Term& t) const {
@@ -29,12 +29,13 @@ bool Term::operator!=(const Term& t) const {
 }
 
 bool Term::operator<(const Term& t) const {
-  return type_ < t.type_ || (type_ == t.type_ && id_ < t.id_);
+  return type_ < t.type_ || (type_ == t.type_ && id_ < t.id_) ||
+      (type_ == t.type_ && id_ == t.id_ && sort_ < t.sort_);
 }
 
 const Term& Term::Substitute(const Unifier& theta) const {
   if (type_ == VAR) {
-    auto it = theta.find(Var(*this));
+    auto it = theta.find(Variable(*this));
     return it != theta.end() ? it->second : *this;
   } else {
     return *this;

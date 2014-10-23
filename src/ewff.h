@@ -24,49 +24,55 @@ class Ewff {
  public:
   class Conj {
    public:
-    Conj(const std::map<Term::Var, Term::Name>& eq_name,
-         const std::multimap<Term::Var, Term::Var>& eq_var,
-         const std::multimap<Term::Var, Term::Name>& neq_name,
-         const std::multimap<Term::Var, Term::Var>& neq_var);
+    Conj(const std::map<Variable, StdName>& eq_name,
+         const std::multimap<Variable, Variable>& eq_var,
+         const std::multimap<Variable, StdName>& neq_name,
+         const std::multimap<Variable, Variable>& neq_var);
     Conj(const Conj&) = default;
     Conj& operator=(const Conj&) = default;
 
     bool operator==(const Conj& c);
     bool operator<(const Conj& c);
 
-    bool CheckModel(const Term::Assignment &theta) const;
-    void FindModels(const Term::NameSet& hplus,
-                    std::list<Term::Assignment> *models) const;
+    bool Ground(const Assignment& theta, Conj* c) const;
+    bool CheckModel(const Assignment &theta) const;
+    void FindModels(const std::set<StdName>& hplus,
+                    std::list<Assignment> *models) const;
 
-    const Term::VarSet& variables() const;
-    const Term::NameSet& names() const;
+    const std::set<Variable>& variables() const;
+    const std::set<StdName>& names() const;
 
    private:
-    void GenerateModels(const Term::VarSet::const_iterator var_first,
-                        const Term::VarSet::const_iterator var_last,
-                        const Term::NameSet& hplus,
-                        Term::Assignment* theta,
-                        std::list<Term::Assignment> *models) const;
+    friend class Ewff;
 
-    std::map<Term::Var, Term::Name> eq_name_;
-    std::multimap<Term::Var, Term::Var> eq_var_;
-    std::multimap<Term::Var, Term::Name> neq_name_;
-    std::multimap<Term::Var, Term::Var> neq_var_;
-    Term::VarSet vars_;
-    Term::VarSet fix_vars_;
-    Term::VarSet var_vars_;
-    Term::NameSet names_;
+    Conj() = default;
+
+    void GenerateModels(const std::set<Variable>::const_iterator var_first,
+                        const std::set<Variable>::const_iterator var_last,
+                        const std::set<StdName>& hplus,
+                        Assignment* theta,
+                        std::list<Assignment> *models) const;
+
+    std::map<Variable, StdName> eq_name_;
+    std::multimap<Variable, Variable> eq_var_;
+    std::multimap<Variable, StdName> neq_name_;
+    std::multimap<Variable, Variable> neq_var_;
+    std::set<Variable> vars_;
+    std::set<Variable> fix_vars_;
+    std::set<Variable> var_vars_;
+    std::set<StdName> names_;
   };
 
   Ewff(std::initializer_list<Ewff::Conj> cs);
   Ewff(const Ewff&) = default;
   Ewff& operator=(const Ewff&) = default;
 
-  bool CheckModel(const Term::Assignment &theta) const;
-  std::list<Term::Assignment> FindModels(const Term::NameSet& hplus) const;
+  bool Ground(const Assignment& theta, Ewff* e) const;
+  bool CheckModel(const Assignment &theta) const;
+  std::list<Assignment> FindModels(const std::set<StdName>& hplus) const;
 
-  Term::VarSet variables() const;
-  Term::NameSet names() const;
+  std::set<Variable> variables() const;
+  std::set<StdName> names() const;
 
  private:
   std::vector<Conj> cs_;

@@ -16,19 +16,11 @@ endif()
 # cause another cmake executable to run. The same process will walk through
 # the project's entire directory structure.
 add_subdirectory (src)
-add_subdirectory (bats)
-add_subdirectory (examples)
+#add_subdirectory (bats)
+#add_subdirectory (examples)
 add_subdirectory (tests)
-add_subdirectory (eclipse-clp)
+#add_subdirectory (eclipse-clp)
 
 # Enable tests
 enable_testing ()
-add_test (NAME check_vector COMMAND check_vector)
-add_test (NAME check_set COMMAND check_set)
-add_test (NAME check_map COMMAND check_map)
-add_test (NAME check_literal COMMAND check_literal)
-add_test (NAME check_setup COMMAND check_setup)
-add_test (NAME check_query COMMAND check_query)
-add_test (NAME check_belief COMMAND check_belief)
-
 

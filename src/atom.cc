@@ -35,7 +35,7 @@ Atom Atom::AppendActions(const std::vector<Term>& z) const {
   return a;
 }
 
-Atom Atom::Substitute(const Term::Unifier theta) const {
+Atom Atom::Substitute(const Unifier theta) const {
   Atom a = *this;
   for (Term& t : a.z_) {
     t = t.Substitute(theta);
@@ -46,14 +46,14 @@ Atom Atom::Substitute(const Term::Unifier theta) const {
   return a;
 }
 
-bool Atom::Unify(const Atom& a, Term::Unifier theta) const {
+bool Atom::Unify(const Atom& a, Unifier theta) const {
   assert(is_ground());
   return Unify(*this, a, theta);
 }
 
 namespace {
 bool Unify(const std::vector<Term>& a, const std::vector<Term>& b,
-           Term::Unifier theta) {
+           Unifier theta) {
   for (auto i = a.begin(), j = b.begin();
        i != a.end() && j != b.end();
        ++i, ++j) {
@@ -62,15 +62,15 @@ bool Unify(const std::vector<Term>& a, const std::vector<Term>& b,
     if (!t1.is_variable() && !t2.is_variable()) {
       return false;
     } else if (t1.is_variable()) {
-      theta[Term::Var(t1)] = t2;
+      theta[Variable(t1)] = t2;
     } else if (t2.is_variable()) {
-      theta[Term::Var(t2)] = t1;
+      theta[Variable(t2)] = t1;
     }
   }
 }
 }  // namespace
 
-bool Atom::Unify(const Atom& a, const Atom& b, Term::Unifier theta) {
+bool Atom::Unify(const Atom& a, const Atom& b, Unifier theta) {
   if (a.pred_ != b.pred_ ||
       a.z_.size() != b.z_.size() ||
       a.args_.size() != b.args_.size()) {
@@ -98,33 +98,33 @@ bool Atom::is_ground() const {
                      [](const Term& t) { return t.is_ground(); });
 }
 
-Term::VarSet Atom::variables() const {
-  Term::VarSet vs;
+std::set<Variable> Atom::variables() const {
+  std::set<Variable> vs;
   for (auto& t : z_) {
     if (t.is_variable()) {
-      vs.insert(Term::Var(t));
+      vs.insert(Variable(t));
     }
   }
   for (auto& t : args_) {
     if (t.is_variable()) {
-      vs.insert(Term::Var(t));
+      vs.insert(Variable(t));
     }
   }
   return vs;
 }
 
-Term::NameSet Atom::names() const {
-  Term::NameSet vs;
+std::set<StdName> Atom::names() const {
+  std::set<StdName> ns;
   for (auto& t : z_) {
     if (t.is_name()) {
-      vs.insert(Term::Name(t));
+      ns.insert(StdName(t));
     }
   }
   for (auto& t : args_) {
     if (t.is_name()) {
-      vs.insert(Term::Name(t));
+      ns.insert(StdName(t));
     }
   }
-  return vs;
+  return ns;
 }
 

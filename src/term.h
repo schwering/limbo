@@ -8,21 +8,20 @@
 #include <map>
 #include <set>
 
+class Term;
+class Variable;
+class StdName;
+
+typedef std::map<Variable, Term> Unifier;
+typedef std::map<Variable, StdName> Assignment;
+
 class Term {
  public:
   typedef uint64_t Id;
   typedef uint64_t Sort;
 
-  class Var;
-  class Name;
-
-  typedef std::set<Var> VarSet;
-  typedef std::set<Name> NameSet;
-  typedef std::map<Var, Term> Unifier;
-  typedef std::map<Var, Name> Assignment;
-
-  static Var CreateVariable(Sort sort);
-  static Name CreateStdName(Id id, Sort sort);
+  static Variable CreateVariable(Sort sort);
+  static StdName CreateStdName(Id id, Sort sort);
 
   Term();
   Term(const Term&) = default;
@@ -37,7 +36,7 @@ class Term {
   inline bool get_sort() const { return sort_; }
   inline bool is_variable() const { return type_ == VAR; }
   inline bool is_name() const { return type_ == NAME; }
-  inline bool is_ground() const { return type_ == VAR; }
+  inline bool is_ground() const { return type_ != VAR; }
 
  protected:
   enum Type { DUMMY, VAR, NAME };
@@ -51,20 +50,24 @@ class Term {
   Sort sort_;
 };
 
-class Term::Var : public Term {
+class Variable : public Term {
  public:
-  Var();
-  explicit Var(const Term& t) : Term(t) { assert(is_variable()); }
-  Var(const Var&) = default;
-  Var& operator=(const Var&) = default;
+  typedef std::set<Variable> Set;
+
+  Variable();
+  explicit Variable(const Term& t) : Term(t) { assert(is_variable()); }
+  Variable(const Variable&) = default;
+  Variable& operator=(const Variable&) = default;
 };
 
-class Term::Name : public Term {
+class StdName : public Term {
  public:
-  Name() : Term() {}
-  explicit Name(const Term& t) : Term(t) { assert(is_name()); }
-  Name(const Name&) = default;
-  Name& operator=(const Name&) = default;
+  typedef std::set<StdName> Set;
+
+  StdName() : Term() {}
+  explicit StdName(const Term& t) : Term(t) { assert(is_name()); }
+  StdName(const StdName&) = default;
+  StdName& operator=(const StdName&) = default;
 };
 
 #endif  // SRC_TERM_H_
