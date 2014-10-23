@@ -1,7 +1,7 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// schwering@kbsg.rwth-aachen.de
+// Copyright 2014 schwering@kbsg.rwth-aachen.de
 
-#include "literal.h"
+#include "./literal.h"
 
 Literal::Literal(bool sign, const Atom& a)
   : Atom(a), sign_(sign) {

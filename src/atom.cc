@@ -1,9 +1,9 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// schwering@kbsg.rwth-aachen.de
+// Copyright 2014 schwering@kbsg.rwth-aachen.de
 
-#include "atom.h"
 #include <algorithm>
 #include <cassert>
+#include "./atom.h"
 
 const Atom::PredId Atom::SF = -1;
 
@@ -35,7 +35,7 @@ Atom Atom::AppendActions(const std::vector<Term>& z) const {
   return a;
 }
 
-Atom Atom::Substitute(const std::map<Term,Term> theta) const {
+Atom Atom::Substitute(const Term::Unifier theta) const {
   Atom a = *this;
   for (Term& t : a.z_) {
     t = t.Substitute(theta);
@@ -46,14 +46,14 @@ Atom Atom::Substitute(const std::map<Term,Term> theta) const {
   return a;
 }
 
-bool Atom::Unify(const Atom& a, std::map<Term,Term> theta) const {
+bool Atom::Unify(const Atom& a, Term::Unifier theta) const {
   assert(is_ground());
   return Unify(*this, a, theta);
 }
 
 namespace {
 bool Unify(const std::vector<Term>& a, const std::vector<Term>& b,
-           std::map<Term,Term> theta) {
+           Term::Unifier theta) {
   for (auto i = a.begin(), j = b.begin();
        i != a.end() && j != b.end();
        ++i, ++j) {
@@ -62,15 +62,15 @@ bool Unify(const std::vector<Term>& a, const std::vector<Term>& b,
     if (!t1.is_variable() && !t2.is_variable()) {
       return false;
     } else if (t1.is_variable()) {
-      theta[t1] = t2;
+      theta[Term::Var(t1)] = t2;
     } else if (t2.is_variable()) {
-      theta[t2] = t1;
+      theta[Term::Var(t2)] = t1;
     }
   }
 }
-}
+}  // namespace
 
-bool Atom::Unify(const Atom& a, const Atom& b, std::map<Term,Term> theta) {
+bool Atom::Unify(const Atom& a, const Atom& b, Term::Unifier theta) {
   if (a.pred_ != b.pred_ ||
       a.z_.size() != b.z_.size() ||
       a.args_.size() != b.args_.size()) {
@@ -98,21 +98,33 @@ bool Atom::is_ground() const {
                      [](const Term& t) { return t.is_ground(); });
 }
 
-std::set<Term> Atom::variables() const{
-  std::vector<Term> vs;
-  std::copy_if(z_.begin(), z_.end(), vs.begin(),
-               [](const Term& t) { return t.is_variable(); });
-  std::copy_if(args_.begin(), args_.end(), vs.begin(),
-               [](const Term& t) { return t.is_variable(); });
-  return std::set<Term>(vs.begin(), vs.end());
+Term::VarSet Atom::variables() const {
+  Term::VarSet vs;
+  for (auto& t : z_) {
+    if (t.is_variable()) {
+      vs.insert(Term::Var(t));
+    }
+  }
+  for (auto& t : args_) {
+    if (t.is_variable()) {
+      vs.insert(Term::Var(t));
+    }
+  }
+  return vs;
 }
 
-std::set<Term> Atom::names() const {
-  std::vector<Term> ns;
-  std::copy_if(z_.begin(), z_.end(), ns.begin(),
-               [](const Term& t) { return t.is_name(); });
-  std::copy_if(args_.begin(), args_.end(), ns.begin(),
-               [](const Term& t) { return t.is_name(); });
-  return std::set<Term>(ns.begin(), ns.end());
+Term::NameSet Atom::names() const {
+  Term::NameSet vs;
+  for (auto& t : z_) {
+    if (t.is_name()) {
+      vs.insert(Term::Name(t));
+    }
+  }
+  for (auto& t : args_) {
+    if (t.is_name()) {
+      vs.insert(Term::Name(t));
+    }
+  }
+  return vs;
 }
 

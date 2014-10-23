@@ -1,13 +1,13 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// schwering@kbsg.rwth-aachen.de
+// Copyright 2014 schwering@kbsg.rwth-aachen.de
 
-#ifndef _ATOM_H_
-#define _ATOM_H_
+#ifndef SRC_ATOM_H_
+#define SRC_ATOM_H_
 
-#include "term.h"
 #include <map>
 #include <set>
 #include <vector>
+#include "./term.h"
 
 class Atom {
  public:
@@ -24,10 +24,10 @@ class Atom {
   Atom PrependActions(const std::vector<Term>& z) const;
   Atom AppendActions(const std::vector<Term>& z) const;
 
-  Atom Substitute(const std::map<Term,Term> theta) const;
-  bool Unify(const Atom& a, std::map<Term,Term> theta) const;
+  Atom Substitute(const Term::Unifier theta) const;
+  bool Unify(const Atom& a, Term::Unifier theta) const;
 
-  static bool Unify(const Atom& a, const Atom& b, std::map<Term,Term> theta);
+  static bool Unify(const Atom& a, const Atom& b, Term::Unifier theta);
 
   bool operator==(const Atom& a) const;
   bool operator<(const Atom& a) const;
@@ -37,8 +37,8 @@ class Atom {
   const std::vector<Term>& args() const { return args_; }
 
   bool is_ground() const;
-  std::set<Term> variables() const;
-  std::set<Term> names() const;
+  Term::VarSet variables() const;
+  Term::NameSet names() const;
 
  private:
   std::vector<Term> z_;
@@ -46,6 +46,5 @@ class Atom {
   std::vector<Term> args_;
 };
 
-#endif
-
+#endif  // SRC_ATOM_H_
 

@@ -1,10 +1,11 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// schwering@kbsg.rwth-aachen.de
+// Copyright 2014 schwering@kbsg.rwth-aachen.de
 
-#ifndef _LITERAL_H_
-#define _LITERAL_H_
+#ifndef SRC_LITERAL_H_
+#define SRC_LITERAL_H_
 
-#include "atom.h"
+#include <vector>
+#include "./atom.h"
 
 class Literal : public Atom {
  public:
@@ -30,5 +31,5 @@ class Literal : public Atom {
   bool sign_;
 };
 
-#endif
+#endif  // SRC_LITERAL_H_
 
