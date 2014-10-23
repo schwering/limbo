@@ -3,6 +3,7 @@
 
 #include "atom.h"
 #include <algorithm>
+#include <cassert>
 
 const Atom::PredId Atom::SF = -1;
 
@@ -43,6 +44,11 @@ Atom Atom::Substitute(const std::map<Term,Term> theta) const {
     t = t.Substitute(theta);
   }
   return a;
+}
+
+bool Atom::Unify(const Atom& a, std::map<Term,Term> theta) const {
+  assert(is_ground());
+  return Unify(*this, a, theta);
 }
 
 namespace {

@@ -20,7 +20,7 @@ class Term {
   bool operator==(const Term& t) const;
   bool operator<(const Term& t) const;
 
-  const Term &Substitute(const std::map<Term,Term>& theta) const;
+  const Term& Substitute(const std::map<Term,Term>& theta) const;
 
   inline bool is_variable() const { return type_ == VAR; }
   inline bool is_name() const { return type_ == NAME; }

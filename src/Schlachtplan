@@ -1,0 +1,64 @@
+
+	BAT: Klausel jeweils mit Ewff
+
+	Zunaechst Annahme, dass Anfrage ground ist (also insbesondere keine
+	universell quantifizierten Variablen)
+
+	Achtung: durch UP entstehen Klauseln mit allquantifizierten Variablen!
+
+
+	REL: Menge der relevanten Literale
+	(1) wenn l in Anfrage, dann l in REL
+	(2) wenn l in REL, e->c in Setup, l' in c, l = l'.theta fuer ein theta,
+	    |= e.theta.theta' fuer ein theta', l'' in c.theta.theta',
+	    dann ~l'' in REL
+
+
+	PEL: Menge der zu splittenden Atome
+	Idee (1): { a | a oder ~a in REL }
+	Idee (2): { a | a und ~a in REL }
+	Idee (2) koennte funktionieren, vgl. Beispiel (1)
+
+
+	Beim Splitten operieren wir auf den Klauseln mit jeweiliger Ewff:
+
+	Subsumptionstest fuer ground Klausel c' sucht in der Klauselmenge
+	nach einer Klausel e->c mit c = l_1,...,l_n, so dass es ein theta gibt,
+	so dass fuer jedes l_i ein l'_j in c' gibt, so dass l'_j = l_i.theta
+	und e.theta erfuellbar ist.
+	Impl.: ueber die Klauseln iterieren und auf jede Klausel auf Teilmenge
+	testen; um das zu beschleunigen sollte in jeder Klausel eine Menge der
+	Praedikatssymbole verwaltet werden.)
+
+	Wenn gesplittet wird, nimm ein Literal l aus PEL, entferne es.  Wenn l
+	oder ~l nicht split-relevant sind, verwirf es. Ansonsten verzweige
+	dafuer. Ein Literal ist split-relevant, wenn
+	(1) es nicht als Unit-Klausel vorkommt und
+	(2) (a) die Anfrage c enthaelt l oder ~l oder
+	    (b) eine Klausel d im Setup enthaelt l oder ~l und
+		(i) |d| <= k+1, d.h. d kann noch UP in Gang setzen, oder
+		(ii) |d\c| <= k, d.h. d kann c noch subsumieren.
+	Impl.: Index Praedikatssymbol auf Klausel verwalten, evtl. einen fuer
+	positive und einen fuer negative Vorkommnisse. So schnell kommen wir an
+	die Kandidaten, die l oder ~l enthalten koennten, dann noch Unifikation.
+
+
+	Beispiel (1):
+
+	{ [~o v p], [~p v q] } |= q
+	Dann ist REL(q) = { o, p, q } und PEL(q) = {}.
+	Die Anfrage schlaegt also fehl (macht Sinn).
+	Intuitiv ist sinnvoll, o zu splitten, weil o die UP in Gang setzt.
+
+	Fuer ~o passiert aber nichts. Wenn wir [o v q] hinzufuegen, setzt auch
+	~o die UP in Gang und es folgt q, aber dann waere auch ~o in REL(q):
+	{ [o v q], [~o v p], [~p v q] } |= q
+	Dann ist REL(q) = { o, ~o, p, q } und PEL(q) = {o}.
+
+	Was waere aber, wenn die von ~o in Gang gesetzte UP zu Inkonsistenz
+	fuehrt? Fuegen wir mal [o, a] und [o, ~a] hinzu:
+	{ [o v a], [o v ~a], [~o v p], [~p v q] } |= q
+	Dann ist REL(q) = { a, ~a, o, p, q } und PEL(q) = {a}.
+	Wenn a gesplittet wird, bekommen wir fuer a und ~a jeweils o und durch
+	UP folgt q.
+

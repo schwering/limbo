@@ -25,6 +25,7 @@ class Atom {
   Atom AppendActions(const std::vector<Term>& z) const;
 
   Atom Substitute(const std::map<Term,Term> theta) const;
+  bool Unify(const Atom& a, std::map<Term,Term> theta) const;
 
   static bool Unify(const Atom& a, const Atom& b, std::map<Term,Term> theta);
 

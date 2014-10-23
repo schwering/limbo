@@ -2,6 +2,8 @@
 // schwering@kbsg.rwth-aachen.de
 
 #include "ewff.h"
+#include <algorithm>
+#include <cassert>
 #include <memory>
 
 class Ewff::Equality : public Ewff {
@@ -10,7 +12,8 @@ class Ewff::Equality : public Ewff {
 
   virtual std::unique_ptr<Ewff> Substitute(
       const std::map<Term,Term>& theta) const override;
-  virtual Truth Eval(bool sign) const override;
+  virtual Truth Eval(bool sign,
+                     const std::map<Term, Term>& theta) const override;
 
   virtual bool is_ground() const override;
 
@@ -33,12 +36,15 @@ std::unique_ptr<Ewff> Ewff::Equality::Substitute(
   return std::unique_ptr<Ewff>(e);
 }
 
-Ewff::Truth Ewff::Equality::Eval(bool sign) const {
-  if (t1_ == t2_) {
+Ewff::Truth Ewff::Equality::Eval(bool sign,
+                                 const std::map<Term, Term>& theta) const {
+  const Term& t1 = t1_.Substitute(theta);
+  const Term& t2 = t2_.Substitute(theta);
+  if (t1 == t2) {
     return kTrue;
   }
-  if (t1_.is_ground() && t2_.is_ground()) {
-    return t1_ == t2_ ? kTrue : kFalse;
+  if (t1.is_ground() && t2.is_ground()) {
+    return t1 == t2 ? kTrue : kFalse;
   }
   return kUnknown;
 }
@@ -72,7 +78,8 @@ class Ewff::Negation : public Ewff {
 
   virtual std::unique_ptr<Ewff> Substitute(
       const std::map<Term,Term>& theta) const override;
-  virtual Truth Eval(bool sign) const override;
+  virtual Truth Eval(bool sign,
+                     const std::map<Term, Term>& theta) const override;
 
   virtual bool is_ground() const override;
 
@@ -93,8 +100,9 @@ std::unique_ptr<Ewff> Ewff::Negation::Substitute(
   return std::unique_ptr<Ewff>(new Negation(e_->Substitute(theta)));
 }
 
-Ewff::Truth Ewff::Negation::Eval(bool sign) const {
-  switch (e_->Eval(!sign)) {
+Ewff::Truth Ewff::Negation::Eval(bool sign,
+                                 const std::map<Term, Term>& theta) const {
+  switch (e_->Eval(!sign, theta)) {
     case kTrue: return kFalse;
     case kFalse: return kTrue;
     case kUnknown: return kUnknown;
@@ -120,7 +128,8 @@ class Ewff::Disjunction : public Ewff {
 
   virtual std::unique_ptr<Ewff> Substitute(
       const std::map<Term,Term>& theta) const override;
-  virtual Truth Eval(bool sign) const override;
+  virtual Truth Eval(bool sign,
+                     const std::map<Term, Term>& theta) const override;
 
   virtual bool is_ground() const override;
 
@@ -144,9 +153,10 @@ std::unique_ptr<Ewff> Ewff::Disjunction::Substitute(
                                                e2_->Substitute(theta)));
 }
 
-Ewff::Truth Ewff::Disjunction::Eval(bool sign) const {
-  const Truth t1 = e1_->Eval(sign);
-  const Truth t2 = e2_->Eval(sign);
+Ewff::Truth Ewff::Disjunction::Eval(bool sign,
+                                    const std::map<Term, Term>& theta) const {
+  const Truth t1 = e1_->Eval(sign, theta);
+  const Truth t2 = e2_->Eval(sign, theta);
   if (t1 == t2) {
     return t1;
   }
@@ -180,7 +190,8 @@ class Ewff::SortCheck : public Ewff {
 
   virtual std::unique_ptr<Ewff> Substitute(
       const std::map<Term,Term>& theta) const override;
-  virtual Truth Eval(bool sign) const override;
+  virtual Truth Eval(bool sign,
+                     const std::map<Term, Term>& theta) const override;
 
   virtual bool is_ground() const override;
 
@@ -209,8 +220,10 @@ std::unique_ptr<Ewff> Ewff::SortCheck::Substitute(
   }
 }
 
-Ewff::Truth Ewff::SortCheck::Eval(bool sign) const {
-  return !is_ground() ? kUnknown : f_(t_) ? kTrue : kFalse;
+Ewff::Truth Ewff::SortCheck::Eval(bool sign,
+                                  const std::map<Term, Term>& theta) const {
+  const Term& t = t_.Substitute(theta);
+  return !t.is_ground() ? kUnknown : f_(t) ? kTrue : kFalse;
 }
 
 bool Ewff::SortCheck::is_ground() const {
@@ -250,8 +263,13 @@ std::unique_ptr<Ewff> Ewff::Unequal(const Term& t1, const Term& t2) {
   return Neg(Equal(t1, t2));
 }
 
-Ewff::Truth Ewff::Eval(bool sign) const {
-  return Eval(true);
+Ewff::Truth Ewff::Eval() const {
+  std::map<Term,Term> theta;
+  return Eval(theta);
+}
+
+Ewff::Truth Ewff::Eval(const std::map<Term,Term>& theta) const {
+  return Eval(true, theta);
 }
 
 bool Ewff::is_ground() const {
@@ -270,37 +288,42 @@ std::set<Term> Ewff::names() const {
   return ns;
 }
 
-#if 0
-static void ewff_ground_h(
-        const ewff_t *e,
-        const varset_t *vars,
-        const stdset_t *hplus,
-        void (*ground)(const varmap_t *),
-        varmap_t *varmap)
-{
-    if (varmap_size(varmap) < varset_size(vars)) {
-        const var_t x = varset_get(vars, varmap_size(varmap));
-        for (EACH_CONST(stdset, hplus, i)) {
-            const stdname_t n = i.val;
-            varmap_add_replace(varmap, x, n);
-            ewff_ground_h(e, vars, hplus, ground, varmap);
-        }
-        varmap_remove(varmap, x);
-    } else {
-        if (ewff_eval(e, varmap)) {
-            ground(varmap);
-        }
+void Ewff::GenerateModels(const std::vector<Term>& vars,
+                          const std::set<Term>& hplus,
+                          std::map<Term,Term> theta,
+                          std::list<std::map<Term,Term>> models) {
+  const Truth truth = Eval(theta);
+  assert(theta.size() < vars.size() || truth != kUnknown);
+  if (truth == kFalse) {
+    return;
+  } else if (theta.size() < vars.size()) {
+    const Term& var = vars[theta.size()];
+    for (const Term& term : hplus) {
+      theta[var] = term;
+      GenerateModels(vars, hplus, theta, models);
     }
+    theta.erase(var);
+  } else if (truth == kTrue) {
+    models.push_back(theta);
+  }
 }
 
-void ewff_ground(
-        const ewff_t *e,
-        const varset_t *vars,
-        const stdset_t *hplus,
-        void (*ground)(const varmap_t *))
-{
-    varmap_t varmap = varmap_init_with_size(varset_size(vars));
-    ewff_ground_h(e, vars, hplus, ground, &varmap);
+std::list<std::map<Term,Term>> Ewff::FindModels(const std::set<Term>& c_vars,
+                                                const std::set<Term>& hplus) {
+  const std::set<Term> e_vars = variables();
+  std::vector<Term> comb;
+  std::vector<Term> triv;
+  std::set_intersection(e_vars.begin(), e_vars.end(),
+                        c_vars.begin(), c_vars.end(),
+                        std::back_inserter(comb));
+  std::set_difference(e_vars.begin(), e_vars.end(),
+                      c_vars.begin(), c_vars.end(),
+                      std::back_inserter(triv));
+  assert(triv.empty()); // TODO should check whether ewff is satisfiable
+
+  std::list<std::map<Term,Term>> models;
+  std::map<Term,Term> theta;
+  GenerateModels(comb, hplus, theta, models);
+  return models;
 }
-#endif
 

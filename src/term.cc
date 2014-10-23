@@ -28,7 +28,7 @@ bool Term::operator<(const Term& t) const {
   return type_ < t.type_ || (type_ == t.type_ && id_ < t.id_);
 }
 
-const Term &Term::Substitute(const std::map<Term,Term>& theta) const {
+const Term& Term::Substitute(const std::map<Term,Term>& theta) const {
   auto it = theta.find(*this);
   return it != theta.end() ? it->second : *this;
 }

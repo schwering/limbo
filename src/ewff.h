@@ -6,9 +6,11 @@
 
 #include "term.h"
 #include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <set>
+#include <vector>
 
 class Ewff {
  public:
@@ -32,6 +34,9 @@ class Ewff {
   virtual std::unique_ptr<Ewff> Substitute(
       const std::map<Term,Term>& theta) const = 0;
   Truth Eval() const;
+  Truth Eval(const std::map<Term,Term>& theta) const;
+  std::list<std::map<Term,Term>> FindModels(const std::set<Term>& c_vars,
+                                            const std::set<Term>& hplus);
 
   virtual bool is_ground() const;
   std::set<Term> variables() const;
@@ -39,7 +44,7 @@ class Ewff {
 
  protected:
   Ewff() = default;
-  virtual Truth Eval(bool sign) const = 0;
+  virtual Truth Eval(bool sign, const std::map<Term, Term>& theta) const = 0;
   virtual void CollectVariables(std::set<Term>& vs) const = 0;
   virtual void CollectNames(std::set<Term>& ns) const = 0;
 
@@ -48,6 +53,11 @@ class Ewff {
   class Negation;
   class Disjunction;
   class SortCheck;
+
+  void GenerateModels(const std::vector<Term>& vars,
+                      const std::set<Term>& hplus,
+                      std::map<Term,Term> theta,
+                      std::list<std::map<Term,Term>> models);
 };
 
 #endif
