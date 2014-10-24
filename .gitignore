@@ -26,6 +26,7 @@ missing
 stamp-h1
 test-driver
 tests/check_*[^c]
+tests/*_test
 profile/profile
 gmon.out
 *.cmake

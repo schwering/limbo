@@ -4,10 +4,11 @@
 // An ewff is a formula that mentions no predicates other than equality and all
 // variables are universally quantified. We further restrict it to be in
 // disjunctive normal form (DNF).
-//
 // The restriction to DNF allows to quickly generate minimal models.
-// Notice that the objects provided to the ctor of Conj should be complete, that
-// is, if x=y then also y=x etc.
+//
+// A potential optimization is to manage a map of dependent variables, which can
+// be assigned once the variable has been assigned on which they depend (because
+// there is a constraint x=y).
 
 #ifndef SRC_EWFF_H_
 #define SRC_EWFF_H_
@@ -25,10 +26,10 @@ class Ewff {
  public:
   class Conj {
    public:
-    Conj(const std::map<Variable, StdName>& eq_name,
-         const std::multimap<Variable, Variable>& eq_var,
-         const std::multimap<Variable, StdName>& neq_name,
-         const std::multimap<Variable, Variable>& neq_var);
+    Conj(const Assignment& eq_name,
+         const std::set<std::pair<Variable, Variable>>& eq_var,
+         const std::set<std::pair<Variable, StdName>>& neq_name,
+         const std::set<std::pair<Variable, Variable>>& neq_var);
     Conj(const Conj&) = default;
     Conj& operator=(const Conj&) = default;
 
@@ -37,6 +38,7 @@ class Ewff {
     bool operator<(const Conj& c);
 
     std::pair<bool, Conj> Ground(const Assignment& theta) const;
+    std::pair<bool, Conj> Substitute(const Unifier& theta) const;
     bool CheckModel(const Assignment &theta) const;
     void FindModels(const std::set<StdName>& hplus,
                     std::list<Assignment> *models) const;
@@ -48,24 +50,28 @@ class Ewff {
     friend class std::pair<bool, Conj>;
     friend class Ewff;
     friend std::ostream& operator<<(std::ostream& os, const Conj& c);
-
     Conj() = default;
 
+    bool Substitute(const Variable& x, const StdName& n);
+    bool Substitute(const Variable& x, const Variable& y);
     void GenerateModels(const std::set<Variable>::const_iterator var_first,
                         const std::set<Variable>::const_iterator var_last,
                         const std::set<StdName>& hplus,
                         Assignment* theta,
                         std::list<Assignment> *models) const;
 
-    std::map<Variable, StdName> eq_name_;
-    std::multimap<Variable, Variable> eq_var_;
-    std::multimap<Variable, StdName> neq_name_;
-    std::multimap<Variable, Variable> neq_var_;
+    Assignment eq_name_;
+    std::set<std::pair<Variable, Variable>> eq_var_;
+    std::set<std::pair<Variable, StdName>> neq_name_;
+    std::set<std::pair<Variable, Variable>> neq_var_;
     std::set<Variable> vars_;
     std::set<Variable> fix_vars_;
     std::set<Variable> var_vars_;
     std::set<StdName> names_;
   };
+
+  static const Ewff TRUE;
+  static const Ewff FALSE;
 
   Ewff(std::initializer_list<Ewff::Conj> cs);
   Ewff(const Ewff&) = default;
