@@ -76,3 +76,41 @@ TEST(term_test, substitution) {
   EXPECT_FALSE(m == n);
 }
 
+TEST(term_test, unification) {
+  const Variable x = Term::CreateVariable(1);
+  const Variable y = Term::CreateVariable(1);
+  const StdName m = Term::CreateStdName(1, 1);
+  const StdName n = Term::CreateStdName(2, 1);
+  { Unifier theta;
+    EXPECT_TRUE(Term::Unify(m, m, &theta)); }
+  { Unifier theta;
+    EXPECT_TRUE(Term::Unify(m, m, &theta)); }
+  { Unifier theta;
+    EXPECT_FALSE(Term::Unify(m, n, &theta)); }
+  { Unifier theta;
+    EXPECT_TRUE(Term::Unify(m, m, &theta)); }
+  { Unifier theta;
+    EXPECT_TRUE(Term::Unify(x, y, &theta));
+    EXPECT_TRUE(x != y);
+    EXPECT_TRUE(x.Substitute(theta) == y.Substitute(theta)); }
+  { Unifier theta;
+    EXPECT_TRUE(Term::Unify(m, x, &theta));
+    EXPECT_TRUE(m != x);
+    EXPECT_TRUE(m == x.Substitute(theta)); }
+  { Unifier theta;
+    EXPECT_TRUE(Term::Unify(m, x, &theta));
+    EXPECT_TRUE(m != x);
+    EXPECT_TRUE(m == x.Substitute(theta));
+    EXPECT_FALSE(Term::Unify(n, x.Substitute(theta), &theta)); }
+  { Unifier theta;
+    EXPECT_TRUE(Term::Unify(x, y, &theta));
+    EXPECT_TRUE(Term::Unify(y, m, &theta));
+    EXPECT_TRUE(x != y);
+    EXPECT_TRUE(y != m);
+    EXPECT_TRUE(x != m);
+    EXPECT_TRUE(x.Substitute(theta) == y.Substitute(theta));
+    EXPECT_TRUE(y.Substitute(theta) == m.Substitute(theta));
+    EXPECT_TRUE(y.Substitute(theta) == m);
+    EXPECT_TRUE(x.Substitute(theta) == m); }
+}
+

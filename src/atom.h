@@ -6,6 +6,7 @@
 
 #include <map>
 #include <set>
+#include <utility>
 #include <vector>
 #include "./term.h"
 
@@ -25,8 +26,6 @@ class Atom {
   Atom AppendActions(const std::vector<Term>& z) const;
 
   Atom Substitute(const Unifier& theta) const;
-  bool Unify(const Atom& a, Unifier* theta) const;
-  std::pair<bool, Unifier> Unify(const Atom& a) const;
 
   static bool Unify(const Atom& a, const Atom& b, Unifier* theta);
   static std::pair<bool, Unifier> Unify(const Atom& a, const Atom& b);

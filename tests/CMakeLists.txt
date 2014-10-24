@@ -4,10 +4,11 @@ find_package (Threads)
 find_package (GTest REQUIRED)
 include_directories (${GTEST_INCLUDE_DIRS})
 
-add_executable (term_test term_test.cc)
-
-target_link_libraries (term_test LINK_PUBLIC ESBL ${GTEST_BOTH_LIBRARIES} pthread)
-
 enable_testing ()
-add_test (NAME term_test COMMAND term_test)
+
+foreach (test term atom)
+	add_executable (${test}_test ${test}_test.cc)
+	target_link_libraries (${test}_test LINK_PUBLIC ESBL ${GTEST_BOTH_LIBRARIES} pthread)
+	add_test (NAME ${test}_test COMMAND ${test}_test)
+endforeach()
 

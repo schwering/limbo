@@ -32,6 +32,7 @@ class Term {
   bool operator<(const Term& t) const;
 
   const Term& Substitute(const Unifier& theta) const;
+  static bool Unify(const Term& t1, const Term& t2, Unifier* theta);
 
   inline bool get_sort() const { return sort_; }
   inline bool is_variable() const { return type_ == VAR; }

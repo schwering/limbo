@@ -8,7 +8,7 @@
 const Atom::PredId Atom::SF = -1;
 
 Atom::Atom(const std::vector<Term>& z, PredId id, const std::vector<Term>& args)
-  : z_(z), args_(args) {
+  : z_(z), pred_(id), args_(args) {
 }
 
 Atom Atom::PrependAction(const Term& t) const {
@@ -19,7 +19,7 @@ Atom Atom::PrependAction(const Term& t) const {
 
 Atom Atom::PrependActions(const std::vector<Term>& z) const {
   Atom a = *this;
-  a.z_.insert(a.z_.begin(), z_.begin(), z_.end());
+  a.z_.insert(a.z_.begin(), z.begin(), z.end());
   return a;
 }
 
@@ -31,7 +31,7 @@ Atom Atom::AppendAction(const Term& t) const {
 
 Atom Atom::AppendActions(const std::vector<Term>& z) const {
   Atom a = *this;
-  a.z_.insert(a.z_.end(), z_.begin(), z_.end());
+  a.z_.insert(a.z_.end(), z.begin(), z.end());
   return a;
 }
 
@@ -46,29 +46,7 @@ Atom Atom::Substitute(const Unifier& theta) const {
   return a;
 }
 
-bool Atom::Unify(const Atom& a, Unifier* theta) const {
-  assert(is_ground());
-  return Unify(*this, a, theta);
-}
-
-std::pair<bool, Unifier> Atom::Unify(const Atom& a) const {
-  return Unify(*this, a);
-}
-
 namespace {
-bool Update(Unifier* theta, const Variable& t1, const Term& t2) {
-  auto p = theta->insert(std::make_pair(t1, t2));
-  if (p.second) {
-    return true;
-  }
-  std::pair<const Variable, Term>& old = *p.first;
-  assert(old.first == t1);
-  if (old.second.is_ground()) {
-    return false;
-  }
-  return Update(theta, Variable(old.second), t2);
-}
-
 bool Unify(const std::vector<Term>& a, const std::vector<Term>& b,
            Unifier* theta) {
   for (auto i = a.begin(), j = b.begin();
@@ -76,12 +54,7 @@ bool Unify(const std::vector<Term>& a, const std::vector<Term>& b,
        ++i, ++j) {
     const Term& t1 = *i;
     const Term& t2 = *j;
-    if (!t1.is_variable() && !t2.is_variable()) {
-      return false;
-    } 
-    const bool r = t1.is_variable()
-        ? ::Update(theta, Variable(t1), t2)
-        : ::Update(theta, Variable(t2), t1);
+    const bool r = Term::Unify(t1, t2, theta);
     if (!r) {
       return false;
     }
@@ -116,7 +89,9 @@ bool Atom::operator==(const Atom& a) const {
 }
 
 bool Atom::operator<(const Atom& a) const {
-  return pred_ < a.pred_ && z_ < a.z_ && args_ < a.args_;
+  return pred_ < a.pred_ ||
+      (pred_ == a.pred_ && z_ < a.z_) ||
+      (pred_ == a.pred_ && z_ == a.z_ && args_ < a.args_);
 }
 
 bool Atom::is_ground() const {
