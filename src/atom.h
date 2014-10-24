@@ -24,16 +24,18 @@ class Atom {
   Atom PrependActions(const std::vector<Term>& z) const;
   Atom AppendActions(const std::vector<Term>& z) const;
 
-  Atom Substitute(const Unifier theta) const;
-  bool Unify(const Atom& a, Unifier theta) const;
+  Atom Substitute(const Unifier& theta) const;
+  bool Unify(const Atom& a, Unifier* theta) const;
+  std::pair<bool, Unifier> Unify(const Atom& a) const;
 
-  static bool Unify(const Atom& a, const Atom& b, Unifier theta);
+  static bool Unify(const Atom& a, const Atom& b, Unifier* theta);
+  static std::pair<bool, Unifier> Unify(const Atom& a, const Atom& b);
 
   bool operator==(const Atom& a) const;
   bool operator<(const Atom& a) const;
 
   const std::vector<Term>& z() const { return z_; }
-  const PredId pred() const { return pred_; }
+  PredId pred() const { return pred_; }
   const std::vector<Term>& args() const { return args_; }
 
   bool is_ground() const;

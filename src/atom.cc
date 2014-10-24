@@ -35,7 +35,7 @@ Atom Atom::AppendActions(const std::vector<Term>& z) const {
   return a;
 }
 
-Atom Atom::Substitute(const Unifier theta) const {
+Atom Atom::Substitute(const Unifier& theta) const {
   Atom a = *this;
   for (Term& t : a.z_) {
     t = t.Substitute(theta);
@@ -46,14 +46,31 @@ Atom Atom::Substitute(const Unifier theta) const {
   return a;
 }
 
-bool Atom::Unify(const Atom& a, Unifier theta) const {
+bool Atom::Unify(const Atom& a, Unifier* theta) const {
   assert(is_ground());
   return Unify(*this, a, theta);
 }
 
+std::pair<bool, Unifier> Atom::Unify(const Atom& a) const {
+  return Unify(*this, a);
+}
+
 namespace {
+bool Update(Unifier* theta, const Variable& t1, const Term& t2) {
+  auto p = theta->insert(std::make_pair(t1, t2));
+  if (p.second) {
+    return true;
+  }
+  std::pair<const Variable, Term>& old = *p.first;
+  assert(old.first == t1);
+  if (old.second.is_ground()) {
+    return false;
+  }
+  return Update(theta, Variable(old.second), t2);
+}
+
 bool Unify(const std::vector<Term>& a, const std::vector<Term>& b,
-           Unifier theta) {
+           Unifier* theta) {
   for (auto i = a.begin(), j = b.begin();
        i != a.end() && j != b.end();
        ++i, ++j) {
@@ -61,16 +78,19 @@ bool Unify(const std::vector<Term>& a, const std::vector<Term>& b,
     const Term& t2 = *j;
     if (!t1.is_variable() && !t2.is_variable()) {
       return false;
-    } else if (t1.is_variable()) {
-      theta[Variable(t1)] = t2;
-    } else if (t2.is_variable()) {
-      theta[Variable(t2)] = t1;
+    } 
+    const bool r = t1.is_variable()
+        ? ::Update(theta, Variable(t1), t2)
+        : ::Update(theta, Variable(t2), t1);
+    if (!r) {
+      return false;
     }
   }
+  return true;
 }
 }  // namespace
 
-bool Atom::Unify(const Atom& a, const Atom& b, Unifier theta) {
+bool Atom::Unify(const Atom& a, const Atom& b, Unifier* theta) {
   if (a.pred_ != b.pred_ ||
       a.z_.size() != b.z_.size() ||
       a.args_.size() != b.args_.size()) {
@@ -83,6 +103,12 @@ bool Atom::Unify(const Atom& a, const Atom& b, Unifier theta) {
     return false;
   }
   return true;
+}
+
+std::pair<bool, Unifier> Atom::Unify(const Atom& a, const Atom& b) {
+  std::pair<bool, Unifier> p;
+  p.first = Unify(a, b, &p.second);
+  return p;
 }
 
 bool Atom::operator==(const Atom& a) const {

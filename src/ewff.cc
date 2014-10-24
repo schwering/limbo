@@ -75,17 +75,20 @@ bool Ewff::Conj::operator<(const Conj& c) {
   }
 }
 
-bool Ewff::Conj::Ground(const Assignment& theta, Conj* c) const {
+std::pair<bool, Ewff::Conj> Ewff::Conj::Ground(const Assignment& theta) const {
+  std::pair<bool, Conj> p;
   for (const auto& xen : theta) {
-    const auto r = c->eq_name_.insert(xen);
+    const auto r = p.second.eq_name_.insert(xen);
     if (r.second) {
-      return false;
+      p.first = false;
+      return p;
     }
-    c->fix_vars_.insert(xen.first);
-    c->var_vars_.erase(xen.first);
-    c->names_.insert(xen.second);
+    p.second.fix_vars_.insert(xen.first);
+    p.second.var_vars_.erase(xen.first);
+    p.second.names_.insert(xen.second);
   }
-  return true;
+  p.first = true;
+  return p;
 }
 
 bool Ewff::Conj::CheckModel(const Assignment& theta) const {
@@ -163,15 +166,16 @@ Ewff::Ewff(std::initializer_list<Ewff::Conj> cs) {
   cs_.insert(cs_.end(), cs.begin(), cs.end());
 }
 
-bool Ewff::Ground(const Assignment& theta, Ewff* e) const {
+std::pair<bool, Ewff> Ewff::Ground(const Assignment& theta) const {
+  std::pair<bool, Ewff> p;
   for (const auto& c1 : cs_) {
-    Conj c2;
-    const bool r = c1.Ground(theta, &c2);
-    if (r) {
-      e->cs_.push_back(c2);
+    const auto q = c1.Ground(theta);
+    if (q.first) {
+      p.second.cs_.push_back(q.second);
     }
   }
-  return !e->cs_.empty();
+  p.first = !p.second.cs_.empty();
+  return p;
 }
 
 bool Ewff::CheckModel(const Assignment& theta) const {

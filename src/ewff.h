@@ -17,6 +17,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <utility>
 #include <vector>
 #include "./term.h"
 
@@ -34,7 +35,7 @@ class Ewff {
     bool operator==(const Conj& c);
     bool operator<(const Conj& c);
 
-    bool Ground(const Assignment& theta, Conj* c) const;
+    std::pair<bool, Conj> Ground(const Assignment& theta) const;
     bool CheckModel(const Assignment &theta) const;
     void FindModels(const std::set<StdName>& hplus,
                     std::list<Assignment> *models) const;
@@ -43,6 +44,7 @@ class Ewff {
     const std::set<StdName>& names() const;
 
    private:
+    friend class std::pair<bool, Conj>;
     friend class Ewff;
 
     Conj() = default;
@@ -67,7 +69,7 @@ class Ewff {
   Ewff(const Ewff&) = default;
   Ewff& operator=(const Ewff&) = default;
 
-  bool Ground(const Assignment& theta, Ewff* e) const;
+  std::pair<bool, Ewff> Ground(const Assignment& theta) const;
   bool CheckModel(const Assignment &theta) const;
   std::list<Assignment> FindModels(const std::set<StdName>& hplus) const;
 
@@ -75,6 +77,10 @@ class Ewff {
   std::set<StdName> names() const;
 
  private:
+  friend class std::pair<bool, Ewff>;
+
+  Ewff() = default;
+
   std::vector<Conj> cs_;
 };
 
