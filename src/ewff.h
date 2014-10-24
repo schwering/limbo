@@ -33,6 +33,7 @@ class Ewff {
     Conj& operator=(const Conj&) = default;
 
     bool operator==(const Conj& c);
+    bool operator!=(const Conj& c);
     bool operator<(const Conj& c);
 
     std::pair<bool, Conj> Ground(const Assignment& theta) const;
@@ -46,6 +47,7 @@ class Ewff {
    private:
     friend class std::pair<bool, Conj>;
     friend class Ewff;
+    friend std::ostream& operator<<(std::ostream& os, const Conj& c);
 
     Conj() = default;
 
@@ -78,11 +80,15 @@ class Ewff {
 
  private:
   friend class std::pair<bool, Ewff>;
+  friend std::ostream& operator<<(std::ostream& os, const Ewff& e);
 
   Ewff() = default;
 
   std::vector<Conj> cs_;
 };
+
+std::ostream& operator<<(std::ostream& os, const Ewff::Conj& c);
+std::ostream& operator<<(std::ostream& os, const Ewff& e);
 
 #endif  // SRC_EWFF_H_
 

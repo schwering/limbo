@@ -88,6 +88,10 @@ bool Atom::operator==(const Atom& a) const {
   return pred_ == a.pred_ && z_ == a.z_ && args_ == a.args_;
 }
 
+bool Atom::operator!=(const Atom& a) const {
+  return !operator==(a);
+}
+
 bool Atom::operator<(const Atom& a) const {
   return pred_ < a.pred_ ||
       (pred_ == a.pred_ && z_ < a.z_) ||
@@ -127,5 +131,26 @@ std::set<StdName> Atom::names() const {
     }
   }
   return ns;
+}
+
+std::ostream& operator<<(std::ostream& os, const Atom& a) {
+  os << '[';
+  for (auto it = a.z().begin(); it != a.z().end(); ++it) {
+    if (it != a.z().begin()) {
+      os << ',' << ' ';
+    }
+    os << *it;
+  }
+  os << ']';
+  os << 'P' << a.pred();
+  os << '(';
+  for (auto it = a.z().begin(); it != a.z().end(); ++it) {
+    if (it != a.z().begin()) {
+      os << ',' << ' ';
+    }
+    os << *it;
+  }
+  os << ')';
+  return os;
 }
 

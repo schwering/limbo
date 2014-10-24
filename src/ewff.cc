@@ -51,6 +51,10 @@ bool Ewff::Conj::operator==(const Conj& c) {
       neq_name_ == c.neq_name_ && neq_var_ == c.neq_var_;
 }
 
+bool Ewff::Conj::operator!=(const Conj& c) {
+  return !operator==(c);
+}
+
 bool Ewff::Conj::operator<(const Conj& c) {
   if (eq_name_ < c.eq_name_) {
     return true;
@@ -65,14 +69,15 @@ bool Ewff::Conj::operator<(const Conj& c) {
     return false;
   }
   if (neq_name_ < c.neq_name_) {
-    return false;
+    return true;
   }
   if (neq_name_ != c.neq_name_) {
     return false;
   }
   if (neq_var_ < c.neq_var_) {
-    return false;
+    return true;
   }
+  return false;
 }
 
 std::pair<bool, Ewff::Conj> Ewff::Conj::Ground(const Assignment& theta) const {
@@ -209,5 +214,47 @@ std::set<StdName> Ewff::names() const {
     std::copy(ns.begin(), ns.end(), std::inserter(names, names.begin()));
   }
   return names;
+}
+
+std::ostream& operator<<(std::ostream& os, const Ewff::Conj& c) {
+  os << '(';
+  for (auto it = c.eq_name_.begin(); it != c.eq_name_.end(); ++it) {
+    if (it != c.eq_name_.begin()) {
+      os << " ^ " << ' ';
+    }
+    os << it->first << " = " << it->second;
+  }
+  for (auto it = c.eq_var_.begin(); it != c.eq_var_.end(); ++it) {
+    if (!c.eq_name_.empty() || it != c.eq_var_.begin()) {
+      os << " ^ " << ' ';
+    }
+    os << it->first << " = " << it->second;
+  }
+  for (auto it = c.neq_name_.begin(); it != c.neq_name_.end(); ++it) {
+    if (!c.eq_var_.empty() || it != c.neq_name_.begin()) {
+      os << " ^ " << ' ';
+    }
+    os << it->first << " = " << it->second;
+  }
+  for (auto it = c.neq_var_.begin(); it != c.neq_var_.end(); ++it) {
+    if (!c.neq_name_.empty() || it != c.neq_var_.begin()) {
+      os << " ^ " << ' ';
+    }
+    os << it->first << " = " << it->second;
+  }
+  os << ')';
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Ewff& e) {
+  os << '(';
+  for (auto it = e.cs_.begin(); it != e.cs_.end(); ++it) {
+    if (it != e.cs_.begin()) {
+      os << " v " << ' ';
+    }
+    os << *it;
+  }
+  os << ')';
+  return os;
 }
 

@@ -23,6 +23,7 @@ class Literal : public Atom {
   Literal Negative() const;
 
   bool operator==(const Literal& l) const;
+  bool operator!=(const Literal& l) const;
   bool operator<(const Literal& l) const;
 
   bool sign() const { return sign_; }
@@ -30,6 +31,8 @@ class Literal : public Atom {
  private:
   bool sign_;
 };
+
+std::ostream& operator<<(std::ostream& os, const Literal& l);
 
 #endif  // SRC_LITERAL_H_
 

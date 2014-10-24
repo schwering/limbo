@@ -31,6 +31,7 @@ class Atom {
   static std::pair<bool, Unifier> Unify(const Atom& a, const Atom& b);
 
   bool operator==(const Atom& a) const;
+  bool operator!=(const Atom& a) const;
   bool operator<(const Atom& a) const;
 
   const std::vector<Term>& z() const { return z_; }
@@ -46,6 +47,8 @@ class Atom {
   PredId pred_;
   std::vector<Term> args_;
 };
+
+std::ostream& operator<<(std::ostream& os, const Atom& a);
 
 #endif  // SRC_ATOM_H_
 

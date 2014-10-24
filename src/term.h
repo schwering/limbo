@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <map>
+#include <ostream>
 #include <set>
 
 class Term;
@@ -34,20 +35,21 @@ class Term {
   const Term& Substitute(const Unifier& theta) const;
   static bool Unify(const Term& t1, const Term& t2, Unifier* theta);
 
-  inline bool get_sort() const { return sort_; }
-  inline bool is_variable() const { return type_ == VAR; }
-  inline bool is_name() const { return type_ == NAME; }
-  inline bool is_ground() const { return type_ != VAR; }
+  inline Id id() const { return id_; }
+  inline bool sort() const { return sort_; }
+  inline bool is_variable() const { return kind_ == VAR; }
+  inline bool is_name() const { return kind_ == NAME; }
+  inline bool is_ground() const { return kind_ != VAR; }
 
  protected:
-  enum Type { DUMMY, VAR, NAME };
+  enum Kind { DUMMY, VAR, NAME };
 
   static Id var_id_;
 
-  Term(Type type, int id, Sort sort);
+  Term(Kind kind, int id, Sort sort);
 
-  Type type_;
-  int id_;
+  Kind kind_;
+  Id id_;
   Sort sort_;
 };
 
@@ -70,6 +72,10 @@ class StdName : public Term {
   StdName(const StdName&) = default;
   StdName& operator=(const StdName&) = default;
 };
+
+std::ostream& operator<<(std::ostream& os, const Term& t);
+std::ostream& operator<<(std::ostream& os, const Unifier& theta);
+std::ostream& operator<<(std::ostream& os, const Assignment& theta);
 
 #endif  // SRC_TERM_H_
 
