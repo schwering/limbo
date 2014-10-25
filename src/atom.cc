@@ -103,31 +103,31 @@ bool Atom::is_ground() const {
                      [](const Term& t) { return t.is_ground(); });
 }
 
-std::set<Variable> Atom::variables() const {
-  std::set<Variable> vs;
+Variable::SortedSet Atom::variables() const {
+  Variable::SortedSet vs;
   for (auto& t : z_) {
     if (t.is_variable()) {
-      vs.insert(Variable(t));
+      vs[t.sort()].insert(Variable(t));
     }
   }
   for (auto& t : args_) {
     if (t.is_variable()) {
-      vs.insert(Variable(t));
+      vs[t.sort()].insert(Variable(t));
     }
   }
   return vs;
 }
 
-std::set<StdName> Atom::names() const {
-  std::set<StdName> ns;
+StdName::SortedSet Atom::names() const {
+  StdName::SortedSet ns;
   for (auto& t : z_) {
     if (t.is_name()) {
-      ns.insert(StdName(t));
+      ns[t.sort()].insert(StdName(t));
     }
   }
   for (auto& t : args_) {
     if (t.is_name()) {
-      ns.insert(StdName(t));
+      ns[t.sort()].insert(StdName(t));
     }
   }
   return ns;

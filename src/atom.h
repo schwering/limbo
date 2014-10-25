@@ -40,8 +40,8 @@ class Atom {
   const TermSeq& args() const { return args_; }
 
   bool is_ground() const;
-  std::set<Variable> variables() const;
-  std::set<StdName> names() const;
+  Variable::SortedSet variables() const;
+  StdName::SortedSet names() const;
 
  private:
   TermSeq z_;

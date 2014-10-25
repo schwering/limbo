@@ -44,8 +44,8 @@ class Ewff {
     void FindModels(const StdName::SortedSet& hplus,
                     std::list<Assignment>* models) const;
 
-    const std::set<Variable>& variables() const;
-    const std::set<StdName>& names() const;
+    void CollectVariables(Variable::SortedSet* vs) const;
+    void CollectNames(StdName::SortedSet* ns) const;
 
    private:
     friend class std::pair<bool, Conj>;
@@ -62,14 +62,14 @@ class Ewff {
                         Assignment* theta,
                         std::list<Assignment>* models) const;
 
+    bool is_fix_var(const Variable& x) const { return eq_name_.count(x) > 0; }
+    bool is_var_var(const Variable& x) const { return var_vars_.count(x) > 0; }
+
     Assignment eq_name_;
     std::set<std::pair<Variable, Variable>> eq_var_;
     std::set<std::pair<Variable, StdName>> neq_name_;
     std::set<std::pair<Variable, Variable>> neq_var_;
-    std::set<Variable> vars_;
-    std::set<Variable> fix_vars_;
     std::set<Variable> var_vars_;
-    std::set<StdName> names_;
   };
 
   static const Ewff TRUE;
@@ -86,8 +86,8 @@ class Ewff {
   bool CheckModel(const Assignment &theta) const;
   std::list<Assignment> FindModels(const StdName::SortedSet& hplus) const;
 
-  std::set<Variable> variables() const;
-  std::set<StdName> names() const;
+  Variable::SortedSet variables() const;
+  StdName::SortedSet names() const;
 
  private:
   friend class std::pair<bool, Ewff>;

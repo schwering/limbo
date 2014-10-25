@@ -58,7 +58,7 @@ class Term {
 
 class Variable : public Term {
  public:
-  typedef std::set<Variable> Set;
+  typedef std::map<Sort, std::set<Variable>> SortedSet;
 
   Variable();
   explicit Variable(const Term& t) : Term(t) { assert(is_variable()); }

@@ -17,40 +17,31 @@ Ewff::Conj::Conj(const Assignment& eq_name,
   for (const auto& xem : eq_name_) {
     assert(xem.first.is_variable());
     assert(xem.second.is_name());
-    vars_.insert(xem.first);
-    fix_vars_.insert(xem.first);
-    names_.insert(xem.second);
   }
   for (const auto& xey : eq_var_) {
     assert(xey.first.is_variable());
     assert(xey.second.is_variable());
-    vars_.insert(xey.first);
-    vars_.insert(xey.second);
-    if (fix_vars_.count(xey.first) == 0) {
+    if (!is_fix_var(xey.first)) {
       var_vars_.insert(xey.first);
     }
-    if (fix_vars_.count(xey.second) == 0) {
+    if (!is_fix_var(xey.second)) {
       var_vars_.insert(xey.second);
     }
   }
   for (const auto& xnm : neq_name_) {
     assert(xnm.first.is_variable());
     assert(xnm.second.is_name());
-    vars_.insert(xnm.first);
-    if (fix_vars_.count(xnm.first) == 0) {
+    if (!is_fix_var(xnm.first)) {
       var_vars_.insert(xnm.first);
     }
-    names_.insert(xnm.second);
   }
   for (const auto& xny : neq_var_) {
     assert(xny.first.is_variable());
     assert(xny.second.is_variable());
-    vars_.insert(xny.first);
-    vars_.insert(xny.second);
-    if (fix_vars_.count(xny.first) == 0) {
+    if (!is_fix_var(xny.first)) {
       var_vars_.insert(xny.first);
     }
-    if (fix_vars_.count(xny.second) == 0) {
+    if (!is_fix_var(xny.second)) {
       var_vars_.insert(xny.second);
     }
   }
@@ -159,20 +150,17 @@ bool Ewff::Conj::Ground(const Variable& x, const StdName& n) {
 #endif
 
 bool Ewff::Conj::Substitute(const Variable& x, const StdName& n) {
-  if (vars_.count(x) == 0) {
+  if (!is_fix_var(x) && !is_var_var(x)) {
     return true;
   }
-  assert(vars_.count(x) > 0);
+  assert(is_fix_var(x) || is_var_var(x));
 
   const auto p = eq_name_.insert(std::make_pair(x, n));
   const StdName& n_old = p.first->second;
   if (!p.second) {
     return n == n_old;
   }
-
-  fix_vars_.insert(x);
   var_vars_.erase(x);
-  names_.insert(n);
 
   std::list<Variable> recursive_calls;
   for (auto yez = eq_var_.begin(); yez != eq_var_.end(); ++yez) {
@@ -219,10 +207,10 @@ bool Ewff::Conj::Substitute(const Variable& x, const StdName& n) {
 }
 
 bool Ewff::Conj::Substitute(const Variable& x, const Variable& y) {
-  if (vars_.count(x) == 0) {
+  if (!is_fix_var(x) && !is_var_var(x)) {
     return true;
   }
-  assert(vars_.count(x) > 0);
+  assert(is_fix_var(x) || is_var_var(x));
 
   const auto& xem = eq_name_.find(x);
   const auto& yen = eq_name_.find(y);
@@ -343,12 +331,25 @@ void Ewff::Conj::FindModels(const StdName::SortedSet& hplus,
   GenerateModels(var_vars_.begin(), var_vars_.end(), hplus, &theta, models);
 }
 
-const std::set<Variable>& Ewff::Conj::variables() const {
-  return vars_;
+void Ewff::Conj::CollectVariables(Variable::SortedSet* vs) const {
+  for (auto& xen : eq_name_) {
+    const Variable& x = xen.first;
+    (*vs)[x.sort()].insert(x);
+  }
+  for (const Variable& x : var_vars_) {
+    (*vs)[x.sort()].insert(x);
+  }
 }
 
-const std::set<StdName>& Ewff::Conj::names() const {
-  return names_;
+void Ewff::Conj::CollectNames(StdName::SortedSet* ns) const {
+  for (auto& xen : eq_name_) {
+    const StdName& n = xen.second;
+    (*ns)[n.sort()].insert(n);
+  }
+  for (auto& xnn : neq_name_) {
+    const StdName& n = xnn.second;
+    (*ns)[n.sort()].insert(n);
+  }
 }
 
 
@@ -396,22 +397,20 @@ std::list<Assignment> Ewff::FindModels(const StdName::SortedSet& hplus) const {
   return models;
 }
 
-std::set<Variable> Ewff::variables() const {
-  std::set<Variable> vars;
+Variable::SortedSet Ewff::variables() const {
+  Variable::SortedSet vs;
   for (auto& c : cs_) {
-    const std::set<Variable>& vs = c.variables();
-    std::copy(vs.begin(), vs.end(), std::inserter(vars, vars.begin()));
+    c.CollectVariables(&vs);
   }
-  return vars;
+  return vs;
 }
 
-std::set<StdName> Ewff::names() const {
-  std::set<StdName> names;
+StdName::SortedSet Ewff::names() const {
+  StdName::SortedSet ns;
   for (auto& c : cs_) {
-    const std::set<StdName>& ns = c.names();
-    std::copy(ns.begin(), ns.end(), std::inserter(names, names.begin()));
+    c.CollectNames(&ns);
   }
-  return names;
+  return ns;
 }
 
 std::ostream& operator<<(std::ostream& os, const Ewff::Conj& c) {

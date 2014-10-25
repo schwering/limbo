@@ -22,7 +22,8 @@ class Clause {
 
   Clause PrependActions(const TermSeq& z) const;
 
-  std::set<Literal> Rel(const StdName::SortedSet& hplus, const Literal &l) const;
+  std::set<Literal> Rel(const StdName::SortedSet& hplus,
+                        const Literal &l) const;
 
   std::pair<bool, Clause> Substitute(const Unifier& theta) const;
 
