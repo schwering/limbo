@@ -19,6 +19,7 @@ ar-lib
 autom4te.cache/
 compile
 config.*
+.ycm_extra_conf.pyc
 configure
 depcomp
 install-sh

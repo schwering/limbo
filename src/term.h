@@ -8,11 +8,13 @@
 #include <map>
 #include <ostream>
 #include <set>
+#include <vector>
 
 class Term;
 class Variable;
 class StdName;
 
+typedef std::vector<Term> TermSeq;
 typedef std::map<Variable, Term> Unifier;
 typedef std::map<Variable, StdName> Assignment;
 
@@ -21,18 +23,19 @@ class Term {
   typedef uint64_t Id;
   typedef uint64_t Sort;
 
-  static Variable CreateVariable(Sort sort);
-  static StdName CreateStdName(Id id, Sort sort);
-
-  Term();
+  Term() : kind_(DUMMY), id_(0) {}
   Term(const Term&) = default;
   Term& operator=(const Term&) = default;
+
+  static Variable CreateVariable(Sort sort);
+  static StdName CreateStdName(Id id, Sort sort);
 
   bool operator==(const Term& t) const;
   bool operator!=(const Term& t) const;
   bool operator<(const Term& t) const;
 
   const Term& Substitute(const Unifier& theta) const;
+  const Term& Ground(const Assignment& theta) const;
   static bool Unify(const Term& t1, const Term& t2, Unifier* theta);
 
   inline Id id() const { return id_; }
@@ -46,7 +49,7 @@ class Term {
 
   static Id var_id_;
 
-  Term(Kind kind, int id, Sort sort);
+  Term(Kind kind, int id, Sort sort) : kind_(kind), id_(id), sort_(sort) {}
 
   Kind kind_;
   Id id_;
@@ -65,7 +68,7 @@ class Variable : public Term {
 
 class StdName : public Term {
  public:
-  typedef std::set<StdName> Set;
+  typedef std::map<Sort, std::set<StdName>> SortedSet;
 
   StdName() : Term() {}
   explicit StdName(const Term& t) : Term(t) { assert(is_name()); }

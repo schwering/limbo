@@ -19,6 +19,9 @@ static Variable x4 = Term::CreateVariable(1);
 static Variable x5 = Term::CreateVariable(1);
 static Variable x6 = Term::CreateVariable(1);
 
+static std::set<StdName> names{n0,n1,n2,n3,n4,n5,n6};
+static StdName::SortedSet hplus{{1, names}};
+
 TEST(ewff_test, conj) {
   Ewff::Conj c({{x1,n1}, {x2,n2}},
                {{x3,x4}, {x4,x3}},
@@ -33,7 +36,7 @@ TEST(ewff_test, conj) {
   }
   {
     std::list<Assignment> models;
-    c.FindModels({n0,n1,n2,n3,n4,n5,n6}, &models);
+    c.FindModels(hplus, &models);
     EXPECT_TRUE(models.size() > 0);
     for (const Assignment& theta : models) {
       c.CheckModel(theta);
@@ -70,14 +73,14 @@ TEST(ewff_test, conj) {
 
   {
     std::list<Assignment> models;
-    c.FindModels({n1,n2,n3,n4,n5,n6}, &models);
+    c.FindModels(hplus, &models);
     std::set<Assignment> models_set;
     std::copy(models.begin(), models.end(), std::inserter(models_set, models_set.end()));
     EXPECT_TRUE(!models_set.empty());
 
     // test completeness (and correctness) of FindModels()
     std::list<Assignment> all_assignments;
-    cc.FindModels({n1,n2,n3,n4,n5,n6}, &all_assignments);
+    cc.FindModels(hplus, &all_assignments);
     EXPECT_TRUE(all_assignments.size() > 0);
 
     for (const Assignment& theta : all_assignments) {
@@ -99,20 +102,20 @@ TEST(ewff_test, ewff) {
 
   {
     std::list<Assignment> models1;
-    c1.FindModels({n1,n2,n3,n4,n5,n6}, &models1);
+    c1.FindModels(hplus, &models1);
     std::set<Assignment> models_set1;
     std::copy(models1.begin(), models1.end(), std::inserter(models_set1, models_set1.end()));
     EXPECT_TRUE(!models_set1.empty());
 
     std::list<Assignment> models2;
-    c2.FindModels({n1,n2,n3,n4,n5,n6}, &models2);
+    c2.FindModels(hplus, &models2);
     std::set<Assignment> models_set2;
     std::copy(models2.begin(), models2.end(), std::inserter(models_set2, models_set2.end()));
     EXPECT_TRUE(!models_set2.empty());
 
     // test completeness (and correctness) of FindModels()
     std::list<Assignment> all_assignments;
-    c1.FindModels({n1,n2,n3,n4,n5,n6}, &all_assignments);
+    c1.FindModels(hplus, &all_assignments);
     EXPECT_TRUE(all_assignments.size() > 0);
 
     for (const Assignment& theta : all_assignments) {

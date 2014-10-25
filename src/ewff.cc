@@ -95,8 +95,9 @@ bool Ewff::Conj::operator<(const Conj& c) {
 //    (*theta)[x] = n;
 // in GenerateModels, but perhaps it's not worth the cost because then we'd
 // have to create a copy of theta in the loop.
-// TODO Should be tested.
-bool Ewff::Conj::Assign(Assignment* theta, const Variable& x, const StdName& n) const {
+// TODO(schwering) Should be tested.
+bool Ewff::Conj::Assign(Assignment* theta, const Variable& x,
+                        const StdName& n) const {
   assert(vars_.count(x) > 0);
   const auto p = theta->insert(std::make_pair(x, n));
   const StdName& n_old = p.first->second;
@@ -315,12 +316,18 @@ bool Ewff::Conj::CheckModel(const Assignment& theta) const {
 
 void Ewff::Conj::GenerateModels(const std::set<Variable>::const_iterator first,
                                 const std::set<Variable>::const_iterator last,
-                                const std::set<StdName>& hplus,
+                                const StdName::SortedSet& hplus,
                                 Assignment* theta,
-                                std::list<Assignment> *models) const {
+                                std::list<Assignment>* models) const {
   if (first != last) {
     const Variable& x = *first;
-    for (const StdName& n : hplus) {
+    StdName::SortedSet::const_iterator ns_it = hplus.find(x.sort());
+    assert(ns_it != hplus.end());
+    if (ns_it == hplus.end()) {
+      return;
+    }
+    const std::set<StdName>& ns = ns_it->second;
+    for (const StdName& n : ns) {
       (*theta)[x] = n;
       GenerateModels(std::next(first), last, hplus, theta, models);
     }
@@ -330,8 +337,8 @@ void Ewff::Conj::GenerateModels(const std::set<Variable>::const_iterator first,
   }
 }
 
-void Ewff::Conj::FindModels(const std::set<StdName>& hplus,
-                            std::list<Assignment> *models) const {
+void Ewff::Conj::FindModels(const StdName::SortedSet& hplus,
+                            std::list<Assignment>* models) const {
   Assignment theta = eq_name_;
   GenerateModels(var_vars_.begin(), var_vars_.end(), hplus, &theta, models);
 }
@@ -348,8 +355,16 @@ const std::set<StdName>& Ewff::Conj::names() const {
 const Ewff Ewff::TRUE = Ewff({ {}, {}, {}, {} });
 const Ewff Ewff::FALSE = Ewff({});
 
-Ewff::Ewff(std::initializer_list<Ewff::Conj> cs) {
-  cs_.insert(cs_.end(), cs.begin(), cs.end());
+std::pair<bool, Ewff> Ewff::Substitute(const Unifier& theta) const {
+  std::pair<bool, Ewff> p;
+  for (const auto& c1 : cs_) {
+    const auto q = c1.Substitute(theta);
+    if (q.first) {
+      p.second.cs_.push_back(q.second);
+    }
+  }
+  p.first = !p.second.cs_.empty();
+  return p;
 }
 
 std::pair<bool, Ewff> Ewff::Ground(const Assignment& theta) const {
@@ -373,7 +388,7 @@ bool Ewff::CheckModel(const Assignment& theta) const {
   return false;
 }
 
-std::list<Assignment> Ewff::FindModels(const std::set<StdName>& hplus) const {
+std::list<Assignment> Ewff::FindModels(const StdName::SortedSet& hplus) const {
   std::list<Assignment> models;
   for (auto& c : cs_) {
     c.FindModels(hplus, &models);

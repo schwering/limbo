@@ -37,11 +37,12 @@ class Ewff {
     bool operator!=(const Conj& c);
     bool operator<(const Conj& c);
 
-    std::pair<bool, Conj> Ground(const Assignment& theta) const;
     std::pair<bool, Conj> Substitute(const Unifier& theta) const;
+    std::pair<bool, Conj> Ground(const Assignment& theta) const;
+
     bool CheckModel(const Assignment &theta) const;
-    void FindModels(const std::set<StdName>& hplus,
-                    std::list<Assignment> *models) const;
+    void FindModels(const StdName::SortedSet& hplus,
+                    std::list<Assignment>* models) const;
 
     const std::set<Variable>& variables() const;
     const std::set<StdName>& names() const;
@@ -50,15 +51,16 @@ class Ewff {
     friend class std::pair<bool, Conj>;
     friend class Ewff;
     friend std::ostream& operator<<(std::ostream& os, const Conj& c);
+
     Conj() = default;
 
     bool Substitute(const Variable& x, const StdName& n);
     bool Substitute(const Variable& x, const Variable& y);
     void GenerateModels(const std::set<Variable>::const_iterator var_first,
                         const std::set<Variable>::const_iterator var_last,
-                        const std::set<StdName>& hplus,
+                        const StdName::SortedSet& hplus,
                         Assignment* theta,
-                        std::list<Assignment> *models) const;
+                        std::list<Assignment>* models) const;
 
     Assignment eq_name_;
     std::set<std::pair<Variable, Variable>> eq_var_;
@@ -73,13 +75,16 @@ class Ewff {
   static const Ewff TRUE;
   static const Ewff FALSE;
 
-  Ewff(std::initializer_list<Ewff::Conj> cs);
+  Ewff() = default;
+  Ewff(std::initializer_list<Ewff::Conj> cs) : cs_(cs) {}
   Ewff(const Ewff&) = default;
   Ewff& operator=(const Ewff&) = default;
 
+  std::pair<bool, Ewff> Substitute(const Unifier& theta) const;
   std::pair<bool, Ewff> Ground(const Assignment& theta) const;
+
   bool CheckModel(const Assignment &theta) const;
-  std::list<Assignment> FindModels(const std::set<StdName>& hplus) const;
+  std::list<Assignment> FindModels(const StdName::SortedSet& hplus) const;
 
   std::set<Variable> variables() const;
   std::set<StdName> names() const;
@@ -87,8 +92,6 @@ class Ewff {
  private:
   friend class std::pair<bool, Ewff>;
   friend std::ostream& operator<<(std::ostream& os, const Ewff& e);
-
-  Ewff() = default;
 
   std::vector<Conj> cs_;
 };

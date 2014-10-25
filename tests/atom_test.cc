@@ -14,12 +14,12 @@ TEST(atom_test, actions) {
   Atom a({n1, n2, x1}, 123, {n3, x2, x3});
 
   EXPECT_TRUE(a.pred() == 123);
-  EXPECT_TRUE(a.PrependAction(n2).PrependAction(n1).z() == (std::vector<Term>{n1,n2,n1,n2,x1}));
-  EXPECT_TRUE(a.PrependAction(n2).PrependAction(n1).z() != (std::vector<Term>{n2,n1,n1,n2,x1}));
-  EXPECT_TRUE(a.PrependActions({n1,n2}).z() == (std::vector<Term>{n1,n2,n1,n2,x1}));
-  EXPECT_TRUE(a.AppendAction(n2).AppendAction(n1).z() == (std::vector<Term>{n1,n2,x1,n2,n1}));
-  EXPECT_TRUE(a.AppendActions({n2,n1}).z() == (std::vector<Term>{n1,n2,x1,n2,n1}));
-  EXPECT_TRUE(a.AppendActions({n2,n1}).args() == (std::vector<Term>{n3,x2,x3}));
+  EXPECT_TRUE(a.PrependActions({n1,n2}).z() == (TermSeq{n1,n2,n1,n2,x1}));
+  EXPECT_TRUE(a.PrependActions({n1,n2}).z() != (TermSeq{n2,n1,n1,n2,x1}));
+  EXPECT_TRUE(a.AppendActions({n2,n1}).z() == (TermSeq{n1,n2,x1,n2,n1}));
+  EXPECT_TRUE(a.AppendActions({n2,n1}).args() == (TermSeq{n3,x2,x3}));
+  EXPECT_TRUE(a.PrependActions({n2,n1}).DropActions(1).DropActions(1) == a);
+  EXPECT_TRUE(a.PrependActions({n2,n1}).DropActions(2) == a);
 }
 
 TEST(atom_test, less) {

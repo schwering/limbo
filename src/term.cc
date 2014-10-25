@@ -5,13 +5,6 @@
 
 Term::Id Term::var_id_ = 0;
 
-Term::Term()
-  : kind_(DUMMY), id_(0) {
-}
-
-Term::Term(Kind kind, int id, Sort sort) : kind_(kind), id_(id), sort_(sort) {
-}
-
 Variable Term::CreateVariable(Sort sort) {
   return Variable(Term(VAR, var_id_++, sort));
 }
@@ -37,6 +30,15 @@ const Term& Term::Substitute(const Unifier& theta) const {
   if (kind_ == VAR) {
     auto it = theta.find(Variable(*this));
     return it != theta.end() ? it->second.Substitute(theta) : *this;
+  } else {
+    return *this;
+  }
+}
+
+const Term& Term::Ground(const Assignment& theta) const {
+  if (kind_ == VAR) {
+    auto it = theta.find(Variable(*this));
+    return it != theta.end() ? it->second : *this;
   } else {
     return *this;
   }

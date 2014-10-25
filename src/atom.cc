@@ -7,31 +7,21 @@
 
 const Atom::PredId Atom::SF = -1;
 
-Atom::Atom(const std::vector<Term>& z, PredId id, const std::vector<Term>& args)
-  : z_(z), pred_(id), args_(args) {
-}
-
-Atom Atom::PrependAction(const Term& t) const {
-  Atom a = *this;
-  a.z_.insert(a.z_.begin(), t);
-  return a;
-}
-
-Atom Atom::PrependActions(const std::vector<Term>& z) const {
+Atom Atom::PrependActions(const TermSeq& z) const {
   Atom a = *this;
   a.z_.insert(a.z_.begin(), z.begin(), z.end());
   return a;
 }
 
-Atom Atom::AppendAction(const Term& t) const {
+Atom Atom::AppendActions(const TermSeq& z) const {
   Atom a = *this;
-  a.z_.push_back(t);
+  a.z_.insert(a.z_.end(), z.begin(), z.end());
   return a;
 }
 
-Atom Atom::AppendActions(const std::vector<Term>& z) const {
+Atom Atom::DropActions(size_t n) const {
   Atom a = *this;
-  a.z_.insert(a.z_.end(), z.begin(), z.end());
+  a.z_.erase(a.z_.begin(), a.z_.begin() + n);
   return a;
 }
 
@@ -46,9 +36,19 @@ Atom Atom::Substitute(const Unifier& theta) const {
   return a;
 }
 
+Atom Atom::Ground(const Assignment& theta) const {
+  Atom a = *this;
+  for (Term& t : a.z_) {
+    t = t.Ground(theta);
+  }
+  for (Term& t : a.args_) {
+    t = t.Ground(theta);
+  }
+  return a;
+}
+
 namespace {
-bool Unify(const std::vector<Term>& a, const std::vector<Term>& b,
-           Unifier* theta) {
+bool Unify(const TermSeq& a, const TermSeq& b, Unifier* theta) {
   for (auto i = a.begin(), j = b.begin();
        i != a.end() && j != b.end();
        ++i, ++j) {
@@ -137,7 +137,7 @@ std::ostream& operator<<(std::ostream& os, const Atom& a) {
   os << '[';
   for (auto it = a.z().begin(); it != a.z().end(); ++it) {
     if (it != a.z().begin()) {
-      os << ',' << ' ';
+      os << ", ";
     }
     os << *it;
   }
@@ -146,7 +146,7 @@ std::ostream& operator<<(std::ostream& os, const Atom& a) {
   os << '(';
   for (auto it = a.z().begin(); it != a.z().end(); ++it) {
     if (it != a.z().begin()) {
-      os << ',' << ' ';
+      os << ", ";
     }
     os << *it;
   }

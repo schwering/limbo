@@ -16,16 +16,17 @@ class Atom {
 
   static const PredId SF;
 
-  Atom(const std::vector<Term>& z, PredId pred, const std::vector<Term>& args);
+  Atom(const TermSeq& z, PredId pred, const TermSeq& args)
+      : z_(z), pred_(pred), args_(args) {}
   Atom(const Atom&) = default;
   Atom& operator=(const Atom&) = default;
 
-  Atom PrependAction(const Term& t) const;
-  Atom AppendAction(const Term& t) const;
-  Atom PrependActions(const std::vector<Term>& z) const;
-  Atom AppendActions(const std::vector<Term>& z) const;
+  Atom PrependActions(const TermSeq& z) const;
+  Atom AppendActions(const TermSeq& z) const;
+  Atom DropActions(size_t n) const;
 
   Atom Substitute(const Unifier& theta) const;
+  Atom Ground(const Assignment& theta) const;
 
   static bool Unify(const Atom& a, const Atom& b, Unifier* theta);
   static std::pair<bool, Unifier> Unify(const Atom& a, const Atom& b);
@@ -34,18 +35,18 @@ class Atom {
   bool operator!=(const Atom& a) const;
   bool operator<(const Atom& a) const;
 
-  const std::vector<Term>& z() const { return z_; }
+  const TermSeq& z() const { return z_; }
   PredId pred() const { return pred_; }
-  const std::vector<Term>& args() const { return args_; }
+  const TermSeq& args() const { return args_; }
 
   bool is_ground() const;
   std::set<Variable> variables() const;
   std::set<StdName> names() const;
 
  private:
-  std::vector<Term> z_;
+  TermSeq z_;
   PredId pred_;
-  std::vector<Term> args_;
+  TermSeq args_;
 };
 
 std::ostream& operator<<(std::ostream& os, const Atom& a);
