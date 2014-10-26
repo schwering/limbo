@@ -24,22 +24,23 @@ class Clause {
 
   Clause PrependActions(const TermSeq& z) const;
 
-  GroundClause Rel(const StdName::SortedSet& hplus,
+  std::set<Literal> Rel(const StdName::SortedSet& hplus,
                         const Literal &ext_l) const;
-
   bool Subsumes(const GroundClause& c) const;
+  bool SplitRelevant(const Atom& a, const GroundClause c, unsigned int k) const;
+  std::list<Clause> PropagateUnit(const Literal& ext_l) const;
 
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
   const GroundClause& literals() const { return ls_; }
-  size_t size() const { return ls_.size(); }
 
   std::set<Atom::PredId> positive_preds() const;
   std::set<Atom::PredId> negative_preds() const;
 
  private:
-  std::pair<bool, Clause> Substitute(const Unifier& theta) const;
-  std::pair<bool, Clause> Unify(const Atom& cl_a, const Atom& ext_a) const;
+  std::tuple<bool, Clause> Substitute(const Unifier& theta) const;
+  std::tuple<bool, Unifier, Clause> Unify(const Atom& cl_a,
+                                          const Atom& ext_a) const;
 
   bool box_;
   Ewff e_;

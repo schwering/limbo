@@ -75,13 +75,14 @@ bool Atom::Unify(const Atom& a, const Atom& b, Unifier* theta) {
   if (!::Unify(a.args_, b.args_, theta)) {
     return false;
   }
+  assert(a.Substitute(*theta) == b.Substitute(*theta));
   return true;
 }
 
 std::pair<bool, Unifier> Atom::Unify(const Atom& a, const Atom& b) {
-  std::pair<bool, Unifier> p;
-  p.first = Unify(a, b, &p.second);
-  return p;
+  Unifier theta;
+  const bool succ = Unify(a, b, &theta);
+  return std::make_pair(succ, theta);
 }
 
 bool Atom::operator==(const Atom& a) const {

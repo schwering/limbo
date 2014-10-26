@@ -13,16 +13,18 @@ Clause Clause::PrependActions(const TermSeq& z) const {
   return Clause(box_, e_, ls);
 }
 
-std::pair<bool, Clause> Clause::Substitute(const Unifier& theta) const {
-  std::pair<bool, Ewff> p = e_.Substitute(theta);
-  if (!p.first) {
-    return std::make_pair(false, Clause());
+std::tuple<bool, Clause> Clause::Substitute(const Unifier& theta) const {
+  bool succ;
+  Ewff e;
+  std::tie(succ, e) = e_.Substitute(theta);
+  if (!succ) {
+    return failed<Clause>();
   }
   GroundClause ls;
   for (const Literal& l : ls_) {
     ls.insert(l.Substitute(theta));
   }
-  return std::make_pair(true, Clause(box_, p.second, ls));
+  return std::make_pair(true, Clause(box_, e, ls));
 }
 
 namespace {
@@ -32,57 +34,59 @@ std::tuple<bool, TermSeq, Unifier> BoxUnify(const Atom& cl_a,
   if (split > ext_a.z().size() ||
       !std::equal(cl_a.z().begin(), cl_a.z().end(),
                   ext_a.z().begin() + split)) {
-    return std::make_tuple(false, TermSeq(), Unifier());
+    return failed<TermSeq, Unifier>();
   }
   const Atom a = ext_a.DropActions(split);
-  std::pair<bool, Unifier> p = Atom::Unify(a, cl_a);
-  if (!p.first) {
-    return std::make_tuple(false, TermSeq(), Unifier());
+  bool succ;
+  Unifier theta;
+  std::tie(succ, theta) = Atom::Unify(a, cl_a);
+  if (!succ) {
+    return failed<TermSeq, Unifier>();
   }
-  const Unifier& theta = p.second;
   const TermSeq prefix(ext_a.z().begin(), ext_a.z().begin() + split);
   return std::make_tuple(true, prefix, theta);
 }
 }  // namespace
 
-std::pair<bool, Clause> Clause::Unify(const Atom& cl_a,
-                                      const Atom& ext_a) const {
+std::tuple<bool, Unifier, Clause> Clause::Unify(const Atom& cl_a,
+                                                const Atom& ext_a) const {
   assert(ls_.count(Literal(true, cl_a)) + ls_.count(Literal(false, cl_a)) > 0);
   if (box_) {
     bool succ;
     TermSeq z;
     Unifier theta;
-    std::tie(succ, z, theta) = BoxUnify(cl_a, ext_a);
+    std::tie(succ, z, theta) = ::BoxUnify(cl_a, ext_a);
     if (!succ) {
-      return std::make_pair(false, Clause());
+      return failed<Unifier, Clause>();
     }
     Clause c;
     std::tie(succ, c) = Substitute(theta);
     if (!succ) {
-      return std::make_pair(false, Clause());
+      return failed<Unifier, Clause>();
     }
-    return std::make_pair(true, c.PrependActions(z));
+    return std::make_tuple(true, theta, c.PrependActions(z));
   } else {
     bool succ;
     Unifier theta;
     std::tie(succ, theta) = Atom::Unify(cl_a, ext_a);
     if (!succ) {
-      return std::make_pair(false, Clause());
+      return failed<Unifier, Clause>();
     }
     Clause c;
     std::tie(succ, c) = Substitute(theta);
     if (!succ) {
-      return std::make_pair(false, Clause());
+      return failed<Unifier, Clause>();
     }
-    return std::make_pair(true, c);
+    return std::make_tuple(true, theta, c);
   }
 }
 
-GroundClause Clause::Rel(const StdName::SortedSet& hplus,
-                         const Literal &ext_l) const {
+std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
+                              const Literal &ext_l) const {
+  assert(ext_l.is_ground());
   const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
       [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
-  GroundClause rel;
+  std::set<Literal> rel;
   // Given a clause l and a clause e->c such that for some l' in c with
   // l = l'.theta for some theta and |= e.theta.theta' for some theta', for all
   // clauses l'' c.theta.theta', its negation ~l'' is relevant to l.
@@ -99,7 +103,7 @@ GroundClause Clause::Rel(const StdName::SortedSet& hplus,
     }
     bool succ;
     Clause c;
-    std::tie(succ, c) = Unify(cl_l, ext_l);
+    std::tie(succ, std::ignore, c) = Unify(cl_l, ext_l);
     if (!succ) {
       continue;
     }
@@ -115,24 +119,55 @@ GroundClause Clause::Rel(const StdName::SortedSet& hplus,
 bool Clause::Subsumes(const GroundClause& c) const {
   for (const Literal& cl_l : ls_) {
     for (const Literal& ext_l : c) {
+      assert(ext_l.is_ground());
       if (ext_l.sign() != cl_l.sign() ||
           ext_l.pred() != cl_l.pred()) {
         continue;
       }
       bool succ;
+      Unifier theta;
       Clause d;
-      std::tie(succ, d) = Unify(cl_l, ext_l);
+      std::tie(succ, theta, d) = Unify(cl_l, ext_l);
       if (!succ) {
         continue;
       }
       GroundClause cc = c;
-      cc.erase(cl_l);
+      cc.erase(cl_l.Substitute(theta));
       if (d.Subsumes(cc)) {
         return true;
       }
     }
   }
   return false;
+}
+
+bool Clause::SplitRelevant(const Atom& a, const GroundClause c,
+                           unsigned int k) const {
+  const GroundClause::const_iterator it1 = ls_.find(Literal(true, a));
+  const GroundClause::const_iterator it2 = ls_.find(Literal(false, a));
+  // ls_.size() - c.size() is a (bad) approximation of (d \ c).size() where d is
+  // a unification of ls_ and c
+  return (it1 != ls_.end() || it2 != ls_.end()) &&
+         (ls_.size() <= k + 1 || ls_.size() - c.size() <= k);
+}
+
+std::list<Clause> Clause::PropagateUnit(const Literal& ext_l) const {
+  std::list<Clause> cs;
+  for (const Literal& cl_l : ls_) {
+    if (ext_l.sign() == cl_l.sign() ||
+        ext_l.pred() != cl_l.pred()) {
+      continue;
+    }
+    bool succ;
+    Unifier theta;
+    Clause d;
+    std::tie(succ, theta, d) = Unify(cl_l, ext_l);
+    if (!succ) {
+      continue;
+    }
+    d.ls_.erase(cl_l.Substitute(theta));
+  }
+  return cs;
 }
 
 std::set<Atom::PredId> Clause::positive_preds() const {

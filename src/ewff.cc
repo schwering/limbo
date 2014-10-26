@@ -233,34 +233,31 @@ bool Ewff::Conj::Substitute(const Variable& x, const Variable& y) {
 }
 
 std::pair<bool, Ewff::Conj> Ewff::Conj::Substitute(const Unifier& theta) const {
-  std::pair<bool, Conj> r = std::make_pair(true, *this);
+  Conj c = *this;
   for (const auto& xet : theta) {
     const Variable& x = xet.first;
     const Term& t = xet.second;
     if (t.is_name()) {
-      if (!r.second.Substitute(x, StdName(t))) {
-        r.first = false;
-        return r;
+      if (!c.Substitute(x, StdName(t))) {
+        return failed<Conj>();
       }
     } else {
-      if (!r.second.Substitute(x, Variable(t))) {
-        r.first = false;
-        return r;
+      if (!c.Substitute(x, Variable(t))) {
+        return failed<Conj>();
       }
     }
   }
-  return r;
+  return std::make_pair(true, c);
 }
 
 std::pair<bool, Ewff::Conj> Ewff::Conj::Ground(const Assignment& theta) const {
-  std::pair<bool, Conj> r = std::make_pair(true, *this);
+  Conj c = *this;
   for (const auto& xen : theta) {
-    if (!r.second.Substitute(xen.first, xen.second)) {
-      r.first = false;
-      return r;
+    if (!c.Substitute(xen.first, xen.second)) {
+      return failed<Conj>();
     }
   }
-  return r;
+  return std::make_pair(true, c);
 }
 
 bool Ewff::Conj::CheckModel(const Assignment& theta) const {
@@ -384,27 +381,29 @@ const Ewff Ewff::TRUE = Ewff({ {}, {}, {}, {} });
 const Ewff Ewff::FALSE = Ewff({});
 
 std::pair<bool, Ewff> Ewff::Substitute(const Unifier& theta) const {
-  std::pair<bool, Ewff> p;
+  Ewff e;
   for (const auto& c1 : cs_) {
-    const auto q = c1.Substitute(theta);
-    if (q.first) {
-      p.second.cs_.push_back(q.second);
+    bool succ;
+    Conj c;
+    std::tie(succ, c) = c1.Substitute(theta);
+    if (succ) {
+      e.cs_.push_back(c);
     }
   }
-  p.first = !p.second.cs_.empty();
-  return p;
+  return std::make_pair(!e.cs_.empty(), e);
 }
 
 std::pair<bool, Ewff> Ewff::Ground(const Assignment& theta) const {
-  std::pair<bool, Ewff> p;
+  Ewff e;
   for (const auto& c1 : cs_) {
-    const auto q = c1.Ground(theta);
-    if (q.first) {
-      p.second.cs_.push_back(q.second);
+    bool succ;
+    Conj c;
+    std::tie(succ, c) = c1.Ground(theta);
+    if (succ) {
+      e.cs_.push_back(c);
     }
   }
-  p.first = !p.second.cs_.empty();
-  return p;
+  return std::make_pair(!e.cs_.empty(), e);
 }
 
 bool Ewff::CheckModel(const Assignment& theta) const {

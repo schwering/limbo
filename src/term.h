@@ -76,6 +76,16 @@ class StdName : public Term {
   StdName& operator=(const StdName&) = default;
 };
 
+template<typename T1>
+constexpr std::pair<bool, T1> failed() {
+  return std::make_pair(false, T1());
+}
+
+template<typename T1, typename T2>
+constexpr std::tuple<bool, T1, T2> failed() {
+  return std::make_tuple(false, T1(), T2());
+}
+
 std::ostream& operator<<(std::ostream& os, const Term& t);
 std::ostream& operator<<(std::ostream& os, const Unifier& theta);
 std::ostream& operator<<(std::ostream& os, const Assignment& theta);

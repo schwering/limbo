@@ -26,6 +26,7 @@ class Ewff {
  public:
   class Conj {
    public:
+    Conj() = default;
     Conj(const Assignment& eq_name,
          const std::set<std::pair<Variable, Variable>>& eq_var,
          const std::set<std::pair<Variable, StdName>>& neq_name,
@@ -49,11 +50,7 @@ class Ewff {
     void CollectNames(StdName::SortedSet* ns) const;
 
    private:
-    friend class std::pair<bool, Conj>;
-    friend class Ewff;
     friend std::ostream& operator<<(std::ostream& os, const Conj& c);
-
-    Conj() = default;
 
     bool Substitute(const Variable& x, const StdName& n);
     bool Substitute(const Variable& x, const Variable& y);
@@ -96,7 +93,6 @@ class Ewff {
   StdName::SortedSet names() const;
 
  private:
-  friend class std::pair<bool, Ewff>;
   friend std::ostream& operator<<(std::ostream& os, const Ewff& e);
 
   std::vector<Conj> cs_;
