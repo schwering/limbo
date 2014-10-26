@@ -41,6 +41,7 @@ class Ewff {
     std::pair<bool, Conj> Ground(const Assignment& theta) const;
 
     bool CheckModel(const Assignment &theta) const;
+    bool Satisfiable(const StdName::SortedSet& hplus) const;
     void Models(const StdName::SortedSet& hplus,
                 std::list<Assignment>* models) const;
 
@@ -56,6 +57,10 @@ class Ewff {
 
     bool Substitute(const Variable& x, const StdName& n);
     bool Substitute(const Variable& x, const Variable& y);
+    bool GenerateModel(const std::set<Variable>::const_iterator first,
+                       const std::set<Variable>::const_iterator last,
+                       const StdName::SortedSet& hplus,
+                       Assignment* theta) const;
     void GenerateModels(const std::set<Variable>::const_iterator var_first,
                         const std::set<Variable>::const_iterator var_last,
                         const StdName::SortedSet& hplus,
@@ -85,6 +90,7 @@ class Ewff {
 
   bool CheckModel(const Assignment &theta) const;
   std::list<Assignment> Models(const StdName::SortedSet& hplus) const;
+  bool Satisfiable(const StdName::SortedSet& hplus) const;
 
   Variable::SortedSet variables() const;
   StdName::SortedSet names() const;

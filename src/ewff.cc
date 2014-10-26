@@ -302,6 +302,33 @@ bool Ewff::Conj::CheckModel(const Assignment& theta) const {
   return true;
 }
 
+bool Ewff::Conj::GenerateModel(const std::set<Variable>::const_iterator first,
+                               const std::set<Variable>::const_iterator last,
+                               const StdName::SortedSet& hplus,
+                               Assignment* theta) const {
+  if (first != last) {
+    const Variable& x = *first;
+    StdName::SortedSet::const_iterator ns_it = hplus.find(x.sort());
+    assert(ns_it != hplus.end());
+    const std::set<StdName>& ns = ns_it->second;
+    for (const StdName& n : ns) {
+      (*theta)[x] = n;
+      if (GenerateModel(std::next(first), last, hplus, theta)) {
+        return true;
+      }
+    }
+    theta->erase(x);
+    return false;
+  } else {
+    return CheckModel(*theta);
+  }
+}
+
+bool Ewff::Conj::Satisfiable(const StdName::SortedSet& hplus) const {
+  Assignment theta = eq_name_;
+  return GenerateModel(var_vars_.begin(), var_vars_.end(), hplus, &theta);
+}
+
 void Ewff::Conj::GenerateModels(const std::set<Variable>::const_iterator first,
                                 const std::set<Variable>::const_iterator last,
                                 const StdName::SortedSet& hplus,
@@ -395,6 +422,15 @@ std::list<Assignment> Ewff::Models(const StdName::SortedSet& hplus) const {
     c.Models(hplus, &models);
   }
   return models;
+}
+
+bool Ewff::Satisfiable(const StdName::SortedSet& hplus) const {
+  for (auto& c : cs_) {
+    if (c.Satisfiable(hplus)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 Variable::SortedSet Ewff::variables() const {
