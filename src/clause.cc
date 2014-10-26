@@ -6,7 +6,7 @@
 #include <numeric>
 
 Clause Clause::PrependActions(const TermSeq& z) const {
-  std::set<Literal> ls;
+  GroundClause ls;
   for (const Literal& l : ls_) {
     ls.insert(l.PrependActions(z));
   }
@@ -16,9 +16,9 @@ Clause Clause::PrependActions(const TermSeq& z) const {
 std::pair<bool, Clause> Clause::Substitute(const Unifier& theta) const {
   std::pair<bool, Ewff> p = e_.Substitute(theta);
   if (!p.first) {
-    return std::make_pair(false, *this);
+    return std::make_pair(false, Clause());
   }
-  std::set<Literal> ls;
+  GroundClause ls;
   for (const Literal& l : ls_) {
     ls.insert(l.Substitute(theta));
   }
@@ -26,51 +26,85 @@ std::pair<bool, Clause> Clause::Substitute(const Unifier& theta) const {
 }
 
 namespace {
-std::tuple<bool, TermSeq, Unifier> BoxUnify(const Literal &z_lit,
-                                            const Literal& box_lit) {
-  const size_t split = box_lit.z().size();
-  if (split > z_lit.z().size() ||
-      !std::equal(box_lit.z().begin(), box_lit.z().end(),
-                  z_lit.z().begin() + split)) {
+std::tuple<bool, TermSeq, Unifier> BoxUnify(const Atom& cl_a,
+                                            const Atom& ext_a) {
+  const size_t split = cl_a.z().size();
+  if (split > ext_a.z().size() ||
+      !std::equal(cl_a.z().begin(), cl_a.z().end(),
+                  ext_a.z().begin() + split)) {
     return std::make_tuple(false, TermSeq(), Unifier());
   }
-  const Literal lit = z_lit.DropActions(split);
-  std::pair<bool, Unifier> p = Atom::Unify(lit, box_lit);
+  const Atom a = ext_a.DropActions(split);
+  std::pair<bool, Unifier> p = Atom::Unify(a, cl_a);
   if (!p.first) {
     return std::make_tuple(false, TermSeq(), Unifier());
   }
   const Unifier& theta = p.second;
-  const TermSeq prefix(z_lit.z().begin(), z_lit.z().begin() + split);
+  const TermSeq prefix(ext_a.z().begin(), ext_a.z().begin() + split);
   return std::make_tuple(true, prefix, theta);
 }
 }  // namespace
 
-std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
-                              const Literal &rel_lit) const {
-  const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
-      [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
-  std::set<Literal> rel;
-  for (const Literal& l : ls_) {
-    if (rel_lit.sign() != l.sign() ||
-        rel_lit.pred() != l.pred() ||
-        l.z().size() < max_z) {
-      continue;
-    }
+std::pair<bool, Clause> Clause::Unify(const Atom& cl_a,
+                                      const Atom& ext_a) const {
+  if (box_) {
     bool succ;
     TermSeq z;
     Unifier theta;
-    std::tie(succ, z, theta) = BoxUnify(rel_lit, l);
+    std::tie(succ, z, theta) = BoxUnify(cl_a, ext_a);
     if (!succ) {
-      continue;
+      return std::make_pair(false, Clause());
     }
     Clause c;
     std::tie(succ, c) = Substitute(theta);
     if (!succ) {
+      return std::make_pair(false, Clause());
+    }
+    return std::make_pair(true, c.PrependActions(z));
+  } else {
+    bool succ;
+    Unifier theta;
+    std::tie(succ, theta) = Atom::Unify(cl_a, ext_a);
+    if (!succ) {
+      return std::make_pair(false, Clause());
+    }
+    Clause c;
+    std::tie(succ, c) = Substitute(theta);
+    if (!succ) {
+      return std::make_pair(false, Clause());
+    }
+    return std::make_pair(true, c);
+  }
+}
+
+GroundClause Clause::Rel(const StdName::SortedSet& hplus,
+                         const Literal &ext_l) const {
+  const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
+      [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
+  GroundClause rel;
+  // Given a clause l and a clause e->c such that for some l' in c with
+  // l = l'.theta for some theta and |= e.theta.theta' for some theta', for all
+  // clauses l'' c.theta.theta', its negation ~l'' is relevant to l.
+  // Relevance means that splitting ~l'' may help to prove l.
+  // In case c is a box clause, it must be unified as well.
+  // Due to the constrained form of BATs, only l' with maximum action length in
+  // e->c must be considered. Intuitively, in an SSA Box([a]F <-> ...) this is
+  // [a]F, and in Box(SF(a) <-> ...) it is every literal of the fluent.
+  for (const Literal& l : ls_) {
+    if (ext_l.sign() != l.sign() ||
+        ext_l.pred() != l.pred() ||
+        l.z().size() < max_z) {
       continue;
     }
-    for (const Assignment& theta : c.PrependActions(z).e_.Models(hplus)) {
+    bool succ;
+    Clause c;
+    std::tie(succ, c) = Unify(l, ext_l);
+    if (!succ) {
+      continue;
+    }
+    for (const Assignment& theta : c.e_.Models(hplus)) {
       for (const Literal& ll : c.ls_) {
-        rel.insert(ll.Ground(theta).Negative());
+        rel.insert(ll.Ground(theta).Flip());
       }
     }
   }
