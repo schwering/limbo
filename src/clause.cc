@@ -50,7 +50,7 @@ std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
   const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
       [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
   std::set<Literal> rel;
-  for (const Literal& l : literals()) {
+  for (const Literal& l : ls_) {
     if (rel_lit.sign() != l.sign() || l.z().size() < max_z) {
       continue;
     }
@@ -67,8 +67,8 @@ std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
       continue;
     }
     c = c.PrependActions(z);
-    for (const Assignment& theta : c.ewff().FindModels(hplus)) {
-      for (const Literal& ll : c.literals()) {
+    for (const Assignment& theta : c.e_.Models(hplus)) {
+      for (const Literal& ll : c.ls_) {
         rel.insert(ll.Ground(theta));
       }
     }

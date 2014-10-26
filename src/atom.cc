@@ -103,34 +103,30 @@ bool Atom::is_ground() const {
                      [](const Term& t) { return t.is_ground(); });
 }
 
-Variable::SortedSet Atom::variables() const {
-  Variable::SortedSet vs;
+void Atom::CollectVariables(Variable::SortedSet* vs) const {
   for (auto& t : z_) {
     if (t.is_variable()) {
-      vs[t.sort()].insert(Variable(t));
+      (*vs)[t.sort()].insert(Variable(t));
     }
   }
   for (auto& t : args_) {
     if (t.is_variable()) {
-      vs[t.sort()].insert(Variable(t));
+      (*vs)[t.sort()].insert(Variable(t));
     }
   }
-  return vs;
 }
 
-StdName::SortedSet Atom::names() const {
-  StdName::SortedSet ns;
+void Atom::CollectNames(StdName::SortedSet* ns) const {
   for (auto& t : z_) {
     if (t.is_name()) {
-      ns[t.sort()].insert(StdName(t));
+      (*ns)[t.sort()].insert(StdName(t));
     }
   }
   for (auto& t : args_) {
     if (t.is_name()) {
-      ns[t.sort()].insert(StdName(t));
+      (*ns)[t.sort()].insert(StdName(t));
     }
   }
-  return ns;
 }
 
 std::ostream& operator<<(std::ostream& os, const Atom& a) {

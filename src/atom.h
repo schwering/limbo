@@ -40,8 +40,9 @@ class Atom {
   const TermSeq& args() const { return args_; }
 
   bool is_ground() const;
-  Variable::SortedSet variables() const;
-  StdName::SortedSet names() const;
+
+  void CollectVariables(Variable::SortedSet* vs) const;
+  void CollectNames(StdName::SortedSet* ns) const;
 
  private:
   TermSeq z_;

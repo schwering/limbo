@@ -27,6 +27,7 @@ class Clause {
 
   std::pair<bool, Clause> Substitute(const Unifier& theta) const;
 
+  bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
   const std::set<Literal>& literals() const { return ls_; }
 

@@ -325,8 +325,8 @@ void Ewff::Conj::GenerateModels(const std::set<Variable>::const_iterator first,
   }
 }
 
-void Ewff::Conj::FindModels(const StdName::SortedSet& hplus,
-                            std::list<Assignment>* models) const {
+void Ewff::Conj::Models(const StdName::SortedSet& hplus,
+                        std::list<Assignment>* models) const {
   Assignment theta = eq_name_;
   GenerateModels(var_vars_.begin(), var_vars_.end(), hplus, &theta, models);
 }
@@ -389,10 +389,10 @@ bool Ewff::CheckModel(const Assignment& theta) const {
   return false;
 }
 
-std::list<Assignment> Ewff::FindModels(const StdName::SortedSet& hplus) const {
+std::list<Assignment> Ewff::Models(const StdName::SortedSet& hplus) const {
   std::list<Assignment> models;
   for (auto& c : cs_) {
-    c.FindModels(hplus, &models);
+    c.Models(hplus, &models);
   }
   return models;
 }

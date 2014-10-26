@@ -41,8 +41,8 @@ class Ewff {
     std::pair<bool, Conj> Ground(const Assignment& theta) const;
 
     bool CheckModel(const Assignment &theta) const;
-    void FindModels(const StdName::SortedSet& hplus,
-                    std::list<Assignment>* models) const;
+    void Models(const StdName::SortedSet& hplus,
+                std::list<Assignment>* models) const;
 
     void CollectVariables(Variable::SortedSet* vs) const;
     void CollectNames(StdName::SortedSet* ns) const;
@@ -84,7 +84,7 @@ class Ewff {
   std::pair<bool, Ewff> Ground(const Assignment& theta) const;
 
   bool CheckModel(const Assignment &theta) const;
-  std::list<Assignment> FindModels(const StdName::SortedSet& hplus) const;
+  std::list<Assignment> Models(const StdName::SortedSet& hplus) const;
 
   Variable::SortedSet variables() const;
   StdName::SortedSet names() const;
