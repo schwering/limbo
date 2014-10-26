@@ -86,6 +86,10 @@ TEST(ewff_test, conj) {
     for (const Assignment& theta : all_assignments) {
       EXPECT_EQ(models_set.count(theta) > 0, c.CheckModel(theta));
     }
+
+    for (const Assignment& theta : all_assignments) {
+      EXPECT_TRUE(!c.Ground(theta).first || c.CheckModel(theta));
+    }
   }
 }
 
