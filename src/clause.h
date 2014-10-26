@@ -27,6 +27,8 @@ class Clause {
   GroundClause Rel(const StdName::SortedSet& hplus,
                         const Literal &ext_l) const;
 
+  bool Subsumes(const GroundClause& c) const;
+
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
   const GroundClause& literals() const { return ls_; }

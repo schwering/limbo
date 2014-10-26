@@ -47,6 +47,7 @@ std::tuple<bool, TermSeq, Unifier> BoxUnify(const Atom& cl_a,
 
 std::pair<bool, Clause> Clause::Unify(const Atom& cl_a,
                                       const Atom& ext_a) const {
+  assert(ls_.count(Literal(true, cl_a)) + ls_.count(Literal(false, cl_a)) > 0);
   if (box_) {
     bool succ;
     TermSeq z;
@@ -90,15 +91,15 @@ GroundClause Clause::Rel(const StdName::SortedSet& hplus,
   // Due to the constrained form of BATs, only l' with maximum action length in
   // e->c must be considered. Intuitively, in an SSA Box([a]F <-> ...) this is
   // [a]F, and in Box(SF(a) <-> ...) it is every literal of the fluent.
-  for (const Literal& l : ls_) {
-    if (ext_l.sign() != l.sign() ||
-        ext_l.pred() != l.pred() ||
-        l.z().size() < max_z) {
+  for (const Literal& cl_l : ls_) {
+    if (ext_l.sign() != cl_l.sign() ||
+        ext_l.pred() != cl_l.pred() ||
+        cl_l.z().size() < max_z) {
       continue;
     }
     bool succ;
     Clause c;
-    std::tie(succ, c) = Unify(l, ext_l);
+    std::tie(succ, c) = Unify(cl_l, ext_l);
     if (!succ) {
       continue;
     }
@@ -109,6 +110,29 @@ GroundClause Clause::Rel(const StdName::SortedSet& hplus,
     }
   }
   return rel;
+}
+
+bool Clause::Subsumes(const GroundClause& c) const {
+  for (const Literal& cl_l : ls_) {
+    for (const Literal& ext_l : c) {
+      if (ext_l.sign() != cl_l.sign() ||
+          ext_l.pred() != cl_l.pred()) {
+        continue;
+      }
+      bool succ;
+      Clause d;
+      std::tie(succ, d) = Unify(cl_l, ext_l);
+      if (!succ) {
+        continue;
+      }
+      GroundClause cc = c;
+      cc.erase(cl_l);
+      if (d.Subsumes(cc)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 std::set<Atom::PredId> Clause::positive_preds() const {
