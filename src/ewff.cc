@@ -6,6 +6,8 @@
 #include <cassert>
 #include <memory>
 
+namespace esbl {
+
 Ewff::Conj::Conj(const Assignment& eq_name,
                  const std::set<std::pair<Variable, Variable>>& eq_var,
                  const std::set<std::pair<Variable, StdName>>& neq_name,
@@ -488,5 +490,7 @@ std::ostream& operator<<(std::ostream& os, const Ewff& e) {
   }
   os << ')';
   return os;
+}
+
 }
 

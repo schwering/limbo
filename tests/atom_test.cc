@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include <./atom.h>
 
+using namespace esbl;
+
 TEST(atom_test, actions) {
   StdName n1 = Term::CreateStdName(1, 1);
   StdName n2 = Term::CreateStdName(2, 1);

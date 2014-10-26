@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include <./literal.h>
 
+using namespace esbl;
+
 TEST(literal_test, less) {
   StdName n1 = Term::CreateStdName(1, 1);
   StdName n2 = Term::CreateStdName(2, 1);

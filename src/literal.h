@@ -7,6 +7,8 @@
 #include <vector>
 #include "./atom.h"
 
+namespace esbl {
+
 class Literal : public Atom {
  public:
   Literal(bool sign, const Atom& a) : Atom(a), sign_(sign) {}
@@ -50,6 +52,8 @@ class Literal : public Atom {
 };
 
 std::ostream& operator<<(std::ostream& os, const Literal& l);
+
+}
 
 #endif  // SRC_LITERAL_H_
 

@@ -3,6 +3,8 @@
 
 #include "./literal.h"
 
+namespace esbl {
+
 Literal Literal::Positive(const Atom& a) {
   return Literal(true, a);
 }
@@ -47,5 +49,7 @@ std::ostream& operator<<(std::ostream& os, const Literal& l) {
   }
   os << static_cast<const Atom&>(l);
   return os;
+}
+
 }
 

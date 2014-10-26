@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include <./term.h>
 
+using namespace esbl;
+
 TEST(term_test, dummy) {
   Term t;
   EXPECT_TRUE(!t.is_variable());

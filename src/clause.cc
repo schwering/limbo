@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <numeric>
 
+namespace esbl {
+
 Clause Clause::PrependActions(const TermSeq& z) const {
   GroundClause ls;
   for (const Literal& l : ls_) {
@@ -55,7 +57,7 @@ std::tuple<bool, Unifier, Clause> Clause::Unify(const Atom& cl_a,
     bool succ;
     TermSeq z;
     Unifier theta;
-    std::tie(succ, z, theta) = ::BoxUnify(cl_a, ext_a);
+    std::tie(succ, z, theta) = BoxUnify(cl_a, ext_a);
     if (!succ) {
       return failed<Unifier, Clause>();
     }
@@ -200,5 +202,7 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
   }
   os << ")";
   return os;
+}
+
 }
 

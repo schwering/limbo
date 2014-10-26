@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include <./ewff.h>
 
+using namespace esbl;
+
 static StdName n0 = Term::CreateStdName(0, 1);
 static StdName n1 = Term::CreateStdName(1, 1);
 static StdName n2 = Term::CreateStdName(2, 1);

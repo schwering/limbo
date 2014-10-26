@@ -10,6 +10,8 @@
 #include <set>
 #include <vector>
 
+namespace esbl {
+
 class Term;
 class Variable;
 class StdName;
@@ -89,6 +91,8 @@ constexpr std::tuple<bool, T1, T2> failed() {
 std::ostream& operator<<(std::ostream& os, const Term& t);
 std::ostream& operator<<(std::ostream& os, const Unifier& theta);
 std::ostream& operator<<(std::ostream& os, const Assignment& theta);
+
+}
 
 #endif  // SRC_TERM_H_
 

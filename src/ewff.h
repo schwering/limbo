@@ -22,6 +22,8 @@
 #include <vector>
 #include "./term.h"
 
+namespace esbl {
+
 class Ewff {
  public:
   class Conj {
@@ -100,6 +102,8 @@ class Ewff {
 
 std::ostream& operator<<(std::ostream& os, const Ewff::Conj& c);
 std::ostream& operator<<(std::ostream& os, const Ewff& e);
+
+}
 
 #endif  // SRC_EWFF_H_
 

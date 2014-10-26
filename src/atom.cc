@@ -5,6 +5,8 @@
 #include <cassert>
 #include "./atom.h"
 
+namespace esbl {
+
 const Atom::PredId Atom::SF = -1;
 
 Atom Atom::PrependActions(const TermSeq& z) const {
@@ -48,7 +50,7 @@ Atom Atom::Ground(const Assignment& theta) const {
 }
 
 namespace {
-bool Unify(const TermSeq& a, const TermSeq& b, Unifier* theta) {
+bool UnifySeq(const TermSeq& a, const TermSeq& b, Unifier* theta) {
   for (auto i = a.begin(), j = b.begin();
        i != a.end() && j != b.end();
        ++i, ++j) {
@@ -69,10 +71,10 @@ bool Atom::Unify(const Atom& a, const Atom& b, Unifier* theta) {
       a.args_.size() != b.args_.size()) {
     return false;
   }
-  if (!::Unify(a.z_, b.z_, theta)) {
+  if (!UnifySeq(a.z_, b.z_, theta)) {
     return false;
   }
-  if (!::Unify(a.args_, b.args_, theta)) {
+  if (!UnifySeq(a.args_, b.args_, theta)) {
     return false;
   }
   assert(a.Substitute(*theta) == b.Substitute(*theta));
@@ -149,5 +151,7 @@ std::ostream& operator<<(std::ostream& os, const Atom& a) {
   }
   os << ')';
   return os;
+}
+
 }
 

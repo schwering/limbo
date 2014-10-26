@@ -3,6 +3,8 @@
 
 #include "./term.h"
 
+namespace esbl {
+
 Term::Id Term::var_id_ = 0;
 
 Variable Term::CreateVariable(Sort sort) {
@@ -65,9 +67,9 @@ bool Term::Unify(const Term& t1, const Term& t2, Unifier* theta) {
   const Term tt1 = t1.Substitute(*theta);
   const Term tt2 = t2.Substitute(*theta);
   if (tt1.is_variable()) {
-    return ::Update(theta, Variable(tt1), tt2);
+    return Update(theta, Variable(tt1), tt2);
   } else if (tt2.is_variable()) {
-    return ::Update(theta, Variable(tt2), tt1);
+    return Update(theta, Variable(tt2), tt1);
   } else {
     return tt1 == tt2;
   }
@@ -107,5 +109,7 @@ std::ostream& operator<<(std::ostream& os, const Assignment& theta) {
   }
   os << '}';
   return os;
+}
+
 }
 

@@ -10,6 +10,8 @@
 #include <vector>
 #include "./term.h"
 
+namespace esbl {
+
 class Atom {
  public:
   typedef int PredId;
@@ -51,6 +53,8 @@ class Atom {
 };
 
 std::ostream& operator<<(std::ostream& os, const Atom& a);
+
+}
 
 #endif  // SRC_ATOM_H_
 

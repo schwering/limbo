@@ -10,6 +10,8 @@
 #include "./ewff.h"
 #include "./literal.h"
 
+namespace esbl {
+
 typedef std::set<Literal> GroundClause;
 
 class Clause {
@@ -48,6 +50,8 @@ class Clause {
 };
 
 std::ostream& operator<<(std::ostream& os, const Clause& c);
+
+}
 
 #endif  // SRC_CLAUSE_H_
 
