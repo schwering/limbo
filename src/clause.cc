@@ -8,7 +8,7 @@
 namespace esbl {
 
 Clause Clause::PrependActions(const TermSeq& z) const {
-  GroundClause ls;
+  SimpleClause ls;
   for (const Literal& l : ls_) {
     ls.insert(l.PrependActions(z));
   }
@@ -22,7 +22,7 @@ std::tuple<bool, Clause> Clause::Substitute(const Unifier& theta) const {
   if (!succ) {
     return failed<Clause>();
   }
-  GroundClause ls;
+  SimpleClause ls;
   for (const Literal& l : ls_) {
     ls.insert(l.Substitute(theta));
   }
@@ -85,7 +85,6 @@ std::tuple<bool, Unifier, Clause> Clause::Unify(const Atom& cl_a,
 
 std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
                               const Literal &ext_l) const {
-  //assert(ext_l.is_ground());
   const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
       [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
   std::set<Literal> rel;
@@ -121,14 +120,13 @@ std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
   return rel;
 }
 
-bool Clause::Subsumes(const GroundClause& c) const {
+bool Clause::Subsumes(const SimpleClause& c) const {
   if (ls_.empty()) {
     return true;
   }
-  const GroundClause::const_iterator cl_l_it = ls_.begin();
+  const SimpleClause::const_iterator cl_l_it = ls_.begin();
   const Literal& cl_l = *cl_l_it;
   for (const Literal& ext_l : c) {
-    //assert(ext_l.is_ground());
     if (ext_l.sign() != cl_l.sign() ||
         ext_l.pred() != cl_l.pred()) {
       continue;
@@ -149,10 +147,10 @@ bool Clause::Subsumes(const GroundClause& c) const {
   return false;
 }
 
-bool Clause::SplitRelevant(const Atom& a, const GroundClause c,
+bool Clause::SplitRelevant(const Atom& a, const SimpleClause c,
                            unsigned int k) const {
-  const GroundClause::const_iterator it1 = ls_.find(Literal(true, a));
-  const GroundClause::const_iterator it2 = ls_.find(Literal(false, a));
+  const SimpleClause::const_iterator it1 = ls_.find(Literal(true, a));
+  const SimpleClause::const_iterator it2 = ls_.find(Literal(false, a));
   // ls_.size() - c.size() is a (bad) approximation of (d \ c).size() where d is
   // a unification of ls_ and c
   return (it1 != ls_.end() || it2 != ls_.end()) &&
@@ -198,7 +196,7 @@ std::set<Atom::PredId> Clause::negative_preds() const {
   return s;
 }
 
-std::ostream& operator<<(std::ostream& os, const GroundClause& c) {
+std::ostream& operator<<(std::ostream& os, const SimpleClause& c) {
   os << '(';
   for (auto it = c.begin(); it != c.end(); ++it) {
     if (it != c.begin()) {

@@ -30,34 +30,34 @@ static Atom::PredId Q = 2;
 
 TEST(clause, rel)
 {
-  Clause empty(true, Ewff::TRUE, GroundClause());
+  Clause empty(true, Ewff::TRUE, SimpleClause());
   Clause c1(true,
             Ewff({ Ewff::Conj({{x1,n1}},
                               {{x2,x3}},
                               {{x2,n2}, {x3,n3}},
                               {{x1,x2}})}),
-            GroundClause({ Literal({x3}, true, P, {x1,x2}),
+            SimpleClause({ Literal({x3}, true, P, {x1,x2}),
                            Literal({x3}, false, P, {x1,x2}) }));
   Clause c2(false,
             Ewff({ Ewff::Conj({},
                               {{x4,x5}},
                               {},
                               {{x5,x6}})}),
-            GroundClause({ Literal({x4}, true, P, {x5,x6}),
+            SimpleClause({ Literal({x4}, true, P, {x5,x6}),
                            Literal({x6}, false, Q, {x4,x5}) }));
   Clause c3(false,
             Ewff({ Ewff::Conj({},
                               {{x1,x4}, {x2,x5}, {x3,x3}, {x6,x6}},  // all vars occur in ewff
                               {},
                               {})}),
-            GroundClause({ Literal({x1}, true, P, {x2}),
+            SimpleClause({ Literal({x1}, true, P, {x2}),
                            Literal({x4}, false, Q, {x5,x6}) }));
   Clause c4(false,
             Ewff({ Ewff::Conj({},
                               {{x1,x4}, {x2,x5}},  // same as c3, but x3, x6 do not occur
                               {},
                               {})}),
-            GroundClause({ Literal({x1}, true, P, {x2}),
+            SimpleClause({ Literal({x1}, true, P, {x2}),
                            Literal({x4}, false, Q, {x5,x6}) }));
 
   EXPECT_EQ(empty.Rel(hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
@@ -81,24 +81,24 @@ TEST(clause, rel)
 
 TEST(clause, subsumption)
 {
-  Clause empty(true, Ewff::TRUE, GroundClause());
+  Clause empty(true, Ewff::TRUE, SimpleClause());
   Clause c1(true,
             Ewff({ Ewff::Conj({{x1,n1}},
                               {{x2,x3}},
                               {{x2,n2}, {x3,n3}},
                               {{x1,x2}})}),
-            GroundClause({ Literal({x3}, true, P, {x1,x2}),
+            SimpleClause({ Literal({x3}, true, P, {x1,x2}),
                            Literal({x3}, false, P, {x1,x2}) }));
   Clause c2(false,
             Ewff({ Ewff::Conj({},
                               {{x4,x5}},
                               {},
                               {{x5,x6}})}),
-            GroundClause({ Literal({x4}, true, P, {x5,x6}),
+            SimpleClause({ Literal({x4}, true, P, {x5,x6}),
                            Literal({x6}, false, Q, {x4,x5}) }));
-  GroundClause d1({Literal({n2,n4}, true, P, {n1,n4}),
+  SimpleClause d1({Literal({n2,n4}, true, P, {n1,n4}),
                    Literal({n2,n4}, false, P, {n1,n4})});
-  GroundClause d2({Literal({n4}, true, P, {n4,n6}),
+  SimpleClause d2({Literal({n4}, true, P, {n4,n6}),
                    Literal({n6}, false, Q, {n4,n4})});
 
   EXPECT_TRUE(empty.Subsumes(d1));

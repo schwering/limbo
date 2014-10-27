@@ -12,12 +12,12 @@
 
 namespace esbl {
 
-typedef std::set<Literal> GroundClause;
+typedef std::set<Literal> SimpleClause;
 
 class Clause {
  public:
   Clause() = default;
-  Clause(bool box, const Ewff& e, const GroundClause& ls)
+  Clause(bool box, const Ewff& e, const SimpleClause& ls)
       : box_(box), e_(e), ls_(ls) {}
   Clause(bool box, const Ewff& e, std::initializer_list<Literal> ls)
       : box_(box), e_(e), ls_(ls) {}
@@ -28,13 +28,13 @@ class Clause {
 
   std::set<Literal> Rel(const StdName::SortedSet& hplus,
                         const Literal &ext_l) const;
-  bool Subsumes(const GroundClause& c) const;
-  bool SplitRelevant(const Atom& a, const GroundClause c, unsigned int k) const;
+  bool Subsumes(const SimpleClause& c) const;
+  bool SplitRelevant(const Atom& a, const SimpleClause c, unsigned int k) const;
   std::list<Clause> PropagateUnit(const Literal& ext_l) const;
 
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
-  const GroundClause& literals() const { return ls_; }
+  const SimpleClause& literals() const { return ls_; }
 
   std::set<Atom::PredId> positive_preds() const;
   std::set<Atom::PredId> negative_preds() const;
@@ -43,15 +43,15 @@ class Clause {
   std::tuple<bool, Clause> Substitute(const Unifier& theta) const;
   std::tuple<bool, Unifier, Clause> Unify(const Atom& cl_a,
                                           const Atom& ext_a) const;
-  bool Subsumes(GroundClause::const_iterator cl_l_it,
-                const GroundClause& c) const;
+  bool Subsumes(SimpleClause::const_iterator cl_l_it,
+                const SimpleClause& c) const;
 
   bool box_;
   Ewff e_;
-  GroundClause ls_;
+  SimpleClause ls_;
 };
 
-std::ostream& operator<<(std::ostream& os, const GroundClause& c);
+std::ostream& operator<<(std::ostream& os, const SimpleClause& c);
 std::ostream& operator<<(std::ostream& os, const Clause& c);
 
 }  // namespace esbl
