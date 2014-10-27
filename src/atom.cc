@@ -133,23 +133,7 @@ void Atom::CollectNames(StdName::SortedSet* ns) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Atom& a) {
-  os << '[';
-  for (auto it = a.z().begin(); it != a.z().end(); ++it) {
-    if (it != a.z().begin()) {
-      os << ", ";
-    }
-    os << *it;
-  }
-  os << ']';
-  os << 'P' << a.pred();
-  os << '(';
-  for (auto it = a.args().begin(); it != a.args().end(); ++it) {
-    if (it != a.args().begin()) {
-      os << ", ";
-    }
-    os << *it;
-  }
-  os << ')';
+  os << '[' << a.z() << ']' << 'P' << a.pred() << '(' << a.args() << ')';
   return os;
 }
 

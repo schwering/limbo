@@ -102,6 +102,7 @@ constexpr std::tuple<bool, T1, T2> failed() {
   return std::make_tuple(false, T1(), T2());
 }
 
+std::ostream& operator<<(std::ostream& os, const TermSeq& z);
 std::ostream& operator<<(std::ostream& os, const Term& t);
 std::ostream& operator<<(std::ostream& os, const Unifier& theta);
 std::ostream& operator<<(std::ostream& os, const Assignment& theta);

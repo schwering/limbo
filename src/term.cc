@@ -76,6 +76,16 @@ bool Term::Unify(const Term& t1, const Term& t2, Unifier* theta) {
   }
 }
 
+std::ostream& operator<<(std::ostream& os, const TermSeq& z) {
+  for (auto it = z.begin(); it != z.end(); ++it) {
+    if (it != z.begin()) {
+      os << ", ";
+    }
+    os << *it;
+  }
+  return os;
+}
+
 std::ostream& operator<<(std::ostream& os, const Term& t) {
   char c;
   if (t.is_variable()) {
