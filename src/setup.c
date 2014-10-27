@@ -630,7 +630,7 @@ static bool setup_relevant_split(
                 clause_size(d) <= 1) {
             continue;
         }
-        if (clause_size(c) <= k+1) {
+        if (clause_size(d) <= k+1) {
             return true;
         }
         const pelset_t dp = clause_pel(d);
