@@ -17,28 +17,28 @@ class Literal : public Atom {
   Literal(const Literal&) = default;
   Literal& operator=(const Literal&) = default;
 
-  static Literal Positive(const Atom& a);
-  static Literal Negative(const Atom& a);
+  static Literal Positive(const Atom& a) { return Literal(true, a); }
+  static Literal Negative(const Atom& a) { return Literal(false, a); }
 
-  Literal Flip() const;
-  Literal Positive() const;
-  Literal Negative() const;
+  Literal Flip() const { return Literal(!sign(), *this); }
+  Literal Positive() const { return Literal(true, *this); }
+  Literal Negative() const { return Literal(false, *this); }
 
   Literal PrependActions(const TermSeq& z) const {
-    return Literal(sign(), PrependActions(z));
+    return Literal(sign(), Atom::PrependActions(z));
   }
   Literal AppendActions(const TermSeq& z) const {
-    return Literal(sign(), AppendActions(z));
+    return Literal(sign(), Atom::AppendActions(z));
   }
   Literal DropActions(size_t n) const {
-    return Literal(sign(), DropActions(n));
+    return Literal(sign(), Atom::DropActions(n));
   }
 
   Literal Substitute(const Unifier& theta) const {
-    return Literal(sign(), Substitute(theta));
+    return Literal(sign(), Atom::Substitute(theta));
   }
   Literal Ground(const Assignment& theta) const {
-    return Literal(sign(), Ground(theta));
+    return Literal(sign(), Atom::Ground(theta));
   }
 
   bool operator==(const Literal& l) const;
