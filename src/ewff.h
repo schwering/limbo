@@ -54,8 +54,8 @@ class Ewff {
    private:
     friend std::ostream& operator<<(std::ostream& os, const Conj& c);
 
-    bool Substitute(const Variable& x, const StdName& n);
-    bool Substitute(const Variable& x, const Variable& y);
+    bool SubstituteName(const Variable& x, const StdName& n);
+    bool SubstituteVar(const Variable& x, const Variable& y);
     bool GenerateModel(const std::set<Variable>::const_iterator first,
                        const std::set<Variable>::const_iterator last,
                        const StdName::SortedSet& hplus,

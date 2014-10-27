@@ -151,7 +151,7 @@ bool Ewff::Conj::Ground(const Variable& x, const StdName& n) {
 }
 #endif
 
-bool Ewff::Conj::Substitute(const Variable& x, const StdName& n) {
+bool Ewff::Conj::SubstituteName(const Variable& x, const StdName& n) {
   if (!is_fix_var(x) && !is_var_var(x)) {
     return true;
   }
@@ -165,50 +165,56 @@ bool Ewff::Conj::Substitute(const Variable& x, const StdName& n) {
   var_vars_.erase(x);
 
   std::list<Variable> recursive_calls;
-  for (auto yez = eq_var_.begin(); yez != eq_var_.end(); ++yez) {
+  for (auto yez = eq_var_.begin(); yez != eq_var_.end(); ) {
     const Variable& y = yez->first;
     const Variable& z = yez->second;
     if (y == x) {
       recursive_calls.push_front(z);
-      eq_var_.erase(yez);
+      yez = eq_var_.erase(yez);
     } else if (z == x) {
       recursive_calls.push_front(y);
-      eq_var_.erase(yez);
+      yez = eq_var_.erase(yez);
+    } else {
+      ++yez;
     }
   }
   for (const Variable& y : recursive_calls) {
-    const bool r = Substitute(y, n);
+    const bool r = SubstituteName(y, n);
     if (!r) {
       return false;
     }
   }
 
-  for (auto ynm = neq_name_.begin(); ynm != neq_name_.end(); ++ynm) {
+  for (auto ynm = neq_name_.begin(); ynm != neq_name_.end(); ) {
     const Variable& y = ynm->first;
     const StdName& m = ynm->second;
     if (y == x) {
       if (m == n) {
         return false;
       }
-      neq_name_.erase(ynm);
+      ynm = neq_name_.erase(ynm);
+    } else {
+      ++ynm;
     }
   }
 
-  for (auto ynz = neq_var_.begin(); ynz != neq_var_.end(); ++ynz) {
+  for (auto ynz = neq_var_.begin(); ynz != neq_var_.end(); ) {
     const Variable& y = ynz->first;
     const Variable& z = ynz->second;
     if (y == x) {
       neq_name_.insert(std::make_pair(z, n));
-      eq_var_.erase(ynz);
+      ynz = neq_var_.erase(ynz);
     } else if (z == x) {
       neq_name_.insert(std::make_pair(y, n));
-      eq_var_.erase(ynz);
+      ynz = neq_var_.erase(ynz);
+    } else {
+      ++ynz;
     }
   }
   return true;
 }
 
-bool Ewff::Conj::Substitute(const Variable& x, const Variable& y) {
+bool Ewff::Conj::SubstituteVar(const Variable& x, const Variable& y) {
   if (!is_fix_var(x) && !is_var_var(x)) {
     return true;
   }
@@ -222,10 +228,10 @@ bool Ewff::Conj::Substitute(const Variable& x, const Variable& y) {
     return m == n;
   } else if (xem != eq_name_.end()) {
     const StdName& m = xem->second;
-    return Substitute(y, m);
+    return SubstituteName(y, m);
   } else if (yen != eq_name_.end()) {
     const StdName& n = yen->second;
-    return Substitute(x, n);
+    return SubstituteName(x, n);
   }
 
   eq_var_.insert(std::make_pair(x, y));
@@ -240,11 +246,11 @@ std::pair<bool, Ewff::Conj> Ewff::Conj::Substitute(const Unifier& theta) const {
     const Variable& x = xet.first;
     const Term& t = xet.second;
     if (t.is_name()) {
-      if (!c.Substitute(x, StdName(t))) {
+      if (!c.SubstituteName(x, StdName(t))) {
         return failed<Conj>();
       }
     } else {
-      if (!c.Substitute(x, Variable(t))) {
+      if (!c.SubstituteVar(x, Variable(t))) {
         return failed<Conj>();
       }
     }
@@ -255,7 +261,7 @@ std::pair<bool, Ewff::Conj> Ewff::Conj::Substitute(const Unifier& theta) const {
 std::pair<bool, Ewff::Conj> Ewff::Conj::Ground(const Assignment& theta) const {
   Conj c = *this;
   for (const auto& xen : theta) {
-    if (!c.Substitute(xen.first, xen.second)) {
+    if (!c.SubstituteName(xen.first, xen.second)) {
       return failed<Conj>();
     }
   }
