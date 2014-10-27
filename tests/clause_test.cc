@@ -28,6 +28,57 @@ static StdName::SortedSet hplus{{1, names}};
 static Atom::PredId P = 1;
 static Atom::PredId Q = 2;
 
+TEST(clause, rel)
+{
+  Clause empty(true, Ewff::TRUE, GroundClause());
+  Clause c1(true,
+            Ewff({ Ewff::Conj({{x1,n1}},
+                              {{x2,x3}},
+                              {{x2,n2}, {x3,n3}},
+                              {{x1,x2}})}),
+            GroundClause({ Literal({x3}, true, P, {x1,x2}),
+                           Literal({x3}, false, P, {x1,x2}) }));
+  Clause c2(false,
+            Ewff({ Ewff::Conj({},
+                              {{x4,x5}},
+                              {},
+                              {{x5,x6}})}),
+            GroundClause({ Literal({x4}, true, P, {x5,x6}),
+                           Literal({x6}, false, Q, {x4,x5}) }));
+  Clause c3(false,
+            Ewff({ Ewff::Conj({},
+                              {{x1,x4}, {x2,x5}, {x3,x3}, {x6,x6}},  // all vars occur in ewff
+                              {},
+                              {})}),
+            GroundClause({ Literal({x1}, true, P, {x2}),
+                           Literal({x4}, false, Q, {x5,x6}) }));
+  Clause c4(false,
+            Ewff({ Ewff::Conj({},
+                              {{x1,x4}, {x2,x5}},  // same as c3, but x3, x6 do not occur
+                              {},
+                              {})}),
+            GroundClause({ Literal({x1}, true, P, {x2}),
+                           Literal({x4}, false, Q, {x5,x6}) }));
+
+  EXPECT_EQ(empty.Rel(hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(empty.Rel(hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(c1.Rel(hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 1);
+  EXPECT_EQ(c1.Rel(hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 1);
+  EXPECT_EQ(c2.Rel(hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(c2.Rel(hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(c2.Rel(hplus, Literal({n2}, false, P, {n2,n4})).size(), 0);
+  EXPECT_EQ(c2.Rel(hplus, Literal({n2}, true, P, {n2,n4})).size(), 1);
+  EXPECT_EQ(c3.Rel(hplus, Literal({n1}, false, P, {n2})).size(), 0);
+  EXPECT_EQ(c3.Rel(hplus, Literal({n1}, true, P, {n2})).size(), 7);
+  for (const StdName& n : names) {
+    EXPECT_EQ(c3.Rel(hplus, Literal({n1}, true, P, {n2})).count(Literal({n1}, true, Q, {n2,n})), 1);
+  }
+  EXPECT_EQ(c4.Rel(hplus, Literal({n1}, false, P, {n2})).size(), 0);
+  EXPECT_EQ(c4.Rel(hplus, Literal({n1}, true, P, {n2})).size(), 1);
+  EXPECT_EQ(c4.Rel(hplus, Literal({n1}, false, Q, {n2,x3})).size(), 1);
+  EXPECT_EQ(c4.Rel(hplus, Literal({n1}, false, Q, {n2,x6})).size(), 1);
+}
+
 TEST(clause, subsumption)
 {
   Clause empty(true, Ewff::TRUE, GroundClause());

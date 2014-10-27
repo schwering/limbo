@@ -85,7 +85,7 @@ std::tuple<bool, Unifier, Clause> Clause::Unify(const Atom& cl_a,
 
 std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
                               const Literal &ext_l) const {
-  assert(ext_l.is_ground());
+  //assert(ext_l.is_ground());
   const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
       [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
   std::set<Literal> rel;
@@ -104,11 +104,14 @@ std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
       continue;
     }
     bool succ;
+    Unifier theta;
     Clause c;
-    std::tie(succ, std::ignore, c) = Unify(cl_l, ext_l);
+    std::tie(succ, theta, c) = Unify(cl_l, ext_l);
     if (!succ) {
       continue;
     }
+    size_t n = c.ls_.erase(ext_l.Substitute(theta));
+    assert(n >= 1);
     for (const Assignment& theta : c.e_.Models(hplus)) {
       for (const Literal& ll : c.ls_) {
         rel.insert(ll.Ground(theta).Flip());
@@ -125,7 +128,7 @@ bool Clause::Subsumes(const GroundClause& c) const {
   const GroundClause::const_iterator cl_l_it = ls_.begin();
   const Literal& cl_l = *cl_l_it;
   for (const Literal& ext_l : c) {
-    assert(ext_l.is_ground());
+    //assert(ext_l.is_ground());
     if (ext_l.sign() != cl_l.sign() ||
         ext_l.pred() != cl_l.pred()) {
       continue;
