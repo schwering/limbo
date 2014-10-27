@@ -58,7 +58,7 @@ inline bool Update(Unifier* theta, const Variable& x, const Term& t) {
   }
   const Term t_old = p.first->second;
   if (t.is_ground() && t_old.is_ground()) {
-    return false;
+    return t == t_old;
   }
   return Update(theta, Variable(t_old), t);
 }
