@@ -49,32 +49,16 @@ Atom Atom::Ground(const Assignment& theta) const {
   return a;
 }
 
-namespace {
-bool UnifySeq(const TermSeq& a, const TermSeq& b, Unifier* theta) {
-  for (auto i = a.begin(), j = b.begin();
-       i != a.end() && j != b.end();
-       ++i, ++j) {
-    const Term& t1 = *i;
-    const Term& t2 = *j;
-    const bool r = Term::Unify(t1, t2, theta);
-    if (!r) {
-      return false;
-    }
-  }
-  return true;
-}
-}  // namespace
-
 bool Atom::Unify(const Atom& a, const Atom& b, Unifier* theta) {
   if (a.pred_ != b.pred_ ||
       a.z_.size() != b.z_.size() ||
       a.args_.size() != b.args_.size()) {
     return false;
   }
-  if (!UnifySeq(a.z_, b.z_, theta)) {
+  if (!Term::UnifySeq(a.z_, b.z_, theta)) {
     return false;
   }
-  if (!UnifySeq(a.args_, b.args_, theta)) {
+  if (!Term::UnifySeq(a.args_, b.args_, theta)) {
     return false;
   }
   assert(a.Substitute(*theta) == b.Substitute(*theta));

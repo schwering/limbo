@@ -38,6 +38,7 @@ class Term {
   const Term& Substitute(const Unifier& theta) const;
   Term Ground(const Assignment& theta) const;
   static bool Unify(const Term& t1, const Term& t2, Unifier* theta);
+  static bool UnifySeq(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 
   inline Id id() const { return id_; }
   inline bool sort() const { return sort_; }
@@ -54,8 +55,8 @@ class Term {
 
   Term(Kind kind, int id, Sort sort) : kind_(kind), id_(id), sort_(sort) {}
 
-  Kind kind_;
-  Id id_;
+  Kind kind_ = DUMMY;
+  Id id_ = 0;
   Sort sort_;
 };
 

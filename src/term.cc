@@ -76,6 +76,20 @@ bool Term::Unify(const Term& t1, const Term& t2, Unifier* theta) {
   }
 }
 
+bool Term::UnifySeq(const TermSeq& z1, const TermSeq& z2, Unifier* theta) {
+  for (auto i = z1.begin(), j = z2.begin();
+       i != z1.end() && j != z2.end();
+       ++i, ++j) {
+    const Term& t1 = *i;
+    const Term& t2 = *j;
+    const bool r = Unify(t1, t2, theta);
+    if (!r) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::ostream& operator<<(std::ostream& os, const TermSeq& z) {
   for (auto it = z.begin(); it != z.end(); ++it) {
     if (it != z.begin()) {
