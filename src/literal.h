@@ -17,6 +17,10 @@ class Literal : public Atom {
   Literal(const Literal&) = default;
   Literal& operator=(const Literal&) = default;
 
+  bool operator==(const Literal& l) const;
+  bool operator!=(const Literal& l) const;
+  bool operator<(const Literal& l) const;
+
   static Literal Positive(const Atom& a) { return Literal(true, a); }
   static Literal Negative(const Atom& a) { return Literal(false, a); }
 
@@ -40,10 +44,6 @@ class Literal : public Atom {
   Literal Ground(const Assignment& theta) const {
     return Literal(sign(), Atom::Ground(theta));
   }
-
-  bool operator==(const Literal& l) const;
-  bool operator!=(const Literal& l) const;
-  bool operator<(const Literal& l) const;
 
   bool sign() const { return sign_; }
 

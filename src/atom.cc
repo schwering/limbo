@@ -9,6 +9,20 @@ namespace esbl {
 
 const Atom::PredId Atom::SF = -1;
 
+bool Atom::operator==(const Atom& a) const {
+  return pred_ == a.pred_ && z_ == a.z_ && args_ == a.args_;
+}
+
+bool Atom::operator!=(const Atom& a) const {
+  return !operator==(a);
+}
+
+bool Atom::operator<(const Atom& a) const {
+  return pred_ < a.pred_ ||
+      (pred_ == a.pred_ && z_ < a.z_) ||
+      (pred_ == a.pred_ && z_ == a.z_ && args_ < a.args_);
+}
+
 Atom Atom::PrependActions(const TermSeq& z) const {
   Atom a = *this;
   a.z_.insert(a.z_.begin(), z.begin(), z.end());
@@ -69,20 +83,6 @@ std::pair<bool, Unifier> Atom::Unify(const Atom& a, const Atom& b) {
   Unifier theta;
   const bool succ = Unify(a, b, &theta);
   return std::make_pair(succ, theta);
-}
-
-bool Atom::operator==(const Atom& a) const {
-  return pred_ == a.pred_ && z_ == a.z_ && args_ == a.args_;
-}
-
-bool Atom::operator!=(const Atom& a) const {
-  return !operator==(a);
-}
-
-bool Atom::operator<(const Atom& a) const {
-  return pred_ < a.pred_ ||
-      (pred_ == a.pred_ && z_ < a.z_) ||
-      (pred_ == a.pred_ && z_ == a.z_ && args_ < a.args_);
 }
 
 bool Atom::is_ground() const {

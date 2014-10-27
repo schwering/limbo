@@ -23,6 +23,10 @@ class Atom {
   Atom(const Atom&) = default;
   Atom& operator=(const Atom&) = default;
 
+  bool operator==(const Atom& a) const;
+  bool operator!=(const Atom& a) const;
+  bool operator<(const Atom& a) const;
+
   Atom PrependActions(const TermSeq& z) const;
   Atom AppendActions(const TermSeq& z) const;
   Atom DropActions(size_t n) const;
@@ -32,10 +36,6 @@ class Atom {
 
   static bool Unify(const Atom& a, const Atom& b, Unifier* theta);
   static std::pair<bool, Unifier> Unify(const Atom& a, const Atom& b);
-
-  bool operator==(const Atom& a) const;
-  bool operator!=(const Atom& a) const;
-  bool operator<(const Atom& a) const;
 
   const TermSeq& z() const { return z_; }
   PredId pred() const { return pred_; }

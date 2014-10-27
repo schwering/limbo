@@ -24,10 +24,14 @@ class Clause {
   Clause(const Clause&) = default;
   Clause& operator=(const Clause&) = default;
 
+  bool operator==(const Clause& c) const;
+  bool operator!=(const Clause& c) const;
+  bool operator<(const Clause& c) const;
+
   Clause PrependActions(const TermSeq& z) const;
 
   std::set<Literal> Rel(const StdName::SortedSet& hplus,
-                        const Literal &ext_l) const;
+                        const Literal& ext_l) const;
   bool Subsumes(const SimpleClause& c) const;
   bool SplitRelevant(const Atom& a, const SimpleClause c, unsigned int k) const;
   std::list<Clause> PropagateUnit(const Literal& ext_l) const;

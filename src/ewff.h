@@ -36,9 +36,9 @@ class Ewff {
     Conj(const Conj&) = default;
     Conj& operator=(const Conj&) = default;
 
-    bool operator==(const Conj& c);
-    bool operator!=(const Conj& c);
-    bool operator<(const Conj& c);
+    bool operator==(const Conj& c) const;
+    bool operator!=(const Conj& c) const;
+    bool operator<(const Conj& c) const;
 
     std::pair<bool, Conj> Substitute(const Unifier& theta) const;
     std::pair<bool, Conj> Ground(const Assignment& theta) const;
@@ -83,6 +83,10 @@ class Ewff {
   Ewff(std::initializer_list<Ewff::Conj> cs) : cs_(cs) {}
   Ewff(const Ewff&) = default;
   Ewff& operator=(const Ewff&) = default;
+
+  bool operator==(const Ewff& e) const;
+  bool operator!=(const Ewff& e) const;
+  bool operator<(const Ewff& e) const;
 
   std::pair<bool, Ewff> Substitute(const Unifier& theta) const;
   std::pair<bool, Ewff> Ground(const Assignment& theta) const;

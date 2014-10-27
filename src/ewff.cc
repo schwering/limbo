@@ -49,16 +49,16 @@ Ewff::Conj::Conj(const Assignment& eq_name,
   }
 }
 
-bool Ewff::Conj::operator==(const Conj& c) {
+bool Ewff::Conj::operator==(const Conj& c) const {
   return eq_name_ == c.eq_name_ && eq_var_ == c.eq_var_ &&
       neq_name_ == c.neq_name_ && neq_var_ == c.neq_var_;
 }
 
-bool Ewff::Conj::operator!=(const Conj& c) {
+bool Ewff::Conj::operator!=(const Conj& c) const {
   return !operator==(c);
 }
 
-bool Ewff::Conj::operator<(const Conj& c) {
+bool Ewff::Conj::operator<(const Conj& c) const {
   if (eq_name_ < c.eq_name_) {
     return true;
   }
@@ -387,6 +387,18 @@ void Ewff::Conj::CollectNames(StdName::SortedSet* ns) const {
 
 const Ewff Ewff::TRUE = Ewff({ {}, {}, {}, {} });
 const Ewff Ewff::FALSE = Ewff({});
+
+bool Ewff::operator==(const Ewff& e) const {
+  return cs_ == e.cs_;
+}
+
+bool Ewff::operator!=(const Ewff& e) const {
+  return !operator==(e);
+}
+
+bool Ewff::operator<(const Ewff& e) const {
+  return cs_ < e.cs_;
+}
 
 std::pair<bool, Ewff> Ewff::Substitute(const Unifier& theta) const {
   Ewff e;

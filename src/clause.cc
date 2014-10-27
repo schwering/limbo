@@ -7,6 +7,20 @@
 
 namespace esbl {
 
+bool Clause::operator==(const Clause& c) const {
+  return box_ == c.box_ && e_ == c.e_ && ls_ == c.ls_;
+}
+
+bool Clause::operator!=(const Clause& c) const {
+  return !operator==(c);
+}
+
+bool Clause::operator<(const Clause& c) const {
+  return box_ < c.box_ ||
+      (box_ == c.box_ && e_ < c.e_) ||
+      (box_ == c.box_ && e_ == c.e_ && ls_ < c.ls_);
+}
+
 Clause Clause::PrependActions(const TermSeq& z) const {
   SimpleClause ls;
   for (const Literal& l : ls_) {
