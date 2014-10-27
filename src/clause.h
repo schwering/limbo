@@ -54,7 +54,7 @@ class Clause {
 std::ostream& operator<<(std::ostream& os, const GroundClause& c);
 std::ostream& operator<<(std::ostream& os, const Clause& c);
 
-}
+}  // namespace esbl
 
 #endif  // SRC_CLAUSE_H_
 

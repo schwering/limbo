@@ -38,7 +38,7 @@ const Term& Term::Substitute(const Unifier& theta) const {
   }
 }
 
-const Term& Term::Ground(const Assignment& theta) const {
+Term Term::Ground(const Assignment& theta) const {
   if (kind_ == VAR) {
     auto it = theta.find(Variable(*this));
     return it != theta.end() ? it->second : *this;
@@ -122,5 +122,5 @@ std::ostream& operator<<(std::ostream& os, const Assignment& theta) {
   return os;
 }
 
-}
+}  // namespace esbl
 

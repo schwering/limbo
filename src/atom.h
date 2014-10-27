@@ -54,7 +54,7 @@ class Atom {
 
 std::ostream& operator<<(std::ostream& os, const Atom& a);
 
-}
+}  // namespace esbl
 
 #endif  // SRC_ATOM_H_
 

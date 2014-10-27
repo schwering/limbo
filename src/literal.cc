@@ -25,5 +25,5 @@ std::ostream& operator<<(std::ostream& os, const Literal& l) {
   return os;
 }
 
-}
+}  // namespace esbl
 

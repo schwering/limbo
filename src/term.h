@@ -8,6 +8,7 @@
 #include <map>
 #include <ostream>
 #include <set>
+#include <utility>
 #include <vector>
 
 namespace esbl {
@@ -35,7 +36,7 @@ class Term {
   bool operator<(const Term& t) const;
 
   const Term& Substitute(const Unifier& theta) const;
-  const Term& Ground(const Assignment& theta) const;
+  Term Ground(const Assignment& theta) const;
   static bool Unify(const Term& t1, const Term& t2, Unifier* theta);
 
   inline Id id() const { return id_; }
@@ -46,6 +47,8 @@ class Term {
 
  protected:
   friend class Factory;
+  friend class Variable;
+  friend class StdName;
 
   enum Kind { DUMMY, VAR, NAME };
 
@@ -56,24 +59,74 @@ class Term {
   Sort sort_;
 };
 
-class Variable : public Term {
+class Variable {
  public:
-  typedef std::map<Sort, std::set<Variable>> SortedSet;
+  typedef std::map<Term::Sort, std::set<Variable>> SortedSet;
 
-  Variable();
-  explicit Variable(const Term& t) : Term(t) { assert(is_variable()); }
+  Variable() = default;
+  explicit Variable(const Term& t) : t_(t) { assert(t_.is_variable()); }
   Variable(const Variable&) = default;
   Variable& operator=(const Variable&) = default;
+
+  bool operator==(const Term& t) const { return t_ == t; }
+  bool operator!=(const Term& t) const { return t_ != t; }
+  bool operator<(const Term& t) const { return t_ < t; }
+
+  operator Term&() { return t_; }
+  operator const Term&() const { return t_; }
+
+  const Term& Substitute(const Unifier& theta) const {
+    return t_.Substitute(theta);
+  }
+  Term Ground(const Assignment& theta) const {
+    return t_.Ground(theta);
+  }
+
+  inline Term::Id id() const { return t_.id_; }
+  inline bool sort() const { return t_.sort_; }
+  inline bool is_variable() const { return t_.kind_ == Term::VAR; }
+  inline bool is_name() const { return t_.kind_ == Term::NAME; }
+  inline bool is_ground() const { return t_.kind_ != Term::VAR; }
+
+ private:
+  friend class Term;
+
+  Term t_;
 };
 
-class StdName : public Term {
+class StdName {
  public:
-  typedef std::map<Sort, std::set<StdName>> SortedSet;
+  typedef std::map<Term::Sort, std::set<StdName>> SortedSet;
 
-  StdName() : Term() {}
-  explicit StdName(const Term& t) : Term(t) { assert(is_name()); }
+  StdName() = default;
+  explicit StdName(const Term& t) : t_(t) { assert(t_.is_name()); }
   StdName(const StdName&) = default;
   StdName& operator=(const StdName&) = default;
+
+  bool operator==(const Term& t) const { return t_ == t; }
+  bool operator!=(const Term& t) const { return t_ != t; }
+  bool operator<(const Term& t) const { return t_ < t; }
+
+  operator Term&() { return t_; }
+  operator const Term&() const { return t_; }
+
+  const Term& Substitute(const Unifier& theta) const {
+    return t_.Substitute(theta);
+  }
+  Term Ground(const Assignment& theta) const {
+    return t_.Ground(theta);
+  }
+
+  inline Term::Id id() const { return t_.id_; }
+  inline bool sort() const { return t_.sort_; }
+  inline bool is_variable() const { return t_.kind_ == Term::VAR; }
+  inline bool is_name() const { return t_.kind_ == Term::NAME; }
+  inline bool is_ground() const { return t_.kind_ != Term::VAR; }
+
+ private:
+  friend class Term;
+
+  Term t_;
 };
 
 class Term::Factory {
@@ -107,7 +160,7 @@ std::ostream& operator<<(std::ostream& os, const Term& t);
 std::ostream& operator<<(std::ostream& os, const Unifier& theta);
 std::ostream& operator<<(std::ostream& os, const Assignment& theta);
 
-}
+}  // namespace esbl
 
 #endif  // SRC_TERM_H_
 

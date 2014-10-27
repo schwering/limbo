@@ -212,5 +212,5 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
   return os;
 }
 
-}
+}  // namespace esbl
 

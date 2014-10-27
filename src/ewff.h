@@ -103,7 +103,7 @@ class Ewff {
 std::ostream& operator<<(std::ostream& os, const Ewff::Conj& c);
 std::ostream& operator<<(std::ostream& os, const Ewff& e);
 
-}
+}  // namespace esbl
 
 #endif  // SRC_EWFF_H_
 

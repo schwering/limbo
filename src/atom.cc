@@ -137,5 +137,5 @@ std::ostream& operator<<(std::ostream& os, const Atom& a) {
   return os;
 }
 
-}
+}  // namespace esbl
 

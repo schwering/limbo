@@ -53,7 +53,7 @@ class Literal : public Atom {
 
 std::ostream& operator<<(std::ostream& os, const Literal& l);
 
-}
+}  // namespace esbl
 
 #endif  // SRC_LITERAL_H_
 

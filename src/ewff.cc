@@ -498,5 +498,5 @@ std::ostream& operator<<(std::ostream& os, const Ewff& e) {
   return os;
 }
 
-}
+}  // namespace esbl
 
