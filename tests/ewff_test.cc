@@ -6,20 +6,21 @@
 
 using namespace esbl;
 
-static StdName n0 = Term::CreateStdName(0, 1);
-static StdName n1 = Term::CreateStdName(1, 1);
-static StdName n2 = Term::CreateStdName(2, 1);
-static StdName n3 = Term::CreateStdName(3, 1);
-static StdName n4 = Term::CreateStdName(4, 1);
-static StdName n5 = Term::CreateStdName(5, 1);
-static StdName n6 = Term::CreateStdName(6, 1);
-static Variable x0 = Term::CreateVariable(1);
-static Variable x1 = Term::CreateVariable(1);
-static Variable x2 = Term::CreateVariable(1);
-static Variable x3 = Term::CreateVariable(1);
-static Variable x4 = Term::CreateVariable(1);
-static Variable x5 = Term::CreateVariable(1);
-static Variable x6 = Term::CreateVariable(1);
+static Term::Factory f;
+static StdName n0 = f.CreateStdName(0, 1);
+static StdName n1 = f.CreateStdName(1, 1);
+static StdName n2 = f.CreateStdName(2, 1);
+static StdName n3 = f.CreateStdName(3, 1);
+static StdName n4 = f.CreateStdName(4, 1);
+static StdName n5 = f.CreateStdName(5, 1);
+static StdName n6 = f.CreateStdName(6, 1);
+static Variable x0 = f.CreateVariable(1);
+static Variable x1 = f.CreateVariable(1);
+static Variable x2 = f.CreateVariable(1);
+static Variable x3 = f.CreateVariable(1);
+static Variable x4 = f.CreateVariable(1);
+static Variable x5 = f.CreateVariable(1);
+static Variable x6 = f.CreateVariable(1);
 
 static std::set<StdName> names{n0,n1,n2,n3,n4,n5,n6};
 static StdName::SortedSet hplus{{1, names}};

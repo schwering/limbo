@@ -143,8 +143,8 @@ std::ostream& operator<<(std::ostream& os, const Atom& a) {
   os << ']';
   os << 'P' << a.pred();
   os << '(';
-  for (auto it = a.z().begin(); it != a.z().end(); ++it) {
-    if (it != a.z().begin()) {
+  for (auto it = a.args().begin(); it != a.args().end(); ++it) {
+    if (it != a.args().begin()) {
       os << ", ";
     }
     os << *it;

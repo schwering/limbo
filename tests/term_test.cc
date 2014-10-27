@@ -13,10 +13,11 @@ TEST(term_test, dummy) {
 }
 
 TEST(term_test, variable_stdname) {
-  Variable x = Term::CreateVariable(1);
+  Term::Factory f;
+  Variable x = f.CreateVariable(1);
   Term xt = x;
   Term d;
-  StdName n = Term::CreateStdName(1, 1);
+  StdName n = f.CreateStdName(1, 1);
   Term nt = n;
   EXPECT_TRUE(x == xt);
   EXPECT_TRUE(xt == x);
@@ -53,10 +54,11 @@ TEST(term_test, variable_stdname) {
 }
 
 TEST(term_test, substitution) {
-  const Variable x = Term::CreateVariable(1);
-  const Variable y = Term::CreateVariable(1);
-  const StdName m = Term::CreateStdName(1, 1);
-  const StdName n = Term::CreateStdName(2, 1);
+  Term::Factory f;
+  const Variable x = f.CreateVariable(1);
+  const Variable y = f.CreateVariable(1);
+  const StdName m = f.CreateStdName(1, 1);
+  const StdName n = f.CreateStdName(2, 1);
   const Unifier theta{ { x, m }, { y, n } };
   EXPECT_FALSE(x == y);
   EXPECT_FALSE(n == m);
@@ -79,10 +81,11 @@ TEST(term_test, substitution) {
 }
 
 TEST(term_test, unification) {
-  const Variable x = Term::CreateVariable(1);
-  const Variable y = Term::CreateVariable(1);
-  const StdName m = Term::CreateStdName(1, 1);
-  const StdName n = Term::CreateStdName(2, 1);
+  Term::Factory f;
+  const Variable x = f.CreateVariable(1);
+  const Variable y = f.CreateVariable(1);
+  const StdName m = f.CreateStdName(1, 1);
+  const StdName n = f.CreateStdName(2, 1);
   { Unifier theta;
     EXPECT_TRUE(Term::Unify(m, m, &theta)); }
   { Unifier theta;

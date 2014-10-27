@@ -4,6 +4,7 @@
 *.o
 *.lo
 .*.swp
+.*.swo
 *.log
 *.trs
 .deps

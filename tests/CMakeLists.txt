@@ -6,7 +6,7 @@ include_directories (${GTEST_INCLUDE_DIRS})
 
 enable_testing ()
 
-foreach (test term atom literal ewff)
+foreach (test term atom literal ewff clause)
 	add_executable (${test}_test ${test}_test.cc)
 	target_link_libraries (${test}_test LINK_PUBLIC ESBL ${GTEST_BOTH_LIBRARIES} pthread)
 	add_test (NAME ${test}_test COMMAND ${test}_test)

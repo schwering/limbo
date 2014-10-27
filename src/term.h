@@ -24,13 +24,11 @@ class Term {
  public:
   typedef uint64_t Id;
   typedef uint64_t Sort;
+  class Factory;
 
   Term() : kind_(DUMMY), id_(0) {}
   Term(const Term&) = default;
   Term& operator=(const Term&) = default;
-
-  static Variable CreateVariable(Sort sort);
-  static StdName CreateStdName(Id id, Sort sort);
 
   bool operator==(const Term& t) const;
   bool operator!=(const Term& t) const;
@@ -47,9 +45,9 @@ class Term {
   inline bool is_ground() const { return kind_ != VAR; }
 
  protected:
-  enum Kind { DUMMY, VAR, NAME };
+  friend class Factory;
 
-  static Id var_id_;
+  enum Kind { DUMMY, VAR, NAME };
 
   Term(Kind kind, int id, Sort sort) : kind_(kind), id_(id), sort_(sort) {}
 
@@ -76,6 +74,22 @@ class StdName : public Term {
   explicit StdName(const Term& t) : Term(t) { assert(is_name()); }
   StdName(const StdName&) = default;
   StdName& operator=(const StdName&) = default;
+};
+
+class Term::Factory {
+ public:
+  Factory() : var_counter_(0) {}
+  Factory(const Factory&) = default;
+  Factory& operator=(const Factory&) = default;
+
+  Variable CreateVariable(Term::Sort sort);
+  StdName CreateStdName(Term::Id id, Term::Sort sort);
+
+  const StdName::SortedSet& sorted_names() const { return names_; }
+
+ private:
+  Term::Id var_counter_;
+  StdName::SortedSet names_;
 };
 
 template<typename T1>

@@ -7,12 +7,13 @@
 using namespace esbl;
 
 TEST(literal_test, less) {
-  StdName n1 = Term::CreateStdName(1, 1);
-  StdName n2 = Term::CreateStdName(2, 1);
-  StdName n3 = Term::CreateStdName(3, 1);
-  Variable x1 = Term::CreateVariable(1);
-  Variable x2 = Term::CreateVariable(1);
-  Variable x3 = Term::CreateVariable(1);
+  Term::Factory f;
+  StdName n1 = f.CreateStdName(1, 1);
+  StdName n2 = f.CreateStdName(2, 1);
+  StdName n3 = f.CreateStdName(3, 1);
+  Variable x1 = f.CreateVariable(1);
+  Variable x2 = f.CreateVariable(1);
+  Variable x3 = f.CreateVariable(1);
   Literal a({n1, n2}, true, 123, {n3, x2, x3});
   Literal b({n1, n2, x1}, false, 123, {n3, x2, x3});
   Literal c({n1, n2, x1}, false, 123, {n3, x2, n3});

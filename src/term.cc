@@ -5,14 +5,15 @@
 
 namespace esbl {
 
-Term::Id Term::var_id_ = 0;
 
-Variable Term::CreateVariable(Sort sort) {
-  return Variable(Term(VAR, var_id_++, sort));
+Variable Term::Factory::CreateVariable(Term::Sort sort) {
+  return Variable(Term(Term::VAR, var_counter_++, sort));
 }
 
-StdName Term::CreateStdName(Id id, Sort sort) {
-  return StdName(Term(NAME, id, sort));
+StdName Term::Factory::CreateStdName(Term::Id id, Term::Sort sort) {
+  const StdName n(Term(Term::NAME, id, sort));
+  names_[n.sort()].insert(n);
+  return n;
 }
 
 bool Term::operator==(const Term& t) const {

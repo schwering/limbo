@@ -7,12 +7,13 @@
 using namespace esbl;
 
 TEST(atom_test, actions) {
-  StdName n1 = Term::CreateStdName(1, 1);
-  StdName n2 = Term::CreateStdName(2, 1);
-  StdName n3 = Term::CreateStdName(3, 1);
-  Variable x1 = Term::CreateVariable(1);
-  Variable x2 = Term::CreateVariable(1);
-  Variable x3 = Term::CreateVariable(1);
+  Term::Factory f;
+  StdName n1 = f.CreateStdName(1, 1);
+  StdName n2 = f.CreateStdName(2, 1);
+  StdName n3 = f.CreateStdName(3, 1);
+  Variable x1 = f.CreateVariable(1);
+  Variable x2 = f.CreateVariable(1);
+  Variable x3 = f.CreateVariable(1);
   Atom a({n1, n2, x1}, 123, {n3, x2, x3});
 
   EXPECT_TRUE(a.pred() == 123);
@@ -25,12 +26,13 @@ TEST(atom_test, actions) {
 }
 
 TEST(atom_test, less) {
-  StdName n1 = Term::CreateStdName(1, 1);
-  StdName n2 = Term::CreateStdName(2, 1);
-  StdName n3 = Term::CreateStdName(3, 1);
-  Variable x1 = Term::CreateVariable(1);
-  Variable x2 = Term::CreateVariable(1);
-  Variable x3 = Term::CreateVariable(1);
+  Term::Factory f;
+  StdName n1 = f.CreateStdName(1, 1);
+  StdName n2 = f.CreateStdName(2, 1);
+  StdName n3 = f.CreateStdName(3, 1);
+  Variable x1 = f.CreateVariable(1);
+  Variable x2 = f.CreateVariable(1);
+  Variable x3 = f.CreateVariable(1);
   Atom a({n1, n2}, 123, {n3, x2, x3});
   Atom b({n1, n2, x1}, 123, {n3, x2, x3});
   Atom c({n1, n2, x1}, 123, {n3, x2, n3});
@@ -44,12 +46,13 @@ TEST(atom_test, less) {
 }
 
 TEST(atom_test, unification) {
-  StdName n1 = Term::CreateStdName(1, 1);
-  StdName n2 = Term::CreateStdName(2, 1);
-  StdName n3 = Term::CreateStdName(3, 1);
-  Variable x1 = Term::CreateVariable(1);
-  Variable x2 = Term::CreateVariable(1);
-  Variable x3 = Term::CreateVariable(1);
+  Term::Factory f;
+  StdName n1 = f.CreateStdName(1, 1);
+  StdName n2 = f.CreateStdName(2, 1);
+  StdName n3 = f.CreateStdName(3, 1);
+  Variable x1 = f.CreateVariable(1);
+  Variable x2 = f.CreateVariable(1);
+  Variable x3 = f.CreateVariable(1);
   Atom a({x1, x2, x3}, 123, {x1, x2, x3});
   Atom b({n1, n2, n3}, 123, {n1, n2, n3});
   Atom c({n1, n2, n3}, 41, {n1, n2, n3});
