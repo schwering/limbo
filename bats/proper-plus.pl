@@ -380,7 +380,7 @@ compile_all(Input, Header, Body) :-
     maplist(arg(2), All, StdNames1),
     maplist(arg(3), All, SortNames1),
     maplist(arg(4), All, PredNames1),
-    maplist(arg(5), All, Code),
+    maplist(arg(5), All, Code1),
     flatten(VarNames1, VarNames2),
     flatten(StdNames1, StdNames2),
     flatten(SortNames1, SortNames2),
@@ -389,6 +389,7 @@ compile_all(Input, Header, Body) :-
     sort(StdNames2, StdNames),
     sort(SortNames2, SortNames),
     sort(PredNames2, PredNames),
+    sort(Code1, Code),
     % header
     format(HeaderStream, '#include "common.h"~n', []),
     format(HeaderStream, '~n', []),
