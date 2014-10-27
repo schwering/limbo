@@ -32,16 +32,14 @@ std::tuple<bool, Clause> Clause::Substitute(const Unifier& theta) const {
 namespace {
 std::tuple<bool, TermSeq, Unifier> BoxUnify(const Atom& cl_a,
                                             const Atom& ext_a) {
-  const size_t split = cl_a.z().size();
-  if (split > ext_a.z().size() ||
-      !std::equal(cl_a.z().begin(), cl_a.z().end(),
-                  ext_a.z().begin() + split)) {
+  if (ext_a.z().size() < cl_a.z().size()) {
     return failed<TermSeq, Unifier>();
   }
+  const size_t split = ext_a.z().size() - cl_a.z().size();
   const Atom a = ext_a.DropActions(split);
   bool succ;
   Unifier theta;
-  std::tie(succ, theta) = Atom::Unify(a, cl_a);
+  std::tie(succ, theta) = Atom::Unify(cl_a, a);
   if (!succ) {
     return failed<TermSeq, Unifier>();
   }
@@ -66,7 +64,9 @@ std::tuple<bool, Unifier, Clause> Clause::Unify(const Atom& cl_a,
     if (!succ) {
       return failed<Unifier, Clause>();
     }
-    return std::make_tuple(true, theta, c.PrependActions(z));
+    Clause d = c.PrependActions(z);
+    d.box_ = false;
+    return std::make_tuple(true, theta, d);
   } else {
     bool succ;
     Unifier theta;
@@ -119,25 +119,28 @@ std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
 }
 
 bool Clause::Subsumes(const GroundClause& c) const {
-  for (const Literal& cl_l : ls_) {
-    for (const Literal& ext_l : c) {
-      assert(ext_l.is_ground());
-      if (ext_l.sign() != cl_l.sign() ||
-          ext_l.pred() != cl_l.pred()) {
-        continue;
-      }
-      bool succ;
-      Unifier theta;
-      Clause d;
-      std::tie(succ, theta, d) = Unify(cl_l, ext_l);
-      if (!succ) {
-        continue;
-      }
-      GroundClause cc = c;
-      cc.erase(cl_l.Substitute(theta));
-      if (d.Subsumes(cc)) {
-        return true;
-      }
+  if (ls_.empty()) {
+    return true;
+  }
+  const GroundClause::const_iterator cl_l_it = ls_.begin();
+  const Literal& cl_l = *cl_l_it;
+  for (const Literal& ext_l : c) {
+    assert(ext_l.is_ground());
+    if (ext_l.sign() != cl_l.sign() ||
+        ext_l.pred() != cl_l.pred()) {
+      continue;
+    }
+    bool succ;
+    Unifier theta;
+    Clause d;
+    std::tie(succ, theta, d) = Unify(cl_l, ext_l);
+    if (!succ) {
+      continue;
+    }
+    size_t n = d.ls_.erase(ext_l.Substitute(theta));
+    assert(n >= 1);
+    if (d.Subsumes(c)) {
+      return true;
     }
   }
   return false;
@@ -192,15 +195,20 @@ std::set<Atom::PredId> Clause::negative_preds() const {
   return s;
 }
 
-std::ostream& operator<<(std::ostream& os, const Clause& c) {
-  os << c.ewff() << " -> (";
-  for (auto it = c.literals().begin(); it != c.literals().end(); ++it) {
-    if (it != c.literals().begin()) {
+std::ostream& operator<<(std::ostream& os, const GroundClause& c) {
+  os << '(';
+  for (auto it = c.begin(); it != c.end(); ++it) {
+    if (it != c.begin()) {
       os << " v ";
     }
     os << *it;
   }
-  os << ")";
+  os << ')';
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Clause& c) {
+  os << c.ewff() << " -> " << c.literals();
   return os;
 }
 
