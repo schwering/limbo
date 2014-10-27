@@ -87,6 +87,8 @@ bool Atom::operator<(const Atom& a) const {
 
 bool Atom::is_ground() const {
   return std::all_of(z_.begin(), z_.end(),
+                     [](const Term& t) { return t.is_ground(); }) &&
+         std::all_of(args_.begin(), args_.end(),
                      [](const Term& t) { return t.is_ground(); });
 }
 
