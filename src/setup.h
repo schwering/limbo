@@ -4,6 +4,7 @@
 #ifndef SRC_SETUP_H_
 #define SRC_SETUP_H_
 
+#include <set>
 #include "./clause.h"
 
 namespace esbl {
@@ -19,6 +20,9 @@ class Setup {
                         const SimpleClause& c) const;
   std::set<Atom> Pel(const StdName::SortedSet& hplus,
                      const SimpleClause& c) const;
+
+  Variable::SortedSet variables() const;
+  StdName::SortedSet names() const;
 
  private:
   std::set<Clause> cs_;

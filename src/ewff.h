@@ -95,8 +95,8 @@ class Ewff {
   std::list<Assignment> Models(const StdName::SortedSet& hplus) const;
   bool Satisfiable(const StdName::SortedSet& hplus) const;
 
-  Variable::SortedSet variables() const;
-  StdName::SortedSet names() const;
+  void CollectVariables(Variable::SortedSet* vs) const;
+  void CollectNames(StdName::SortedSet* ns) const;
 
  private:
   friend std::ostream& operator<<(std::ostream& os, const Ewff& e);

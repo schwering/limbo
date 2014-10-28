@@ -452,20 +452,16 @@ bool Ewff::Satisfiable(const StdName::SortedSet& hplus) const {
   return false;
 }
 
-Variable::SortedSet Ewff::variables() const {
-  Variable::SortedSet vs;
+void Ewff::CollectVariables(Variable::SortedSet* vs) const {
   for (auto& c : cs_) {
-    c.CollectVariables(&vs);
+    c.CollectVariables(vs);
   }
-  return vs;
 }
 
-StdName::SortedSet Ewff::names() const {
-  StdName::SortedSet ns;
+void Ewff::CollectNames(StdName::SortedSet* ns) const {
   for (auto& c : cs_) {
-    c.CollectNames(&ns);
+    c.CollectNames(ns);
   }
-  return ns;
 }
 
 std::ostream& operator<<(std::ostream& os, const Ewff::Conj& c) {

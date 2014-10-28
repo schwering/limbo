@@ -43,6 +43,9 @@ class Clause {
   std::set<Atom::PredId> positive_preds() const;
   std::set<Atom::PredId> negative_preds() const;
 
+  void CollectVariables(Variable::SortedSet* vs) const;
+  void CollectNames(StdName::SortedSet* ns) const;
+
  private:
   std::tuple<bool, Clause> Substitute(const Unifier& theta) const;
   std::tuple<bool, Unifier, Clause> Unify(const Atom& cl_a,

@@ -51,6 +51,22 @@ std::set<Atom> Setup::Pel(const StdName::SortedSet& hplus,
   return pel;
 }
 
+Variable::SortedSet Setup::variables() const {
+  Variable::SortedSet vs;
+  for (const Clause& c : cs_) {
+    c.CollectVariables(&vs);
+  }
+  return vs;
+}
+
+StdName::SortedSet Setup::names() const {
+  StdName::SortedSet ns;
+  for (const Clause& c : cs_) {
+    c.CollectNames(&ns);
+  }
+  return ns;
+}
+
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
   return os;
 }

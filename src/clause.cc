@@ -165,7 +165,7 @@ bool Clause::Subsumes2(const SimpleClause& c) const {
 
 bool Clause::Subsumes(const SimpleClause& c) const {
   auto cmp_maybe_subsuming = [](const Literal& l1, const Literal& l2) {
-    return l1.LowerBound() < l1.LowerBound();
+    return l1.LowerBound() < l2.LowerBound();
   };
   if (!std::includes(c.begin(), c.end(), ls_.begin(), ls_.end(),
                      cmp_maybe_subsuming)) {
@@ -221,6 +221,20 @@ std::set<Atom::PredId> Clause::negative_preds() const {
     }
   }
   return s;
+}
+
+void Clause::CollectVariables(Variable::SortedSet* vs) const {
+  e_.CollectVariables(vs);
+  for (const Literal& l : ls_) {
+    l.CollectVariables(vs);
+  }
+}
+
+void Clause::CollectNames(StdName::SortedSet* ns) const {
+  e_.CollectNames(ns);
+  for (const Literal& l : ls_) {
+    l.CollectNames(ns);
+  }
 }
 
 std::ostream& operator<<(std::ostream& os, const SimpleClause& c) {
