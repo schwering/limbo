@@ -45,6 +45,9 @@ class Literal : public Atom {
     return Literal(sign(), Atom::Ground(theta));
   }
 
+  Literal LowerBound() const;
+  Literal UpperBound() const;
+
   bool sign() const { return sign_; }
 
  private:

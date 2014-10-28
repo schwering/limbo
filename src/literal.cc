@@ -17,6 +17,14 @@ bool Literal::operator<(const Literal& l) const {
   return Atom::operator<(l) || (Atom::operator==(l) && sign_ < l.sign_);
 }
 
+Literal Literal::LowerBound() const {
+  return Literal(sign_, Atom::LowerBound());
+}
+
+Literal Literal::UpperBound() const {
+  return Literal(sign_, Atom::UpperBound());
+}
+
 std::ostream& operator<<(std::ostream& os, const Literal& l) {
   if (!l.sign()) {
     os << '~';

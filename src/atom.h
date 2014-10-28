@@ -14,9 +14,9 @@ namespace esbl {
 
 class Atom {
  public:
-  typedef int PredId;
+  typedef unsigned int PredId;
 
-  static const PredId SF;
+  static constexpr PredId SF = 0;
 
   Atom(const TermSeq& z, PredId pred, const TermSeq& args)
       : z_(z), pred_(pred), args_(args) {}
@@ -36,6 +36,9 @@ class Atom {
 
   static bool Unify(const Atom& a, const Atom& b, Unifier* theta);
   static std::pair<bool, Unifier> Unify(const Atom& a, const Atom& b);
+
+  Atom LowerBound() const;
+  Atom UpperBound() const;
 
   const TermSeq& z() const { return z_; }
   PredId pred() const { return pred_; }

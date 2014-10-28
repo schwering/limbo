@@ -47,8 +47,7 @@ class Clause {
   std::tuple<bool, Clause> Substitute(const Unifier& theta) const;
   std::tuple<bool, Unifier, Clause> Unify(const Atom& cl_a,
                                           const Atom& ext_a) const;
-  bool Subsumes(SimpleClause::const_iterator cl_l_it,
-                const SimpleClause& c) const;
+  bool Subsumes2(const SimpleClause& c) const;
 
   bool box_;
   Ewff e_;

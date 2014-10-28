@@ -24,10 +24,10 @@ typedef std::map<Variable, StdName> Assignment;
 class Term {
  public:
   typedef uint64_t Id;
-  typedef uint64_t Sort;
+  typedef unsigned int Sort;
   class Factory;
 
-  Term() : kind_(DUMMY), id_(0) {}
+  Term() = default;
   Term(const Term&) = default;
   Term& operator=(const Term&) = default;
 
@@ -57,7 +57,7 @@ class Term {
 
   Kind kind_ = DUMMY;
   Id id_ = 0;
-  Sort sort_;
+  Sort sort_ = 0;
 };
 
 class Variable {

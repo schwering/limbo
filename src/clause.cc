@@ -134,15 +134,17 @@ std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
   return rel;
 }
 
-bool Clause::Subsumes(const SimpleClause& c) const {
+bool Clause::Subsumes2(const SimpleClause& c) const {
   if (ls_.empty()) {
     return true;
   }
-  const SimpleClause::const_iterator cl_l_it = ls_.begin();
-  const Literal& cl_l = *cl_l_it;
-  for (const Literal& ext_l : c) {
-    if (ext_l.sign() != cl_l.sign() ||
-        ext_l.pred() != cl_l.pred()) {
+  const Literal& cl_l = *ls_.begin();
+  const auto first = c.lower_bound(cl_l.LowerBound());
+  const auto last = c.upper_bound(cl_l.UpperBound());
+  for (auto jt = first; jt != last; ++jt) {
+    const Literal& ext_l = *jt;
+    assert(ext_l.pred() == cl_l.pred());
+    if (ext_l.sign() != cl_l.sign()) {
       continue;
     }
     bool succ;
@@ -154,11 +156,22 @@ bool Clause::Subsumes(const SimpleClause& c) const {
     }
     size_t n = d.ls_.erase(ext_l.Substitute(theta));
     assert(n >= 1);
-    if (d.Subsumes(c)) {
+    if (d.Subsumes2(c)) {
       return true;
     }
   }
   return false;
+}
+
+bool Clause::Subsumes(const SimpleClause& c) const {
+  auto cmp_maybe_subsuming = [](const Literal& l1, const Literal& l2) {
+    return l1.LowerBound() < l1.LowerBound();
+  };
+  if (!std::includes(c.begin(), c.end(), ls_.begin(), ls_.end(),
+                     cmp_maybe_subsuming)) {
+    return false;
+  }
+  return Subsumes2(c);
 }
 
 bool Clause::SplitRelevant(const Atom& a, const SimpleClause c,

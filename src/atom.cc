@@ -7,8 +7,6 @@
 
 namespace esbl {
 
-const Atom::PredId Atom::SF = -1;
-
 bool Atom::operator==(const Atom& a) const {
   return pred_ == a.pred_ && z_ == a.z_ && args_ == a.args_;
 }
@@ -83,6 +81,14 @@ std::pair<bool, Unifier> Atom::Unify(const Atom& a, const Atom& b) {
   Unifier theta;
   const bool succ = Unify(a, b, &theta);
   return std::make_pair(succ, theta);
+}
+
+Atom Atom::LowerBound() const {
+  return Atom({}, pred_, {});
+}
+
+Atom Atom::UpperBound() const {
+  return Atom({}, pred_ + 1, {});
 }
 
 bool Atom::is_ground() const {
