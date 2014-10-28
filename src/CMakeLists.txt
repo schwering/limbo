@@ -1,4 +1,4 @@
-add_library (ESBL SHARED term.cc atom.cc literal.cc ewff.cc clause.cc)
+add_library (ESBL SHARED term.cc atom.cc literal.cc ewff.cc clause.cc setup.cc)
 
 target_link_libraries (ESBL ${LIBS})
 
