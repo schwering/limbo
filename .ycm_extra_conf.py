@@ -30,7 +30,8 @@ flags = [
     '-isystem', '/System/Library/Frameworks/Python.framework/Headers',
     '-isystem', '/usr/local/include',
     '-isystem', '/usr/local/include/eigen3',
-    '-I', 'include'
+    '-I', 'include',
+    '-I', 'src',
     '-I.'
 ]
 
