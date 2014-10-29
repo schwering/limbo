@@ -21,10 +21,16 @@ class Setup {
   std::set<Atom> Pel(const StdName::SortedSet& hplus,
                      const SimpleClause& c) const;
 
+  const std:: set<Clause> clauses() const { return cs_; }
   Variable::SortedSet variables() const;
   StdName::SortedSet names() const;
 
  private:
+  std::set<Clause> UnitClauses() const;
+  bool ContainsEmptyClause() const;
+  void PropagateUnits();
+  void Minimize();
+
   std::set<Clause> cs_;
 };
 

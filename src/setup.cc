@@ -51,6 +51,69 @@ std::set<Atom> Setup::Pel(const StdName::SortedSet& hplus,
   return pel;
 }
 
+bool Setup::ContainsEmptyClause() const {
+  const auto it = cs_.begin();
+  return it != cs_.end() && it->literals().size() == 0;
+}
+
+std::set<Clause> Setup::UnitClauses() const {
+  std::set<Clause> s;
+  return s;
+}
+
+void Setup::PropagateUnits() {
+  if (ContainsEmptyClause()) {
+    return;
+  }
+  std::set<Clause> ucs = UnitClauses();
+  std::set<Clause> new_ucs;
+  while (!ucs.empty()) {
+    new_ucs.clear();
+    for (const auto& it = cs_.begin(); it != cs_.end(); ) {
+      const Clause& c = *it;
+      bool remove;
+      for (const Clause& d : c.ResolveWithUnitClauses(ucs)) {
+        remove = c.ewff() == d.ewff();
+      }
+      if (remove) {
+        it = cs_.remove(it);
+      } else {
+        ++it;
+      }
+    }
+    std::swap(ucs, new_ucs);
+  }
+
+  /*
+    while (splitset_size(units_ptr) > 0) {
+        splitset_clear(new_units_ptr);
+        for (EACH(clauses, &setup->clauses, i)) {
+            const clause_t *c = i.val;
+            const clause_t *d = clause_resolve(c, units_ptr);
+            if (!clause_eq(c, d)) {
+                const int j = clauses_iter_replace(&i, d);
+                if (j >= 0) {
+                    setup_minimize_wrt(setup, d, &i);
+                    if (setup_contains_empty_clause(setup)) {
+                        return;
+                    }
+                    if (clause_is_unit(d)) {
+                        const literal_t *l = clause_unit(d);
+                        if (!splitset_contains(units_ptr, l)) {
+                            splitset_add(new_units_ptr, l);
+                        }
+                    }
+                }
+            }
+        }
+        SWAP(units_ptr, new_units_ptr);
+    }
+    */
+}
+
+void Setup::Minimize() {
+}
+
 Variable::SortedSet Setup::variables() const {
   Variable::SortedSet vs;
   for (const Clause& c : cs_) {
@@ -68,6 +131,10 @@ StdName::SortedSet Setup::names() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
+  os << "Setup:" << std::endl;
+  for (const Clause& c : s.clauses()) {
+    os << "    " << c << std::endl;
+  }
   return os;
 }
 
