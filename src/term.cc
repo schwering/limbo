@@ -5,7 +5,6 @@
 
 namespace esbl {
 
-
 Variable Term::Factory::CreateVariable(Term::Sort sort) {
   return Variable(Term(Term::VAR, var_counter_++, sort));
 }

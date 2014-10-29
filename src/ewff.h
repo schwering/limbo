@@ -34,17 +34,21 @@ class Ewff {
    public:
     Conj() = default;
     Conj(const Assignment& eq_name,
-         const std::set<std::pair<Variable, Variable>>& eq_var,
-         const std::set<std::pair<Variable, StdName>>& neq_name,
-         const std::set<std::pair<Variable, Variable>>& neq_var);
+         const std::set<std::pair<Variable, StdName>>& neq_name)
+        : eq_name_(eq_name), neq_name_(neq_name) {}
     Conj(const Conj&) = default;
     Conj& operator=(const Conj&) = default;
+
+    static std::pair<bool, Ewff::Conj> Create(
+        const Assignment& eq_name,
+        const std::set<std::pair<Variable, Variable>>& eq_var,
+        const std::set<std::pair<Variable, StdName>>& neq_name,
+        const std::set<std::pair<Variable, Variable>>& neq_var);
+    static std::pair<bool, Conj> And(const Conj& c1, const Conj& c2);
 
     bool operator==(const Conj& c) const;
     bool operator!=(const Conj& c) const;
     bool operator<(const Conj& c) const;
-
-    static std::pair<bool, Conj> And(const Conj& c1, const Conj& c2);
 
     std::pair<bool, Conj> Substitute(const Unifier& theta) const;
     std::pair<bool, Conj> Ground(const Assignment& theta) const;
@@ -61,7 +65,8 @@ class Ewff {
     friend std::ostream& operator<<(std::ostream& os, const Conj& c);
 
     bool SubstituteName(const Variable& x, const StdName& n);
-    bool SubstituteVar(const Variable& x, const Variable& y);
+    bool SubstituteVariable(const Variable& x, const Variable& y,
+                            bool maybe_new_vars = false);
     bool GenerateModel(const std::set<Variable>::const_iterator first,
                        const std::set<Variable>::const_iterator last,
                        const StdName::SortedSet& hplus,

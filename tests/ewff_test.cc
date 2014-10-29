@@ -26,10 +26,12 @@ static std::set<StdName> names{n0,n1,n2,n3,n4,n5,n6};
 static StdName::SortedSet hplus{{1, names}};
 
 TEST(ewff_test, conj) {
-  Ewff::Conj c({{x1,n1}, {x2,n2}},
-               {{x3,x4}, {x4,x3}},
-               {{x1,n2}, {x1,n3}, {x5,n6}},
-               {{x1,x2}, {x2,x1}, {x5,x6}});
+  const auto p = Ewff::Conj::Create({{x1,n1}, {x2,n2}},
+                                    {{x3,x4}, {x4,x3}},
+                                    {{x1,n2}, {x1,n3}, {x5,n6}},
+                                    {{x1,x2}, {x2,x1}, {x5,x6}});
+  EXPECT_TRUE(p.first);
+  const Ewff::Conj c = p.second;
 
   {
     Assignment theta{{x1,n1}, {x2,n2}, {x3,n3}, {x4,n3}, {x5,n5}, {x6,n6}};
@@ -72,7 +74,9 @@ TEST(ewff_test, conj) {
     EXPECT_FALSE(p.first);
   }
 
-  Ewff::Conj cc({}, {}, {{x1,n0}, {x2,n0}, {x3,n0}, {x4,n0}, {x5,n0}, {x6,n0}}, {});
+  const auto pp = Ewff::Conj::Create({}, {}, {{x1,n0}, {x2,n0}, {x3,n0}, {x4,n0}, {x5,n0}, {x6,n0}}, {});
+  EXPECT_TRUE(pp.first);
+  const Ewff::Conj cc = pp.second;
 
   {
     std::list<Assignment> models;
@@ -97,14 +101,18 @@ TEST(ewff_test, conj) {
 }
 
 TEST(ewff_test, ewff) {
-  Ewff::Conj c1({{x2,n2}},
+  const auto p1 = Ewff::Conj::Create({{x2,n2}},
                 {{x3,x4}},
                 {{x1,n2}, {x1,n3}, {x5,n6}},
                 {{x1,x2}, {x2,x1}, {x5,x6}});
-  Ewff::Conj c2({{x1,n1}},
+  const auto p2 = Ewff::Conj::Create({{x1,n1}},
                 {{x3,x4}},
                 {{x1,n2}, {x1,n3}},
                 {{x1,x2}});
+  EXPECT_TRUE(p1.first);
+  EXPECT_TRUE(p2.first);
+  const Ewff::Conj c1 = p1.second;
+  const Ewff::Conj c2 = p2.second;
   Ewff e({c1, c2});
 
   {
