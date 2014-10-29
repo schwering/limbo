@@ -9,6 +9,10 @@
 // A potential optimization is to manage a map of dependent variables, which can
 // be assigned once the variable has been assigned on which they depend (because
 // there is a constraint x=y).
+//
+// We could restrict us even only to conjunctions, because a clause
+// (e1 v e2)->c is equivalent to two clauses e1->c and e2->c. What's better
+// in terms of performance.
 
 #ifndef SRC_EWFF_H_
 #define SRC_EWFF_H_
@@ -39,6 +43,8 @@ class Ewff {
     bool operator==(const Conj& c) const;
     bool operator!=(const Conj& c) const;
     bool operator<(const Conj& c) const;
+
+    static std::pair<bool, Conj> And(const Conj& c1, const Conj& c2);
 
     std::pair<bool, Conj> Substitute(const Unifier& theta) const;
     std::pair<bool, Conj> Ground(const Assignment& theta) const;
@@ -88,6 +94,8 @@ class Ewff {
   bool operator!=(const Ewff& e) const;
   bool operator<(const Ewff& e) const;
 
+  static Ewff And(const Ewff& e1, const Ewff& e2);
+
   std::pair<bool, Ewff> Substitute(const Unifier& theta) const;
   std::pair<bool, Ewff> Ground(const Assignment& theta) const;
 
@@ -101,7 +109,7 @@ class Ewff {
  private:
   friend std::ostream& operator<<(std::ostream& os, const Ewff& e);
 
-  std::vector<Conj> cs_;
+  std::set<Conj> cs_;
 };
 
 std::ostream& operator<<(std::ostream& os, const Ewff::Conj& c);

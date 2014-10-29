@@ -83,6 +83,25 @@ bool Ewff::Conj::operator<(const Conj& c) const {
   return false;
 }
 
+std::pair<bool, Ewff::Conj> Ewff::Conj::And(const Conj& c1, const Conj& c2) {
+  Assignment eq_name = c1.eq_name_;
+  std::set<std::pair<Variable, Variable>> eq_var = c1.eq_var_;
+  std::set<std::pair<Variable, StdName>> neq_name = c1.neq_name_;
+  std::set<std::pair<Variable, Variable>> neq_var = c1.neq_var_;
+  for (auto& p : eq_name) {
+    Assignment::const_iterator old;
+    bool inserted;
+    std::tie(old, inserted) = eq_name.insert(p);
+    if (!inserted && old->second != p.second) {
+      return failed<Conj>();
+    }
+  }
+  eq_var.insert(c2.eq_var_.begin(), c2.eq_var_.end());
+  neq_name.insert(c2.neq_name_.begin(), c2.neq_name_.end());
+  neq_var.insert(c2.neq_var_.begin(), c2.neq_var_.end());
+  return std::make_pair(true, Conj(eq_name, eq_var, neq_name, neq_var));
+}
+
 #if 0
 // Could be used to replace
 //    (*theta)[x] = n;
@@ -400,6 +419,21 @@ bool Ewff::operator<(const Ewff& e) const {
   return cs_ < e.cs_;
 }
 
+Ewff Ewff::And(const Ewff& e1, const Ewff& e2) {
+  Ewff e;
+  for (const Conj& c1 : e1.cs_) {
+    for (const Conj& c2 : e2.cs_) {
+      bool succ;
+      Conj c;
+      std::tie(succ, c) = Conj::And(c1, c2);
+      if (succ) {
+        e.cs_.insert(c);
+      }
+    }
+  }
+  return e;
+}
+
 std::pair<bool, Ewff> Ewff::Substitute(const Unifier& theta) const {
   Ewff e;
   for (const auto& c1 : cs_) {
@@ -407,7 +441,7 @@ std::pair<bool, Ewff> Ewff::Substitute(const Unifier& theta) const {
     Conj c;
     std::tie(succ, c) = c1.Substitute(theta);
     if (succ) {
-      e.cs_.push_back(c);
+      e.cs_.insert(c);
     }
   }
   return std::make_pair(!e.cs_.empty(), e);
@@ -420,7 +454,7 @@ std::pair<bool, Ewff> Ewff::Ground(const Assignment& theta) const {
     Conj c;
     std::tie(succ, c) = c1.Ground(theta);
     if (succ) {
-      e.cs_.push_back(c);
+      e.cs_.insert(c);
     }
   }
   return std::make_pair(!e.cs_.empty(), e);
