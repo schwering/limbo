@@ -19,8 +19,6 @@ TEST(atom_test, actions) {
   EXPECT_TRUE(a.pred() == 123);
   EXPECT_TRUE(a.PrependActions({n1,n2}).z() == (TermSeq{n1,n2,n1,n2,x1}));
   EXPECT_TRUE(a.PrependActions({n1,n2}).z() != (TermSeq{n2,n1,n1,n2,x1}));
-  EXPECT_TRUE(a.AppendActions({n2,n1}).z() == (TermSeq{n1,n2,x1,n2,n1}));
-  EXPECT_TRUE(a.AppendActions({n2,n1}).args() == (TermSeq{n3,x2,x3}));
   EXPECT_TRUE(a.PrependActions({n2,n1}).DropActions(1).DropActions(1) == a);
   EXPECT_TRUE(a.PrependActions({n2,n1}).DropActions(2) == a);
 }

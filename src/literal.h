@@ -31,9 +31,6 @@ class Literal : public Atom {
   Literal PrependActions(const TermSeq& z) const {
     return Literal(sign(), Atom::PrependActions(z));
   }
-  Literal AppendActions(const TermSeq& z) const {
-    return Literal(sign(), Atom::AppendActions(z));
-  }
   Literal DropActions(size_t n) const {
     return Literal(sign(), Atom::DropActions(n));
   }

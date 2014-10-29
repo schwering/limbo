@@ -27,12 +27,6 @@ Atom Atom::PrependActions(const TermSeq& z) const {
   return a;
 }
 
-Atom Atom::AppendActions(const TermSeq& z) const {
-  Atom a = *this;
-  a.z_.insert(a.z_.end(), z.begin(), z.end());
-  return a;
-}
-
 Atom Atom::DropActions(size_t n) const {
   Atom a = *this;
   a.z_.erase(a.z_.begin(), a.z_.begin() + n);
