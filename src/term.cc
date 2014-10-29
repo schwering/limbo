@@ -67,9 +67,9 @@ inline bool Update(Unifier* theta, const Variable& x, const Term& t) {
 bool Term::Unify(const Term& t1, const Term& t2, Unifier* theta) {
   const Term tt1 = t1.Substitute(*theta);
   const Term tt2 = t2.Substitute(*theta);
-  if (tt1.is_variable()) {
+  if (tt1.is_variable() && (!tt2.is_variable() || tt1 < tt2)) {
     return Update(theta, Variable(tt1), tt2);
-  } else if (tt2.is_variable()) {
+  } else if (tt2.is_variable() && (!tt1.is_variable() || tt2 < tt1)) {
     return Update(theta, Variable(tt2), tt1);
   } else {
     return tt1 == tt2;
