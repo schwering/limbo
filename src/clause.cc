@@ -184,7 +184,7 @@ bool Clause::SplitRelevant(const Atom& a, const SimpleClause c,
          (ls_.size() <= k + 1 || ls_.size() - c.size() <= k);
 }
 
-std::list<Clause> Clause::PropagateUnit(const Literal& ext_l) const {
+std::list<Clause> Clause::ResolveWithUnit(const Literal& ext_l) const {
   std::list<Clause> cs;
   for (const Literal& cl_l : ls_) {
     if (ext_l.sign() == cl_l.sign() ||
@@ -199,6 +199,35 @@ std::list<Clause> Clause::PropagateUnit(const Literal& ext_l) const {
       continue;
     }
     d.ls_.erase(cl_l.Substitute(theta));
+    cs.push_back(d);
+  }
+  return cs;
+}
+
+std::list<Clause> Clause::ResolveWithUnitClause(const Clause& unit) const {
+  assert(unit.is_unit());
+  std::list<Clause> cs;
+  const Literal& unit_l = *unit.literals().begin();
+  for (const Literal& l : ls_) {
+    if (unit_l.sign() == l.sign() ||
+        unit_l.pred() != l.pred()) {
+      continue;
+    }
+    bool succ;
+    Unifier theta;
+    Clause d;
+    std::tie(succ, theta, d) = Unify(l, unit_l);
+    if (!succ) {
+      continue;
+    }
+    Ewff unit_e;
+    std::tie(succ, unit_e) = unit.ewff().Substitute(theta);
+    if (!succ || unit_e == Ewff::FALSE) {
+      continue;
+    }
+    d.e_ = Ewff::And(d.e_, unit_e);
+    d.ls_.erase(l.Substitute(theta));
+    cs.push_back(d);
   }
   return cs;
 }

@@ -34,11 +34,13 @@ class Clause {
                         const Literal& ext_l) const;
   bool Subsumes(const SimpleClause& c) const;
   bool SplitRelevant(const Atom& a, const SimpleClause c, unsigned int k) const;
-  std::list<Clause> PropagateUnit(const Literal& ext_l) const;
+  std::list<Clause> ResolveWithUnit(const Literal& ext_l) const;
+  std::list<Clause> ResolveWithUnitClause(const Clause& unit) const;
 
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
   const SimpleClause& literals() const { return ls_; }
+  bool is_unit() const { return ls_.size() == 1; }
 
   std::set<Atom::PredId> positive_preds() const;
   std::set<Atom::PredId> negative_preds() const;
