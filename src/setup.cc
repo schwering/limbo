@@ -69,14 +69,14 @@ void Setup::PropagateUnits() {
   std::set<Clause> new_ucs;
   while (!ucs.empty()) {
     new_ucs.clear();
-    for (const auto& it = cs_.begin(); it != cs_.end(); ) {
+    for (auto it = cs_.begin(); it != cs_.end(); ) {
       const Clause& c = *it;
-      bool remove;
-      for (const Clause& d : c.ResolveWithUnitClauses(ucs)) {
-        remove = c.ewff() == d.ewff();
-      }
+      bool remove = false;
+      //for (const Clause& d : c.ResolveWithUnitClauses(ucs)) {
+      //  remove |= c.ewff() == d.ewff();
+      //}
       if (remove) {
-        it = cs_.remove(it);
+        it = cs_.erase(it);
       } else {
         ++it;
       }

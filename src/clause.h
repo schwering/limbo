@@ -34,7 +34,7 @@ class Clause {
                         const Literal& ext_l) const;
   bool Subsumes(const SimpleClause& c) const;
   bool SplitRelevant(const Atom& a, const SimpleClause c, unsigned int k) const;
-  std::list<Clause> ResolveWithUnit(const Literal& ext_l) const;
+  std::list<Clause> ResolveWithLiteral(const Literal& ext_l) const;
   std::list<Clause> ResolveWithUnitClause(const Clause& unit) const;
 
   bool box() const { return box_; }

@@ -184,7 +184,7 @@ bool Clause::SplitRelevant(const Atom& a, const SimpleClause c,
          (ls_.size() <= k + 1 || ls_.size() - c.size() <= k);
 }
 
-std::list<Clause> Clause::ResolveWithUnit(const Literal& ext_l) const {
+std::list<Clause> Clause::ResolveWithLiteral(const Literal& ext_l) const {
   std::list<Clause> cs;
   for (const Literal& cl_l : ls_) {
     if (ext_l.sign() == cl_l.sign() ||

@@ -58,6 +58,8 @@ class Ewff {
     void CollectVariables(Variable::SortedSet* vs) const;
     void CollectNames(StdName::SortedSet* ns) const;
 
+    bool Subsumes(const Conj& e) const;
+
    private:
     friend std::ostream& operator<<(std::ostream& os, const Conj& c);
 

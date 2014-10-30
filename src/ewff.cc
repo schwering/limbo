@@ -318,6 +318,17 @@ std::pair<bool, Ewff::Conj> Ewff::Conj::Ground(const Assignment& theta) const {
   return std::make_pair(true, c);
 }
 
+bool Ewff::Conj::Subsumes(const Conj& c) const {
+  return std::includes(eq_name_.begin(), eq_name_.end(),
+                       c.eq_name_.begin(), c.eq_name_.end()) &&
+      std::includes(eq_var_.begin(), eq_var_.end(),
+                    c.eq_var_.begin(), c.eq_var_.end()) &&
+      std::includes(neq_var_.begin(), neq_var_.end(),
+                    c.neq_var_.begin(), c.neq_var_.end()) &&
+      std::includes(neq_var_.begin(), neq_var_.end(),
+                    c.neq_var_.begin(), c.neq_var_.end());
+}
+
 bool Ewff::Conj::CheckModel(const Assignment& theta) const {
   const auto& end = theta.end();
   for (const auto& xey : eq_var_) {
