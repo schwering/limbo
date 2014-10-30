@@ -40,11 +40,11 @@ class Term {
   static bool Unify(const Term& t1, const Term& t2, Unifier* theta);
   static bool UnifySeq(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 
-  inline Id id() const { return id_; }
-  inline bool sort() const { return sort_; }
-  inline bool is_variable() const { return kind_ == VAR; }
-  inline bool is_name() const { return kind_ == NAME; }
-  inline bool is_ground() const { return kind_ != VAR; }
+  Id id() const { return id_; }
+  bool sort() const { return sort_; }
+  bool is_variable() const { return kind_ == VAR; }
+  bool is_name() const { return kind_ == NAME; }
+  bool is_ground() const { return kind_ != VAR; }
 
  protected:
   friend class Factory;

@@ -102,13 +102,13 @@ std::ostream& operator<<(std::ostream& os, const TermSeq& z) {
 std::ostream& operator<<(std::ostream& os, const Term& t) {
   char c;
   if (t.is_variable()) {
-    c = 'V';
+    c = 'X';
   } else if (t.is_name()) {
     c = '#';
   } else {
     c = '?';
   }
-  return os << c << t.id() << ':' << t.sort();
+  return os << c << t.id();// << ':' << t.sort();
 }
 
 std::ostream& operator<<(std::ostream& os, const Unifier& theta) {

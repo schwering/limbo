@@ -100,6 +100,57 @@ TEST(ewff_test, conj) {
   }
 }
 
+TEST(ewff_test, conj_normalization) {
+  bool succ;
+  Ewff::Conj c1, c2, c3, c4;
+  std::tie(succ, c1) = Ewff::Conj::Create(
+      {}, {{x1,x4}, {x5,x2}, {x4,x2}, {x6,x6}}, {}, {});
+  EXPECT_TRUE(succ);
+  std::tie(succ, c2) = Ewff::Conj::Create(
+      {}, {{x1,x4}, {x5,x2}, {x4,x2}, {x1,x1}, {x4,x2}, {x6,x6}}, {}, {});
+  EXPECT_TRUE(succ);
+  std::tie(succ, c3) = Ewff::Conj::Create(
+      {}, {{x4,x2}, {x4,x2}, {x1,x4}, {x5,x2}}, {}, {});
+  EXPECT_TRUE(succ);
+  std::tie(succ, c4) = Ewff::Conj::Create(
+      {}, {{x1,x2}, {x2,x4}, {x4,x5}}, {}, {});
+  EXPECT_TRUE(succ);
+  EXPECT_TRUE(c1 == c2);
+  EXPECT_TRUE(c2 == c3);
+  EXPECT_TRUE(c3 == c4);
+  EXPECT_TRUE(c4 == c1);
+}
+
+TEST(ewff_test, conj_substitution) {
+  bool succ;
+  Ewff::Conj c, d, e;
+  std::tie(succ, c) = Ewff::Conj::Create(
+      {{x1,n1},{x2,n1},{x3,n1},{x4,n4}}, {}, {}, {{x1,x4}});
+  EXPECT_TRUE(succ);
+
+  std::tie(succ, d) = Ewff::Conj::Create(
+      {{x1,n1},{x3,n1}}, {{x2,x1}}, {}, {{x1,x4}});
+  EXPECT_TRUE(succ);
+  std::tie(succ, e) = d.Substitute({ {x1,n1}, {x2,n1}, {x4,n4} });
+  EXPECT_TRUE(succ);
+  EXPECT_EQ(c, e);
+  EXPECT_EQ(c.Substitute({{x1,n4}}), e.Substitute({{x1,n4}}));
+  EXPECT_FALSE(e.Substitute({{x1,n4}}).first);
+
+  std::tie(succ, d) = Ewff::Conj::Create(
+      {}, {{x3,x1},{x1,x2},{x3,x2}}, {}, {{x1,x4}});
+  EXPECT_TRUE(succ);
+  std::tie(succ, e) = d.Substitute({ {x1,n1}, {x4,n4} });
+  EXPECT_TRUE(succ);
+  EXPECT_TRUE(c == e);
+
+  std::tie(succ, d) = Ewff::Conj::Create(
+      {{x1,n1},{x3,n1}}, {{x2,x1}}, {}, {{x1,x4}});
+  EXPECT_TRUE(succ);
+  std::tie(succ, e) = d.Substitute({ {x1,n1}, {x2,n1}, {x3,n4} });
+  EXPECT_FALSE(succ);
+}
+
 TEST(ewff_test, ewff) {
   const auto p1 = Ewff::Conj::Create({{x2,n2}},
                 {{x3,x4}},

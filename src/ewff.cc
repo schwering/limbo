@@ -13,27 +13,17 @@ std::pair<bool, Ewff::Conj> Ewff::Conj::Create(
     const std::set<std::pair<Variable, Variable>>& eq_var,
     const std::set<std::pair<Variable, StdName>>& neq_name,
     const std::set<std::pair<Variable, Variable>>& neq_var) {
-  Conj c(eq_name, neq_name);
+  Conj c;
 
-  for (auto it = c.neq_name_.begin(); it != c.neq_name_.end(); ) {
-    const Variable& x = it->first;
-    const StdName& n = it->second;
-    const auto jt = c.eq_name_.find(x);
-    if (jt != c.eq_name_.end()) {
-      if (jt->second != n) {
-        it = c.neq_name_.erase(it);
-      } else {
-        return failed<Conj>();
-      }
-    } else {
-      c.var_vars_.insert(x);
-      ++it;
-    }
+  c.neq_name_ = neq_name;
+  for (const auto& xnn : neq_name) {
+    const Variable& x = xnn.first;
+    c.var_vars_.insert(x);
   }
 
-  for (auto it = neq_var.begin(); it != neq_var.end(); ++it) {
-    const Variable& x = it->first;
-    const Variable& y = it->second;
+  for (const auto& xny : neq_var) {
+    const Variable& x = xny.first;
+    const Variable& y = xny.second;
     if (x == y) {
       return failed<Conj>();
     }
@@ -42,18 +32,24 @@ std::pair<bool, Ewff::Conj> Ewff::Conj::Create(
     } else {
       c.neq_var_.insert(std::make_pair(y, x));
     }
-    if (!c.is_fix_var(x)) {
-      c.var_vars_.insert(x);
-    }
-    if (!c.is_fix_var(y)) {
-      c.var_vars_.insert(y);
+    c.var_vars_.insert(x);
+    c.var_vars_.insert(y);
+  }
+
+  for (const auto& xen : eq_name) {
+    const Variable& x = xen.first;
+    const StdName& n = xen.second;
+    if (!c.SubstituteName(x, n)) {
+      return failed<Conj>();
     }
   }
 
   for (const auto& xey : eq_var) {
     const Variable& x = xey.first;
     const Variable& y = xey.second;
-    c.SubstituteVariable(x, y, true);
+    if (!c.SubstituteVariable(x, y)) {
+      return failed<Conj>();
+    }
   }
 
   return std::make_pair(true, c);
@@ -181,11 +177,6 @@ bool Ewff::Conj::Ground(const Variable& x, const StdName& n) {
 #endif
 
 bool Ewff::Conj::SubstituteName(const Variable& x, const StdName& n) {
-  if (!is_fix_var(x) && !is_var_var(x)) {
-    return true;
-  }
-  assert(is_fix_var(x) || is_var_var(x));
-
   const auto p = eq_name_.insert(std::make_pair(x, n));
   const StdName& n_old = p.first->second;
   if (!p.second) {
@@ -243,15 +234,7 @@ bool Ewff::Conj::SubstituteName(const Variable& x, const StdName& n) {
   return true;
 }
 
-bool Ewff::Conj::SubstituteVariable(const Variable& x, const Variable& y,
-                                    bool maybe_new_vars) {
-  if (!maybe_new_vars) {
-    if (!is_fix_var(x) && !is_var_var(x)) {
-      return true;
-    }
-    assert(is_fix_var(x) || is_var_var(x));
-  }
-
+bool Ewff::Conj::SubstituteVariable(const Variable& x, const Variable& y) {
   const auto& xem = eq_name_.find(x);
   const auto& yen = eq_name_.find(y);
   if (xem != eq_name_.end() && yen != eq_name_.end()) {
@@ -265,10 +248,10 @@ bool Ewff::Conj::SubstituteVariable(const Variable& x, const Variable& y,
     const StdName& n = yen->second;
     return SubstituteName(x, n);
   } else if (x != y) {
-    var_vars_.insert(x);
-    var_vars_.insert(y);
     const Variable u = std::min(x, y);
     const Variable v = std::max(x, y);
+    var_vars_.insert(u);
+    var_vars_.insert(v);
     for (auto it = eq_var_.begin(); it != eq_var_.end(); ++it) {
       if (u == it->first) {
         const Variable& w = it->second;  // Present: u -> w
@@ -316,6 +299,7 @@ std::pair<bool, Ewff::Conj> Ewff::Conj::Substitute(const Unifier& theta) const {
         return failed<Conj>();
       }
     } else {
+      assert(t.is_variable());
       if (!c.SubstituteVariable(x, Variable(t))) {
         return failed<Conj>();
       }
@@ -551,7 +535,7 @@ std::ostream& operator<<(std::ostream& os, const Ewff::Conj& c) {
     os << x.first << "=" << x.second << ", ";
   }
   os << "\n";
-  os << "var: ";
+  os << "vars: ";
   for (const auto x : c.var_vars_) {
     os << x << ", ";
   }
