@@ -26,168 +26,97 @@ static std::set<StdName> names{n0,n1,n2,n3,n4,n5,n6};
 static StdName::SortedSet hplus{{1, names}};
 
 TEST(ewff_test, conj) {
-  const auto p = Ewff::Conj::Create({{x1,n1}, {x2,n2}},
-                                    {{x3,x4}, {x4,x3}},
-                                    {{x1,n2}, {x1,n3}, {x5,n6}},
-                                    {{x1,x2}, {x2,x1}, {x5,x6}});
+  const auto p = Ewff::Create(//{{x1,n1}, {x2,n2}},
+                              //{{x3,x4}, {x4,x3}},
+                              {{x1,n2}, {x1,n3}, {x5,n6}},
+                              {{x1,x2}, {x2,x1}, {x5,x6}});
   EXPECT_TRUE(p.first);
-  const Ewff::Conj c = p.second;
+  const Ewff e = p.second;
+
+  {
+    Ewff ee = e;
+    ee.RestrictVariable({x1,x2});
+    EXPECT_EQ(ee, Ewff::Create({{x1,n2}, {x1,n3}}, {{x1,x2}}).second);
+  }
 
   {
     Assignment theta{{x1,n1}, {x2,n2}, {x3,n3}, {x4,n3}, {x5,n5}, {x6,n6}};
-    std::pair<bool, Ewff::Conj> p = c.Ground(theta);
+    std::pair<bool, Ewff> p = e.Ground(theta);
     EXPECT_TRUE(p.first);
-    EXPECT_TRUE(c.CheckModel(theta));
+    EXPECT_TRUE(e.SatisfiedBy(theta));
   }
   {
-    std::list<Assignment> models;
-    c.Models(hplus, &models);
+    const std::list<Assignment> models = e.Models(hplus);
     EXPECT_TRUE(models.size() > 0);
     for (const Assignment& theta : models) {
-      c.CheckModel(theta);
+      EXPECT_TRUE(e.SatisfiedBy(theta));
     }
   }
   {
     Assignment theta1{{x1,n1}, {x2,n2}};
     Assignment theta2{{x1,n1}, {x2,n2}, {x3,n3}, {x4,n3}, {x5,n5}, {x6,n6}};
-    std::pair<bool, Ewff::Conj> p = c.Ground(theta1);
+    std::pair<bool, Ewff> p = e.Ground(theta1);
     EXPECT_TRUE(p.first);
-    EXPECT_TRUE(p.second.CheckModel(theta2));
+    EXPECT_TRUE(p.second.SatisfiedBy(theta2));
   }
   {
     Assignment theta1{{x3,n3}, {x5,n5}};
     Assignment theta2{{x1,n1}, {x2,n2}, {x3,n3}, {x4,n3}, {x5,n5}, {x6,n6}};
-    std::pair<bool, Ewff::Conj> p = c.Ground(theta1);
+    std::pair<bool, Ewff> p = e.Ground(theta1);
     EXPECT_TRUE(p.first);
-    EXPECT_TRUE(p.second.CheckModel(theta2));
+    EXPECT_TRUE(p.second.SatisfiedBy(theta2));
   }
   {
     Assignment theta1{{x3,n3}, {x5,n6}};
     Assignment theta2{{x1,n1}, {x2,n2}, {x3,n3}, {x4,n3}, {x5,n5}, {x6,n6}};
-    std::pair<bool, Ewff::Conj> p = c.Ground(theta1);
+    std::pair<bool, Ewff> p = e.Ground(theta1);
     EXPECT_FALSE(p.first);
   }
   {
     Assignment theta1{{x3,n3}, {x6,n5}, {x5, n6}};
     Assignment theta2{{x1,n1}, {x2,n2}, {x3,n3}, {x4,n3}, {x5,n5}, {x6,n6}};
-    std::pair<bool, Ewff::Conj> p = c.Ground(theta1);
+    std::pair<bool, Ewff> p = e.Ground(theta1);
     EXPECT_FALSE(p.first);
   }
 
-  const auto pp = Ewff::Conj::Create({}, {}, {{x1,n0}, {x2,n0}, {x3,n0}, {x4,n0}, {x5,n0}, {x6,n0}}, {});
+  //const auto pp = Ewff::Create({{x1,n0}, {x2,n0}, {x3,n0}, {x4,n0}, {x5,n0}, {x6,n0}}, {});
+  const auto pp = Ewff::Create({{x1,n0}, {x2,n0}, {x5,n0}, {x6,n0}}, {});
   EXPECT_TRUE(pp.first);
-  const Ewff::Conj cc = pp.second;
+  const Ewff ee = pp.second;
 
   {
-    std::list<Assignment> models;
-    c.Models(hplus, &models);
+    const std::list<Assignment> models = e.Models(hplus);
     std::set<Assignment> models_set;
     std::copy(models.begin(), models.end(), std::inserter(models_set, models_set.end()));
     EXPECT_TRUE(!models_set.empty());
 
     // test completeness (and correctness) of Models()
-    std::list<Assignment> all_assignments;
-    cc.Models(hplus, &all_assignments);
+    const std::list<Assignment> all_assignments = ee.Models(hplus);
     EXPECT_TRUE(all_assignments.size() > 0);
 
     for (const Assignment& theta : all_assignments) {
-      EXPECT_EQ(models_set.count(theta) > 0, c.CheckModel(theta));
+      EXPECT_EQ(models_set.count(theta) > 0, e.SatisfiedBy(theta));
     }
 
     for (const Assignment& theta : all_assignments) {
-      EXPECT_TRUE(!c.Ground(theta).first || c.CheckModel(theta));
+      EXPECT_TRUE(!e.Ground(theta).first || e.SatisfiedBy(theta));
     }
   }
 }
 
 TEST(ewff_test, conj_normalization) {
   bool succ;
-  Ewff::Conj c1, c2, c3, c4;
-  std::tie(succ, c1) = Ewff::Conj::Create(
-      {}, {{x1,x4}, {x5,x2}, {x4,x2}, {x6,x6}}, {}, {});
+  Ewff e1, e2, e3, e4;
+  std::tie(succ, e1) = Ewff::Create({}, {{x1,x4}, {x5,x2}, {x4,x2}});
   EXPECT_TRUE(succ);
-  std::tie(succ, c2) = Ewff::Conj::Create(
-      {}, {{x1,x4}, {x5,x2}, {x4,x2}, {x1,x1}, {x4,x2}, {x6,x6}}, {}, {});
-  EXPECT_TRUE(succ);
-  std::tie(succ, c3) = Ewff::Conj::Create(
-      {}, {{x4,x2}, {x4,x2}, {x1,x4}, {x5,x2}}, {}, {});
-  EXPECT_TRUE(succ);
-  std::tie(succ, c4) = Ewff::Conj::Create(
-      {}, {{x1,x2}, {x2,x4}, {x4,x5}}, {}, {});
-  EXPECT_TRUE(succ);
-  EXPECT_TRUE(c1 == c2);
-  EXPECT_TRUE(c2 == c3);
-  EXPECT_TRUE(c3 == c4);
-  EXPECT_TRUE(c4 == c1);
-}
-
-TEST(ewff_test, conj_substitution) {
-  bool succ;
-  Ewff::Conj c, d, e;
-  std::tie(succ, c) = Ewff::Conj::Create(
-      {{x1,n1},{x2,n1},{x3,n1},{x4,n4}}, {}, {}, {{x1,x4}});
-  EXPECT_TRUE(succ);
-
-  std::tie(succ, d) = Ewff::Conj::Create(
-      {{x1,n1},{x3,n1}}, {{x2,x1}}, {}, {{x1,x4}});
-  EXPECT_TRUE(succ);
-  std::tie(succ, e) = d.Substitute({ {x1,n1}, {x2,n1}, {x4,n4} });
-  EXPECT_TRUE(succ);
-  EXPECT_EQ(c, e);
-  EXPECT_EQ(c.Substitute({{x1,n4}}), e.Substitute({{x1,n4}}));
-  EXPECT_FALSE(e.Substitute({{x1,n4}}).first);
-
-  std::tie(succ, d) = Ewff::Conj::Create(
-      {}, {{x3,x1},{x1,x2},{x3,x2}}, {}, {{x1,x4}});
-  EXPECT_TRUE(succ);
-  std::tie(succ, e) = d.Substitute({ {x1,n1}, {x4,n4} });
-  EXPECT_TRUE(succ);
-  EXPECT_TRUE(c == e);
-
-  std::tie(succ, d) = Ewff::Conj::Create(
-      {{x1,n1},{x3,n1}}, {{x2,x1}}, {}, {{x1,x4}});
-  EXPECT_TRUE(succ);
-  std::tie(succ, e) = d.Substitute({ {x1,n1}, {x2,n1}, {x3,n4} });
+  std::tie(succ, e2) = Ewff::Create({}, {{x1,x4}, {x5,x2}, {x4,x2}, {x1,x1}, {x4,x2}, {x6,x6}});
   EXPECT_FALSE(succ);
-}
-
-TEST(ewff_test, ewff) {
-  const auto p1 = Ewff::Conj::Create({{x2,n2}},
-                {{x3,x4}},
-                {{x1,n2}, {x1,n3}, {x5,n6}},
-                {{x1,x2}, {x2,x1}, {x5,x6}});
-  const auto p2 = Ewff::Conj::Create({{x1,n1}},
-                {{x3,x4}},
-                {{x1,n2}, {x1,n3}},
-                {{x1,x2}});
-  EXPECT_TRUE(p1.first);
-  EXPECT_TRUE(p2.first);
-  const Ewff::Conj c1 = p1.second;
-  const Ewff::Conj c2 = p2.second;
-  Ewff e({c1, c2});
-
-  {
-    std::list<Assignment> models1;
-    c1.Models(hplus, &models1);
-    std::set<Assignment> models_set1;
-    std::copy(models1.begin(), models1.end(), std::inserter(models_set1, models_set1.end()));
-    EXPECT_TRUE(!models_set1.empty());
-
-    std::list<Assignment> models2;
-    c2.Models(hplus, &models2);
-    std::set<Assignment> models_set2;
-    std::copy(models2.begin(), models2.end(), std::inserter(models_set2, models_set2.end()));
-    EXPECT_TRUE(!models_set2.empty());
-
-    // test completeness (and correctness) of Models()
-    std::list<Assignment> all_assignments;
-    c1.Models(hplus, &all_assignments);
-    EXPECT_TRUE(all_assignments.size() > 0);
-
-    for (const Assignment& theta : all_assignments) {
-      EXPECT_EQ(models_set1.count(theta) + models_set2.count(theta) > 0, c1.CheckModel(theta) || c2.CheckModel(theta));
-      EXPECT_EQ(models_set1.count(theta) + models_set2.count(theta) > 0, e.CheckModel(theta));
-    }
-  }
+  std::tie(succ, e3) = Ewff::Create({}, {{x4,x2}, {x4,x2}, {x1,x4}, {x5,x2}});
+  EXPECT_TRUE(succ);
+  std::tie(succ, e4) = Ewff::Create({}, {{x1,x4}, {x2,x4}, {x2,x5}});
+  EXPECT_TRUE(succ);
+  EXPECT_TRUE(e1 == e3);
+  EXPECT_TRUE(e3 == e4);
+  EXPECT_TRUE(e4 == e1);
 }
 

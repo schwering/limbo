@@ -92,6 +92,19 @@ bool Atom::is_ground() const {
                      [](const Term& t) { return t.is_ground(); });
 }
 
+void Atom::CollectVariables(std::set<Variable>* vs) const {
+  for (auto& t : z_) {
+    if (t.is_variable()) {
+      (*vs).insert(Variable(t));
+    }
+  }
+  for (auto& t : args_) {
+    if (t.is_variable()) {
+      (*vs).insert(Variable(t));
+    }
+  }
+}
+
 void Atom::CollectVariables(Variable::SortedSet* vs) const {
   for (auto& t : z_) {
     if (t.is_variable()) {

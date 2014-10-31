@@ -45,6 +45,7 @@ class Atom {
 
   bool is_ground() const;
 
+  void CollectVariables(std::set<Variable>* vs) const;
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
 

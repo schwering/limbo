@@ -222,11 +222,12 @@ std::list<Clause> Clause::ResolveWithUnitClause(const Clause& unit) const {
     }
     Ewff unit_e;
     std::tie(succ, unit_e) = unit.ewff().Substitute(theta);
-    if (!succ || unit_e == Ewff::FALSE) {
+    if (!succ) {
       continue;
     }
     d.e_ = Ewff::And(d.e_, unit_e);
     d.ls_.erase(l.Substitute(theta));
+    d.e_.RestrictVariable(d.LiteralVariables());
     cs.push_back(d);
   }
   return cs;
@@ -250,6 +251,14 @@ std::set<Atom::PredId> Clause::negative_preds() const {
     }
   }
   return s;
+}
+
+std::set<Variable> Clause::LiteralVariables() const {
+  std::set<Variable> vs;
+  for (const Literal& l : ls_) {
+    l.CollectVariables(&vs);
+  }
+  return vs;
 }
 
 void Clause::CollectVariables(Variable::SortedSet* vs) const {

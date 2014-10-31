@@ -53,7 +53,7 @@ class Term {
 
   enum Kind { DUMMY, VAR, NAME };
 
-  Term(Kind kind, int id, Sort sort) : kind_(kind), id_(id), sort_(sort) {}
+  Term(Kind kind, Id id, Sort sort) : kind_(kind), id_(id), sort_(sort) {}
 
   Kind kind_ = DUMMY;
   Id id_ = 0;
@@ -63,6 +63,9 @@ class Term {
 class Variable {
  public:
   typedef std::map<Term::Sort, std::set<Variable>> SortedSet;
+
+  static const Variable MIN;
+  static const Variable MAX;
 
   Variable() = default;
   explicit Variable(const Term& t) : t_(t) { assert(t_.is_variable()); }
@@ -98,6 +101,9 @@ class Variable {
 class StdName {
  public:
   typedef std::map<Term::Sort, std::set<StdName>> SortedSet;
+
+  static const StdName MIN;
+  static const StdName MAX;
 
   StdName() = default;
   explicit StdName(const Term& t) : t_(t) { assert(t_.is_name()); }

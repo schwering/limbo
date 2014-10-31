@@ -32,33 +32,21 @@ TEST(clause, rel)
 {
   Clause empty(true, Ewff::TRUE, SimpleClause());
   Clause c1(true,
-            Ewff({ Ewff::Conj::Create({{x1,n1}},
-                                      {{x2,x3}},
-                                      {{x2,n2}, {x3,n3}},
-                                      {{x1,x2}}).second }),
-            SimpleClause({ Literal({x3}, true, P, {x1,x2}),
-                           Literal({x3}, false, P, {x1,x2}) }));
+            Ewff::Create({{x2,n2}, {x3,n3}, {x2,n1}}, {}).second,
+            SimpleClause({ Literal({x2}, true, P, {n1,x2}),
+                           Literal({x2}, false, P, {n1,x2}) }));
   Clause c2(false,
-            Ewff({ Ewff::Conj::Create({},
-                                      {{x4,x5}},
-                                      {},
-                                      {{x5,x6}}).second }),
-            SimpleClause({ Literal({x4}, true, P, {x5,x6}),
-                           Literal({x6}, false, Q, {x4,x5}) }));
+            Ewff::Create({}, {{x5,x6}}).second,
+            SimpleClause({ Literal({x4}, true, P, {x4,x6}),
+                           Literal({x6}, false, Q, {x4,x4}) }));
   Clause c3(false,
-            Ewff({ Ewff::Conj::Create({},
-                                      {{x1,x4}, {x5,x2}, {x4,x2}, {x6,x6}},  // all vars occur in ewff
-                                      {},
-                                      {}).second }),
-            SimpleClause({ Literal({x1}, true, P, {x2}),
-                           Literal({x4}, false, Q, {x5,x6}) }));
+            Ewff::Create({}, {}).second,
+            SimpleClause({ Literal({x1}, true, P, {x1}),
+                           Literal({x1}, false, Q, {x1,x6}) }));
   Clause c4(false,
-            Ewff({ Ewff::Conj::Create({},
-                                      {{x1,x4}, {x2,x5}},  // same as c3, but x3, x6 do not occur
-                                      {},
-                                      {}).second }),
-            SimpleClause({ Literal({x1}, true, P, {x2}),
-                           Literal({x4}, false, Q, {x5,x6}) }));
+            Ewff::Create({}, {}).second,
+            SimpleClause({ Literal({x1}, true, P, {x5}),
+                           Literal({x1}, false, Q, {x5,x6}) }));
 
   EXPECT_EQ(empty.Rel(hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
   EXPECT_EQ(empty.Rel(hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 0);
@@ -89,19 +77,13 @@ TEST(clause, subsumption)
 {
   Clause empty(true, Ewff::TRUE, SimpleClause());
   Clause c1(true,
-            Ewff({ Ewff::Conj::Create({{x1,n1}},
-                                      {{x2,x3}},
-                                      {{x2,n2}, {x3,n3}},
-                                      {{x1,x2}}).second }),
-            SimpleClause({ Literal({x3}, true, P, {x1,x2}),
-                           Literal({x3}, false, P, {x1,x2}) }));
+            Ewff::Create({{x2,n2}, {x2,n3}, {x2,n1}}, {}).second,
+            SimpleClause({ Literal({x2}, true, P, {n1,x2}),
+                           Literal({x2}, false, P, {n1,x2}) }));
   Clause c2(false,
-            Ewff({ Ewff::Conj::Create({},
-                                      {{x4,x5}},
-                                      {},
-                                      {{x5,x6}}).second }),
-            SimpleClause({ Literal({x4}, true, P, {x5,x6}),
-                           Literal({x6}, false, Q, {x4,x5}) }));
+            Ewff::Create({}, {{x4,x6}}).second,
+            SimpleClause({ Literal({x4}, true, P, {x4,x6}),
+                           Literal({x6}, false, Q, {x4,x4}) }));
   SimpleClause d1({Literal({n2,n4}, true, P, {n1,n4}),
                    Literal({n2,n4}, false, P, {n1,n4})});
   SimpleClause d2({Literal({n4}, true, P, {n4,n6}),

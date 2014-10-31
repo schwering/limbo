@@ -54,6 +54,8 @@ class Clause {
                                           const Atom& ext_a) const;
   bool Subsumes2(const SimpleClause& c) const;
 
+  std::set<Variable> LiteralVariables() const;
+
   bool box_;
   Ewff e_;
   SimpleClause ls_;

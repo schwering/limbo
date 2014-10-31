@@ -2,6 +2,7 @@
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 
 #include "./term.h"
+#include <limits>
 
 namespace esbl {
 
@@ -88,6 +89,24 @@ bool Term::UnifySeq(const TermSeq& z1, const TermSeq& z2, Unifier* theta) {
   }
   return true;
 }
+
+const Variable Variable::MIN = Variable(Term(
+        Term::VAR,
+        std::numeric_limits<Term::Id>::min(),
+        std::numeric_limits<Term::Sort>::min()));
+const Variable Variable::MAX = Variable(Term(
+        Term::VAR,
+        std::numeric_limits<Term::Id>::max(),
+        std::numeric_limits<Term::Sort>::max()));
+
+const StdName StdName::MIN = StdName(Term(
+        Term::NAME,
+        std::numeric_limits<Term::Id>::min(),
+        std::numeric_limits<Term::Sort>::min()));
+const StdName StdName::MAX = StdName(Term(
+        Term::NAME,
+        std::numeric_limits<Term::Id>::max(),
+        std::numeric_limits<Term::Sort>::max()));
 
 std::ostream& operator<<(std::ostream& os, const TermSeq& z) {
   for (auto it = z.begin(); it != z.end(); ++it) {
