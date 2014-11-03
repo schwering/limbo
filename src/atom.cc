@@ -3,9 +3,13 @@
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 #include "./atom.h"
 
 namespace esbl {
+
+const Atom Atom::MIN({}, std::numeric_limits<PredId>::min(), {});
+const Atom Atom::MAX({}, std::numeric_limits<PredId>::max(), {});
 
 bool Atom::operator==(const Atom& a) const {
   return pred_ == a.pred_ && z_ == a.z_ && args_ == a.args_;
@@ -55,16 +59,32 @@ Atom Atom::Ground(const Assignment& theta) const {
   return a;
 }
 
+bool Atom::Matches(const Atom& a, Unifier* theta) const {
+  if (pred_ != a.pred_ ||
+      z_.size() != a.z_.size() ||
+      args_.size() != a.args_.size()) {
+    return false;
+  }
+  if (!z_.Matches(a.z_, theta)) {
+    return false;
+  }
+  if (!args_.Matches(a.args_, theta)) {
+    return false;
+  }
+  assert(*this == a.Substitute(*theta));
+  return true;
+}
+
 bool Atom::Unify(const Atom& a, const Atom& b, Unifier* theta) {
   if (a.pred_ != b.pred_ ||
       a.z_.size() != b.z_.size() ||
       a.args_.size() != b.args_.size()) {
     return false;
   }
-  if (!Term::UnifySeq(a.z_, b.z_, theta)) {
+  if (!TermSeq::Unify(a.z_, b.z_, theta)) {
     return false;
   }
-  if (!Term::UnifySeq(a.args_, b.args_, theta)) {
+  if (!TermSeq::Unify(a.args_, b.args_, theta)) {
     return false;
   }
   assert(a.Substitute(*theta) == b.Substitute(*theta));
@@ -82,6 +102,7 @@ Atom Atom::LowerBound() const {
 }
 
 Atom Atom::UpperBound() const {
+  assert(pred_ < std::numeric_limits<PredId>::max());
   return Atom({}, pred_ + 1, {});
 }
 

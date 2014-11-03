@@ -25,6 +25,7 @@ static Variable x6 = f.CreateVariable(1);
 static std::set<StdName> names{n0,n1,n2,n3,n4,n5,n6};
 static StdName::SortedSet hplus{{1, names}};
 
+static Atom::PredId O = 2;
 static Atom::PredId P = 1;
 static Atom::PredId Q = 2;
 
@@ -84,16 +85,37 @@ TEST(clause, subsumption)
             Ewff::Create({}, {{x4,x6}}).second,
             SimpleClause({ Literal({x4}, true, P, {x4,x6}),
                            Literal({x6}, false, Q, {x4,x4}) }));
-  SimpleClause d1({Literal({n2,n4}, true, P, {n1,n4}),
-                   Literal({n2,n4}, false, P, {n1,n4})});
-  SimpleClause d2({Literal({n4}, true, P, {n4,n6}),
-                   Literal({n6}, false, Q, {n4,n4})});
+  Clause c3(false,
+            Ewff::Create({}, {{x4,x6}}).second,
+            SimpleClause({ Literal({x4}, true, O, {x4,x6}),
+                           Literal({x4}, true, P, {x4,x6}),
+                           Literal({x6}, false, Q, {x4,x4}) }));
+  Clause d1(false, Ewff::TRUE,
+            {Literal({n2,n4}, true, P, {n1,n4}),
+             Literal({n2,n4}, false, P, {n1,n4})});
+  Clause d2(false, Ewff::TRUE,
+            {Literal({n4}, true, P, {n4,n6}),
+             Literal({n6}, false, Q, {n4,n4})});
+  Clause d3(false, Ewff::TRUE,
+            {Literal({n4}, true, O, {n4,n6}),
+             Literal({n4}, true, P, {n4,n6}),
+             Literal({n6}, false, Q, {n4,n4})});
 
   EXPECT_TRUE(empty.Subsumes(d1));
   EXPECT_TRUE(empty.Subsumes(d2));
+  EXPECT_TRUE(empty.Subsumes(d3));
+
   EXPECT_TRUE(c1.Subsumes(d1));
-  EXPECT_TRUE(c2.Subsumes(d2));
+  return;
   EXPECT_FALSE(c1.Subsumes(d2));
+  EXPECT_FALSE(c1.Subsumes(d3));
+
   EXPECT_FALSE(c2.Subsumes(d1));
+  EXPECT_TRUE(c2.Subsumes(d2));
+  EXPECT_TRUE(c2.Subsumes(d3));
+
+  EXPECT_FALSE(c3.Subsumes(d1));
+  EXPECT_FALSE(c3.Subsumes(d2));
+  EXPECT_TRUE(c3.Subsumes(d3));
 }
 

@@ -57,8 +57,14 @@ bool Setup::ContainsEmptyClause() const {
 }
 
 std::set<Clause> Setup::UnitClauses() const {
-  std::set<Clause> s;
-  return s;
+  std::set<Clause> units;
+  const auto first = cs_.lower_bound(Clause::MIN_UNIT);
+  const auto last = cs_.upper_bound(Clause::MAX_UNIT);
+  for (auto it = first; it != last; ++it) {
+    assert(it->is_unit());
+    units.insert(units.end(), *it);
+  }
+  return units;
 }
 
 void Setup::PropagateUnits() {

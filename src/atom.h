@@ -17,6 +17,8 @@ class Atom {
   typedef unsigned int PredId;
 
   static constexpr PredId SF = 0;
+  static const Atom MIN;
+  static const Atom MAX;
 
   Atom(const TermSeq& z, PredId pred, const TermSeq& args)
       : z_(z), pred_(pred), args_(args) {}
@@ -32,7 +34,7 @@ class Atom {
 
   Atom Substitute(const Unifier& theta) const;
   Atom Ground(const Assignment& theta) const;
-
+  bool Matches(const Atom& a, Unifier* theta) const;
   static bool Unify(const Atom& a, const Atom& b, Unifier* theta);
   static std::pair<bool, Unifier> Unify(const Atom& a, const Atom& b);
 

@@ -11,6 +11,9 @@ namespace esbl {
 
 class Literal : public Atom {
  public:
+  static const Literal MIN;
+  static const Literal MAX;
+
   Literal(bool sign, const Atom& a) : Atom(a), sign_(sign) {}
   Literal(const TermSeq& z, bool sign, PredId pred, const TermSeq& args)
       : Atom(z, pred, args), sign_(sign) {}

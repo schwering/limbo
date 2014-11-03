@@ -5,6 +5,9 @@
 
 namespace esbl {
 
+const Literal Literal::MIN(false, Atom::MIN);
+const Literal Literal::MAX(true, Atom::MAX);
+
 bool Literal::operator==(const Literal& l) const {
   return Atom::operator==(l) && sign_ == l.sign_;
 }

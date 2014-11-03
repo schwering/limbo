@@ -12,10 +12,31 @@
 
 namespace esbl {
 
-typedef std::set<Literal> SimpleClause;
+class SimpleClause : public std::set<Literal> {
+ public:
+  using std::set<Literal>::set;
+
+  SimpleClause PrependActions(const TermSeq& z) const;
+
+  std::tuple<bool, SimpleClause> Substitute(const Unifier& theta) const;
+  std::list<Unifier> Subsumes(const SimpleClause& c) const;
+  std::tuple<bool, Unifier, SimpleClause> Unify(const Atom& cl_a,
+                                                const Atom& ext_a) const;
+
+  std::set<Variable> Variables() const;
+  void CollectVariables(Variable::SortedSet* vs) const;
+  void CollectNames(StdName::SortedSet* ns) const;
+
+ private:
+  void SubsumedBy(const const_iterator first, const const_iterator last,
+                  const Unifier& theta, std::list<Unifier>* thetas) const;
+};
 
 class Clause {
  public:
+  static const Clause MIN_UNIT;
+  static const Clause MAX_UNIT;
+
   Clause() = default;
   Clause(bool box, const Ewff& e, const SimpleClause& ls)
       : box_(box), e_(e), ls_(ls) {}
@@ -28,14 +49,14 @@ class Clause {
   bool operator!=(const Clause& c) const;
   bool operator<(const Clause& c) const;
 
-  Clause PrependActions(const TermSeq& z) const;
+  Clause InstantiateBox(const TermSeq& z) const;
 
   std::set<Literal> Rel(const StdName::SortedSet& hplus,
                         const Literal& ext_l) const;
-  bool Subsumes(const SimpleClause& c) const;
+  bool Subsumes(const Clause& c) const;
   bool SplitRelevant(const Atom& a, const SimpleClause c, unsigned int k) const;
-  std::list<Clause> ResolveWithLiteral(const Literal& ext_l) const;
-  std::list<Clause> ResolveWithUnitClause(const Clause& unit) const;
+  void ResolveWithUnitClause(const Clause& unit,
+                             std::set<Clause>* resolvents) const;
 
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
@@ -52,9 +73,6 @@ class Clause {
   std::tuple<bool, Clause> Substitute(const Unifier& theta) const;
   std::tuple<bool, Unifier, Clause> Unify(const Atom& cl_a,
                                           const Atom& ext_a) const;
-  bool Subsumes2(const SimpleClause& c) const;
-
-  std::set<Variable> LiteralVariables() const;
 
   bool box_;
   Ewff e_;

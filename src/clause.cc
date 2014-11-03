@@ -3,12 +3,108 @@
 
 #include "./clause.h"
 #include <algorithm>
+#include <cassert>
 #include <numeric>
 
 namespace esbl {
 
+const Clause Clause::MIN_UNIT(false, Ewff::TRUE, {Literal::MIN});
+const Clause Clause::MAX_UNIT(false, Ewff::TRUE, {Literal::MAX});
+
+SimpleClause SimpleClause::PrependActions(const TermSeq& z) const {
+  SimpleClause c;
+  for (const Literal& l : *this) {
+    c.insert(l.PrependActions(z));
+  }
+  return c;
+}
+
+std::tuple<bool, SimpleClause> SimpleClause::Substitute(
+    const Unifier& theta) const {
+  SimpleClause c;
+  for (const Literal& l : *this) {
+    c.insert(l.Substitute(theta));
+  }
+  return std::make_pair(true, c);
+}
+
+void SimpleClause::SubsumedBy(const const_iterator first,
+                              const const_iterator last,
+                              const Unifier& theta,
+                              std::list<Unifier>* thetas) const {
+  if (first == last) {
+    thetas->push_back(theta);
+    return;
+  }
+  const Literal& l = first->Substitute(theta);
+  const auto first2 = lower_bound(l.LowerBound());
+  const auto last2 = upper_bound(l.UpperBound());
+  for (auto it = first2; it != last2; ++it) {
+    const Literal& ll = *it;
+    assert(l.pred() == ll.pred());
+    if (l.sign() != ll.sign()) {
+      continue;
+    }
+    Unifier theta2 = theta;
+    const bool succ = ll.Matches(l, &theta2);
+    if (succ) {
+      SubsumedBy(std::next(first), last, theta2, thetas);
+    }
+  }
+}
+
+std::list<Unifier> SimpleClause::Subsumes(const SimpleClause& c) const {
+  std::list<Unifier> thetas;
+  c.SubsumedBy(begin(), end(), Unifier(), &thetas);
+#ifndef NDEBUG
+  for (const Unifier& theta : thetas) {
+    bool succ;
+    SimpleClause d;
+    std::tie(succ, d) = Substitute(theta);
+    assert(succ);
+  }
+#endif
+  return thetas;
+}
+
+std::tuple<bool, Unifier, SimpleClause> SimpleClause::Unify(
+    const Atom& cl_a, const Atom& ext_a) const {
+  bool succ;
+  Unifier theta;
+  std::tie(succ, theta) = Atom::Unify(cl_a, ext_a);
+  if (!succ) {
+    return failed<Unifier, SimpleClause>();
+  }
+  SimpleClause c;
+  std::tie(succ, c) = Substitute(theta);
+  if (!succ) {
+    return failed<Unifier, SimpleClause>();
+  }
+  return std::make_tuple(true, theta, c);
+}
+
+std::set<Variable> SimpleClause::Variables() const {
+  std::set<Variable> vs;
+  for (const Literal& l : *this) {
+    l.CollectVariables(&vs);
+  }
+  return vs;
+}
+
+void SimpleClause::CollectVariables(Variable::SortedSet* vs) const {
+  for (const Literal& l : *this) {
+    l.CollectVariables(vs);
+  }
+}
+
+void SimpleClause::CollectNames(StdName::SortedSet* ns) const {
+  for (const Literal& l : *this) {
+    l.CollectNames(ns);
+  }
+}
+
 bool Clause::operator==(const Clause& c) const {
-  return box_ == c.box_ && e_ == c.e_ && ls_ == c.ls_;
+  return ls_ == c.ls_ && box_ == c.box_ && e_ == c.e_;
 }
 
 bool Clause::operator!=(const Clause& c) const {
@@ -16,17 +112,15 @@ bool Clause::operator!=(const Clause& c) const {
 }
 
 bool Clause::operator<(const Clause& c) const {
-  return box_ < c.box_ ||
-      (box_ == c.box_ && e_ < c.e_) ||
-      (box_ == c.box_ && e_ == c.e_ && ls_ < c.ls_);
+  // shortest clauses first
+  return ls_ < c.ls_ ||
+      (ls_ == c.ls_ && box_ < c.box_) ||
+      (ls_ == c.ls_ && box_ == c.box_ && e_ < c.e_);
 }
 
-Clause Clause::PrependActions(const TermSeq& z) const {
-  SimpleClause ls;
-  for (const Literal& l : ls_) {
-    ls.insert(l.PrependActions(z));
-  }
-  return Clause(box_, e_, ls);
+Clause Clause::InstantiateBox(const TermSeq& z) const {
+  assert(box_);
+  return Clause(false, e_, ls_.PrependActions(z));
 }
 
 std::tuple<bool, Clause> Clause::Substitute(const Unifier& theta) const {
@@ -37,63 +131,96 @@ std::tuple<bool, Clause> Clause::Substitute(const Unifier& theta) const {
     return failed<Clause>();
   }
   SimpleClause ls;
-  for (const Literal& l : ls_) {
-    ls.insert(l.Substitute(theta));
+  std::tie(succ, ls) = ls_.Substitute(theta);
+  if (!succ) {
+    return failed<Clause>();
   }
   return std::make_pair(true, Clause(box_, e, ls));
 }
 
-namespace {
-std::tuple<bool, TermSeq, Unifier> BoxUnify(const Atom& cl_a,
-                                            const Atom& ext_a) {
-  if (ext_a.z().size() < cl_a.z().size()) {
-    return failed<TermSeq, Unifier>();
-  }
-  const size_t split = ext_a.z().size() - cl_a.z().size();
-  const Atom a = ext_a.DropActions(split);
-  bool succ;
-  Unifier theta;
-  std::tie(succ, theta) = Atom::Unify(cl_a, a);
-  if (!succ) {
-    return failed<TermSeq, Unifier>();
-  }
-  const TermSeq prefix(ext_a.z().begin(), ext_a.z().begin() + split);
-  return std::make_tuple(true, prefix, theta);
-}
-}  // namespace
-
 std::tuple<bool, Unifier, Clause> Clause::Unify(const Atom& cl_a,
                                                 const Atom& ext_a) const {
-  assert(ls_.count(Literal(true, cl_a)) + ls_.count(Literal(false, cl_a)) > 0);
   if (box_) {
     bool succ;
     TermSeq z;
-    Unifier theta;
-    std::tie(succ, z, theta) = BoxUnify(cl_a, ext_a);
+    std::tie(succ, z) = cl_a.z().IsSuffixOf(ext_a.z());
     if (!succ) {
       return failed<Unifier, Clause>();
     }
-    Clause c;
-    std::tie(succ, c) = Substitute(theta);
-    if (!succ) {
-      return failed<Unifier, Clause>();
-    }
-    Clause d = c.PrependActions(z);
-    d.box_ = false;
-    return std::make_tuple(true, theta, d);
+    const Atom a = cl_a.PrependActions(z);
+    const Clause c = InstantiateBox(z);
+    return c.Unify(a, ext_a);
   } else {
     bool succ;
     Unifier theta;
-    std::tie(succ, theta) = Atom::Unify(cl_a, ext_a);
+    SimpleClause ls;
+    std::tie(succ, theta, ls) = ls_.Unify(cl_a, ext_a);
     if (!succ) {
       return failed<Unifier, Clause>();
     }
-    Clause c;
-    std::tie(succ, c) = Substitute(theta);
+    Ewff e;
+    std::tie(succ, e) = e_.Substitute(theta);
     if (!succ) {
       return failed<Unifier, Clause>();
     }
+    const Clause c = Clause(false, e, ls);
     return std::make_tuple(true, theta, c);
+  }
+}
+
+bool Clause::Subsumes(const Clause& c) const {
+  if (ls_.empty()) {
+    return true;
+  }
+  auto cmp_maybe_subsuming =
+      box_
+      ? [](const Literal& l1, const Literal& l2) {
+          return l1.pred() < l2.pred();
+        }
+      : [](const Literal& l1, const Literal& l2) {
+          const Atom::PredId p1 = l1.pred();
+          const Atom::PredId p2 = l2.pred();
+          const size_t z1 = l1.z().size();
+          const size_t z2 = l2.z().size();
+          const size_t a1 = l1.args().size();
+          const size_t a2 = l2.args().size();
+          return p1 < p2 ||
+              (p1 == p2 && z1 < z2) ||
+              (p1 == p2 && z1 == z2 && a1 < a2) ||
+              (p1 == p2 && z1 == z2 && a1 == a2 && l1.sign() < l2.sign());
+        };
+  if (!std::includes(c.ls_.begin(), c.ls_.end(), ls_.begin(), ls_.end(),
+                     cmp_maybe_subsuming)) {
+    return false;
+  }
+  if (box_) {
+    const Literal& l = *ls_.begin();
+    const auto first = c.ls_.lower_bound(l.LowerBound());
+    const auto last = c.ls_.upper_bound(l.UpperBound());
+    for (auto it = first; it != last; ++it) {
+      const Literal& ll = *it;
+      assert(l.pred() == ll.pred());
+      if (l.sign() != ll.sign()) {
+        continue;
+      }
+      bool succ;
+      TermSeq z;
+      std::tie(succ, z) = l.z().IsSuffixOf(ll.z());
+      if (succ && InstantiateBox(z).Subsumes(c)) {
+        return true;
+      }
+    }
+    return false;
+  } else {
+    for (const Unifier& theta : ls_.Subsumes(c.ls_)) {
+      bool succ;
+      Ewff e;
+      std::tie(succ, e) = e_.Substitute(theta);
+      if (succ && c.e_.Subsumes(e)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
@@ -134,46 +261,6 @@ std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
   return rel;
 }
 
-bool Clause::Subsumes2(const SimpleClause& c) const {
-  if (ls_.empty()) {
-    return true;
-  }
-  const Literal& cl_l = *ls_.begin();
-  const auto first = c.lower_bound(cl_l.LowerBound());
-  const auto last = c.upper_bound(cl_l.UpperBound());
-  for (auto jt = first; jt != last; ++jt) {
-    const Literal& ext_l = *jt;
-    assert(ext_l.pred() == cl_l.pred());
-    if (ext_l.sign() != cl_l.sign()) {
-      continue;
-    }
-    bool succ;
-    Unifier theta;
-    Clause d;
-    std::tie(succ, theta, d) = Unify(cl_l, ext_l);
-    if (!succ) {
-      continue;
-    }
-    size_t n = d.ls_.erase(ext_l.Substitute(theta));
-    assert(n >= 1);
-    if (d.Subsumes2(c)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool Clause::Subsumes(const SimpleClause& c) const {
-  auto cmp_maybe_subsuming = [](const Literal& l1, const Literal& l2) {
-    return l1.LowerBound() < l2.LowerBound();
-  };
-  if (!std::includes(c.begin(), c.end(), ls_.begin(), ls_.end(),
-                     cmp_maybe_subsuming)) {
-    return false;
-  }
-  return Subsumes2(c);
-}
-
 bool Clause::SplitRelevant(const Atom& a, const SimpleClause c,
                            unsigned int k) const {
   const SimpleClause::const_iterator it1 = ls_.find(Literal(true, a));
@@ -184,29 +271,9 @@ bool Clause::SplitRelevant(const Atom& a, const SimpleClause c,
          (ls_.size() <= k + 1 || ls_.size() - c.size() <= k);
 }
 
-std::list<Clause> Clause::ResolveWithLiteral(const Literal& ext_l) const {
-  std::list<Clause> cs;
-  for (const Literal& cl_l : ls_) {
-    if (ext_l.sign() == cl_l.sign() ||
-        ext_l.pred() != cl_l.pred()) {
-      continue;
-    }
-    bool succ;
-    Unifier theta;
-    Clause d;
-    std::tie(succ, theta, d) = Unify(cl_l, ext_l);
-    if (!succ) {
-      continue;
-    }
-    d.ls_.erase(cl_l.Substitute(theta));
-    cs.push_back(d);
-  }
-  return cs;
-}
-
-std::list<Clause> Clause::ResolveWithUnitClause(const Clause& unit) const {
+void Clause::ResolveWithUnitClause(const Clause& unit,
+                                   std::set<Clause>* resolvents) const {
   assert(unit.is_unit());
-  std::list<Clause> cs;
   const Literal& unit_l = *unit.literals().begin();
   for (const Literal& l : ls_) {
     if (unit_l.sign() == l.sign() ||
@@ -225,12 +292,11 @@ std::list<Clause> Clause::ResolveWithUnitClause(const Clause& unit) const {
     if (!succ) {
       continue;
     }
-    d.e_ = Ewff::And(d.e_, unit_e);
     d.ls_.erase(l.Substitute(theta));
-    d.e_.RestrictVariable(d.LiteralVariables());
-    cs.push_back(d);
+    d.e_ = Ewff::And(d.e_, unit_e);
+    d.e_.RestrictVariable(d.ls_.Variables());
+    resolvents->insert(d);
   }
-  return cs;
 }
 
 std::set<Atom::PredId> Clause::positive_preds() const {
@@ -253,26 +319,14 @@ std::set<Atom::PredId> Clause::negative_preds() const {
   return s;
 }
 
-std::set<Variable> Clause::LiteralVariables() const {
-  std::set<Variable> vs;
-  for (const Literal& l : ls_) {
-    l.CollectVariables(&vs);
-  }
-  return vs;
-}
-
 void Clause::CollectVariables(Variable::SortedSet* vs) const {
   e_.CollectVariables(vs);
-  for (const Literal& l : ls_) {
-    l.CollectVariables(vs);
-  }
+  ls_.CollectVariables(vs);
 }
 
 void Clause::CollectNames(StdName::SortedSet* ns) const {
   e_.CollectNames(ns);
-  for (const Literal& l : ls_) {
-    l.CollectNames(ns);
-  }
+  ls_.CollectNames(ns);
 }
 
 std::ostream& operator<<(std::ostream& os, const SimpleClause& c) {

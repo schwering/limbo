@@ -25,19 +25,35 @@ static Variable x6 = f.CreateVariable(1);
 static std::set<StdName> names{n0,n1,n2,n3,n4,n5,n6};
 static StdName::SortedSet hplus{{1, names}};
 
-TEST(ewff_test, conj) {
+TEST(ewff_test, restrict_vars) {
   const auto p = Ewff::Create(//{{x1,n1}, {x2,n2}},
                               //{{x3,x4}, {x4,x3}},
                               {{x1,n2}, {x1,n3}, {x5,n6}},
                               {{x1,x2}, {x2,x1}, {x5,x6}});
   EXPECT_TRUE(p.first);
   const Ewff e = p.second;
+  Ewff ee = e;
+  ee.RestrictVariable({x1,x2});
+  EXPECT_EQ(ee, Ewff::Create({{x1,n2}, {x1,n3}}, {{x1,x2}}).second);
+}
 
-  {
-    Ewff ee = e;
-    ee.RestrictVariable({x1,x2});
-    EXPECT_EQ(ee, Ewff::Create({{x1,n2}, {x1,n3}}, {{x1,x2}}).second);
-  }
+TEST(ewff_test, subsumption) {
+  const auto p = Ewff::Create({{x1,n2}, {x1,n3}, {x5,n6}},
+                              {{x1,x2}, {x2,x1}, {x5,x6}});
+  const auto q = Ewff::Create({{x1,n2}, {x1,n3}, {x5,n6}, {x4,n4}},
+                              {{x1,x2}, {x2,x1}, {x5,x6}, {x3,x4}});
+  EXPECT_TRUE(p.first);
+  EXPECT_TRUE(q.first);
+  EXPECT_TRUE(q.second.Subsumes(p.second));
+}
+
+TEST(ewff_test, models) {
+  const auto p = Ewff::Create(//{{x1,n1}, {x2,n2}},
+                              //{{x3,x4}, {x4,x3}},
+                              {{x1,n2}, {x1,n3}, {x5,n6}},
+                              {{x1,x2}, {x2,x1}, {x5,x6}});
+  EXPECT_TRUE(p.first);
+  const Ewff e = p.second;
 
   {
     Assignment theta{{x1,n1}, {x2,n2}, {x3,n3}, {x4,n3}, {x5,n5}, {x6,n6}};
@@ -78,7 +94,15 @@ TEST(ewff_test, conj) {
     std::pair<bool, Ewff> p = e.Ground(theta1);
     EXPECT_FALSE(p.first);
   }
+}
 
+TEST(ewff_test, models_completeness) {
+  const auto p = Ewff::Create(//{{x1,n1}, {x2,n2}},
+                              //{{x3,x4}, {x4,x3}},
+                              {{x1,n2}, {x1,n3}, {x5,n6}},
+                              {{x1,x2}, {x2,x1}, {x5,x6}});
+  EXPECT_TRUE(p.first);
+  const Ewff e = p.second;
   //const auto pp = Ewff::Create({{x1,n0}, {x2,n0}, {x3,n0}, {x4,n0}, {x5,n0}, {x6,n0}}, {});
   const auto pp = Ewff::Create({{x1,n0}, {x2,n0}, {x5,n0}, {x6,n0}}, {});
   EXPECT_TRUE(pp.first);

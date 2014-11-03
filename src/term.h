@@ -14,10 +14,10 @@
 namespace esbl {
 
 class Term;
+class TermSeq;
 class Variable;
 class StdName;
 
-typedef std::vector<Term> TermSeq;
 typedef std::map<Variable, Term> Unifier;
 typedef std::map<Variable, StdName> Assignment;
 
@@ -37,8 +37,8 @@ class Term {
 
   const Term& Substitute(const Unifier& theta) const;
   Term Ground(const Assignment& theta) const;
+  bool Matches(const Term& t, Unifier* theta) const;
   static bool Unify(const Term& t1, const Term& t2, Unifier* theta);
-  static bool UnifySeq(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 
   Id id() const { return id_; }
   bool sort() const { return sort_; }
@@ -58,6 +58,15 @@ class Term {
   Kind kind_ = DUMMY;
   Id id_ = 0;
   Sort sort_ = 0;
+};
+
+class TermSeq : public std::vector<Term> {
+ public:
+  using std::vector<Term>::vector;
+
+  std::pair<bool, TermSeq> IsSuffixOf(const TermSeq& z) const;
+  bool Matches(const TermSeq& z, Unifier* theta) const;
+  static bool Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 };
 
 class Variable {

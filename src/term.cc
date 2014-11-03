@@ -64,6 +64,15 @@ inline bool Update(Unifier* theta, const Variable& x, const Term& t) {
 }
 }  // namespace
 
+bool Term::Matches(const Term& t, Unifier* theta) const {
+  const Term tt = t.Substitute(*theta);
+  if (tt.is_variable()) {
+    return Update(theta, Variable(tt), *this);
+  } else {
+    return tt == *this;
+  }
+}
+
 bool Term::Unify(const Term& t1, const Term& t2, Unifier* theta) {
   const Term tt1 = t1.Substitute(*theta);
   const Term tt2 = t2.Substitute(*theta);
@@ -76,13 +85,22 @@ bool Term::Unify(const Term& t1, const Term& t2, Unifier* theta) {
   }
 }
 
-bool Term::UnifySeq(const TermSeq& z1, const TermSeq& z2, Unifier* theta) {
-  for (auto i = z1.begin(), j = z2.begin();
-       i != z1.end() && j != z2.end();
+std::pair<bool, TermSeq> TermSeq::IsSuffixOf(const TermSeq& z) const {
+  if (z.size() < size()) {
+    return failed<TermSeq>();
+  }
+  const size_t split = z.size() - size();
+  const TermSeq prefix(z.begin(), z.begin() + split);
+  return std::make_pair(true, prefix);
+}
+
+bool TermSeq::Matches(const TermSeq& z, Unifier* theta) const {
+  for (auto i = begin(), j = z.begin();
+       i != end() && j != z.end();
        ++i, ++j) {
     const Term& t1 = *i;
     const Term& t2 = *j;
-    const bool r = Unify(t1, t2, theta);
+    const bool r = t1.Matches(t2, theta);
     if (!r) {
       return false;
     }
@@ -90,23 +108,33 @@ bool Term::UnifySeq(const TermSeq& z1, const TermSeq& z2, Unifier* theta) {
   return true;
 }
 
-const Variable Variable::MIN = Variable(Term(
-        Term::VAR,
-        std::numeric_limits<Term::Id>::min(),
-        std::numeric_limits<Term::Sort>::min()));
-const Variable Variable::MAX = Variable(Term(
-        Term::VAR,
-        std::numeric_limits<Term::Id>::max(),
-        std::numeric_limits<Term::Sort>::max()));
+bool TermSeq::Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta) {
+  for (auto i = z1.begin(), j = z2.begin();
+       i != z1.end() && j != z2.end();
+       ++i, ++j) {
+    const Term& t1 = *i;
+    const Term& t2 = *j;
+    const bool r = Term::Unify(t1, t2, theta);
+    if (!r) {
+      return false;
+    }
+  }
+  return true;
+}
 
-const StdName StdName::MIN = StdName(Term(
-        Term::NAME,
-        std::numeric_limits<Term::Id>::min(),
-        std::numeric_limits<Term::Sort>::min()));
-const StdName StdName::MAX = StdName(Term(
-        Term::NAME,
-        std::numeric_limits<Term::Id>::max(),
-        std::numeric_limits<Term::Sort>::max()));
+const Variable Variable::MIN(Term(Term::VAR,
+                                  std::numeric_limits<Term::Id>::min(),
+                                  std::numeric_limits<Term::Sort>::min()));
+const Variable Variable::MAX(Term(Term::VAR,
+                                  std::numeric_limits<Term::Id>::max(),
+                                  std::numeric_limits<Term::Sort>::max()));
+
+const StdName StdName::MIN(Term(Term::NAME,
+                                std::numeric_limits<Term::Id>::min(),
+                                std::numeric_limits<Term::Sort>::min()));
+const StdName StdName::MAX(Term(Term::NAME,
+                                std::numeric_limits<Term::Id>::max(),
+                                std::numeric_limits<Term::Sort>::max()));
 
 std::ostream& operator<<(std::ostream& os, const TermSeq& z) {
   for (auto it = z.begin(); it != z.end(); ++it) {
