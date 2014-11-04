@@ -178,16 +178,16 @@ bool Clause::Subsumes(const Clause& c) const {
           return l1.pred() < l2.pred();
         }
       : [](const Literal& l1, const Literal& l2) {
-          const Atom::PredId p1 = l1.pred();
-          const Atom::PredId p2 = l2.pred();
-          const size_t z1 = l1.z().size();
-          const size_t z2 = l2.z().size();
-          const size_t a1 = l1.args().size();
-          const size_t a2 = l2.args().size();
-          return p1 < p2 ||
-              (p1 == p2 && z1 < z2) ||
-              (p1 == p2 && z1 == z2 && a1 < a2) ||
-              (p1 == p2 && z1 == z2 && a1 == a2 && l1.sign() < l2.sign());
+          return l1.pred() < l2.pred() ||
+              (l1.pred() == l2.pred() &&
+               l1.z().size() < l2.z().size()) ||
+              (l1.pred() == l2.pred() &&
+               l1.z() == l2.z() &&
+               l1.args().size() < l2.args().size()) ||
+              (l1.pred() == l2.pred() &&
+               l1.z() == l2.z() &&
+               l1.args() == l2.args() &&
+               l1.sign() < l2.sign());
         };
   if (!std::includes(c.ls_.begin(), c.ls_.end(), ls_.begin(), ls_.end(),
                      cmp_maybe_subsuming)) {

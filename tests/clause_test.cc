@@ -106,7 +106,6 @@ TEST(clause, subsumption)
   EXPECT_TRUE(empty.Subsumes(d3));
 
   EXPECT_TRUE(c1.Subsumes(d1));
-  return;
   EXPECT_FALSE(c1.Subsumes(d2));
   EXPECT_FALSE(c1.Subsumes(d3));
 
