@@ -85,12 +85,11 @@ bool Term::Unify(const Term& t1, const Term& t2, Unifier* theta) {
   }
 }
 
-std::pair<bool, TermSeq> TermSeq::IsSuffixOf(const TermSeq& z) const {
-  if (z.size() < size()) {
+std::pair<bool, TermSeq> TermSeq::WithoutLast(const size_t n) const {
+  if (n > size()) {
     return failed<TermSeq>();
   }
-  const size_t split = z.size() - size();
-  const TermSeq prefix(z.begin(), z.begin() + split);
+  const TermSeq prefix(begin(), begin() + size() - n);
   return std::make_pair(true, prefix);
 }
 

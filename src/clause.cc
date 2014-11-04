@@ -143,7 +143,7 @@ std::tuple<bool, Unifier, Clause> Clause::Unify(const Atom& cl_a,
   if (box_) {
     bool succ;
     TermSeq z;
-    std::tie(succ, z) = cl_a.z().IsSuffixOf(ext_a.z());
+    std::tie(succ, z) = ext_a.z().WithoutLast(cl_a.z().size());
     if (!succ) {
       return failed<Unifier, Clause>();
     }
@@ -205,7 +205,7 @@ bool Clause::Subsumes(const Clause& c) const {
       }
       bool succ;
       TermSeq z;
-      std::tie(succ, z) = l.z().IsSuffixOf(ll.z());
+      std::tie(succ, z) = ll.z().WithoutLast(l.z().size());
       if (succ && InstantiateBox(z).Subsumes(c)) {
         return true;
       }

@@ -64,7 +64,7 @@ class TermSeq : public std::vector<Term> {
  public:
   using std::vector<Term>::vector;
 
-  std::pair<bool, TermSeq> IsSuffixOf(const TermSeq& z) const;
+  std::pair<bool, TermSeq> WithoutLast(const size_t n) const;
   bool Matches(const TermSeq& z, Unifier* theta) const;
   static bool Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 };

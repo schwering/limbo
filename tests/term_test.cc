@@ -119,3 +119,62 @@ TEST(term_test, unification) {
     EXPECT_TRUE(x.Substitute(theta) == m); }
 }
 
+TEST(term_test, sequence) {
+  Term::Factory f;
+  Variable x1 = f.CreateVariable(1);
+  Variable x2 = f.CreateVariable(2);
+  Variable x3 = f.CreateVariable(1);
+  StdName n1 = f.CreateStdName(1, 1);
+  StdName n2 = f.CreateStdName(2, 2);
+  StdName n3 = f.CreateStdName(3, 1);
+  TermSeq z1({x1,x2,x3});
+  TermSeq z2({n1,n2,n3});
+  TermSeq z3({x1,x2,x1});
+  TermSeq z4({n1,n2,n1});
+  TermSeq z5({x1,x2,x1,x2});
+  TermSeq z6({n1,n2,n1,n2});
+
+  { Unifier t; EXPECT_FALSE(z1.Matches(z2, &t)); }
+  { Unifier t; EXPECT_TRUE(z1.Matches(z1, &t)); EXPECT_TRUE(z1.Matches(z1, &t)); }
+
+  { Unifier t; EXPECT_TRUE(z2.Matches(z2, &t)); }
+  { Unifier t; EXPECT_TRUE(z2.Matches(z1, &t)); }
+  { Unifier t; EXPECT_TRUE(z2.Matches(z1, &t)); EXPECT_TRUE(z2.Matches(z2, &t)); }
+  { Unifier t; EXPECT_TRUE(z2.Matches(z2, &t)); EXPECT_TRUE(z2.Matches(z1, &t)); }
+  { Unifier t; EXPECT_FALSE(z2.Matches(z3, &t)); }
+  { Unifier t; EXPECT_FALSE(z2.Matches(z4, &t)); }
+  { Unifier t; EXPECT_FALSE(z2.Matches(z5, &t)); }
+  { Unifier t; EXPECT_FALSE(z2.Matches(z6, &t)); }
+
+  { Unifier t; EXPECT_TRUE(TermSeq::Unify(z1, z2, &t)); }
+  { Unifier t; EXPECT_TRUE(TermSeq::Unify(z1, z1, &t)); EXPECT_TRUE(TermSeq::Unify(z1, z1, &t)); }
+
+  { Unifier t; EXPECT_TRUE(TermSeq::Unify(z2, z2, &t)); }
+  { Unifier t; EXPECT_TRUE(TermSeq::Unify(z2, z1, &t)); }
+  { Unifier t; EXPECT_TRUE(TermSeq::Unify(z2, z1, &t)); EXPECT_TRUE(TermSeq::Unify(z2, z2, &t)); }
+  { Unifier t; EXPECT_TRUE(TermSeq::Unify(z2, z2, &t)); EXPECT_TRUE(TermSeq::Unify(z2, z1, &t)); }
+  { Unifier t; EXPECT_FALSE(TermSeq::Unify(z2, z3, &t)); }
+  { Unifier t; EXPECT_FALSE(TermSeq::Unify(z2, z4, &t)); }
+  { Unifier t; EXPECT_FALSE(TermSeq::Unify(z2, z5, &t)); }
+  { Unifier t; EXPECT_FALSE(TermSeq::Unify(z2, z6, &t)); }
+
+  for (const auto& z : {z1,z2,z3,z4,z5,z6}) {
+    for (const auto& zz : {z1,z2,z3,z4,z5,z6}) {
+      Unifier t;
+      Unifier t1;
+      Unifier t2;
+      EXPECT_EQ(TermSeq::Unify(z, zz, &t1), TermSeq::Unify(z, zz, &t2));
+      EXPECT_EQ(TermSeq::Unify(z, zz, &t), TermSeq::Unify(z, zz, &t));
+    }
+  }
+
+  EXPECT_TRUE(z5.WithoutLast(2).first);
+  EXPECT_EQ(z5.WithoutLast(2).second, TermSeq({x1,x2}));
+  EXPECT_TRUE(z6.WithoutLast(z5.size()).first);
+  EXPECT_EQ(z6.WithoutLast(z5.size()).second, TermSeq({}));
+  EXPECT_FALSE(z4.WithoutLast(z5.size()).first);
+
+  EXPECT_TRUE(z6.WithoutLast(1).first);
+  EXPECT_EQ(z6.WithoutLast(1).second, TermSeq({n1,n2,n1}));
+}
+

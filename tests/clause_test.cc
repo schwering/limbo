@@ -79,17 +79,17 @@ TEST(clause, subsumption)
   Clause empty(true, Ewff::TRUE, SimpleClause());
   Clause c1(true,
             Ewff::Create({{x2,n2}, {x2,n3}, {x2,n1}}, {}).second,
-            SimpleClause({ Literal({x2}, true, P, {n1,x2}),
-                           Literal({x2}, false, P, {n1,x2}) }));
+            {Literal({x2}, true, P, {n1,x2}),
+             Literal({x2}, false, P, {n1,x2})});
   Clause c2(false,
             Ewff::Create({}, {{x4,x6}}).second,
-            SimpleClause({ Literal({x4}, true, P, {x4,x6}),
-                           Literal({x6}, false, Q, {x4,x4}) }));
+            {Literal({x4}, true, P, {x4,x6}),
+             Literal({x6}, false, Q, {x4,x4})});
   Clause c3(false,
             Ewff::Create({}, {{x4,x6}}).second,
-            SimpleClause({ Literal({x4}, true, O, {x4,x6}),
-                           Literal({x4}, true, P, {x4,x6}),
-                           Literal({x6}, false, Q, {x4,x4}) }));
+            {Literal({x4}, true, O, {x4,x6}),
+             Literal({x4}, true, P, {x4,x6}),
+             Literal({x6}, false, Q, {x4,x4})});
   Clause d1(false, Ewff::TRUE,
             {Literal({n2,n4}, true, P, {n1,n4}),
              Literal({n2,n4}, false, P, {n1,n4})});
@@ -117,5 +117,11 @@ TEST(clause, subsumption)
   EXPECT_FALSE(c3.Subsumes(d1));
   EXPECT_FALSE(c3.Subsumes(d2));
   EXPECT_TRUE(c3.Subsumes(d3));
+
+  for (const auto& c : {c1,c2,c3}) {
+    for (const auto& d : {d1,d2,d3}) {
+      EXPECT_FALSE(d.Subsumes(c));
+    }
+  }
 }
 
