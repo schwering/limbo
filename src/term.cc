@@ -95,6 +95,9 @@ std::pair<bool, TermSeq> TermSeq::IsSuffixOf(const TermSeq& z) const {
 }
 
 bool TermSeq::Matches(const TermSeq& z, Unifier* theta) const {
+  if (size() != z.size()) {
+    return false;
+  }
   for (auto i = begin(), j = z.begin();
        i != end() && j != z.end();
        ++i, ++j) {
@@ -109,6 +112,9 @@ bool TermSeq::Matches(const TermSeq& z, Unifier* theta) const {
 }
 
 bool TermSeq::Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta) {
+  if (z1.size() != z2.size()) {
+    return false;
+  }
   for (auto i = z1.begin(), j = z2.begin();
        i != z1.end() && j != z2.end();
        ++i, ++j) {
