@@ -39,9 +39,9 @@ class Clause {
 
   Clause() = default;
   Clause(bool box, const Ewff& e, const SimpleClause& ls)
-      : box_(box), e_(e), ls_(ls) {}
+      : box_(box), e_(e), ls_(ls) { e_.RestrictVariable(ls_.Variables()); }
   Clause(bool box, const Ewff& e, std::initializer_list<Literal> ls)
-      : box_(box), e_(e), ls_(ls) {}
+      : Clause(box, e, SimpleClause(ls)) {}
   Clause(const Clause&) = default;
   Clause& operator=(const Clause&) = default;
 
@@ -55,8 +55,7 @@ class Clause {
                         const Literal& ext_l) const;
   bool Subsumes(const Clause& c) const;
   bool SplitRelevant(const Atom& a, const SimpleClause c, unsigned int k) const;
-  void ResolveWithUnitClause(const Clause& unit,
-                             std::set<Clause>* resolvents) const;
+  void ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const;
 
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }

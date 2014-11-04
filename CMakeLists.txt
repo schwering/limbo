@@ -4,6 +4,8 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (ESBL)
 
+#set (CMAKE_BUILD_TYPE Release)
+set (CMAKE_BUILD_TYPE Debug)
 #set (CMAKE_C_FLAGS "-std=gnu99")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
@@ -13,8 +15,10 @@ if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
 	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 endif()
 
-if (CMAKE_COMPILER_IS_GNUCXX)
-	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG")
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+	if (CMAKE_COMPILER_IS_GNUCXX)
+		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG")
+	endif()
 endif()
 
 # Recurse into the "src" and "examples" subdirectories. This does not actually

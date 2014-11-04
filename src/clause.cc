@@ -271,13 +271,15 @@ bool Clause::SplitRelevant(const Atom& a, const SimpleClause c,
          (ls_.size() <= k + 1 || ls_.size() - c.size() <= k);
 }
 
-void Clause::ResolveWithUnitClause(const Clause& unit,
-                                   std::set<Clause>* resolvents) const {
+void Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
   assert(unit.is_unit());
   const Literal& unit_l = *unit.literals().begin();
-  for (const Literal& l : ls_) {
-    if (unit_l.sign() == l.sign() ||
-        unit_l.pred() != l.pred()) {
+  const auto first = ls_.lower_bound(unit_l.LowerBound());
+  const auto last = ls_.upper_bound(unit_l.UpperBound());
+  for (auto it = first; it != last; ++it) {
+    const Literal& l = *it;
+    assert(unit_l.pred() == l.pred());
+    if (unit_l.sign() == l.sign()) {
       continue;
     }
     bool succ;
@@ -288,14 +290,14 @@ void Clause::ResolveWithUnitClause(const Clause& unit,
       continue;
     }
     Ewff unit_e;
-    std::tie(succ, unit_e) = unit.ewff().Substitute(theta);
+    std::tie(succ, unit_e) = unit.e_.Substitute(theta);
     if (!succ) {
       continue;
     }
     d.ls_.erase(l.Substitute(theta));
     d.e_ = Ewff::And(d.e_, unit_e);
     d.e_.RestrictVariable(d.ls_.Variables());
-    resolvents->insert(d);
+    rs->insert(d);
   }
 }
 
