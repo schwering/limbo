@@ -11,6 +11,7 @@
 #ifndef SRC_SETUP_H_
 #define SRC_SETUP_H_
 
+#include <deque>
 #include <set>
 #include <vector>
 #include "./clause.h"
@@ -29,6 +30,8 @@ class Setup {
   void GuaranteeConsistency(int k);
   void AddSensingResult(const TermSeq& z, const StdName& a, bool r);
 
+  Setup GroundBoxes(const std::set<TermSeq>& zs) const;
+
   std::set<Literal> Rel(const SimpleClause& c) const;
   std::set<Atom> Pel(const SimpleClause& c) const;
 
@@ -46,20 +49,19 @@ class Setup {
   void UpdateHPlusFor(const Clause& c);
   std::set<Atom> FullStaticPel() const;
   bool ContainsEmptyClause() const;
-  size_t MinimizeWrt(const Clause& c);
-  size_t Minimize();
+  size_t MinimizeWrt(std::set<Clause>::iterator c);
+  void Minimize();
   void PropagateUnits();
-  bool Subsumes(const SimpleClause& c) const;
-  bool Subsumes(const Clause& c) const;
-  bool SubsumesWithSplits(std::set<Atom> pel, const SimpleClause& c,
-                          int k) const;
-  bool SplitRelevant(const Atom& a, const Clause& c, int k) const;
+  bool Subsumes(const Clause& c);
+  bool SubsumesWithSplits(std::set<Atom> pel, const SimpleClause& c, int k);
+  bool SplitRelevant(const Atom& a, const Clause& c, int k);
 
   std::set<Clause> cs_;
   std::vector<bool> incons_;
   StdName::SortedSet hplus_;
 };
 
+std::ostream& operator<<(std::ostream& os, const std::set<Clause>& cs);
 std::ostream& operator<<(std::ostream& os, const Setup& s);
 
 }  // namespace esbl

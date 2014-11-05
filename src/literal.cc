@@ -21,11 +21,11 @@ bool Literal::operator<(const Literal& l) const {
 }
 
 Literal Literal::LowerBound() const {
-  return Literal(sign_, Atom::LowerBound());
+  return Literal(false, Atom::LowerBound());
 }
 
 Literal Literal::UpperBound() const {
-  return Literal(sign_, Atom::UpperBound());
+  return Literal(false, Atom::UpperBound());
 }
 
 std::ostream& operator<<(std::ostream& os, const Literal& l) {

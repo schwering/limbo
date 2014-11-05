@@ -5,6 +5,7 @@
 #include <cassert>
 #include <limits>
 #include "./atom.h"
+#include <iostream>
 
 namespace esbl {
 
@@ -71,7 +72,6 @@ bool Atom::Matches(const Atom& a, Unifier* theta) const {
   if (!args_.Matches(a.args_, theta)) {
     return false;
   }
-  assert(*this == a.Substitute(*theta));
   return true;
 }
 

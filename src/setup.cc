@@ -3,6 +3,7 @@
 
 #include "./setup.h"
 #include <cassert>
+#include <iostream>
 
 namespace esbl {
 
@@ -47,6 +48,9 @@ void Setup::UpdateHPlus(const Term::Factory& tf) {
 }
 
 void Setup::GuaranteeConsistency(int k) {
+  if (k >= static_cast<int>(incons_.size())) {
+    incons_.resize(k+1);
+  }
   for (int l = 0; l <= k; ++l) {
     incons_[l] = false;
   }
@@ -83,21 +87,37 @@ std::set<Atom> Setup::FullStaticPel() const {
   return pel;
 }
 
-std::set<Literal> Setup::Rel(const SimpleClause& c) const {
-  std::set<Literal> rel = c;
-  std::set<Literal> new_rel = rel;
-  while (!new_rel.empty()) {
-    for (const Literal& l : new_rel) {
-      for (const Clause& c : cs_) {
-        for (const Literal& ll : c.Rel(hplus_, l)) {
-          const auto p = rel.insert(ll);
-          if (p.second) {
-            new_rel.insert(ll);
-          }
+Setup Setup::GroundBoxes(const std::set<TermSeq>& zs) const {
+  Setup s;
+  for (const Clause& c : cs_) {
+    if (!c.box()) {
+      s.AddClause(c);
+    } else {
+      for (const TermSeq& z : zs) {
+        for (auto it = z.begin(); it != z.end(); ++it) {
+          const TermSeq zz(z.begin(), it);
+          s.AddClause(c.InstantiateBox(zz));
         }
       }
     }
-    new_rel.clear();
+  }
+  s.incons_ = incons_;
+  s.hplus_ = hplus_;
+  return s;
+}
+
+std::set<Literal> Setup::Rel(const SimpleClause& c) const {
+  std::set<Literal> rel;
+  std::deque<Literal> frontier(c.begin(), c.end());
+  while (!frontier.empty()) {
+    const Literal& l = frontier.front();
+    const auto p = rel.insert(l);
+    if (p.second) {
+      for (const Clause& c : cs_) {
+        c.Rel(hplus_, l, &frontier);
+      }
+    }
+    frontier.pop_front();
   }
   return rel;
 }
@@ -111,11 +131,12 @@ std::set<Atom> Setup::Pel(const SimpleClause& c) const {
       continue;
     }
     const auto first = rel.lower_bound(l.LowerBound());
-    const auto last = rel.upper_bound(l.UpperBound());
+    const auto last = rel.lower_bound(l.UpperBound());
     for (auto jt = first; jt != last; ++jt) {
       const Literal& ll = *jt;
+      assert(l.pred() == ll.pred());
       if (ll.sign()) {
-        continue;
+        //continue; // TODO XXX Why doesn't PEL work?
       }
       Unifier theta;
       const bool succ = Atom::Unify(l, ll, &theta);
@@ -132,32 +153,36 @@ bool Setup::ContainsEmptyClause() const {
   return it != cs_.end() && it->literals().size() == 0;
 }
 
-size_t Setup::MinimizeWrt(const Clause& c) {
+size_t Setup::MinimizeWrt(std::set<Clause>::iterator it) {
   if (ContainsEmptyClause()) {
     size_t n = cs_.size();
     cs_.clear();
     cs_.insert(Clause::EMPTY);
-    incons_.clear();
-    incons_[0] = true;
+    incons_.resize(1, true);
     return n - 1;
   }
   size_t n = 0;
-  for (auto it = cs_.upper_bound(c); it != cs_.end(); ++it) {
+  const Clause c = *it;
+  for (++it; it != cs_.end(); ) {
     const Clause& d = *it;
     if (d.literals().size() > c.literals().size() && c.Subsumes(d)) {
-      cs_.erase(it);
+      it = cs_.erase(it);
       ++n;
+    } else {
+      ++it;
     }
   }
   return n;
 }
 
-size_t Setup::Minimize() {
-  size_t n = 0;
-  for (const Clause& c : cs_) {
-    n += MinimizeWrt(c);
+void Setup::Minimize() {
+  for (auto it = cs_.begin(); it != cs_.end(); ++it) {
+    const Clause c = *it;
+    const size_t n = MinimizeWrt(it);
+    if (n > 0) {
+      it = cs_.find(c);
+    }
   }
-  return n;
 }
 
 void Setup::PropagateUnits() {
@@ -206,7 +231,8 @@ void Setup::PropagateUnits() {
 #endif
 }
 
-bool Setup::Subsumes(const Clause& c) const {
+bool Setup::Subsumes(const Clause& c) {
+  PropagateUnits();
   for (const Clause& d : cs_) {
     if (d.Subsumes(c)) {
       return true;
@@ -215,7 +241,7 @@ bool Setup::Subsumes(const Clause& c) const {
   return false;
 }
 
-bool Setup::SplitRelevant(const Atom& a, const Clause& c, int k) const {
+bool Setup::SplitRelevant(const Atom& a, const Clause& c, int k) {
   assert(k >= 0);
   const Literal l1(true, a);
   const Literal l2(false, a);
@@ -237,7 +263,7 @@ bool Setup::SplitRelevant(const Atom& a, const Clause& c, int k) const {
 
 bool Setup::SubsumesWithSplits(std::set<Atom> pel,
                                const SimpleClause& c,
-                               int k) const {
+                               int k) {
   if (Subsumes(Clause(Ewff::TRUE, c))) {
     return true;
   }
@@ -279,6 +305,9 @@ bool Setup::Inconsistent(int k) {
     }
   }
   const std::set<Atom> pel = k <= 0 ? std::set<Atom>() : FullStaticPel();
+  if (k >= l) {
+    incons_.resize(k+1);
+  }
   for (; l <= k; ++l) {
     const bool r = SubsumesWithSplits(pel, SimpleClause::EMPTY, l);
     incons_[l] = r;
@@ -316,6 +345,13 @@ StdName::SortedSet Setup::names() const {
     c.CollectNames(&ns);
   }
   return ns;
+}
+
+std::ostream& operator<<(std::ostream& os, const std::set<Clause>& cs) {
+  for (const Clause& c : cs) {
+    os << "    " << c << std::endl;
+  }
+  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Setup& s) {

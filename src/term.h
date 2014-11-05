@@ -177,6 +177,7 @@ std::ostream& operator<<(std::ostream& os, const TermSeq& z);
 std::ostream& operator<<(std::ostream& os, const Term& t);
 std::ostream& operator<<(std::ostream& os, const Unifier& theta);
 std::ostream& operator<<(std::ostream& os, const Assignment& theta);
+std::ostream& operator<<(std::ostream& os, const StdName::SortedSet& ns);
 
 }  // namespace esbl
 

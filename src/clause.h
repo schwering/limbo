@@ -4,6 +4,7 @@
 #ifndef SRC_CLAUSE_H_
 #define SRC_CLAUSE_H_
 
+#include <deque>
 #include <list>
 #include <set>
 #include <utility>
@@ -17,6 +18,12 @@ class SimpleClause : public std::set<Literal> {
   static const SimpleClause EMPTY;
 
   using std::set<Literal>::set;
+  bool operator==(const SimpleClause& c) const;
+  bool operator!=(const SimpleClause& c) const;
+  bool operator<=(const SimpleClause& c) const;
+  bool operator>=(const SimpleClause& c) const;
+  bool operator<(const SimpleClause& c) const;
+  bool operator>(const SimpleClause& c) const;
 
   SimpleClause PrependActions(const TermSeq& z) const;
 
@@ -65,8 +72,9 @@ class Clause {
 
   Clause InstantiateBox(const TermSeq& z) const;
 
-  std::set<Literal> Rel(const StdName::SortedSet& hplus,
-                        const Literal& ext_l) const;
+  void Rel(const StdName::SortedSet& hplus,
+           const Literal& ext_l,
+           std::deque<Literal>* rel) const;
   bool Subsumes(const Clause& c) const;
   bool SplitRelevant(const Atom& a, const Clause& c, int k) const;
   size_t ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const;

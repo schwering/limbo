@@ -52,17 +52,28 @@
 %
 % schwering@kbsg.rwth-aachen.de
 
+:- module(properplus,
+    [ op(820, fx, ~)    % Negation
+    , op(840, xfy, ^)   % Conjunction
+    , op(850, xfy, v)   % Disjunction
+    , op(870, xfy, ->)  % Implication
+    , op(880, xfy, <->) % Equivalence
+    , op(890, xfy, =>)  % Belief conditional
+    , put_sort/2
+    , is_sort/2
+    , print_all/1
+    , compile_all/1
+    , compile_all/4
+    ]).
+
 :- use_module(library(apply)).
 
-:- op(820, fx, ~).    /* Negation */
-:- op(840, xfy, ^).   /* Conjunction */
-:- op(850, xfy, v).   /* Disjunction */
-:- op(870, xfy, ->).  /* Implication */
-:- op(880, xfy, <->). /* Equivalence */
-:- op(890, xfy, =>).  /* Belief conditional */
-
-put_sort(V, Sort) :- put_attr(V, sort, Sort).
-is_sort(V, Sort) :- get_attr(V, sort, Sort).
+% We misuse attributes to store the sort of a variable.
+% That's not a good idea and incompatible with ECLiPSe-CLP (but it works with
+% SWI), but I don't know any alternative right now.
+put_sort(V, Sort) :- put_attr(V, properplus, Sort).
+is_sort(V, Sort) :- get_attr(V, properplus, Sort).
+attr_unify_hook(_, _).
 
 :- dynamic(sort_name/2).
 :- dynamic(box/1).
@@ -128,33 +139,14 @@ sortify(E, C, E2) :-
     sortify(Vars, E1),
     append(E1, E, E2).
 
-ewff_unsat(E) :-
-    member((U=V), E),
-    member((X=Y), E),
-    ( var(U), ground(V), var(X), ground(Y) ->
-        U == X,
-        V \== Y
-    ; var(U), ground(V), ground(X), var(Y) ->
-        U == Y,
-        V \== X
-    ; ground(U), var(V), var(X), ground(Y) ->
-        V == X,
-        U \== X
-    ; ground(U), var(V), ground(X), var(Y) ->
-        V == Y,
-        U \== X
-    ).
-ewff_unsat(E) :-
-    member((U=V), E),
-    member(~(X=Y), E),
-    (   U == X, V \== Y
-    ;   U == Y, V \== X
-    ;   V == X, U \== Y
-    ;   V == Y, U \== X
-    ).
+ewff_sat_h([~(X=Y)|E], F) :- !, ewff_sat_h(E, [~(X=Y)|F]).
+ewff_sat_h([(X=Y)|E], F) :- !, X = Y, ewff_sat_h(E, F).
+ewff_sat_h([_|E], F) :- !, ewff_sat_h(E, F).
+ewff_sat_h([], [~(X=Y)|E]) :- ( ground(X), ground(Y) ), !, X \== Y, ewff_sat_h([], E).
+ewff_sat_h([], [~(_=_)|E]) :- !, ewff_sat_h([], E).
+ewff_sat_h([], []) :- !.
 
-ewff_sat(E) :-
-    \+ ewff_unsat(E).
+ewff_sat(E) :- \+ \+ ewff_sat_h(E, []).
 
 variable_names([], _, []).
 variable_names([V|Vs], I, [N=V|Ns]) :- is_sort(V, action), !, ( I = 0 -> N = 'A' ; atom_concat('A', I, N) ), I1 is I + 1, variable_names(Vs, I1, Ns).
@@ -254,8 +246,8 @@ literal_z_f_a(A:L, [A|As], F, Ts) :- !, literal_z_f_a(L, As, F, Ts).
 literal_z_f_a(L, [], F, Ts) :- L =..[F|Ts].
 
 compile_literal(Names, L, L_C) :-
-    ( L  = (~_), L_C = 'Literal'(Actions, true, Symbol, Args)
-    ; L \= (~_), L_C = 'Literal'(Actions, false, Symbol, Args)
+    ( L  = (~_), L_C = 'Literal'(Actions, false, Symbol, Args)
+    ; L \= (~_), L_C = 'Literal'(Actions, true, Symbol, Args)
     ),
     literal_z_f_a(L, ActionList, Symbol, ArgList),
     brace_list(Names, ActionList, Actions),
@@ -301,8 +293,8 @@ compile(VarNames, StdNames, PredNames, Code) :-
     cnf(Alpha, Cnf),
     member(Clause, Cnf),
     ewffy(Clause, E1, C1),
+    ewff_sat(E1),
     dewffy(E1, C1, E, C),
-    ewff_sat(E),
     declarations(E, C, VarNames, StdNames, PredNames),
     compile_box(E, C, Code).
 compile(VarNames, StdNames, PredNames, Code) :-
@@ -310,8 +302,8 @@ compile(VarNames, StdNames, PredNames, Code) :-
     cnf(Alpha, Cnf),
     member(Clause, Cnf),
     ewffy(Clause, E1, C1),
+    ewff_sat(E1),
     dewffy(E1, C1, E, C),
-    ewff_sat(E),
     declarations(E, C, VarNames, StdNames, PredNames),
     compile_static(E, C, Code).
 compile(VarNames, StdNames, PredNames, Code) :-
@@ -322,10 +314,11 @@ compile(VarNames, StdNames, PredNames, Code) :-
     member(PsiClause, PsiCnf),
     ewffy(NegPhiClause, E11, C11),
     ewffy(PsiClause, E21, C21),
+    ewff_sat(E11),
+    ewff_sat(E21),
     dewffy(E11, C11, E1, C1),
     dewffy(E21, C21, E2, C2),
     append(E1, E2, E),
-    ewff_sat(E),
     declarations(E, (C1, C2), VarNames, StdNames, PredNames),
     compile_belief(E, C1, C2, Code).
 
@@ -338,8 +331,6 @@ declare_sorts(Stream, [N|Ns]) :-
 
 define_sorts(_, _, []).
 define_sorts(Stream, Class, [N|Ns]) :-
-    length(Ns, I),
-    I1 is I + 1,
     format(Stream, 'constexpr Term::Sort ~w::~w;~n', [Class, N]),
     define_sorts(Stream, Class, Ns).
 
@@ -358,7 +349,7 @@ declare_and_define_max_stdname(Stream, MaxStdName) :-
 declare_and_define_max_pred(Stream, MaxPred) :-
     format(Stream, '  Atom::PredId max_pred() const override { return ~w; }~n', [MaxPred]).
 
-declare_predicate_name_declarations(_, [], 0).
+declare_predicate_name_declarations(_, [], 1).
 declare_predicate_name_declarations(Stream, [P|Ps], MaxPred) :-
     length(Ps, I),
     ( P = 'SF' -> I1 = 'Atom::SF' ; I1 = I ),
@@ -366,10 +357,9 @@ declare_predicate_name_declarations(Stream, [P|Ps], MaxPred) :-
     declare_predicate_name_declarations(Stream, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
 
-define_predicate_name_declarations(_, _, [], 0).
+define_predicate_name_declarations(_, _, [], 1).
 define_predicate_name_declarations(Stream, Class, [P|Ps], MaxPred) :-
     length(Ps, I),
-    ( P = 'SF' -> I1 = 'Atom::SF' ; I1 = I ),
     format(Stream, '  constexpr Atom::PredId ~w::~w;~n', [Class, P]),
     define_predicate_name_declarations(Stream, Class, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
@@ -459,9 +449,10 @@ compile_all(Class, Input, Header, Body) :-
     declare_and_define_max_stdname(HeaderStream, MaxStdName),
     declare_and_define_max_pred(HeaderStream, MaxPred),
     format(HeaderStream, '~n', []),
-    define_functions(HeaderStream, StdNames, PredNames),
-    format(HeaderStream, '~n', []),
     format(HeaderStream, '  void InitSetup() override;~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, ' protected:~n', []),
+    define_functions(HeaderStream, StdNames, PredNames),
     format(HeaderStream, '};~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, '}  // namespace bats~n', []),
@@ -526,8 +517,8 @@ print_all(Input) :-
         print_ecnf(box(Alpha)),
         cnf(Alpha, Cnf), member(Clause, Cnf),
         ewffy(Clause, E1, C1),
+        ewff_sat(E1),
         dewffy(E1, C1, E, C),
-        ewff_sat(E),
         term_variables((E, C), Vars),
         variable_names(Vars, 0, Names),
         print_to_term(Names, '^', E, ETerm),
@@ -537,8 +528,8 @@ print_all(Input) :-
         print_ecnf(Alpha),
         cnf(Alpha, Cnf), member(Clause, Cnf),
         ewffy(Clause, E1, C1),
+        ewff_sat(E1),
         dewffy(E1, C1, E, C),
-        ewff_sat(E),
         term_variables((E, C), Vars),
         variable_names(Vars, 0, Names),
         print_to_term(Names, '^', E, ETerm),
@@ -551,10 +542,11 @@ print_all(Input) :-
         member(PsiClause, PsiCnf),
         ewffy(NegPhiClause, E11, C11),
         ewffy(PsiClause, E21, C21),
+        ewff_sat(E11),
+        ewff_sat(E21),
         dewffy(E11, C11, E1, C1),
         dewffy(E21, C21, E2, C2),
         append(E1, E2, E),
-        ewff_sat(E),
         term_variables((E, Phi, Psi), Vars),
         variable_names(Vars, 0, Names),
         print_to_term(Names, '^', E, ETerm),

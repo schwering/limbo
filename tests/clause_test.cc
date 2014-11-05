@@ -29,6 +29,13 @@ static Atom::PredId O = 2;
 static Atom::PredId P = 1;
 static Atom::PredId Q = 2;
 
+std::set<Literal> Rel(const Clause& c, const StdName::SortedSet& hplus, const Literal&l) {
+  std::deque<Literal> q;
+  c.Rel(hplus, l, &q);
+  std::set<Literal> s(q.begin(), q.end());
+  return s;
+}
+
 TEST(clause, rel)
 {
   Clause empty(true, Ewff::TRUE, SimpleClause());
@@ -49,29 +56,29 @@ TEST(clause, rel)
             SimpleClause({ Literal({x1}, true, P, {x5}),
                            Literal({x1}, false, Q, {x5,x6}) }));
 
-  EXPECT_EQ(empty.Rel(hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
-  EXPECT_EQ(empty.Rel(hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 0);
-  EXPECT_EQ(c1.Rel(hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 1);
-  EXPECT_EQ(c1.Rel(hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 1);
-  EXPECT_EQ(c2.Rel(hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
-  EXPECT_EQ(c2.Rel(hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 0);
-  EXPECT_EQ(c2.Rel(hplus, Literal({n2}, false, P, {n2,n4})).size(), 0);
-  EXPECT_EQ(c2.Rel(hplus, Literal({n2}, true, P, {n2,n4})).size(), 1);
-  EXPECT_EQ(c3.Rel(hplus, Literal({n1}, false, P, {n2})).size(), 0);
-  EXPECT_EQ(c3.Rel(hplus, Literal({n1}, true, P, {n2})).size(), 0);
-  EXPECT_EQ(c3.Rel(hplus, Literal({n1}, true, P, {n1})).size(), 1);
+  EXPECT_EQ(Rel(empty, hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(Rel(empty, hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(Rel(c1, hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 1);
+  EXPECT_EQ(Rel(c1, hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 1);
+  EXPECT_EQ(Rel(c2, hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(Rel(c2, hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(Rel(c2, hplus, Literal({n2}, false, P, {n2,n4})).size(), 0);
+  EXPECT_EQ(Rel(c2, hplus, Literal({n2}, true, P, {n2,n4})).size(), 1);
+  EXPECT_EQ(Rel(c3, hplus, Literal({n1}, false, P, {n2})).size(), 0);
+  EXPECT_EQ(Rel(c3, hplus, Literal({n1}, true, P, {n2})).size(), 0);
+  EXPECT_EQ(Rel(c3, hplus, Literal({n1}, true, P, {n1})).size(), 1);
   for (const StdName& n : names) {
-    EXPECT_TRUE(c3.Rel(hplus, Literal({n}, true, P, {n})).size() == 1);
-    EXPECT_TRUE(c3.Rel(hplus, Literal({n}, true, P, {n})) == std::set<Literal>({Literal({n}, true, Q, {n,x6})}));
+    EXPECT_TRUE(Rel(c3, hplus, Literal({n}, true, P, {n})).size() == 1);
+    EXPECT_TRUE(Rel(c3, hplus, Literal({n}, true, P, {n})) == std::set<Literal>({Literal({n}, true, Q, {n,x6})}));
   }
   for (const StdName& n : names) {
-    EXPECT_TRUE(c3.Rel(hplus, Literal({n}, false, Q, {n,n})).size() == 1);
-    EXPECT_TRUE(c3.Rel(hplus, Literal({n}, false, Q, {n,n})) == std::set<Literal>({Literal({n}, false, P, {n})}));
+    EXPECT_TRUE(Rel(c3, hplus, Literal({n}, false, Q, {n,n})).size() == 1);
+    EXPECT_TRUE(Rel(c3, hplus, Literal({n}, false, Q, {n,n})) == std::set<Literal>({Literal({n}, false, P, {n})}));
   }
-  EXPECT_EQ(c4.Rel(hplus, Literal({n1}, false, P, {n2})).size(), 0);
-  EXPECT_EQ(c4.Rel(hplus, Literal({n1}, true, P, {n2})).size(), 1);
-  EXPECT_EQ(c4.Rel(hplus, Literal({n1}, false, Q, {n2,x3})).size(), 1);
-  EXPECT_EQ(c4.Rel(hplus, Literal({n1}, false, Q, {n2,x6})).size(), 1);
+  EXPECT_EQ(Rel(c4, hplus, Literal({n1}, false, P, {n2})).size(), 0);
+  EXPECT_EQ(Rel(c4, hplus, Literal({n1}, true, P, {n2})).size(), 1);
+  EXPECT_EQ(Rel(c4, hplus, Literal({n1}, false, Q, {n2,x3})).size(), 1);
+  EXPECT_EQ(Rel(c4, hplus, Literal({n1}, false, Q, {n2,x6})).size(), 1);
 }
 
 TEST(clause, subsumption)

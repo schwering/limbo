@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <iostream>
 
 namespace esbl {
 
@@ -87,7 +88,7 @@ bool Ewff::SubstituteName(const Variable& x, const StdName& n) {
 }
 
 bool Ewff::SubstituteVariable(const Variable& x, const Variable& y) {
-  if (x != y) {
+  if (x == y) {
     return true;
   }
   if (neq_var_.find(std::make_pair(std::min(x, y), std::max(x, y))) !=
@@ -97,7 +98,7 @@ bool Ewff::SubstituteVariable(const Variable& x, const Variable& y) {
 
   const auto first = neq_name_.lower_bound(std::make_pair(x, StdName::MIN));
   const auto last = neq_name_.upper_bound(std::make_pair(x, StdName::MAX));
-  for (auto znm = first; znm != last; ) {
+  for (auto znm = first; znm != last && znm->first == x; ) {
     assert(znm->first == x);
     const StdName& n = znm->second;
     neq_name_.insert(std::make_pair(y, n));
@@ -156,8 +157,8 @@ std::pair<bool, Ewff> Ewff::Ground(const Assignment& theta) const {
 }
 
 bool Ewff::Subsumes(const Ewff& e) const {
-  return std::includes(neq_var_.begin(), neq_var_.end(),
-                       e.neq_var_.begin(), e.neq_var_.end()) &&
+  return std::includes(neq_name_.begin(), neq_name_.end(),
+                       e.neq_name_.begin(), e.neq_name_.end()) &&
       std::includes(neq_var_.begin(), neq_var_.end(),
                     e.neq_var_.begin(), e.neq_var_.end());
 }

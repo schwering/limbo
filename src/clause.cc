@@ -5,13 +5,40 @@
 #include <algorithm>
 #include <cassert>
 #include <numeric>
+#include <iostream>
 
 namespace esbl {
 
-const SimpleClause SimpleClause::EMPTY;
+const SimpleClause SimpleClause::EMPTY({});
 const Clause Clause::EMPTY(false, Ewff::TRUE, {});
 const Clause Clause::MIN_UNIT(false, Ewff::TRUE, {Literal::MIN});
 const Clause Clause::MAX_UNIT(false, Ewff::TRUE, {Literal::MAX});
+
+bool SimpleClause::operator==(const SimpleClause& c) const {
+  return std::operator==(*this, c);
+}
+
+bool SimpleClause::operator!=(const SimpleClause& c) const {
+  return !(*this == c);
+}
+
+bool SimpleClause::operator<=(const SimpleClause& c) const {
+  return size() < c.size() ||
+      (size() <= c.size() && std::operator<=(*this, c));
+}
+
+bool SimpleClause::operator>=(const SimpleClause& c) const {
+  return c <= *this;
+}
+
+bool SimpleClause::operator<(const SimpleClause& c) const {
+  return size() < c.size() ||
+      (size() == c.size() && std::operator<(*this, c));
+}
+
+bool SimpleClause::operator>(const SimpleClause& c) const {
+  return *this < c;
+}
 
 SimpleClause SimpleClause::PrependActions(const TermSeq& z) const {
   SimpleClause c;
@@ -45,9 +72,9 @@ void SimpleClause::SubsumedBy(const const_iterator first,
     thetas->push_back(theta);
     return;
   }
-  const Literal& l = first->Substitute(theta);
+  const Literal l = first->Substitute(theta);
   const auto first2 = lower_bound(l.LowerBound());
-  const auto last2 = upper_bound(l.UpperBound());
+  const auto last2 = lower_bound(l.UpperBound());
   for (auto it = first2; it != last2; ++it) {
     const Literal& ll = *it;
     assert(l.pred() == ll.pred());
@@ -56,7 +83,7 @@ void SimpleClause::SubsumedBy(const const_iterator first,
     }
     Unifier theta2 = theta;
     const bool succ = ll.Matches(l, &theta2);
-    if (succ) {
+    if (succ && ll == l.Substitute(theta2)) {
       SubsumedBy(std::next(first), last, theta2, thetas);
     }
   }
@@ -209,6 +236,9 @@ bool Clause::Subsumes(const Clause& c) const {
   if (ls_.empty()) {
     return true;
   }
+  if (!box_ && c.box_) {
+    return false;
+  }
   auto cmp_maybe_subsuming =
       box_
       ? [](const Literal& l1, const Literal& l2) {
@@ -233,7 +263,7 @@ bool Clause::Subsumes(const Clause& c) const {
   if (box_) {
     const Literal& l = *ls_.begin();
     const auto first = c.ls_.lower_bound(l.LowerBound());
-    const auto last = c.ls_.upper_bound(l.UpperBound());
+    const auto last = c.ls_.lower_bound(l.UpperBound());
     for (auto it = first; it != last; ++it) {
       const Literal& ll = *it;
       assert(l.pred() == ll.pred());
@@ -261,11 +291,11 @@ bool Clause::Subsumes(const Clause& c) const {
   }
 }
 
-std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
-                              const Literal &ext_l) const {
+void Clause::Rel(const StdName::SortedSet& hplus,
+                 const Literal &ext_l,
+                 std::deque<Literal>* rel) const {
   const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
       [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
-  std::set<Literal> rel;
   // Given a clause l and a clause e->c such that for some l' in c with
   // l = l'.theta for some theta and |= e.theta.theta' for some theta', for all
   // clauses l'' c.theta.theta', its negation ~l'' is relevant to l.
@@ -291,11 +321,10 @@ std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
     assert(n >= 1);
     for (const Assignment& theta : c.e_.Models(hplus)) {
       for (const Literal& ll : c.ls_) {
-        rel.insert(ll.Ground(theta).Flip());
+        rel->insert(rel->end(), ll.Ground(theta).Flip());
       }
     }
   }
-  return rel;
 }
 
 bool Clause::SplitRelevant(const Atom& a, const Clause& c, int k) const {
@@ -314,8 +343,8 @@ size_t Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
   assert(unit.is_unit());
   const Literal& unit_l = *unit.literals().begin();
   const auto first = ls_.lower_bound(unit_l.LowerBound());
-  const auto last = ls_.upper_bound(unit_l.UpperBound());
-  size_t n = 0;
+  const auto last = ls_.lower_bound(unit_l.UpperBound());
+  size_t new_clauses = 0;
   for (auto it = first; it != last; ++it) {
     const Literal& l = *it;
     assert(unit_l.pred() == l.pred());
@@ -334,15 +363,16 @@ size_t Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
     if (!succ) {
       continue;
     }
-    d.ls_.erase(l.Substitute(theta));
+    const size_t n = d.ls_.erase(unit_l.Substitute(theta).Flip());
+    assert(n > 0);
     d.e_ = Ewff::And(d.e_, unit_e);
     d.e_.RestrictVariable(d.ls_.Variables());
     const auto p = rs->insert(d);
     if (p.second) {
-      ++n;
+      ++new_clauses;
     }
   }
-  return n;
+  return new_clauses;
 }
 
 std::set<Atom::PredId> Clause::positive_preds() const {
@@ -388,7 +418,13 @@ std::ostream& operator<<(std::ostream& os, const SimpleClause& c) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Clause& c) {
+  if (c.box()) {
+    os << "box(";
+  }
   os << c.ewff() << " -> " << c.literals();
+  if (c.box()) {
+    os << ")";
+  }
   return os;
 }
 

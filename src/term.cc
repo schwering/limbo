@@ -38,7 +38,7 @@ bool Term::operator<(const Term& t) const {
 }
 
 const Term& Term::Substitute(const Unifier& theta) const {
-  if (kind_ == VAR) {
+  if (is_variable()) {
     auto it = theta.find(Variable(*this));
     return it != theta.end() ? it->second.Substitute(theta) : *this;
   } else {
@@ -47,7 +47,7 @@ const Term& Term::Substitute(const Unifier& theta) const {
 }
 
 Term Term::Ground(const Assignment& theta) const {
-  if (kind_ == VAR) {
+  if (is_variable()) {
     auto it = theta.find(Variable(*this));
     return it != theta.end() ? it->second : *this;
   } else {
@@ -195,6 +195,17 @@ std::ostream& operator<<(std::ostream& os, const Assignment& theta) {
     os << it->first << " : " << it->second;
   }
   os << '}';
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const StdName::SortedSet& ns) {
+  for (const auto& p : ns) {
+    os << p.first << ": ";
+    for (const auto& q : p.second) {
+      os << q << " ";
+    }
+    os << '\n';
+  }
   return os;
 }
 
