@@ -35,9 +35,9 @@ gmon.out
 CMakeCache.txt
 Testing/
 CMakeFiles/
-bats/kr2014.[hc]
-bats/ecai2014.[hc]
-bats/kitchen.[hc]
-bats/minesweeper.[hc]
+bats/kr2014.[hc]*
+bats/ecai2014.[hc]*
+bats/kitchen.[hc]*
+bats/minesweeper.[hc]*
 examples/Example-*
 

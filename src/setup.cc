@@ -6,6 +6,10 @@
 
 namespace esbl {
 
+void Setup::AddClause(const Clause& c) {
+  cs_.insert(c);
+}
+
 void Setup::UpdateHPlusFor(const Variable::SortedSet& vs) {
   for (const auto& p : vs) {
     const Term::Sort& sort = p.first;
@@ -51,7 +55,7 @@ void Setup::GuaranteeConsistency(int k) {
 void Setup::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
   const Literal l(z, r, Atom::SF, {a});
   const SimpleClause c({l});
-  cs_.insert(Clause(Ewff::TRUE, c));
+  AddClause(Clause(Ewff::TRUE, c));
   UpdateHPlusFor(c);
 
   const SimpleClause d({l.Flip()});

@@ -24,6 +24,7 @@ class Setup {
   Setup(const Setup&) = default;
   Setup& operator=(const Setup&) = default;
 
+  void AddClause(const Clause& c);
   void UpdateHPlus(const Term::Factory& tf);
   void GuaranteeConsistency(int k);
   void AddSensingResult(const TermSeq& z, const StdName& a, bool r);

@@ -109,6 +109,16 @@ ewffy([(X\=Y)|As], [(X=Y)|Es], Ls) :- !, ewffy(As, Es, Ls).
 ewffy([~(X\=Y)|As], [~(X=Y)|Es], Ls) :- !, ewffy(As, Es, Ls).
 ewffy([A|As], Es, [L|Ls]) :- varify(A, L, Es1), ewffy(As, Es2, Ls), append(Es1, Es2, Es).
 
+replace(X, Y, T, Y) :- X == T, !.
+replace(_, _, T, T) :- var(T), !.
+replace(X, Y, T, T1) :- ( T = [] ; T = [_|_] ), !, maplist(replace(X, Y), T, T1).
+replace(X, Y, T, T1) :- T =..[F|Ts], replace(X, Y, Ts, Ts1), T1 =..[F|Ts1].
+
+dewffy([(X=Y)|Es], Ls, Es2, Ls2) :- var(X), !, replace(X, Y, Es, Es1), replace(X, Y, Ls, Ls1), dewffy(Es1, Ls1, Es2, Ls2).
+dewffy([(X=Y)|Es], Ls, Es2, Ls2) :- var(Y), !, dewffy([(Y=X)|Es], Ls, Es2, Ls2).
+dewffy([E|Es], Ls, [E|Es2], Ls2) :- dewffy(Es, Ls, Es2, Ls2).
+dewffy([], Ls, [], Ls).
+
 sortify([], []).
 sortify([V|Vs], [sort(V, Sort)|E]) :- is_sort(V, Sort), !, sortify(Vs, E).
 sortify([_|Vs], E) :- sortify(Vs, E).
@@ -170,25 +180,16 @@ extract_standard_names([(X=Y)|Es], Names) :-
     ),
     extract_standard_names(Es, Names1).
 
-extract_sort_names([], []).
-extract_sort_names([sort(_,Sort)|Es], [Sort|Names]) :-
-    extract_sort_names(Es, Names).
-extract_sort_names([~(_=_)|Es], Names) :-
-    extract_sort_names(Es, Names).
-extract_sort_names([(_=_)|Es], Names) :-
-    extract_sort_names(Es, Names).
-
 extract_predicate_names([], []).
 extract_predicate_names([~L|Ls], Ps) :- !, extract_predicate_names([L|Ls], Ps).
 extract_predicate_names([_:L|Ls], Ps) :- !, extract_predicate_names([L|Ls], Ps).
 extract_predicate_names([L|Ls], [P|Ps]) :- functor(L, P, _), extract_predicate_names(Ls, Ps).
 
-declarations(E, Cs, VarNames, StdNames, SortNames, PredNames) :-
+declarations(E, Cs, VarNames, StdNames, PredNames) :-
     term_variables((E, Cs), Vars),
     variable_names(Vars, 0, Names),
     extract_variable_names(Names, VarNames),
     extract_standard_names(E, StdNames),
-    extract_sort_names(E, SortNames),
     ( Cs = (C1, C2) ->
         extract_predicate_names(C1, PredNames1),
         extract_predicate_names(C2, PredNames2),
@@ -198,106 +199,179 @@ declarations(E, Cs, VarNames, StdNames, SortNames, PredNames) :-
         extract_predicate_names(C, PredNames)
     ).
 
-compile_ewff([], 'TRUE').
-compile_ewff([(X=Y)|E], 'AND'('EQ'(X, Y), E1)) :- compile_ewff(E, E1).
-compile_ewff([~(X=Y)|E], 'AND'('NEQ'(X, Y), E1)) :- compile_ewff(E, E1).
-compile_ewff([sort(X, Sort)|E], 'AND'('SORT'(X, Sort), E1)) :- compile_ewff(E, E1).
+compile_vars(_, [], '').
+compile_vars(Names, [V|Vs], T) :-
+    with_output_to(atom(VV), write_term(V, [variable_names(Names)])),
+    compile_vars(Names, Vs, Ts),
+    is_sort(V, Sort),
+    with_output_to(atom(T), format('const Variable ~w = tf_.CreateVariable(~w); ~w', [VV,Sort,Ts])).
+
+
+brace_list_h(_, [], '').
+brace_list_h(Names, [T|Ts], T4) :-
+    with_output_to(atom(T1), write_term(T, [variable_names(Names)])),
+    ( Ts = [] -> T1 = T2 ; atom_concat(T1, ', ', T2) ),
+    brace_list_h(Names, Ts, T3),
+    atom_concat(T2, T3, T4).
+
+brace_list(Names, Ls, T) :-
+    brace_list_h(Names, Ls, T1),
+    atom_concat('{', T1, T2),
+    atom_concat(T2, '}', T).
+
+compile_ewff2(_, [], []).
+compile_ewff2(Names, [~(X=Y)|E], [T|Ts]) :-
+    var(X), var(Y), !,
+    with_output_to(atom(XX), write_term(X, [variable_names(Names)])),
+    with_output_to(atom(YY), write_term(Y, [variable_names(Names)])),
+    with_output_to(atom(T), format('{~w,~w}', [XX,YY])),
+    compile_ewff2(Names, E, Ts).
+compile_ewff2(Names, [_|E], Ts) :-
+    compile_ewff2(Names, E, Ts).
+
+compile_ewff1(_, [], []).
+compile_ewff1(Names, [~(X=Y)|E], Ts) :-
+    \+ var(X), var(Y), !,
+    compile_ewff1(Names, [~(Y=X)|E], Ts).
+compile_ewff1(Names, [~(X=Y)|E], [T|Ts]) :-
+    var(X), \+ var(Y), !,
+    with_output_to(atom(XX), write_term(X, [variable_names(Names)])),
+    with_output_to(atom(YY), write_term(Y, [variable_names(Names)])),
+    with_output_to(atom(T), format('{~w,~w}', [XX,YY])),
+    compile_ewff1(Names, E, Ts).
+compile_ewff1(Names, [_|E], Ts) :-
+    compile_ewff1(Names, E, Ts).
+
+compile_ewff(Names, E, C) :-
+    compile_ewff1(Names, E, C1),
+    compile_ewff2(Names, E, C2),
+    brace_list(Names, C1, C3),
+    brace_list(Names, C2, C4),
+    with_output_to(atom(C), format('Ewff::Create(~w, ~w)', [C3, C4])).
 
 literal_z_f_a(~L, As, F, Ts) :- !, literal_z_f_a(L, As, F, Ts).
 literal_z_f_a(A:L, [A|As], F, Ts) :- !, literal_z_f_a(L, As, F, Ts).
 literal_z_f_a(L, [], F, Ts) :- L =..[F|Ts].
 
-compile_literal(L, L_C) :-
-    ( L  = (~_), L_C = 'N'(Actions, Symbol, Args)
-    ; L \= (~_), L_C = 'P'(Actions, Symbol, Args)
+compile_literal(Names, L, L_C) :-
+    ( L  = (~_), L_C = 'Literal'(Actions, true, Symbol, Args)
+    ; L \= (~_), L_C = 'Literal'(Actions, false, Symbol, Args)
     ),
     literal_z_f_a(L, ActionList, Symbol, ArgList),
-    ( ActionList = [] -> Actions =..['Z', ''] ; Actions =..['Z'|ActionList] ),
-    ( ArgList    = [] -> Args    =..['A', ''] ; Args    =..['A'|ArgList]    ).
+    brace_list(Names, ActionList, Actions),
+    brace_list(Names, ArgList, Args).
 
-compile_literals([], []).
-compile_literals([L|Ls], [L_C|Ls_C]) :-
-    compile_literal(L, L_C),
-    compile_literals(Ls, Ls_C).
+compile_literals(_, [], []).
+compile_literals(Names, [L|Ls], [L_C|Ls_C]) :-
+    compile_literal(Names, L, L_C),
+    compile_literals(Names, Ls, Ls_C).
 
-compile_clause(C, C_C) :-
-    compile_literals(C, Ls_C),
-    ( Ls_C = [] -> C_C =..['C', ''] ; C_C =..['C' | Ls_C] ).
+compile_clause(Names, C, 'SimpleClause'(C_C)) :-
+    compile_literals(Names, C, Ls_C),
+    brace_list(Names, Ls_C, C_C).
 
 compile_box(E, Alpha, Code) :-
     term_variables((E, Alpha), Vars),
     variable_names(Vars, 0, Names),
-    compile_ewff(E, E_C),
-    compile_clause(Alpha, Alpha_C),
-    with_output_to(atom(Code), write_term('box_univ_clauses_append'('dynamic_bat', 'box_univ_clause_init'(E_C, Alpha_C)), [variable_names(Names)])).
+    compile_vars(Names, Vars, Vars_C),
+    compile_ewff(Names, E, E_C),
+    compile_clause(Names, Alpha, Alpha_C),
+    with_output_to(atom(Alpha_C1), write_term(Alpha_C, [variable_names(Names)])),
+    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; setup_.AddClause(Clause(true,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
 
 compile_static(E, Alpha, Code) :-
     term_variables((E, Alpha), Vars),
     variable_names(Vars, 0, Names),
-    compile_ewff(E, E_C),
-    compile_clause(Alpha, Alpha_C),
-    with_output_to(atom(Code), write_term('univ_clauses_append'('static_bat', 'univ_clause_init'(E_C, Alpha_C)), [variable_names(Names)])).
+    compile_vars(Names, Vars, Vars_C),
+    compile_ewff(Names, E, E_C),
+    compile_clause(Names, Alpha, Alpha_C),
+    with_output_to(atom(Alpha_C1), write_term(Alpha_C, [variable_names(Names)])),
+    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; setup_.AddClause(Clause(false,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
 
 compile_belief(E, NegPhi, Psi, Code) :-
     term_variables((E, NegPhi, Psi), Vars),
     variable_names(Vars, 0, Names),
-    compile_ewff(E, E_C),
-    compile_clause(NegPhi, NegPhi_C),
-    compile_clause(Psi, Psi_C),
+    compile_ewff(Names, E, E_C),
+    compile_clause(Names, NegPhi, NegPhi_C),
+    compile_clause(Names, Psi, Psi_C),
     with_output_to(atom(Code), write_term('belief_conds_append'('belief_conds', 'belief_cond_init'(E_C, NegPhi_C, Psi_C)), [variable_names(Names)])).
 
-compile(VarNames, StdNames, SortNames, PredNames, Code) :-
+compile(VarNames, StdNames, PredNames, Code) :-
     box(Alpha),
     cnf(Alpha, Cnf),
     member(Clause, Cnf),
-    ewffy(Clause, E1, C),
-    sortify(E1, C, E),
+    ewffy(Clause, E1, C1),
+    dewffy(E1, C1, E, C),
     ewff_sat(E),
-    declarations(E, C, VarNames, StdNames, SortNames, PredNames),
+    declarations(E, C, VarNames, StdNames, PredNames),
     compile_box(E, C, Code).
-compile(VarNames, StdNames, SortNames, PredNames, Code) :-
+compile(VarNames, StdNames, PredNames, Code) :-
     static(Alpha),
     cnf(Alpha, Cnf),
     member(Clause, Cnf),
-    ewffy(Clause, E1, C),
-    sortify(E1, C, E),
+    ewffy(Clause, E1, C1),
+    dewffy(E1, C1, E, C),
     ewff_sat(E),
-    declarations(E, C, VarNames, StdNames, SortNames, PredNames),
+    declarations(E, C, VarNames, StdNames, PredNames),
     compile_static(E, C, Code).
-compile(VarNames, StdNames, SortNames, PredNames, Code) :-
+compile(VarNames, StdNames, PredNames, Code) :-
     belief(Phi => Psi),
     cnf(~Phi, NegPhiCnf),
     cnf(Psi, PsiCnf),
     member(NegPhiClause, NegPhiCnf),
     member(PsiClause, PsiCnf),
-    ewffy(NegPhiClause, E11, C1),
-    ewffy(PsiClause, E21, C2),
-    sortify(E11, C1, E1),
-    sortify(E21, C2, E2),
+    ewffy(NegPhiClause, E11, C11),
+    ewffy(PsiClause, E21, C21),
+    dewffy(E11, C11, E1, C1),
+    dewffy(E21, C21, E2, C2),
     append(E1, E2, E),
     ewff_sat(E),
-    declarations(E, (C1, C2), VarNames, StdNames, SortNames, PredNames),
+    declarations(E, (C1, C2), VarNames, StdNames, PredNames),
     compile_belief(E, C1, C2, Code).
 
-declare_standard_name_declarations(_, [], 0).
-declare_standard_name_declarations(Stream, [N|Ns], MaxStdName) :-
+declare_sorts(_, []).
+declare_sorts(Stream, [N|Ns]) :-
     length(Ns, I),
     I1 is I + 1,
-    format(Stream, 'static const stdname_t ~w = ~w;~n', [N, I1]),
-    declare_standard_name_declarations(Stream, Ns, MaxStdName1),
+    format(Stream, '  static constexpr Term::Sort ~w = ~w;~n', [N, I1]),
+    declare_sorts(Stream, Ns).
+
+define_sorts(_, _, []).
+define_sorts(Stream, Class, [N|Ns]) :-
+    length(Ns, I),
+    I1 is I + 1,
+    format(Stream, 'constexpr Term::Sort ~w::~w;~n', [Class, N]),
+    define_sorts(Stream, Class, Ns).
+
+declare_standard_names(_, [], 0).
+declare_standard_names(Stream, [N|Ns], MaxStdName) :-
+    length(Ns, I),
+    I1 is I + 1,
+    sort_name(Sort, N),
+    format(Stream, '  const StdName ~w = tf_.CreateStdName(~w, ~w);~n', [N, I1, Sort]),
+    declare_standard_names(Stream, Ns, MaxStdName1),
     MaxStdName is max(I1, MaxStdName1).
 
-declare_max_stdname(Stream, MaxStdName) :-
-    format(Stream, 'const stdname_t MAX_STD_NAME = ~w;~n', [MaxStdName]).
+declare_and_define_max_stdname(Stream, MaxStdName) :-
+    format(Stream, '  Term::Id max_std_name() const override { return ~w; }~n', [MaxStdName]).
 
-declare_max_pred(Stream, MaxPred) :-
-    format(Stream, 'const pred_t MAX_PRED = ~w;~n', [MaxPred]).
+declare_and_define_max_pred(Stream, MaxPred) :-
+    format(Stream, '  Atom::PredId max_pred() const override { return ~w; }~n', [MaxPred]).
 
 declare_predicate_name_declarations(_, [], 0).
 declare_predicate_name_declarations(Stream, [P|Ps], MaxPred) :-
     length(Ps, I),
-    ( P = 'SF' -> true ; format(Stream, 'static const pred_t ~w = ~w;~n', [P, I]) ),
+    ( P = 'SF' -> I1 = 'Atom::SF' ; I1 = I ),
+    format(Stream, '  static constexpr Atom::PredId ~w = ~w;~n', [P, I1]),
     declare_predicate_name_declarations(Stream, Ps, MaxPred1),
+    MaxPred is max(I, MaxPred1).
+
+define_predicate_name_declarations(_, _, [], 0).
+define_predicate_name_declarations(Stream, Class, [P|Ps], MaxPred) :-
+    length(Ps, I),
+    ( P = 'SF' -> I1 = 'Atom::SF' ; I1 = I ),
+    format(Stream, '  constexpr Atom::PredId ~w::~w;~n', [Class, P]),
+    define_predicate_name_declarations(Stream, Class, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
 
 declare_variable_name_declarations(_, []).
@@ -307,59 +381,38 @@ declare_variable_name_declarations(Stream, [V|Vs]) :-
     format(Stream, 'static const var_t ~w = ~w;~n', [V, I1]),
     declare_variable_name_declarations(Stream, Vs).
 
-define_functions(Stream, StdNames, SortNames, PredNames) :-
-    format(Stream, 'const char *stdname_to_string(stdname_t val) {~n', []),
-    format(Stream, '    if (false) return "never occurs"; // never occurs~n', []),
+define_functions(Stream, StdNames, PredNames) :-
+    format(Stream, '  void InitNameToStringMap() override {~n', []),
+    format(Stream, '    std::map<StdName, const char*>& map = name_to_string_;~n', []),
     maplist(print_serialization(Stream), StdNames),
-    format(Stream, '    static char buf[16];~n', []),
-    format(Stream, '    sprintf(buf, "#%ld", val);~n', []),
-    format(Stream, '    return buf;~n', []),
-    format(Stream, '}~n', []),
+    format(Stream, '  }~n', []),
     format(Stream, '~n', []),
-    format(Stream, 'const char *pred_to_string(pred_t val) {~n', []),
-    format(Stream, '    if (false) return "never occurs"; // never occurs~n', []),
+    format(Stream, '  void InitPredToStringMap() override {~n', []),
+    format(Stream, '    std::map<Atom::PredId, const char*>& map = pred_to_string_;~n', []),
     maplist(print_serialization(Stream), PredNames),
-    format(Stream, '    static char buf[16];~n', []),
-    format(Stream, '    sprintf(buf, "P%ld", val);~n', []),
-    format(Stream, '    return buf;~n', []),
-    format(Stream, '}~n', []),
+    format(Stream, '  }~n', []),
     format(Stream, '~n', []),
-    format(Stream, 'stdname_t string_to_stdname(const char *str) {~n', []),
-    format(Stream, '    if (false) return -1; // never occurs;~n', []),
+    format(Stream, '  void InitStringToNameMap() override {~n', []),
+    format(Stream, '    std::map<std::string, StdName>& map = string_to_name_;~n', []),
     maplist(print_deserialization(Stream), StdNames),
-    format(Stream, '    else return MAX_STD_NAME + 1;~n', []),
-    format(Stream, '}~n', []),
+    format(Stream, '  }~n', []),
     format(Stream, '~n', []),
-    format(Stream, 'pred_t string_to_pred(const char *str) {~n', []),
-    format(Stream, '    if (false) return -1; // never occurs;~n', []),
+    format(Stream, '  void InitStringToPredMap() override {~n', []),
+    format(Stream, '    std::map<std::string, Atom::PredId>& map = string_to_pred_;~n', []),
     maplist(print_deserialization(Stream), PredNames),
-    format(Stream, '    else return MAX_PRED + 1;~n', []),
-    format(Stream, '}~n', []),
-    format(Stream, '~n', []),
-    define_sort_names(Stream, SortNames).
+    format(Stream, '  }~n', []).
 
 define_clauses(_, []).
-%define_clauses(Stream, [C]) :- !, format(Stream, '    ~w;~n', [C]).
-define_clauses(Stream, [C|Cs]) :- format(Stream, '    ~w;~n', [C]), define_clauses(Stream, Cs).
+%define_clauses(Stream, [C]) :- !, format(Stream, '  ~w;~n', [C]).
+define_clauses(Stream, [C|Cs]) :- format(Stream, '  ~w;~n', [C]), define_clauses(Stream, Cs).
 
 print_serialization(Stream, Val) :-
-    format(Stream, '    else if (val == ~w) return "~w";~n', [Val, Val]).
+    format(Stream, '    map[~w] = "~w";~n', [Val, Val]).
 
 print_deserialization(Stream, Val) :-
-    format(Stream, '    else if (!strcmp(str, "~w")) return ~w;~n', [Val, Val]).
+    format(Stream, '    map["~w"] = ~w;~n', [Val, Val]).
 
-define_sort_names(_, []).
-define_sort_names(Stream, [Sort|Sorts]) :-
-    findall(N, sort_name(Sort, N), StdNames),
-    maplist(atom_concat(' || name == '), StdNames, DisjList),
-    foldl(atom_concat, DisjList, '', Disj),
-    format(Stream, 'static bool is_~w(stdname_t name) {~n', [Sort]),
-    format(Stream, '    return name > MAX_STD_NAME~w;~n', [Disj]),
-    format(Stream, '}~n', []),
-    format(Stream, '~n', []),
-    define_sort_names(Stream, Sorts).
-
-compile_all(Input, Header, Body) :-
+compile_all(Class, Input, Header, Body) :-
     ( Header = stdout ->
         current_output(HeaderStream)
     ;
@@ -375,42 +428,61 @@ compile_all(Input, Header, Body) :-
     retractall(static(_)),
     retractall(belief(_)),
     [Input],
-    findall(r(VarNames, StdNames, SortNames, PredNames, Code), compile(VarNames, StdNames, SortNames, PredNames, Code), All),
+    findall(r(VarNames, StdNames, PredNames, Code), compile(VarNames, StdNames, PredNames, Code), All),
     maplist(arg(1), All, VarNames1),
     maplist(arg(2), All, StdNames1),
-    maplist(arg(3), All, SortNames1),
-    maplist(arg(4), All, PredNames1),
-    maplist(arg(5), All, Code),
+    maplist(arg(3), All, PredNames1),
+    maplist(arg(4), All, Code),
     flatten(VarNames1, VarNames2),
     flatten(StdNames1, StdNames2),
-    flatten(SortNames1, SortNames2),
     flatten(PredNames1, PredNames2),
     sort(VarNames2, VarNames),
     sort(StdNames2, StdNames),
-    sort(SortNames2, SortNames),
     sort(PredNames2, PredNames),
+    findall(SortName, sort_name(SortName, _), SortNames1),
+    sort(SortNames1, SortNames),
     % header
-    format(HeaderStream, '#include "common.h"~n', []),
+    format(HeaderStream, '#ifndef BATS_~w_H_~n', [Class]),
     format(HeaderStream, '~n', []),
-    declare_standard_name_declarations(HeaderStream, StdNames, MaxStdName),
-    declare_max_stdname(HeaderStream, MaxStdName),
+    format(HeaderStream, '#include "bat.h"~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, 'namespace bats {~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, 'class ~w : public BAT {~n', [Class]),
+    format(HeaderStream, ' public:~n', []),
+    declare_sorts(HeaderStream, SortNames),
+    format(HeaderStream, '~n', []),
+    declare_standard_names(HeaderStream, StdNames, MaxStdName),
     format(HeaderStream, '~n', []),
     declare_predicate_name_declarations(HeaderStream, PredNames, MaxPred),
-    declare_max_pred(HeaderStream, MaxPred),
     format(HeaderStream, '~n', []),
+    declare_and_define_max_stdname(HeaderStream, MaxStdName),
+    declare_and_define_max_pred(HeaderStream, MaxPred),
+    format(HeaderStream, '~n', []),
+    define_functions(HeaderStream, StdNames, PredNames),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, '  void InitSetup() override;~n', []),
+    format(HeaderStream, '};~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, '}  // namespace bats~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, '#endif  // BATS_~w_H_~n', [Class]),
     % body
     format(BodyStream, '#include "~w"~n', [Header]),
     format(BodyStream, '~n', []),
-    declare_variable_name_declarations(BodyStream, VarNames),
+    format(BodyStream, 'namespace bats {~n', []),
     format(BodyStream, '~n', []),
-    define_functions(BodyStream, StdNames, SortNames, PredNames),
-    format(BodyStream, 'void init_bat(box_univ_clauses_t *dynamic_bat, univ_clauses_t *static_bat, belief_conds_t *belief_conds) {~n', []),
-    format(BodyStream, '    if (dynamic_bat) *dynamic_bat = box_univ_clauses_init();~n', []),
-    format(BodyStream, '    if (static_bat) *static_bat = univ_clauses_init();~n', []),
-    format(BodyStream, '    if (belief_conds) *belief_conds = belief_conds_init();~n', []),
+    define_sorts(BodyStream, Class, SortNames),
+    format(BodyStream, '~n', []),
+    define_predicate_name_declarations(BodyStream, Class, PredNames, MaxPred),
+    format(BodyStream, '~n', []),
+    format(BodyStream, 'void ~w::InitSetup() {~n', [Class]),
     define_clauses(BodyStream, Code),
+    format(BodyStream, '  setup_.UpdateHPlus(tf_);~n', []),
     format(BodyStream, '}~n', []),
     format(BodyStream, '~n', []),
+    format(BodyStream, '}  // namespace bats~n', []),
+    format(HeaderStream, '~n', []),
     ( Header = stdout ->
         true
     ;
@@ -423,10 +495,11 @@ compile_all(Input, Header, Body) :-
     ).
 
 compile_all(BAT) :-
+    upcase_atom(BAT, Class),
     atom_concat(BAT, '.pl', Prolog),
     atom_concat(BAT, '.h', C_Header),
-    atom_concat(BAT, '.c', C_Body),
-    compile_all(Prolog, C_Header, C_Body).
+    atom_concat(BAT, '.cc', C_Body),
+    compile_all(Class, Prolog, C_Header, C_Body).
 
 
 
@@ -451,7 +524,9 @@ print_all(Input) :-
     [Input],
     (   box(Alpha),
         print_ecnf(box(Alpha)),
-        cnf(Alpha, Cnf), member(Clause, Cnf), ewffy(Clause, E, C),
+        cnf(Alpha, Cnf), member(Clause, Cnf),
+        ewffy(Clause, E1, C1),
+        dewffy(E1, C1, E, C),
         ewff_sat(E),
         term_variables((E, C), Vars),
         variable_names(Vars, 0, Names),
@@ -460,7 +535,9 @@ print_all(Input) :-
         Term = box(ETerm -> CTerm)
     ;   static(Alpha),
         print_ecnf(Alpha),
-        cnf(Alpha, Cnf), member(Clause, Cnf), ewffy(Clause, E, C),
+        cnf(Alpha, Cnf), member(Clause, Cnf),
+        ewffy(Clause, E1, C1),
+        dewffy(E1, C1, E, C),
         ewff_sat(E),
         term_variables((E, C), Vars),
         variable_names(Vars, 0, Names),
@@ -469,7 +546,14 @@ print_all(Input) :-
         Term = (ETerm -> CTerm)
     ;   belief(Phi => Psi),
         print_ecnf(Phi => Psi),
-        cnf(~Phi, NegPhiCnf), cnf(Psi, PsiCnf), member(NegPhiClause, NegPhiCnf), member(PsiClause, PsiCnf), ewffy(NegPhiClause, E1, C1), ewffy(PsiClause, E2, C2), append(E1, E2, E),
+        cnf(~Phi, NegPhiCnf), cnf(Psi, PsiCnf),
+        member(NegPhiClause, NegPhiCnf),
+        member(PsiClause, PsiCnf),
+        ewffy(NegPhiClause, E11, C11),
+        ewffy(PsiClause, E21, C21),
+        dewffy(E11, C11, E1, C1),
+        dewffy(E21, C21, E2, C2),
+        append(E1, E2, E),
         ewff_sat(E),
         term_variables((E, Phi, Psi), Vars),
         variable_names(Vars, 0, Names),

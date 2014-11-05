@@ -32,6 +32,8 @@ flags = [
     '-isystem', '/usr/local/include/eigen3',
     '-I', 'include',
     '-I', 'src',
+    '-I', 'src/bats',
+    '-I', 'src/eclipse-clp',
     '-I.'
 ]
 

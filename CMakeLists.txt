@@ -25,8 +25,8 @@ endif()
 # cause another cmake executable to run. The same process will walk through
 # the project's entire directory structure.
 add_subdirectory (src)
-#add_subdirectory (bats)
-#add_subdirectory (examples)
+add_subdirectory (bats)
+add_subdirectory (examples)
 add_subdirectory (tests)
 #add_subdirectory (eclipse-clp)
 
