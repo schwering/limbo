@@ -8,24 +8,33 @@
 
 namespace esbl {
 
+const SimpleClause SimpleClause::EMPTY;
+const Clause Clause::EMPTY(false, Ewff::TRUE, {});
 const Clause Clause::MIN_UNIT(false, Ewff::TRUE, {Literal::MIN});
 const Clause Clause::MAX_UNIT(false, Ewff::TRUE, {Literal::MAX});
 
 SimpleClause SimpleClause::PrependActions(const TermSeq& z) const {
   SimpleClause c;
   for (const Literal& l : *this) {
-    c.insert(l.PrependActions(z));
+    c.insert(c.end(), l.PrependActions(z));
   }
   return c;
 }
 
-std::tuple<bool, SimpleClause> SimpleClause::Substitute(
-    const Unifier& theta) const {
+SimpleClause SimpleClause::Substitute(const Unifier& theta) const {
   SimpleClause c;
   for (const Literal& l : *this) {
-    c.insert(l.Substitute(theta));
+    c.insert(c.end(), l.Substitute(theta));
   }
-  return std::make_pair(true, c);
+  return c;
+}
+
+SimpleClause SimpleClause::Ground(const Assignment& theta) const {
+  SimpleClause c;
+  for (const Literal& l : *this) {
+    c.insert(c.end(), l.Ground(theta));
+  }
+  return c;
 }
 
 void SimpleClause::SubsumedBy(const const_iterator first,
@@ -56,14 +65,6 @@ void SimpleClause::SubsumedBy(const const_iterator first,
 std::list<Unifier> SimpleClause::Subsumes(const SimpleClause& c) const {
   std::list<Unifier> thetas;
   c.SubsumedBy(begin(), end(), Unifier(), &thetas);
-#ifndef NDEBUG
-  for (const Unifier& theta : thetas) {
-    bool succ;
-    SimpleClause d;
-    std::tie(succ, d) = Substitute(theta);
-    assert(succ);
-  }
-#endif
   return thetas;
 }
 
@@ -75,12 +76,43 @@ std::tuple<bool, Unifier, SimpleClause> SimpleClause::Unify(
   if (!succ) {
     return failed<Unifier, SimpleClause>();
   }
-  SimpleClause c;
-  std::tie(succ, c) = Substitute(theta);
-  if (!succ) {
-    return failed<Unifier, SimpleClause>();
-  }
+  const SimpleClause c = Substitute(theta);
   return std::make_tuple(true, theta, c);
+}
+
+void SimpleClause::GenerateInstances(
+    const std::set<Variable>::const_iterator first,
+    const std::set<Variable>::const_iterator last,
+    const StdName::SortedSet& hplus,
+    Assignment* theta,
+    std::list<SimpleClause>* instances) const {
+  if (first != last) {
+    const Variable& x = *first;
+    StdName::SortedSet::const_iterator ns_it = hplus.find(x.sort());
+    assert(ns_it != hplus.end());
+    if (ns_it == hplus.end()) {
+      return;
+    }
+    const std::set<StdName>& ns = ns_it->second;
+    for (const StdName& n : ns) {
+      (*theta)[x] = n;
+      GenerateInstances(std::next(first), last, hplus, theta, instances);
+    }
+    theta->erase(x);
+  } else {
+    const SimpleClause c = Ground(*theta);
+    assert(c.is_ground());
+    instances->push_back(c);
+  }
+}
+
+std::list<SimpleClause> SimpleClause::Instances(
+    const StdName::SortedSet& hplus) const {
+  std::list<SimpleClause> instances;
+  Assignment theta;
+  const std::set<Variable> vs = Variables();
+  GenerateInstances(vs.begin(), vs.end(), hplus, &theta, &instances);
+  return instances;
 }
 
 std::set<Variable> SimpleClause::Variables() const {
@@ -101,6 +133,15 @@ void SimpleClause::CollectNames(StdName::SortedSet* ns) const {
   for (const Literal& l : *this) {
     l.CollectNames(ns);
   }
+}
+
+bool SimpleClause::is_ground() const {
+  for (const Literal& l : *this) {
+    if (!l.is_ground()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool Clause::operator==(const Clause& c) const {
@@ -130,11 +171,7 @@ std::tuple<bool, Clause> Clause::Substitute(const Unifier& theta) const {
   if (!succ) {
     return failed<Clause>();
   }
-  SimpleClause ls;
-  std::tie(succ, ls) = ls_.Substitute(theta);
-  if (!succ) {
-    return failed<Clause>();
-  }
+  const SimpleClause ls = ls_.Substitute(theta);
   return std::make_pair(true, Clause(box_, e, ls));
 }
 
@@ -261,21 +298,24 @@ std::set<Literal> Clause::Rel(const StdName::SortedSet& hplus,
   return rel;
 }
 
-bool Clause::SplitRelevant(const Atom& a, const SimpleClause c,
-                           unsigned int k) const {
+bool Clause::SplitRelevant(const Atom& a, const Clause& c, int k) const {
+  assert(k >= 0);
   const SimpleClause::const_iterator it1 = ls_.find(Literal(true, a));
   const SimpleClause::const_iterator it2 = ls_.find(Literal(false, a));
   // ls_.size() - c.size() is a (bad) approximation of (d \ c).size() where d is
   // a unification of ls_ and c
+  const int ls_size = static_cast<int>(ls_.size());
+  const int c_size = static_cast<int>(c.ls_.size());
   return (it1 != ls_.end() || it2 != ls_.end()) &&
-         (ls_.size() <= k + 1 || ls_.size() - c.size() <= k);
+         (ls_size <= k + 1 || ls_size - c_size <= k);
 }
 
-void Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
+size_t Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
   assert(unit.is_unit());
   const Literal& unit_l = *unit.literals().begin();
   const auto first = ls_.lower_bound(unit_l.LowerBound());
   const auto last = ls_.upper_bound(unit_l.UpperBound());
+  size_t n = 0;
   for (auto it = first; it != last; ++it) {
     const Literal& l = *it;
     assert(unit_l.pred() == l.pred());
@@ -297,15 +337,19 @@ void Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
     d.ls_.erase(l.Substitute(theta));
     d.e_ = Ewff::And(d.e_, unit_e);
     d.e_.RestrictVariable(d.ls_.Variables());
-    rs->insert(d);
+    const auto p = rs->insert(d);
+    if (p.second) {
+      ++n;
+    }
   }
+  return n;
 }
 
 std::set<Atom::PredId> Clause::positive_preds() const {
   std::set<Atom::PredId> s;
   for (const Literal& l : ls_) {
     if (l.sign()) {
-      s.insert(l.pred());
+      s.insert(s.end(), l.pred());
     }
   }
   return s;
@@ -315,7 +359,7 @@ std::set<Atom::PredId> Clause::negative_preds() const {
   std::set<Atom::PredId> s;
   for (const Literal& l : ls_) {
     if (!l.sign()) {
-      s.insert(l.pred());
+      s.insert(s.end(), l.pred());
     }
   }
   return s;

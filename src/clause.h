@@ -14,34 +14,48 @@ namespace esbl {
 
 class SimpleClause : public std::set<Literal> {
  public:
+  static const SimpleClause EMPTY;
+
   using std::set<Literal>::set;
 
   SimpleClause PrependActions(const TermSeq& z) const;
 
-  std::tuple<bool, SimpleClause> Substitute(const Unifier& theta) const;
+  SimpleClause Substitute(const Unifier& theta) const;
+  SimpleClause Ground(const Assignment& theta) const;
   std::list<Unifier> Subsumes(const SimpleClause& c) const;
   std::tuple<bool, Unifier, SimpleClause> Unify(const Atom& cl_a,
                                                 const Atom& ext_a) const;
+
+  std::list<SimpleClause> Instances(const StdName::SortedSet& hplus) const;
 
   std::set<Variable> Variables() const;
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
 
+  bool is_ground() const;
+
  private:
   void SubsumedBy(const const_iterator first, const const_iterator last,
                   const Unifier& theta, std::list<Unifier>* thetas) const;
+
+  void GenerateInstances(const std::set<Variable>::const_iterator first,
+                         const std::set<Variable>::const_iterator last,
+                         const StdName::SortedSet& hplus,
+                         Assignment* theta,
+                         std::list<SimpleClause>* instances) const;
 };
 
 class Clause {
  public:
+  static const Clause EMPTY;
   static const Clause MIN_UNIT;
   static const Clause MAX_UNIT;
 
   Clause() = default;
+  Clause(const Ewff& e, const SimpleClause& ls)
+      : Clause(false, e, ls) {}
   Clause(bool box, const Ewff& e, const SimpleClause& ls)
       : box_(box), e_(e), ls_(ls) { e_.RestrictVariable(ls_.Variables()); }
-  Clause(bool box, const Ewff& e, std::initializer_list<Literal> ls)
-      : Clause(box, e, SimpleClause(ls)) {}
   Clause(const Clause&) = default;
   Clause& operator=(const Clause&) = default;
 
@@ -54,8 +68,8 @@ class Clause {
   std::set<Literal> Rel(const StdName::SortedSet& hplus,
                         const Literal& ext_l) const;
   bool Subsumes(const Clause& c) const;
-  bool SplitRelevant(const Atom& a, const SimpleClause c, unsigned int k) const;
-  void ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const;
+  bool SplitRelevant(const Atom& a, const Clause& c, int k) const;
+  size_t ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const;
 
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }

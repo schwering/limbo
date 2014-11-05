@@ -23,8 +23,8 @@ typedef std::map<Variable, StdName> Assignment;
 
 class Term {
  public:
-  typedef uint64_t Id;
-  typedef unsigned int Sort;
+  typedef int Id;
+  typedef int Sort;
   class Factory;
 
   Term() = default;
@@ -111,6 +111,7 @@ class StdName {
  public:
   typedef std::map<Term::Sort, std::set<StdName>> SortedSet;
 
+  static const StdName MIN_NORMAL;
   static const StdName MIN;
   static const StdName MAX;
 
@@ -148,11 +149,12 @@ class StdName {
 class Term::Factory {
  public:
   Factory() : var_counter_(0) {}
-  Factory(const Factory&) = default;
-  Factory& operator=(const Factory&) = default;
+  Factory(const Factory&) = delete;
+  Factory& operator=(const Factory&) = delete;
 
   Variable CreateVariable(Term::Sort sort);
   StdName CreateStdName(Term::Id id, Term::Sort sort);
+  static StdName CreatePlaceholderStdName(Term::Id id, Term::Sort sort);
 
   const StdName::SortedSet& sorted_names() const { return names_; }
 

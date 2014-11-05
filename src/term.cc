@@ -2,6 +2,7 @@
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 
 #include "./term.h"
+#include <cassert>
 #include <limits>
 
 namespace esbl {
@@ -11,9 +12,16 @@ Variable Term::Factory::CreateVariable(Term::Sort sort) {
 }
 
 StdName Term::Factory::CreateStdName(Term::Id id, Term::Sort sort) {
+  assert(id >= 0);
   const StdName n(Term(Term::NAME, id, sort));
   names_[n.sort()].insert(n);
   return n;
+}
+
+StdName Term::Factory::CreatePlaceholderStdName(Term::Id id, Term::Sort sort) {
+  id = -1 * id - 1;
+  assert(id < 0);
+  return StdName(Term(Term::NAME, id, sort));
 }
 
 bool Term::operator==(const Term& t) const {
@@ -49,6 +57,7 @@ Term Term::Ground(const Assignment& theta) const {
 
 namespace {
 inline bool Update(Unifier* theta, const Variable& x, const Term& t) {
+  assert(x.sort() == t.sort());
   if (x == t) {
     return true;
   }
@@ -134,6 +143,8 @@ const Variable Variable::MAX(Term(Term::VAR,
                                   std::numeric_limits<Term::Id>::max(),
                                   std::numeric_limits<Term::Sort>::max()));
 
+const StdName StdName::MIN_NORMAL(Term(Term::NAME, 0,
+                                       std::numeric_limits<Term::Sort>::min()));
 const StdName StdName::MIN(Term(Term::NAME,
                                 std::numeric_limits<Term::Id>::min(),
                                 std::numeric_limits<Term::Sort>::min()));
@@ -160,7 +171,7 @@ std::ostream& operator<<(std::ostream& os, const Term& t) {
   } else {
     c = '?';
   }
-  return os << c << t.id();// << ':' << t.sort();
+  return os << c << t.id();
 }
 
 std::ostream& operator<<(std::ostream& os, const Unifier& theta) {

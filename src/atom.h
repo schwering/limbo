@@ -14,7 +14,7 @@ namespace esbl {
 
 class Atom {
  public:
-  typedef unsigned int PredId;
+  typedef int PredId;
 
   static constexpr PredId SF = 0;
   static const Atom MIN;
