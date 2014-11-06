@@ -55,6 +55,7 @@ class Literal : public Atom {
 };
 
 std::ostream& operator<<(std::ostream& os, const Literal& l);
+std::ostream& operator<<(std::ostream& os, const std::set<Literal>& ls);
 
 }  // namespace esbl
 

@@ -58,6 +58,7 @@ class Atom {
 };
 
 std::ostream& operator<<(std::ostream& os, const Atom& a);
+std::ostream& operator<<(std::ostream& os, const std::set<Atom>& as);
 
 }  // namespace esbl
 

@@ -157,5 +157,17 @@ std::ostream& operator<<(std::ostream& os, const Atom& a) {
   return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const std::set<Atom>& as) {
+  os << "{ ";
+  for (auto it = as.begin(); it != as.end(); ++it) {
+    if (it != as.begin()) {
+      os << ", ";
+    }
+    os << *it;
+  }
+  os << " }";
+  return os;
+}
+
 }  // namespace esbl
 

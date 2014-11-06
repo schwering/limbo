@@ -123,11 +123,20 @@ std::set<Literal> Setup::Rel(const SimpleClause& c) const {
 }
 
 std::set<Atom> Setup::Pel(const SimpleClause& c) const {
+  // Pel is the set of all atoms a such that both a and ~a are relevant to prove
+  // some literal in l:
+  // Pel(c) = { a | for all a, l such that a in Rel(l), ~a in Rel(l), l in c }
+  // Furthermore we only take literals from the initial situation. The idea is
+  // here that splitting any later literal is redundant because it could also be
+  // achieved from the initial literal through unit propagatoin since successor
+  // state axioms introduce no nondeterminism. However, we add new knowledge
+  // through sensing literals in future situations. Is the limitation to initial
+  // literals still complete?
   const std::set<Literal> rel = Rel(c);
   std::set<Atom> pel;
   for (auto it = rel.begin(); it != rel.end(); ++it) {
     const Literal& l = *it;
-    if (!l.sign() || l.z().empty()) {
+    if (!l.sign() || !l.z().empty()) {
       continue;
     }
     const auto first = rel.lower_bound(l.LowerBound());
@@ -136,7 +145,7 @@ std::set<Atom> Setup::Pel(const SimpleClause& c) const {
       const Literal& ll = *jt;
       assert(l.pred() == ll.pred());
       if (ll.sign()) {
-        //continue; // TODO XXX Why doesn't PEL work?
+        continue;
       }
       Unifier theta;
       const bool succ = Atom::Unify(l, ll, &theta);

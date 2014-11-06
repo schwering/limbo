@@ -36,5 +36,17 @@ std::ostream& operator<<(std::ostream& os, const Literal& l) {
   return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const std::set<Literal>& ls) {
+  os << "{ ";
+  for (auto it = ls.begin(); it != ls.end(); ++it) {
+    if (it != ls.begin()) {
+      os << ", ";
+    }
+    os << *it;
+  }
+  os << " }";
+  return os;
+}
+
 }  // namespace esbl
 
