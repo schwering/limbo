@@ -15,41 +15,18 @@ namespace bats {
 
 using namespace esbl;
 
-class BAT {
+class Bat {
  public:
-  void Init() {
-    InitNameToStringMap();
-    InitPredToStringMap();
-    InitStringToNameMap();
-    InitStringToPredMap();
-    InitSetup();
-  }
+  Bat() = default;
 
   virtual Term::Id max_std_name() const = 0;
   virtual Atom::PredId max_pred() const = 0;
 
-  virtual void InitSetup() = 0;
+  virtual Setup& setup() = 0;
+  virtual const Setup& setup() const = 0;
 
-  Setup& setup() { return setup_; }
-  const Setup& setup() const { return setup_; }
-
-  Term::Factory& tf() { return tf_; }
-  const Term::Factory& tf() const { return tf_; }
-
- protected:
-  virtual void InitNameToStringMap() = 0;
-  virtual void InitPredToStringMap() = 0;
-  virtual void InitStringToNameMap() = 0;
-  virtual void InitStringToPredMap() = 0;
-
-  std::map<StdName, const char*> name_to_string_;
-  std::map<Atom::PredId, const char*> pred_to_string_;
-  std::map<std::string, StdName> string_to_name_;
-  std::map<std::string, Atom::PredId> string_to_pred_;
-
- private:
-  Term::Factory tf_;
-  Setup setup_;
+  virtual Term::Factory& tf() = 0;
+  virtual const Term::Factory& tf() const = 0;
 };
 
 }

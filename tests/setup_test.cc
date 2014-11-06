@@ -11,7 +11,6 @@ using namespace bats;
 
 TEST(setup, entailment_static) {
   KR2014 bat;
-  bat.InitSetup();
   bat.setup().GuaranteeConsistency(3);
   //esbl::Setup s = bat.setup().GroundBoxes({{bat.forward, bat.sonar}});
   esbl::Setup& s = bat.setup();
@@ -34,7 +33,6 @@ TEST(setup, entailment_static) {
 
 TEST(setup, entailment_dynamic) {
   KR2014 bat;
-  bat.InitSetup();
   bat.setup().GuaranteeConsistency(3);
   //esbl::Setup s = bat.setup().GroundBoxes({{bat.forward, bat.sonar}});
   esbl::Setup& s = bat.setup();

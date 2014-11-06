@@ -196,7 +196,7 @@ compile_vars(Names, [V|Vs], T) :-
     with_output_to(atom(VV), write_term(V, [variable_names(Names)])),
     compile_vars(Names, Vs, Ts),
     is_sort(V, Sort),
-    with_output_to(atom(T), format('const Variable ~w = tf().CreateVariable(~w); ~w', [VV,Sort,Ts])).
+    with_output_to(atom(T), format('const Variable ~w = tf_.CreateVariable(~w); ~w', [VV,Sort,Ts])).
 
 
 brace_list_h(_, [], '').
@@ -269,7 +269,7 @@ compile_box(E, Alpha, Code) :-
     compile_ewff(Names, E, E_C),
     compile_clause(Names, Alpha, Alpha_C),
     with_output_to(atom(Alpha_C1), write_term(Alpha_C, [variable_names(Names)])),
-    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; setup().AddClause(Clause(true,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
+    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; s_.AddClause(Clause(true,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
 
 compile_static(E, Alpha, Code) :-
     term_variables((E, Alpha), Vars),
@@ -278,7 +278,7 @@ compile_static(E, Alpha, Code) :-
     compile_ewff(Names, E, E_C),
     compile_clause(Names, Alpha, Alpha_C),
     with_output_to(atom(Alpha_C1), write_term(Alpha_C, [variable_names(Names)])),
-    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; setup().AddClause(Clause(false,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
+    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; s_.AddClause(Clause(false,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
 
 compile_belief(E, NegPhi, Psi, Code) :-
     term_variables((E, NegPhi, Psi), Vars),
@@ -344,14 +344,35 @@ init_standard_names(Stream, [N|Ns], MaxStdName) :-
     length(Ns, I),
     I1 is I + 1,
     sort_name(Sort, N),
-    format(Stream, '  , ~w(tf().CreateStdName(~w, ~w))~n', [N, I1, Sort]),
+    format(Stream, '    , ~w(tf_.CreateStdName(~w, ~w))~n', [N, I1, Sort]),
     init_standard_names(Stream, Ns, MaxStdName1),
     MaxStdName is max(I1, MaxStdName1).
 
-declare_and_define_max_stdname(Stream, MaxStdName) :-
+init_maps(Stream, StdNames, PredNames) :-
+    format(Stream, '  {~n', []),
+    format(Stream, '    std::map<StdName, const char*>& map = name_to_string_;~n', []),
+    maplist(print_serialization(Stream), StdNames),
+    format(Stream, '  }~n', []),
+    format(Stream, '~n', []),
+    format(Stream, '  {~n', []),
+    format(Stream, '    std::map<Atom::PredId, const char*>& map = pred_to_string_;~n', []),
+    maplist(print_serialization(Stream), PredNames),
+    format(Stream, '  }~n', []),
+    format(Stream, '~n', []),
+    format(Stream, '  {~n', []),
+    format(Stream, '    std::map<std::string, StdName>& map = string_to_name_;~n', []),
+    maplist(print_deserialization(Stream), StdNames),
+    format(Stream, '  }~n', []),
+    format(Stream, '~n', []),
+    format(Stream, '  {~n', []),
+    format(Stream, '    std::map<std::string, Atom::PredId>& map = string_to_pred_;~n', []),
+    maplist(print_deserialization(Stream), PredNames),
+    format(Stream, '  }~n', []).
+
+declare_and_define_max_stdname_function(Stream, MaxStdName) :-
     format(Stream, '  Term::Id max_std_name() const override { return ~w; }~n', [MaxStdName]).
 
-declare_and_define_max_pred(Stream, MaxPred) :-
+declare_and_define_max_pred_function(Stream, MaxPred) :-
     format(Stream, '  Atom::PredId max_pred() const override { return ~w; }~n', [MaxPred]).
 
 declare_predicate_names(_, [], 1).
@@ -369,30 +390,9 @@ define_predicate_names(Stream, Class, [P|Ps], MaxPred) :-
     define_predicate_names(Stream, Class, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
 
-define_functions(Stream, StdNames, PredNames) :-
-    format(Stream, '  void InitNameToStringMap() override {~n', []),
-    format(Stream, '    std::map<StdName, const char*>& map = name_to_string_;~n', []),
-    maplist(print_serialization(Stream), StdNames),
-    format(Stream, '  }~n', []),
-    format(Stream, '~n', []),
-    format(Stream, '  void InitPredToStringMap() override {~n', []),
-    format(Stream, '    std::map<Atom::PredId, const char*>& map = pred_to_string_;~n', []),
-    maplist(print_serialization(Stream), PredNames),
-    format(Stream, '  }~n', []),
-    format(Stream, '~n', []),
-    format(Stream, '  void InitStringToNameMap() override {~n', []),
-    format(Stream, '    std::map<std::string, StdName>& map = string_to_name_;~n', []),
-    maplist(print_deserialization(Stream), StdNames),
-    format(Stream, '  }~n', []),
-    format(Stream, '~n', []),
-    format(Stream, '  void InitStringToPredMap() override {~n', []),
-    format(Stream, '    std::map<std::string, Atom::PredId>& map = string_to_pred_;~n', []),
-    maplist(print_deserialization(Stream), PredNames),
-    format(Stream, '  }~n', []).
-
-define_clauses(_, []).
-%define_clauses(Stream, [C]) :- !, format(Stream, '  ~w;~n', [C]).
-define_clauses(Stream, [C|Cs]) :- format(Stream, '  ~w;~n', [C]), define_clauses(Stream, Cs).
+init_clauses(_, []).
+%init_clauses(Stream, [C]) :- !, format(Stream, '  ~w;~n', [C]).
+init_clauses(Stream, [C|Cs]) :- format(Stream, '  ~w;~n', [C]), init_clauses(Stream, Cs).
 
 print_serialization(Stream, Val) :-
     format(Stream, '    map[~w] = "~w";~n', [Val, Val]).
@@ -429,53 +429,68 @@ compile_all(Class, Input, Header, Body) :-
     sort(PredNames2, PredNames),
     findall(SortName, sort_name(SortName, _), SortNames1),
     sort(SortNames1, SortNames),
-    % header
-    format(HeaderStream, '#ifndef BATS_~w_H_~n', [Class]),
-    format(HeaderStream, '~n', []),
-    format(HeaderStream, '#include "bat.h"~n', []),
-    format(HeaderStream, '~n', []),
-    format(HeaderStream, 'namespace bats {~n', []),
-    format(HeaderStream, '~n', []),
-    format(HeaderStream, 'class ~w : public BAT {~n', [Class]),
-    format(HeaderStream, ' public:~n', []),
-    declare_predicate_names(HeaderStream, PredNames, MaxPred),
-    format(HeaderStream, '~n', []),
-    declare_sorts(HeaderStream, SortNames),
-    format(HeaderStream, '~n', []),
-    format(HeaderStream, '  ~w()~n', [Class]),
-    format(HeaderStream, '  : BAT()~n', []),
-    init_standard_names(HeaderStream, StdNames, MaxStdName),
-    format(HeaderStream, '  {}~n', []),
-    format(HeaderStream, '~n', []),
-    declare_standard_names(HeaderStream, StdNames),
-    format(HeaderStream, '~n', []),
-    declare_and_define_max_stdname(HeaderStream, MaxStdName),
-    declare_and_define_max_pred(HeaderStream, MaxPred),
-    format(HeaderStream, '~n', []),
-    format(HeaderStream, '  void InitSetup() override;~n', []),
-    format(HeaderStream, '~n', []),
-    format(HeaderStream, ' protected:~n', []),
-    define_functions(HeaderStream, StdNames, PredNames),
-    format(HeaderStream, '};~n', []),
-    format(HeaderStream, '~n', []),
-    format(HeaderStream, '}  // namespace bats~n', []),
-    format(HeaderStream, '~n', []),
-    format(HeaderStream, '#endif  // BATS_~w_H_~n', [Class]),
     % body
     format(BodyStream, '#include "~w"~n', [Header]),
     format(BodyStream, '~n', []),
     format(BodyStream, 'namespace bats {~n', []),
     format(BodyStream, '~n', []),
+    format(BodyStream, '~w::~w()~n', [Class,Class]),
+    format(BodyStream, '    : tf_()~n', []),
+    format(BodyStream, '    , s_()~n', []),
+    init_standard_names(BodyStream, StdNames, MaxStdName),
+    format(BodyStream, '{~n', []),
+    init_clauses(BodyStream, Code),
+    init_maps(BodyStream, StdNames, PredNames),
+    format(BodyStream, '}~n', []),
+    format(BodyStream, '~n', []),
     define_sorts(BodyStream, Class, SortNames),
     format(BodyStream, '~n', []),
     define_predicate_names(BodyStream, Class, PredNames, MaxPred),
     format(BodyStream, '~n', []),
-    format(BodyStream, 'void ~w::InitSetup() {~n', [Class]),
-    define_clauses(BodyStream, Code),
-    format(BodyStream, '}~n', []),
-    format(BodyStream, '~n', []),
     format(BodyStream, '}  // namespace bats~n', []),
+    format(BodyStream, '~n', []),
+    % header
+    format(HeaderStream, '#ifndef BATS_~w_H_~n', [Class]),
     format(HeaderStream, '~n', []),
+    format(HeaderStream, '#include <setup.h>~n', []),
+    format(HeaderStream, '#include <term.h>~n', []),
+    format(HeaderStream, '#include "bat.h"~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, 'namespace bats {~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, 'using namespace esbl;~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, 'class ~w : public Bat {~n', [Class]),
+    format(HeaderStream, ' private:~n', []),
+    format(HeaderStream, '  Term::Factory tf_;~n', []),
+    format(HeaderStream, '  Setup s_;~n', []),
+    format(HeaderStream, '  std::map<StdName, const char*> name_to_string_;~n', []),
+    format(HeaderStream, '  std::map<Atom::PredId, const char*> pred_to_string_;~n', []),
+    format(HeaderStream, '  std::map<std::string, StdName> string_to_name_;~n', []),
+    format(HeaderStream, '  std::map<std::string, Atom::PredId> string_to_pred_;~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, ' public:~n', []),
+    declare_predicate_names(HeaderStream, PredNames, MaxPred),
+    format(HeaderStream, '~n', []),
+    declare_sorts(HeaderStream, SortNames),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, '  ~w();~n', [Class]),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, '  Setup& setup() override { return s_; }~n', []),
+    format(HeaderStream, '  const Setup& setup() const override { return s_; }~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, '  Term::Factory& tf() override { return tf_; }~n', []),
+    format(HeaderStream, '  const Term::Factory& tf() const override { return tf_; }~n', []),
+    format(HeaderStream, '~n', []),
+    declare_standard_names(HeaderStream, StdNames),
+    format(HeaderStream, '~n', []),
+    declare_and_define_max_stdname_function(HeaderStream, MaxStdName),
+    declare_and_define_max_pred_function(HeaderStream, MaxPred),
+    format(HeaderStream, '};~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, '}  // namespace bats~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, '#endif  // BATS_~w_H_~n', [Class]),
     ( Header = stdout ->
         true
     ;
