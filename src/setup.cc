@@ -45,13 +45,6 @@ void Setup::UpdateHPlusFor(const Clause& c) {
   UpdateHPlusFor(vs);
 }
 
-void Setup::UpdateHPlus(const Term::Factory& tf) {
-  hplus_ = tf.sorted_names();
-  for (const Clause& c : cs_) {
-    UpdateHPlusFor(c);
-  }
-}
-
 void Setup::GuaranteeConsistency(int k) {
   if (k >= static_cast<int>(incons_.size())) {
     incons_.resize(k+1);
@@ -134,7 +127,10 @@ std::set<Atom> Setup::Pel(const SimpleClause& c) const {
   std::set<Atom> pel;
   for (auto it = rel.begin(); it != rel.end(); ++it) {
     const Literal& l = *it;
-    if (!l.sign() || !l.z().empty()) {
+    if (!l.sign()) {
+      continue;
+    }
+    if (!l.z().empty()) {
       continue;
     }
     const auto first = rel.lower_bound(l.LowerBound());

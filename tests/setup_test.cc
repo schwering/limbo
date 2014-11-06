@@ -53,10 +53,36 @@ TEST(setup, entailment_dynamic) {
   EXPECT_TRUE(s.Entails({Literal(z, true, bat.d1, {})}, 1));
 }
 
-TEST(setup, eventual_completeness) {
-  KR2014 bat;
-  bat.InitSetup();
+TEST(setup, eventual_completeness_static) {
+  esbl::Setup s;
+  const Literal p({}, true, 1, {});
+  const Literal q({}, true, 2, {});
+  EXPECT_FALSE(s.Entails({p, p.Flip()}, 0));
+  EXPECT_TRUE(s.Entails({p, p.Flip()}, 1));
+  EXPECT_TRUE(s.Entails({p, p.Flip()}, 2));
+  EXPECT_FALSE(s.Entails({p, q}, 0));
+  EXPECT_FALSE(s.Entails({p, q}, 1));
+  EXPECT_FALSE(s.Entails({p, q}, 2));
 }
+
+#if 0
+// This test not hold because PEL only considers static literals.
+// Whether this limitation is actually feasible needs to be investigated.
+TEST(setup, eventual_completeness_dynamic) {
+  Term::Factory tf;
+  const StdName a = tf.CreateStdName(1, 1);
+  const StdName b = tf.CreateStdName(2, 2);
+  esbl::Setup s;
+  const Literal p({a}, true, 1, {b});
+  const Literal q({b}, true, 2, {a});
+  EXPECT_FALSE(s.Entails({p, p.Flip()}, 0));
+  EXPECT_TRUE(s.Entails({p, p.Flip()}, 1));
+  EXPECT_TRUE(s.Entails({p, p.Flip()}, 2));
+  EXPECT_FALSE(s.Entails({p, q}, 0));
+  EXPECT_FALSE(s.Entails({p, q}, 1));
+  EXPECT_FALSE(s.Entails({p, q}, 2));
+}
+#endif
 
 #if 0
 START_TEST(test_entailment)

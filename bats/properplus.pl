@@ -472,7 +472,6 @@ compile_all(Class, Input, Header, Body) :-
     format(BodyStream, '~n', []),
     format(BodyStream, 'void ~w::InitSetup() {~n', [Class]),
     define_clauses(BodyStream, Code),
-    format(BodyStream, '  setup().UpdateHPlus(tf());~n', []),
     format(BodyStream, '}~n', []),
     format(BodyStream, '~n', []),
     format(BodyStream, '}  // namespace bats~n', []),

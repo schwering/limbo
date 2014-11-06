@@ -23,7 +23,6 @@ class BAT {
     InitStringToNameMap();
     InitStringToPredMap();
     InitSetup();
-    //setup_.UpdateHPlus(tf_);
   }
 
   virtual Term::Id max_std_name() const = 0;

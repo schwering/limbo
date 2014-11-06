@@ -1,8 +1,6 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 //
-// Notice that HPlus must be initialized and kept up to date using
-// UpdateHPlus().
 // FullStaticPel(), Rel(), Pel(), ... depend on HPlus.
 //
 // Assuming we have rather few different action sequences, we instantiate boxes
@@ -28,7 +26,6 @@ class Setup {
   Setup(std::initializer_list<Clause> cs) : cs_(cs) {}
 
   void AddClause(const Clause& c);
-  void UpdateHPlus(const Term::Factory& tf);
   void GuaranteeConsistency(int k);
   void AddSensingResult(const TermSeq& z, const StdName& a, bool r);
 
