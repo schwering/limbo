@@ -214,24 +214,28 @@ void Setup::PropagateUnits() {
       }
     }
   } while (n > 0);
-#else
-  size_t n;
-  do {
-    n = 0;
+#endif
+  size_t n_units = 0;
+  for (;;) {
     const auto first = cs_.lower_bound(Clause::MIN_UNIT);
     const auto last = cs_.upper_bound(Clause::MAX_UNIT);
+    const size_t d = std::distance(first, last);
+    if (d <= n_units) {
+      break;
+    }
+    n_units = d;
+    size_t n_new_clauses = 0;
     for (const Clause& c : cs_) {
       for (auto it = first; it != last; ++it) {
         const Clause& unit = *it;
         assert(unit.is_unit());
-        n += c.ResolveWithUnit(unit, &cs_);
+        n_new_clauses += c.ResolveWithUnit(unit, &cs_);
       }
     }
-    if (n > 0) {
+    if (n_new_clauses > 0) {
       Minimize();
     }
-  } while (n > 0);
-#endif
+  }
 }
 
 bool Setup::Subsumes(const Clause& c) {
@@ -283,8 +287,8 @@ bool Setup::SubsumesWithSplits(std::set<Atom> pel,
     const Clause c2(Ewff::TRUE, {Literal(false, a)});
     Setup s1 = *this;
     Setup s2 = *this;
-    s1.cs_.insert(c1);
-    s2.cs_.insert(c1);
+    s1.AddClause(c1);
+    s2.AddClause(c2);
     if (s1.SubsumesWithSplits(pel, c, k-1) &&
         s2.SubsumesWithSplits(pel, c, k-1)) {
       return true;

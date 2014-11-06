@@ -344,7 +344,7 @@ size_t Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
   const Literal& unit_l = *unit.literals().begin();
   const auto first = ls_.lower_bound(unit_l.LowerBound());
   const auto last = ls_.lower_bound(unit_l.UpperBound());
-  size_t new_clauses = 0;
+  size_t n_new_clauses = 0;
   for (auto it = first; it != last; ++it) {
     const Literal& l = *it;
     assert(unit_l.pred() == l.pred());
@@ -369,10 +369,10 @@ size_t Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
     d.e_.RestrictVariable(d.ls_.Variables());
     const auto p = rs->insert(d);
     if (p.second) {
-      ++new_clauses;
+      ++n_new_clauses;
     }
   }
-  return new_clauses;
+  return n_new_clauses;
 }
 
 std::set<Atom::PredId> Clause::positive_preds() const {
