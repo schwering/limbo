@@ -23,7 +23,7 @@ class BAT {
     InitStringToNameMap();
     InitStringToPredMap();
     InitSetup();
-    setup_.UpdateHPlus(tf_);
+    //setup_.UpdateHPlus(tf_);
   }
 
   virtual Term::Id max_std_name() const = 0;
@@ -43,11 +43,13 @@ class BAT {
   virtual void InitStringToNameMap() = 0;
   virtual void InitStringToPredMap() = 0;
 
-  Term::Factory tf_;
   std::map<StdName, const char*> name_to_string_;
   std::map<Atom::PredId, const char*> pred_to_string_;
   std::map<std::string, StdName> string_to_name_;
   std::map<std::string, Atom::PredId> string_to_pred_;
+
+ private:
+  Term::Factory tf_;
   Setup setup_;
 };
 

@@ -13,7 +13,8 @@ TEST(setup, entailment_static) {
   KR2014 bat;
   bat.InitSetup();
   bat.setup().GuaranteeConsistency(3);
-  esbl::Setup s = bat.setup().GroundBoxes({{bat.forward, bat.sonar}});
+  //esbl::Setup s = bat.setup().GroundBoxes({{bat.forward, bat.sonar}});
+  esbl::Setup& s = bat.setup();
   EXPECT_TRUE(s.Entails({Literal({}, false, bat.d0, {})}, 0));
   EXPECT_TRUE(s.Entails({Literal({}, false, bat.d1, {})}, 0));
   EXPECT_FALSE(s.Entails({Literal({}, true, bat.d0, {})}, 0));
@@ -35,7 +36,8 @@ TEST(setup, entailment_dynamic) {
   KR2014 bat;
   bat.InitSetup();
   bat.setup().GuaranteeConsistency(3);
-  esbl::Setup s = bat.setup().GroundBoxes({{bat.forward, bat.sonar}});
+  //esbl::Setup s = bat.setup().GroundBoxes({{bat.forward, bat.sonar}});
+  esbl::Setup& s = bat.setup();
   EXPECT_TRUE(s.Entails({Literal({bat.forward}, false, bat.d0, {})}, 0));
   EXPECT_FALSE(s.Entails({Literal({bat.forward}, true, bat.d0, {})}, 0));
   s.AddSensingResult({}, bat.forward, true);

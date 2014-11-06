@@ -8,7 +8,12 @@
 namespace esbl {
 
 void Setup::AddClause(const Clause& c) {
-  cs_.insert(c);
+  if (c.box()) {
+    boxes_.insert(c);
+  } else {
+    cs_.insert(c);
+    UpdateHPlusFor(c);
+  }
 }
 
 void Setup::UpdateHPlusFor(const Variable::SortedSet& vs) {
@@ -70,6 +75,18 @@ void Setup::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
   }
 }
 
+void Setup::GroundBoxes(const TermSeq& z) {
+  for (auto it = z.begin(); it != z.end(); ++it) {
+    const TermSeq zz(z.begin(), it);
+    const auto p = grounded_.insert(zz);
+    if (p.second) {
+      for (const Clause& c : boxes_) {
+        AddClause(c.InstantiateBox(zz));
+      }
+    }
+  }
+}
+
 std::set<Atom> Setup::FullStaticPel() const {
   std::set<Atom> pel;
   for (const Clause& c : cs_) {
@@ -85,25 +102,6 @@ std::set<Atom> Setup::FullStaticPel() const {
     }
   }
   return pel;
-}
-
-Setup Setup::GroundBoxes(const std::set<TermSeq>& zs) const {
-  Setup s;
-  for (const Clause& c : cs_) {
-    if (!c.box()) {
-      s.AddClause(c);
-    } else {
-      for (const TermSeq& z : zs) {
-        for (auto it = z.begin(); it != z.end(); ++it) {
-          const TermSeq zz(z.begin(), it);
-          s.AddClause(c.InstantiateBox(zz));
-        }
-      }
-    }
-  }
-  s.incons_ = incons_;
-  s.hplus_ = hplus_;
-  return s;
 }
 
 std::set<Literal> Setup::Rel(const SimpleClause& c) const {
@@ -334,6 +332,9 @@ bool Setup::Entails(const SimpleClause& c, int k) {
   assert(k >= 0);
   if (Inconsistent(k)) {
     return true;
+  }
+  for (const Literal& l : c) {
+    GroundBoxes(l.z());
   }
   UpdateHPlusFor(c);
   const std::set<Atom> pel = k <= 0 ? std::set<Atom>() : Pel(c);

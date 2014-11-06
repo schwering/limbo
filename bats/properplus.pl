@@ -196,7 +196,7 @@ compile_vars(Names, [V|Vs], T) :-
     with_output_to(atom(VV), write_term(V, [variable_names(Names)])),
     compile_vars(Names, Vs, Ts),
     is_sort(V, Sort),
-    with_output_to(atom(T), format('const Variable ~w = tf_.CreateVariable(~w); ~w', [VV,Sort,Ts])).
+    with_output_to(atom(T), format('const Variable ~w = tf().CreateVariable(~w); ~w', [VV,Sort,Ts])).
 
 
 brace_list_h(_, [], '').
@@ -269,7 +269,7 @@ compile_box(E, Alpha, Code) :-
     compile_ewff(Names, E, E_C),
     compile_clause(Names, Alpha, Alpha_C),
     with_output_to(atom(Alpha_C1), write_term(Alpha_C, [variable_names(Names)])),
-    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; setup_.AddClause(Clause(true,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
+    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; setup().AddClause(Clause(true,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
 
 compile_static(E, Alpha, Code) :-
     term_variables((E, Alpha), Vars),
@@ -278,7 +278,7 @@ compile_static(E, Alpha, Code) :-
     compile_ewff(Names, E, E_C),
     compile_clause(Names, Alpha, Alpha_C),
     with_output_to(atom(Alpha_C1), write_term(Alpha_C, [variable_names(Names)])),
-    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; setup_.AddClause(Clause(false,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
+    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause c = ~w; setup().AddClause(Clause(false,p.second,c)); }', [Vars_C, E_C, Alpha_C1])).
 
 compile_belief(E, NegPhi, Psi, Code) :-
     term_variables((E, NegPhi, Psi), Vars),
@@ -334,13 +334,18 @@ define_sorts(Stream, Class, [N|Ns]) :-
     format(Stream, 'constexpr Term::Sort ~w::~w;~n', [Class, N]),
     define_sorts(Stream, Class, Ns).
 
-declare_standard_names(_, [], 0).
-declare_standard_names(Stream, [N|Ns], MaxStdName) :-
+declare_standard_names(_, []).
+declare_standard_names(Stream, [N|Ns]) :-
+    format(Stream, '  const StdName ~w;~n', [N]),
+    declare_standard_names(Stream, Ns).
+
+init_standard_names(_, [], 0).
+init_standard_names(Stream, [N|Ns], MaxStdName) :-
     length(Ns, I),
     I1 is I + 1,
     sort_name(Sort, N),
-    format(Stream, '  const StdName ~w = tf_.CreateStdName(~w, ~w);~n', [N, I1, Sort]),
-    declare_standard_names(Stream, Ns, MaxStdName1),
+    format(Stream, '  , ~w(tf().CreateStdName(~w, ~w))~n', [N, I1, Sort]),
+    init_standard_names(Stream, Ns, MaxStdName1),
     MaxStdName is max(I1, MaxStdName1).
 
 declare_and_define_max_stdname(Stream, MaxStdName) :-
@@ -349,27 +354,20 @@ declare_and_define_max_stdname(Stream, MaxStdName) :-
 declare_and_define_max_pred(Stream, MaxPred) :-
     format(Stream, '  Atom::PredId max_pred() const override { return ~w; }~n', [MaxPred]).
 
-declare_predicate_name_declarations(_, [], 1).
-declare_predicate_name_declarations(Stream, [P|Ps], MaxPred) :-
+declare_predicate_names(_, [], 1).
+declare_predicate_names(Stream, [P|Ps], MaxPred) :-
     length(Ps, I),
     ( P = 'SF' -> I1 = 'Atom::SF' ; I1 = I ),
     format(Stream, '  static constexpr Atom::PredId ~w = ~w;~n', [P, I1]),
-    declare_predicate_name_declarations(Stream, Ps, MaxPred1),
+    declare_predicate_names(Stream, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
 
-define_predicate_name_declarations(_, _, [], 1).
-define_predicate_name_declarations(Stream, Class, [P|Ps], MaxPred) :-
+define_predicate_names(_, _, [], 1).
+define_predicate_names(Stream, Class, [P|Ps], MaxPred) :-
     length(Ps, I),
-    format(Stream, '  constexpr Atom::PredId ~w::~w;~n', [Class, P]),
-    define_predicate_name_declarations(Stream, Class, Ps, MaxPred1),
+    format(Stream, 'constexpr Atom::PredId ~w::~w;~n', [Class, P]),
+    define_predicate_names(Stream, Class, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
-
-declare_variable_name_declarations(_, []).
-declare_variable_name_declarations(Stream, [V|Vs]) :-
-    length(Vs, I),
-    I1 is -1 * (I + 1),
-    format(Stream, 'static const var_t ~w = ~w;~n', [V, I1]),
-    declare_variable_name_declarations(Stream, Vs).
 
 define_functions(Stream, StdNames, PredNames) :-
     format(Stream, '  void InitNameToStringMap() override {~n', []),
@@ -440,11 +438,16 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '~n', []),
     format(HeaderStream, 'class ~w : public BAT {~n', [Class]),
     format(HeaderStream, ' public:~n', []),
+    declare_predicate_names(HeaderStream, PredNames, MaxPred),
+    format(HeaderStream, '~n', []),
     declare_sorts(HeaderStream, SortNames),
     format(HeaderStream, '~n', []),
-    declare_standard_names(HeaderStream, StdNames, MaxStdName),
+    format(HeaderStream, '  ~w()~n', [Class]),
+    format(HeaderStream, '  : BAT()~n', []),
+    init_standard_names(HeaderStream, StdNames, MaxStdName),
+    format(HeaderStream, '  {}~n', []),
     format(HeaderStream, '~n', []),
-    declare_predicate_name_declarations(HeaderStream, PredNames, MaxPred),
+    declare_standard_names(HeaderStream, StdNames),
     format(HeaderStream, '~n', []),
     declare_and_define_max_stdname(HeaderStream, MaxStdName),
     declare_and_define_max_pred(HeaderStream, MaxPred),
@@ -465,11 +468,11 @@ compile_all(Class, Input, Header, Body) :-
     format(BodyStream, '~n', []),
     define_sorts(BodyStream, Class, SortNames),
     format(BodyStream, '~n', []),
-    define_predicate_name_declarations(BodyStream, Class, PredNames, MaxPred),
+    define_predicate_names(BodyStream, Class, PredNames, MaxPred),
     format(BodyStream, '~n', []),
     format(BodyStream, 'void ~w::InitSetup() {~n', [Class]),
     define_clauses(BodyStream, Code),
-    format(BodyStream, '  setup_.UpdateHPlus(tf_);~n', []),
+    format(BodyStream, '  setup().UpdateHPlus(tf());~n', []),
     format(BodyStream, '}~n', []),
     format(BodyStream, '~n', []),
     format(BodyStream, '}  // namespace bats~n', []),

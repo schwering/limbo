@@ -15,6 +15,7 @@ StdName Term::Factory::CreateStdName(Term::Id id, Term::Sort sort) {
   assert(id >= 0);
   const StdName n(Term(Term::NAME, id, sort));
   names_[n.sort()].insert(n);
+  assert(n.is_name());
   return n;
 }
 

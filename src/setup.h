@@ -5,6 +5,10 @@
 // UpdateHPlus().
 // FullStaticPel(), Rel(), Pel(), ... depend on HPlus.
 //
+// Assuming we have rather few different action sequences, we instantiate boxes
+// by grounding them already instead of instantiating them with sequences of
+// action variables.
+//
 // Is a setup for a minimal HPlus inconsistent iff it is inconsistent for any
 // HPlus?
 
@@ -22,15 +26,11 @@ class Setup {
  public:
   Setup() = default;
   Setup(std::initializer_list<Clause> cs) : cs_(cs) {}
-  Setup(const Setup&) = default;
-  Setup& operator=(const Setup&) = default;
 
   void AddClause(const Clause& c);
   void UpdateHPlus(const Term::Factory& tf);
   void GuaranteeConsistency(int k);
   void AddSensingResult(const TermSeq& z, const StdName& a, bool r);
-
-  Setup GroundBoxes(const std::set<TermSeq>& zs) const;
 
   std::set<Literal> Rel(const SimpleClause& c) const;
   std::set<Atom> Pel(const SimpleClause& c) const;
@@ -43,10 +43,14 @@ class Setup {
   StdName::SortedSet names() const;
 
  private:
+  Setup(const Setup&) = default;
+  Setup& operator=(const Setup&) = default;
+
   void UpdateHPlusFor(const StdName::SortedSet& ns);
   void UpdateHPlusFor(const Variable::SortedSet& vs);
   void UpdateHPlusFor(const SimpleClause& c);
   void UpdateHPlusFor(const Clause& c);
+  void GroundBoxes(const TermSeq& z);
   std::set<Atom> FullStaticPel() const;
   bool ContainsEmptyClause() const;
   size_t MinimizeWrt(std::set<Clause>::iterator c);
@@ -57,6 +61,8 @@ class Setup {
   bool SplitRelevant(const Atom& a, const Clause& c, int k);
 
   std::set<Clause> cs_;
+  std::set<Clause> boxes_;
+  std::set<TermSeq> grounded_;
   std::vector<bool> incons_;
   StdName::SortedSet hplus_;
 };
