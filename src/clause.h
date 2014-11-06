@@ -35,6 +35,8 @@ class SimpleClause : public std::set<Literal> {
 
   std::list<SimpleClause> Instances(const StdName::SortedSet& hplus) const;
 
+  std::set<Atom> Sensings() const;
+
   std::set<Variable> Variables() const;
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;

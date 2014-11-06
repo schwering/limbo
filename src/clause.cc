@@ -142,6 +142,19 @@ std::list<SimpleClause> SimpleClause::Instances(
   return instances;
 }
 
+std::set<Atom> SimpleClause::Sensings() const {
+  std::set<Atom> sfs;
+  for (const Literal& l : *this) {
+    const TermSeq& z = l.z();
+    for (auto it = z.begin(); it != z.end(); ++it) {
+      const TermSeq zz(z.begin(), it);
+      const Term& t = *it;
+      sfs.insert(Atom(zz, Atom::SF, {t}));
+    }
+  }
+  return sfs;
+}
+
 std::set<Variable> SimpleClause::Variables() const {
   std::set<Variable> vs;
   for (const Literal& l : *this) {

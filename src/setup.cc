@@ -46,9 +46,6 @@ void Setup::UpdateHPlusFor(const Clause& c) {
 }
 
 void Setup::GuaranteeConsistency(int k) {
-  if (k >= static_cast<int>(incons_.size())) {
-    incons_.resize(k+1);
-  }
   for (int l = 0; l <= k; ++l) {
     incons_[l] = false;
   }
@@ -69,8 +66,8 @@ void Setup::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
 }
 
 void Setup::GroundBoxes(const TermSeq& z) {
-  for (auto it = z.begin(); it != z.end(); ++it) {
-    const TermSeq zz(z.begin(), it);
+  for (size_t n = 0; n < z.size(); ++n) {
+    const TermSeq zz(z.begin(), z.begin() + n);
     const auto p = grounded_.insert(zz);
     if (p.second) {
       for (const Clause& c : boxes_) {
@@ -275,7 +272,7 @@ bool Setup::SubsumesWithSplits(std::set<Atom> pel,
     return true;
   }
   if (k == 0) {
-    // generate SF literals from the actions in c
+    pel = c.Sensings();
   }
   for (auto it = pel.begin(); it != pel.end(); ) {
     const Atom a = *it;
@@ -312,9 +309,6 @@ bool Setup::Inconsistent(int k) {
     }
   }
   const std::set<Atom> pel = k <= 0 ? std::set<Atom>() : FullStaticPel();
-  if (k >= l) {
-    incons_.resize(k+1);
-  }
   for (; l <= k; ++l) {
     const bool r = SubsumesWithSplits(pel, SimpleClause::EMPTY, l);
     incons_[l] = r;

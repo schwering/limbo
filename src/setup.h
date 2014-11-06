@@ -40,6 +40,22 @@ class Setup {
   StdName::SortedSet names() const;
 
  private:
+  class BitMap : public std::vector<bool> {
+   public:
+    using std::vector<bool>::vector;
+
+    reference operator[](size_type pos) {
+      if (pos >= size()) {
+        resize(pos+1, false);
+      }
+      return std::vector<bool>::operator[](pos);
+    }
+
+    const_reference operator[](size_type pos) const {
+      return pos < size() ? std::vector<bool>::operator[](pos) : false;
+    }
+  };
+
   Setup(const Setup&) = default;
   Setup& operator=(const Setup&) = default;
 
@@ -60,7 +76,7 @@ class Setup {
   std::set<Clause> cs_;
   std::set<Clause> boxes_;
   std::set<TermSeq> grounded_;
-  std::vector<bool> incons_;
+  BitMap incons_;
   StdName::SortedSet hplus_;
 };
 

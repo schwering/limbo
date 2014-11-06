@@ -158,6 +158,58 @@ TEST(term_test, sequence) {
   { Unifier t; EXPECT_FALSE(TermSeq::Unify(z2, z5, &t)); }
   { Unifier t; EXPECT_FALSE(TermSeq::Unify(z2, z6, &t)); }
 
+  {
+    Unifier theta;
+    EXPECT_FALSE(z1 == z3);
+    EXPECT_TRUE(z1.Matches(z3, &theta));
+    TermSeq zz3 = z3;
+    for (Term& t : zz3) {
+      t = t.Substitute(theta);
+    }
+    EXPECT_FALSE(z1 == zz3);
+  }
+
+  {
+    Unifier theta;
+    EXPECT_FALSE(z1 == z3);
+    EXPECT_TRUE(z3.Matches(z1, &theta));
+    TermSeq zz1 = z1;
+    for (Term& t : zz1) {
+      t = t.Substitute(theta);
+    }
+    EXPECT_TRUE(zz1 == z3);
+  }
+
+  {
+    Unifier theta;
+    EXPECT_FALSE(z1 == z3);
+    EXPECT_TRUE(TermSeq::Unify(z1, z3, &theta));
+    TermSeq zz1 = z1;
+    for (Term& t : zz1) {
+      t = t.Substitute(theta);
+    }
+    TermSeq zz3 = z3;
+    for (Term& t : zz3) {
+      t = t.Substitute(theta);
+    }
+    EXPECT_TRUE(zz1 == zz3);
+  }
+
+  {
+    Unifier theta;
+    EXPECT_FALSE(z1 == z3);
+    EXPECT_TRUE(TermSeq::Unify(z3, z1, &theta));
+    TermSeq zz1 = z1;
+    for (Term& t : zz1) {
+      t = t.Substitute(theta);
+    }
+    TermSeq zz3 = z3;
+    for (Term& t : zz3) {
+      t = t.Substitute(theta);
+    }
+    EXPECT_TRUE(zz1 == zz3);
+  }
+
   for (const auto& z : {z1,z2,z3,z4,z5,z6}) {
     for (const auto& zz : {z1,z2,z3,z4,z5,z6}) {
       Unifier t;
