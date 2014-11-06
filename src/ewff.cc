@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
-#include <iostream>
 
 namespace esbl {
 

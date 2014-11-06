@@ -4,6 +4,7 @@
 #ifndef SRC_LITERAL_H_
 #define SRC_LITERAL_H_
 
+#include <set>
 #include <vector>
 #include "./atom.h"
 

@@ -5,7 +5,6 @@
 #include <cassert>
 #include <limits>
 #include "./atom.h"
-#include <iostream>
 
 namespace esbl {
 

@@ -3,7 +3,6 @@
 
 #include "./setup.h"
 #include <cassert>
-#include <iostream>
 
 namespace esbl {
 
