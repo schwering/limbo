@@ -17,16 +17,38 @@ using namespace esbl;
 
 class Bat {
  public:
-  Bat() = default;
+  Bat() : tf_() {}
 
   virtual Term::Id max_std_name() const = 0;
   virtual Atom::PredId max_pred() const = 0;
 
-  virtual Setup& setup() = 0;
-  virtual const Setup& setup() const = 0;
+  Term::Factory& tf() { return tf_; }
+  const Term::Factory& tf() const { return tf_; }
 
-  virtual Term::Factory& tf() = 0;
-  virtual const Term::Factory& tf() const = 0;
+ protected:
+  Term::Factory tf_;
+};
+
+class KBat : public Bat {
+ public:
+  KBat() : s_() {}
+
+  Setup& setup() { return s_; }
+  const Setup& setup() const { return s_; }
+
+ protected:
+  Setup s_;
+};
+
+class BBat : public Bat {
+ public:
+  BBat() : s_() {}
+
+  virtual Setups& setups() { return s_; }
+  virtual const Setups& setups() const { return s_; }
+
+ protected:
+  Setups s_;
 };
 
 }

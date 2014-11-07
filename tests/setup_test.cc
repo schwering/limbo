@@ -11,9 +11,8 @@ using namespace bats;
 
 TEST(setup, entailment_static) {
   KR2014 bat;
-  bat.setup().GuaranteeConsistency(3);
-  //esbl::Setup s = bat.setup().GroundBoxes({{bat.forward, bat.sonar}});
-  esbl::Setup& s = bat.setup();
+  auto& s = bat.setup();
+  s.GuaranteeConsistency(3);
   EXPECT_TRUE(s.Entails({Literal({}, false, bat.d0, {})}, 0));
   EXPECT_TRUE(s.Entails({Literal({}, false, bat.d1, {})}, 0));
   EXPECT_FALSE(s.Entails({Literal({}, true, bat.d0, {})}, 0));
@@ -33,9 +32,9 @@ TEST(setup, entailment_static) {
 
 TEST(setup, entailment_dynamic) {
   KR2014 bat;
-  bat.setup().GuaranteeConsistency(3);
+  s.GuaranteeConsistency(3);
+  auto& s = bat.setup();
   //esbl::Setup s = bat.setup().GroundBoxes({{bat.forward, bat.sonar}});
-  esbl::Setup& s = bat.setup();
   EXPECT_TRUE(s.Entails({Literal({bat.forward}, false, bat.d0, {})}, 0));
   EXPECT_FALSE(s.Entails({Literal({bat.forward}, true, bat.d0, {})}, 0));
   s.AddSensingResult({}, bat.forward, true);
