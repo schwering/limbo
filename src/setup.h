@@ -14,6 +14,7 @@
 #define SRC_SETUP_H_
 
 #include <deque>
+#include <list>
 #include <set>
 #include <vector>
 #include "./clause.h"
@@ -22,22 +23,20 @@ namespace esbl {
 
 class Setup {
  public:
+  typedef int split_level;
+
   Setup() = default;
-  Setup(std::initializer_list<Clause> cs) : cs_(cs) {}
+  Setup(const Setup&) = default;
+  Setup& operator=(const Setup&) = default;
 
   void AddClause(const Clause& c);
-  void GuaranteeConsistency(int k);
+  void GuaranteeConsistency(split_level k);
   void AddSensingResult(const TermSeq& z, const StdName& a, bool r);
 
-  std::set<Literal> Rel(const SimpleClause& c) const;
-  std::set<Atom> Pel(const SimpleClause& c) const;
+  bool Inconsistent(split_level k);
+  bool Entails(const SimpleClause& c, split_level k);
 
-  bool Inconsistent(int k);
-  bool Entails(const SimpleClause& c, int k);
-
-  const std::set<Clause> clauses() const { return cs_; }
-  Variable::SortedSet variables() const;
-  StdName::SortedSet names() const;
+  const std::set<Clause>& clauses() const { return cs_; }
 
  private:
   class BitMap : public std::vector<bool> {
@@ -56,22 +55,22 @@ class Setup {
     }
   };
 
-  Setup(const Setup&) = default;
-  Setup& operator=(const Setup&) = default;
-
   void UpdateHPlusFor(const StdName::SortedSet& ns);
   void UpdateHPlusFor(const Variable::SortedSet& vs);
   void UpdateHPlusFor(const SimpleClause& c);
   void UpdateHPlusFor(const Clause& c);
   void GroundBoxes(const TermSeq& z);
   std::set<Atom> FullStaticPel() const;
+  std::set<Literal> Rel(const SimpleClause& c) const;
+  std::set<Atom> Pel(const SimpleClause& c) const;
   bool ContainsEmptyClause() const;
   size_t MinimizeWrt(std::set<Clause>::iterator c);
   void Minimize();
   void PropagateUnits();
   bool Subsumes(const Clause& c);
-  bool SubsumesWithSplits(std::set<Atom> pel, const SimpleClause& c, int k);
-  bool SplitRelevant(const Atom& a, const Clause& c, int k);
+  bool SubsumesWithSplits(std::set<Atom> pel, const SimpleClause& c,
+                          split_level k);
+  bool SplitRelevant(const Atom& a, const Clause& c, split_level k);
 
   std::set<Clause> cs_;
   std::set<Clause> boxes_;
@@ -80,8 +79,55 @@ class Setup {
   StdName::SortedSet hplus_;
 };
 
+class Setups {
+ public:
+  typedef Setup::split_level split_level;
+  typedef size_t belief_level;
+
+  Setups() = default;
+  Setups(const Setup&) = delete;
+  Setups& operator=(const Setups&) = delete;
+
+  void AddClause(const Clause& c);
+  void AddBeliefConditional(const SimpleClause& neg_phi,
+                            const SimpleClause& psi,
+                            split_level k);
+  void GuaranteeConsistency(split_level k);
+  void AddSensingResult(const TermSeq& z, const StdName& a, bool r);
+
+  bool Inconsistent(split_level k);
+  bool Entails(const SimpleClause& c, split_level k);
+  bool Entails(const SimpleClause& neg_phi, const SimpleClause& psi,
+               split_level k);
+
+  const std::vector<Setup>& setups() const { return ss_; }
+
+ private:
+  struct BeliefConditional {
+    BeliefConditional() = default;
+    BeliefConditional(const SimpleClause& neg_phi,
+                      const SimpleClause& neg_phi_or_psi,
+                      split_level k)
+        : neg_phi(neg_phi), neg_phi_or_psi(neg_phi_or_psi), k(k), p(0) {}
+    BeliefConditional(const BeliefConditional&) = default;
+    BeliefConditional& operator=(const BeliefConditional&);
+
+    const SimpleClause neg_phi;
+    const SimpleClause neg_phi_or_psi;
+    const split_level k;
+    belief_level p;
+  };
+
+  void EnsureNonEmptySetups();
+  void PropagateBeliefs();
+
+  std::vector<Setup> ss_;
+  std::vector<BeliefConditional> bcs_;
+};
+
 std::ostream& operator<<(std::ostream& os, const std::set<Clause>& cs);
 std::ostream& operator<<(std::ostream& os, const Setup& s);
+std::ostream& operator<<(std::ostream& os, const Setups& ss);
 
 }  // namespace esbl
 

@@ -44,8 +44,8 @@ void Setup::UpdateHPlusFor(const Clause& c) {
   UpdateHPlusFor(vs);
 }
 
-void Setup::GuaranteeConsistency(int k) {
-  for (int l = 0; l <= k; ++l) {
+void Setup::GuaranteeConsistency(split_level k) {
+  for (split_level l = 0; l <= k; ++l) {
     incons_[l] = false;
   }
 }
@@ -57,7 +57,7 @@ void Setup::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
   UpdateHPlusFor(c);
 
   const SimpleClause d({l.Flip()});
-  for (int k = 0; k < static_cast<int>(incons_.size()); ++k) {
+  for (split_level k = 0; k < static_cast<split_level>(incons_.size()); ++k) {
     if (!incons_[k] && Entails(d, k)) {
       incons_[k] = true;
     }
@@ -244,7 +244,7 @@ bool Setup::Subsumes(const Clause& c) {
   return false;
 }
 
-bool Setup::SplitRelevant(const Atom& a, const Clause& c, int k) {
+bool Setup::SplitRelevant(const Atom& a, const Clause& c, split_level k) {
   assert(k >= 0);
   const Literal l1(true, a);
   const Literal l2(false, a);
@@ -266,12 +266,16 @@ bool Setup::SplitRelevant(const Atom& a, const Clause& c, int k) {
 
 bool Setup::SubsumesWithSplits(std::set<Atom> pel,
                                const SimpleClause& c,
-                               int k) {
+                               split_level k) {
   if (Subsumes(Clause(Ewff::TRUE, c))) {
     return true;
   }
   if (k == 0) {
+#if 0
     pel = c.Sensings();
+#else
+    return false;
+#endif
   }
   for (auto it = pel.begin(); it != pel.end(); ) {
     const Atom a = *it;
@@ -293,12 +297,12 @@ bool Setup::SubsumesWithSplits(std::set<Atom> pel,
   return false;
 }
 
-bool Setup::Inconsistent(int k) {
+bool Setup::Inconsistent(split_level k) {
   assert(k >= 0);
   if (ContainsEmptyClause()) {
     return true;
   }
-  int l = static_cast<int>(incons_.size());
+  split_level l = static_cast<split_level>(incons_.size());
   if (l > 0) {
     if (k < l) {
       return incons_.at(k);
@@ -317,11 +321,11 @@ bool Setup::Inconsistent(int k) {
       }
     }
   }
-  assert(k < static_cast<int>(incons_.size()));
+  assert(k < static_cast<split_level>(incons_.size()));
   return incons_[k];
 }
 
-bool Setup::Entails(const SimpleClause& c, int k) {
+bool Setup::Entails(const SimpleClause& c, split_level k) {
   assert(k >= 0);
   if (Inconsistent(k)) {
     return true;
@@ -334,20 +338,111 @@ bool Setup::Entails(const SimpleClause& c, int k) {
   return SubsumesWithSplits(pel, c, k);
 }
 
-Variable::SortedSet Setup::variables() const {
-  Variable::SortedSet vs;
-  for (const Clause& c : cs_) {
-    c.CollectVariables(&vs);
+void Setups::EnsureNonEmptySetups() {
+  // Need one setup so that AddClause(), GuaranteeConsistency(), and
+  // AddSensingResult() have something to take effect on. Since
+  // PropagateBeliefs() uses copies of the last setups, these effects remain in
+  // force in all setups newly created through AddBeliefConditional().
+  if (ss_.empty()) {
+    ss_.push_back(Setup());
   }
-  return vs;
 }
 
-StdName::SortedSet Setup::names() const {
-  StdName::SortedSet ns;
-  for (const Clause& c : cs_) {
-    c.CollectNames(&ns);
+void Setups::AddClause(const Clause& c) {
+  EnsureNonEmptySetups();
+  for (Setup& s : ss_) {
+    s.AddClause(c);
   }
-  return ns;
+}
+
+void Setups::AddBeliefConditional(const SimpleClause& neg_phi,
+                                  const SimpleClause& psi,
+                                  split_level k) {
+  assert(neg_phi.is_ground());
+  assert(psi.is_ground());
+  assert(!ss_.empty());
+  SimpleClause neg_phi_or_psi = neg_phi;
+  neg_phi_or_psi.insert(psi.begin(), psi.end());
+  assert(neg_phi_or_psi.is_ground());
+  bcs_.push_back(BeliefConditional(neg_phi, neg_phi_or_psi, k));
+  PropagateBeliefs();
+}
+
+void Setups::PropagateBeliefs() {
+  bool one_belief_cond_active = true;
+  for (auto it = ss_.begin(); one_belief_cond_active; ++it) {
+    if (it == ss_.end()) {
+      if (ss_.empty()) {
+        ss_.push_back(Setup());
+      } else {
+        ss_.push_back(ss_.back());
+      }
+      it = ss_.end() - 1;
+    }
+    Setup& s = *it;
+    const belief_level p = it - ss_.begin();
+    // Add phi => psi to the current setup.
+    for (const BeliefConditional& bc : bcs_) {
+      if (bc.p == p) {
+        s.AddClause(Clause(Ewff::TRUE, bc.neg_phi_or_psi));
+      }
+    }
+    // If ~phi holds, keep phi => psi for the next level.
+    one_belief_cond_active = false;
+    for (BeliefConditional& bc : bcs_) {
+      if (bc.p == p) {
+        if (s.Entails(bc.neg_phi, bc.k)) {
+          ++bc.p;
+        } else {
+          one_belief_cond_active = true;
+        }
+      }
+    }
+  }
+  assert(!one_belief_cond_active);
+  assert(ss_.size() <= bcs_.size() + 1);
+}
+
+void Setups::GuaranteeConsistency(split_level k) {
+  EnsureNonEmptySetups();
+  for (Setup& s : ss_) {
+    s.GuaranteeConsistency(k);
+  }
+}
+
+void Setups::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
+  EnsureNonEmptySetups();
+  for (Setup& s : ss_) {
+    s.AddSensingResult(z, a, r);
+  }
+}
+
+bool Setups::Inconsistent(split_level k) {
+  for (Setup& s : ss_) {
+    if (!s.Inconsistent(k)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Setups::Entails(const SimpleClause& c, split_level k) {
+  for (Setup& s : ss_) {
+    if (!s.Inconsistent(k)) {
+      return s.Entails(c, k);
+    }
+  }
+  return true;
+}
+
+bool Setups::Entails(const SimpleClause& neg_phi, const SimpleClause& psi,
+                     split_level k) {
+  for (Setup& s : ss_) {
+    if (!s.Entails(neg_phi, k)) {
+      return s.Entails(psi, k);
+    }
+  }
+  return true;
 }
 
 std::ostream& operator<<(std::ostream& os, const std::set<Clause>& cs) {
@@ -361,6 +456,16 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
   os << "Setup:" << std::endl;
   for (const Clause& c : s.clauses()) {
     os << "    " << c << std::endl;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Setups& ss) {
+  os << "Belief Setups:" << std::endl;
+  int n = 0;
+  for (const Setup& s : ss.setups()) {
+    os << "Level " << n << ": " << s << std::endl;
+    ++n;
   }
   return os;
 }
