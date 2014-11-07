@@ -84,9 +84,9 @@ class Setups {
   typedef Setup::split_level split_level;
   typedef size_t belief_level;
 
-  Setups() = default;
-  Setups(const Setup&) = delete;
-  Setups& operator=(const Setups&) = delete;
+  Setups();
+  Setups(const Setups&) = default;
+  Setups& operator=(const Setups&) = default;
 
   void AddClause(const Clause& c);
   void AddBeliefConditional(const Clause& neg_phi, const Clause& psi,
@@ -100,8 +100,12 @@ class Setups {
                split_level k);
 
   const std::vector<Setup>& setups() const { return ss_; }
+  const Setup& setup(size_t i) const { return ss_.at(i); }
+  Setup& setup(size_t i) { return ss_.at(i); }
 
  private:
+  friend std::ostream& operator<<(std::ostream& os, const Setups& ss);
+
   struct BeliefConditional {
     BeliefConditional() = default;
     BeliefConditional(const Clause& neg_phi, const Clause& neg_phi_or_psi,
@@ -116,7 +120,6 @@ class Setups {
     belief_level p;
   };
 
-  void EnsureNonEmptySetups();
   void PropagateBeliefs();
 
   std::vector<Setup> ss_;

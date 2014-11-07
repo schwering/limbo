@@ -8,7 +8,7 @@
 using namespace esbl;
 using namespace bats;
 
-TEST(setup, entailment_static) {
+TEST(setup, gl_static) {
   Kr2014 bat;
   auto& s = bat.setup();
   s.GuaranteeConsistency(3);
@@ -29,7 +29,7 @@ TEST(setup, entailment_static) {
                          Literal({}, true, bat.d3, {})}, 0));
 }
 
-TEST(setup, entailment_dynamic) {
+TEST(setup, gl_dynamic) {
   Kr2014 bat;
   auto& s = bat.setup();
   s.GuaranteeConsistency(3);
@@ -59,6 +59,25 @@ TEST(setup, eventual_completeness_static) {
   EXPECT_FALSE(s.Entails({p, q}, 1));
   EXPECT_FALSE(s.Entails({p, q}, 2));
 }
+
+#if 0
+// This test not hold because PEL only considers static literals.
+// Whether this limitation is actually feasible needs to be investigated.
+TEST(setup, eventual_completeness_dynamic) {
+  Term::Factory tf;
+  const StdName a = tf.CreateStdName(1, 1);
+  const StdName b = tf.CreateStdName(2, 2);
+  esbl::Setup s;
+  const Literal p({a}, true, 1, {b});
+  const Literal q({b}, true, 2, {a});
+  EXPECT_FALSE(s.Entails({p, p.Flip()}, 0));
+  EXPECT_TRUE(s.Entails({p, p.Flip()}, 1));
+  EXPECT_TRUE(s.Entails({p, p.Flip()}, 2));
+  EXPECT_FALSE(s.Entails({p, q}, 0));
+  EXPECT_FALSE(s.Entails({p, q}, 1));
+  EXPECT_FALSE(s.Entails({p, q}, 2));
+}
+#endif
 
 TEST(setup, inconsistency) {
   for (int i = -3; i <= 3; ++i) {
@@ -136,23 +155,4 @@ TEST(setup, eventual_consistency_long) {
     }
   }
 }
-
-#if 0
-// This test not hold because PEL only considers static literals.
-// Whether this limitation is actually feasible needs to be investigated.
-TEST(setup, eventual_completeness_dynamic) {
-  Term::Factory tf;
-  const StdName a = tf.CreateStdName(1, 1);
-  const StdName b = tf.CreateStdName(2, 2);
-  esbl::Setup s;
-  const Literal p({a}, true, 1, {b});
-  const Literal q({b}, true, 2, {a});
-  EXPECT_FALSE(s.Entails({p, p.Flip()}, 0));
-  EXPECT_TRUE(s.Entails({p, p.Flip()}, 1));
-  EXPECT_TRUE(s.Entails({p, p.Flip()}, 2));
-  EXPECT_FALSE(s.Entails({p, q}, 0));
-  EXPECT_FALSE(s.Entails({p, q}, 1));
-  EXPECT_FALSE(s.Entails({p, q}, 2));
-}
-#endif
 

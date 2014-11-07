@@ -346,7 +346,7 @@ bool Setup::Entails(const SimpleClause& c, split_level k) {
   return SubsumesWithSplits(pel, c, k);
 }
 
-void Setups::EnsureNonEmptySetups() {
+Setups::Setups() {
   // Need one setup so that AddClause(), GuaranteeConsistency(), and
   // AddSensingResult() have something to take effect on. Since
   // PropagateBeliefs() uses copies of the last setups, these effects remain in
@@ -357,7 +357,6 @@ void Setups::EnsureNonEmptySetups() {
 }
 
 void Setups::AddClause(const Clause& c) {
-  EnsureNonEmptySetups();
   for (Setup& s : ss_) {
     s.AddClause(c);
   }
@@ -381,22 +380,18 @@ void Setups::AddBeliefConditional(const Clause& neg_phi, const Clause& psi,
 }
 
 void Setups::PropagateBeliefs() {
+  assert(!ss_.empty());
   bool one_belief_cond_active = true;
-  for (auto it = ss_.begin(); one_belief_cond_active; ++it) {
-    if (it == ss_.end()) {
-      if (ss_.empty()) {
-        ss_.push_back(Setup());
-      } else {
-        ss_.push_back(ss_.back());
-      }
-      it = ss_.end() - 1;
-    }
-    Setup& s = *it;
-    const belief_level p = it - ss_.begin();
+  for (belief_level p = 0; one_belief_cond_active; ++p) {
     // Add phi => psi to the current setup.
     for (const BeliefConditional& bc : bcs_) {
       if (bc.p == p) {
-        s.AddClause(bc.neg_phi_or_psi);
+        // Keep a last, clean setup until we have reached the bound of
+        // bcs_.size() + 1 setups.
+        if (p+1 == ss_.size() && p+1 <= bcs_.size()) {
+          ss_.push_back(ss_.back());
+        }
+        ss_[p].AddClause(bc.neg_phi_or_psi);
       }
     }
     // If ~phi holds, keep phi => psi for the next level.
@@ -404,7 +399,7 @@ void Setups::PropagateBeliefs() {
     for (BeliefConditional& bc : bcs_) {
       if (bc.p == p) {
         assert(bc.neg_phi.ewff() == Ewff::TRUE);
-        if (s.Entails(bc.neg_phi.literals(), bc.k)) {
+        if (ss_[p].Entails(bc.neg_phi.literals(), bc.k)) {
           ++bc.p;
         } else {
           one_belief_cond_active = true;
@@ -417,14 +412,14 @@ void Setups::PropagateBeliefs() {
 }
 
 void Setups::GuaranteeConsistency(split_level k) {
-  EnsureNonEmptySetups();
+  assert(!ss_.empty());
   for (Setup& s : ss_) {
     s.GuaranteeConsistency(k);
   }
 }
 
 void Setups::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
-  EnsureNonEmptySetups();
+  assert(!ss_.empty());
   for (Setup& s : ss_) {
     s.AddSensingResult(z, a, r);
   }
@@ -474,6 +469,13 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Setups& ss) {
+  os << "Belief Conditionals:" << std::endl;
+  for (const Setups::BeliefConditional& bc : ss.bcs_) {
+    os << "  neg_phi = " << bc.neg_phi << std::endl;
+    os << "  neg_phi_or_psi = " << bc.neg_phi_or_psi << std::endl;
+    os << "  p = " << bc.p << std::endl;
+    os << "  k = " << bc.k << std::endl;
+  }
   os << "Belief Setups:" << std::endl;
   int n = 0;
   for (const Setup& s : ss.setups()) {

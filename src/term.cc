@@ -205,7 +205,7 @@ std::ostream& operator<<(std::ostream& os, const StdName::SortedSet& ns) {
     for (const auto& q : p.second) {
       os << q << " ";
     }
-    os << '\n';
+    os << std::endl;
   }
   return os;
 }

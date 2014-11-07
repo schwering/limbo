@@ -16,7 +16,7 @@ class Atom {
  public:
   typedef int PredId;
 
-  static constexpr PredId SF = 0;
+  static constexpr PredId SF = -1;
   static const Atom MIN;
   static const Atom MAX;
 
