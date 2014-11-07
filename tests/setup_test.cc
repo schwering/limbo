@@ -9,7 +9,7 @@ using namespace esbl;
 using namespace bats;
 
 TEST(setup, entailment_static) {
-  KR2014 bat;
+  Kr2014 bat;
   auto& s = bat.setup();
   s.GuaranteeConsistency(3);
   EXPECT_TRUE(s.Entails({Literal({}, false, bat.d0, {})}, 0));
@@ -30,7 +30,7 @@ TEST(setup, entailment_static) {
 }
 
 TEST(setup, entailment_dynamic) {
-  KR2014 bat;
+  Kr2014 bat;
   auto& s = bat.setup();
   s.GuaranteeConsistency(3);
   EXPECT_TRUE(s.Entails({Literal({bat.forward}, false, bat.d0, {})}, 0));

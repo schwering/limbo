@@ -473,12 +473,6 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, 'using namespace esbl;~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, 'class ~w : public ~w {~n', [Class, SuperClass]),
-    format(HeaderStream, ' private:~n', []),
-    format(HeaderStream, '  std::map<StdName, const char*> name_to_string_;~n', []),
-    format(HeaderStream, '  std::map<Atom::PredId, const char*> pred_to_string_;~n', []),
-    format(HeaderStream, '  std::map<std::string, StdName> string_to_name_;~n', []),
-    format(HeaderStream, '  std::map<std::string, Atom::PredId> string_to_pred_;~n', []),
-    format(HeaderStream, '~n', []),
     format(HeaderStream, ' public:~n', []),
     declare_predicate_names(HeaderStream, PredNames, MaxPred),
     format(HeaderStream, '~n', []),
@@ -490,6 +484,12 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '~n', []),
     declare_and_define_max_stdname_function(HeaderStream, MaxStdName),
     declare_and_define_max_pred_function(HeaderStream, MaxPred),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, ' private:~n', []),
+    format(HeaderStream, '  std::map<StdName, const char*> name_to_string_;~n', []),
+    format(HeaderStream, '  std::map<Atom::PredId, const char*> pred_to_string_;~n', []),
+    format(HeaderStream, '  std::map<std::string, StdName> string_to_name_;~n', []),
+    format(HeaderStream, '  std::map<std::string, Atom::PredId> string_to_pred_;~n', []),
     format(HeaderStream, '};~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, '}  // namespace bats~n', []),
@@ -506,8 +506,17 @@ compile_all(Class, Input, Header, Body) :-
         close(BodyStream)
     ).
 
+first_char_uppercase(WordLC, WordUC) :-
+    atom_chars(WordLC, [FirstChLow|LWordLC]),
+    atom_chars(FirstLow, [FirstChLow]),
+    lwrupr(FirstLow, FirstUpp),
+    atom_chars(FirstUpp, [FirstChUpp]),
+    atom_chars(WordUC, [FirstChUpp|LWordLC]).
+
+lwrupr(Low, Upp) :- upcase_atom(Low, Upp).
+
 compile_all(BAT) :-
-    upcase_atom(BAT, Class),
+    first_char_uppercase(BAT, Class),
     atom_concat(BAT, '.pl', Prolog),
     atom_concat(BAT, '.h', C_Header),
     atom_concat(BAT, '.cc', C_Body),

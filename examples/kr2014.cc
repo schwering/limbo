@@ -13,7 +13,7 @@ using namespace bats;
 
 int main(int argc, char *argv[])
 {
-    KR2014 bat;
+    Kr2014 bat;
 
 #if 0
     univ_clauses_t static_bat;
