@@ -104,8 +104,6 @@ class Setups {
   Setup& setup(size_t i) { return ss_.at(i); }
 
  private:
-  friend std::ostream& operator<<(std::ostream& os, const Setups& ss);
-
   struct BeliefConditional {
     BeliefConditional() = default;
     BeliefConditional(const Clause& neg_phi, const Clause& neg_phi_or_psi,

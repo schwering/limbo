@@ -55,6 +55,7 @@ void Setup::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
   const Literal l(z, r, Atom::SF, {a});
   const SimpleClause c({l});
   AddClause(Clause(Ewff::TRUE, c));
+  GroundBoxes(z);
   UpdateHPlusFor(c);
 
   const SimpleClause d({l.Flip()});
@@ -66,7 +67,7 @@ void Setup::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
 }
 
 void Setup::GroundBoxes(const TermSeq& z) {
-  for (size_t n = 0; n < z.size(); ++n) {
+  for (size_t n = 0; n <= z.size(); ++n) {
     const TermSeq zz(z.begin(), z.begin() + n);
     const auto p = grounded_.insert(zz);
     if (p.second) {
@@ -469,13 +470,13 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Setups& ss) {
-  os << "Belief Conditionals:" << std::endl;
-  for (const Setups::BeliefConditional& bc : ss.bcs_) {
-    os << "  neg_phi = " << bc.neg_phi << std::endl;
-    os << "  neg_phi_or_psi = " << bc.neg_phi_or_psi << std::endl;
-    os << "  p = " << bc.p << std::endl;
-    os << "  k = " << bc.k << std::endl;
-  }
+//  os << "Belief Conditionals:" << std::endl;
+//  for (const Setups::BeliefConditional& bc : ss.bcs_) {
+//    os << "  neg_phi = " << bc.neg_phi << std::endl;
+//    os << "  neg_phi_or_psi = " << bc.neg_phi_or_psi << std::endl;
+//    os << "  p = " << bc.p << std::endl;
+//    os << "  k = " << bc.k << std::endl;
+//  }
   os << "Belief Setups:" << std::endl;
   int n = 0;
   for (const Setup& s : ss.setups()) {

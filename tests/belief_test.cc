@@ -20,31 +20,36 @@ TEST(setup, morri) {
   // Property 2
   auto s2 = s1;
   s2.AddSensingResult({}, bat.SL, true);
+  EXPECT_TRUE(s2.Entails(SimpleClause({Literal({bat.SL}, true, bat.R1, {})}), k));
   EXPECT_TRUE(s2.Entails(SimpleClause({Literal({bat.SL}, true, bat.L1, {})}), k) &&
               s2.Entails(SimpleClause({Literal({bat.SL}, true, bat.R1, {})}), k));
   EXPECT_FALSE(s1.Entails(SimpleClause({Literal({bat.SL}, true, bat.L1, {})}), k) &&
                s1.Entails(SimpleClause({Literal({bat.SL}, true, bat.R1, {})}), k));  // sensing is really required
+  EXPECT_TRUE(s2.Entails(SimpleClause({Literal({}, true, bat.R1, {})}), k));  // the sensing action in the situation is redundant
 
   // Property 3
   auto s3 = s2;
   s3.AddSensingResult({bat.SL}, bat.SR1, false);
   EXPECT_TRUE(s3.Entails(SimpleClause({Literal({bat.SL,bat.SR1}, false, bat.R1, {})}), k));
   EXPECT_FALSE(s2.Entails(SimpleClause({Literal({bat.SL,bat.SR1}, false, bat.R1, {})}), k));  // sensing is really required
+  EXPECT_TRUE(s3.Entails(SimpleClause({Literal({}, false, bat.R1, {})}), k));  // the sensing actions in the situation are redundant
 
   // Property 5
   EXPECT_FALSE(s3.Entails(SimpleClause({Literal({bat.SL,bat.SR1}, true, bat.L1, {})}), k));
   EXPECT_FALSE(s3.Entails(SimpleClause({Literal({bat.SL,bat.SR1}, false, bat.L1, {})}), k));
+  EXPECT_FALSE(s3.Entails(SimpleClause({Literal({}, true, bat.L1, {})}), k));  // the sensing actions in the situation are redundant
 
   // Property 6
   auto s4 = s3;
   s4.AddSensingResult({bat.SL,bat.SR1}, bat.LV, true);
   EXPECT_TRUE(s4.Entails(SimpleClause({Literal({bat.SL,bat.SR1,bat.LV}, true, bat.R1, {})}), k));
-  EXPECT_FALSE(s3.Entails(SimpleClause({Literal({bat.SL,bat.SR1}, true, bat.R1, {})}), k));  // LV hat an effect
+  EXPECT_FALSE(s4.Entails(SimpleClause({Literal({bat.SL,bat.SR1}, true, bat.R1, {})}), k));  // LV had an effect
 
   // Property 7
   auto s5 = s4;
   s5.AddSensingResult({bat.SL,bat.SR1,bat.LV}, bat.SL, true);
-  EXPECT_TRUE(s5.Entails(SimpleClause({Literal({bat.SL,bat.SR1,bat.LV,bat.SL}, true, bat.L1, {})}), k));  // LV hat an effect
+  EXPECT_TRUE(s5.Entails(SimpleClause({Literal({bat.SL,bat.SR1,bat.LV,bat.SL}, true, bat.L1, {})}), k));
+  EXPECT_TRUE(s5.Entails(SimpleClause({Literal({bat.LV}, true, bat.L1, {})}), k));  // the sensing actions in the situation are redundant
 }
 
 TEST(setup, example_12) {
