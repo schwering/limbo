@@ -283,10 +283,11 @@ compile_static(E, Alpha, Code) :-
 compile_belief(E, NegPhi, Psi, Code) :-
     term_variables((E, NegPhi, Psi), Vars),
     variable_names(Vars, 0, Names),
+    compile_vars(Names, Vars, Vars_C),
     compile_ewff(Names, E, E_C),
     compile_clause(Names, NegPhi, NegPhi_C),
     compile_clause(Names, Psi, Psi_C),
-    with_output_to(atom(Code), write_term('belief_conds_append'('belief_conds', 'belief_cond_init'(E_C, NegPhi_C, Psi_C)), [variable_names(Names)])).
+    with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause neg_phi = ~w; const SimpleClause psi = ~w; s_.AddBeliefConditional(Clause(false, p.second, neg_phi), Clause(false, p.second, psi), k); }', [Vars_C, E_C, NegPhi_C, Psi_C])).
 
 compile(VarNames, StdNames, PredNames, Code) :-
     box(Alpha),
@@ -338,6 +339,17 @@ declare_standard_names(_, []).
 declare_standard_names(Stream, [N|Ns]) :-
     format(Stream, '  const StdName ~w;~n', [N]),
     declare_standard_names(Stream, Ns).
+
+declare_constructor(Stream, Class, 'KBat') :-
+    format(Stream, '  ~w();~n', [Class]).
+declare_constructor(Stream, Class, 'BBat') :-
+    format(Stream, '  ~w(Setups::split_level k);~n', [Class]).
+
+begin_constructor(Stream, Class, 'KBat') :-
+    format(Stream, '~w::~w()~n', [Class,Class]).
+begin_constructor(Stream, Class, 'BBat') :-
+    format(Stream, '~w::~w(Setups::split_level k)~n', [Class,Class]).
+
 
 init_standard_names(_, [], 0).
 init_standard_names(Stream, [N|Ns], MaxStdName) :-
@@ -429,13 +441,14 @@ compile_all(Class, Input, Header, Body) :-
     sort(PredNames2, PredNames),
     findall(SortName, sort_name(SortName, _), SortNames1),
     sort(SortNames1, SortNames),
+    ( belief(_) -> SuperClass = 'BBat' ; SuperClass = 'KBat' ),
     % body
     format(BodyStream, '#include "~w"~n', [Header]),
     format(BodyStream, '~n', []),
     format(BodyStream, 'namespace bats {~n', []),
     format(BodyStream, '~n', []),
-    format(BodyStream, '~w::~w()~n', [Class,Class]),
-    format(BodyStream, '    : KBat()~n', []),
+    begin_constructor(BodyStream, Class, SuperClass),
+    format(BodyStream, '    : ~w()~n', [SuperClass]),
     init_standard_names(BodyStream, StdNames, MaxStdName),
     format(BodyStream, '{~n', []),
     init_clauses(BodyStream, Code),
@@ -459,7 +472,7 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '~n', []),
     format(HeaderStream, 'using namespace esbl;~n', []),
     format(HeaderStream, '~n', []),
-    format(HeaderStream, 'class ~w : public KBat {~n', [Class]),
+    format(HeaderStream, 'class ~w : public ~w {~n', [Class, SuperClass]),
     format(HeaderStream, ' private:~n', []),
     format(HeaderStream, '  std::map<StdName, const char*> name_to_string_;~n', []),
     format(HeaderStream, '  std::map<Atom::PredId, const char*> pred_to_string_;~n', []),
@@ -471,7 +484,7 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '~n', []),
     declare_sorts(HeaderStream, SortNames),
     format(HeaderStream, '~n', []),
-    format(HeaderStream, '  ~w();~n', [Class]),
+    declare_constructor(HeaderStream, Class, SuperClass),
     format(HeaderStream, '~n', []),
     declare_standard_names(HeaderStream, StdNames),
     format(HeaderStream, '~n', []),

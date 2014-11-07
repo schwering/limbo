@@ -89,8 +89,7 @@ class Setups {
   Setups& operator=(const Setups&) = delete;
 
   void AddClause(const Clause& c);
-  void AddBeliefConditional(const SimpleClause& neg_phi,
-                            const SimpleClause& psi,
+  void AddBeliefConditional(const Clause& neg_phi, const Clause& psi,
                             split_level k);
   void GuaranteeConsistency(split_level k);
   void AddSensingResult(const TermSeq& z, const StdName& a, bool r);
@@ -105,15 +104,14 @@ class Setups {
  private:
   struct BeliefConditional {
     BeliefConditional() = default;
-    BeliefConditional(const SimpleClause& neg_phi,
-                      const SimpleClause& neg_phi_or_psi,
+    BeliefConditional(const Clause& neg_phi, const Clause& neg_phi_or_psi,
                       split_level k)
         : neg_phi(neg_phi), neg_phi_or_psi(neg_phi_or_psi), k(k), p(0) {}
     BeliefConditional(const BeliefConditional&) = default;
     BeliefConditional& operator=(const BeliefConditional&);
 
-    const SimpleClause neg_phi;
-    const SimpleClause neg_phi_or_psi;
+    const Clause neg_phi;
+    const Clause neg_phi_or_psi;
     const split_level k;
     belief_level p;
   };

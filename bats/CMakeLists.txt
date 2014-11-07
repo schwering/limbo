@@ -1,6 +1,6 @@
 find_package (Prolog REQUIRED)
 
-foreach (batname kr2014)
+foreach (batname kr2014 ecai2014)
         add_library (BAT-${batname} SHARED ${batname}.cc)
 
         target_link_libraries (BAT-${batname} LINK_PUBLIC ESBL)

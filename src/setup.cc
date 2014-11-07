@@ -3,6 +3,7 @@
 
 #include "./setup.h"
 #include <cassert>
+#include <algorithm>
 
 namespace esbl {
 
@@ -219,11 +220,18 @@ void Setup::PropagateUnits() {
     if (d <= n_units) {
       break;
     }
+    assert(std::all_of(first, last, [](const Clause& c) {return c.is_unit();}));
     n_units = d;
     size_t n_new_clauses = 0;
     for (const Clause& c : cs_) {
       for (auto it = first; it != last; ++it) {
         const Clause& unit = *it;
+        if (!unit.is_unit()) {
+          // We might encounter a non-unit clause here because a resolvent
+          // generated in a previous iteration may be non-unit and less than
+          // *last.
+          break;
+        }
         assert(unit.is_unit());
         n_new_clauses += c.ResolveWithUnit(unit, &cs_);
       }
@@ -355,15 +363,19 @@ void Setups::AddClause(const Clause& c) {
   }
 }
 
-void Setups::AddBeliefConditional(const SimpleClause& neg_phi,
-                                  const SimpleClause& psi,
+void Setups::AddBeliefConditional(const Clause& neg_phi, const Clause& psi,
                                   split_level k) {
-  assert(neg_phi.is_ground());
-  assert(psi.is_ground());
+  // I'm not sure if and how non-ground belief conditionals should be
+  // implemented. I suppose that in ESB they could lead to infinitely many
+  // plausibility levels.
+  assert(neg_phi.literals().is_ground());
+  assert(psi.literals().is_ground());
   assert(!ss_.empty());
-  SimpleClause neg_phi_or_psi = neg_phi;
-  neg_phi_or_psi.insert(psi.begin(), psi.end());
-  assert(neg_phi_or_psi.is_ground());
+  Ewff e = Ewff::And(neg_phi.ewff(), psi.ewff());
+  SimpleClause c = neg_phi.literals();
+  c.insert(psi.literals().begin(), psi.literals().end());
+  assert(c.is_ground());
+  Clause neg_phi_or_psi(e, c);
   bcs_.push_back(BeliefConditional(neg_phi, neg_phi_or_psi, k));
   PropagateBeliefs();
 }
@@ -384,14 +396,15 @@ void Setups::PropagateBeliefs() {
     // Add phi => psi to the current setup.
     for (const BeliefConditional& bc : bcs_) {
       if (bc.p == p) {
-        s.AddClause(Clause(Ewff::TRUE, bc.neg_phi_or_psi));
+        s.AddClause(bc.neg_phi_or_psi);
       }
     }
     // If ~phi holds, keep phi => psi for the next level.
     one_belief_cond_active = false;
     for (BeliefConditional& bc : bcs_) {
       if (bc.p == p) {
-        if (s.Entails(bc.neg_phi, bc.k)) {
+        assert(bc.neg_phi.ewff() == Ewff::TRUE);
+        if (s.Entails(bc.neg_phi.literals(), bc.k)) {
           ++bc.p;
         } else {
           one_belief_cond_active = true;

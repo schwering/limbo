@@ -42,7 +42,7 @@ class KBat : public Bat {
 
 class BBat : public Bat {
  public:
-  BBat() : s_() {}
+  explicit BBat() : s_() {}
 
   virtual Setups& setups() { return s_; }
   virtual const Setups& setups() const { return s_; }
