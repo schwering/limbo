@@ -37,6 +37,7 @@ class Setup {
   bool Entails(const SimpleClause& c, split_level k);
 
   const std::set<Clause>& clauses() const { return cs_; }
+  const StdName::SortedSet& hplus() const { return hplus_; }
 
  private:
   class BitMap : public std::vector<bool> {
@@ -102,6 +103,7 @@ class Setups {
   const std::vector<Setup>& setups() const { return ss_; }
   const Setup& setup(size_t i) const { return ss_.at(i); }
   Setup& setup(size_t i) { return ss_.at(i); }
+  const StdName::SortedSet& hplus() const { return setup(0).hplus(); }
 
  private:
   struct BeliefConditional {

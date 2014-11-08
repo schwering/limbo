@@ -139,6 +139,7 @@ class StdName {
   inline bool is_variable() const { return t_.kind_ == Term::VAR; }
   inline bool is_name() const { return t_.kind_ == Term::NAME; }
   inline bool is_ground() const { return t_.kind_ != Term::VAR; }
+  inline bool is_placeholder() const { return t_.id_ < 0; }
 
  private:
   friend class Term;

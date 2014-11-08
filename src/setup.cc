@@ -4,12 +4,14 @@
 #include "./setup.h"
 #include <cassert>
 #include <algorithm>
+#include <numeric>
 
 namespace esbl {
 
 void Setup::AddClause(const Clause& c) {
   if (c.box()) {
     boxes_.insert(c);
+    AddClause(c.InstantiateBox({}));
   } else {
     cs_.insert(c);
     UpdateHPlusFor(c);
@@ -314,9 +316,9 @@ bool Setup::Inconsistent(split_level k) {
   split_level l = static_cast<split_level>(incons_.size());
   if (l > 0) {
     if (k < l) {
-      return incons_.at(k);
+      return incons_[k];
     }
-    if (incons_.at(l-1)) {
+    if (incons_[l-1]) {
       return true;
     }
   }
