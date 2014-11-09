@@ -387,10 +387,10 @@ declare_and_define_max_stdname_function(Stream, MaxStdName) :-
 declare_and_define_max_pred_function(Stream, MaxPred) :-
     format(Stream, '  Atom::PredId max_pred() const override { return ~w; }~n', [MaxPred]).
 
-declare_predicate_names(_, [], 1).
+declare_predicate_names(_, [], 0).
 declare_predicate_names(Stream, [P|Ps], MaxPred) :-
     length(Ps, I),
-    ( P = 'SF' -> I1 = 'Atom::SF' ; I1 = I ),
+    ( P = 'SF' -> I1 = 'Atom::SF' ; P = 'POSS' -> I1 = 'Atom::POSS' ; I1 = I ),
     format(Stream, '  static constexpr Atom::PredId ~w = ~w;~n', [P, I1]),
     declare_predicate_names(Stream, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
