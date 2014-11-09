@@ -118,15 +118,15 @@ struct Formula::Equal : public Formula {
     return c;
   }
 
-  void print(std::ostream& os) const override {
-    os << '(' << t1 << " = " << t2 << ')';
+  void print(std::ostream* os) const override {
+    *os << '(' << t1 << " = " << t2 << ')';
   }
 };
 
 struct Formula::Lit : public Formula {
   Literal l;
 
-  Lit(const Literal& l) : l(l) {}
+  explicit Lit(const Literal& l) : l(l) {}
 
   Ptr Copy() const override { return Ptr(new Lit(l)); }
 
@@ -146,8 +146,8 @@ struct Formula::Lit : public Formula {
     return c;
   }
 
-  void print(std::ostream& os) const override {
-    os << l;
+  void print(std::ostream* os) const override {
+    *os << l;
   }
 };
 
@@ -188,9 +188,9 @@ struct Formula::Junction : public Formula {
     }
   }
 
-  void print(std::ostream& os) const override {
+  void print(std::ostream* os) const override {
     const char c = type == DISJUNCTION ? 'v' : '^';
-    os << '(' << *l << ' ' << c << ' ' << *r << ')';
+    *os << '(' << *l << ' ' << c << ' ' << *r << ')';
   }
 };
 
@@ -250,9 +250,9 @@ struct Formula::Quantifier : public Formula {
     return r;
   }
 
-  void print(std::ostream& os) const override {
+  void print(std::ostream* os) const override {
     const char* s = type == EXISTENTIAL ? "E " : "";
-    os << '(' << s << x << ". " << *phi << ')';
+    *os << '(' << s << x << ". " << *phi << ')';
   }
 };
 

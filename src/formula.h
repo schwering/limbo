@@ -4,7 +4,7 @@
 // Formulas are represented in ENNF (extended negation normal form), which means
 // that negation and actions are pushed inwards. For this transformation to be
 // equivalent,
-// 
+//
 // Formulas shall be rectified, that is, no variable should be bound by two
 // quantifiers. Otherwise an action variable might be moved within the scope of
 // another quantifier, which would change the formula's meaning.
@@ -28,6 +28,8 @@
 #define SRC_FORMULA_H_
 
 #include <memory>
+#include <utility>
+#include <vector>
 #include "./setup.h"
 #include "./term.h"
 
@@ -97,7 +99,7 @@ class Formula {
   virtual void Negate() = 0;
   virtual void PrependActions(const TermSeq& z) = 0;
   virtual Ptr Substitute(const Unifier& theta) const = 0;
-  virtual void print(std::ostream& os) const = 0;
+  virtual void print(std::ostream* os) const = 0;
 };
 
 template<class T>
@@ -111,7 +113,7 @@ bool Formula::EntailedBy(T* setup, typename T::split_level k) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Formula& phi) {
-  phi.print(os);
+  phi.print(&os);
   return os;
 }
 
