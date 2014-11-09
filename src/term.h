@@ -35,7 +35,7 @@ class Term {
   bool operator!=(const Term& t) const;
   bool operator<(const Term& t) const;
 
-  const Term& Substitute(const Unifier& theta) const;
+  Term Substitute(const Unifier& theta) const;
   Term Ground(const Assignment& theta) const;
   bool Matches(const Term& t, Unifier* theta) const;
   static bool Unify(const Term& t1, const Term& t2, Unifier* theta);
@@ -88,7 +88,7 @@ class Variable {
   operator Term&() { return t_; }
   operator const Term&() const { return t_; }
 
-  const Term& Substitute(const Unifier& theta) const {
+  Term Substitute(const Unifier& theta) const {
     return t_.Substitute(theta);
   }
   Term Ground(const Assignment& theta) const {
@@ -127,7 +127,7 @@ class StdName {
   operator Term&() { return t_; }
   operator const Term&() const { return t_; }
 
-  const Term& Substitute(const Unifier& theta) const {
+  Term Substitute(const Unifier& theta) const {
     return t_.Substitute(theta);
   }
   Term Ground(const Assignment& theta) const {

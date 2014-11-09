@@ -38,7 +38,7 @@ bool Term::operator<(const Term& t) const {
       (kind_ == t.kind_ && id_ == t.id_ && sort_ < t.sort_);
 }
 
-const Term& Term::Substitute(const Unifier& theta) const {
+Term Term::Substitute(const Unifier& theta) const {
   if (is_variable()) {
     auto it = theta.find(Variable(*this));
     return it != theta.end() ? it->second.Substitute(theta) : *this;
