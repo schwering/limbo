@@ -14,7 +14,7 @@ Formula::Cnf::C Formula::Cnf::C::Concat(const C& cl1, const C& cl2) {
   cl.clause.insert(cl2.clause.begin(), cl2.clause.end());
   assert(cl.eqs.size() == cl1.eqs.size() + cl2.eqs.size());
   assert(cl.neqs.size() == cl1.neqs.size() + cl2.neqs.size());
-  assert(cl.clause.size() == cl1.clause.size() + cl2.clause.size());
+  assert(cl.clause.size() <= cl1.clause.size() + cl2.clause.size());
   return cl;
 }
 
@@ -30,7 +30,7 @@ Formula::Cnf::C Formula::Cnf::C::Substitute(const Unifier& theta) const {
     cl.eqs.push_back(std::make_pair(p.first.Substitute(theta),
                                     p.second.Substitute(theta)));
   }
-  clause.Substitute(theta);
+  cl.clause = clause.Substitute(theta);
   return cl;
 }
 
