@@ -43,17 +43,17 @@ measure(Call) :-
 
 :-  profile((
     kcontext(ctx, 'kitchen'),
-    guarantee_consistency(ctx, 1),
+    guarantee_consistency(ctx, 2), % higher k than original
     entails(ctx, has_type(o1, boxA) v ~has_type(o1, boxA), 1),
     \+ entails(ctx, has_type(o0, boxA), 1),
     \+ entails(ctx, exists(X, type, has_type(o0, X)), 1),
     \+ entails(ctx, exists(X, type, ~has_type(o0, X)), 1),
     \+ entails(ctx, forall(X, type, has_type(o1, X)), 1),
     \+ entails(ctx, forall(X, type, ~has_type(o1, X)), 1),
-    \+ entails(ctx, has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC), 1),
-    \+ entails(ctx, has_type(o1, boxA), 1),
-    \+ entails(ctx, has_type(o1, boxB), 1),
-    \+ entails(ctx, has_type(o1, boxC), 1),
+    \+ entails(ctx, has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC), 2), % higher k than original
+    \+ entails(ctx, has_type(o1, boxA), 2), % higher k than original
+    \+ entails(ctx, has_type(o1, boxB), 2), % higher k than original
+    \+ entails(ctx, has_type(o1, boxC), 2), % higher k than original
     true)),
 
     profile((
@@ -64,10 +64,10 @@ measure(Call) :-
     \+ entails(ctx, A1 : exists(X, type, ~has_type(o0, X)), 1),
     \+ entails(ctx, A1 : forall(X, type, has_type(o1, X)), 1),
     \+ entails(ctx, A1 : forall(X, type, ~has_type(o1, X)), 1),
-    \+ entails(ctx, A1 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 1),
-    \+ entails(ctx, A1 : has_type(o1, boxA), 1),
-    \+ entails(ctx, A1 : has_type(o1, boxB), 1),
-    \+ entails(ctx, A1 : has_type(o1, boxC), 1),
+    \+ entails(ctx, A1 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % higher k than original
+    \+ entails(ctx, A1 : has_type(o1, boxA), 2), % higher k than original
+    \+ entails(ctx, A1 : has_type(o1, boxB), 2), % higher k than original
+    \+ entails(ctx, A1 : has_type(o1, boxC), 2), % higher k than original
     true)),
  
     profile((
@@ -78,13 +78,22 @@ measure(Call) :-
     \+ entails(ctx, A1 : A2 : exists(X, type, ~has_type(o0, X)), 1),
     \+ entails(ctx, A1 : A2 : forall(X, type, has_type(o1, X)), 1),
     \+ entails(ctx, A1 : A2 : forall(X, type, ~has_type(o1, X)), 1),
-    entails(ctx, A1 : A2 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 1),
-    \+ entails(ctx, A1 : A2 : has_type(o1, boxA), 1),
-    \+ entails(ctx, A1 : A2 : has_type(o1, boxB), 1),
-    \+ entails(ctx, A1 : A2 : has_type(o1, boxC), 1),
+    entails(ctx, A1 : A2 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % higher k than original
+    \+ entails(ctx, A1 : A2 : has_type(o1, boxA), 2), % higher k than original
+    \+ entails(ctx, A1 : A2 : has_type(o1, boxB), 2), % higher k than original
+    \+ entails(ctx, A1 : A2 : has_type(o1, boxC), 2), % higher k than original
     true)),
 
     writeln('very good').
+
+
+%:-  kcontext(ctx, 'kitchen'),
+%    guarantee_consistency(ctx, 2),
+%    A = o1_is_box,
+%    add_sensing_result(ctx, [], A, true),
+%    %entails(ctx, A : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 1),
+%    entails(ctx, A : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2),
+%    writeln('very good').
 
 :- exit(0).
 
