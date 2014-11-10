@@ -90,16 +90,16 @@ class Formula {
     std::vector<SimpleClause> UnsatisfiedClauses() const;
 
     std::vector<C> cs;
-    int n_vars = 0;
   };
 
   Formula() = default;
 
-  virtual Cnf MakeCnf(const StdName::SortedSet& hplus) const = 0;
   virtual void Negate() = 0;
   virtual void PrependActions(const TermSeq& z) = 0;
   virtual Ptr Substitute(const Unifier& theta) const = 0;
-  virtual void print(std::ostream* os) const = 0;
+  virtual Cnf MakeCnf(const StdName::SortedSet& hplus, int n_vars) const = 0;
+  virtual int n_vars() const = 0;
+  virtual void Print(std::ostream* os) const = 0;
 };
 
 template<class T>
@@ -113,7 +113,7 @@ bool Formula::EntailedBy(T* setup, typename T::split_level k) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Formula& phi) {
-  phi.print(&os);
+  phi.Print(&os);
   return os;
 }
 

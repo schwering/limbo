@@ -64,6 +64,9 @@ TEST(formula, morri) {
 }
 
 TEST(formula, fol_incompleteness) {
+  // The tautology (E x . ~P(x)) v (A x . P(x)) is not provable in ESL.
+  // But it seems to be provable in our variant. Is our treatment of standard
+  // names still sound?
   Term::Factory tf;
   const Variable x = tf.CreateVariable(0);
   const Variable y = tf.CreateVariable(0);
@@ -72,7 +75,36 @@ TEST(formula, fol_incompleteness) {
   auto q = Formula::Or(std::move(q1), std::move(q2));
   esbl::Setup s;
   for (Setup::split_level k = 0; k < 5; ++k) {
+    //EXPECT_FALSE(q->EntailedBy(&s, k));
+    EXPECT_EQ(q->EntailedBy(&s, k), k > 0);
+  }
+}
+
+TEST(formula, fol_incompleteness_reverse) {
+  // The sentence (A x . ~P(x)) v (A x . P(x)) is not a tautology and hence
+  // should come out false.
+  Term::Factory tf;
+  const Variable x = tf.CreateVariable(0);
+  const Variable y = tf.CreateVariable(0);
+  auto q1 = Formula::Forall(x, Formula::Lit(Literal({}, true, 0, {x})));
+  auto q2 = Formula::Forall(y, Formula::Neg(Formula::Lit(Literal({}, true, 0, {y}))));
+  auto q = Formula::Or(std::move(q1), std::move(q2));
+  esbl::Setup s;
+  for (Setup::split_level k = 0; k < 5; ++k) {
     EXPECT_FALSE(q->EntailedBy(&s, k));
+  }
+}
+
+TEST(formula, fol_setup_universal) {
+  // The setup { P(x) } should entail (A x . P(x)).
+  esbl::Setup s;
+  Term::Factory tf;
+  const Variable x = tf.CreateVariable(0);
+  const Variable y = tf.CreateVariable(0);
+  s.AddClause(Clause(Ewff::TRUE, SimpleClause({Literal({}, true, 0, {x})})));
+  auto q = Formula::Forall(y, Formula::Lit(Literal({}, true, 0, {x})));
+  for (Setup::split_level k = 0; k < 5; ++k) {
+    EXPECT_TRUE(q->EntailedBy(&s, k));
   }
 }
 

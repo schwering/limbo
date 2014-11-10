@@ -60,7 +60,6 @@ Formula::Cnf Formula::Cnf::Substitute(const Unifier& theta) const {
 Formula::Cnf Formula::Cnf::And(const Cnf& c) const {
   Cnf r = *this;
   r.cs.insert(r.cs.end(), c.cs.begin(), c.cs.end());
-  r.n_vars = std::max(n_vars, c.n_vars);
   assert(r.cs.size() == cs.size() + c.cs.size());
   return r;
 }
@@ -72,8 +71,7 @@ Formula::Cnf Formula::Cnf::Or(const Cnf& c) const {
       r.cs.push_back(Cnf::C::Concat(cl1, cl2));
     }
   }
-  r.n_vars = std::max(n_vars, c.n_vars);
-  assert(c.cs.size() == cs.size() * c.cs.size());
+  assert(r.cs.size() == cs.size() * c.cs.size());
   return r;
 }
 
@@ -106,7 +104,7 @@ struct Formula::Equal : public Formula {
     return Ptr(new Equal(sign, t1.Substitute(theta), t2.Substitute(theta)));
   }
 
-  Cnf MakeCnf(const StdName::SortedSet&) const override {
+  Cnf MakeCnf(const StdName::SortedSet&, int) const override {
     Cnf::C cl;
     if (sign) {
       cl.eqs.push_back(std::make_pair(t1, t2));
@@ -118,7 +116,9 @@ struct Formula::Equal : public Formula {
     return c;
   }
 
-  void print(std::ostream* os) const override {
+  int n_vars() const override { return 0; }
+
+  void Print(std::ostream* os) const override {
     *os << '(' << t1 << " = " << t2 << ')';
   }
 };
@@ -138,7 +138,7 @@ struct Formula::Lit : public Formula {
     return Ptr(new Lit(l.Substitute(theta)));
   }
 
-  Cnf MakeCnf(const StdName::SortedSet&) const override {
+  Cnf MakeCnf(const StdName::SortedSet&, int) const override {
     Cnf::C cl;
     cl.clause.insert(l);
     Cnf c;
@@ -146,7 +146,9 @@ struct Formula::Lit : public Formula {
     return c;
   }
 
-  void print(std::ostream* os) const override {
+  int n_vars() const override { return 0; }
+
+  void Print(std::ostream* os) const override {
     *os << l;
   }
 };
@@ -180,15 +182,17 @@ struct Formula::Junction : public Formula {
     return Ptr(new Junction(type, l->Substitute(theta), r->Substitute(theta)));
   }
 
-  Cnf MakeCnf(const StdName::SortedSet& hplus) const override {
+  Cnf MakeCnf(const StdName::SortedSet& hplus, int n_vars) const override {
     if (type == DISJUNCTION) {
-      return l->MakeCnf(hplus).Or(r->MakeCnf(hplus));
+      return l->MakeCnf(hplus, n_vars).Or(r->MakeCnf(hplus, n_vars));
     } else {
-      return l->MakeCnf(hplus).And(r->MakeCnf(hplus));
+      return l->MakeCnf(hplus, n_vars).And(r->MakeCnf(hplus, n_vars));
     }
   }
 
-  void print(std::ostream* os) const override {
+  int n_vars() const override { return l->n_vars() + r->n_vars(); }
+
+  void Print(std::ostream* os) const override {
     const char c = type == DISJUNCTION ? 'v' : '^';
     *os << '(' << *l << ' ' << c << ' ' << *r << ')';
   }
@@ -223,17 +227,18 @@ struct Formula::Quantifier : public Formula {
     return Ptr(new Quantifier(type, y, phi->Substitute(theta)));
   }
 
-  Cnf MakeCnf(const StdName::SortedSet& hplus) const override {
-    const Cnf c = phi->MakeCnf(hplus);
+  Cnf MakeCnf(const StdName::SortedSet& hplus, int n_vars) const override {
+    const Cnf c = phi->MakeCnf(hplus, n_vars);
     std::vector<StdName> ns;
-    const auto it = hplus.find(x.sort());
+    const Term::Sort sort = x.sort();
+    const auto it = hplus.find(sort);
     if (it != hplus.end()) {
       ns.insert(ns.end(),
                 it->second.lower_bound(StdName::MIN_NORMAL),
                 it->second.end());
     }
-    for (int i = 0; i <= c.n_vars; ++i) {
-      ns.insert(ns.end(), Term::Factory::CreatePlaceholderStdName(i, x.sort()));
+    for (int i = 0; i < n_vars; ++i) {
+      ns.insert(ns.end(), Term::Factory::CreatePlaceholderStdName(i, sort));
     }
     assert(!ns.empty());
 
@@ -246,11 +251,12 @@ struct Formula::Quantifier : public Formula {
         r = r.And(d);
       }
     }
-    ++r.n_vars;
     return r;
   }
 
-  void print(std::ostream* os) const override {
+  int n_vars() const override { return 1 + phi->n_vars(); }
+
+  void Print(std::ostream* os) const override {
     const char* s = type == EXISTENTIAL ? "E " : "";
     *os << '(' << s << x << ". " << *phi << ')';
   }
@@ -306,7 +312,7 @@ Formula::Ptr Formula::Forall(const Variable& x, Ptr phi) {
 
 std::vector<SimpleClause> Formula::Clauses(
     const StdName::SortedSet& hplus) const {
-  Cnf c = MakeCnf(hplus);
+  Cnf c = MakeCnf(hplus, n_vars());
   return c.UnsatisfiedClauses();
 }
 
