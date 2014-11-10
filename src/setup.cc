@@ -130,7 +130,7 @@ std::set<Atom> Setup::Pel(const SimpleClause& c) const {
     if (!l.sign()) {
       continue;
     }
-    if (!l.z().empty()) {
+    if (!l.z().empty() && c.find(l) == c.end()) {
       continue;
     }
     const auto first = rel.lower_bound(l.LowerBound());
