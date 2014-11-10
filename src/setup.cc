@@ -130,9 +130,12 @@ std::set<Atom> Setup::Pel(const SimpleClause& c) const {
     if (!l.sign()) {
       continue;
     }
+    // This optimization breaks things when we've sensed a disjunction.
+#if 0
     if (!l.z().empty() && c.find(l) == c.end()) {
       continue;
     }
+#endif
     const auto first = rel.lower_bound(l.LowerBound());
     const auto last = rel.lower_bound(l.UpperBound());
     for (auto jt = first; jt != last; ++jt) {
