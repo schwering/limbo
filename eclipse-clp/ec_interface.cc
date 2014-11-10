@@ -1,68 +1,67 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 //
-// ECLiPSe-CLP interface to ESBL.
-// The following defines external predicates:
-// kcontext/1 (function p_kcontext()) interfaces kcontext_init().
-// bcontext/2 (function p_bcontext()) interfaces bcontext_init().
-// context_exec/3 (function p_context_exec()) interfaces context_add_actions().
-// context_entails/3 (function p_context_entails()) interfaces query_entailed().
+// The ECLiPSe-CLP interface to ESBL provides the following external predicates:
 //
-// From ECLiPSe-CLP, the interface can be loaded dynamically as follows:
-//   :- load('bats/libBAT-KR2014.so'). % or some other BAT shared library
-//   :- load('eclipse-clp/libEclipseESBL.so').
-//   :- external(kcontext/1, p_kcontext).
-//   :- external(bcontext/2, p_bcontext).
-//   :- external(context_exec/3, p_context_exec).
-//   :- external(context_entails/3, p_context_entails).
-// It is not possible to handle more than BAT.
+// :- external(kcontext/2, p_kcontext).
+// :- external(bcontext/3, p_bcontext).
 //
-// Then, kcontext/1 or bcontext/2 can used to create a context. It's customary
-// to save it non-logically:
-//   :- kcontext(Ctx), context_store(id, Ctx).
+// These two can be used to initialize a BAT. The first one refers to normal
+// ESL BATs, whereas the second one refers to ESBL BATs which contain multiple
+// setups. In both cases, the first argument is an atom by which afterwards the
+// BAT can be accessed. The second argument is the name of the BAT, which must
+// be hard-coded in Context::CreateInstance(). For belief BATs, the third
+// argument specifies the k parameter.
 //
-// We can evaluate queries against this context, 
-//   :- context_retrieve(id, Ctx), context_entails(Ctx, 1, forward : (d1 v d2)).
+// :- external(guarantee_consistency/2, p_guarantee_consistency).
+// :- external(add_sensing_result/4, p_add_sensing_result).
 //
-// The first argument in [store|retrieve]_context/2 is an identifier, which must
-// be a Prolog atom. Notice that [store|retrieve]_context/2 differs from
-// [set|get]val/2 in that it does not copy the context. In most scenarios,
-// [store|retrieve]_context/2 is thus what you want, as it copying over
-// [set|get]val/2 and spares you another setval/2 after changing the context.
+// These two interface GuaranteeConsistency() and AddSensingResult() from the
+// Setup and Setups classes. The first argument is the atom for which the BAT
+// was initialized. The second parameter for guarantee_consistency/2 is the k
+// parameter. The other parameters of add_sensing_result/4 are the list of
+// actions representing the current situation, the name of the executed action,
+// and finally the atom `true' or the atom `false' to indicate the binary
+// sensing result.
 //
-// Now we can feed back action execution and their sensing results to the
-// context:
-//   :- context_retrieve(id, Ctx), context_exec(Ctx, forward, true).
-//   :- context_retrieve(id, Ctx), context_exec(Ctx, sonar, true).
-// If we had used [set|get]val/2 instead of [store|retrieve]_context/2, we
-// would have to memorize the new changed context with setval/2 after
-// context_exec/3.
+// :- external(inconsistent/2, p_inconsistent).
+// :- external(entails/3, p_entails).
 //
-// Subsequent queries are evaluated in situation [forward.sonar] where both
-// actions had a positive sensing result:
-//   :- context_retrieve(id, Ctx), context_entails(Ctx, 1, d1)
+// These two interface Inconsistent() and Entails() from the Setup and Setups
+// classes. The first argument again is the atom for which the BAT was
+// initialized. The second parameter is the k-parameter. The last parameter for
+// entails/3 is the formula (see below).
 //
-// The set of queries is the least set such that
-//   P(T1,...,TK)           (predicate)
+// :- external(register_pred/3, p_register_pred).
+// :- external(register_name/4, p_register_name).
+//
+// Finally we have these two to register predicates or standard names which did
+// not occur in the BAT. In both cases, the first argument is the atom
+// representing the BAT. The second and third argument for register_pred/3 are a
+// Prolog term that names the predicate and an integer that represents its ID.
+// For register_name/4, we have an atom that names the term, and then the
+// standard name's ID, and lastly its sort, which may be either given as integer
+// or by providing another standard name, whose sort is then taken.
+//
+// The formulas are of the following form:
+//   P(T1,...,Tk)           (predicate)
 //   ~ Alpha                (negation)
 //   (Alpha1 ^ Alpha2)      (conjunction)
 //   (Alpha1 v Alpha2)      (disjunction)
 //   (Alpha1 -> Alpha2)     (implication)
 //   (Alpha1 <-> Alpha2)    (equivalence)
-//   exists(V, Alpha)       (existential)
-//   forall(V, Alpha)       (universal)
+//   exists(X, Sort, Alpha) (existential)
+//   forall(X, Sort, Alpha) (universal)
 //   (A : Alpha)            (action)
-// where P(T1,...,Tk) is a Prolog literal and P usually exactly matches a
-// predicate from the BAT; Alpha, Alpha1, Alpha2 are queries; V are arbitrary
-// Prolog terms that represent variables; A is a ground Prolog atom that
-// represents an action and usually exactly matches a standard name from the
-// BAT.
-// When P does not match a predicate symbol from the BAT, we interpret it as a
-// new predicate symbol different from all other predicate symbols in the BAT
-// and the query.
-// When A or any ground T1,...,Tk does not match a standard name from the BAT,
-// we interpret it as a new standard name different from all standard names in
-// the BAT and the query.
+// where P(T1,...,Tk) is a Prolog literal and P either string-matches a
+// predicate symbol from the BAT or has been registered through register_pred/3
+// beforehand; Alpha, Alpha1, Alpha2 are formulas; X are arbitrary Prolog terms
+// that represent variables; A,T1,...,Tk are either Prolog terms that represent
+// variables bound by exists(.,.,.) or forall(.,.,.) or atoms that represent
+// standard names, which must either string-match the standard names from the
+// BAt or have been registered through register_name/4 before; and Sort is
+// either an integer representing the sort ID or an atom representing a
+// standard name whose sort is then taken.
 
 extern "C" {
 #include <eclipse-clp/config.h>
@@ -656,8 +655,8 @@ int p_entails()
   using namespace esbl;
 
   EC_word ec_key = EC_arg(1);
-  EC_word ec_k = EC_arg(2);
-  EC_word ec_alpha = EC_arg(3);
+  EC_word ec_alpha = EC_arg(2);
+  EC_word ec_k = EC_arg(3);
 
   Context* ctx = Context::GetInstance(ec_key);
   if (!ctx) {

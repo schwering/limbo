@@ -27,20 +27,20 @@
 
 % Now test the properties (matches the ECAI properties; Property 4 is left out;
 % also matches the ecai2014.c example):
-:- write('Testing property 1 ... '),   entails(ctx, 2, ~'L1'),                                   write('OK'), nl.
-:- write('Testing property 2a ... '),  \+ entails(ctx, 2, 'L1' ^ 'R1'),                          write('OK'), nl.
+:- write('Testing property 1 ... '),   entails(ctx, ~'L1', 2),                                   write('OK'), nl.
+:- write('Testing property 2a ... '),  \+ entails(ctx, 'L1' ^ 'R1', 2),                          write('OK'), nl.
 :- write('Adding \'SL\'/true ... '),   add_sensing_result(ctx, [], 'SL', true),                  write('OK'), nl.
-:- write('Testing property 2b ... '),  entails(ctx, 2, 'SL' : ('L1' ^ 'R1')),                    write('OK'), nl.
-:- write('Testing property 3a ... '),  \+ entails(ctx, 2, 'SL' : (~'R1')),                       write('OK'), nl.
+:- write('Testing property 2b ... '),  entails(ctx, 'SL' : ('L1' ^ 'R1'), 2),                    write('OK'), nl.
+:- write('Testing property 3a ... '),  \+ entails(ctx, 'SL' : (~'R1'), 2),                       write('OK'), nl.
 :- write('Adding \'SR1\'/false ... '), add_sensing_result(ctx, ['SL'], 'SR1', false),            write('OK'), nl.
-:- write('Testing property 3b ... '),  entails(ctx, 2, 'SL' : 'SR1' : (~'R1')),                  write('OK'), nl.
-:- write('Testing property 5a ... '),  \+ entails(ctx, 2, 'SL' : 'SR1' : 'L1'),                  write('OK'), nl.
-:- write('Testing property 5a ... '),  \+ entails(ctx, 2, 'SL' : 'SR1' : (~'L1')),               write('OK'), nl.
-:- write('Testing property 6a ... '),  \+ entails(ctx, 2, 'SL' : 'SR1' : 'R1'),                  write('OK'), nl.
+:- write('Testing property 3b ... '),  entails(ctx, 'SL' : 'SR1' : (~'R1'), 2),                  write('OK'), nl.
+:- write('Testing property 5a ... '),  \+ entails(ctx, 'SL' : 'SR1' : 'L1', 2),                  write('OK'), nl.
+:- write('Testing property 5a ... '),  \+ entails(ctx, 'SL' : 'SR1' : (~'L1'), 2),               write('OK'), nl.
+:- write('Testing property 6a ... '),  \+ entails(ctx, 'SL' : 'SR1' : 'R1', 2),                  write('OK'), nl.
 :- write('Adding \'LV\'/true ... '),   add_sensing_result(ctx, ['SL', 'SR1'], 'LV', true),       write('OK'), nl.
-:- write('Testing property 6b ... '),  entails(ctx, 2, 'SL' : 'SR1' : 'LV' : 'R1'),              write('OK'), nl.
+:- write('Testing property 6b ... '),  entails(ctx, 'SL' : 'SR1' : 'LV' : 'R1', 2),              write('OK'), nl.
 :- write('Adding \'SL\'/true ... '),   add_sensing_result(ctx, ['SL', 'SR1', 'LV'], 'SL', true), write('OK'), nl.
-:- write('Testing property 7 ... '),   entails(ctx, 2, 'SL' : 'SR1' : 'LV' : 'SL' : 'R1'),       write('OK'), nl.
+:- write('Testing property 7 ... '),   entails(ctx, 'SL' : 'SR1' : 'LV' : 'SL' : 'R1', 2),       write('OK'), nl.
 
 :- exit(0).
 
