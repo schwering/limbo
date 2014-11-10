@@ -12,7 +12,7 @@ foreach (test term atom literal ewff clause setup belief formula)
 	add_test (NAME ${test}_test COMMAND ${test}_test)
 endforeach()
 
-target_link_libraries (setup_test LINK_PUBLIC BAT-kr2014)
-target_link_libraries (belief_test LINK_PUBLIC BAT-ecai2014)
-target_link_libraries (formula_test LINK_PUBLIC BAT-kr2014 BAT-ecai2014)
+target_link_libraries (setup_test LINK_PUBLIC BATS)
+target_link_libraries (belief_test LINK_PUBLIC BATS)
+target_link_libraries (formula_test LINK_PUBLIC BATS)
 

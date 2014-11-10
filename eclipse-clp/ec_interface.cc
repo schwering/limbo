@@ -69,15 +69,15 @@ extern "C" {
 }
 #include <eclipse-clp/eclipseclass.h>
 
-#include <iostream>
 #include <cassert>
 #include <algorithm>
 #include <deque>
 #include <map>
 #include <string>
 #include <./formula.h>
-#include <./kr2014.h>
 #include <./ecai2014.h>
+#include <./kr2014.h>
+#include <./kitchen.h>
 
 namespace esbl {
 
@@ -219,16 +219,23 @@ class TermBuilder {
 
 class SortBuilder {
  public:
-  explicit SortBuilder(TermBuilder* tb) : tb_(tb) {}
+  SortBuilder(Bat* bat, TermBuilder* tb) : bat_(bat), tb_(tb) {}
   SortBuilder(const SortBuilder&) = delete;
   SortBuilder& operator=(const SortBuilder&) = delete;
 
   std::pair<bool, Term::Sort> Get(EC_word w) {
+    EC_atom a;
+    if (w.is_atom(&a) == EC_succeed) {
+      const std::string s = a.name();
+      const auto p = bat_->StringToSort(s);
+      if (p.first) {
+        return std::make_pair(true, p.second);
+      }
+    }
     long l;
     if (w.is_long(&l) == EC_succeed) {
       return std::make_pair(true, static_cast<Term::Id>(l));
     }
-    EC_atom a;
     if (w.is_atom(&a) == EC_succeed) {
       const auto p = tb_->GetName(a);
       if (p.first) {
@@ -239,13 +246,16 @@ class SortBuilder {
   }
 
  private:
+  Bat* bat_;
   TermBuilder* tb_;
 };
 
 class FormulaBuilder {
  public:
   explicit FormulaBuilder(Bat* bat)
-      : pred_builder_(bat), term_builder_(bat), sort_builder_(&term_builder_) {}
+    : pred_builder_(bat),
+      term_builder_(bat),
+      sort_builder_(bat, &term_builder_) {}
 
   std::pair<bool, Formula::Ptr> Build(EC_word ec_alpha);
 
@@ -408,6 +418,8 @@ class Context {
       bat = std::unique_ptr<Bat>(new bats::Kr2014());
     } else if (s == "ECAI2014") {
       bat = std::unique_ptr<Bat>(new bats::Ecai2014(k));
+    } else if (s == "KITCHEN") {
+      bat = std::unique_ptr<Bat>(new bats::Kitchen());
     }
     if (!bat) {
       return nullptr;

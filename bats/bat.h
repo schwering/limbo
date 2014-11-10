@@ -51,6 +51,13 @@ class Bat {
         : std::make_pair(false, "");
   }
 
+  std::pair<bool, std::string> SortToString(const Term::Sort& p) const {
+    const auto it = sort_to_string_.find(p);
+    return it != sort_to_string_.end()
+        ? std::make_pair(true, it->second)
+        : std::make_pair(false, "");
+  }
+
   std::pair<bool, StdName> StringToName(const std::string& s) const {
     const auto it = string_to_name_.find(s);
     return it != string_to_name_.end()
@@ -65,12 +72,21 @@ class Bat {
         : failed<Atom::PredId>();
   }
 
+  std::pair<bool, Term::Sort> StringToSort(const std::string& s) const {
+    const auto it = string_to_sort_.find(s);
+    return it != string_to_sort_.end()
+        ? std::make_pair(true, it->second)
+        : failed<Term::Sort>();
+  }
+
  protected:
   Term::Factory tf_;
   std::map<StdName, std::string> name_to_string_;
   std::map<Atom::PredId, std::string> pred_to_string_;
+  std::map<Term::Sort, std::string> sort_to_string_;
   std::map<std::string, StdName> string_to_name_;
   std::map<std::string, Atom::PredId> string_to_pred_;
+  std::map<std::string, Term::Sort> string_to_sort_;
 };
 
 class KBat : public Bat {

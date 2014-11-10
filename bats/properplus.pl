@@ -176,20 +176,7 @@ extract_predicate_names([], []).
 extract_predicate_names([~L|Ls], Ps) :- !, extract_predicate_names([L|Ls], Ps).
 extract_predicate_names([_:L|Ls], Ps) :- !, extract_predicate_names([L|Ls], Ps).
 extract_predicate_names([L|Ls], [P|Ps]) :- functor(L, P, _), extract_predicate_names(Ls, Ps).
-
-declarations(E, Cs, VarNames, StdNames, PredNames) :-
-    term_variables((E, Cs), Vars),
-    variable_names(Vars, 0, Names),
-    extract_variable_names(Names, VarNames),
-    extract_standard_names(E, StdNames),
-    ( Cs = (C1, C2) ->
-        extract_predicate_names(C1, PredNames1),
-        extract_predicate_names(C2, PredNames2),
-        append(PredNames1, PredNames2, PredNames)
-    ;
-        C = Cs,
-        extract_predicate_names(C, PredNames)
-    ).
+extract_predicate_names((C1, C2), Ps) :- extract_predicate_names(C1, Ps1), extract_predicate_names(C2, Ps2), append(Ps1, Ps2, Ps).
 
 compile_vars(_, [], '').
 compile_vars(Names, [V|Vs], T) :-
@@ -289,25 +276,27 @@ compile_belief(E, NegPhi, Psi, Code) :-
     compile_clause(Names, Psi, Psi_C),
     with_output_to(atom(Code), format('{ ~wconst std::pair<bool, Ewff> p = ~w; assert(p.first); const SimpleClause neg_phi = ~w; const SimpleClause psi = ~w; s_.AddBeliefConditional(Clause(false, p.second, neg_phi), Clause(false, p.second, psi), k); }', [Vars_C, E_C, NegPhi_C, Psi_C])).
 
-compile(VarNames, StdNames, PredNames, Code) :-
+compile(StdNames, PredNames, Code) :-
     box(Alpha),
     cnf(Alpha, Cnf),
     member(Clause, Cnf),
     ewffy(Clause, E1, C1),
     ewff_sat(E1),
     dewffy(E1, C1, E, C),
-    declarations(E, C, VarNames, StdNames, PredNames),
+    extract_standard_names(E1, StdNames),
+    extract_predicate_names(C, PredNames),
     compile_box(E, C, Code).
-compile(VarNames, StdNames, PredNames, Code) :-
+compile(StdNames, PredNames, Code) :-
     static(Alpha),
     cnf(Alpha, Cnf),
     member(Clause, Cnf),
     ewffy(Clause, E1, C1),
     ewff_sat(E1),
     dewffy(E1, C1, E, C),
-    declarations(E, C, VarNames, StdNames, PredNames),
+    extract_standard_names(E1, StdNames),
+    extract_predicate_names(C, PredNames),
     compile_static(E, C, Code).
-compile(VarNames, StdNames, PredNames, Code) :-
+compile(StdNames, PredNames, Code) :-
     belief(Phi => Psi),
     cnf(~Phi, NegPhiCnf),
     cnf(Psi, PsiCnf),
@@ -320,7 +309,10 @@ compile(VarNames, StdNames, PredNames, Code) :-
     dewffy(E11, C11, E1, C1),
     dewffy(E21, C21, E2, C2),
     append(E1, E2, E),
-    declarations(E, (C1, C2), VarNames, StdNames, PredNames),
+    extract_standard_names(E11, StdNames1),
+    extract_standard_names(E21, StdNames2),
+    append(StdNames1, StdNames2, StdNames),
+    extract_predicate_names((C1, C2), PredNames),
     compile_belief(E, C1, C2, Code).
 
 declare_sorts(_, []).
@@ -360,7 +352,7 @@ init_standard_names(Stream, [N|Ns], MaxStdName) :-
     init_standard_names(Stream, Ns, MaxStdName1),
     MaxStdName is max(I1, MaxStdName1).
 
-init_maps(Stream, StdNames, PredNames) :-
+init_maps(Stream, StdNames, PredNames, SortNames) :-
     format(Stream, '  {~n', []),
     format(Stream, '    std::map<StdName, std::string>& map = name_to_string_;~n', []),
     maplist(print_serialization(Stream), StdNames),
@@ -372,6 +364,11 @@ init_maps(Stream, StdNames, PredNames) :-
     format(Stream, '  }~n', []),
     format(Stream, '~n', []),
     format(Stream, '  {~n', []),
+    format(Stream, '    std::map<Term::Sort, std::string>& map = sort_to_string_;~n', []),
+    maplist(print_serialization(Stream), SortNames),
+    format(Stream, '  }~n', []),
+    format(Stream, '~n', []),
+    format(Stream, '  {~n', []),
     format(Stream, '    std::map<std::string, StdName>& map = string_to_name_;~n', []),
     maplist(print_deserialization(Stream), StdNames),
     format(Stream, '  }~n', []),
@@ -379,6 +376,11 @@ init_maps(Stream, StdNames, PredNames) :-
     format(Stream, '  {~n', []),
     format(Stream, '    std::map<std::string, Atom::PredId>& map = string_to_pred_;~n', []),
     maplist(print_deserialization(Stream), PredNames),
+    format(Stream, '  }~n', []),
+    format(Stream, '~n', []),
+    format(Stream, '  {~n', []),
+    format(Stream, '    std::map<std::string, Atom::PredId>& map = string_to_sort_;~n', []),
+    maplist(print_deserialization(Stream), SortNames),
     format(Stream, '  }~n', []).
 
 declare_and_define_max_stdname_function(Stream, MaxStdName) :-
@@ -428,15 +430,12 @@ compile_all(Class, Input, Header, Body) :-
     retractall(static(_)),
     retractall(belief(_)),
     [Input],
-    findall(r(VarNames, StdNames, PredNames, Code), compile(VarNames, StdNames, PredNames, Code), All),
-    maplist(arg(1), All, VarNames1),
-    maplist(arg(2), All, StdNames1),
-    maplist(arg(3), All, PredNames1),
-    maplist(arg(4), All, Code),
-    flatten(VarNames1, VarNames2),
+    findall(r(StdNames, PredNames, Code), compile(StdNames, PredNames, Code), All),
+    maplist(arg(1), All, StdNames1),
+    maplist(arg(2), All, PredNames1),
+    maplist(arg(3), All, Code),
     flatten(StdNames1, StdNames2),
     flatten(PredNames1, PredNames2),
-    sort(VarNames2, VarNames),
     sort(StdNames2, StdNames),
     sort(PredNames2, PredNames),
     findall(SortName, sort_name(SortName, _), SortNames1),
@@ -452,7 +451,7 @@ compile_all(Class, Input, Header, Body) :-
     init_standard_names(BodyStream, StdNames, MaxStdName),
     format(BodyStream, '{~n', []),
     init_clauses(BodyStream, Code),
-    init_maps(BodyStream, StdNames, PredNames),
+    init_maps(BodyStream, StdNames, PredNames, SortNames),
     format(BodyStream, '}~n', []),
     format(BodyStream, '~n', []),
     define_sorts(BodyStream, Class, SortNames),
