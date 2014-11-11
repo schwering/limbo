@@ -94,14 +94,14 @@ std::list<Unifier> SimpleClause::Subsumes(const SimpleClause& c) const {
   return thetas;
 }
 
-Maybe<std::pair<Unifier, SimpleClause>> SimpleClause::Unify(
-    const Atom& cl_a, const Atom& ext_a) const {
+Maybe<Unifier, SimpleClause> SimpleClause::Unify(const Atom& cl_a,
+                                                 const Atom& ext_a) const {
   const Maybe<Unifier> theta = Atom::Unify(cl_a, ext_a);
   if (!theta) {
     return Nothing;
   }
   SimpleClause c = Substitute(theta.val);
-  return Just(std::make_pair(theta.val, c));
+  return Just(theta.val, c);
 }
 
 void SimpleClause::GenerateInstances(
@@ -210,8 +210,8 @@ Maybe<Clause> Clause::Substitute(const Unifier& theta) const {
   return Just(Clause(box_, e.val, ls));
 }
 
-Maybe<std::pair<Unifier, Clause>> Clause::Unify(const Atom& cl_a,
-                                                const Atom& ext_a) const {
+Maybe<Unifier, Clause> Clause::Unify(const Atom& cl_a,
+                                     const Atom& ext_a) const {
   if (box_) {
     const Maybe<TermSeq> z = ext_a.z().WithoutLast(cl_a.z().size());
     if (!z) {
@@ -221,18 +221,18 @@ Maybe<std::pair<Unifier, Clause>> Clause::Unify(const Atom& cl_a,
     const Clause c = InstantiateBox(z.val);
     return c.Unify(a, ext_a);
   } else {
-    const Maybe<std::pair<Unifier, SimpleClause>> p = ls_.Unify(cl_a, ext_a);
+    const Maybe<Unifier, SimpleClause> p = ls_.Unify(cl_a, ext_a);
     if (!p) {
       return Nothing;
     }
-    const Unifier& theta = p.val.first;
-    const SimpleClause& ls = p.val.second;
+    const Unifier& theta = p.val1;
+    const SimpleClause& ls = p.val2;
     const Maybe<Ewff> e = e_.Substitute(theta);
     if (!e) {
       return Nothing;
     }
     const Clause c = Clause(false, e.val, ls);
-    return Just(std::make_pair(theta, c));
+    return Just(theta, c);
   }
 }
 
@@ -310,12 +310,12 @@ void Clause::Rel(const StdName::SortedSet& hplus,
         cl_l.z().size() < max_z) {
       continue;
     }
-    Maybe<std::pair<Unifier, Clause>> p = Unify(cl_l, ext_l);
+    Maybe<Unifier, Clause> p = Unify(cl_l, ext_l);
     if (!p) {
       continue;
     }
-    const Unifier& theta = p.val.first;
-    Clause& c = p.val.second;
+    const Unifier& theta = p.val1;
+    Clause& c = p.val2;
     size_t n = c.ls_.erase(ext_l.Substitute(theta));
     assert(n >= 1);
     for (const Assignment& theta : c.e_.Models(hplus)) {
@@ -350,12 +350,12 @@ size_t Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
     if (unit_l.sign() == l.sign()) {
       continue;
     }
-    Maybe<std::pair<Unifier, Clause>> p = Unify(l, unit_l);
+    Maybe<Unifier, Clause> p = Unify(l, unit_l);
     if (!p) {
       continue;
     }
-    const Unifier& theta = p.val.first;
-    Clause& d = p.val.second;
+    const Unifier& theta = p.val1;
+    Clause& d = p.val2;
     const Maybe<Ewff> unit_e = unit.e_.Substitute(theta);
     if (!unit_e) {
       continue;

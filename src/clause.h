@@ -30,8 +30,7 @@ class SimpleClause : public std::set<Literal> {
   SimpleClause Substitute(const Unifier& theta) const;
   SimpleClause Ground(const Assignment& theta) const;
   std::list<Unifier> Subsumes(const SimpleClause& c) const;
-  Maybe<std::pair<Unifier, SimpleClause>> Unify(const Atom& cl_a,
-                                                const Atom& ext_a) const;
+  Maybe<Unifier, SimpleClause> Unify(const Atom& cl_a, const Atom& ext_a) const;
 
   std::list<SimpleClause> Instances(const StdName::SortedSet& hplus) const;
 
@@ -94,8 +93,7 @@ class Clause {
 
  private:
   Maybe<Clause> Substitute(const Unifier& theta) const;
-  Maybe<std::pair<Unifier, Clause>> Unify(const Atom& cl_a,
-                                          const Atom& ext_a) const;
+  Maybe<Unifier, Clause> Unify(const Atom& cl_a, const Atom& ext_a) const;
 
   bool box_;
   Ewff e_;

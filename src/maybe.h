@@ -9,20 +9,12 @@
 
 namespace esbl {
 
-class Dummy {
- public:
-  Dummy() { n = 0; std::cout << "default ctor" << std::endl; }
-  explicit Dummy(int i) { n = i; std::cout << "int " << i << " ctor (to " << this << ")" << std::endl; }
-  Dummy(const Dummy& d) { n = d.n; std::cout << "copy " << n << " ctor (" << &d << " to " << this << ")" << std::endl; }
-  Dummy& operator=(Dummy& d) { n = d.n; std::cout << "copy " << n << " assignment (" << &d << " to " << this << ")" << std::endl; return *this; }
-  Dummy(Dummy&& d) { n = d.n; std::cout << "move " << n << " ctor (<ref> to " << this << ")" << std::endl; }
-  Dummy& operator=(Dummy&& d) { n = d.n; std::cout << "move " << n << " assignment (<ref> to " << this << ")" << std::endl; return *this; }
-
-  int n;
+template<typename... T>
+struct Maybe {
 };
 
 template<typename T>
-struct Maybe {
+struct Maybe<T> {
   Maybe() : succ(false) {}
   template<typename U>
   explicit Maybe(const U& val) : succ(true), val(val) {}
@@ -49,28 +41,55 @@ struct Maybe {
   T val;
 };
 
+template<typename T1, typename T2>
+struct Maybe<T1, T2> {
+  Maybe() : succ(false) {}
+  template<typename U1, typename U2>
+  explicit Maybe(const U1& val1, const U2& val2)
+      : succ(true), val1(val1), val2(val2) {}
+  explicit Maybe(T1&& val1, T2&& val2)
+      : succ(true), val1(val1), val2(val2) {}
+  Maybe(bool succ, T1&& val1, T2&& val2)
+      : succ(succ), val1(val1), val2(val2) {}
+
+  Maybe(const Maybe&) = default;
+  Maybe(Maybe&&) = default;
+  Maybe& operator=(Maybe&) = default;
+  Maybe& operator=(Maybe&&) = default;
+
+  template<typename U1, typename U2>
+  Maybe(const Maybe<U1, U2>& m) : succ(m.succ), val1(m.val1), val2(m.val2) {}
+  template<typename U1, typename U2>
+  Maybe(Maybe<U1, U2>&& m) : succ(m.succ), val1(m.val1), val2(m.val2) {}
+  template<typename U1, typename U2>
+  Maybe& operator=(Maybe<U1, U2>& m) { succ = m.succ; val1 = m.val1; val2 = m.val2; }
+  template<typename U1, typename U2>
+  Maybe& operator=(Maybe<U1, U2>&& m) { succ = m.succ; val1 = m.val1; val2 = m.val2; }
+
+  operator bool() const { return succ; }
+
+  bool succ;
+  T1 val1;
+  T2 val2;
+};
+
 struct NothingType {
-  template<typename T>
-  operator Maybe<T>() const {
-    return Maybe<T>();
+  template<typename... Types>
+  operator Maybe<Types...>() const {
+    return Maybe<Types...>();
   }
 };
 
-constexpr NothingType Nothing;
+constexpr NothingType Nothing = NothingType();
 
-//template<typename T>
-//constexpr Maybe<T> Nothing() {
-//  return Maybe<T>();
-//}
-
-template<typename T>
-Maybe<T> Just(T&& val) {
-  return Maybe<T>(val);
+template<typename... Types>
+Maybe<Types...> Just(Types&&... val) {
+  return Maybe<Types...>(val...);
 }
 
-template<typename T>
-Maybe<T> Perhaps(bool succ, T&& val) {
-  return Maybe<T>(succ, val);
+template<typename... Types>
+Maybe<Types...> Perhaps(bool succ, Types&&... val) {
+  return Maybe<Types...>(succ, val...);
 }
 
 }
