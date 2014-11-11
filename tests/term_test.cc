@@ -220,13 +220,13 @@ TEST(term_test, sequence) {
     }
   }
 
-  EXPECT_TRUE(z5.WithoutLast(2).first);
-  EXPECT_EQ(z5.WithoutLast(2).second, TermSeq({x1,x2}));
-  EXPECT_TRUE(z6.WithoutLast(z5.size()).first);
-  EXPECT_EQ(z6.WithoutLast(z5.size()).second, TermSeq({}));
-  EXPECT_FALSE(z4.WithoutLast(z5.size()).first);
+  EXPECT_TRUE(z5.WithoutLast(2));
+  EXPECT_EQ(z5.WithoutLast(2).val, TermSeq({x1,x2}));
+  EXPECT_TRUE(z6.WithoutLast(z5.size()));
+  EXPECT_EQ(z6.WithoutLast(z5.size()).val, TermSeq({}));
+  EXPECT_FALSE(z4.WithoutLast(z5.size()));
 
-  EXPECT_TRUE(z6.WithoutLast(1).first);
-  EXPECT_EQ(z6.WithoutLast(1).second, TermSeq({n1,n2,n1}));
+  EXPECT_TRUE(z6.WithoutLast(1));
+  EXPECT_EQ(z6.WithoutLast(1).val, TermSeq({n1,n2,n1}));
 }
 

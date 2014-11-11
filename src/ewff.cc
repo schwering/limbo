@@ -23,15 +23,15 @@ Ewff::Ewff(const std::set<std::pair<Variable, StdName>>& neq_name,
   }
 }
 
-std::pair<bool, Ewff> Ewff::Create(
+Maybe<Ewff> Ewff::Create(
     const std::set<std::pair<Variable, StdName>>& neq_name,
     const std::set<std::pair<Variable, Variable>>& neq_var) {
   for (const auto& xny : neq_var) {
     if (xny.first == xny.second) {
-      return failed<Ewff>();
+      return Nothing;
     }
   }
-  return std::make_pair(true, Ewff(neq_name, neq_var));
+  return Just(Ewff(neq_name, neq_var));
 }
 
 Ewff Ewff::And(const Ewff& e1, const Ewff& e2) {
@@ -126,33 +126,33 @@ bool Ewff::SubstituteVariable(const Variable& x, const Variable& y) {
   return true;
 }
 
-std::pair<bool, Ewff> Ewff::Substitute(const Unifier& theta) const {
+Maybe<Ewff> Ewff::Substitute(const Unifier& theta) const {
   Ewff e = *this;
   for (const auto& xet : theta) {
     const Variable& x = xet.first;
     const Term& t = xet.second;
     if (t.is_name()) {
       if (!e.SubstituteName(x, StdName(t))) {
-        return failed<Ewff>();
+        return Nothing;
       }
     } else {
       assert(t.is_variable());
       if (!e.SubstituteVariable(x, Variable(t))) {
-        return failed<Ewff>();
+        return Nothing;
       }
     }
   }
-  return std::make_pair(true, e);
+  return Just(e);
 }
 
-std::pair<bool, Ewff> Ewff::Ground(const Assignment& theta) const {
+Maybe<Ewff> Ewff::Ground(const Assignment& theta) const {
   Ewff e = *this;
   for (const auto& xen : theta) {
     if (!e.SubstituteName(xen.first, xen.second)) {
-      return failed<Ewff>();
+      return Nothing;
     }
   }
-  return std::make_pair(true, e);
+  return Just(e);
 }
 
 bool Ewff::Subsumes(const Ewff& e) const {

@@ -90,10 +90,10 @@ bool Atom::Unify(const Atom& a, const Atom& b, Unifier* theta) {
   return true;
 }
 
-std::pair<bool, Unifier> Atom::Unify(const Atom& a, const Atom& b) {
+Maybe<Unifier> Atom::Unify(const Atom& a, const Atom& b) {
   Unifier theta;
   const bool succ = Unify(a, b, &theta);
-  return std::make_pair(succ, theta);
+  return Perhaps(succ, theta);
 }
 
 Atom Atom::LowerBound() const {

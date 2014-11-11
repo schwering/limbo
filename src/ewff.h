@@ -23,7 +23,7 @@ class Ewff {
   Ewff(const Ewff&) = default;
   Ewff& operator=(const Ewff&) = default;
 
-  static std::pair<bool, Ewff> Create(
+  static Maybe<Ewff> Create(
       const std::set<std::pair<Variable, StdName>>& neq_name,
       const std::set<std::pair<Variable, Variable>>& neq_var);
   static Ewff And(const Ewff& e1, const Ewff& e2);
@@ -32,8 +32,8 @@ class Ewff {
   bool operator!=(const Ewff& e) const;
   bool operator<(const Ewff& e) const;
 
-  std::pair<bool, Ewff> Substitute(const Unifier& theta) const;
-  std::pair<bool, Ewff> Ground(const Assignment& theta) const;
+  Maybe<Ewff> Substitute(const Unifier& theta) const;
+  Maybe<Ewff> Ground(const Assignment& theta) const;
 
   bool Subsumes(const Ewff& e) const;
 

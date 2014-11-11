@@ -95,12 +95,12 @@ bool Term::Unify(const Term& t1, const Term& t2, Unifier* theta) {
   }
 }
 
-std::pair<bool, TermSeq> TermSeq::WithoutLast(const size_t n) const {
+Maybe<TermSeq> TermSeq::WithoutLast(const size_t n) const {
   if (n > size()) {
-    return failed<TermSeq>();
+    return Nothing;
   }
   const TermSeq prefix(begin(), begin() + size() - n);
-  return std::make_pair(true, prefix);
+  return Just(prefix);
 }
 
 bool TermSeq::Matches(const TermSeq& z, Unifier* theta) const {

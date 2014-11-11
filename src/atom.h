@@ -8,6 +8,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include "./maybe.h"
 #include "./term.h"
 
 namespace esbl {
@@ -38,7 +39,7 @@ class Atom {
   Atom Ground(const Assignment& theta) const;
   bool Matches(const Atom& a, Unifier* theta) const;
   static bool Unify(const Atom& a, const Atom& b, Unifier* theta);
-  static std::pair<bool, Unifier> Unify(const Atom& a, const Atom& b);
+  static Maybe<Unifier> Unify(const Atom& a, const Atom& b);
 
   Atom LowerBound() const;
   Atom UpperBound() const;

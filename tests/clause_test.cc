@@ -40,19 +40,19 @@ TEST(clause, rel)
 {
   Clause empty(true, Ewff::TRUE, SimpleClause());
   Clause c1(true,
-            Ewff::Create({{x2,n2}, {x3,n3}, {x2,n1}}, {}).second,
+            Ewff::Create({{x2,n2}, {x3,n3}, {x2,n1}}, {}).val,
             SimpleClause({ Literal({x2}, true, P, {n1,x2}),
                            Literal({x2}, false, P, {n1,x2}) }));
   Clause c2(false,
-            Ewff::Create({}, {{x5,x6}}).second,
+            Ewff::Create({}, {{x5,x6}}).val,
             SimpleClause({ Literal({x4}, true, P, {x4,x6}),
                            Literal({x6}, false, Q, {x4,x4}) }));
   Clause c3(false,
-            Ewff::Create({}, {}).second,
+            Ewff::Create({}, {}).val,
             SimpleClause({ Literal({x1}, true, P, {x1}),
                            Literal({x1}, false, Q, {x1,x6}) }));
   Clause c4(false,
-            Ewff::Create({}, {}).second,
+            Ewff::Create({}, {}).val,
             SimpleClause({ Literal({x1}, true, P, {x5}),
                            Literal({x1}, false, Q, {x5,x6}) }));
 
@@ -85,15 +85,15 @@ TEST(clause, subsumption)
 {
   Clause empty(true, Ewff::TRUE, SimpleClause());
   Clause c1(true,
-            Ewff::Create({{x2,n2}, {x2,n3}, {x2,n1}}, {}).second,
+            Ewff::Create({{x2,n2}, {x2,n3}, {x2,n1}}, {}).val,
             {Literal({x2}, true, P, {n1,x2}),
              Literal({x2}, false, P, {n1,x2})});
   Clause c2(false,
-            Ewff::Create({}, {{x4,x6}}).second,
+            Ewff::Create({}, {{x4,x6}}).val,
             {Literal({x4}, true, P, {x4,x6}),
              Literal({x6}, false, Q, {x4,x4})});
   Clause c3(false,
-            Ewff::Create({}, {{x4,x6}}).second,
+            Ewff::Create({}, {{x4,x6}}).val,
             {Literal({x4}, true, O, {x4,x6}),
              Literal({x4}, true, P, {x4,x6}),
              Literal({x6}, false, Q, {x4,x4})});

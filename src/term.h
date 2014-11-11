@@ -10,6 +10,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include <./maybe.h>
 
 namespace esbl {
 
@@ -64,7 +65,7 @@ class TermSeq : public std::vector<Term> {
  public:
   using std::vector<Term>::vector;
 
-  std::pair<bool, TermSeq> WithoutLast(const size_t n) const;
+  Maybe<TermSeq> WithoutLast(const size_t n) const;
   bool Matches(const TermSeq& z, Unifier* theta) const;
   static bool Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 };
