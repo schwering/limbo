@@ -11,6 +11,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include "./maybe.h"
 #include "./term.h"
 
 namespace esbl {

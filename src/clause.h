@@ -8,6 +8,7 @@
 #include <list>
 #include <set>
 #include <utility>
+#include "./maybe.h"
 #include "./ewff.h"
 #include "./literal.h"
 
