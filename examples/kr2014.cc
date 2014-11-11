@@ -1,16 +1,21 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
-/*
- * This is an implementation of (most of the) queries proven in the ESL paper.
- *
- * schwering@kbsg.rwth-aachen.de
- */
+// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// Copyright 2014 schwering@kbsg.rwth-aachen.de
+//
+// This is an implementation of (most of the) queries proven in the ESL paper.
+
 #include <stdio.h>
 #include <kr2014.h>
 
 #define ASSERT(phi)     ((void) ((phi) || printf("Condition failed: " #phi)))
 
+using namespace esbl;
+using namespace bats;
+
 int main(int argc, char *argv[])
 {
+    Kr2014 bat;
+
+#if 0
     univ_clauses_t static_bat;
     box_univ_clauses_t dynamic_bat;
     init_bat(&dynamic_bat, &static_bat, NULL);
@@ -97,6 +102,7 @@ int main(int argc, char *argv[])
             query_act(forward,
                 Q(P(Z(), d0, A()))));
     ASSERT(query_entailed(&ctx, false, phi10, 1));
+#endif
 
     printf("Example from the KR-2014 paper works\n");
     return 0;

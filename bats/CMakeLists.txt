@@ -1,15 +1,13 @@
 find_package (Prolog REQUIRED)
 
+add_library (BATS SHARED kr2014.cc ecai2014.cc kitchen.cc)
+target_link_libraries (BATS LINK_PUBLIC ESBL)
+target_include_directories (BATS PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 foreach (batname kr2014 ecai2014 kitchen)
-        add_library (BAT-${batname} SHARED ${batname}.c common.c)
-
-        target_link_libraries (BAT-${batname} LINK_PUBLIC ESBL)
-
         add_custom_command(
-                OUTPUT ${batname}.c ${batname}.h
-                COMMAND ${PROLOG_INTERPRETER} ${PROLOG_INTERPRETER_LOAD} proper-plus.pl ${PROLOG_INTERPRETER_QUERY} "\"compile_all(${batname}),halt.\""
-                DEPENDS ${batname}.pl proper-plus.pl)
-
-        target_include_directories (BAT-${batname} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+                OUTPUT ${batname}.cc ${batname}.h
+                COMMAND ${PROLOG_INTERPRETER} ${PROLOG_INTERPRETER_LOAD} properplus.pl ${PROLOG_INTERPRETER_QUERY} "\"compile_all(${batname}),halt.\""
+                DEPENDS ${batname}.pl properplus.pl)
 endforeach()
 

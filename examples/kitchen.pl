@@ -4,28 +4,27 @@
 %   $ eclipse-clp -f examples/kitchen.pl
 
 % We just need that for the operator declarations:
-:- ['../bats/proper-plus.pl'].
-
-% Load the BAT shared library:
-:- load('../bats/libBAT-kitchen.so').
+:- op(820, fx, ~).    % Negation
+:- op(840, xfy, ^).   % Conjunction
+:- op(850, xfy, v).   % Disjunction
+:- op(870, xfy, ->).  % Implication
+:- op(880, xfy, <->). % Equivalence
+:- op(890, xfy, =>).  % Belief conditional
 
 % Load the ESBL interface:
 :- load('../eclipse-clp/libEclipseESBL.so').
-:- external(kcontext/1, p_kcontext).
-:- external(bcontext/2, p_bcontext).
-:- external(context_store/2, p_context_store).
-:- external(context_retrieve/2, p_context_retrieve).
-:- external(context_guarantee_consistency/2, p_context_guarantee_consistency).
-:- external(context_exec/3, p_context_exec).
-:- external(context_entails/3, p_context_entails).
-
-% Create a context and store it in an extra-logical variable:
-%:- kcontext(Ctx), context_guarantee_consistency(Ctx, 1), context_store(myctx, Ctx).
+:- external(kcontext/2, p_kcontext).
+:- external(bcontext/3, p_bcontext).
+:- external(register_pred/3, p_register_pred).
+:- external(register_name/4, p_register_name).
+:- external(guarantee_consistency/2, p_guarantee_consistency).
+:- external(add_sensing_result/4, p_add_sensing_result).
+:- external(inconsistent/2, p_inconsistent).
+:- external(entails/3, p_entails).
 
 % Now test the properties (some are taken from the KR-2014 paper, some are
 % additional tests; they also match the kr2014.c example):
-measure(Ctx, Call) :-
-    context_retrieve(myctx, Ctx),
+measure(Call) :-
     cputime(T0),
     call(Call),
     cputime(T1),
@@ -43,46 +42,58 @@ measure(Ctx, Call) :-
 
 
 :-  profile((
-    kcontext(Ctx), context_guarantee_consistency(Ctx, 1), context_store(myctx, Ctx),
-    context_entails(Ctx, 1, type(o1, boxA) v ~type(o1, boxA)),
-    \+ context_entails(Ctx, 1, type(o0, boxA)),
-    \+ context_entails(Ctx, 1, exists(X, type(o0, X))),
-    \+ context_entails(Ctx, 1, exists(X, ~type(o0, X))),
-    \+ context_entails(Ctx, 1, forall(X, type(o1, X))),
-    \+ context_entails(Ctx, 1, forall(X, ~type(o1, X))),
-    \+ context_entails(Ctx, 1, type(o1, boxA) v type(o1, boxB) v type(o1, boxC)),
-    \+ context_entails(Ctx, 1, type(o1, boxA)),
-    \+ context_entails(Ctx, 1, type(o1, boxB)),
-    \+ context_entails(Ctx, 1, type(o1, boxC)),
+    kcontext(ctx, 'kitchen'),
+    guarantee_consistency(ctx, 2), % higher k than original
+    entails(ctx, has_type(o1, boxA) v ~has_type(o1, boxA), 1),
+    \+ entails(ctx, has_type(o0, boxA), 1),
+    \+ entails(ctx, exists(X, type, has_type(o0, X)), 1),
+    \+ entails(ctx, exists(X, type, ~has_type(o0, X)), 1),
+    \+ entails(ctx, forall(X, type, has_type(o1, X)), 1),
+    \+ entails(ctx, forall(X, type, ~has_type(o1, X)), 1),
+    \+ entails(ctx, has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC), 2), % higher k than original
+    \+ entails(ctx, has_type(o1, boxA), 2), % higher k than original
+    \+ entails(ctx, has_type(o1, boxB), 2), % higher k than original
+    \+ entails(ctx, has_type(o1, boxC), 2), % higher k than original
     true)),
 
     profile((
-    context_exec(Ctx, o0_has_type_boxA, true),
-    context_entails(Ctx, 1, type(o0, boxA)),
-    context_entails(Ctx, 1, exists(X, type(o0, X))),
-    \+ context_entails(Ctx, 1, exists(X, ~type(o0, X))),
-    \+ context_entails(Ctx, 1, forall(X, type(o1, X))),
-    \+ context_entails(Ctx, 1, forall(X, ~type(o1, X))),
-    \+ context_entails(Ctx, 1, type(o1, boxA) v type(o1, boxB) v type(o1, boxC)),
-    \+ context_entails(Ctx, 1, type(o1, boxA)),
-    \+ context_entails(Ctx, 1, type(o1, boxB)),
-    \+ context_entails(Ctx, 1, type(o1, boxC)),
+    A1 = o0_has_type_boxA,
+    add_sensing_result(ctx, [], A1, true),
+    entails(ctx, A1 : has_type(o0, boxA), 1),
+    entails(ctx, A1 : exists(X, type, has_type(o0, X)), 1),
+    \+ entails(ctx, A1 : exists(X, type, ~has_type(o0, X)), 1),
+    \+ entails(ctx, A1 : forall(X, type, has_type(o1, X)), 1),
+    \+ entails(ctx, A1 : forall(X, type, ~has_type(o1, X)), 1),
+    \+ entails(ctx, A1 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % higher k than original
+    \+ entails(ctx, A1 : has_type(o1, boxA), 2), % higher k than original
+    \+ entails(ctx, A1 : has_type(o1, boxB), 2), % higher k than original
+    \+ entails(ctx, A1 : has_type(o1, boxC), 2), % higher k than original
     true)),
-
+ 
     profile((
-    context_exec(Ctx, o1_is_box, true),
-    context_entails(Ctx, 1, type(o0, boxA)),
-    context_entails(Ctx, 1, exists(X, type(o0, X))),
-    \+ context_entails(Ctx, 1, exists(X, ~type(o0, X))),
-    \+ context_entails(Ctx, 1, forall(X, type(o1, X))),
-    \+ context_entails(Ctx, 1, forall(X, ~type(o1, X))),
-    context_entails(Ctx, 1, type(o1, boxA) v type(o1, boxB) v type(o1, boxC)),
-    \+ context_entails(Ctx, 1, type(o1, boxA)),
-    \+ context_entails(Ctx, 1, type(o1, boxB)),
-    \+ context_entails(Ctx, 1, type(o1, boxC)),
+    A2 = o1_is_box,
+    add_sensing_result(ctx, [A1], A2, true),
+    entails(ctx, A1 : A2 : has_type(o0, boxA), 1),
+    entails(ctx, A1 : A2 : exists(X, type, has_type(o0, X)), 1),
+    \+ entails(ctx, A1 : A2 : exists(X, type, ~has_type(o0, X)), 1),
+    \+ entails(ctx, A1 : A2 : forall(X, type, has_type(o1, X)), 1),
+    \+ entails(ctx, A1 : A2 : forall(X, type, ~has_type(o1, X)), 1),
+    entails(ctx, A1 : A2 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % higher k than original
+    \+ entails(ctx, A1 : A2 : has_type(o1, boxA), 2), % higher k than original
+    \+ entails(ctx, A1 : A2 : has_type(o1, boxB), 2), % higher k than original
+    \+ entails(ctx, A1 : A2 : has_type(o1, boxC), 2), % higher k than original
     true)),
 
     writeln('very good').
+
+
+%:-  kcontext(ctx, 'kitchen'),
+%    guarantee_consistency(ctx, 2),
+%    A = o1_is_box,
+%    add_sensing_result(ctx, [], A, true),
+%    %entails(ctx, A : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 1),
+%    entails(ctx, A : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2),
+%    writeln('very good').
 
 :- exit(0).
 

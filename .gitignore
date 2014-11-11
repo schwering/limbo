@@ -4,6 +4,7 @@
 *.o
 *.lo
 .*.swp
+.*.swo
 *.log
 *.trs
 .deps
@@ -19,6 +20,7 @@ ar-lib
 autom4te.cache/
 compile
 config.*
+.ycm_extra_conf.pyc
 configure
 depcomp
 install-sh
@@ -26,14 +28,16 @@ missing
 stamp-h1
 test-driver
 tests/check_*[^c]
+tests/*_test
 profile/profile
 gmon.out
 *.cmake
 CMakeCache.txt
 Testing/
 CMakeFiles/
-bats/kr2014.[hc]
-bats/ecai2014.[hc]
-bats/kitchen.[hc]
+bats/kr2014.[hc]*
+bats/ecai2014.[hc]*
+bats/kitchen.[hc]*
+bats/minesweeper.[hc]*
 examples/Example-*
 

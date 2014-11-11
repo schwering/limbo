@@ -31,14 +31,14 @@ is_one_of(_, [], ~true).
 is_one_of(V, [T|Ts], V = T v Phi) :- is_one_of(V, Ts, Phi).
 
 type_disj(_, [], ~true).
-type_disj(O, [T|Ts], type(O,T) v Phi) :- type_disj(O, Ts, Phi).
+type_disj(O, [T|Ts], has_type(O,T) v Phi) :- type_disj(O, Ts, Phi).
 
-box('SF'(A) <-> object(O)) :- sense_is_object(O, A).
+box('SF'(A) <-> is_object(O)) :- sense_is_object(O, A).
 box('SF'(A) <-> TypeDisj) :- sense_is_box(O, A), findall(Box, sort_name(box, Box), Boxes), type_disj(O, Boxes, TypeDisj).
-box('SF'(A) <-> type(O, T)) :- sense_has_type(O, T, A).
+box('SF'(A) <-> has_type(O, T)) :- sense_has_type(O, T, A).
 
-box(A:object(O) <-> object(O)) :- put_sort(A, action), put_sort(O, object).
-box(A:type(O,T) <-> type(O,T)) :- put_sort(A, action), put_sort(O, object), put_sort(T, type).
+box(A:is_object(O) <-> is_object(O)) :- put_sort(A, action), put_sort(O, object).
+box(A:has_type(O,T) <-> has_type(O,T)) :- put_sort(A, action), put_sort(O, object), put_sort(T, type).
 
 static(_) :- fail.
 

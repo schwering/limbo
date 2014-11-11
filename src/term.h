@@ -1,45 +1,187 @@
-// vim:filetype=c:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
-/*
- * Type definitions for variables and standard names.
- *
- * We choose convenience over type-safety here: variables are negative integers,
- * standard names are non-negative integers.
- *
- * schwering@kbsg.rwth-aachen.de
- */
-#ifndef _TERM_H_
-#define _TERM_H_
+// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// Copyright 2014 schwering@kbsg.rwth-aachen.de
 
-#include "vector.h"
-#include "set.h"
-#include "map.h"
-#include <assert.h>
-#include <limits.h>
+#ifndef SRC_TERM_H_
+#define SRC_TERM_H_
 
-typedef long int term_t;
-typedef term_t stdname_t;
-typedef term_t var_t;
+#include <cassert>
+#include <map>
+#include <ostream>
+#include <set>
+#include <utility>
+#include <vector>
+#include "./maybe.h"
 
-#define STDNAME_MAX LONG_MAX
+namespace esbl {
 
-#define IS_VARIABLE(x)  ((x) < 0)
-#define IS_STDNAME(x)   ((x) >= 0)
+class Term;
+class TermSeq;
+class Variable;
+class StdName;
 
-#define FIRST_VAR        (-1)
+typedef std::map<Variable, Term> Unifier;
+typedef std::map<Variable, StdName> Assignment;
 
-MAP_DECL(varmap, var_t, term_t);
+class Term {
+ public:
+  typedef int Id;
+  typedef int Sort;
+  class Factory;
 
-term_t varmap_lookup_or_id(const varmap_t *varmap, var_t x);
+  Term() = default;
+  Term(const Term&) = default;
+  Term& operator=(const Term&) = default;
 
-SET_DECL(varset, var_t);
+  bool operator==(const Term& t) const;
+  bool operator!=(const Term& t) const;
+  bool operator<(const Term& t) const;
 
-SET_DECL(stdset, stdname_t);
+  Term Substitute(const Unifier& theta) const;
+  Term Ground(const Assignment& theta) const;
+  bool Matches(const Term& t, Unifier* theta) const;
+  static bool Unify(const Term& t1, const Term& t2, Unifier* theta);
 
-VECTOR_DECL(stdvec, stdname_t);
+  Id id() const { return id_; }
+  bool sort() const { return sort_; }
+  bool is_variable() const { return kind_ == VAR; }
+  bool is_name() const { return kind_ == NAME; }
+  bool is_ground() const { return kind_ != VAR; }
 
-bool stdvec_is_ground(const stdvec_t *v);
+ protected:
+  friend class Factory;
+  friend class Variable;
+  friend class StdName;
 
-SET_DECL(stdvecset, stdvec_t *);
+  enum Kind { DUMMY, VAR, NAME };
 
-#endif
+  Term(Kind kind, Id id, Sort sort) : kind_(kind), id_(id), sort_(sort) {}
+
+  Kind kind_ = DUMMY;
+  Id id_ = 0;
+  Sort sort_ = 0;
+};
+
+class TermSeq : public std::vector<Term> {
+ public:
+  using std::vector<Term>::vector;
+
+  Maybe<TermSeq> WithoutLast(const size_t n) const;
+  bool Matches(const TermSeq& z, Unifier* theta) const;
+  static bool Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
+};
+
+class Variable {
+ public:
+  typedef std::map<Term::Sort, std::set<Variable>> SortedSet;
+
+  static const Variable MIN;
+  static const Variable MAX;
+
+  Variable() = default;
+  explicit Variable(const Term& t) : t_(t) { assert(t_.is_variable()); }
+  Variable(const Variable&) = default;
+  Variable& operator=(const Variable&) = default;
+
+  bool operator==(const Term& t) const { return t_ == t; }
+  bool operator!=(const Term& t) const { return t_ != t; }
+  bool operator<(const Term& t) const { return t_ < t; }
+
+  operator Term&() { return t_; }
+  operator const Term&() const { return t_; }
+
+  Term Substitute(const Unifier& theta) const {
+    return t_.Substitute(theta);
+  }
+  Term Ground(const Assignment& theta) const {
+    return t_.Ground(theta);
+  }
+
+  inline Term::Id id() const { return t_.id_; }
+  inline bool sort() const { return t_.sort_; }
+  inline bool is_variable() const { return t_.kind_ == Term::VAR; }
+  inline bool is_name() const { return t_.kind_ == Term::NAME; }
+  inline bool is_ground() const { return t_.kind_ != Term::VAR; }
+
+ private:
+  friend class Term;
+
+  Term t_;
+};
+
+class StdName {
+ public:
+  typedef std::map<Term::Sort, std::set<StdName>> SortedSet;
+
+  static const StdName MIN_NORMAL;
+  static const StdName MIN;
+  static const StdName MAX;
+
+  StdName() = default;
+  explicit StdName(const Term& t) : t_(t) { assert(t_.is_name()); }
+  StdName(const StdName&) = default;
+  StdName& operator=(const StdName&) = default;
+
+  bool operator==(const Term& t) const { return t_ == t; }
+  bool operator!=(const Term& t) const { return t_ != t; }
+  bool operator<(const Term& t) const { return t_ < t; }
+
+  operator Term&() { return t_; }
+  operator const Term&() const { return t_; }
+
+  Term Substitute(const Unifier& theta) const {
+    return t_.Substitute(theta);
+  }
+  Term Ground(const Assignment& theta) const {
+    return t_.Ground(theta);
+  }
+
+  inline Term::Id id() const { return t_.id_; }
+  inline bool sort() const { return t_.sort_; }
+  inline bool is_variable() const { return t_.kind_ == Term::VAR; }
+  inline bool is_name() const { return t_.kind_ == Term::NAME; }
+  inline bool is_ground() const { return t_.kind_ != Term::VAR; }
+  inline bool is_placeholder() const { return t_.id_ < 0; }
+
+ private:
+  friend class Term;
+
+  Term t_;
+};
+
+class Term::Factory {
+ public:
+  Factory() : var_counter_(0) {}
+  Factory(const Factory&) = delete;
+  Factory& operator=(const Factory&) = delete;
+
+  Variable CreateVariable(Term::Sort sort);
+  StdName CreateStdName(Term::Id id, Term::Sort sort);
+  static StdName CreatePlaceholderStdName(Term::Id id, Term::Sort sort);
+
+  const StdName::SortedSet& sorted_names() const { return names_; }
+
+ private:
+  Term::Id var_counter_;
+  StdName::SortedSet names_;
+};
+
+template<typename T1>
+constexpr std::pair<bool, T1> failed() {
+  return std::make_pair(false, T1());
+}
+
+template<typename T1, typename T2>
+constexpr std::tuple<bool, T1, T2> failed() {
+  return std::make_tuple(false, T1(), T2());
+}
+
+std::ostream& operator<<(std::ostream& os, const TermSeq& z);
+std::ostream& operator<<(std::ostream& os, const Term& t);
+std::ostream& operator<<(std::ostream& os, const Unifier& theta);
+std::ostream& operator<<(std::ostream& os, const Assignment& theta);
+std::ostream& operator<<(std::ostream& os, const StdName::SortedSet& ns);
+
+}  // namespace esbl
+
+#endif  // SRC_TERM_H_
 
