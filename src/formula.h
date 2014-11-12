@@ -28,7 +28,6 @@
 #define SRC_FORMULA_H_
 
 #include <memory>
-#include <utility>
 #include <vector>
 #include "./setup.h"
 #include "./term.h"
@@ -38,6 +37,7 @@ namespace esbl {
 class Formula {
  public:
   typedef std::unique_ptr<Formula> Ptr;
+  typedef Setup::split_level split_level;
 
   Formula(const Formula&) = delete;
   Formula& operator=(const Formula&) = delete;
@@ -48,6 +48,9 @@ class Formula {
   static Ptr Lit(const Literal& l);
   static Ptr Or(Ptr phi1, Ptr phi2);
   static Ptr And(Ptr phi1, Ptr phi2);
+  static Ptr OnlyIf(Ptr phi1, Ptr phi2);
+  static Ptr If(Ptr phi1, Ptr phi2);
+  static Ptr Iff(Ptr phi1, Ptr phi2);
   static Ptr Neg(Ptr phi);
   static Ptr Act(const Term& t, Ptr phi);
   static Ptr Act(const TermSeq& z, Ptr phi);
@@ -56,63 +59,33 @@ class Formula {
 
   virtual Ptr Copy() const = 0;
 
-  std::vector<SimpleClause> Clauses(const StdName::SortedSet& hplus) const;
-
-  template<class T>
-  bool EntailedBy(T* setup, typename T::split_level k) const;
+  bool EntailedBy(Setup* setup, split_level k) const;
+  bool EntailedBy(Setups* setups, split_level k) const;
 
  private:
   friend std::ostream& operator<<(std::ostream& os, const Formula& phi);
+
   struct Equal;
   struct Lit;
   struct Junction;
   struct Quantifier;
-
-  struct Cnf {
-   public:
-    struct C {
-      static C Concat(const C& c1, const C& c2);
-      C Substitute(const Unifier& theta) const;
-      bool VacuouslyTrue() const;
-
-      std::vector<std::pair<Term, Term>> eqs;
-      std::vector<std::pair<Term, Term>> neqs;
-      SimpleClause clause;
-    };
-
-    Cnf() = default;
-    Cnf(const Cnf&) = default;
-    Cnf& operator=(const Cnf&) = default;
-
-    Cnf Substitute(const Unifier& theta) const;
-    Cnf And(const Cnf& c) const;
-    Cnf Or(const Cnf& c) const;
-    std::vector<SimpleClause> UnsatisfiedClauses() const;
-
-    std::vector<C> cs;
-  };
+  struct Knowledge;
+  struct Belief;
+  struct Cnf;
 
   Formula() = default;
 
   virtual void Negate() = 0;
   virtual void PrependActions(const TermSeq& z) = 0;
   virtual Ptr Substitute(const Unifier& theta) const = 0;
-  virtual Cnf MakeCnf(const StdName::SortedSet& hplus, int n_vars) const = 0;
-  virtual int n_vars() const = 0;
+  virtual void CollectVariables(Variable::SortedSet* vs) const = 0;
+  virtual void CollectFreeVariables(Variable::SortedSet* vs) const = 0;
+  virtual Cnf MakeCnf(const StdName::SortedSet& hplus,
+                      const Variable::SortedSet& vars) const = 0;
   virtual void Print(std::ostream* os) const = 0;
 };
 
-template<class T>
-bool Formula::EntailedBy(T* setup, typename T::split_level k) const {
-  for (SimpleClause c : Clauses(setup->hplus())) {
-    if (!setup->Entails(c, k)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-std::ostream& operator<<(std::ostream& os, const Formula& phi) {
+inline std::ostream& operator<<(std::ostream& os, const Formula& phi) {
   phi.Print(&os);
   return os;
 }

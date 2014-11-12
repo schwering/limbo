@@ -9,6 +9,8 @@
 #include <string>
 #include <utility>
 #include "atom.h"
+#include "formula.h"
+#include "maybe.h"
 #include "setup.h"
 #include "term.h"
 
@@ -35,48 +37,60 @@ class Bat {
   virtual void GuaranteeConsistency(Setup::split_level k) = 0;
   virtual void AddSensingResult(const TermSeq& z, const StdName& a, bool r) = 0;
   virtual bool Inconsistent(Setup::split_level k) = 0;
-  virtual bool Entails(const SimpleClause& c, Setup::split_level k) = 0;
+  virtual bool Entails(const Formula& phi, Setup::split_level k) = 0;
 
-  std::pair<bool, std::string> NameToString(const StdName& n) const {
+  Maybe<std::string> NameToString(const StdName& n) const {
     const auto it = name_to_string_.find(n);
-    return it != name_to_string_.end()
-        ? std::make_pair(true, it->second)
-        : std::make_pair(false, "");
+    if (it != name_to_string_.end()) {
+      return Just(it->second);
+    } else {
+      return Nothing;
+    }
   }
 
-  std::pair<bool, std::string> PredToString(const Atom::PredId& p) const {
+  Maybe<std::string> PredToString(const Atom::PredId& p) const {
     const auto it = pred_to_string_.find(p);
-    return it != pred_to_string_.end()
-        ? std::make_pair(true, it->second)
-        : std::make_pair(false, "");
+    if (it != pred_to_string_.end()) {
+      return Just(it->second);
+    } else {
+      return Nothing;
+    }
   }
 
-  std::pair<bool, std::string> SortToString(const Term::Sort& p) const {
+  Maybe<std::string> SortToString(const Term::Sort& p) const {
     const auto it = sort_to_string_.find(p);
-    return it != sort_to_string_.end()
-        ? std::make_pair(true, it->second)
-        : std::make_pair(false, "");
+    if (it != sort_to_string_.end()) {
+      return Just(it->second);
+    } else {
+      return Nothing;
+    }
   }
 
-  std::pair<bool, StdName> StringToName(const std::string& s) const {
+  Maybe<StdName> StringToName(const std::string& s) const {
     const auto it = string_to_name_.find(s);
-    return it != string_to_name_.end()
-        ? std::make_pair(true, it->second)
-        : failed<StdName>();
+    if (it != string_to_name_.end()) {
+      return Just(it->second);
+    } else {
+      return Nothing;
+    }
   }
 
-  std::pair<bool, Atom::PredId> StringToPred(const std::string& s) const {
+  Maybe<Atom::PredId> StringToPred(const std::string& s) const {
     const auto it = string_to_pred_.find(s);
-    return it != string_to_pred_.end()
-        ? std::make_pair(true, it->second)
-        : failed<Atom::PredId>();
+    if (it != string_to_pred_.end()) {
+      return Just(it->second);
+    } else {
+      return Nothing;
+    }
   }
 
-  std::pair<bool, Term::Sort> StringToSort(const std::string& s) const {
+  Maybe<Term::Sort> StringToSort(const std::string& s) const {
     const auto it = string_to_sort_.find(s);
-    return it != string_to_sort_.end()
-        ? std::make_pair(true, it->second)
-        : failed<Term::Sort>();
+    if (it != string_to_sort_.end()) {
+      return Just(it->second);
+    } else {
+      return Nothing;
+    }
   }
 
  protected:
@@ -110,8 +124,8 @@ class KBat : public Bat {
     return s_.Inconsistent(k);
   }
 
-  bool Entails(const SimpleClause& c, Setup::split_level k) override {
-    return s_.Entails(c, k);
+  bool Entails(const Formula& phi, Setup::split_level k) override {
+    return phi.EntailedBy(&s_, k);
   }
 
  protected:
@@ -139,8 +153,8 @@ class BBat : public Bat {
     return s_.Inconsistent(k);
   }
 
-  bool Entails(const SimpleClause& c, Setup::split_level k) override {
-    return s_.Entails(c, k);
+  bool Entails(const Formula& phi, Setup::split_level k) override {
+    return phi.EntailedBy(&s_, k);
   }
 
  protected:

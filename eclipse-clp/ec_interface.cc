@@ -75,6 +75,7 @@ extern "C" {
 #include <map>
 #include <string>
 #include <./formula.h>
+#include <./maybe.h>
 #include <./ecai2014.h>
 #include <./kr2014.h>
 #include <./kitchen.h>
@@ -104,28 +105,28 @@ class PredBuilder {
   PredBuilder(const PredBuilder&) = delete;
   PredBuilder& operator=(const PredBuilder&) = delete;
 
-  std::pair<bool, Atom::PredId> Get(EC_word w) {
+  Maybe<Atom::PredId> Get(EC_word w) {
     const auto it = preds_.find(w);
     if (it != preds_.end()) {
-      return std::make_pair(true, it->second);
+      return Just(it->second);
     }
     EC_atom a;
     if (w.is_atom(&a) == EC_succeed) {
       const std::string s = a.name();
       const auto p = bat_->StringToPred(s);
-      if (p.first) {
-        return std::make_pair(true, p.second);
+      if (p) {
+        return p;
       }
     }
     EC_functor f;
     if (w.functor(&f) == EC_succeed) {
       const std::string s = f.name();
       const auto p = bat_->StringToPred(s);
-      if (p.first) {
-        return std::make_pair(true, p.second);
+      if (p) {
+        return p;
       }
     }
-    return failed<Atom::PredId>();
+    return Nothing;
   }
 
   bool Register(EC_word w, Atom::PredId p) {
@@ -147,25 +148,25 @@ class TermBuilder {
   TermBuilder(const TermBuilder&) = delete;
   TermBuilder& operator=(const TermBuilder&) = delete;
 
-  std::pair<bool, StdName> GetName(EC_atom a) {
+  Maybe<StdName> GetName(EC_atom a) {
     const auto it = names_.find(a);
     if (it != names_.end()) {
-      return std::make_pair(true, it->second);
+      return Just(it->second);
     }
     const std::string s = a.name();
     const auto p = bat_->StringToName(s);
-    if (p.first) {
-      return std::make_pair(true, p.second);
+    if (p) {
+      return p;
     }
-    return failed<StdName>();
+    return Nothing;
   }
 
-  std::pair<bool, Variable> GetVar(EC_word w) {
+  Maybe<Variable> GetVar(EC_word w) {
     const auto it = vars_.find(w);
     if (it != vars_.end() && !it->second.empty()) {
-      return std::make_pair(true, it->second.front());
+      return Just(it->second.front());
     }
-    return failed<Variable>();
+    return Nothing;
   }
 
   Variable PushVar(EC_word w, Term::Sort sort) {
@@ -174,29 +175,29 @@ class TermBuilder {
     return x;
   }
 
-  std::pair<bool, Variable> PopVar(EC_word w) {
+  Maybe<Variable> PopVar(EC_word w) {
     const auto it = vars_.find(w);
     if (it != vars_.end() && !it->second.empty()) {
       const Variable x = it->second.front();
       it->second.pop_front();
-      return std::make_pair(true, x);
+      return Just(x);
     }
-    return failed<Variable>();
+    return Nothing;
   }
 
-  std::pair<bool, Term> Get(EC_word t) {
+  Maybe<Term> Get(EC_word t) {
     EC_atom a;
     if (t.is_atom(&a) == EC_succeed) {
       const auto p = GetName(a);
-      if (p.first) {
-        return std::make_pair(true, p.second);
+      if (p) {
+        return p;
       }
     }
     const auto p = GetVar(t);
-    if (p.first) {
-      return std::make_pair(true, p.second);
+    if (p) {
+      return p;
     }
-    return failed<Term>();
+    return Nothing;
   }
 
   bool Register(EC_word w, const StdName& n) {
@@ -223,26 +224,26 @@ class SortBuilder {
   SortBuilder(const SortBuilder&) = delete;
   SortBuilder& operator=(const SortBuilder&) = delete;
 
-  std::pair<bool, Term::Sort> Get(EC_word w) {
+  Maybe<Term::Sort> Get(EC_word w) {
     EC_atom a;
     if (w.is_atom(&a) == EC_succeed) {
       const std::string s = a.name();
       const auto p = bat_->StringToSort(s);
-      if (p.first) {
-        return std::make_pair(true, p.second);
+      if (p) {
+        return p;
       }
     }
     long l;
     if (w.is_long(&l) == EC_succeed) {
-      return std::make_pair(true, static_cast<Term::Id>(l));
+      return Just(static_cast<Term::Id>(l));
     }
     if (w.is_atom(&a) == EC_succeed) {
       const auto p = tb_->GetName(a);
-      if (p.first) {
-        return std::make_pair(true, p.second.sort());
+      if (p) {
+        return Just(p.val.sort());
       }
     }
-    return failed<Term::Sort>();
+    return Nothing;
   }
 
  private:
@@ -257,7 +258,7 @@ class FormulaBuilder {
       term_builder_(bat),
       sort_builder_(bat, &term_builder_) {}
 
-  std::pair<bool, Formula::Ptr> Build(EC_word ec_alpha);
+  Maybe<Formula::Ptr> Build(EC_word ec_alpha);
 
   PredBuilder& pred_builder() { return pred_builder_; }
   TermBuilder& term_builder() { return term_builder_; }
@@ -272,44 +273,44 @@ class FormulaBuilder {
 #define ARG_FORMULA(ec_alpha, beta, i) \
   EC_word ec_##beta;\
   if (ec_alpha.arg(i, ec_##beta) != EC_succeed) {\
-    return failed<Formula::Ptr>();\
+    return Nothing;\
   }\
   auto p_##beta = Build(ec_##beta);\
-  if (!p_##beta.first) {\
-    return failed<Formula::Ptr>();\
+  if (!p_##beta) {\
+    return Nothing;\
   }\
-  Formula::Ptr beta(std::move(p_##beta.second))
+  Formula::Ptr beta(std::move(p_##beta.val))
 
 #define ARG_QVAR(ec_alpha, var, sort, i) \
   EC_word ec_##var;\
   if (ec_alpha.arg(i, ec_##var) != EC_succeed) {\
-    return failed<Formula::Ptr>();\
+    return Nothing;\
   }\
   const auto var = term_builder_.PushVar(ec_##var, sort);
 
 #define ARG_TERM(ec_alpha, term, i) \
   EC_word ec_##term;\
   if (ec_alpha.arg(i, ec_##term) != EC_succeed) {\
-    return failed<Formula::Ptr>();\
+    return Nothing;\
   }\
   const auto p_##term = term_builder_.Get(ec_##term);\
-  if (!p_##term.first) {\
-    return failed<Formula::Ptr>();\
+  if (!p_##term) {\
+    return Nothing;\
   }\
-  const Term term = p_##term.second;
+  const Term term = p_##term.val;
 
 #define ARG_SORT(ec_alpha, sort, i) \
   EC_word ec_##sort;\
   if (ec_alpha.arg(i, ec_##sort) != EC_succeed) {\
-    return failed<Formula::Ptr>();\
+    return Nothing;\
   }\
   const auto p_##sort = sort_builder_.Get(ec_##sort);\
-  if (!p_##sort.first) {\
-    return failed<Formula::Ptr>();\
+  if (!p_##sort) {\
+    return Nothing;\
   }\
-  const Term::Sort sort = p_##sort.second;
+  const Term::Sort sort = p_##sort.val;
 
-std::pair<bool, Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
+Maybe<Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
 {
   EC_functor f;
   EC_atom a;
@@ -318,23 +319,23 @@ std::pair<bool, Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
   if (is_functor && f.name() == NEGATION && f.arity() == 1) {
     ARG_FORMULA(ec_alpha, beta, 1);
     beta = Formula::Neg(std::move(beta));
-    return std::make_pair(true, std::move(beta));
+    return Just(std::move(beta));
   } else if (is_functor && f.name() == DISJUNCTION && f.arity() == 2) {
     ARG_FORMULA(ec_alpha, beta1, 1);
     ARG_FORMULA(ec_alpha, beta2, 2);
     Formula::Ptr beta = Formula::Or(std::move(beta1), std::move(beta2));
-    return std::make_pair(true, std::move(beta));
+    return Just(std::move(beta));
   } else if (is_functor && f.name() == CONJUNCTION && f.arity() == 2) {
     ARG_FORMULA(ec_alpha, beta1, 1);
     ARG_FORMULA(ec_alpha, beta2, 2);
     Formula::Ptr beta = Formula::And(std::move(beta1), std::move(beta2));
-    return std::make_pair(true, std::move(beta));
+    return Just(std::move(beta));
   } else if (is_functor && f.name() == IMPLICATION && f.arity() == 2) {
     ARG_FORMULA(ec_alpha, beta1, 1);
     ARG_FORMULA(ec_alpha, beta2, 2);
     Formula::Ptr beta = Formula::Or(Formula::Neg(std::move(beta1)),
                                     std::move(beta2));
-    return std::make_pair(true, std::move(beta));
+    return Just(std::move(beta));
   } else if (is_functor && f.name() == EQUIVALENCE && f.arity() == 2) {
     ARG_FORMULA(ec_alpha, beta1a, 1);
     ARG_FORMULA(ec_alpha, beta2a, 2);
@@ -345,30 +346,30 @@ std::pair<bool, Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
                                  std::move(beta2a)),
                      Formula::Or(std::move(beta1b),
                                  Formula::Neg(std::move(beta2b))));
-    return std::make_pair(true, std::move(beta));
+    return Just(std::move(beta));
   } else if (is_functor && f.name() == EXISTS && f.arity() == 3) {
     ARG_SORT(ec_alpha, sort, 2);
     ARG_QVAR(ec_alpha, var, sort, 1);
     ARG_FORMULA(ec_alpha, beta, 3);
     term_builder_.PopVar(ec_var);
     beta = Formula::Exists(var, std::move(beta));
-    return std::make_pair(true, std::move(beta));
+    return Just(std::move(beta));
   } else if (is_functor && f.name() == FORALL && f.arity() == 3) {
     ARG_SORT(ec_alpha, sort, 2);
     ARG_QVAR(ec_alpha, var, sort, 1);
     ARG_FORMULA(ec_alpha, beta, 3);
     term_builder_.PopVar(ec_var);
     beta = Formula::Forall(var, std::move(beta));
-    return std::make_pair(true, std::move(beta));
+    return Just(std::move(beta));
   } else if (is_functor && f.name() == ACTION && f.arity() == 2) {
     ARG_TERM(ec_alpha, term, 1);
     ARG_FORMULA(ec_alpha, beta, 2);
     beta = Formula::Act(term, std::move(beta));
-    return std::make_pair(true, std::move(beta));
+    return Just(std::move(beta));
   } else if (is_functor) {
     const auto p = pred_builder_.Get(ec_alpha);
-    if (!p.first) {
-      return failed<Formula::Ptr>();
+    if (!p) {
+      return Nothing;\
     }
     const bool sign = true;
     TermSeq args;
@@ -376,18 +377,18 @@ std::pair<bool, Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
         ARG_TERM(ec_alpha, term, i);
         args.push_back(term);
     }
-    const Literal l({}, sign, p.second, args);
-    return std::make_pair(true, Formula::Lit(l));
+    const Literal l({}, sign, p.val, args);
+    return Just(Formula::Lit(l));
   } else if (is_atom) {
     const auto p = pred_builder_.Get(ec_alpha);
-    if (!p.first) {
-      return failed<Formula::Ptr>();
+    if (!p) {
+      return Nothing;\
     }
     const bool sign = true;
-    const Literal l({}, sign, p.second, {});
-    return std::make_pair(true, Formula::Lit(l));
+    const Literal l({}, sign, p.val, {});
+    return Just(Formula::Lit(l));
   } else {
-    return failed<Formula::Ptr>();
+    return Nothing;\
   }
 }
 
@@ -553,10 +554,10 @@ int p_register_name()
   }
 
   const auto p = ctx->sort_builder().Get(ec_sort);
-  if (!p.first) {
+  if (!p) {
     return TYPE_ERROR;
   }
-  const Term::Sort sort = p.second;
+  const Term::Sort sort = p.val;
 
   long name_id;
   if (ec_name.is_long(&name_id) != EC_succeed) {
@@ -607,10 +608,10 @@ int p_add_sensing_result()
   TermSeq z;
   for (EC_word hd, tl = ec_z; tl.is_list(hd, tl) == EC_succeed; ) {
     const auto p = ctx->term_builder().Get(hd);
-    if (!p.first) {
+    if (!p) {
       return TYPE_ERROR;
     }
-    z.push_back(p.second);
+    z.push_back(p.val);
   }
 
   EC_atom a;
@@ -618,10 +619,10 @@ int p_add_sensing_result()
     return TYPE_ERROR;
   }
   const auto p = ctx->term_builder().GetName(a);
-  if (!p.first) {
+  if (!p) {
     return TYPE_ERROR;
   }
-  const StdName t = p.second;
+  const StdName t = p.val;
 
   if (ec_r.is_atom(&a) != EC_succeed) {
     return TYPE_ERROR;
@@ -681,16 +682,11 @@ int p_entails()
   }
 
   auto p = ctx->formula_builder().Build(ec_alpha);
-  if (!p.first) {
+  if (!p) {
     return TYPE_ERROR;
   }
-  Formula::Ptr alpha(std::move(p.second));
+  Formula::Ptr alpha(std::move(p.val));
 
-  for (const SimpleClause& c : alpha->Clauses(ctx->bat().hplus())) {
-    if (!ctx->bat().Entails(c, k)) {
-      return PFAIL;
-    }
-  }
-  return PSUCCEED;
+  return ctx->bat().Entails(*alpha, k) ? PSUCCEED : PFAIL;
 }
 

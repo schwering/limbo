@@ -3,87 +3,43 @@
 
 #include <algorithm>
 #include <cassert>
+#include <utility>
 #include "./formula.h"
 
 namespace esbl {
 
-Formula::Cnf::C Formula::Cnf::C::Concat(const C& cl1, const C& cl2) {
-  C cl = cl1;
-  cl.eqs.insert(cl.eqs.end(), cl2.eqs.begin(), cl2.eqs.end());
-  cl.neqs.insert(cl.neqs.end(), cl2.neqs.begin(), cl2.neqs.end());
-  cl.clause.insert(cl2.clause.begin(), cl2.clause.end());
-  assert(cl.eqs.size() == cl1.eqs.size() + cl2.eqs.size());
-  assert(cl.neqs.size() == cl1.neqs.size() + cl2.neqs.size());
-  assert(cl.clause.size() <= cl1.clause.size() + cl2.clause.size());
-  return cl;
-}
+struct Formula::Cnf {
+ public:
+  struct Disj;
 
-Formula::Cnf::C Formula::Cnf::C::Substitute(const Unifier& theta) const {
-  C cl;
-  cl.eqs.reserve(eqs.size());
-  for (const auto& p : eqs) {
-    cl.eqs.push_back(std::make_pair(p.first.Substitute(theta),
-                                    p.second.Substitute(theta)));
-  }
-  cl.neqs.reserve(neqs.size());
-  for (const auto& p : neqs) {
-    cl.eqs.push_back(std::make_pair(p.first.Substitute(theta),
-                                    p.second.Substitute(theta)));
-  }
-  cl.clause = clause.Substitute(theta);
-  return cl;
-}
+  Cnf();
+  explicit Cnf(const Disj& d);
+  Cnf(const Cnf&);
+  Cnf& operator=(const Cnf&);
 
-bool Formula::Cnf::C::VacuouslyTrue() const {
-  for (const auto& p : eqs) {
-    if (p.first == p.second) {
-      return true;
-    }
-  }
-  for (const auto& p : neqs) {
-    if (p.first != p.second) {
-      return true;
-    }
-  }
-  return false;
-}
+  Cnf Substitute(const Unifier& theta) const;
+  Cnf And(const Cnf& c) const;
+  Cnf Or(const Cnf& c) const;
+  bool EntailedBy(Setup* setup, split_level k) const;
+  bool EntailedBy(Setups* setups, split_level k) const;
 
-Formula::Cnf Formula::Cnf::Substitute(const Unifier& theta) const {
-  Cnf c;
-  c.cs.reserve(cs.size());
-  for (const C& cl : cs) {
-    c.cs.push_back(cl.Substitute(theta));
-  }
-  return c;
-}
+  // unique_ptr prevents incomplete type errors
+  std::unique_ptr<std::vector<Disj>> ds;
+};
 
-Formula::Cnf Formula::Cnf::And(const Cnf& c) const {
-  Cnf r = *this;
-  r.cs.insert(r.cs.end(), c.cs.begin(), c.cs.end());
-  assert(r.cs.size() == cs.size() + c.cs.size());
-  return r;
-}
+struct Formula::Cnf::Disj {
+  static Disj Concat(const Disj& c1, const Disj& c2);
+  Disj Substitute(const Unifier& theta) const;
+  bool VacuouslyTrue() const;
+  bool EntailedBy(Setup* setup, split_level k) const;
+  bool EntailedBy(Setups* setups, split_level k) const;
 
-Formula::Cnf Formula::Cnf::Or(const Cnf& c) const {
-  Cnf r;
-  for (const C& cl1 : cs) {
-    for (const C& cl2 : c.cs) {
-      r.cs.push_back(Cnf::C::Concat(cl1, cl2));
-    }
-  }
-  assert(r.cs.size() == cs.size() * c.cs.size());
-  return r;
-}
-
-std::vector<SimpleClause> Formula::Cnf::UnsatisfiedClauses() const {
-  std::vector<SimpleClause> scs;
-  for (const C& c : cs) {
-    if (!c.VacuouslyTrue()) {
-      scs.push_back(c.clause);
-    }
-  }
-  return scs;
-}
+  std::vector<std::pair<Term, Term>> eqs;
+  std::vector<std::pair<Term, Term>> neqs;
+  SimpleClause clause;
+  std::vector<std::tuple<split_level, Cnf>> ks;
+  std::vector<std::tuple<split_level, Cnf, Cnf>> bs;
+};
 
 struct Formula::Equal : public Formula {
   bool sign;
@@ -104,19 +60,29 @@ struct Formula::Equal : public Formula {
     return Ptr(new Equal(sign, t1.Substitute(theta), t2.Substitute(theta)));
   }
 
-  Cnf MakeCnf(const StdName::SortedSet&, int) const override {
-    Cnf::C cl;
-    if (sign) {
-      cl.eqs.push_back(std::make_pair(t1, t2));
-    } else {
-      cl.neqs.push_back(std::make_pair(t1, t2));
+  void CollectVariables(Variable::SortedSet* vs) const {
+    if (t1.is_variable()) {
+      (*vs)[t1.sort()].insert(Variable(t1));
     }
-    Cnf c;
-    c.cs.push_back(cl);
-    return c;
+    if (t2.is_variable()) {
+      (*vs)[t2.sort()].insert(Variable(t2));
+    }
   }
 
-  int n_vars() const override { return 0; }
+  void CollectFreeVariables(Variable::SortedSet* vs) const {
+    CollectVariables(vs);
+  }
+
+  Cnf MakeCnf(const StdName::SortedSet&,
+              const Variable::SortedSet&) const override {
+    Cnf::Disj d;
+    if (sign) {
+      d.eqs.push_back(std::make_pair(t1, t2));
+    } else {
+      d.neqs.push_back(std::make_pair(t1, t2));
+    }
+    return Cnf(d);
+  }
 
   void Print(std::ostream* os) const override {
     *os << '(' << t1 << " = " << t2 << ')';
@@ -138,15 +104,20 @@ struct Formula::Lit : public Formula {
     return Ptr(new Lit(l.Substitute(theta)));
   }
 
-  Cnf MakeCnf(const StdName::SortedSet&, int) const override {
-    Cnf::C cl;
-    cl.clause.insert(l);
-    Cnf c;
-    c.cs.push_back(cl);
-    return c;
+  void CollectVariables(Variable::SortedSet* vs) const {
+    l.CollectVariables(vs);
   }
 
-  int n_vars() const override { return 0; }
+  void CollectFreeVariables(Variable::SortedSet* vs) const {
+    CollectVariables(vs);
+  }
+
+  Cnf MakeCnf(const StdName::SortedSet&,
+              const Variable::SortedSet&) const override {
+    Cnf::Disj d;
+    d.clause.insert(l);
+    return Cnf(d);
+  }
 
   void Print(std::ostream* os) const override {
     *os << l;
@@ -182,15 +153,27 @@ struct Formula::Junction : public Formula {
     return Ptr(new Junction(type, l->Substitute(theta), r->Substitute(theta)));
   }
 
-  Cnf MakeCnf(const StdName::SortedSet& hplus, int n_vars) const override {
-    if (type == DISJUNCTION) {
-      return l->MakeCnf(hplus, n_vars).Or(r->MakeCnf(hplus, n_vars));
-    } else {
-      return l->MakeCnf(hplus, n_vars).And(r->MakeCnf(hplus, n_vars));
-    }
+  void CollectVariables(Variable::SortedSet* vs) const {
+    l->CollectVariables(vs);
+    r->CollectVariables(vs);
   }
 
-  int n_vars() const override { return l->n_vars() + r->n_vars(); }
+  void CollectFreeVariables(Variable::SortedSet* vs) const {
+    // We assume formulas to be rectified, so that's OK. Otherwise, if x
+    // occurred freely in l but bound in r, we need to take care not to delete
+    // it with the second call.
+    l->CollectFreeVariables(vs);
+    r->CollectFreeVariables(vs);
+  }
+
+  Cnf MakeCnf(const StdName::SortedSet& hplus,
+              const Variable::SortedSet& vars) const override {
+    if (type == DISJUNCTION) {
+      return l->MakeCnf(hplus, vars).Or(r->MakeCnf(hplus, vars));
+    } else {
+      return l->MakeCnf(hplus, vars).And(r->MakeCnf(hplus, vars));
+    }
+  }
 
   void Print(std::ostream* os) const override {
     const char c = type == DISJUNCTION ? 'v' : '^';
@@ -227,8 +210,18 @@ struct Formula::Quantifier : public Formula {
     return Ptr(new Quantifier(type, y, phi->Substitute(theta)));
   }
 
-  Cnf MakeCnf(const StdName::SortedSet& hplus, int n_vars) const override {
-    const Cnf c = phi->MakeCnf(hplus, n_vars);
+  void CollectVariables(Variable::SortedSet* vs) const {
+    phi->CollectVariables(vs);
+  }
+
+  void CollectFreeVariables(Variable::SortedSet* vs) const {
+    phi->CollectFreeVariables(vs);
+    (*vs)[x.sort()].erase(x);
+  }
+
+  Cnf MakeCnf(const StdName::SortedSet& hplus,
+              const Variable::SortedSet& vars) const override {
+    const Cnf c = phi->MakeCnf(hplus, vars);
     std::vector<StdName> ns;
     const Term::Sort sort = x.sort();
     const auto it = hplus.find(sort);
@@ -237,7 +230,11 @@ struct Formula::Quantifier : public Formula {
                 it->second.lower_bound(StdName::MIN_NORMAL),
                 it->second.end());
     }
-    for (int i = 0; i < n_vars; ++i) {
+    const auto jt = vars.find(sort);
+    assert(jt != vars.end());
+    const size_t n_vars = jt->second.size();
+    assert(n_vars > 0);
+    for (size_t i = 0; i <= n_vars; ++i) {
       ns.insert(ns.end(), Term::Factory::CreatePlaceholderStdName(i, sort));
     }
     assert(!ns.empty());
@@ -254,13 +251,240 @@ struct Formula::Quantifier : public Formula {
     return r;
   }
 
-  int n_vars() const override { return 1 + phi->n_vars(); }
-
   void Print(std::ostream* os) const override {
     const char* s = type == EXISTENTIAL ? "E " : "";
     *os << '(' << s << x << ". " << *phi << ')';
   }
 };
+
+struct Formula::Knowledge : public Formula {
+  split_level k;
+  Ptr phi;
+
+  Knowledge(split_level k, Ptr phi) : k(k), phi(std::move(phi)) {}
+
+  Ptr Copy() const override { return Ptr(new Knowledge(k, phi->Copy())); }
+
+  void Negate() override { phi->Negate(); }
+
+  void PrependActions(const TermSeq& z) override { phi->PrependActions(z); }
+
+  Ptr Substitute(const Unifier& theta) const {
+    return Ptr(new Knowledge(k, phi->Substitute(theta)));
+  }
+
+  void CollectVariables(Variable::SortedSet* vs) const {
+    phi->CollectVariables(vs);
+  }
+
+  void CollectFreeVariables(Variable::SortedSet* vs) const {
+    phi->CollectFreeVariables(vs);
+  }
+
+  Cnf MakeCnf(const StdName::SortedSet& hplus,
+              const Variable::SortedSet& vars) const override {
+    Cnf::Disj d;
+    d.ks.push_back(std::make_tuple(k, phi->MakeCnf(hplus, vars)));
+    return Cnf(d);
+  }
+
+  void Print(std::ostream* os) const override {
+    *os << "K_" << k << '(' << *phi << ')';
+  }
+};
+
+struct Formula::Belief : public Formula {
+  split_level k;
+  Ptr neg_phi;
+  Ptr psi;
+
+  Belief(split_level k, Ptr neg_phi, Ptr psi)
+      : k(k), neg_phi(std::move(neg_phi)), psi(std::move(psi)) {}
+
+  Ptr Copy() const override {
+    return Ptr(new Belief(k, neg_phi->Copy(), psi->Copy()));
+  }
+
+  void Negate() override { neg_phi->Negate(); psi->Negate(); }
+
+  void PrependActions(const TermSeq& z) override {
+    neg_phi->PrependActions(z);
+    psi->PrependActions(z);
+  }
+
+  Ptr Substitute(const Unifier& theta) const {
+    return Ptr(new Belief(k, neg_phi->Substitute(theta),
+                          psi->Substitute(theta)));
+  }
+
+  void CollectVariables(Variable::SortedSet* vs) const {
+    neg_phi->CollectVariables(vs);
+    psi->CollectVariables(vs);
+  }
+
+  void CollectFreeVariables(Variable::SortedSet* vs) const {
+    neg_phi->CollectFreeVariables(vs);
+    psi->CollectFreeVariables(vs);
+  }
+
+  Cnf MakeCnf(const StdName::SortedSet& hplus,
+              const Variable::SortedSet& vars) const override {
+    Cnf::Disj d;
+    d.bs.push_back(std::make_tuple(k, neg_phi->MakeCnf(hplus, vars),
+                                   psi->MakeCnf(hplus, vars)));
+    return Cnf(d);
+  }
+
+  void Print(std::ostream* os) const override {
+    *os << "K_" << k << '(' << '~' << *neg_phi << " => " << *psi << ')';
+  }
+};
+
+Formula::Cnf::Disj Formula::Cnf::Disj::Concat(const Disj& d1, const Disj& d2) {
+  Disj d = d1;
+  d.eqs.insert(d.eqs.end(), d2.eqs.begin(), d2.eqs.end());
+  d.neqs.insert(d.neqs.end(), d2.neqs.begin(), d2.neqs.end());
+  d.clause.insert(d2.clause.begin(), d2.clause.end());
+  d.ks.insert(d.ks.end(), d2.ks.begin(), d2.ks.end());
+  d.bs.insert(d.bs.end(), d2.bs.begin(), d2.bs.end());
+  assert(d.eqs.size() == d1.eqs.size() + d2.eqs.size());
+  assert(d.neqs.size() == d1.neqs.size() + d2.neqs.size());
+  assert(d.clause.size() <= d1.clause.size() + d2.clause.size());
+  assert(d.ks.size() == d1.ks.size() + d2.ks.size());
+  assert(d.bs.size() == d1.bs.size() + d2.bs.size());
+  return d;
+}
+
+Formula::Cnf::Disj Formula::Cnf::Disj::Substitute(const Unifier& theta) const {
+  Disj d;
+  d.eqs.reserve(eqs.size());
+  for (const auto& p : eqs) {
+    d.eqs.push_back(std::make_pair(p.first.Substitute(theta),
+                                   p.second.Substitute(theta)));
+  }
+  d.neqs.reserve(neqs.size());
+  for (const auto& p : neqs) {
+    d.eqs.push_back(std::make_pair(p.first.Substitute(theta),
+                                   p.second.Substitute(theta)));
+  }
+  d.clause = clause.Substitute(theta);
+  for (const auto& k : ks) {
+    d.ks.push_back(std::make_tuple(
+            std::get<0>(k),
+            std::get<1>(k).Substitute(theta)));
+  }
+  for (const auto& b : bs) {
+    d.bs.push_back(std::make_tuple(
+            std::get<0>(b),
+            std::get<1>(b).Substitute(theta),
+            std::get<2>(b).Substitute(theta)));
+  }
+  return d;
+}
+
+bool Formula::Cnf::Disj::VacuouslyTrue() const {
+  auto eq = [](const std::pair<Term, Term>& p) { return p.first == p.second; };
+  return std::any_of(eqs.begin(), eqs.end(), eq) ||
+      std::any_of(neqs.begin(), neqs.end(),  eq);
+}
+
+bool Formula::Cnf::Disj::EntailedBy(Setup* s, split_level k) const {
+  assert(bs.empty());
+  if (VacuouslyTrue()) {
+    return true;
+  }
+  if (s->Entails(clause, k)) {
+    return true;
+  }
+  for (const auto& p : ks) {
+    split_level k1 = std::get<0>(p);
+    const Cnf& phi = std::get<1>(p);
+    // TODO(chs) (1) The CNF should first be minimized (using resolution).
+    // TODO(chs) (2) The negation of d.clause should be added to the setup.
+    // TODO(chs) (3) Or representation theorem instead of (2)?
+    // That way, at least the SSA of knowledge/belief should be come out
+    // correctly.
+    if (phi.EntailedBy(s, k1)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Formula::Cnf::Disj::EntailedBy(Setups* s, split_level k) const {
+  if (VacuouslyTrue()) {
+    return true;
+  }
+  if (s->Entails(clause, k)) {
+    return true;
+  }
+  for (const auto& p : ks) {
+    split_level k1 = std::get<0>(p);
+    const Cnf& phi = std::get<1>(p);
+    if (phi.EntailedBy(s, k1)) {
+      return true;
+    }
+  }
+  // TODO(chs) ~neg_phi => psi, c.f. TODOs for Knowledge class; API changes
+  // needed to account for ~neg_phi and psi at once.
+  assert(bs.empty());
+  return false;
+}
+
+Formula::Cnf::Cnf()
+    : ds(new std::vector<Formula::Cnf::Disj>()) {}
+
+Formula::Cnf::Cnf(const Formula::Cnf::Disj& d)
+    : ds(new std::vector<Formula::Cnf::Disj>()) {
+  ds->push_back(d);
+}
+
+Formula::Cnf::Cnf(const Cnf& c)
+    : ds(new std::vector<Formula::Cnf::Disj>()) {
+  *ds = *c.ds;
+}
+
+Formula::Cnf& Formula::Cnf::operator=(const Formula::Cnf& c) {
+  *ds = *c.ds;
+  return *this;
+}
+
+Formula::Cnf Formula::Cnf::Substitute(const Unifier& theta) const {
+  Cnf c;
+  c.ds->reserve(ds->size());
+  for (const Disj& d : *ds) {
+    c.ds->push_back(d.Substitute(theta));
+  }
+  return c;
+}
+
+Formula::Cnf Formula::Cnf::And(const Cnf& c) const {
+  Cnf r = *this;
+  r.ds->insert(r.ds->end(), c.ds->begin(), c.ds->end());
+  assert(r.ds->size() == ds->size() + c.ds->size());
+  return r;
+}
+
+Formula::Cnf Formula::Cnf::Or(const Cnf& c) const {
+  Cnf r;
+  for (const Disj& d1 : *ds) {
+    for (const Disj& d2 : *c.ds) {
+      r.ds->push_back(Cnf::Disj::Concat(d1, d2));
+    }
+  }
+  assert(r.ds->size() == ds->size() * c.ds->size());
+  return r;
+}
+
+bool Formula::Cnf::EntailedBy(Setup* s, split_level k) const {
+  return std::all_of(ds->begin(), ds->end(),
+                     [s, k](const Disj& d) { return d.EntailedBy(s, k); });
+}
+
+bool Formula::Cnf::EntailedBy(Setups* s, split_level k) const {
+  return std::all_of(ds->begin(), ds->end(),
+                     [s, k](const Disj& d) { return d.EntailedBy(s, k); });
+}
 
 Formula::Ptr Formula::Eq(const Term& t1, const Term& t2) {
   return Ptr(new Equal(t1, t2));
@@ -288,6 +512,19 @@ Formula::Ptr Formula::And(Ptr phi1, Ptr phi2) {
                           std::move(phi2)));
 }
 
+Formula::Ptr Formula::OnlyIf(Ptr phi1, Ptr phi2) {
+  return Or(Neg(std::move(phi1)), std::move(phi2));
+}
+
+Formula::Ptr Formula::If(Ptr phi1, Ptr phi2) {
+  return Or(Neg(std::move(phi2)), std::move(phi1));
+}
+
+Formula::Ptr Formula::Iff(Ptr phi1, Ptr phi2) {
+  return And(If(std::move(phi1->Copy()), std::move(phi2->Copy())),
+             OnlyIf(std::move(phi1), std::move(phi2)));
+}
+
 Formula::Ptr Formula::Neg(Ptr phi) {
   phi->Negate();
   return std::move(phi);
@@ -310,11 +547,71 @@ Formula::Ptr Formula::Forall(const Variable& x, Ptr phi) {
   return Ptr(new Quantifier(Quantifier::UNIVERSAL, x, std::move(phi)));
 }
 
-std::vector<SimpleClause> Formula::Clauses(
-    const StdName::SortedSet& hplus) const {
-  Cnf c = MakeCnf(hplus, n_vars());
-  return c.UnsatisfiedClauses();
+bool Formula::EntailedBy(Setup* setup, split_level k) const {
+  Variable::SortedSet vs;
+  CollectVariables(&vs);
+  Cnf cnf = MakeCnf(setup->hplus(), vs);
+  return cnf.EntailedBy(setup, k);
 }
+
+bool Formula::EntailedBy(Setups* setups, split_level k) const {
+  Variable::SortedSet vs;
+  CollectVariables(&vs);
+  return MakeCnf(setups->hplus(), vs).EntailedBy(setups, k);
+}
+
+#if 0
+std::ostream& operator<<(std::ostream& os, const Formula::Cnf::Disj& d) {
+  os << '(';
+  for (auto it = d.eqs.begin(); it != d.eqs.end(); ++it) {
+    if (it != d.eqs.begin()) {
+      os << " v ";
+    }
+    os << it->first << " = " << it->second;
+  }
+  for (auto it = d.neqs.begin(); it != d.neqs.end(); ++it) {
+    if (!d.eqs.empty() || it != d.neqs.begin()) {
+      os << " v ";
+    }
+    os << it->first << " != " << it->second;
+  }
+  for (auto it = d.clause.begin(); it != d.clause.end(); ++it) {
+    if (!d.eqs.empty() || !d.neqs.empty() || it != d.clause.begin()) {
+      os << " v ";
+    }
+    os << *it;
+  }
+  for (auto it = d.ks.begin(); it != d.ks.end(); ++it) {
+    if (!d.eqs.empty() || !d.neqs.empty() || !d.clause.empty() ||
+        it != d.ks.begin()) {
+      os << " v ";
+    }
+    os << "K_" << std::get<0>(*it) << '(' << std::get<1>(*it) << ')';
+  }
+  for (auto it = d.bs.begin(); it != d.bs.end(); ++it) {
+    if (!d.eqs.empty() || !d.neqs.empty() || !d.clause.empty() ||
+        !d.ks.empty() || it != d.bs.begin()) {
+      os << " v ";
+    }
+    os << "B_" << std::get<0>(*it) <<
+        "(~" << std::get<1>(*it) << " => " << std::get<2>(*it) << ')';
+  }
+  os << ')';
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Formula::Cnf& cnf) {
+  os << '(';
+  for (auto it = cnf.ds->begin(); it != cnf.ds->end(); ++it) {
+    if (it != cnf.ds->begin()) {
+      os << " ^ ";
+    }
+    os << *it;
+  }
+  os << ')';
+  return os;
+}
+#endif
 
 }  // namespace esbl
 
