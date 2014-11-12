@@ -59,7 +59,8 @@ class Formula {
   static Ptr Forall(const Variable& x, Ptr phi);
 
   virtual Ptr Copy() const = 0;
-  virtual Ptr Substitute(const Unifier& theta) const = 0;
+  virtual void SubstituteInPlace(const Unifier& theta) = 0;
+  virtual void PrependActions(const TermSeq& z) = 0;
 
   bool EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const;
   bool EntailedBy(Term::Factory* tf, Setups* setups, split_level k) const;
@@ -76,7 +77,6 @@ class Formula {
   struct Cnf;
 
   virtual void Negate() = 0;
-  virtual void PrependActions(const TermSeq& z) = 0;
   virtual void CollectFreeVariables(Variable::SortedSet* vs) const = 0;
   virtual Cnf MakeCnf(StdName::SortedSet* hplus) const = 0;
   virtual void Print(std::ostream* os) const = 0;

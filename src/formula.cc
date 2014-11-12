@@ -58,8 +58,9 @@ struct Formula::Equal : public Formula {
 
   void PrependActions(const TermSeq&) override {}
 
-  Ptr Substitute(const Unifier& theta) const override {
-    return Ptr(new Equal(sign, t1.Substitute(theta), t2.Substitute(theta)));
+  void SubstituteInPlace(const Unifier& theta) override {
+    t1 = t1.Substitute(theta);
+    t2 = t2.Substitute(theta);
   }
 
   void CollectFreeVariables(Variable::SortedSet* vs) const {
@@ -97,8 +98,8 @@ struct Formula::Lit : public Formula {
 
   void PrependActions(const TermSeq& z) override { l = l.PrependActions(z); }
 
-  Ptr Substitute(const Unifier& theta) const override {
-    return Ptr(new Lit(l.Substitute(theta)));
+  void SubstituteInPlace(const Unifier& theta) override {
+    l = l.Substitute(theta);
   }
 
   void CollectFreeVariables(Variable::SortedSet* vs) const {
@@ -141,8 +142,9 @@ struct Formula::Junction : public Formula {
     r->PrependActions(z);
   }
 
-  Ptr Substitute(const Unifier& theta) const override {
-    return Ptr(new Junction(type, l->Substitute(theta), r->Substitute(theta)));
+  void SubstituteInPlace(const Unifier& theta) override {
+    l->SubstituteInPlace(theta);
+    r->SubstituteInPlace(theta);
   }
 
   void CollectFreeVariables(Variable::SortedSet* vs) const {
@@ -193,9 +195,9 @@ struct Formula::Quantifier : public Formula {
     phi->PrependActions(z);
   }
 
-  Ptr Substitute(const Unifier& theta) const override {
-    const Variable y = Variable(x.Substitute(theta));
-    return Ptr(new Quantifier(type, y, phi->Substitute(theta)));
+  void SubstituteInPlace(const Unifier& theta) override {
+    x = Variable(x.Substitute(theta));
+    phi->SubstituteInPlace(theta);
   }
 
   void CollectFreeVariables(Variable::SortedSet* vs) const {
@@ -251,8 +253,8 @@ struct Formula::Knowledge : public Formula {
 
   void PrependActions(const TermSeq& z) override { phi->PrependActions(z); }
 
-  Ptr Substitute(const Unifier& theta) const {
-    return Ptr(new Knowledge(k, phi->Substitute(theta)));
+  void SubstituteInPlace(const Unifier& theta) override {
+    phi->SubstituteInPlace(theta);
   }
 
   void CollectFreeVariables(Variable::SortedSet* vs) const {
@@ -289,9 +291,9 @@ struct Formula::Belief : public Formula {
     psi->PrependActions(z);
   }
 
-  Ptr Substitute(const Unifier& theta) const {
-    return Ptr(new Belief(k, neg_phi->Substitute(theta),
-                          psi->Substitute(theta)));
+  void SubstituteInPlace(const Unifier& theta) override {
+    neg_phi->SubstituteInPlace(theta);
+    psi->SubstituteInPlace(theta);
   }
 
   void CollectFreeVariables(Variable::SortedSet* vs) const {
