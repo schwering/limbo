@@ -1,5 +1,7 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
+//
+// To handle Maybe<std::unique_ptr<T>> we use std::forward(). Is that correct?
 
 #ifndef SRC_MAYBE_H_
 #define SRC_MAYBE_H_
@@ -10,7 +12,7 @@
 
 namespace esbl {
 
-template<typename... T>
+template<typename... Types>
 struct Maybe {
 };
 
