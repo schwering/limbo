@@ -95,6 +95,22 @@ bool Term::Unify(const Term& t1, const Term& t2, Unifier* theta) {
   }
 }
 
+const Variable Variable::MIN(Term(Term::VAR,
+                                  std::numeric_limits<Term::Id>::min(),
+                                  std::numeric_limits<Term::Sort>::min()));
+const Variable Variable::MAX(Term(Term::VAR,
+                                  std::numeric_limits<Term::Id>::max(),
+                                  std::numeric_limits<Term::Sort>::max()));
+
+const StdName StdName::MIN_NORMAL(Term(Term::NAME, 0,
+                                       std::numeric_limits<Term::Sort>::min()));
+const StdName StdName::MIN(Term(Term::NAME,
+                                std::numeric_limits<Term::Id>::min(),
+                                std::numeric_limits<Term::Sort>::min()));
+const StdName StdName::MAX(Term(Term::NAME,
+                                std::numeric_limits<Term::Id>::max(),
+                                std::numeric_limits<Term::Sort>::max()));
+
 Maybe<TermSeq> TermSeq::WithoutLast(const size_t n) const {
   if (n > size()) {
     return Nothing;
@@ -137,21 +153,29 @@ bool TermSeq::Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta) {
   return true;
 }
 
-const Variable Variable::MIN(Term(Term::VAR,
-                                  std::numeric_limits<Term::Id>::min(),
-                                  std::numeric_limits<Term::Sort>::min()));
-const Variable Variable::MAX(Term(Term::VAR,
-                                  std::numeric_limits<Term::Id>::max(),
-                                  std::numeric_limits<Term::Sort>::max()));
+void TermSeq::CollectVariables(std::set<Variable>* vs) const {
+  for (auto& t : *this) {
+    if (t.is_variable()) {
+      (*vs).insert(Variable(t));
+    }
+  }
+}
 
-const StdName StdName::MIN_NORMAL(Term(Term::NAME, 0,
-                                       std::numeric_limits<Term::Sort>::min()));
-const StdName StdName::MIN(Term(Term::NAME,
-                                std::numeric_limits<Term::Id>::min(),
-                                std::numeric_limits<Term::Sort>::min()));
-const StdName StdName::MAX(Term(Term::NAME,
-                                std::numeric_limits<Term::Id>::max(),
-                                std::numeric_limits<Term::Sort>::max()));
+void TermSeq::CollectVariables(Variable::SortedSet* vs) const {
+  for (auto& t : *this) {
+    if (t.is_variable()) {
+      (*vs)[t.sort()].insert(Variable(t));
+    }
+  }
+}
+
+void TermSeq::CollectNames(StdName::SortedSet* ns) const {
+  for (auto& t : *this) {
+    if (t.is_name()) {
+      (*ns)[t.sort()].insert(StdName(t));
+    }
+  }
+}
 
 std::ostream& operator<<(std::ostream& os, const TermSeq& z) {
   for (auto it = z.begin(); it != z.end(); ++it) {

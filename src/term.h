@@ -15,9 +15,9 @@
 namespace esbl {
 
 class Term;
-class TermSeq;
 class Variable;
 class StdName;
+class TermSeq;
 
 typedef std::map<Variable, Term> Unifier;
 typedef std::map<Variable, StdName> Assignment;
@@ -59,15 +59,6 @@ class Term {
   Kind kind_ = DUMMY;
   Id id_ = 0;
   Sort sort_ = 0;
-};
-
-class TermSeq : public std::vector<Term> {
- public:
-  using std::vector<Term>::vector;
-
-  Maybe<TermSeq> WithoutLast(const size_t n) const;
-  bool Matches(const TermSeq& z, Unifier* theta) const;
-  static bool Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 };
 
 class Variable {
@@ -165,15 +156,18 @@ class Term::Factory {
   StdName::SortedSet names_;
 };
 
-template<typename T1>
-constexpr std::pair<bool, T1> failed() {
-  return std::make_pair(false, T1());
-}
+class TermSeq : public std::vector<Term> {
+ public:
+  using std::vector<Term>::vector;
 
-template<typename T1, typename T2>
-constexpr std::tuple<bool, T1, T2> failed() {
-  return std::make_tuple(false, T1(), T2());
-}
+  Maybe<TermSeq> WithoutLast(const size_t n) const;
+  bool Matches(const TermSeq& z, Unifier* theta) const;
+  static bool Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
+
+  void CollectVariables(std::set<Variable>* vs) const;
+  void CollectVariables(Variable::SortedSet* vs) const;
+  void CollectNames(StdName::SortedSet* ns) const;
+};
 
 std::ostream& operator<<(std::ostream& os, const TermSeq& z);
 std::ostream& operator<<(std::ostream& os, const Term& t);
