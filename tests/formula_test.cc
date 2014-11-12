@@ -18,20 +18,20 @@ TEST(formula, gl) {
                                  Formula::Lit(Literal({}, true, bat.d2, {})));
 
   // Property 1
-  EXPECT_TRUE(Formula::Neg(close->Copy())->EntailedBy(&s, 0));
+  EXPECT_TRUE(Formula::Neg(close->Copy())->EntailedBy(&bat.tf(), &s, 0));
 
   s.AddSensingResult({}, bat.forward, true);
 
   // Property 2
-  EXPECT_FALSE(Formula::Act(bat.forward, maybe_close->Copy())->EntailedBy(&s, 0));
+  EXPECT_FALSE(Formula::Act(bat.forward, maybe_close->Copy())->EntailedBy(&bat.tf(), &s, 0));
 
   // Property 3
-  EXPECT_TRUE(Formula::Act(bat.forward, maybe_close->Copy())->EntailedBy(&s, 1));
+  EXPECT_TRUE(Formula::Act(bat.forward, maybe_close->Copy())->EntailedBy(&bat.tf(), &s, 1));
 
   s.AddSensingResult({bat.forward}, bat.sonar, true);
 
   // Property 4
-  EXPECT_TRUE(Formula::Act({bat.forward, bat.sonar}, close->Copy())->EntailedBy(&s, 1));
+  EXPECT_TRUE(Formula::Act({bat.forward, bat.sonar}, close->Copy())->EntailedBy(&bat.tf(), &s, 1));
 }
 
 TEST(formula, morri) {
@@ -40,33 +40,49 @@ TEST(formula, morri) {
   auto& s = bat.setups();
 
   // Property 1
-  EXPECT_TRUE(Formula::Lit(Literal({}, false, bat.L1, {}))->EntailedBy(&s, 2));
+  EXPECT_TRUE(Formula::Lit(Literal({}, false, bat.L1, {}))->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 2
   s.AddSensingResult({}, bat.SL, true);
   EXPECT_TRUE(Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
-                                                Formula::Lit(Literal({}, true, bat.R1, {}))))->EntailedBy(&s, 2));
+                                                Formula::Lit(Literal({}, true, bat.R1, {}))))->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 3
   s.AddSensingResult({bat.SL}, bat.SR1, false);
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {}))))->EntailedBy(&s, 2));
+  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {}))))->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 5
-  EXPECT_FALSE(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {})))->EntailedBy(&s, 2));
-  EXPECT_FALSE(Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->EntailedBy(&s, 2));
+  EXPECT_FALSE(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {})))->EntailedBy(&bat.tf(), &s, 2));
+  EXPECT_FALSE(Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 6
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {})))->EntailedBy(&s, 2));
+  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {})))->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 6
   s.AddSensingResult({bat.SL,bat.SR1,bat.LV}, bat.SL, true);
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->EntailedBy(&s, 2));
+  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->EntailedBy(&bat.tf(), &s, 2));
 }
 
-TEST(formula, fol_incompleteness) {
-  // The tautology (E x . ~P(x)) v (A x . P(x)) is not provable in ESL.
-  // But it seems to be provable in our variant. Is our treatment of standard
-  // names still sound?
+TEST(formula, fol_incompleteness_positive1) {
+  // The tautology (A x . E y . ~P(x) v P(y)) is provable in our variant of ESL.
+  // Is it provable in the paper? Don't remember, check. TODO(chs)
+  Term::Factory tf;
+  const Variable x = tf.CreateVariable(0);
+  const Variable y = tf.CreateVariable(0);
+  auto q = Formula::Forall(x, Formula::Exists(y,
+              Formula::Or(Formula::Lit(Literal({}, true, 0, {x})),
+                          Formula::Lit(Literal({}, false, 0, {y})))));
+  esbl::Setup s;
+  for (Setup::split_level k = 1; k < 2; ++k) {
+    EXPECT_EQ(q->EntailedBy(&tf, &s, k), k > 0);
+  }
+}
+
+TEST(formula, fol_incompleteness_positive2) {
+  // The tautology (A x . P(x)) v (E y . ~P(y)) is provable in our variant of
+  // ESL, because the formula is implicitly brought to prenex form, starting
+  // with the quantifiers from left to right, and hence it is equivalent to the
+  // formula from test fol_incompleteness_positive1.
   Term::Factory tf;
   const Variable x = tf.CreateVariable(0);
   const Variable y = tf.CreateVariable(0);
@@ -75,8 +91,39 @@ TEST(formula, fol_incompleteness) {
   auto q = Formula::Or(std::move(q1), std::move(q2));
   esbl::Setup s;
   for (Setup::split_level k = 0; k < 5; ++k) {
-    //EXPECT_FALSE(q->EntailedBy(&s, k));
-    EXPECT_EQ(q->EntailedBy(&s, k), k > 0);
+    EXPECT_EQ(q->EntailedBy(&tf, &s, k), k > 0);
+  }
+}
+
+TEST(formula, fol_incompleteness_negative1) {
+  // The tautology (E x . A y . ~P(x) v P(y)) is not provable in our variant of
+  // ESL (and neither it is in the paper version).
+  Term::Factory tf;
+  const Variable x = tf.CreateVariable(0);
+  const Variable y = tf.CreateVariable(0);
+  auto q = Formula::Exists(x, Formula::Forall(y,
+              Formula::Or(Formula::Lit(Literal({}, true, 0, {x})),
+                          Formula::Lit(Literal({}, false, 0, {y})))));
+  esbl::Setup s;
+  for (Setup::split_level k = 1; k < 2; ++k) {
+    EXPECT_FALSE(q->EntailedBy(&tf, &s, k));
+  }
+}
+
+TEST(formula, fol_incompleteness_negative2) {
+  // The tautology (E y . ~P(y)) v (A x . P(x)) is not provable in our variant
+  // of ESL, because the formula is implicitly brought to prenex form, starting
+  // with the quantifiers from left to right, and hence it is equivalent to the
+  // formula from test fol_incompleteness_negative1.
+  Term::Factory tf;
+  const Variable x = tf.CreateVariable(0);
+  const Variable y = tf.CreateVariable(0);
+  auto q1 = Formula::Forall(x, Formula::Lit(Literal({}, true, 0, {x})));
+  auto q2 = Formula::Exists(y, Formula::Neg(Formula::Lit(Literal({}, true, 0, {y}))));
+  auto q = Formula::Or(std::move(q2), std::move(q1));
+  esbl::Setup s;
+  for (Setup::split_level k = 0; k < 5; ++k) {
+    EXPECT_FALSE(q->EntailedBy(&tf, &s, k));
   }
 }
 
@@ -91,7 +138,7 @@ TEST(formula, fol_incompleteness_reverse) {
   auto q = Formula::Or(std::move(q1), std::move(q2));
   esbl::Setup s;
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_FALSE(q->EntailedBy(&s, k));
+    EXPECT_FALSE(q->EntailedBy(&tf, &s, k));
   }
 }
 
@@ -104,7 +151,7 @@ TEST(formula, fol_setup_universal) {
   s.AddClause(Clause(Ewff::TRUE, SimpleClause({Literal({}, true, 0, {x})})));
   auto q = Formula::Forall(y, Formula::Lit(Literal({}, true, 0, {x})));
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_TRUE(q->EntailedBy(&s, k));
+    EXPECT_TRUE(q->EntailedBy(&tf, &s, k));
   }
 }
 

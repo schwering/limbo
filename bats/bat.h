@@ -31,14 +31,6 @@ class Bat {
   Term::Factory& tf() { return tf_; }
   const Term::Factory& tf() const { return tf_; }
 
-  // Forward to setup[s]. That's not exactly beautiful, but simplifies the
-  // ECLiPSe-CLP interface, for instance.
-  virtual const StdName::SortedSet& hplus() const = 0;
-  virtual void GuaranteeConsistency(Setup::split_level k) = 0;
-  virtual void AddSensingResult(const TermSeq& z, const StdName& a, bool r) = 0;
-  virtual bool Inconsistent(Setup::split_level k) = 0;
-  virtual bool Entails(const Formula& phi, Setup::split_level k) = 0;
-
   Maybe<std::string> NameToString(const StdName& n) const {
     const auto it = name_to_string_.find(n);
     if (it != name_to_string_.end()) {
@@ -110,24 +102,6 @@ class KBat : public Bat {
   Setup& setup() { return s_; }
   const Setup& setup() const { return s_; }
 
-  const StdName::SortedSet& hplus() const override { return s_.hplus(); }
-
-  void GuaranteeConsistency(Setup::split_level k) override {
-    s_.GuaranteeConsistency(k);
-  }
-
-  void AddSensingResult(const TermSeq& z, const StdName& a, bool r) override {
-    s_.AddSensingResult(z, a, r);
-  }
-
-  bool Inconsistent(Setup::split_level k) override {
-    return s_.Inconsistent(k);
-  }
-
-  bool Entails(const Formula& phi, Setup::split_level k) override {
-    return phi.EntailedBy(&s_, k);
-  }
-
  protected:
   Setup s_;
 };
@@ -138,24 +112,6 @@ class BBat : public Bat {
 
   virtual Setups& setups() { return s_; }
   virtual const Setups& setups() const { return s_; }
-
-  const StdName::SortedSet& hplus() const override { return s_.hplus(); }
-
-  void GuaranteeConsistency(Setup::split_level k) override {
-    s_.GuaranteeConsistency(k);
-  }
-
-  void AddSensingResult(const TermSeq& z, const StdName& a, bool r) override {
-    s_.AddSensingResult(z, a, r);
-  }
-
-  bool Inconsistent(Setup::split_level k) override {
-    return s_.Inconsistent(k);
-  }
-
-  bool Entails(const Formula& phi, Setup::split_level k) override {
-    return phi.EntailedBy(&s_, k);
-  }
 
  protected:
   Setups s_;

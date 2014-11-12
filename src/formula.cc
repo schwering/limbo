@@ -22,6 +22,7 @@ struct Formula::Cnf {
   Cnf Or(const Cnf& c) const;
   bool EntailedBy(Setup* setup, split_level k) const;
   bool EntailedBy(Setups* setups, split_level k) const;
+  void Print(std::ostream* os) const;
 
   // unique_ptr prevents incomplete type errors
   std::unique_ptr<std::vector<Disj>> ds;
@@ -33,6 +34,7 @@ struct Formula::Cnf::Disj {
   bool VacuouslyTrue() const;
   bool EntailedBy(Setup* setup, split_level k) const;
   bool EntailedBy(Setups* setups, split_level k) const;
+  void Print(std::ostream* os) const;
 
   std::vector<std::pair<Term, Term>> eqs;
   std::vector<std::pair<Term, Term>> neqs;
@@ -60,7 +62,7 @@ struct Formula::Equal : public Formula {
     return Ptr(new Equal(sign, t1.Substitute(theta), t2.Substitute(theta)));
   }
 
-  void CollectVariables(Variable::SortedSet* vs) const {
+  void CollectFreeVariables(Variable::SortedSet* vs) const {
     if (t1.is_variable()) {
       (*vs)[t1.sort()].insert(Variable(t1));
     }
@@ -69,12 +71,7 @@ struct Formula::Equal : public Formula {
     }
   }
 
-  void CollectFreeVariables(Variable::SortedSet* vs) const {
-    CollectVariables(vs);
-  }
-
-  Cnf MakeCnf(const StdName::SortedSet&,
-              const Variable::SortedSet&) const override {
+  Cnf MakeCnf(StdName::SortedSet*) const override {
     Cnf::Disj d;
     if (sign) {
       d.eqs.push_back(std::make_pair(t1, t2));
@@ -104,16 +101,11 @@ struct Formula::Lit : public Formula {
     return Ptr(new Lit(l.Substitute(theta)));
   }
 
-  void CollectVariables(Variable::SortedSet* vs) const {
+  void CollectFreeVariables(Variable::SortedSet* vs) const {
     l.CollectVariables(vs);
   }
 
-  void CollectFreeVariables(Variable::SortedSet* vs) const {
-    CollectVariables(vs);
-  }
-
-  Cnf MakeCnf(const StdName::SortedSet&,
-              const Variable::SortedSet&) const override {
+  Cnf MakeCnf(StdName::SortedSet*) const override {
     Cnf::Disj d;
     d.clause.insert(l);
     return Cnf(d);
@@ -153,11 +145,6 @@ struct Formula::Junction : public Formula {
     return Ptr(new Junction(type, l->Substitute(theta), r->Substitute(theta)));
   }
 
-  void CollectVariables(Variable::SortedSet* vs) const {
-    l->CollectVariables(vs);
-    r->CollectVariables(vs);
-  }
-
   void CollectFreeVariables(Variable::SortedSet* vs) const {
     // We assume formulas to be rectified, so that's OK. Otherwise, if x
     // occurred freely in l but bound in r, we need to take care not to delete
@@ -166,12 +153,13 @@ struct Formula::Junction : public Formula {
     r->CollectFreeVariables(vs);
   }
 
-  Cnf MakeCnf(const StdName::SortedSet& hplus,
-              const Variable::SortedSet& vars) const override {
+  Cnf MakeCnf(StdName::SortedSet* hplus) const override {
+    const Cnf cnf_l = l->MakeCnf(hplus);
+    const Cnf cnf_r = r->MakeCnf(hplus);
     if (type == DISJUNCTION) {
-      return l->MakeCnf(hplus, vars).Or(r->MakeCnf(hplus, vars));
+      return cnf_l.Or(cnf_r);
     } else {
-      return l->MakeCnf(hplus, vars).And(r->MakeCnf(hplus, vars));
+      return cnf_l.And(cnf_r);
     }
   }
 
@@ -210,39 +198,33 @@ struct Formula::Quantifier : public Formula {
     return Ptr(new Quantifier(type, y, phi->Substitute(theta)));
   }
 
-  void CollectVariables(Variable::SortedSet* vs) const {
-    phi->CollectVariables(vs);
-  }
-
   void CollectFreeVariables(Variable::SortedSet* vs) const {
     phi->CollectFreeVariables(vs);
     (*vs)[x.sort()].erase(x);
   }
 
-  Cnf MakeCnf(const StdName::SortedSet& hplus,
-              const Variable::SortedSet& vars) const override {
-    const Cnf c = phi->MakeCnf(hplus, vars);
-    std::vector<StdName> ns;
-    const Term::Sort sort = x.sort();
-    const auto it = hplus.find(sort);
-    if (it != hplus.end()) {
-      ns.insert(ns.end(),
-                it->second.lower_bound(StdName::MIN_NORMAL),
-                it->second.end());
+  Cnf MakeCnf(StdName::SortedSet* hplus) const override {
+    std::set<StdName>& new_ns = (*hplus)[x.sort()];
+    for (Term::Id id = 0; ; ++id) {
+      assert(id <= static_cast<int>(new_ns.size()));
+      const StdName n = Term::Factory::CreatePlaceholderStdName(id, x.sort());
+      const auto p = new_ns.insert(n);
+      if (p.second) {
+        break;
+      }
     }
-    const auto jt = vars.find(sort);
-    assert(jt != vars.end());
-    const size_t n_vars = jt->second.size();
-    assert(n_vars > 0);
-    for (size_t i = 0; i <= n_vars; ++i) {
-      ns.insert(ns.end(), Term::Factory::CreatePlaceholderStdName(i, sort));
-    }
-    assert(!ns.empty());
-
-    Cnf r = c.Substitute({{x, ns[ns.size() - 1]}});
-    for (size_t i = 0; i < ns.size() - 1 ; ++i) {
-      const Cnf d = c.Substitute({{x, ns[i]}});
-      if (type == EXISTENTIAL) {
+    // Memorize names for this x because the recursive call might add additional
+    // names which must not be substituted for this x.
+    const std::set<StdName> this_ns = new_ns;
+    const Cnf c = phi->MakeCnf(hplus);
+    bool init = false;
+    Cnf r;
+    for (const StdName& n : this_ns) {
+      const Cnf d = c.Substitute({{x, n}});
+      if (!init) {
+        r = d;
+        init = true;
+      } else if (type == EXISTENTIAL) {
         r = r.Or(d);
       } else {
         r = r.And(d);
@@ -273,18 +255,13 @@ struct Formula::Knowledge : public Formula {
     return Ptr(new Knowledge(k, phi->Substitute(theta)));
   }
 
-  void CollectVariables(Variable::SortedSet* vs) const {
-    phi->CollectVariables(vs);
-  }
-
   void CollectFreeVariables(Variable::SortedSet* vs) const {
     phi->CollectFreeVariables(vs);
   }
 
-  Cnf MakeCnf(const StdName::SortedSet& hplus,
-              const Variable::SortedSet& vars) const override {
+  Cnf MakeCnf(StdName::SortedSet* hplus) const override {
     Cnf::Disj d;
-    d.ks.push_back(std::make_tuple(k, phi->MakeCnf(hplus, vars)));
+    d.ks.push_back(std::make_tuple(k, phi->MakeCnf(hplus)));
     return Cnf(d);
   }
 
@@ -317,21 +294,15 @@ struct Formula::Belief : public Formula {
                           psi->Substitute(theta)));
   }
 
-  void CollectVariables(Variable::SortedSet* vs) const {
-    neg_phi->CollectVariables(vs);
-    psi->CollectVariables(vs);
-  }
-
   void CollectFreeVariables(Variable::SortedSet* vs) const {
     neg_phi->CollectFreeVariables(vs);
     psi->CollectFreeVariables(vs);
   }
 
-  Cnf MakeCnf(const StdName::SortedSet& hplus,
-              const Variable::SortedSet& vars) const override {
+  Cnf MakeCnf(StdName::SortedSet* hplus) const override {
     Cnf::Disj d;
-    d.bs.push_back(std::make_tuple(k, neg_phi->MakeCnf(hplus, vars),
-                                   psi->MakeCnf(hplus, vars)));
+    d.bs.push_back(std::make_tuple(k, neg_phi->MakeCnf(hplus),
+                                   psi->MakeCnf(hplus)));
     return Cnf(d);
   }
 
@@ -547,69 +518,72 @@ Formula::Ptr Formula::Forall(const Variable& x, Ptr phi) {
   return Ptr(new Quantifier(Quantifier::UNIVERSAL, x, std::move(phi)));
 }
 
-bool Formula::EntailedBy(Setup* setup, split_level k) const {
-  Variable::SortedSet vs;
-  CollectVariables(&vs);
-  Cnf cnf = MakeCnf(setup->hplus(), vs);
+bool Formula::EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const {
+  StdName::SortedSet hplus = tf->sorted_names();
+  const Cnf cnf = MakeCnf(&hplus);
   return cnf.EntailedBy(setup, k);
 }
 
-bool Formula::EntailedBy(Setups* setups, split_level k) const {
-  Variable::SortedSet vs;
-  CollectVariables(&vs);
-  return MakeCnf(setups->hplus(), vs).EntailedBy(setups, k);
+bool Formula::EntailedBy(Term::Factory* tf, Setups* setups,
+                         split_level k) const {
+  StdName::SortedSet hplus = tf->sorted_names();
+  const Cnf cnf = MakeCnf(&hplus);
+  return cnf.EntailedBy(setups, k);
 }
 
-#if 0
-std::ostream& operator<<(std::ostream& os, const Formula::Cnf::Disj& d) {
-  os << '(';
-  for (auto it = d.eqs.begin(); it != d.eqs.end(); ++it) {
-    if (it != d.eqs.begin()) {
-      os << " v ";
+#if 1
+void Formula::Cnf::Disj::Print(std::ostream* os) const {
+  *os << '(';
+  for (auto it = eqs.begin(); it != eqs.end(); ++it) {
+    if (it != eqs.begin()) {
+      *os << " v ";
     }
-    os << it->first << " = " << it->second;
+    *os << it->first << " = " << it->second;
   }
-  for (auto it = d.neqs.begin(); it != d.neqs.end(); ++it) {
-    if (!d.eqs.empty() || it != d.neqs.begin()) {
-      os << " v ";
+  for (auto it = neqs.begin(); it != neqs.end(); ++it) {
+    if (!eqs.empty() || it != neqs.begin()) {
+      *os << " v ";
     }
-    os << it->first << " != " << it->second;
+    *os << it->first << " != " << it->second;
   }
-  for (auto it = d.clause.begin(); it != d.clause.end(); ++it) {
-    if (!d.eqs.empty() || !d.neqs.empty() || it != d.clause.begin()) {
-      os << " v ";
+  for (auto it = clause.begin(); it != clause.end(); ++it) {
+    if (!eqs.empty() || !neqs.empty() || it != clause.begin()) {
+      *os << " v ";
     }
-    os << *it;
+    *os << *it;
   }
-  for (auto it = d.ks.begin(); it != d.ks.end(); ++it) {
-    if (!d.eqs.empty() || !d.neqs.empty() || !d.clause.empty() ||
-        it != d.ks.begin()) {
-      os << " v ";
+  for (auto it = ks.begin(); it != ks.end(); ++it) {
+    if (!eqs.empty() || !neqs.empty() || !clause.empty() ||
+        it != ks.begin()) {
+      *os << " v ";
     }
-    os << "K_" << std::get<0>(*it) << '(' << std::get<1>(*it) << ')';
+    *os << "K_" << std::get<0>(*it) << '(';
+    std::get<1>(*it).Print(os);
+    *os << ')';
   }
-  for (auto it = d.bs.begin(); it != d.bs.end(); ++it) {
-    if (!d.eqs.empty() || !d.neqs.empty() || !d.clause.empty() ||
-        !d.ks.empty() || it != d.bs.begin()) {
-      os << " v ";
+  for (auto it = bs.begin(); it != bs.end(); ++it) {
+    if (!eqs.empty() || !neqs.empty() || !clause.empty() ||
+        !ks.empty() || it != bs.begin()) {
+      *os << " v ";
     }
-    os << "B_" << std::get<0>(*it) <<
-        "(~" << std::get<1>(*it) << " => " << std::get<2>(*it) << ')';
+    *os << "B_" << std::get<0>(*it) << "(~";
+    std::get<1>(*it).Print(os);
+    *os << " => ";
+    std::get<2>(*it).Print(os);
+    *os << ')';
   }
-  os << ')';
-  return os;
+  *os << ')';
 }
 
-std::ostream& operator<<(std::ostream& os, const Formula::Cnf& cnf) {
-  os << '(';
-  for (auto it = cnf.ds->begin(); it != cnf.ds->end(); ++it) {
-    if (it != cnf.ds->begin()) {
-      os << " ^ ";
+void Formula::Cnf::Print(std::ostream* os) const {
+  *os << '(';
+  for (auto it = ds->begin(); it != ds->end(); ++it) {
+    if (it != ds->begin()) {
+      *os << " ^ ";
     }
-    os << *it;
+    it->Print(os);
   }
-  os << ')';
-  return os;
+  *os << ')';
 }
 #endif
 

@@ -76,13 +76,14 @@ extern "C" {
 #include <string>
 #include <./formula.h>
 #include <./maybe.h>
+#include <./bat.h>
 #include <./ecai2014.h>
 #include <./kr2014.h>
 #include <./kitchen.h>
 
 namespace esbl {
 
-using bats::Bat;
+using namespace bats;
 
 const std::string NEGATION = "~";
 const std::string CONJUNCTION = "^";
@@ -416,11 +417,11 @@ class Context {
     std::transform(s.begin(), s.end(), s.begin(), ::toupper);
     std::unique_ptr<Bat> bat;
     if (s == "KR2014") {
-      bat = std::unique_ptr<Bat>(new bats::Kr2014());
+      bat = std::unique_ptr<Bat>(new Kr2014());
     } else if (s == "ECAI2014") {
-      bat = std::unique_ptr<Bat>(new bats::Ecai2014(k));
+      bat = std::unique_ptr<Bat>(new Ecai2014(k));
     } else if (s == "KITCHEN") {
-      bat = std::unique_ptr<Bat>(new bats::Kitchen());
+      bat = std::unique_ptr<Bat>(new Kitchen());
     }
     if (!bat) {
       return nullptr;
@@ -586,8 +587,18 @@ int p_guarantee_consistency()
     return TYPE_ERROR;
   }
 
-  ctx->bat().GuaranteeConsistency(k);
-  return PSUCCEED;
+  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
+  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
+  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
+  if (kbat) {
+    kbat->setup().GuaranteeConsistency(k);
+    return PSUCCEED;
+  }
+  if (bbat) {
+    bbat->setups().GuaranteeConsistency(k);
+    return PSUCCEED;
+  }
+  return PFAIL;
 }
 
 extern "C"
@@ -638,8 +649,18 @@ int p_add_sensing_result()
     return TYPE_ERROR;
   }
 
-  ctx->bat().AddSensingResult(z, t, r);
-  return PSUCCEED;
+  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
+  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
+  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
+  if (kbat) {
+    kbat->setup().AddSensingResult(z, t, r);
+    return PSUCCEED;
+  }
+  if (bbat) {
+    bbat->setups().AddSensingResult(z, t, r);
+    return PSUCCEED;
+  }
+  return PFAIL;
 }
 
 extern "C"
@@ -659,13 +680,24 @@ int p_inconsistent()
   if (ec_k.is_long(&k) != EC_succeed) {
     return TYPE_ERROR;
   }
-  return ctx->bat().Inconsistent(k) ? PSUCCEED : PFAIL;
+
+  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
+  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
+  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
+  if (kbat) {
+    return kbat->setup().Inconsistent(k) ? PSUCCEED : PFAIL;
+  }
+  if (bbat) {
+    return bbat->setups().Inconsistent(k) ? PSUCCEED : PFAIL;
+  }
+  return PFAIL;
 }
 
 extern "C"
 int p_entails()
 {
   using namespace esbl;
+  using namespace bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_alpha = EC_arg(2);
@@ -687,6 +719,15 @@ int p_entails()
   }
   Formula::Ptr alpha(std::move(p.val));
 
-  return ctx->bat().Entails(*alpha, k) ? PSUCCEED : PFAIL;
+  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
+  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
+  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
+  if (kbat) {
+    return alpha->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
+  }
+  if (bbat) {
+    return alpha->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
+  }
+  return PFAIL;
 }
 

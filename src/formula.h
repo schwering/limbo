@@ -59,8 +59,8 @@ class Formula {
 
   virtual Ptr Copy() const = 0;
 
-  bool EntailedBy(Setup* setup, split_level k) const;
-  bool EntailedBy(Setups* setups, split_level k) const;
+  bool EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const;
+  bool EntailedBy(Term::Factory* tf, Setups* setups, split_level k) const;
 
  private:
   friend std::ostream& operator<<(std::ostream& os, const Formula& phi);
@@ -78,10 +78,8 @@ class Formula {
   virtual void Negate() = 0;
   virtual void PrependActions(const TermSeq& z) = 0;
   virtual Ptr Substitute(const Unifier& theta) const = 0;
-  virtual void CollectVariables(Variable::SortedSet* vs) const = 0;
   virtual void CollectFreeVariables(Variable::SortedSet* vs) const = 0;
-  virtual Cnf MakeCnf(const StdName::SortedSet& hplus,
-                      const Variable::SortedSet& vars) const = 0;
+  virtual Cnf MakeCnf(StdName::SortedSet* hplus) const = 0;
   virtual void Print(std::ostream* os) const = 0;
 };
 
