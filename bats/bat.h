@@ -27,6 +27,7 @@ class Bat {
 
   virtual Term::Id max_std_name() const = 0;
   virtual Atom::PredId max_pred() const = 0;
+  virtual Maybe<Formula::Ptr> RegressOneStep(const Atom& a) = 0;
 
   Term::Factory& tf() { return tf_; }
   const Term::Factory& tf() const { return tf_; }

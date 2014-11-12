@@ -421,7 +421,7 @@ class Context {
     } else if (s == "ECAI2014") {
       bat = std::unique_ptr<Bat>(new Ecai2014(k));
     } else if (s == "KITCHEN") {
-      bat = std::unique_ptr<Bat>(new Kitchen());
+      //bat = std::unique_ptr<Bat>(new Kitchen());
     }
     if (!bat) {
       return nullptr;

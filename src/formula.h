@@ -39,6 +39,7 @@ class Formula {
   typedef std::unique_ptr<Formula> Ptr;
   typedef Setup::split_level split_level;
 
+  Formula() = default;
   Formula(const Formula&) = delete;
   Formula& operator=(const Formula&) = delete;
   virtual ~Formula() {}
@@ -58,6 +59,7 @@ class Formula {
   static Ptr Forall(const Variable& x, Ptr phi);
 
   virtual Ptr Copy() const = 0;
+  virtual Ptr Substitute(const Unifier& theta) const = 0;
 
   bool EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const;
   bool EntailedBy(Term::Factory* tf, Setups* setups, split_level k) const;
@@ -73,11 +75,8 @@ class Formula {
   struct Belief;
   struct Cnf;
 
-  Formula() = default;
-
   virtual void Negate() = 0;
   virtual void PrependActions(const TermSeq& z) = 0;
-  virtual Ptr Substitute(const Unifier& theta) const = 0;
   virtual void CollectFreeVariables(Variable::SortedSet* vs) const = 0;
   virtual Cnf MakeCnf(StdName::SortedSet* hplus) const = 0;
   virtual void Print(std::ostream* os) const = 0;

@@ -249,6 +249,35 @@ compile_clause(Names, C, 'SimpleClause'(C_C)) :-
     compile_literals(Names, C, Ls_C),
     brace_list(Names, Ls_C, C_C).
 
+compile_formula(Names, Alpha, T) :-
+    Alpha =..[Operator, Term1, Term2],
+    member((Operator, Method), [((=), 'Eq'), ((\=), 'Neq')]), !,
+    with_output_to(atom(T1), write_term(Term1, [variable_names(Names)])),
+    with_output_to(atom(T2), write_term(Term2, [variable_names(Names)])),
+    with_output_to(atom(T), format('Formula::~w(~w, ~w)', [Method, T1, T2])).
+compile_formula(Names, Alpha, T) :-
+    Alpha =..[Operator, Alpha1, Alpha2],
+    member((Operator, Method), [(v, 'Or'), ((^), 'And'), ((->), 'OnlyIf'), ((<-), 'If'), ((<->), 'Iff')]), !,
+    compile_formula(Names, Alpha1, T1),
+    compile_formula(Names, Alpha2, T2),
+    with_output_to(atom(T), format('Formula::~w(~w, ~w)', [Method, T1, T2])).
+compile_formula(Names, Alpha, T) :-
+    Alpha =..[Operator, Term1, Alpha2],
+    member((Operator, Method), [(exists, 'Exists'), ((forall), 'Forall'), ((:), 'Act')]), !,
+    with_output_to(atom(T1), write_term(Term1, [variable_names(Names)])),
+    compile_formula(Names, Alpha2, T2),
+    with_output_to(atom(T), format('Formula::~w(~w, ~w)', [Method, T1, T2])).
+compile_formula(Names, Alpha, T) :-
+    Alpha = (~Alpha1), !,
+    compile_formula(Names, Alpha1, T1),
+    with_output_to(atom(T), format('Formula::Neg(~w)', [T1])).
+compile_formula(_, Alpha, T) :-
+    Alpha = true, !,
+    with_output_to(atom(T), format('Formula::Eq(tf_.CreatePlaceholderStdName(0, 0), tf_.CreatePlaceholderStdName(0, 0))', [])).
+compile_formula(Names, Alpha, T) :-
+    compile_literal(Names, Alpha, T1),
+    with_output_to(atom(T), format('Formula::Lit(~w)', [T1])).
+
 compile_box(E, Alpha, Code) :-
     term_variables((E, Alpha), Vars),
     variable_names(Vars, 0, Names),
@@ -393,14 +422,14 @@ declare_predicate_names(_, [], 0).
 declare_predicate_names(Stream, [P|Ps], MaxPred) :-
     length(Ps, I),
     ( P = 'SF' -> I1 = 'Atom::SF' ; P = 'POSS' -> I1 = 'Atom::POSS' ; I1 = I ),
-    format(Stream, '  static constexpr Atom::PredId ~w = ~w;~n', [P, I1]),
+    format(Stream, '  static constexpr esbl::Atom::PredId ~w = ~w;~n', [P, I1]),
     declare_predicate_names(Stream, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
 
 define_predicate_names(_, _, [], 1).
 define_predicate_names(Stream, Class, [P|Ps], MaxPred) :-
     length(Ps, I),
-    format(Stream, 'constexpr Atom::PredId ~w::~w;~n', [Class, P]),
+    format(Stream, 'constexpr esbl::Atom::PredId ~w::~w;~n', [Class, P]),
     define_predicate_names(Stream, Class, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
 
@@ -413,6 +442,36 @@ print_serialization(Stream, Val) :-
 
 print_deserialization(Stream, Val) :-
     format(Stream, '    map["~w"] = ~w;~n', [Val, Val]).
+
+literal_of(_:A, Lit) :- !, literal_of(A, Lit).
+literal_of(A, Lit) :- A =..[Lit|_].
+
+define_regression_step(_, _, []).
+define_regression_step(BodyStream, Class, [(Lhs,Rhs)|Boxes]) :-
+    literal_of(Lhs, Lit),
+    term_variables((Lhs, Rhs), Vars),
+    variable_names(Vars, 0, Names),
+    compile_vars(Names, Vars, VarsTerm),
+    compile_literal(Names, Lhs, Lhs_C),
+    compile_formula(Names, Rhs, Rhs_C),
+    with_output_to(atom(Lhs_Readable), write_term(Lhs, [variable_names(Names)])),
+    with_output_to(atom(Rhs_Readable), write_term(Rhs, [variable_names(Names)])),
+    format(BodyStream, '  // ~w <-> ~w~n', [Lhs_Readable, Rhs_Readable]),
+    format(BodyStream, '  if (a.pred() == ~w) {~n', [Lit]),
+    ( VarsTerm \= '' -> format(BodyStream, '    ~w~n', [VarsTerm]) ; true ),
+    format(BodyStream, '    const Atom lhs = ~w;~n', [Lhs_C]),
+    format(BodyStream, '    if (a.z().size() >= lhs.z().size()) {~n', []),
+    format(BodyStream, '      const size_t n = a.z().size() - lhs.z().size();~n', []),
+    format(BodyStream, '      const TermSeq z(a.z().begin(), a.z().begin() + n);~n', [VarsTerm]),
+    format(BodyStream, '      const Atom aa = a.DropActions(n);~n', [VarsTerm]),
+    format(BodyStream, '      Unifier theta;~n', []),
+    format(BodyStream, '      if (aa.Matches(lhs, &theta)) {~n', []),
+    format(BodyStream, '        Formula::Ptr rhs(~w);~n', [Rhs_C]),
+    format(BodyStream, '        return Just(rhs->Substitute(theta));~n', []),
+    format(BodyStream, '      }~n', []),
+    format(BodyStream, '    }~n', []),
+    format(BodyStream, '  }~n', []),
+    define_regression_step(BodyStream, Class, Boxes).
 
 compile_all(Class, Input, Header, Body) :-
     ( Header = stdout ->
@@ -440,9 +499,12 @@ compile_all(Class, Input, Header, Body) :-
     sort(PredNames2, PredNames),
     findall(SortName, sort_name(SortName, _), SortNames1),
     sort(SortNames1, SortNames),
+    findall((Lhs, Rhs), box(Lhs <-> Rhs), Boxes),
     ( belief(_) -> SuperClass = 'BBat' ; SuperClass = 'KBat' ),
     % body
     format(BodyStream, '#include "~w"~n', [Header]),
+    format(BodyStream, '~n', []),
+    format(BodyStream, 'using namespace esbl;~n', []),
     format(BodyStream, '~n', []),
     format(BodyStream, 'namespace bats {~n', []),
     format(BodyStream, '~n', []),
@@ -458,6 +520,11 @@ compile_all(Class, Input, Header, Body) :-
     format(BodyStream, '~n', []),
     define_predicate_names(BodyStream, Class, PredNames, MaxPred),
     format(BodyStream, '~n', []),
+    format(BodyStream, 'Maybe<Formula::Ptr> ~w::RegressOneStep(const Atom& a) {~n', [Class]),
+    define_regression_step(BodyStream, Class, Boxes),
+    format(BodyStream, '  return Nothing;~n', []),
+    format(BodyStream, '}~n', []),
+    format(BodyStream, '~n', []),
     format(BodyStream, '}  // namespace bats~n', []),
     format(BodyStream, '~n', []),
     % header
@@ -468,8 +535,6 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '#include "bat.h"~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, 'namespace bats {~n', []),
-    format(HeaderStream, '~n', []),
-    format(HeaderStream, 'using namespace esbl;~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, 'class ~w : public ~w {~n', [Class, SuperClass]),
     format(HeaderStream, ' public:~n', []),
@@ -483,6 +548,7 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '~n', []),
     declare_and_define_max_stdname_function(HeaderStream, MaxStdName),
     declare_and_define_max_pred_function(HeaderStream, MaxPred),
+    format(HeaderStream, '  Maybe<Formula::Ptr> RegressOneStep(const Atom& a) override;~n', []),
     format(HeaderStream, '};~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, '}  // namespace bats~n', []),
