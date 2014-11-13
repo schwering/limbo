@@ -422,14 +422,14 @@ declare_predicate_names(_, [], 0).
 declare_predicate_names(Stream, [P|Ps], MaxPred) :-
     length(Ps, I),
     ( P = 'SF' -> I1 = 'Atom::SF' ; P = 'POSS' -> I1 = 'Atom::POSS' ; I1 = I ),
-    format(Stream, '  static constexpr esbl::Atom::PredId ~w = ~w;~n', [P, I1]),
+    format(Stream, '  static constexpr Atom::PredId ~w = ~w;~n', [P, I1]),
     declare_predicate_names(Stream, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
 
 define_predicate_names(_, _, [], 1).
 define_predicate_names(Stream, Class, [P|Ps], MaxPred) :-
     length(Ps, I),
-    format(Stream, 'constexpr esbl::Atom::PredId ~w::~w;~n', [Class, P]),
+    format(Stream, 'constexpr Atom::PredId ~w::~w;~n', [Class, P]),
     define_predicate_names(Stream, Class, Ps, MaxPred1),
     MaxPred is max(I, MaxPred1).
 
@@ -506,7 +506,7 @@ compile_all(Class, Input, Header, Body) :-
     % body
     format(BodyStream, '#include "~w"~n', [Header]),
     format(BodyStream, '~n', []),
-    format(BodyStream, 'using namespace esbl;~n', []),
+    format(BodyStream, 'namespace esbl {~n', []),
     format(BodyStream, '~n', []),
     format(BodyStream, 'namespace bats {~n', []),
     format(BodyStream, '~n', []),
@@ -530,12 +530,16 @@ compile_all(Class, Input, Header, Body) :-
     format(BodyStream, '~n', []),
     format(BodyStream, '}  // namespace bats~n', []),
     format(BodyStream, '~n', []),
+    format(BodyStream, '}  // namespace esbl~n', []),
+    format(BodyStream, '~n', []),
     % header
     format(HeaderStream, '#ifndef BATS_~w_H_~n', [Class]),
     format(HeaderStream, '~n', []),
     format(HeaderStream, '#include <setup.h>~n', []),
     format(HeaderStream, '#include <term.h>~n', []),
     format(HeaderStream, '#include "bat.h"~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, 'namespace esbl {~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, 'namespace bats {~n', []),
     format(HeaderStream, '~n', []),
@@ -555,6 +559,8 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '};~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, '}  // namespace bats~n', []),
+    format(HeaderStream, '~n', []),
+    format(HeaderStream, '}  // namespace esbl~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, '#endif  // BATS_~w_H_~n', [Class]),
     ( Header = stdout ->

@@ -14,18 +14,9 @@
 #include "./setup.h"
 #include "./term.h"
 
-namespace bats {
+namespace esbl {
 
-using esbl::Atom;
-using esbl::DynamicAxioms;
-using esbl::Formula;
-using esbl::Just;
-using esbl::Maybe;
-using esbl::Nothing;
-using esbl::Term;
-using esbl::StdName;
-using esbl::Setup;
-using esbl::Setups;
+namespace bats {
 
 class Bat : public DynamicAxioms {
  public:
@@ -129,6 +120,8 @@ class BBat : public Bat {
 };
 
 }  // namespace bats
+
+}  // namespace esbl
 
 #endif  // BATS_BAT_H_
 

@@ -83,8 +83,6 @@ extern "C" {
 
 namespace esbl {
 
-using namespace bats;
-
 const std::string NEGATION = "~";
 const std::string CONJUNCTION = "^";
 const std::string DISJUNCTION = "v";
@@ -102,7 +100,7 @@ struct EC_word_comparator {
 
 class PredBuilder {
  public:
-  explicit PredBuilder(Bat* bat) : bat_(bat) {}
+  explicit PredBuilder(bats::Bat* bat) : bat_(bat) {}
   PredBuilder(const PredBuilder&) = delete;
   PredBuilder& operator=(const PredBuilder&) = delete;
 
@@ -139,13 +137,13 @@ class PredBuilder {
   }
 
  private:
-  Bat* bat_;
+  bats::Bat* bat_;
   std::map<EC_word, Atom::PredId, EC_word_comparator> preds_;
 };
 
 class TermBuilder {
  public:
-  explicit TermBuilder(Bat* bat) : bat_(bat) {}
+  explicit TermBuilder(bats::Bat* bat) : bat_(bat) {}
   TermBuilder(const TermBuilder&) = delete;
   TermBuilder& operator=(const TermBuilder&) = delete;
 
@@ -214,14 +212,14 @@ class TermBuilder {
   }
 
  private:
-  Bat* bat_;
+  bats::Bat* bat_;
   std::map<EC_atom, StdName, EC_word_comparator> names_;
   std::map<EC_word, std::deque<Variable>, EC_word_comparator> vars_;
 };
 
 class SortBuilder {
  public:
-  SortBuilder(Bat* bat, TermBuilder* tb) : bat_(bat), tb_(tb) {}
+  SortBuilder(bats::Bat* bat, TermBuilder* tb) : bat_(bat), tb_(tb) {}
   SortBuilder(const SortBuilder&) = delete;
   SortBuilder& operator=(const SortBuilder&) = delete;
 
@@ -248,13 +246,13 @@ class SortBuilder {
   }
 
  private:
-  Bat* bat_;
+  bats::Bat* bat_;
   TermBuilder* tb_;
 };
 
 class FormulaBuilder {
  public:
-  explicit FormulaBuilder(Bat* bat)
+  explicit FormulaBuilder(bats::Bat* bat)
     : pred_builder_(bat),
       term_builder_(bat),
       sort_builder_(bat, &term_builder_) {}
@@ -415,13 +413,13 @@ class Context {
     }
     std::string s = a.name();
     std::transform(s.begin(), s.end(), s.begin(), ::toupper);
-    std::unique_ptr<Bat> bat;
+    std::unique_ptr<bats::Bat> bat;
     if (s == "KR2014") {
-      bat = std::unique_ptr<Bat>(new Kr2014());
+      bat = std::unique_ptr<bats::Bat>(new bats::Kr2014());
     } else if (s == "ECAI2014") {
-      bat = std::unique_ptr<Bat>(new Ecai2014(k));
+      bat = std::unique_ptr<bats::Bat>(new bats::Ecai2014(k));
     } else if (s == "KITCHEN") {
-      //bat = std::unique_ptr<Bat>(new Kitchen());
+      bat = std::unique_ptr<bats::Bat>(new bats::Kitchen());
     }
     if (!bat) {
       return nullptr;
@@ -453,19 +451,19 @@ class Context {
     delete self;
   }
 
-  Bat& bat() { return *bat_; };
+  bats::Bat& bat() { return *bat_; };
   FormulaBuilder& formula_builder() { return formula_builder_; }
   PredBuilder& pred_builder() { return formula_builder_.pred_builder(); }
   TermBuilder& term_builder() { return formula_builder_.term_builder(); }
   SortBuilder& sort_builder() { return formula_builder_.sort_builder(); }
 
  private:
-  explicit Context(std::unique_ptr<Bat> bat)
+  explicit Context(std::unique_ptr<bats::Bat> bat)
       : bat_(std::move(bat)), formula_builder_(bat_.get()) {}
 
   static std::map<EC_word, Context*, EC_word_comparator> instances_;
 
-  std::unique_ptr<Bat> bat_;
+  std::unique_ptr<bats::Bat> bat_;
   FormulaBuilder formula_builder_;
 };
 
@@ -488,6 +486,7 @@ std::map<EC_word, Context*, EC_word_comparator> Context::instances_;
 extern "C"
 int p_kcontext() {
   using namespace esbl;
+  using namespace esbl::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_bat = EC_arg(2);
@@ -499,6 +498,7 @@ int p_kcontext() {
 extern "C"
 int p_bcontext() {
   using namespace esbl;
+  using namespace esbl::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_bat = EC_arg(2);
@@ -517,6 +517,7 @@ extern "C"
 int p_register_pred()
 {
   using namespace esbl;
+  using namespace esbl::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_w = EC_arg(2);
@@ -538,6 +539,7 @@ extern "C"
 int p_register_name()
 {
   using namespace esbl;
+  using namespace esbl::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_w = EC_arg(2);
@@ -573,6 +575,7 @@ extern "C"
 int p_guarantee_consistency()
 {
   using namespace esbl;
+  using namespace esbl::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_k = EC_arg(2);
@@ -605,6 +608,7 @@ extern "C"
 int p_add_sensing_result()
 {
   using namespace esbl;
+  using namespace esbl::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_z = EC_arg(2);
@@ -667,6 +671,7 @@ extern "C"
 int p_inconsistent()
 {
   using namespace esbl;
+  using namespace esbl::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_k = EC_arg(2);
@@ -697,7 +702,7 @@ extern "C"
 int p_entails()
 {
   using namespace esbl;
-  using namespace bats;
+  using namespace esbl::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_alpha = EC_arg(2);
