@@ -418,20 +418,28 @@ declare_and_define_max_stdname_function(Stream, MaxStdName) :-
 declare_and_define_max_pred_function(Stream, MaxPred) :-
     format(Stream, '  Atom::PredId max_pred() const override { return ~w; }~n', [MaxPred]).
 
-declare_predicate_names(_, [], 0).
-declare_predicate_names(Stream, [P|Ps], MaxPred) :-
-    length(Ps, I),
-    ( P = 'SF' -> I1 = 'Atom::SF' ; P = 'POSS' -> I1 = 'Atom::POSS' ; I1 = I ),
-    format(Stream, '  static constexpr Atom::PredId ~w = ~w;~n', [P, I1]),
-    declare_predicate_names(Stream, Ps, MaxPred1),
-    MaxPred is max(I, MaxPred1).
+declare_predicate_names(_, [], N, N).
+declare_predicate_names(Stream, [P|Ps], N, N2) :-
+    ( P = 'SF' ->
+        Id = 'Atom::SF',
+        N1 is N
+    ; P = 'POSS' ->
+        Id = 'Atom::POSS',
+        N1 is N
+    ;
+        Id = N,
+        N1 is N + 1
+    ),
+    format(Stream, '  static constexpr Atom::PredId ~w = ~w;~n', [P, Id]),
+    declare_predicate_names(Stream, Ps, N1, N2).
 
-define_predicate_names(_, _, [], 1).
-define_predicate_names(Stream, Class, [P|Ps], MaxPred) :-
-    length(Ps, I),
+declare_predicate_names(Stream, Ps, MaxPred) :-
+    declare_predicate_names(Stream, Ps, 0, MaxPred).
+
+define_predicate_names(_, _, []).
+define_predicate_names(Stream, Class, [P|Ps]) :-
     format(Stream, 'constexpr Atom::PredId ~w::~w;~n', [Class, P]),
-    define_predicate_names(Stream, Class, Ps, MaxPred1),
-    MaxPred is max(I, MaxPred1).
+    define_predicate_names(Stream, Class, Ps).
 
 init_clauses(_, []).
 %init_clauses(Stream, [C]) :- !, format(Stream, '  ~w;~n', [C]).
@@ -520,7 +528,7 @@ compile_all(Class, Input, Header, Body) :-
     format(BodyStream, '~n', []),
     define_sorts(BodyStream, Class, SortNames),
     format(BodyStream, '~n', []),
-    define_predicate_names(BodyStream, Class, PredNames, MaxPred),
+    define_predicate_names(BodyStream, Class, PredNames),
     format(BodyStream, '~n', []),
     format(BodyStream, 'Maybe<Formula::Ptr> ~w::RegressOneStep(Term::Factory* tf, const Atom& _a) const {~n', [Class]),
     format(BodyStream, '  Term::Factory& tf_ = *tf; // alias to reuse compile_lit/3~n', []),

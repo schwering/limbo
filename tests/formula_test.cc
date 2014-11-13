@@ -34,6 +34,40 @@ TEST(formula, gl) {
   EXPECT_TRUE(Formula::Act({bat.forward, bat.sonar}, close->Copy())->EntailedBy(&bat.tf(), &s, 1));
 }
 
+TEST(formula, gl_regression) {
+  Kr2014 bat;
+  auto& s = bat.setup();
+  auto close = Formula::Or(Formula::Lit(Literal({}, true, bat.d0, {})),
+                           Formula::Lit(Literal({}, true, bat.d1, {})));
+  auto maybe_close = Formula::Or(Formula::Lit(Literal({}, true, bat.d1, {})),
+                                 Formula::Lit(Literal({}, true, bat.d2, {})));
+
+  // Property 1
+  Maybe<Formula::Ptr> reg1 = Formula::Neg(close->Copy())->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg1);
+  EXPECT_TRUE(reg1.val->EntailedBy(&bat.tf(), &s, 0));
+
+  s.AddSensingResult({}, bat.forward, true);
+
+  // Property 2
+  Maybe<Formula::Ptr> reg2 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg2);
+  //EXPECT_FALSE(reg2.val->EntailedBy(&bat.tf(), &s, 0)); // here regression differs from ESL
+  EXPECT_TRUE(reg2.val->EntailedBy(&bat.tf(), &s, 0));
+
+  // Property 3
+  Maybe<Formula::Ptr> reg3 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg3);
+  EXPECT_TRUE(reg3.val->EntailedBy(&bat.tf(), &s, 1));
+
+  s.AddSensingResult({bat.forward}, bat.sonar, true);
+
+  // Property 4
+  Maybe<Formula::Ptr> reg4 = Formula::Act({bat.forward, bat.sonar}, close->Copy())->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg4);
+  EXPECT_TRUE(reg4.val->EntailedBy(&bat.tf(), &s, 1));
+}
+
 TEST(formula, morri) {
   constexpr Setups::split_level k = 2;
   Ecai2014 bat(k);

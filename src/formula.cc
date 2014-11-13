@@ -17,9 +17,12 @@ struct Formula::Cnf {
   Cnf(const Cnf&);
   Cnf& operator=(const Cnf&);
 
+  bool operator==(const Cnf& c) const;
+
   Cnf Substitute(const Unifier& theta) const;
   Cnf And(const Cnf& c) const;
   Cnf Or(const Cnf& c) const;
+  void Minimize();
   bool EntailedBy(Setup* setup, split_level k) const;
   bool EntailedBy(Setups* setups, split_level k) const;
   void Print(std::ostream* os) const;
@@ -29,9 +32,19 @@ struct Formula::Cnf {
 };
 
 struct Formula::Cnf::Disj {
+  Disj() = default;
+  Disj(const Disj&) = default;
+  Disj& operator=(const Disj&) = default;
+
+  bool operator==(const Disj& d) const {
+    return eqs == d.eqs && neqs == d.neqs && clause == d.clause &&
+        ks == d.ks && bs == d.bs;
+  }
+
   static Disj Concat(const Disj& c1, const Disj& c2);
   Disj Substitute(const Unifier& theta) const;
   bool VacuouslyTrue() const;
+  void Minimize();
   bool EntailedBy(Setup* setup, split_level k) const;
   bool EntailedBy(Setups* setups, split_level k) const;
   void Print(std::ostream* os) const;
@@ -87,7 +100,8 @@ struct Formula::Equal : public Formula {
   }
 
   void Print(std::ostream* os) const override {
-    *os << '(' << t1 << " = " << t2 << ')';
+    const char* s = sign ? "=" : "!=";
+    *os << '(' << t1 << ' ' << s << ' ' << t2 << ')';
   }
 };
 
@@ -119,10 +133,13 @@ struct Formula::Lit : public Formula {
   Maybe<Ptr> Regress(Term::Factory* tf,
                      const DynamicAxioms& axioms) const override {
     Maybe<Ptr> phi = axioms.RegressOneStep(tf, l);
-    if (phi && !l.sign()) {
+    if (!phi) {
+      return Just(Copy());
+    }
+    if (!l.sign()) {
       phi.val->Negate();
     }
-    return phi;
+    return phi.val->Regress(tf, axioms);
   }
 
   void Print(std::ostream* os) const override {
@@ -399,8 +416,18 @@ Formula::Cnf::Disj Formula::Cnf::Disj::Substitute(const Unifier& theta) const {
 
 bool Formula::Cnf::Disj::VacuouslyTrue() const {
   auto eq = [](const std::pair<Term, Term>& p) { return p.first == p.second; };
+  auto neq = [](const std::pair<Term, Term>& p) { return p.first != p.second; };
   return std::any_of(eqs.begin(), eqs.end(), eq) ||
-      std::any_of(neqs.begin(), neqs.end(),  eq);
+      std::any_of(neqs.begin(), neqs.end(), neq);
+}
+
+void Formula::Cnf::Disj::Minimize() {
+  auto eq = [](const std::pair<Term, Term>& p) { return p.first == p.second; };
+  auto neq = [](const std::pair<Term, Term>& p) { return p.first != p.second; };
+  const auto it = std::remove_if(eqs.begin(), eqs.end(), neq);
+  const auto jt = std::remove_if(neqs.begin(), neqs.end(), eq);
+  eqs.erase(it, eqs.end());
+  neqs.erase(jt, neqs.end());
 }
 
 bool Formula::Cnf::Disj::EntailedBy(Setup* s, split_level k) const {
@@ -464,6 +491,10 @@ Formula::Cnf& Formula::Cnf::operator=(const Formula::Cnf& c) {
   return *this;
 }
 
+bool Formula::Cnf::operator==(const Formula::Cnf& c) const {
+  return *ds == *c.ds;
+}
+
 Formula::Cnf Formula::Cnf::Substitute(const Unifier& theta) const {
   Cnf c;
   c.ds->reserve(ds->size());
@@ -489,6 +520,16 @@ Formula::Cnf Formula::Cnf::Or(const Cnf& c) const {
   }
   assert(r.ds->size() == ds->size() * c.ds->size());
   return r;
+}
+
+void Formula::Cnf::Minimize() {
+  const auto it = std::remove_if(ds->begin(), ds->end(),
+                 [](const Disj& d) { return d.VacuouslyTrue(); });
+  ds->erase(it, ds->end());
+  std::for_each(ds->begin(), ds->end(),
+                [](Disj& d) { d.Minimize(); });
+  const auto jt = std::unique(ds->begin(), ds->end());
+  ds->erase(jt, ds->end());
 }
 
 bool Formula::Cnf::EntailedBy(Setup* s, split_level k) const {
@@ -564,18 +605,19 @@ Formula::Ptr Formula::Forall(const Variable& x, Ptr phi) {
 
 bool Formula::EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const {
   StdName::SortedSet hplus = tf->sorted_names();
-  const Cnf cnf = MakeCnf(&hplus);
+  Cnf cnf = MakeCnf(&hplus);
+  cnf.Minimize();
   return cnf.EntailedBy(setup, k);
 }
 
 bool Formula::EntailedBy(Term::Factory* tf, Setups* setups,
                          split_level k) const {
   StdName::SortedSet hplus = tf->sorted_names();
-  const Cnf cnf = MakeCnf(&hplus);
+  Cnf cnf = MakeCnf(&hplus);
+  cnf.Minimize();
   return cnf.EntailedBy(setups, k);
 }
 
-#if 1
 void Formula::Cnf::Disj::Print(std::ostream* os) const {
   *os << '(';
   for (auto it = eqs.begin(); it != eqs.end(); ++it) {
@@ -629,7 +671,6 @@ void Formula::Cnf::Print(std::ostream* os) const {
   }
   *os << ')';
 }
-#endif
 
 }  // namespace esbl
 
