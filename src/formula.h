@@ -34,6 +34,8 @@
 
 namespace esbl {
 
+class DynamicAxioms;
+
 class Formula {
  public:
   typedef std::unique_ptr<Formula> Ptr;
@@ -59,8 +61,11 @@ class Formula {
   static Ptr Forall(const Variable& x, Ptr phi);
 
   virtual Ptr Copy() const = 0;
-  virtual void SubstituteInPlace(const Unifier& theta) = 0;
   virtual void PrependActions(const TermSeq& z) = 0;
+  virtual void SubstituteInPlace(const Unifier& theta) = 0;
+
+  virtual Maybe<Ptr> Regress(Term::Factory* tf,
+                             const DynamicAxioms& axioms) const = 0;
 
   bool EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const;
   bool EntailedBy(Term::Factory* tf, Setups* setups, split_level k) const;
@@ -80,6 +85,12 @@ class Formula {
   virtual void CollectFreeVariables(Variable::SortedSet* vs) const = 0;
   virtual Cnf MakeCnf(StdName::SortedSet* hplus) const = 0;
   virtual void Print(std::ostream* os) const = 0;
+};
+
+class DynamicAxioms {
+ public:
+  virtual Maybe<Formula::Ptr> RegressOneStep(Term::Factory* tf,
+                                             const Atom& a) const = 0;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Formula& phi) {

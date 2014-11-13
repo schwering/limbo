@@ -82,6 +82,10 @@ struct Formula::Equal : public Formula {
     return Cnf(d);
   }
 
+  Maybe<Ptr> Regress(Term::Factory*, const DynamicAxioms&) const override {
+    return Just(Copy());
+  }
+
   void Print(std::ostream* os) const override {
     *os << '(' << t1 << " = " << t2 << ')';
   }
@@ -110,6 +114,15 @@ struct Formula::Lit : public Formula {
     Cnf::Disj d;
     d.clause.insert(l);
     return Cnf(d);
+  }
+
+  Maybe<Ptr> Regress(Term::Factory* tf,
+                     const DynamicAxioms& axioms) const override {
+    Maybe<Ptr> phi = axioms.RegressOneStep(tf, l);
+    if (phi && !l.sign()) {
+      phi.val->Negate();
+    }
+    return phi;
   }
 
   void Print(std::ostream* os) const override {
@@ -163,6 +176,16 @@ struct Formula::Junction : public Formula {
     } else {
       return cnf_l.And(cnf_r);
     }
+  }
+
+  Maybe<Ptr> Regress(Term::Factory* tf,
+                     const DynamicAxioms& axioms) const override {
+    Maybe<Ptr> ll = l->Regress(tf, axioms);
+    Maybe<Ptr> rr = r->Regress(tf, axioms);
+    if (!ll || !rr) {
+      return Nothing;
+    }
+    return Just(Ptr(new Junction(type, std::move(ll.val), std::move(rr.val))));
   }
 
   void Print(std::ostream* os) const override {
@@ -235,6 +258,17 @@ struct Formula::Quantifier : public Formula {
     return r;
   }
 
+  Maybe<Ptr> Regress(Term::Factory* tf,
+                     const DynamicAxioms& axioms) const override {
+    Maybe<Ptr> psi = phi->Regress(tf, axioms);
+    if (!psi) {
+      return Nothing;
+    }
+    const Variable y = tf->CreateVariable(x.sort());
+    psi.val->SubstituteInPlace({{x, y}});
+    return Just(Ptr(new Quantifier(type, y, std::move(psi.val))));
+  }
+
   void Print(std::ostream* os) const override {
     const char* s = type == EXISTENTIAL ? "E " : "";
     *os << '(' << s << x << ". " << *phi << ')';
@@ -265,6 +299,10 @@ struct Formula::Knowledge : public Formula {
     Cnf::Disj d;
     d.ks.push_back(std::make_tuple(k, phi->MakeCnf(hplus)));
     return Cnf(d);
+  }
+
+  Maybe<Ptr> Regress(Term::Factory*, const DynamicAxioms&) const override {
+    return Nothing;
   }
 
   void Print(std::ostream* os) const override {
@@ -306,6 +344,10 @@ struct Formula::Belief : public Formula {
     d.bs.push_back(std::make_tuple(k, neg_phi->MakeCnf(hplus),
                                    psi->MakeCnf(hplus)));
     return Cnf(d);
+  }
+
+  Maybe<Ptr> Regress(Term::Factory*, const DynamicAxioms&) const override {
+    return Nothing;
   }
 
   void Print(std::ostream* os) const override {

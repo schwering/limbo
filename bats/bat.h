@@ -8,17 +8,26 @@
 #include <map>
 #include <string>
 #include <utility>
-#include "atom.h"
-#include "formula.h"
-#include "maybe.h"
-#include "setup.h"
-#include "term.h"
+#include "./atom.h"
+#include "./formula.h"
+#include "./maybe.h"
+#include "./setup.h"
+#include "./term.h"
 
 namespace bats {
 
-using namespace esbl;
+using esbl::Atom;
+using esbl::DynamicAxioms;
+using esbl::Formula;
+using esbl::Just;
+using esbl::Maybe;
+using esbl::Nothing;
+using esbl::Term;
+using esbl::StdName;
+using esbl::Setup;
+using esbl::Setups;
 
-class Bat {
+class Bat : public DynamicAxioms {
  public:
   Bat() : tf_() {}
   Bat(const Bat&) = delete;
@@ -27,7 +36,8 @@ class Bat {
 
   virtual Term::Id max_std_name() const = 0;
   virtual Atom::PredId max_pred() const = 0;
-  virtual Maybe<Formula::Ptr> RegressOneStep(const Atom& a) = 0;
+  Maybe<Formula::Ptr> RegressOneStep(Term::Factory* tf,
+                                     const Atom& a) const override = 0;
 
   Term::Factory& tf() { return tf_; }
   const Term::Factory& tf() const { return tf_; }
@@ -109,7 +119,7 @@ class KBat : public Bat {
 
 class BBat : public Bat {
  public:
-  explicit BBat() : s_() {}
+  BBat() : s_() {}
 
   virtual Setups& setups() { return s_; }
   virtual const Setups& setups() const { return s_; }
@@ -118,7 +128,7 @@ class BBat : public Bat {
   Setups s_;
 };
 
-}
+}  // namespace bats
 
 #endif  // BATS_BAT_H_
 
