@@ -97,6 +97,49 @@ TEST(formula, morri) {
   EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->EntailedBy(&bat.tf(), &s, 2));
 }
 
+TEST(formula, morri_regression) {
+  constexpr Setups::split_level k = 2;
+  Ecai2014 bat(k);
+  auto& s = bat.setups();
+
+  // Property 1
+  Maybe<Formula::Ptr> reg1 = Formula::Lit(Literal({}, false, bat.L1, {}))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg1);
+  EXPECT_TRUE(reg1.val->EntailedBy(&bat.tf(), &s, 2));
+
+  // Property 2
+  s.AddSensingResult({}, bat.SL, true);
+  Maybe<Formula::Ptr> reg2 = Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
+                                                               Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg2);
+  EXPECT_TRUE(reg2.val->EntailedBy(&bat.tf(), &s, 2));
+
+  // Property 3
+  s.AddSensingResult({bat.SL}, bat.SR1, false);
+  Maybe<Formula::Ptr> reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg3);
+  EXPECT_TRUE(reg3.val->EntailedBy(&bat.tf(), &s, 2));
+
+  // Property 5
+  Maybe<Formula::Ptr> reg4 = Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {})))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg4);
+  EXPECT_FALSE(reg4.val->EntailedBy(&bat.tf(), &s, 2));
+  Maybe<Formula::Ptr> reg5 = Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg5);
+  EXPECT_FALSE(reg5.val->EntailedBy(&bat.tf(), &s, 2));
+
+  // Property 6
+  Maybe<Formula::Ptr> reg6 = Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {})))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg6);
+  EXPECT_TRUE(reg6.val->EntailedBy(&bat.tf(), &s, 2));
+
+  // Property 6
+  s.AddSensingResult({bat.SL,bat.SR1,bat.LV}, bat.SL, true);
+  Maybe<Formula::Ptr> reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg7);
+  EXPECT_TRUE(reg7.val->EntailedBy(&bat.tf(), &s, 2));
+}
+
 TEST(formula, fol_incompleteness_positive1) {
   // The tautology (A x . E y . ~P(x) v P(y)) is provable in our variant of ESL.
   // Is it provable in the paper? Don't remember, check. TODO(chs)
