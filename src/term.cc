@@ -119,6 +119,14 @@ Maybe<TermSeq> TermSeq::WithoutLast(const size_t n) const {
   return Just(prefix);
 }
 
+TermSeq TermSeq::Substitute(const Unifier& theta) const {
+  TermSeq ts = *this;
+  for (Term& t : ts) {
+    t = t.Substitute(theta);
+  }
+  return ts;
+}
+
 bool TermSeq::Matches(const TermSeq& z, Unifier* theta) const {
   if (size() != z.size()) {
     return false;
@@ -154,7 +162,7 @@ bool TermSeq::Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta) {
 }
 
 void TermSeq::CollectVariables(std::set<Variable>* vs) const {
-  for (auto& t : *this) {
+  for (const Term& t : *this) {
     if (t.is_variable()) {
       (*vs).insert(Variable(t));
     }
@@ -162,7 +170,7 @@ void TermSeq::CollectVariables(std::set<Variable>* vs) const {
 }
 
 void TermSeq::CollectVariables(Variable::SortedSet* vs) const {
-  for (auto& t : *this) {
+  for (const Term& t : *this) {
     if (t.is_variable()) {
       (*vs)[t.sort()].insert(Variable(t));
     }
@@ -170,11 +178,20 @@ void TermSeq::CollectVariables(Variable::SortedSet* vs) const {
 }
 
 void TermSeq::CollectNames(StdName::SortedSet* ns) const {
-  for (auto& t : *this) {
+  for (const Term& t : *this) {
     if (t.is_name()) {
       (*ns)[t.sort()].insert(StdName(t));
     }
   }
+}
+
+bool TermSeq::is_ground() const {
+  for (const Term& t : *this) {
+    if (!t.is_ground()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 std::ostream& operator<<(std::ostream& os, const TermSeq& z) {

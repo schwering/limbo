@@ -31,21 +31,10 @@ Atom Atom::PrependActions(const TermSeq& z) const {
   return a;
 }
 
-Atom Atom::DropActions(size_t n) const {
-  Atom a = *this;
-  a.z_.erase(a.z_.begin(), a.z_.begin() + n);
-  return a;
-}
-
 Atom Atom::Substitute(const Unifier& theta) const {
-  Atom a = *this;
-  for (Term& t : a.z_) {
-    t = t.Substitute(theta);
-  }
-  for (Term& t : a.args_) {
-    t = t.Substitute(theta);
-  }
-  return a;
+  const TermSeq z = z_.Substitute(theta);
+  const TermSeq args = args_.Substitute(theta);
+  return Atom(z, pred_, args);
 }
 
 Atom Atom::Ground(const Assignment& theta) const {

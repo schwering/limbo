@@ -35,13 +35,11 @@ class Literal : public Atom {
   Literal PrependActions(const TermSeq& z) const {
     return Literal(sign(), Atom::PrependActions(z));
   }
-  Literal DropActions(size_t n) const {
-    return Literal(sign(), Atom::DropActions(n));
-  }
 
   Literal Substitute(const Unifier& theta) const {
     return Literal(sign(), Atom::Substitute(theta));
   }
+
   Literal Ground(const Assignment& theta) const {
     return Literal(sign(), Atom::Ground(theta));
   }

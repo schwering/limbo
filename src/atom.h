@@ -33,7 +33,6 @@ class Atom {
   bool operator<(const Atom& a) const;
 
   Atom PrependActions(const TermSeq& z) const;
-  Atom DropActions(size_t n) const;
 
   Atom Substitute(const Unifier& theta) const;
   Atom Ground(const Assignment& theta) const;

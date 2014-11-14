@@ -161,12 +161,15 @@ class TermSeq : public std::vector<Term> {
   using std::vector<Term>::vector;
 
   Maybe<TermSeq> WithoutLast(const size_t n) const;
+  TermSeq Substitute(const Unifier& theta) const;
   bool Matches(const TermSeq& z, Unifier* theta) const;
   static bool Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 
   void CollectVariables(std::set<Variable>* vs) const;
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
+
+  bool is_ground() const;
 };
 
 std::ostream& operator<<(std::ostream& os, const TermSeq& z);

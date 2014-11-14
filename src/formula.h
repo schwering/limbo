@@ -79,7 +79,8 @@ class Formula {
   struct Quantifier;
   struct Knowledge;
   struct Belief;
-  struct Cnf;
+
+  class Cnf;
 
   virtual void Negate() = 0;
   virtual void CollectFreeVariables(Variable::SortedSet* vs) const = 0;

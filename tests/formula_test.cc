@@ -168,7 +168,10 @@ TEST(formula, fol_incompleteness_positive2) {
   auto q = Formula::Or(std::move(q1), std::move(q2));
   esbl::Setup s;
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_EQ(q->EntailedBy(&tf, &s, k), k > 0);
+    //EXPECT_EQ(q->EntailedBy(&tf, &s, k), k > 0);
+    // It holds even for k = 0 because our CNF we drop tautologous clauses from
+    // the CNF.
+    EXPECT_TRUE(q->EntailedBy(&tf, &s, k));
   }
 }
 
@@ -220,15 +223,31 @@ TEST(formula, fol_incompleteness_reverse) {
 }
 
 TEST(formula, fol_setup_universal) {
-  // The setup { P(x) } should entail (A x . P(x)).
+  // The setup { P(x) } should entail (A y . P(y)).
   esbl::Setup s;
   Term::Factory tf;
   const Variable x = tf.CreateVariable(0);
   const Variable y = tf.CreateVariable(0);
   s.AddClause(Clause(Ewff::TRUE, SimpleClause({Literal({}, true, 0, {x})})));
-  auto q = Formula::Forall(y, Formula::Lit(Literal({}, true, 0, {x})));
+  auto q = Formula::Forall(y, Formula::Lit(Literal({}, true, 0, {y})));
   for (Setup::split_level k = 0; k < 5; ++k) {
     EXPECT_TRUE(q->EntailedBy(&tf, &s, k));
+  }
+}
+
+TEST(formula, query_resolution) {
+  // The query (p v q) ^ (~p v q) is subsumed by setup {q} for split k > 0.
+  // And since we minimize the CNF, we obtain the query {q} and thus the query
+  // should hold for k = 0 as well.
+  esbl::Setup s;
+  Term::Factory tf;
+  const Literal p = Literal({}, true, 0, {});
+  const Literal q = Literal({}, true, 1, {});
+  s.AddClause(Clause(Ewff::TRUE, SimpleClause({q})));
+  auto phi = Formula::And(Formula::Or(Formula::Lit(q), Formula::Lit(p)),
+                          Formula::Or(Formula::Lit(q), Formula::Lit(p.Flip())));
+  for (Setup::split_level k = 0; k < 5; ++k) {
+    EXPECT_TRUE(phi->EntailedBy(&tf, &s, k));
   }
 }
 
