@@ -4,8 +4,8 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (ESBL)
 
-set (CMAKE_BUILD_TYPE Release)
-#set (CMAKE_BUILD_TYPE Debug)
+#set (CMAKE_BUILD_TYPE Release)
+set (CMAKE_BUILD_TYPE Debug)
 #set (CMAKE_C_FLAGS "-std=gnu99")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
@@ -26,7 +26,7 @@ endif()
 # the project's entire directory structure.
 add_subdirectory (src)
 add_subdirectory (bats)
-add_subdirectory (examples)
+#add_subdirectory (examples)
 add_subdirectory (tests)
 add_subdirectory (eclipse-clp)
 
