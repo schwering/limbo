@@ -21,6 +21,7 @@
 :- external(add_sensing_result/4, p_add_sensing_result).
 :- external(inconsistent/2, p_inconsistent).
 :- external(entails/3, p_entails).
+:- external(entailsreg/3, p_entailsreg).
 
 % Initialize the context.
 :- kcontext(ctx, 'kr2014').

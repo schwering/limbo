@@ -21,9 +21,8 @@
 :- external(add_sensing_result/4, p_add_sensing_result).
 :- external(inconsistent/2, p_inconsistent).
 :- external(entails/3, p_entails).
+:- external(entailsreg/3, p_entailsreg).
 
-% Now test the properties (some are taken from the KR-2014 paper, some are
-% additional tests; they also match the kr2014.c example):
 measure(Call) :-
     cputime(T0),
     call(Call),

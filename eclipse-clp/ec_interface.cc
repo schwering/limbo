@@ -26,11 +26,13 @@
 //
 // :- external(inconsistent/2, p_inconsistent).
 // :- external(entails/3, p_entails).
+// :- external(entailsreg/3, p_entailsreg).
 //
 // These two interface Inconsistent() and Entails() from the Setup and Setups
 // classes. The first argument again is the atom for which the BAT was
 // initialized. The second parameter is the k-parameter. The last parameter for
-// entails/3 is the formula (see below).
+// entails/3 is the formula (see below). The third one, entailsreg/3, is just
+// like entails/3 but regresses the formula first.
 //
 // :- external(register_pred/3, p_register_pred).
 // :- external(register_name/4, p_register_name).
@@ -718,20 +720,60 @@ int p_entails()
     return TYPE_ERROR;
   }
 
-  auto p = ctx->formula_builder().Build(ec_alpha);
-  if (!p) {
+  Maybe<Formula::Ptr> alpha = ctx->formula_builder().Build(ec_alpha);
+  if (!alpha) {
     return TYPE_ERROR;
   }
-  Formula::Ptr alpha(std::move(p.val));
 
   KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
   BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
   assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
   if (kbat) {
-    return alpha->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
+    return alpha.val->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
   }
   if (bbat) {
-    return alpha->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
+    return alpha.val->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
+  }
+  return PFAIL;
+}
+
+extern "C"
+int p_entailsreg()
+{
+  using namespace esbl;
+  using namespace esbl::bats;
+
+  EC_word ec_key = EC_arg(1);
+  EC_word ec_alpha = EC_arg(2);
+  EC_word ec_k = EC_arg(3);
+
+  Context* ctx = Context::GetInstance(ec_key);
+  if (!ctx) {
+    return RANGE_ERROR;
+  }
+
+  long k;
+  if (ec_k.is_long(&k) != EC_succeed) {
+    return TYPE_ERROR;
+  }
+
+  Maybe<Formula::Ptr> alpha = ctx->formula_builder().Build(ec_alpha);
+  if (!alpha) {
+    return TYPE_ERROR;
+  }
+  Maybe<Formula::Ptr> reg_alpha = alpha.val->Regress(&ctx->bat().tf(), ctx->bat());
+  if (!reg_alpha) {
+    return TYPE_ERROR;
+  }
+
+  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
+  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
+  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
+  if (kbat) {
+    return reg_alpha.val->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
+  }
+  if (bbat) {
+    return reg_alpha.val->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
   }
   return PFAIL;
 }

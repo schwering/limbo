@@ -1,7 +1,11 @@
 % vim:filetype=prolog:textwidth=80:shiftwidth=4:softtabstop=4:expandtab
 %
 % Run this file with the following command:
-%   $ eclipse-clp -f examples/ecai2014.pl
+%   $ eclipse-clp -f examples/ecai2014-reg.pl
+%
+% It is a copy of ecai2014.pl with which uses entailsreg/3 instead of entails/3,
+% i.e., regresses the query first.
+% (As a side effect, property 3 comes out true.)
 
 % We just need that for the operator declarations:
 :- op(820, fx, ~).    % Negation
@@ -28,20 +32,20 @@
 
 % Now test the properties (matches the ECAI properties; Property 4 is left out;
 % also matches the ecai2014.c example):
-:- write('Testing property 1 ... '),   entails(ctx, ~'L1', 2),                                   write('OK'), nl.
-:- write('Testing property 2a ... '),  \+ entails(ctx, 'L1' ^ 'R1', 2),                          write('OK'), nl.
+:- write('Testing property 1 ... '),   entailsreg(ctx, ~'L1', 2),                                   write('OK'), nl.
+:- write('Testing property 2a ... '),  \+ entailsreg(ctx, 'L1' ^ 'R1', 2),                          write('OK'), nl.
 :- write('Adding \'SL\'/true ... '),   add_sensing_result(ctx, [], 'SL', true),                  write('OK'), nl.
-:- write('Testing property 2b ... '),  entails(ctx, 'SL' : ('L1' ^ 'R1'), 2),                    write('OK'), nl.
-:- write('Testing property 3a ... '),  \+ entails(ctx, 'SL' : (~'R1'), 2),                       write('OK'), nl.
+:- write('Testing property 2b ... '),  entailsreg(ctx, 'SL' : ('L1' ^ 'R1'), 2),                    write('OK'), nl.
+:- write('Testing property 3a ... '),  \+ entailsreg(ctx, 'SL' : (~'R1'), 2),                       write('OK'), nl.
 :- write('Adding \'SR1\'/false ... '), add_sensing_result(ctx, ['SL'], 'SR1', false),            write('OK'), nl.
-:- write('Testing property 3b ... '),  entails(ctx, 'SL' : 'SR1' : (~'R1'), 2),                  write('OK'), nl.
-:- write('Testing property 5a ... '),  \+ entails(ctx, 'SL' : 'SR1' : 'L1', 2),                  write('OK'), nl.
-:- write('Testing property 5a ... '),  \+ entails(ctx, 'SL' : 'SR1' : (~'L1'), 2),               write('OK'), nl.
-:- write('Testing property 6a ... '),  \+ entails(ctx, 'SL' : 'SR1' : 'R1', 2),                  write('OK'), nl.
+:- write('Testing property 3b ... '),  entailsreg(ctx, 'SL' : 'SR1' : (~'R1'), 2),                  write('OK'), nl.
+:- write('Testing property 5a ... '),  \+ entailsreg(ctx, 'SL' : 'SR1' : 'L1', 2),                  write('OK'), nl.
+:- write('Testing property 5a ... '),  \+ entailsreg(ctx, 'SL' : 'SR1' : (~'L1'), 2),               write('OK'), nl.
+:- write('Testing property 6a ... '),  \+ entailsreg(ctx, 'SL' : 'SR1' : 'R1', 2),                  write('OK'), nl.
 :- write('Adding \'LV\'/true ... '),   add_sensing_result(ctx, ['SL', 'SR1'], 'LV', true),       write('OK'), nl.
-:- write('Testing property 6b ... '),  entails(ctx, 'SL' : 'SR1' : 'LV' : 'R1', 2),              write('OK'), nl.
+:- write('Testing property 6b ... '),  entailsreg(ctx, 'SL' : 'SR1' : 'LV' : 'R1', 2),              write('OK'), nl.
 :- write('Adding \'SL\'/true ... '),   add_sensing_result(ctx, ['SL', 'SR1', 'LV'], 'SL', true), write('OK'), nl.
-:- write('Testing property 7 ... '),   entails(ctx, 'SL' : 'SR1' : 'LV' : 'SL' : 'R1', 2),       write('OK'), nl.
+:- write('Testing property 7 ... '),   entailsreg(ctx, 'SL' : 'SR1' : 'LV' : 'SL' : 'R1', 2),       write('OK'), nl.
 
 :- exit(0).
 
