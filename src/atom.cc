@@ -20,9 +20,7 @@ bool Atom::operator!=(const Atom& a) const {
 }
 
 bool Atom::operator<(const Atom& a) const {
-  return pred_ < a.pred_ ||
-      (pred_ == a.pred_ && z_ < a.z_) ||
-      (pred_ == a.pred_ && z_ == a.z_ && args_ < a.args_);
+  return std::tie(pred_, z_, args_) < std::tie(a.pred_, a.z_, a.args_);
 }
 
 Atom Atom::PrependActions(const TermSeq& z) const {

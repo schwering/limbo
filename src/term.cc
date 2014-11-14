@@ -4,6 +4,7 @@
 #include "./term.h"
 #include <cassert>
 #include <limits>
+#include <tuple>
 
 namespace esbl {
 
@@ -34,8 +35,7 @@ bool Term::operator!=(const Term& t) const {
 }
 
 bool Term::operator<(const Term& t) const {
-  return kind_ < t.kind_ || (kind_ == t.kind_ && id_ < t.id_) ||
-      (kind_ == t.kind_ && id_ == t.id_ && sort_ < t.sort_);
+  return std::tie(kind_, id_, sort_) < std::tie(t.kind_, t.id_, t.sort_);
 }
 
 Term Term::Substitute(const Unifier& theta) const {

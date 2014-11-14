@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <numeric>
+#include <tuple>
 
 namespace esbl {
 
@@ -31,8 +32,7 @@ bool SimpleClause::operator>=(const SimpleClause& c) const {
 }
 
 bool SimpleClause::operator<(const SimpleClause& c) const {
-  return size() < c.size() ||
-      (size() == c.size() && std::operator<(*this, c));
+  return size() < c.size() || (size() == c.size() && std::operator<(*this, c));
 }
 
 bool SimpleClause::operator>(const SimpleClause& c) const {
@@ -191,9 +191,7 @@ bool Clause::operator!=(const Clause& c) const {
 
 bool Clause::operator<(const Clause& c) const {
   // shortest clauses first
-  return ls_ < c.ls_ ||
-      (ls_ == c.ls_ && box_ < c.box_) ||
-      (ls_ == c.ls_ && box_ == c.box_ && e_ < c.e_);
+  return std::tie(ls_, box_, e_) < std::tie(c.ls_, c.box_, c.e_);
 }
 
 Clause Clause::InstantiateBox(const TermSeq& z) const {

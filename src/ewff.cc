@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <tuple>
 
 namespace esbl {
 
@@ -57,8 +58,7 @@ bool Ewff::operator!=(const Ewff& c) const {
 }
 
 bool Ewff::operator<(const Ewff& c) const {
-  return neq_name_ < c.neq_name_ ||
-      (neq_name_ == c.neq_name_ && neq_var_ < c.neq_var_);
+  return std::tie(neq_name_, neq_var_) < std::tie(c.neq_name_, c.neq_var_);
 }
 
 bool Ewff::SubstituteName(const Variable& x, const StdName& n) {

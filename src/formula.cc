@@ -749,6 +749,7 @@ Formula::Cnf::Disj Formula::Cnf::Disj::Substitute(const Unifier& theta) const {
 }
 
 bool Formula::Cnf::Disj::operator<(const Formula::Cnf::Disj& d) const {
+  // shortest disjunctions first
   const size_t n = eqs_.size() + neqs_.size() + c_.size() +
       ks_.size() + bs_.size();
   const size_t dn = d.eqs_.size() + d.neqs_.size() + d.c_.size() +
