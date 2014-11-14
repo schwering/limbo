@@ -23,29 +23,36 @@
 :- external(entails/3, p_entails).
 :- external(entailsreg/3, p_entailsreg).
 
+measure(Call) :-
+    cputime(T0),
+    call(Call),
+    cputime(T1),
+    T is T1 - T0,
+    write('OK: '), writeln(T).
+
 % Initialize the context.
 :- kcontext(ctx, 'kr2014').
 
 % Now test the properties (some are taken from the KR-2014 paper, some are
 % additional tests; they also match the kr2014.c example):
-:- write('Testing property 0 ... '),          entails(ctx, ~d0 ^ ~d1, 0),                                     write('OK'), nl.
-:- write('Testing property 1 ... '),          entails(ctx, ~(d0 v d1), 0),                                    write('OK'), nl.
-:- write('Testing property 2 ... '),          entails(ctx, forward : (d1 v d2), 1),                           write('OK'), nl.
-:- write('Testing property 3 ... '),          \+ entails(ctx, forward : (d1 v d2), 0),                        write('OK'), nl.
-:- write('Adding forward/true ... '),         add_sensing_result(ctx, [], forward, true),                     write('OK'), nl.
-:- write('Adding sonar/true ... '),           add_sensing_result(ctx, [forward], sonar, true),                write('OK'), nl.
-:- write('Testing property 4 ... '),          entails(ctx, forward : sonar : (d0 v d1), 1),                   write('OK'), nl.
-:- write('Testing property 5 ... '),          \+ entails(ctx, forward : sonar : d0, 1),                       write('OK'), nl.
-:- write('Testing property 6 ... '),          entails(ctx, forward : sonar : d1, 1),                          write('OK'), nl.
-:- write('Testing property 7 ... '),          entails(ctx, forward : sonar : sonar : (d0 v d1), 1),           write('OK'), nl.
-:- write('Testing property 8 ... '),          entails(ctx, forward : sonar : sonar : sonar : (d0 v d1), 1),   write('OK'), nl.
-:- write('Testing property 9 ... '),          entails(ctx, forward : sonar : forward : sonar : (d0 v d1), 1), write('OK'), nl.
-:- write('Testing property 10 ... '),         entails(ctx, forward : sonar : forward : forward : d0, 1),      write('OK'), nl.
-:- write('Adding predicates p, q ... '),      register_pred(ctx, p, 100), register_pred(ctx, q, 101),         write('OK'), nl.
-:- write('Testing a valid formula ... '),     entails(ctx, (p v ~p), 1),                                      write('OK'), nl.
-:- write('Testing a valid formula ... '),     entails(ctx, sonar : (p v ~p), 1),                              write('OK'), nl.
-:- write('Testing a non-valid formula ... '), \+ entails(ctx, (p v ~q), 1),                                   write('OK'), nl.
-:- write('Testing a non-valid formula ... '), \+ entails(ctx, forward : sonar : (p v ~q), 1),                 write('OK'), nl.
+:- write('Testing property 0 ... '),          measure((entails(ctx, ~d0 ^ ~d1, 0))).
+:- write('Testing property 1 ... '),          measure((entails(ctx, ~(d0 v d1), 0))).
+:- write('Testing property 2 ... '),          measure((entails(ctx, forward : (d1 v d2), 1))).
+:- write('Testing property 3 ... '),          measure((\+ entails(ctx, forward : (d1 v d2), 0))).
+:- write('Adding forward/true ... '),         measure((add_sensing_result(ctx, [], forward, true))).
+:- write('Adding sonar/true ... '),           measure((add_sensing_result(ctx, [forward], sonar, true))).
+:- write('Testing property 4 ... '),          measure((entails(ctx, forward : sonar : (d0 v d1), 1))).
+:- write('Testing property 5 ... '),          measure((\+ entails(ctx, forward : sonar : d0, 1))).
+:- write('Testing property 6 ... '),          measure((entails(ctx, forward : sonar : d1, 1))).
+:- write('Testing property 7 ... '),          measure((entails(ctx, forward : sonar : sonar : (d0 v d1), 1))).
+:- write('Testing property 8 ... '),          measure((entails(ctx, forward : sonar : sonar : sonar : (d0 v d1), 1))).
+:- write('Testing property 9 ... '),          measure((entails(ctx, forward : sonar : forward : sonar : (d0 v d1), 1))).
+:- write('Testing property 10 ... '),         measure((entails(ctx, forward : sonar : forward : forward : d0, 1))).
+:- write('Adding predicates p, q ... '),      measure((register_pred(ctx, p, 100), register_pred(ctx, q, 101))).
+:- write('Testing a valid formula ... '),     measure((entails(ctx, (p v ~p), 1))).
+:- write('Testing a valid formula ... '),     measure((entails(ctx, sonar : (p v ~p), 1))).
+:- write('Testing a non-valid formula ... '), measure((\+ entails(ctx, (p v ~q), 1))).
+:- write('Testing a non-valid formula ... '), measure((\+ entails(ctx, forward : sonar : (p v ~q), 1))).
 
 :- exit(0).
 

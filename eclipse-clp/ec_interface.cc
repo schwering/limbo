@@ -761,19 +761,16 @@ int p_entailsreg()
   if (!alpha) {
     return TYPE_ERROR;
   }
-  Maybe<Formula::Ptr> reg_alpha = alpha.val->Regress(&ctx->bat().tf(), ctx->bat());
-  if (!reg_alpha) {
-    return TYPE_ERROR;
-  }
+  Formula::Ptr reg_alpha = alpha.val->Regress(&ctx->bat().tf(), ctx->bat());
 
   KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
   BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
   assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
   if (kbat) {
-    return reg_alpha.val->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
+    return reg_alpha->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
   }
   if (bbat) {
-    return reg_alpha.val->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
+    return reg_alpha->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
   }
   return PFAIL;
 }

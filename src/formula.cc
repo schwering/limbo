@@ -5,6 +5,7 @@
 #include <cassert>
 #include <utility>
 #include <tuple>
+#include <iostream>
 #include "./formula.h"
 
 namespace esbl {
@@ -212,6 +213,14 @@ struct Formula::Equal : public Formula {
     }
   }
 
+  std::pair<Truth, Ptr> Simplify() const override {
+    if ((t1.is_ground() && t2.is_ground()) || t1 == t2) {
+      const Truth t = (t1 == t2) == sign ? TRIVIALLY_TRUE : TRIVIALLY_FALSE;
+      return std::make_pair(t, Ptr());
+    }
+    return std::make_pair(NONTRIVIAL, Copy());
+  }
+
   Cnf MakeCnf(StdName::SortedSet*) const override {
     Cnf::Disj d;
     if (sign) {
@@ -222,8 +231,8 @@ struct Formula::Equal : public Formula {
     return Cnf(d);
   }
 
-  Maybe<Ptr> Regress(Term::Factory*, const DynamicAxioms&) const override {
-    return Just(Copy());
+  Ptr Regress(Term::Factory*, const DynamicAxioms&) const override {
+    return Copy();
   }
 
   void Print(std::ostream* os) const override {
@@ -251,17 +260,20 @@ struct Formula::Lit : public Formula {
     l.CollectVariables(vs);
   }
 
+  std::pair<Truth, Ptr> Simplify() const override {
+    return std::make_pair(NONTRIVIAL, Copy());
+  }
+
   Cnf MakeCnf(StdName::SortedSet*) const override {
     Cnf::Disj d;
     d.AddLiteral(l);
     return Cnf(d);
   }
 
-  Maybe<Ptr> Regress(Term::Factory* tf,
-                     const DynamicAxioms& axioms) const override {
-    Maybe<Ptr> phi = axioms.RegressOneStep(tf, l);
+  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
+    Maybe<Ptr> phi = axioms.RegressOneStep(tf, static_cast<const Atom&>(l));
     if (!phi) {
-      return Just(Copy());
+      return Copy();
     }
     if (!l.sign()) {
       phi.val->Negate();
@@ -312,6 +324,37 @@ struct Formula::Junction : public Formula {
     r->CollectFreeVariables(vs);
   }
 
+  std::pair<Truth, Ptr> Simplify() const override {
+    auto p1 = l->Simplify();
+    auto p2 = r->Simplify();
+    if (type == DISJUNCTION) {
+      if (p1.first == TRIVIALLY_TRUE || p2.first == TRIVIALLY_TRUE) {
+        return std::make_pair(TRIVIALLY_TRUE, Ptr());
+      }
+      if (p1.first == TRIVIALLY_FALSE) {
+        return p2;
+      }
+      if (p2.first == TRIVIALLY_FALSE) {
+        return p1;
+      }
+    }
+    if (type == CONJUNCTION) {
+      if (p1.first == TRIVIALLY_FALSE || p2.first == TRIVIALLY_FALSE) {
+        return std::make_pair(TRIVIALLY_FALSE, Ptr());
+      }
+      if (p1.first == TRIVIALLY_TRUE) {
+        return p2;
+      }
+      if (p2.first == TRIVIALLY_TRUE) {
+        return p1;
+      }
+    }
+    assert(p1.first == NONTRIVIAL && p2.first == NONTRIVIAL);
+    Ptr psi = Ptr(new Junction(type, std::move(p1.second),
+                               std::move(p2.second)));
+    return std::make_pair(NONTRIVIAL, std::move(psi));
+  }
+
   Cnf MakeCnf(StdName::SortedSet* hplus) const override {
     const Cnf cnf_l = l->MakeCnf(hplus);
     const Cnf cnf_r = r->MakeCnf(hplus);
@@ -322,14 +365,10 @@ struct Formula::Junction : public Formula {
     }
   }
 
-  Maybe<Ptr> Regress(Term::Factory* tf,
-                     const DynamicAxioms& axioms) const override {
-    Maybe<Ptr> ll = l->Regress(tf, axioms);
-    Maybe<Ptr> rr = r->Regress(tf, axioms);
-    if (!ll || !rr) {
-      return Nothing;
-    }
-    return Just(Ptr(new Junction(type, std::move(ll.val), std::move(rr.val))));
+  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
+    Ptr ll = l->Regress(tf, axioms);
+    Ptr rr = r->Regress(tf, axioms);
+    return Ptr(new Junction(type, std::move(ll), std::move(rr)));
   }
 
   void Print(std::ostream* os) const override {
@@ -372,6 +411,19 @@ struct Formula::Quantifier : public Formula {
     (*vs)[x.sort()].erase(x);
   }
 
+  std::pair<Truth, Ptr> Simplify() const override {
+    auto p = phi->Simplify();
+    if (type == EXISTENTIAL && p.first == TRIVIALLY_TRUE) {
+      return std::make_pair(TRIVIALLY_TRUE, Ptr());
+    }
+    if (type == UNIVERSAL && p.first == TRIVIALLY_FALSE) {
+      return std::make_pair(TRIVIALLY_FALSE, Ptr());
+    }
+    assert(p.first == NONTRIVIAL);
+    Ptr psi = Ptr(new Quantifier(type, x, std::move(p.second)));
+    return std::make_pair(NONTRIVIAL, std::move(psi));
+  }
+
   Cnf MakeCnf(StdName::SortedSet* hplus) const override {
     std::set<StdName>& new_ns = (*hplus)[x.sort()];
     for (Term::Id id = 0; ; ++id) {
@@ -402,15 +454,11 @@ struct Formula::Quantifier : public Formula {
     return r;
   }
 
-  Maybe<Ptr> Regress(Term::Factory* tf,
-                     const DynamicAxioms& axioms) const override {
-    Maybe<Ptr> psi = phi->Regress(tf, axioms);
-    if (!psi) {
-      return Nothing;
-    }
+  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
+    Ptr psi = phi->Regress(tf, axioms);
     const Variable y = tf->CreateVariable(x.sort());
-    psi.val->SubstituteInPlace({{x, y}});
-    return Just(Ptr(new Quantifier(type, y, std::move(psi.val))));
+    psi->SubstituteInPlace({{x, y}});
+    return Ptr(new Quantifier(type, y, std::move(psi)));
   }
 
   void Print(std::ostream* os) const override {
@@ -425,9 +473,12 @@ struct Formula::Knowledge : public Formula {
   bool sign;
   Ptr phi;
 
-  Knowledge(split_level k, Ptr phi) : k(k), sign(true), phi(std::move(phi)) {}
+  Knowledge(split_level k, const TermSeq z, bool sign, Ptr phi)
+      : k(k), z(z), sign(sign), phi(std::move(phi)) {}
 
-  Ptr Copy() const override { return Ptr(new Knowledge(k, phi->Copy())); }
+  Ptr Copy() const override {
+    return Ptr(new Knowledge(k, z, sign, phi->Copy()));
+  }
 
   void Negate() override { sign = !sign; }
 
@@ -443,14 +494,28 @@ struct Formula::Knowledge : public Formula {
     phi->CollectFreeVariables(vs);
   }
 
+  std::pair<Truth, Ptr> Simplify() const override {
+    auto p = phi->Simplify();
+    if (sign && p.first == TRIVIALLY_TRUE) {
+      return std::make_pair(TRIVIALLY_TRUE, Ptr());
+    }
+    if (!sign && p.first == TRIVIALLY_FALSE) {
+      return std::make_pair(TRIVIALLY_FALSE, Ptr());
+    }
+    Ptr know = Ptr(new Knowledge(k, z, sign, std::move(p.second)));
+    return std::make_pair(NONTRIVIAL, std::move(know));
+  }
+
   Cnf MakeCnf(StdName::SortedSet* hplus) const override {
     Cnf::Disj d;
     d.AddNested(k, z, sign, phi->MakeCnf(hplus));
     return Cnf(d);
   }
 
-  Maybe<Ptr> Regress(Term::Factory*, const DynamicAxioms&) const override {
-    return Nothing;
+  Ptr Regress(Term::Factory*, const DynamicAxioms&) const override {
+    assert(false);
+    // TODO(chs) implement
+    return Copy();
   }
 
   void Print(std::ostream* os) const override {
@@ -465,11 +530,12 @@ struct Formula::Belief : public Formula {
   Ptr neg_phi;
   Ptr psi;
 
-  Belief(split_level k, Ptr neg_phi, Ptr psi)
-      : k(k), neg_phi(std::move(neg_phi)), psi(std::move(psi)) {}
+  Belief(split_level k, const TermSeq& z, bool sign, Ptr neg_phi, Ptr psi)
+      : k(k), z(z), sign(sign), neg_phi(std::move(neg_phi)),
+        psi(std::move(psi)) {}
 
   Ptr Copy() const override {
-    return Ptr(new Belief(k, neg_phi->Copy(), psi->Copy()));
+    return Ptr(new Belief(k, z, sign, neg_phi->Copy(), psi->Copy()));
   }
 
   void Negate() override { sign = !sign; }
@@ -488,14 +554,30 @@ struct Formula::Belief : public Formula {
     psi->CollectFreeVariables(vs);
   }
 
+  std::pair<Truth, Ptr> Simplify() const override {
+    auto p1 = neg_phi->Simplify();
+    auto p2 = psi->Simplify();
+    if (sign && p1.first == TRIVIALLY_FALSE) {
+      return std::make_pair(TRIVIALLY_FALSE, Ptr());
+    }
+    if (!sign && p2.first == TRIVIALLY_TRUE) {
+      return std::make_pair(TRIVIALLY_TRUE, Ptr());
+    }
+    Ptr b = Ptr(new Belief(k, z, sign, std::move(p1.second),
+                           std::move(p2.second)));
+    return std::make_pair(NONTRIVIAL, std::move(b));
+  }
+
   Cnf MakeCnf(StdName::SortedSet* hplus) const override {
     Cnf::Disj d;
     d.AddNested(k, z, sign, neg_phi->MakeCnf(hplus), psi->MakeCnf(hplus));
     return Cnf(d);
   }
 
-  Maybe<Ptr> Regress(Term::Factory*, const DynamicAxioms&) const override {
-    return Nothing;
+  Ptr Regress(Term::Factory*, const DynamicAxioms&) const override {
+    assert(false);
+    // TODO(chs) implement
+    return Copy();
   }
 
   void Print(std::ostream* os) const override {
@@ -564,9 +646,26 @@ Formula::Ptr Formula::Forall(const Variable& x, Ptr phi) {
   return Ptr(new Quantifier(Quantifier::UNIVERSAL, x, std::move(phi)));
 }
 
+Formula::Ptr Formula::Know(split_level k, Ptr phi) {
+  return Ptr(new Knowledge(k, {}, false, std::move(phi)));
+}
+
+Formula::Ptr Formula::Believe(split_level k, Ptr neg_phi, Ptr psi) {
+  return Ptr(new Belief(k, {}, false, std::move(neg_phi), std::move(psi)));
+}
+
 bool Formula::EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const {
   StdName::SortedSet hplus = tf->sorted_names();
-  Cnf cnf = MakeCnf(&hplus);
+  std::pair<Truth, Ptr> p = Simplify();
+  if (p.first == TRIVIALLY_TRUE) {
+    return true;
+  }
+  if (p.first == TRIVIALLY_FALSE) {
+    return setup->Inconsistent(k);
+  }
+  Ptr phi = std::move(p.second);
+  assert(phi);
+  Cnf cnf = phi->MakeCnf(&hplus);
   cnf.Minimize();
   return cnf.EntailedBy(setup, k);
 }
@@ -574,7 +673,16 @@ bool Formula::EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const {
 bool Formula::EntailedBy(Term::Factory* tf, Setups* setups,
                          split_level k) const {
   StdName::SortedSet hplus = tf->sorted_names();
-  Cnf cnf = MakeCnf(&hplus);
+  std::pair<Truth, Ptr> p = Simplify();
+  if (p.first == TRIVIALLY_TRUE) {
+    return true;
+  }
+  if (p.first == TRIVIALLY_FALSE) {
+    return setups->Inconsistent(k);
+  }
+  Ptr phi = std::move(p.second);
+  assert(phi);
+  Cnf cnf = phi->MakeCnf(&hplus);
   cnf.Minimize();
   return cnf.EntailedBy(setups, k);
 }

@@ -43,29 +43,25 @@ TEST(formula, gl_regression) {
                                  Formula::Lit(Literal({}, true, bat.d2, {})));
 
   // Property 1
-  Maybe<Formula::Ptr> reg1 = Formula::Neg(close->Copy())->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg1);
-  EXPECT_TRUE(reg1.val->EntailedBy(&bat.tf(), &s, 0));
+  Formula::Ptr reg1 = Formula::Neg(close->Copy())->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg1->EntailedBy(&bat.tf(), &s, 0));
 
   s.AddSensingResult({}, bat.forward, true);
 
   // Property 2
-  Maybe<Formula::Ptr> reg2 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg2);
-  //EXPECT_FALSE(reg2.val->EntailedBy(&bat.tf(), &s, 0)); // here regression differs from ESL
-  EXPECT_TRUE(reg2.val->EntailedBy(&bat.tf(), &s, 0));
+  Formula::Ptr reg2 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
+  //EXPECT_FALSE(reg2->EntailedBy(&bat.tf(), &s, 0)); // here regression differs from ESL
+  EXPECT_TRUE(reg2->EntailedBy(&bat.tf(), &s, 0));
 
   // Property 3
-  Maybe<Formula::Ptr> reg3 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg3);
-  EXPECT_TRUE(reg3.val->EntailedBy(&bat.tf(), &s, 1));
+  Formula::Ptr reg3 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg3->EntailedBy(&bat.tf(), &s, 1));
 
   s.AddSensingResult({bat.forward}, bat.sonar, true);
 
   // Property 4
-  Maybe<Formula::Ptr> reg4 = Formula::Act({bat.forward, bat.sonar}, close->Copy())->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg4);
-  EXPECT_TRUE(reg4.val->EntailedBy(&bat.tf(), &s, 1));
+  Formula::Ptr reg4 = Formula::Act({bat.forward, bat.sonar}, close->Copy())->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg4->EntailedBy(&bat.tf(), &s, 1));
 }
 
 TEST(formula, morri) {
@@ -103,41 +99,34 @@ TEST(formula, morri_regression) {
   auto& s = bat.setups();
 
   // Property 1
-  Maybe<Formula::Ptr> reg1 = Formula::Lit(Literal({}, false, bat.L1, {}))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg1);
-  EXPECT_TRUE(reg1.val->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg1 = Formula::Lit(Literal({}, false, bat.L1, {}))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg1->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 2
   s.AddSensingResult({}, bat.SL, true);
-  Maybe<Formula::Ptr> reg2 = Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
+  Formula::Ptr reg2 = Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
                                                                Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg2);
-  EXPECT_TRUE(reg2.val->EntailedBy(&bat.tf(), &s, 2));
+  EXPECT_TRUE(reg2->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 3
   s.AddSensingResult({bat.SL}, bat.SR1, false);
-  Maybe<Formula::Ptr> reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg3);
-  EXPECT_TRUE(reg3.val->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg3->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 5
-  Maybe<Formula::Ptr> reg4 = Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {})))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg4);
-  EXPECT_FALSE(reg4.val->EntailedBy(&bat.tf(), &s, 2));
-  Maybe<Formula::Ptr> reg5 = Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg5);
-  EXPECT_FALSE(reg5.val->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg4 = Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {})))->Regress(&bat.tf(), bat);
+  EXPECT_FALSE(reg4->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg5 = Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
+  EXPECT_FALSE(reg5->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 6
-  Maybe<Formula::Ptr> reg6 = Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {})))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg6);
-  EXPECT_TRUE(reg6.val->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg6 = Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {})))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg6->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 6
   s.AddSensingResult({bat.SL,bat.SR1,bat.LV}, bat.SL, true);
-  Maybe<Formula::Ptr> reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg7);
-  EXPECT_TRUE(reg7.val->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg7->EntailedBy(&bat.tf(), &s, 2));
 }
 
 TEST(formula, fol_incompleteness_positive1) {

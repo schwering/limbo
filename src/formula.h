@@ -59,13 +59,14 @@ class Formula {
   static Ptr Act(const TermSeq& z, Ptr phi);
   static Ptr Exists(const Variable& x, Ptr phi);
   static Ptr Forall(const Variable& x, Ptr phi);
+  static Ptr Know(split_level k, Ptr phi);
+  static Ptr Believe(split_level k, Ptr neg_phi, Ptr psi);
 
   virtual Ptr Copy() const = 0;
   virtual void PrependActions(const TermSeq& z) = 0;
   virtual void SubstituteInPlace(const Unifier& theta) = 0;
 
-  virtual Maybe<Ptr> Regress(Term::Factory* tf,
-                             const DynamicAxioms& axioms) const = 0;
+  virtual Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const = 0;
 
   bool EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const;
   bool EntailedBy(Term::Factory* tf, Setups* setups, split_level k) const;
@@ -79,11 +80,12 @@ class Formula {
   struct Quantifier;
   struct Knowledge;
   struct Belief;
-
+  enum Truth { TRIVIALLY_TRUE, TRIVIALLY_FALSE, NONTRIVIAL };
   class Cnf;
 
   virtual void Negate() = 0;
   virtual void CollectFreeVariables(Variable::SortedSet* vs) const = 0;
+  virtual std::pair<Truth, Ptr> Simplify() const = 0;
   virtual Cnf MakeCnf(StdName::SortedSet* hplus) const = 0;
   virtual void Print(std::ostream* os) const = 0;
 };

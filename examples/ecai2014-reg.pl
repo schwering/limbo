@@ -27,25 +27,32 @@
 :- external(entails/3, p_entails).
 :- external(entailsreg/3, p_entailsreg).
 
+measure(Call) :-
+    cputime(T0),
+    call(Call),
+    cputime(T1),
+    T is T1 - T0,
+    write('OK: '), writeln(T).
+
 % Initialize the context.
 :- bcontext(ctx, 'ecai2014', 2).
 
 % Now test the properties (matches the ECAI properties; Property 4 is left out;
 % also matches the ecai2014.c example):
-:- write('Testing property 1 ... '),   entailsreg(ctx, ~'L1', 2),                                   write('OK'), nl.
-:- write('Testing property 2a ... '),  \+ entailsreg(ctx, 'L1' ^ 'R1', 2),                          write('OK'), nl.
-:- write('Adding \'SL\'/true ... '),   add_sensing_result(ctx, [], 'SL', true),                  write('OK'), nl.
-:- write('Testing property 2b ... '),  entailsreg(ctx, 'SL' : ('L1' ^ 'R1'), 2),                    write('OK'), nl.
-:- write('Testing property 3a ... '),  \+ entailsreg(ctx, 'SL' : (~'R1'), 2),                       write('OK'), nl.
-:- write('Adding \'SR1\'/false ... '), add_sensing_result(ctx, ['SL'], 'SR1', false),            write('OK'), nl.
-:- write('Testing property 3b ... '),  entailsreg(ctx, 'SL' : 'SR1' : (~'R1'), 2),                  write('OK'), nl.
-:- write('Testing property 5a ... '),  \+ entailsreg(ctx, 'SL' : 'SR1' : 'L1', 2),                  write('OK'), nl.
-:- write('Testing property 5a ... '),  \+ entailsreg(ctx, 'SL' : 'SR1' : (~'L1'), 2),               write('OK'), nl.
-:- write('Testing property 6a ... '),  \+ entailsreg(ctx, 'SL' : 'SR1' : 'R1', 2),                  write('OK'), nl.
-:- write('Adding \'LV\'/true ... '),   add_sensing_result(ctx, ['SL', 'SR1'], 'LV', true),       write('OK'), nl.
-:- write('Testing property 6b ... '),  entailsreg(ctx, 'SL' : 'SR1' : 'LV' : 'R1', 2),              write('OK'), nl.
-:- write('Adding \'SL\'/true ... '),   add_sensing_result(ctx, ['SL', 'SR1', 'LV'], 'SL', true), write('OK'), nl.
-:- write('Testing property 7 ... '),   entailsreg(ctx, 'SL' : 'SR1' : 'LV' : 'SL' : 'R1', 2),       write('OK'), nl.
+:- write('Testing property 1 ... '),   measure((entailsreg(ctx, ~'L1', 2))).
+:- write('Testing property 2a ... '),  measure((\+ entailsreg(ctx, 'L1' ^ 'R1', 2))).
+:- write('Adding \'SL\'/true ... '),   measure((add_sensing_result(ctx, [], 'SL', true))).
+:- write('Testing property 2b ... '),  measure((entailsreg(ctx, 'SL' : ('L1' ^ 'R1'), 2))).
+:- write('Testing property 3a ... '),  measure((\+ entailsreg(ctx, 'SL' : (~'R1'), 2))).
+:- write('Adding \'SR1\'/false ... '), measure((add_sensing_result(ctx, ['SL'], 'SR1', false))).
+:- write('Testing property 3b ... '),  measure((entailsreg(ctx, 'SL' : 'SR1' : (~'R1'), 2))).
+:- write('Testing property 5a ... '),  measure((\+ entailsreg(ctx, 'SL' : 'SR1' : 'L1', 2))).
+:- write('Testing property 5a ... '),  measure((\+ entailsreg(ctx, 'SL' : 'SR1' : (~'L1'), 2))).
+:- write('Testing property 6a ... '),  measure((\+ entailsreg(ctx, 'SL' : 'SR1' : 'R1', 2))).
+:- write('Adding \'LV\'/true ... '),   measure((add_sensing_result(ctx, ['SL', 'SR1'], 'LV', true))).
+:- write('Testing property 6b ... '),  measure((entailsreg(ctx, 'SL' : 'SR1' : 'LV' : 'R1', 2))).
+:- write('Adding \'SL\'/true ... '),   measure((add_sensing_result(ctx, ['SL', 'SR1', 'LV'], 'SL', true))).
+:- write('Testing property 7 ... '),   measure((entailsreg(ctx, 'SL' : 'SR1' : 'LV' : 'SL' : 'R1', 2))).
 
 :- exit(0).
 
