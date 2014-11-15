@@ -36,38 +36,38 @@ measure(Call) :-
     T is T1 - T0,
     write('OK: '), writeln(T).
 
-%:- measure(Ctx, context_entails(Ctx, 1, p v ~p)).
-%:- measure(Ctx, \+ context_entails(Ctx, 1, p v q)).
-%:- measure(Ctx, context_entails(Ctx, 1, p v q v ~(p ^ q))).
-%:- measure(Ctx, context_entails(Ctx, 1, p v ~(p ^ q) v q)).
-%:- measure(Ctx, context_entails(Ctx, 1, p(n) v ~p(n))). % triggers new grounding
-%:- measure(Ctx, context_entails(Ctx, 1, p(1) v ~p(1))).
-%:- measure(Ctx, context_entails(Ctx, 1, forall(X, p(X) v ~p(X)))).
-%:- writeln(ok).
+% For an explanation of the lines marked with ``XXX higher k than original'',
+% see the message of commit c90cdaf. Briefly said, the problem is that (p v q)
+% in ESL does not entail ([t]p v [t]q) because one may need to split multiple
+% variables to trigger unit propagation with the SSAs.
+% The only actually relevant line is marked with ``XXX XXX XXX''; in all other
+% cases we achieve the same result for k = 1, too.
+%
+% With regression, the intended results obtain for k = 1 already.
 
 :- kcontext(ctx, 'kitchen').
-:-  ( cmdarg("reg") ; cmdarg("regress") ; cmdarg("regression") ->
+:-  ( (cmdarg("reg") ; cmdarg("regress") ; cmdarg("regression")) ->
         write('Enabling regression ... '), enable_regression(ctx)
     ;
         write('Disabling regression ... '), disable_regression(ctx)
     ),
     write('OK'), nl.
 
-:-  profile((
-    guarantee_consistency(ctx, 2), % higher k than original
+:-  measure((
+    guarantee_consistency(ctx, 2), % XXX higher k than original
     entails(ctx, has_type(o1, boxA) v ~has_type(o1, boxA), 1),
     \+ entails(ctx, has_type(o0, boxA), 1),
     \+ entails(ctx, exists(X, type, has_type(o0, X)), 1),
     \+ entails(ctx, exists(X, type, ~has_type(o0, X)), 1),
     \+ entails(ctx, forall(X, type, has_type(o1, X)), 1),
     \+ entails(ctx, forall(X, type, ~has_type(o1, X)), 1),
-    \+ entails(ctx, has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC), 2), % higher k than original
-    \+ entails(ctx, has_type(o1, boxA), 2), % higher k than original
-    \+ entails(ctx, has_type(o1, boxB), 2), % higher k than original
-    \+ entails(ctx, has_type(o1, boxC), 2), % higher k than original
+    \+ entails(ctx, has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC), 2), % XXX higher k than original
+    \+ entails(ctx, has_type(o1, boxA), 2), % XXX higher k than original
+    \+ entails(ctx, has_type(o1, boxB), 2), % XXX higher k than original
+    \+ entails(ctx, has_type(o1, boxC), 2), % XXX higher k than original
     true)),
 
-    profile((
+    measure((
     A1 = o0_has_type_boxA,
     add_sensing_result(ctx, [], A1, true),
     entails(ctx, A1 : has_type(o0, boxA), 1),
@@ -75,13 +75,13 @@ measure(Call) :-
     \+ entails(ctx, A1 : exists(X, type, ~has_type(o0, X)), 1),
     \+ entails(ctx, A1 : forall(X, type, has_type(o1, X)), 1),
     \+ entails(ctx, A1 : forall(X, type, ~has_type(o1, X)), 1),
-    \+ entails(ctx, A1 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % higher k than original
-    \+ entails(ctx, A1 : has_type(o1, boxA), 2), % higher k than original
-    \+ entails(ctx, A1 : has_type(o1, boxB), 2), % higher k than original
-    \+ entails(ctx, A1 : has_type(o1, boxC), 2), % higher k than original
+    \+ entails(ctx, A1 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % XXX higher k than original
+    \+ entails(ctx, A1 : has_type(o1, boxA), 2), % XXX higher k than original
+    \+ entails(ctx, A1 : has_type(o1, boxB), 2), % XXX higher k than original
+    \+ entails(ctx, A1 : has_type(o1, boxC), 2), % XXX higher k than original
     true)),
  
-    profile((
+    measure((
     A2 = o1_is_box,
     add_sensing_result(ctx, [A1], A2, true),
     entails(ctx, A1 : A2 : has_type(o0, boxA), 1),
@@ -89,22 +89,13 @@ measure(Call) :-
     \+ entails(ctx, A1 : A2 : exists(X, type, ~has_type(o0, X)), 1),
     \+ entails(ctx, A1 : A2 : forall(X, type, has_type(o1, X)), 1),
     \+ entails(ctx, A1 : A2 : forall(X, type, ~has_type(o1, X)), 1),
-    entails(ctx, A1 : A2 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % higher k than original
-    \+ entails(ctx, A1 : A2 : has_type(o1, boxA), 2), % higher k than original
-    \+ entails(ctx, A1 : A2 : has_type(o1, boxB), 2), % higher k than original
-    \+ entails(ctx, A1 : A2 : has_type(o1, boxC), 2), % higher k than original
+    entails(ctx, A1 : A2 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % XXX XXX XXX higher k than original
+    \+ entails(ctx, A1 : A2 : has_type(o1, boxA), 2), % XXX higher k than original
+    \+ entails(ctx, A1 : A2 : has_type(o1, boxB), 2), % XXX higher k than original
+    \+ entails(ctx, A1 : A2 : has_type(o1, boxC), 2), % XXX higher k than original
     true)),
 
     writeln('very good').
-
-
-%:-  kcontext(ctx, 'kitchen'),
-%    guarantee_consistency(ctx, 2),
-%    A = o1_is_box,
-%    add_sensing_result(ctx, [], A, true),
-%    %entails(ctx, A : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 1),
-%    entails(ctx, A : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2),
-%    writeln('very good').
 
 :- exit(0).
 

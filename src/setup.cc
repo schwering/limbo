@@ -205,29 +205,6 @@ void Setup::PropagateUnits() {
   if (ContainsEmptyClause()) {
     return;
   }
-#if 0
-  size_t n;
-  do {
-    n = 0;
-    const auto first = cs_.lower_bound(Clause::MIN_UNIT);
-    const auto last = cs_.upper_bound(Clause::MAX_UNIT);
-    for (const Clause& c : cs_) {
-      std::set<Clause> new_cs;
-      for (auto it = first; it != last; ++it) {
-        const Clause& unit = *it;
-        assert(unit.is_unit());
-        c.ResolveWithUnit(unit, &new_cs);
-        for (const Clause& d : new_cs) {
-          const auto p = cs_.insert(d);
-          if (p.second) {
-            ++n;
-            MinimizeWrt(d);
-          }
-        }
-      }
-    }
-  } while (n > 0);
-#endif
   size_t n_units = 0;
   for (;;) {
     const auto first = cs_.lower_bound(Clause::MIN_UNIT);

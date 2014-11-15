@@ -38,7 +38,7 @@ measure(Call) :-
 
 % Initialize the context.
 :- bcontext(ctx, 'ecai2014', 2).
-:-  ( cmdarg("reg") ; cmdarg("regress") ; cmdarg("regression") ->
+:-  ( (cmdarg("reg") ; cmdarg("regress") ; cmdarg("regression")) ->
         write('Enabling regression ... '), enable_regression(ctx)
     ;
         write('Disabling regression ... '), disable_regression(ctx)

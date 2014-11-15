@@ -38,7 +38,7 @@ measure(Call) :-
 
 % Initialize the context.
 :- kcontext(ctx, 'kr2014').
-:-  ( cmdarg("reg") ; cmdarg("regress") ; cmdarg("regression") ->
+:-  ( (cmdarg("reg") ; cmdarg("regress") ; cmdarg("regression")) ->
         write('Enabling regression ... '), enable_regression(ctx)
     ;
         write('Disabling regression ... '), disable_regression(ctx)
