@@ -11,7 +11,7 @@ namespace esbl {
 void Setup::AddClause(const Clause& c) {
   if (c.box()) {
     boxes_.insert(c);
-    AddClauseWithoutConsistencyCheck(c.InstantiateBox({}));
+    UpdateHPlusFor(c);
   } else {
     AddClauseWithoutConsistencyCheck(c);
     if (!incons_.empty() && !incons_[incons_.size() - 1]) {
