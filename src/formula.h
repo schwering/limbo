@@ -68,6 +68,9 @@ class Formula {
 
   virtual Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const = 0;
 
+  void AddToSetup(Term::Factory* tf, Setup* setup) const;
+  void AddToSetups(Term::Factory* tf, Setups* setups) const;
+
   bool EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const;
   bool EntailedBy(Term::Factory* tf, Setups* setups, split_level k) const;
 

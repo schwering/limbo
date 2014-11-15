@@ -5,7 +5,6 @@
 #include <cassert>
 #include <utility>
 #include <tuple>
-#include <iostream>
 #include "./formula.h"
 
 namespace esbl {
@@ -32,6 +31,9 @@ class Formula::Cnf {
 
   bool EntailedBy(Setup* setup, split_level k) const;
   bool EntailedBy(Setups* setups, split_level k) const;
+
+  void AddToSetup(Setup* setup) const;
+  void AddToSetups(Setups* setups) const;
 
   void Print(std::ostream* os) const;
 
@@ -173,6 +175,9 @@ class Formula::Cnf::Disj {
 
   bool EntailedBy(Setup* setup, split_level k) const;
   bool EntailedBy(Setups* setups, split_level k) const;
+
+  void AddToSetup(Setup* setup) const;
+  void AddToSetups(Setups* setups) const;
 
   void Print(std::ostream* os) const;
 
@@ -654,6 +659,40 @@ Formula::Ptr Formula::Believe(split_level k, Ptr neg_phi, Ptr psi) {
   return Ptr(new Belief(k, {}, false, std::move(neg_phi), std::move(psi)));
 }
 
+void Formula::AddToSetup(Term::Factory* tf, Setup* setup) const {
+  StdName::SortedSet hplus = tf->sorted_names();
+  std::pair<Truth, Ptr> p = Simplify();
+  if (p.first == TRIVIALLY_TRUE) {
+    return;
+  }
+  if (p.first == TRIVIALLY_FALSE) {
+    setup->AddClause(Clause::EMPTY);
+    return;
+  }
+  Ptr phi = std::move(p.second);
+  assert(phi);
+  Cnf cnf = phi->MakeCnf(&hplus);
+  cnf.Minimize();
+  cnf.AddToSetup(setup);
+}
+
+void Formula::AddToSetups(Term::Factory* tf, Setups* setups) const {
+  StdName::SortedSet hplus = tf->sorted_names();
+  std::pair<Truth, Ptr> p = Simplify();
+  if (p.first == TRIVIALLY_TRUE) {
+    return;
+  }
+  if (p.first == TRIVIALLY_FALSE) {
+    setups->AddClause(Clause::EMPTY);
+    return;
+  }
+  Ptr phi = std::move(p.second);
+  assert(phi);
+  Cnf cnf = phi->MakeCnf(&hplus);
+  cnf.Minimize();
+  cnf.AddToSetups(setups);
+}
+
 bool Formula::EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const {
   StdName::SortedSet hplus = tf->sorted_names();
   std::pair<Truth, Ptr> p = Simplify();
@@ -772,6 +811,18 @@ void Formula::Cnf::Minimize() {
 bool Formula::Cnf::is_ground() const {
   return std::all_of(ds_->begin(), ds_->end(),
                      [](const Disj& d) { return d.is_ground(); });
+}
+
+void Formula::Cnf::AddToSetup(Setup* setup) const {
+  for (const Disj& d : *ds_) {
+    d.AddToSetup(setup);
+  }
+}
+
+void Formula::Cnf::AddToSetups(Setups* setups) const {
+  for (const Disj& d : *ds_) {
+    d.AddToSetups(setups);
+  }
 }
 
 bool Formula::Cnf::EntailedBy(Setup* s, split_level k) const {
@@ -922,6 +973,18 @@ bool Formula::Cnf::Disj::is_ground() const {
                   [](const KLiteral& l) { return l.is_ground(); }) &&
       std::all_of(bs_.begin(), bs_.end(),
                   [](const BLiteral& l) { return l.is_ground(); });
+}
+
+void Formula::Cnf::Disj::AddToSetup(Setup* setup) const {
+  assert(eqs_.empty() && neqs_.empty());
+  assert(ks_.empty() && bs_.empty());
+  setup->AddClause(Clause(Ewff::TRUE, c_));
+}
+
+void Formula::Cnf::Disj::AddToSetups(Setups* setups) const {
+  assert(eqs_.empty() && neqs_.empty());
+  assert(ks_.empty() && bs_.empty());
+  setups->AddClause(Clause(Ewff::TRUE, c_));
 }
 
 bool Formula::Cnf::Disj::EntailedBy(Setup* s, split_level k) const {

@@ -11,11 +11,37 @@ namespace esbl {
 void Setup::AddClause(const Clause& c) {
   if (c.box()) {
     boxes_.insert(c);
-    AddClause(c.InstantiateBox({}));
+    AddClauseWithoutConsistencyCheck(c.InstantiateBox({}));
   } else {
-    cs_.insert(c);
-    UpdateHPlusFor(c);
+    AddClauseWithoutConsistencyCheck(c);
+    if (!incons_.empty() && !incons_[incons_.size() - 1]) {
+      for (const Assignment theta : c.ewff().Models(hplus_)) {
+        for (split_level k = 0; k < incons_.size(); ++k) {
+          if (!incons_[k]) {
+            bool negation_entailed = true;
+            for (const Literal l : c.literals().Ground(theta)) {
+              if (!Entails({l.Flip()}, k)) {
+                negation_entailed = false;
+                break;
+              }
+            }
+            if (negation_entailed) {
+              for (; k < incons_.size(); ++k) {
+                incons_[k] = true;
+              }
+              return;
+            }
+          }
+        }
+      }
+    }
   }
+}
+
+void Setup::AddClauseWithoutConsistencyCheck(const Clause& c) {
+  assert(!c.box());
+  cs_.insert(c);
+  UpdateHPlusFor(c);
 }
 
 void Setup::UpdateHPlusFor(const Variable::SortedSet& vs) {
@@ -53,28 +79,13 @@ void Setup::GuaranteeConsistency(split_level k) {
   }
 }
 
-void Setup::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
-  const Literal l(z, r, Atom::SF, {a});
-  const SimpleClause c({l});
-  AddClause(Clause(Ewff::TRUE, c));
-  GroundBoxes(z);
-  UpdateHPlusFor(c);
-
-  const SimpleClause d({l.Flip()});
-  for (split_level k = 0; k < static_cast<split_level>(incons_.size()); ++k) {
-    if (!incons_[k] && Entails(d, k)) {
-      incons_[k] = true;
-    }
-  }
-}
-
 void Setup::GroundBoxes(const TermSeq& z) {
   for (size_t n = 0; n <= z.size(); ++n) {
     const TermSeq zz(z.begin(), z.begin() + n);
     const auto p = grounded_.insert(zz);
     if (p.second) {
       for (const Clause& c : boxes_) {
-        AddClause(c.InstantiateBox(zz));
+        AddClauseWithoutConsistencyCheck(c.InstantiateBox(zz));
       }
     }
   }
@@ -84,7 +95,7 @@ std::set<Atom> Setup::FullStaticPel() const {
   std::set<Atom> pel;
   for (const Clause& c : cs_) {
     if (!c.box()) {
-      for (const Assignment& theta : c.ewff().Models(hplus_)) {
+      for (const Assignment theta : c.ewff().Models(hplus_)) {
         for (const SimpleClause d :
              c.literals().Ground(theta).Instances(hplus_)) {
           for (const Literal& l : d) {
@@ -299,8 +310,8 @@ bool Setup::SubsumesWithSplits(std::set<Atom> pel,
     const Clause c2(Ewff::TRUE, {Literal(false, a)});
     Setup s1 = *this;
     Setup s2 = *this;
-    s1.AddClause(c1);
-    s2.AddClause(c2);
+    s1.AddClauseWithoutConsistencyCheck(c1);
+    s2.AddClauseWithoutConsistencyCheck(c2);
     if (s1.SubsumesWithSplits(pel, c, k-1) &&
         s2.SubsumesWithSplits(pel, c, k-1)) {
       return true;
@@ -419,13 +430,6 @@ void Setups::GuaranteeConsistency(split_level k) {
   assert(!ss_.empty());
   for (Setup& s : ss_) {
     s.GuaranteeConsistency(k);
-  }
-}
-
-void Setups::AddSensingResult(const TermSeq& z, const StdName& a, bool r) {
-  assert(!ss_.empty());
-  for (Setup& s : ss_) {
-    s.AddSensingResult(z, a, r);
   }
 }
 

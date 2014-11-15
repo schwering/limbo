@@ -19,7 +19,7 @@ TEST(setup, morri) {
 
   // Property 2
   auto s2 = s1;
-  s2.AddSensingResult({}, bat.SL, true);
+  s2.AddClause(Clause(Ewff::TRUE, {Literal({}, true, Atom::SF, {bat.SL})}));
   EXPECT_TRUE(s2.Entails(SimpleClause({Literal({bat.SL}, true, bat.R1, {})}), k));
   EXPECT_TRUE(s2.Entails(SimpleClause({Literal({bat.SL}, true, bat.L1, {})}), k) &&
               s2.Entails(SimpleClause({Literal({bat.SL}, true, bat.R1, {})}), k));
@@ -29,7 +29,7 @@ TEST(setup, morri) {
 
   // Property 3
   auto s3 = s2;
-  s3.AddSensingResult({bat.SL}, bat.SR1, false);
+  s3.AddClause(Clause(Ewff::TRUE, {Literal({bat.SL}, false, Atom::SF, {bat.SR1})}));
   EXPECT_TRUE(s3.Entails(SimpleClause({Literal({bat.SL,bat.SR1}, false, bat.R1, {})}), k));
   EXPECT_FALSE(s2.Entails(SimpleClause({Literal({bat.SL,bat.SR1}, false, bat.R1, {})}), k));  // sensing is really required
   EXPECT_TRUE(s3.Entails(SimpleClause({Literal({}, false, bat.R1, {})}), k));  // the sensing actions in the situation are redundant
@@ -41,13 +41,13 @@ TEST(setup, morri) {
 
   // Property 6
   auto s4 = s3;
-  s4.AddSensingResult({bat.SL,bat.SR1}, bat.LV, true);
+  s4.AddClause(Clause(Ewff::TRUE, {Literal({bat.SL,bat.SR1}, true, Atom::SF, {bat.LV})}));
   EXPECT_TRUE(s4.Entails(SimpleClause({Literal({bat.SL,bat.SR1,bat.LV}, true, bat.R1, {})}), k));
   EXPECT_FALSE(s4.Entails(SimpleClause({Literal({bat.SL,bat.SR1}, true, bat.R1, {})}), k));  // LV had an effect
 
   // Property 7
   auto s5 = s4;
-  s5.AddSensingResult({bat.SL,bat.SR1,bat.LV}, bat.SL, true);
+  s5.AddClause(Clause(Ewff::TRUE, {Literal({bat.SL,bat.SR1,bat.LV}, true, Atom::SF, {bat.SL})}));
   EXPECT_TRUE(s5.Entails(SimpleClause({Literal({bat.SL,bat.SR1,bat.LV,bat.SL}, true, bat.L1, {})}), k));
   EXPECT_TRUE(s5.Entails(SimpleClause({Literal({bat.LV}, true, bat.L1, {})}), k));  // the sensing actions in the situation are redundant
 }

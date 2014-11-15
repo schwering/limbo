@@ -23,7 +23,7 @@ namespace esbl {
 
 class Setup {
  public:
-  typedef int split_level;
+  typedef size_t split_level;
 
   Setup() = default;
   Setup(const Setup&) = default;
@@ -31,7 +31,6 @@ class Setup {
 
   void AddClause(const Clause& c);
   void GuaranteeConsistency(split_level k);
-  void AddSensingResult(const TermSeq& z, const StdName& a, bool r);
 
   bool Inconsistent(split_level k);
   bool Entails(const SimpleClause& c, split_level k);
@@ -56,6 +55,7 @@ class Setup {
     }
   };
 
+  void AddClauseWithoutConsistencyCheck(const Clause& c);
   void UpdateHPlusFor(const StdName::SortedSet& ns);
   void UpdateHPlusFor(const Variable::SortedSet& vs);
   void UpdateHPlusFor(const SimpleClause& c);
@@ -93,7 +93,6 @@ class Setups {
   void AddBeliefConditional(const Clause& neg_phi, const Clause& psi,
                             split_level k);
   void GuaranteeConsistency(split_level k);
-  void AddSensingResult(const TermSeq& z, const StdName& a, bool r);
 
   bool Inconsistent(split_level k);
   bool Entails(const SimpleClause& c, split_level k);
