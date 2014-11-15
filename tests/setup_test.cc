@@ -35,12 +35,12 @@ TEST(setup, gl_dynamic) {
   s.GuaranteeConsistency(3);
   EXPECT_TRUE(s.Entails({Literal({bat.forward}, false, bat.d0, {})}, 0));
   EXPECT_FALSE(s.Entails({Literal({bat.forward}, true, bat.d0, {})}, 0));
-  s.AddClause(Clause(Ewff::TRUE, {Literal({}, true, Atom::SF, {bat.forward})}));
+  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.forward, true)}));
   EXPECT_FALSE(s.Entails({Literal({bat.forward}, true, bat.d1, {}),
                           Literal({bat.forward}, true, bat.d2, {})}, 0));
   EXPECT_TRUE(s.Entails({Literal({bat.forward}, true, bat.d1, {}),
                          Literal({bat.forward}, true, bat.d2, {})}, 1));
-  s.AddClause(Clause(Ewff::TRUE, {Literal({bat.forward}, true, Atom::SF, {bat.sonar})}));
+  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.forward}, bat.sonar, true)}));
   const TermSeq z = {bat.forward, bat.sonar};
   EXPECT_TRUE(s.Entails({Literal(z, false, bat.d0, {})}, 0));
   EXPECT_TRUE(s.Entails({Literal(z, false, bat.d0, {})}, 1));

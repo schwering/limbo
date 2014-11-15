@@ -75,6 +75,7 @@ void Setup::UpdateHPlusFor(const Clause& c) {
 
 void Setup::GuaranteeConsistency(split_level k) {
   for (split_level l = 0; l <= k; ++l) {
+    assert(l >= incons_.size() || !incons_[l]);
     incons_[l] = false;
   }
 }

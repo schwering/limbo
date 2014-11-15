@@ -708,14 +708,14 @@ int p_add_sensing_result()
   assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
   if (kbat) {
     if (!ctx->UseRegression()) {
-      kbat->setup().AddClause(Clause(Ewff::TRUE, {Literal(z, r, Atom::SF, {t})}));
+      kbat->setup().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
     } else {
     }
     return PSUCCEED;
   }
   if (bbat) {
     if (!ctx->UseRegression()) {
-      bbat->setups().AddClause(Clause(Ewff::TRUE, {Literal(z, r, Atom::SF, {t})}));
+      bbat->setups().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
     } else {
     }
     return PSUCCEED;

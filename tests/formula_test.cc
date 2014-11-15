@@ -20,7 +20,7 @@ TEST(formula, gl) {
   // Property 1
   EXPECT_TRUE(Formula::Neg(close->Copy())->EntailedBy(&bat.tf(), &s, 0));
 
-  s.AddClause(Clause(Ewff::TRUE, {Literal({}, true, Atom::SF, {bat.forward})}));
+  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.forward, true)}));
 
   // Property 2
   EXPECT_FALSE(Formula::Act(bat.forward, maybe_close->Copy())->EntailedBy(&bat.tf(), &s, 0));
@@ -28,7 +28,7 @@ TEST(formula, gl) {
   // Property 3
   EXPECT_TRUE(Formula::Act(bat.forward, maybe_close->Copy())->EntailedBy(&bat.tf(), &s, 1));
 
-  s.AddClause(Clause(Ewff::TRUE, {Literal({bat.forward}, true, Atom::SF, {bat.sonar})}));
+  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.forward}, bat.sonar, true)}));
 
   // Property 4
   EXPECT_TRUE(Formula::Act({bat.forward, bat.sonar}, close->Copy())->EntailedBy(&bat.tf(), &s, 1));
@@ -46,7 +46,7 @@ TEST(formula, gl_regression) {
   Formula::Ptr reg1 = Formula::Neg(close->Copy())->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg1->EntailedBy(&bat.tf(), &s, 0));
 
-  Formula::Lit(Literal({}, true, Atom::SF, {bat.forward}))->Regress(&bat.tf(), bat)->AddToSetup(&bat.tf(), &s);
+  Formula::Lit(SfLiteral({}, bat.forward, true))->Regress(&bat.tf(), bat)->AddToSetup(&bat.tf(), &s);
 
   // Property 2
   Formula::Ptr reg2 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
@@ -57,7 +57,7 @@ TEST(formula, gl_regression) {
   Formula::Ptr reg3 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg3->EntailedBy(&bat.tf(), &s, 1));
 
-  Formula::Lit(Literal({bat.forward}, true, Atom::SF, {bat.sonar}))->Regress(&bat.tf(), bat)->AddToSetup(&bat.tf(), &s);
+  Formula::Lit(SfLiteral({bat.forward}, bat.sonar, true))->Regress(&bat.tf(), bat)->AddToSetup(&bat.tf(), &s);
 
   // Property 4
   Formula::Ptr reg4 = Formula::Act({bat.forward, bat.sonar}, close->Copy())->Regress(&bat.tf(), bat);
@@ -73,12 +73,12 @@ TEST(formula, morri) {
   EXPECT_TRUE(Formula::Lit(Literal({}, false, bat.L1, {}))->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 2
-  s.AddClause(Clause(Ewff::TRUE, {Literal({}, true, Atom::SF, {bat.SL})}));
+  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.SL, true)}));
   EXPECT_TRUE(Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
                                                 Formula::Lit(Literal({}, true, bat.R1, {}))))->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 3
-  s.AddClause(Clause(Ewff::TRUE, {Literal({bat.SL}, false, Atom::SF, {bat.SR1})}));
+  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL}, bat.SR1, false)}));
   EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {}))))->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 5
@@ -89,7 +89,7 @@ TEST(formula, morri) {
   EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {})))->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 6
-  s.AddClause(Clause(Ewff::TRUE, {Literal({bat.SL,bat.SR1,bat.LV}, true, Atom::SF, {bat.SL})}));
+  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true)}));
   EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->EntailedBy(&bat.tf(), &s, 2));
 }
 
@@ -103,13 +103,13 @@ TEST(formula, morri_regression) {
   EXPECT_TRUE(reg1->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 2
-  Formula::Lit(Literal({}, true, Atom::SF, {bat.SL}))->Regress(&bat.tf(), bat)->AddToSetups(&bat.tf(), &s);
+  Formula::Lit(SfLiteral({}, bat.SL, true))->Regress(&bat.tf(), bat)->AddToSetups(&bat.tf(), &s);
   Formula::Ptr reg2 = Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
                                                                Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg2->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 3
-  Formula::Lit(Literal({bat.SL}, false, Atom::SF, {bat.SR1}))->Regress(&bat.tf(), bat)->AddToSetups(&bat.tf(), &s);
+  Formula::Lit(SfLiteral({bat.SL}, bat.SR1, false))->Regress(&bat.tf(), bat)->AddToSetups(&bat.tf(), &s);
   Formula::Ptr reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg3->EntailedBy(&bat.tf(), &s, 2));
 
@@ -124,7 +124,7 @@ TEST(formula, morri_regression) {
   EXPECT_TRUE(reg6->EntailedBy(&bat.tf(), &s, 2));
 
   // Property 6
-  Formula::Lit(Literal({bat.SL,bat.SR1,bat.LV}, true, Atom::SF, {bat.SL}))->Regress(&bat.tf(), bat)->AddToSetups(&bat.tf(), &s);
+  Formula::Lit(SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true))->Regress(&bat.tf(), bat)->AddToSetups(&bat.tf(), &s);
   Formula::Ptr reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg7->EntailedBy(&bat.tf(), &s, 2));
 }

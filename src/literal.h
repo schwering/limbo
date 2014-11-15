@@ -53,6 +53,15 @@ class Literal : public Atom {
   bool sign_;
 };
 
+class SfLiteral : public Literal {
+ public:
+  SfLiteral(const TermSeq& z, const Term t, bool r)
+      : Literal(z, r, Atom::SF, {t}) {}
+
+  SfLiteral(const SfLiteral&) = default;
+  SfLiteral& operator=(const SfLiteral&) = default;
+};
+
 std::ostream& operator<<(std::ostream& os, const Literal& l);
 std::ostream& operator<<(std::ostream& os, const std::set<Literal>& ls);
 
