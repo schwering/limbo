@@ -26,13 +26,22 @@
 //
 // :- external(inconsistent/2, p_inconsistent).
 // :- external(entails/3, p_entails).
-// :- external(entailsreg/3, p_entailsreg).
 //
 // These two interface Inconsistent() and Entails() from the Setup and Setups
 // classes. The first argument again is the atom for which the BAT was
 // initialized. The second parameter is the k-parameter. The last parameter for
-// entails/3 is the formula (see below). The third one, entailsreg/3, is just
-// like entails/3 but regresses the formula first.
+// entails/3 is the formula (see below).
+//
+// :- external(enable_regression/1, p_enable_regression).
+// :- external(disable_regression/1, p_disable_regression).
+//
+// These two switch enable or disable regression. If it is disabled, dynamic
+// reasoning is done as in ESL using the successor state axioms and unit
+// propagation. If regression is enabled, fluent, POSS and SF predicates are
+// regressed to the initial situation. Hence, reasoning is only concerned with
+// the initial situation (unless one of the predicates cannot be regressed).
+// By default, regression is disabled.
+// The only argument should be the atom representing the BAT.
 //
 // :- external(register_pred/3, p_register_pred).
 // :- external(register_name/4, p_register_name).
@@ -453,6 +462,9 @@ class Context {
     delete self;
   }
 
+  void UseRegression(bool enable) { regression_enabled_ = enable; }
+  bool UseRegression() const { return regression_enabled_; }
+
   bats::Bat& bat() { return *bat_; };
   FormulaBuilder& formula_builder() { return formula_builder_; }
   PredBuilder& pred_builder() { return formula_builder_.pred_builder(); }
@@ -467,6 +479,7 @@ class Context {
 
   std::unique_ptr<bats::Bat> bat_;
   FormulaBuilder formula_builder_;
+  bool regression_enabled_;
 };
 
 const t_ext_type Context::MethodTable = {
@@ -537,6 +550,7 @@ int p_register_pred()
 
   return ctx->pred_builder().Register(ec_w, p) ? PSUCCEED : PFAIL;
 }
+
 extern "C"
 int p_register_name()
 {
@@ -571,6 +585,40 @@ int p_register_name()
   const StdName name = ctx->bat().tf().CreateStdName(name_id, sort);
 
   return ctx->term_builder().Register(a, name) ? PSUCCEED : PFAIL;
+}
+
+extern "C"
+int p_enable_regression()
+{
+  using namespace esbl;
+
+  EC_word ec_key = EC_arg(1);
+
+  Context* ctx = Context::GetInstance(ec_key);
+  if (!ctx) {
+    return RANGE_ERROR;
+  }
+
+  ctx->UseRegression(true);
+
+  return PSUCCEED;
+}
+
+extern "C"
+int p_disable_regression()
+{
+  using namespace esbl;
+
+  EC_word ec_key = EC_arg(1);
+
+  Context* ctx = Context::GetInstance(ec_key);
+  if (!ctx) {
+    return RANGE_ERROR;
+  }
+
+  ctx->UseRegression(false);
+
+  return PSUCCEED;
 }
 
 extern "C"
@@ -659,11 +707,17 @@ int p_add_sensing_result()
   BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
   assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
   if (kbat) {
-    kbat->setup().AddSensingResult(z, t, r);
+    if (!ctx->UseRegression()) {
+      kbat->setup().AddSensingResult(z, t, r);
+    } else {
+    }
     return PSUCCEED;
   }
   if (bbat) {
-    bbat->setups().AddSensingResult(z, t, r);
+    if (!ctx->UseRegression()) {
+      bbat->setups().AddSensingResult(z, t, r);
+    } else {
+    }
     return PSUCCEED;
   }
   return PFAIL;
@@ -720,57 +774,22 @@ int p_entails()
     return TYPE_ERROR;
   }
 
-  Maybe<Formula::Ptr> alpha = ctx->formula_builder().Build(ec_alpha);
-  if (!alpha) {
+  Maybe<Formula::Ptr> maybe_alpha = ctx->formula_builder().Build(ec_alpha);
+  if (!maybe_alpha) {
     return TYPE_ERROR;
   }
+  Formula::Ptr alpha = !ctx->UseRegression()
+      ? std::move(maybe_alpha.val)
+      : maybe_alpha.val->Regress(&ctx->bat().tf(), ctx->bat());
 
   KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
   BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
   assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
   if (kbat) {
-    return alpha.val->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
+    return alpha->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
   }
   if (bbat) {
-    return alpha.val->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
-  }
-  return PFAIL;
-}
-
-extern "C"
-int p_entailsreg()
-{
-  using namespace esbl;
-  using namespace esbl::bats;
-
-  EC_word ec_key = EC_arg(1);
-  EC_word ec_alpha = EC_arg(2);
-  EC_word ec_k = EC_arg(3);
-
-  Context* ctx = Context::GetInstance(ec_key);
-  if (!ctx) {
-    return RANGE_ERROR;
-  }
-
-  long k;
-  if (ec_k.is_long(&k) != EC_succeed) {
-    return TYPE_ERROR;
-  }
-
-  Maybe<Formula::Ptr> alpha = ctx->formula_builder().Build(ec_alpha);
-  if (!alpha) {
-    return TYPE_ERROR;
-  }
-  Formula::Ptr reg_alpha = alpha.val->Regress(&ctx->bat().tf(), ctx->bat());
-
-  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
-  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
-  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
-  if (kbat) {
-    return reg_alpha->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
-  }
-  if (bbat) {
-    return reg_alpha->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
+    return alpha->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
   }
   return PFAIL;
 }
