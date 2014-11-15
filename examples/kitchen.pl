@@ -2,6 +2,8 @@
 %
 % Run this file with the following command:
 %   $ eclipse-clp -f examples/kitchen.pl
+% or with regression
+%   $ eclipse-clp -f examples/kitchen.pl -- regression
 
 % We just need that for the operator declarations:
 :- op(820, fx, ~).    % Negation
@@ -17,11 +19,15 @@
 :- external(bcontext/3, p_bcontext).
 :- external(register_pred/3, p_register_pred).
 :- external(register_name/4, p_register_name).
+:- external(enable_regression/1, p_enable_regression).
+:- external(disable_regression/1, p_disable_regression).
+:- external(is_regression/1, p_is_regression).
 :- external(guarantee_consistency/2, p_guarantee_consistency).
 :- external(add_sensing_result/4, p_add_sensing_result).
 :- external(inconsistent/2, p_inconsistent).
 :- external(entails/3, p_entails).
-:- external(entailsreg/3, p_entailsreg).
+
+cmdarg(X) :- argv(all, Xs), member(X, Xs).
 
 measure(Call) :-
     cputime(T0),
@@ -39,9 +45,15 @@ measure(Call) :-
 %:- measure(Ctx, context_entails(Ctx, 1, forall(X, p(X) v ~p(X)))).
 %:- writeln(ok).
 
+:- kcontext(ctx, 'kitchen').
+:-  ( cmdarg("reg") ; cmdarg("regress") ; cmdarg("regression") ->
+        write('Enabling regression ... '), enable_regression(ctx)
+    ;
+        write('Disabling regression ... '), disable_regression(ctx)
+    ),
+    write('OK'), nl.
 
 :-  profile((
-    kcontext(ctx, 'kitchen'),
     guarantee_consistency(ctx, 2), % higher k than original
     entails(ctx, has_type(o1, boxA) v ~has_type(o1, boxA), 1),
     \+ entails(ctx, has_type(o0, boxA), 1),

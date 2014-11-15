@@ -34,12 +34,14 @@
 //
 // :- external(enable_regression/1, p_enable_regression).
 // :- external(disable_regression/1, p_disable_regression).
+// :- external(is_regression/1, p_is_regression).
 //
-// These two switch enable or disable regression. If it is disabled, dynamic
+// The first two switch enable or disable regression. If it is disabled, dynamic
 // reasoning is done as in ESL using the successor state axioms and unit
 // propagation. If regression is enabled, fluent, POSS and SF predicates are
 // regressed to the initial situation. Hence, reasoning is only concerned with
 // the initial situation (unless one of the predicates cannot be regressed).
+// Finally is_regression/1 succeeds iff regression is enabled.
 // By default, regression is disabled.
 // The only argument should be the atom representing the BAT.
 //
@@ -465,6 +467,8 @@ class Context {
   void UseRegression(bool enable) { regression_enabled_ = enable; }
   bool UseRegression() const { return regression_enabled_; }
 
+  Term::Factory* tf() { return &bat_->tf(); }
+
   bats::Bat& bat() { return *bat_; };
   FormulaBuilder& formula_builder() { return formula_builder_; }
   PredBuilder& pred_builder() { return formula_builder_.pred_builder(); }
@@ -582,7 +586,7 @@ int p_register_name()
   if (ec_name.is_long(&name_id) != EC_succeed) {
     return TYPE_ERROR;
   }
-  const StdName name = ctx->bat().tf().CreateStdName(name_id, sort);
+  const StdName name = ctx->tf()->CreateStdName(name_id, sort);
 
   return ctx->term_builder().Register(a, name) ? PSUCCEED : PFAIL;
 }
@@ -619,6 +623,21 @@ int p_disable_regression()
   ctx->UseRegression(false);
 
   return PSUCCEED;
+}
+
+extern "C"
+int p_is_regression()
+{
+  using namespace esbl;
+
+  EC_word ec_key = EC_arg(1);
+
+  Context* ctx = Context::GetInstance(ec_key);
+  if (!ctx) {
+    return RANGE_ERROR;
+  }
+
+  return ctx->UseRegression() ?  PSUCCEED : PFAIL;
 }
 
 extern "C"
@@ -710,6 +729,7 @@ int p_add_sensing_result()
     if (!ctx->UseRegression()) {
       kbat->setup().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
     } else {
+      Formula::Lit(SfLiteral(z, t, r))->Regress(ctx->tf(), ctx->bat())->AddToSetup(ctx->tf(), &kbat->setup());
     }
     return PSUCCEED;
   }
@@ -717,6 +737,7 @@ int p_add_sensing_result()
     if (!ctx->UseRegression()) {
       bbat->setups().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
     } else {
+      Formula::Lit(SfLiteral(z, t, r))->Regress(ctx->tf(), ctx->bat())->AddToSetups(ctx->tf(), &bbat->setups());
     }
     return PSUCCEED;
   }
@@ -780,7 +801,7 @@ int p_entails()
   }
   Formula::Ptr alpha = !ctx->UseRegression()
       ? std::move(maybe_alpha.val)
-      : maybe_alpha.val->Regress(&ctx->bat().tf(), ctx->bat());
+      : maybe_alpha.val->Regress(ctx->tf(), ctx->bat());
 
   KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
   BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());

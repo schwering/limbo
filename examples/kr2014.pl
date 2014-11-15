@@ -2,6 +2,8 @@
 %
 % Run this file with the following command:
 %   $ eclipse-clp -f examples/kr2014.pl
+% or with regression
+%   $ eclipse-clp -f examples/kr2014.pl -- regression
 
 % We just need that for the operator declarations:
 :- op(820, fx, ~).    % Negation
@@ -17,11 +19,15 @@
 :- external(bcontext/3, p_bcontext).
 :- external(register_pred/3, p_register_pred).
 :- external(register_name/4, p_register_name).
+:- external(enable_regression/1, p_enable_regression).
+:- external(disable_regression/1, p_disable_regression).
+:- external(is_regression/1, p_is_regression).
 :- external(guarantee_consistency/2, p_guarantee_consistency).
 :- external(add_sensing_result/4, p_add_sensing_result).
 :- external(inconsistent/2, p_inconsistent).
 :- external(entails/3, p_entails).
-:- external(entailsreg/3, p_entailsreg).
+
+cmdarg(X) :- argv(all, Xs), member(X, Xs).
 
 measure(Call) :-
     cputime(T0),
@@ -32,13 +38,19 @@ measure(Call) :-
 
 % Initialize the context.
 :- kcontext(ctx, 'kr2014').
+:-  ( cmdarg("reg") ; cmdarg("regress") ; cmdarg("regression") ->
+        write('Enabling regression ... '), enable_regression(ctx)
+    ;
+        write('Disabling regression ... '), disable_regression(ctx)
+    ),
+    write('OK'), nl.
 
 % Now test the properties (some are taken from the KR-2014 paper, some are
 % additional tests; they also match the kr2014.c example):
 :- write('Testing property 0 ... '),          measure((entails(ctx, ~d0 ^ ~d1, 0))).
 :- write('Testing property 1 ... '),          measure((entails(ctx, ~(d0 v d1), 0))).
 :- write('Testing property 2 ... '),          measure((entails(ctx, forward : (d1 v d2), 1))).
-:- write('Testing property 3 ... '),          measure((\+ entails(ctx, forward : (d1 v d2), 0))).
+:- write('Testing property 3 ... '),          ( is_regression(ctx) -> measure((entails(ctx, forward : (d1 v d2), 0))) ; measure((\+ entails(ctx, forward : (d1 v d2), 0))) ).
 :- write('Adding forward/true ... '),         measure((add_sensing_result(ctx, [], forward, true))).
 :- write('Adding sonar/true ... '),           measure((add_sensing_result(ctx, [forward], sonar, true))).
 :- write('Testing property 4 ... '),          measure((entails(ctx, forward : sonar : (d0 v d1), 1))).
