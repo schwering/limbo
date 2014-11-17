@@ -55,7 +55,7 @@ inline bool Update(Unifier* theta, const Variable& x, const Term& t) {
     return true;
   }
   const Term t_old = p.first->second;
-  if (t.is_ground() && t_old.is_ground()) {
+  if (t.ground() && t_old.ground()) {
     return t == t_old;
   }
   return Update(theta, Variable(t_old), t);
@@ -173,9 +173,9 @@ void TermSeq::CollectNames(StdName::SortedSet* ns) const {
   }
 }
 
-bool TermSeq::is_ground() const {
+bool TermSeq::ground() const {
   for (const Term& t : *this) {
-    if (!t.is_ground()) {
+    if (!t.ground()) {
       return false;
     }
   }

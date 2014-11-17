@@ -47,9 +47,9 @@ class Term {
 
   Id id() const { return id_; }
   bool sort() const { return sort_; }
+  bool ground() const { return kind_ != VAR; }
   bool is_variable() const { return kind_ == VAR; }
   bool is_name() const { return kind_ == NAME; }
-  bool is_ground() const { return kind_ != VAR; }
 
  protected:
   friend class Factory;
@@ -89,9 +89,9 @@ class Variable {
 
   Term::Id id() const { return t_.id_; }
   bool sort() const { return t_.sort_; }
+  bool ground() const { return t_.kind_ != Term::VAR; }
   bool is_variable() const { return t_.kind_ == Term::VAR; }
   bool is_name() const { return t_.kind_ == Term::NAME; }
-  bool is_ground() const { return t_.kind_ != Term::VAR; }
 
  private:
   friend class Term;
@@ -124,9 +124,9 @@ class StdName {
 
   Term::Id id() const { return t_.id_; }
   bool sort() const { return t_.sort_; }
+  bool ground() const { return t_.kind_ != Term::VAR; }
   bool is_variable() const { return t_.kind_ == Term::VAR; }
   bool is_name() const { return t_.kind_ == Term::NAME; }
-  bool is_ground() const { return t_.kind_ != Term::VAR; }
   bool is_placeholder() const { return t_.id_ < 0; }
 
  private:
@@ -167,7 +167,7 @@ class TermSeq : public std::vector<Term> {
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
 
-  bool is_ground() const;
+  bool ground() const;
 };
 
 std::ostream& operator<<(std::ostream& os, const Term& t);

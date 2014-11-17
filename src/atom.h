@@ -52,7 +52,7 @@ class Atom {
   PredId pred() const { return pred_; }
   const TermSeq& args() const { return args_; }
 
-  bool is_ground() const;
+  bool ground() const;
 
   void CollectVariables(Variable::Set* vs) const;
   void CollectVariables(Variable::SortedSet* vs) const;

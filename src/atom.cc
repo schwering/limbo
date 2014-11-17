@@ -80,11 +80,11 @@ Atom Atom::UpperBound() const {
   return Atom({}, pred_ + 1, {});
 }
 
-bool Atom::is_ground() const {
+bool Atom::ground() const {
   return std::all_of(z_.begin(), z_.end(),
-                     [](const Term& t) { return t.is_ground(); }) &&
+                     [](const Term& t) { return t.ground(); }) &&
          std::all_of(args_.begin(), args_.end(),
-                     [](const Term& t) { return t.is_ground(); });
+                     [](const Term& t) { return t.ground(); });
 }
 
 void Atom::CollectVariables(Variable::Set* vs) const {

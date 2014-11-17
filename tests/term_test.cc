@@ -30,14 +30,14 @@ TEST(term_test, variable_stdname) {
   EXPECT_FALSE(xt == nt);
   EXPECT_TRUE(xt < nt);
   EXPECT_TRUE(x < n);
-  EXPECT_FALSE(x.is_ground());
-  EXPECT_FALSE(xt.is_ground());
+  EXPECT_FALSE(x.ground());
+  EXPECT_FALSE(xt.ground());
   EXPECT_TRUE(x.is_variable());
   EXPECT_TRUE(xt.is_variable());
   EXPECT_FALSE(x.is_name());
   EXPECT_FALSE(xt.is_name());
-  EXPECT_TRUE(n.is_ground());
-  EXPECT_TRUE(nt.is_ground());
+  EXPECT_TRUE(n.ground());
+  EXPECT_TRUE(nt.ground());
   EXPECT_FALSE(n.is_variable());
   EXPECT_FALSE(nt.is_variable());
   EXPECT_TRUE(n.is_name());

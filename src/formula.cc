@@ -27,7 +27,7 @@ class Formula::Cnf {
 
   void Minimize();
 
-  bool is_ground() const;
+  bool ground() const;
 
   bool EntailedBy(Setup* setup, split_level k) const;
   bool EntailedBy(Setups* setups, split_level k) const;
@@ -52,7 +52,7 @@ struct Formula::Cnf::Equality : public std::pair<Term, Term> {
   using std::pair<Term, Term>::pair;
 
   bool equal() const { return first == second; }
-  bool is_ground() const { return first.is_ground() && second.is_ground(); }
+  bool ground() const { return first.ground() && second.ground(); }
 };
 
 class Formula::Cnf::KLiteral {
@@ -88,7 +88,7 @@ class Formula::Cnf::KLiteral {
   bool sign() const { return sign_; }
   const Cnf& phi() const { return phi_; }
 
-  bool is_ground() const { return z_.is_ground() && phi_.is_ground(); }
+  bool ground() const { return z_.ground() && phi_.ground(); }
 
  private:
   split_level k_;
@@ -133,8 +133,8 @@ class Formula::Cnf::BLiteral {
   const Cnf& neg_phi() const { return neg_phi_; }
   const Cnf& psi() const { return psi_; }
 
-  bool is_ground() const {
-    return z_.is_ground() && neg_phi_.is_ground() && psi_.is_ground();
+  bool ground() const {
+    return z_.ground() && neg_phi_.ground() && psi_.ground();
   }
 
  private:
@@ -187,7 +187,7 @@ class Formula::Cnf::Disj {
     bs_.insert(BLiteral(k, z, sign, neg_phi, psi));
   }
 
-  bool is_ground() const;
+  bool ground() const;
 
   bool EntailedBy(Setup* setup, split_level k) const;
   bool EntailedBy(Setups* setups, split_level k) const;
@@ -235,7 +235,7 @@ struct Formula::Equal : public Formula {
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
-    if ((t1.is_ground() && t2.is_ground()) || t1 == t2) {
+    if ((t1.ground() && t2.ground()) || t1 == t2) {
       const Truth t = (t1 == t2) == sign ? TRIVIALLY_TRUE : TRIVIALLY_FALSE;
       return std::make_pair(t, Ptr());
     }
@@ -794,7 +794,7 @@ bool Formula::Cnf::operator==(const Formula::Cnf& c) const {
 void Formula::Cnf::Minimize() {
   Disj::Set new_ds;
   for (const Disj& d : *ds_) {
-    assert(d.is_ground());
+    assert(d.ground());
     if (!d.Tautologous()) {
       Disj dd = d;
       dd.ClearEqs();
@@ -824,9 +824,9 @@ void Formula::Cnf::Minimize() {
   } while (!new_ds.empty());
 }
 
-bool Formula::Cnf::is_ground() const {
+bool Formula::Cnf::ground() const {
   return std::all_of(ds_->begin(), ds_->end(),
-                     [](const Disj& d) { return d.is_ground(); });
+                     [](const Disj& d) { return d.ground(); });
 }
 
 void Formula::Cnf::AddToSetup(Setup* setup) const {
@@ -888,8 +888,8 @@ Maybe<Formula::Cnf::Disj> Formula::Cnf::Disj::Resolve(const Disj& d1,
                                                       const Disj& d2) {
   assert(d1.eqs_.empty() && d1.neqs_.empty());
   assert(d2.eqs_.empty() && d2.neqs_.empty());
-  assert(d1.is_ground());
-  assert(d2.is_ground());
+  assert(d1.ground());
+  assert(d2.ground());
   if (d1.c_.size() + d1.ks_.size() + d1.bs_.size() >
       d2.c_.size() + d2.ks_.size() + d2.bs_.size()) {
     return Resolve(d2, d1);
@@ -953,8 +953,8 @@ bool TautologousLiterals(const T& ls) {
 }
 
 bool Formula::Cnf::Disj::Subsumes(const Disj& d) const {
-  assert(is_ground());
-  assert(d.is_ground());
+  assert(ground());
+  assert(d.ground());
   return std::includes(d.eqs_.begin(), d.eqs_.end(),
                        eqs_.begin(), eqs_.end()) &&
       std::includes(d.neqs_.begin(), d.neqs_.end(),
@@ -968,7 +968,7 @@ bool Formula::Cnf::Disj::Subsumes(const Disj& d) const {
 }
 
 bool Formula::Cnf::Disj::Tautologous() const {
-  assert(is_ground());
+  assert(ground());
   return std::any_of(eqs_.begin(), eqs_.end(),
                      [](const Equality& e) { return e.equal(); }) ||
       std::any_of(neqs_.begin(), neqs_.end(),
@@ -978,16 +978,16 @@ bool Formula::Cnf::Disj::Tautologous() const {
       TautologousLiterals(bs_);
 }
 
-bool Formula::Cnf::Disj::is_ground() const {
+bool Formula::Cnf::Disj::ground() const {
   return std::all_of(eqs_.begin(), eqs_.end(),
-                     [](const Equality& e) { return e.is_ground(); }) &&
+                     [](const Equality& e) { return e.ground(); }) &&
       std::all_of(neqs_.begin(), neqs_.end(),
-                  [](const Equality& e) { return e.is_ground(); }) &&
-      c_.is_ground() &&
+                  [](const Equality& e) { return e.ground(); }) &&
+      c_.ground() &&
       std::all_of(ks_.begin(), ks_.end(),
-                  [](const KLiteral& l) { return l.is_ground(); }) &&
+                  [](const KLiteral& l) { return l.ground(); }) &&
       std::all_of(bs_.begin(), bs_.end(),
-                  [](const BLiteral& l) { return l.is_ground(); });
+                  [](const BLiteral& l) { return l.ground(); });
 }
 
 void Formula::Cnf::Disj::AddToSetup(Setup* setup) const {

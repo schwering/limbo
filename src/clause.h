@@ -42,7 +42,7 @@ class SimpleClause : public Literal::Set {
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
 
-  bool is_ground() const;
+  bool ground() const;
 
  private:
   void SubsumedBy(const const_iterator first, const const_iterator last,

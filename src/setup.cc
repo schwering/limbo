@@ -360,13 +360,13 @@ void Setups::AddBeliefConditional(const Clause& neg_phi, const Clause& psi,
   // I'm not sure if and how non-ground belief conditionals should be
   // implemented. I suppose that in ESB they could lead to infinitely many
   // plausibility levels.
-  assert(neg_phi.literals().is_ground());
-  assert(psi.literals().is_ground());
+  assert(neg_phi.literals().ground());
+  assert(psi.literals().ground());
   assert(!ss_.empty());
   Ewff e = Ewff::And(neg_phi.ewff(), psi.ewff());
   SimpleClause c = neg_phi.literals();
   c.insert(psi.literals().begin(), psi.literals().end());
-  assert(c.is_ground());
+  assert(c.ground());
   Clause neg_phi_or_psi(e, c);
   bcs_.push_back(BeliefConditional(neg_phi, neg_phi_or_psi, k));
   PropagateBeliefs();

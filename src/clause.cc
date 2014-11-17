@@ -99,7 +99,7 @@ void SimpleClause::GenerateInstances(const Variable::Set::const_iterator first,
     theta->erase(x);
   } else {
     const SimpleClause c = Ground(*theta);
-    assert(c.is_ground());
+    assert(c.ground());
     instances->push_back(c);
   }
 }
@@ -146,9 +146,9 @@ void SimpleClause::CollectNames(StdName::SortedSet* ns) const {
   }
 }
 
-bool SimpleClause::is_ground() const {
+bool SimpleClause::ground() const {
   for (const Literal& l : *this) {
-    if (!l.is_ground()) {
+    if (!l.ground()) {
       return false;
     }
   }
