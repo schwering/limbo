@@ -33,8 +33,12 @@ class Term {
   Term(const Term&) = default;
   Term& operator=(const Term&) = default;
 
-  bool operator==(const Term& t) const;
-  bool operator<(const Term& t) const;
+  bool operator==(const Term& t) const {
+    return kind_ == t.kind_ && id_ == t.id_ && sort_ == t.sort_;
+  }
+  bool operator<(const Term& t) const {
+    return std::tie(kind_, id_, sort_) < std::tie(t.kind_, t.id_, t.sort_);
+  }
 
   Term Substitute(const Unifier& theta) const;
   Term Ground(const Assignment& theta) const;
@@ -80,18 +84,14 @@ class Variable {
   operator Term&() { return t_; }
   operator const Term&() const { return t_; }
 
-  Term Substitute(const Unifier& theta) const {
-    return t_.Substitute(theta);
-  }
-  Term Ground(const Assignment& theta) const {
-    return t_.Ground(theta);
-  }
+  Term Substitute(const Unifier& theta) const { return t_.Substitute(theta); }
+  Term Ground(const Assignment& theta) const { return t_.Ground(theta); }
 
-  inline Term::Id id() const { return t_.id_; }
-  inline bool sort() const { return t_.sort_; }
-  inline bool is_variable() const { return t_.kind_ == Term::VAR; }
-  inline bool is_name() const { return t_.kind_ == Term::NAME; }
-  inline bool is_ground() const { return t_.kind_ != Term::VAR; }
+  Term::Id id() const { return t_.id_; }
+  bool sort() const { return t_.sort_; }
+  bool is_variable() const { return t_.kind_ == Term::VAR; }
+  bool is_name() const { return t_.kind_ == Term::NAME; }
+  bool is_ground() const { return t_.kind_ != Term::VAR; }
 
  private:
   friend class Term;
@@ -119,19 +119,15 @@ class StdName {
   operator Term&() { return t_; }
   operator const Term&() const { return t_; }
 
-  Term Substitute(const Unifier& theta) const {
-    return t_.Substitute(theta);
-  }
-  Term Ground(const Assignment& theta) const {
-    return t_.Ground(theta);
-  }
+  Term Substitute(const Unifier& theta) const { return t_.Substitute(theta); }
+  Term Ground(const Assignment& theta) const { return t_.Ground(theta); }
 
-  inline Term::Id id() const { return t_.id_; }
-  inline bool sort() const { return t_.sort_; }
-  inline bool is_variable() const { return t_.kind_ == Term::VAR; }
-  inline bool is_name() const { return t_.kind_ == Term::NAME; }
-  inline bool is_ground() const { return t_.kind_ != Term::VAR; }
-  inline bool is_placeholder() const { return t_.id_ < 0; }
+  Term::Id id() const { return t_.id_; }
+  bool sort() const { return t_.sort_; }
+  bool is_variable() const { return t_.kind_ == Term::VAR; }
+  bool is_name() const { return t_.kind_ == Term::NAME; }
+  bool is_ground() const { return t_.kind_ != Term::VAR; }
+  bool is_placeholder() const { return t_.id_ < 0; }
 
  private:
   friend class Term;
@@ -174,8 +170,8 @@ class TermSeq : public std::vector<Term> {
   bool is_ground() const;
 };
 
-std::ostream& operator<<(std::ostream& os, const TermSeq& z);
 std::ostream& operator<<(std::ostream& os, const Term& t);
+std::ostream& operator<<(std::ostream& os, const TermSeq& z);
 std::ostream& operator<<(std::ostream& os, const Unifier& theta);
 std::ostream& operator<<(std::ostream& os, const Assignment& theta);
 std::ostream& operator<<(std::ostream& os, const StdName::SortedSet& ns);

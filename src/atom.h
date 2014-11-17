@@ -30,8 +30,12 @@ class Atom {
   Atom(const Atom&) = default;
   Atom& operator=(const Atom&) = default;
 
-  bool operator==(const Atom& a) const;
-  bool operator<(const Atom& a) const;
+  bool operator==(const Atom& a) const {
+    return pred_ == a.pred_ && z_ == a.z_ && args_ == a.args_;
+  }
+  bool operator<(const Atom& a) const {
+    return std::tie(pred_, z_, args_) < std::tie(a.pred_, a.z_, a.args_);
+  }
 
   Atom PrependActions(const TermSeq& z) const;
 

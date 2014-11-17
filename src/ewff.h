@@ -38,8 +38,12 @@ class Ewff {
                             const VarNeqVar::Set& neq_var);
   static Ewff And(const Ewff& e1, const Ewff& e2);
 
-  bool operator==(const Ewff& e) const;
-  bool operator<(const Ewff& e) const;
+  bool operator==(const Ewff& e) const {
+    return neq_name_ == e.neq_name_ && neq_var_ == e.neq_var_;
+  }
+  bool operator<(const Ewff& e) const {
+    return std::tie(neq_name_, neq_var_) < std::tie(e.neq_name_, e.neq_var_);
+  }
 
   Maybe<Ewff> Substitute(const Unifier& theta) const;
   Maybe<Ewff> Ground(const Assignment& theta) const;

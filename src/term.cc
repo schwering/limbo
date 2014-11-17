@@ -26,14 +26,6 @@ StdName Term::Factory::CreatePlaceholderStdName(Term::Id id, Term::Sort sort) {
   return StdName(Term(Term::NAME, id, sort));
 }
 
-bool Term::operator==(const Term& t) const {
-  return kind_ == t.kind_ && id_ == t.id_ && sort_ == t.sort_;
-}
-
-bool Term::operator<(const Term& t) const {
-  return std::tie(kind_, id_, sort_) < std::tie(t.kind_, t.id_, t.sort_);
-}
-
 Term Term::Substitute(const Unifier& theta) const {
   if (is_variable()) {
     auto it = theta.find(Variable(*this));
@@ -190,16 +182,6 @@ bool TermSeq::is_ground() const {
   return true;
 }
 
-std::ostream& operator<<(std::ostream& os, const TermSeq& z) {
-  for (auto it = z.begin(); it != z.end(); ++it) {
-    if (it != z.begin()) {
-      os << ", ";
-    }
-    os << *it;
-  }
-  return os;
-}
-
 std::ostream& operator<<(std::ostream& os, const Term& t) {
   char c;
   if (t.is_variable()) {
@@ -210,6 +192,16 @@ std::ostream& operator<<(std::ostream& os, const Term& t) {
     c = '?';
   }
   return os << c << t.id();
+}
+
+std::ostream& operator<<(std::ostream& os, const TermSeq& z) {
+  for (auto it = z.begin(); it != z.end(); ++it) {
+    if (it != z.begin()) {
+      os << ", ";
+    }
+    os << *it;
+  }
+  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Unifier& theta) {

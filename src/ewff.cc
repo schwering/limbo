@@ -42,17 +42,6 @@ Ewff Ewff::And(const Ewff& e1, const Ewff& e2) {
   return e;
 }
 
-bool Ewff::operator==(const Ewff& c) const {
-  if (this == &c) {
-    return true;
-  }
-  return neq_name_ == c.neq_name_ && neq_var_ == c.neq_var_;
-}
-
-bool Ewff::operator<(const Ewff& c) const {
-  return std::tie(neq_name_, neq_var_) < std::tie(c.neq_name_, c.neq_var_);
-}
-
 bool Ewff::SubstituteName(const Variable& x, const StdName& n) {
   if (neq_name_.find(std::make_pair(x, n)) != neq_name_.end()) {
     return false;

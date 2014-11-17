@@ -11,14 +11,6 @@ namespace esbl {
 const Atom Atom::MIN({}, std::numeric_limits<PredId>::min(), {});
 const Atom Atom::MAX({}, std::numeric_limits<PredId>::max(), {});
 
-bool Atom::operator==(const Atom& a) const {
-  return pred_ == a.pred_ && z_ == a.z_ && args_ == a.args_;
-}
-
-bool Atom::operator<(const Atom& a) const {
-  return std::tie(pred_, z_, args_) < std::tie(a.pred_, a.z_, a.args_);
-}
-
 Atom Atom::PrependActions(const TermSeq& z) const {
   Atom a = *this;
   a.z_.insert(a.z_.begin(), z.begin(), z.end());

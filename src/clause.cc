@@ -14,14 +14,6 @@ const Clause Clause::EMPTY(false, Ewff::TRUE, {});
 const Clause Clause::MIN_UNIT(false, Ewff::TRUE, {Literal::MIN});
 const Clause Clause::MAX_UNIT(false, Ewff::TRUE, {Literal::MAX});
 
-bool SimpleClause::operator==(const SimpleClause& c) const {
-  return std::operator==(*this, c);
-}
-
-bool SimpleClause::operator<(const SimpleClause& c) const {
-  return size() < c.size() || (size() == c.size() && std::operator<(*this, c));
-}
-
 SimpleClause SimpleClause::PrependActions(const TermSeq& z) const {
   SimpleClause c;
   for (const Literal& l : *this) {
@@ -161,15 +153,6 @@ bool SimpleClause::is_ground() const {
     }
   }
   return true;
-}
-
-bool Clause::operator==(const Clause& c) const {
-  return ls_ == c.ls_ && box_ == c.box_ && e_ == c.e_;
-}
-
-bool Clause::operator<(const Clause& c) const {
-  // shortest clauses first
-  return std::tie(ls_, box_, e_) < std::tie(c.ls_, c.box_, c.e_);
 }
 
 Clause Clause::InstantiateBox(const TermSeq& z) const {

@@ -8,22 +8,6 @@ namespace esbl {
 const Literal Literal::MIN(false, Atom::MIN);
 const Literal Literal::MAX(true, Atom::MAX);
 
-bool Literal::operator==(const Literal& l) const {
-  return Atom::operator==(l) && sign_ == l.sign_;
-}
-
-bool Literal::operator<(const Literal& l) const {
-  return Atom::operator<(l) || (Atom::operator==(l) && sign_ < l.sign_);
-}
-
-Literal Literal::LowerBound() const {
-  return Literal(false, Atom::LowerBound());
-}
-
-Literal Literal::UpperBound() const {
-  return Literal(false, Atom::UpperBound());
-}
-
 std::ostream& operator<<(std::ostream& os, const Literal& l) {
   if (!l.sign()) {
     os << '~';

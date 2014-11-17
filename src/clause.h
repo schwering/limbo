@@ -8,9 +8,9 @@
 #include <list>
 #include <set>
 #include <utility>
-#include "./maybe.h"
 #include "./ewff.h"
 #include "./literal.h"
+#include "./maybe.h"
 
 namespace esbl {
 
@@ -19,8 +19,13 @@ class SimpleClause : public Literal::Set {
   static const SimpleClause EMPTY;
 
   using Literal::Set::Set;
-  bool operator==(const SimpleClause& c) const;
-  bool operator<(const SimpleClause& c) const;
+  bool operator==(const SimpleClause& c) const {
+    return std::operator==(*this, c);
+  }
+  bool operator<(const SimpleClause& c) const {
+    return size() < c.size() ||
+        (size() == c.size() && std::operator<(*this, c));
+  }
 
   SimpleClause PrependActions(const TermSeq& z) const;
 
@@ -66,8 +71,13 @@ class Clause {
   Clause(const Clause&) = default;
   Clause& operator=(const Clause&) = default;
 
-  bool operator==(const Clause& c) const;
-  bool operator<(const Clause& c) const;
+  bool operator==(const Clause& c) const {
+    return ls_ == c.ls_ && box_ == c.box_ && e_ == c.e_;
+  }
+  bool operator<(const Clause& c) const {
+    // shortest clauses first
+    return std::tie(ls_, box_, e_) < std::tie(c.ls_, c.box_, c.e_);
+  }
 
   Clause InstantiateBox(const TermSeq& z) const;
 
