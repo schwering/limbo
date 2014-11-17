@@ -24,6 +24,7 @@ typedef std::map<Variable, StdName> Assignment;
 
 class Term {
  public:
+  typedef std::set<Term> Set;
   typedef int Id;
   typedef int Sort;
   class Factory;
@@ -33,7 +34,6 @@ class Term {
   Term& operator=(const Term&) = default;
 
   bool operator==(const Term& t) const;
-  bool operator!=(const Term& t) const;
   bool operator<(const Term& t) const;
 
   Term Substitute(const Unifier& theta) const;
@@ -63,6 +63,7 @@ class Term {
 
 class Variable {
  public:
+  typedef std::set<Variable> Set;
   typedef std::map<Term::Sort, std::set<Variable>> SortedSet;
 
   static const Variable MIN;
@@ -74,7 +75,6 @@ class Variable {
   Variable& operator=(const Variable&) = default;
 
   bool operator==(const Term& t) const { return t_ == t; }
-  bool operator!=(const Term& t) const { return t_ != t; }
   bool operator<(const Term& t) const { return t_ < t; }
 
   operator Term&() { return t_; }
@@ -101,7 +101,8 @@ class Variable {
 
 class StdName {
  public:
-  typedef std::map<Term::Sort, std::set<StdName>> SortedSet;
+  typedef std::set<StdName> Set;
+  typedef std::map<Term::Sort, Set> SortedSet;
 
   static const StdName MIN_NORMAL;
   static const StdName MIN;
@@ -113,7 +114,6 @@ class StdName {
   StdName& operator=(const StdName&) = default;
 
   bool operator==(const Term& t) const { return t_ == t; }
-  bool operator!=(const Term& t) const { return t_ != t; }
   bool operator<(const Term& t) const { return t_ < t; }
 
   operator Term&() { return t_; }
@@ -158,6 +158,8 @@ class Term::Factory {
 
 class TermSeq : public std::vector<Term> {
  public:
+  typedef std::set<TermSeq> Set;
+
   using std::vector<Term>::vector;
 
   Maybe<TermSeq> WithoutLast(const size_t n) const;
@@ -165,7 +167,7 @@ class TermSeq : public std::vector<Term> {
   bool Matches(const TermSeq& z, Unifier* theta) const;
   static bool Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 
-  void CollectVariables(std::set<Variable>* vs) const;
+  void CollectVariables(Variable::Set* vs) const;
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
 

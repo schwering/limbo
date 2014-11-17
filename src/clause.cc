@@ -18,25 +18,8 @@ bool SimpleClause::operator==(const SimpleClause& c) const {
   return std::operator==(*this, c);
 }
 
-bool SimpleClause::operator!=(const SimpleClause& c) const {
-  return !(*this == c);
-}
-
-bool SimpleClause::operator<=(const SimpleClause& c) const {
-  return size() < c.size() ||
-      (size() <= c.size() && std::operator<=(*this, c));
-}
-
-bool SimpleClause::operator>=(const SimpleClause& c) const {
-  return c <= *this;
-}
-
 bool SimpleClause::operator<(const SimpleClause& c) const {
   return size() < c.size() || (size() == c.size() && std::operator<(*this, c));
-}
-
-bool SimpleClause::operator>(const SimpleClause& c) const {
-  return *this < c;
 }
 
 SimpleClause SimpleClause::PrependActions(const TermSeq& z) const {
@@ -104,12 +87,11 @@ Maybe<Unifier, SimpleClause> SimpleClause::Unify(const Atom& cl_a,
   return Just(theta.val, c);
 }
 
-void SimpleClause::GenerateInstances(
-    const std::set<Variable>::const_iterator first,
-    const std::set<Variable>::const_iterator last,
-    const StdName::SortedSet& hplus,
-    Assignment* theta,
-    std::list<SimpleClause>* instances) const {
+void SimpleClause::GenerateInstances(const Variable::Set::const_iterator first,
+                                     const Variable::Set::const_iterator last,
+                                     const StdName::SortedSet& hplus,
+                                     Assignment* theta,
+                                     std::list<SimpleClause>* instances) const {
   if (first != last) {
     const Variable& x = *first;
     StdName::SortedSet::const_iterator ns_it = hplus.find(x.sort());
@@ -117,7 +99,7 @@ void SimpleClause::GenerateInstances(
     if (ns_it == hplus.end()) {
       return;
     }
-    const std::set<StdName>& ns = ns_it->second;
+    const StdName::Set& ns = ns_it->second;
     for (const StdName& n : ns) {
       (*theta)[x] = n;
       GenerateInstances(std::next(first), last, hplus, theta, instances);
@@ -134,13 +116,13 @@ std::list<SimpleClause> SimpleClause::Instances(
     const StdName::SortedSet& hplus) const {
   std::list<SimpleClause> instances;
   Assignment theta;
-  const std::set<Variable> vs = Variables();
+  const Variable::Set vs = Variables();
   GenerateInstances(vs.begin(), vs.end(), hplus, &theta, &instances);
   return instances;
 }
 
-std::set<Atom> SimpleClause::Sensings() const {
-  std::set<Atom> sfs;
+Atom::Set SimpleClause::Sensings() const {
+  Atom::Set sfs;
   for (const Literal& l : *this) {
     const TermSeq& z = l.z();
     for (auto it = z.begin(); it != z.end(); ++it) {
@@ -152,8 +134,8 @@ std::set<Atom> SimpleClause::Sensings() const {
   return sfs;
 }
 
-std::set<Variable> SimpleClause::Variables() const {
-  std::set<Variable> vs;
+Variable::Set SimpleClause::Variables() const {
+  Variable::Set vs;
   for (const Literal& l : *this) {
     l.CollectVariables(&vs);
   }
@@ -183,10 +165,6 @@ bool SimpleClause::is_ground() const {
 
 bool Clause::operator==(const Clause& c) const {
   return ls_ == c.ls_ && box_ == c.box_ && e_ == c.e_;
-}
-
-bool Clause::operator!=(const Clause& c) const {
-  return !operator==(c);
 }
 
 bool Clause::operator<(const Clause& c) const {
@@ -336,7 +314,7 @@ bool Clause::SplitRelevant(const Atom& a, const Clause& c, int k) const {
          (ls_size <= k + 1 || ls_size - c_size <= k);
 }
 
-size_t Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
+size_t Clause::ResolveWithUnit(const Clause& unit, Clause::Set* rs) const {
   assert(unit.is_unit());
   const Literal& unit_l = *unit.literals().begin();
   const auto first = ls_.lower_bound(unit_l.LowerBound());
@@ -368,26 +346,6 @@ size_t Clause::ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const {
     }
   }
   return n_new_clauses;
-}
-
-std::set<Atom::PredId> Clause::positive_preds() const {
-  std::set<Atom::PredId> s;
-  for (const Literal& l : ls_) {
-    if (l.sign()) {
-      s.insert(s.end(), l.pred());
-    }
-  }
-  return s;
-}
-
-std::set<Atom::PredId> Clause::negative_preds() const {
-  std::set<Atom::PredId> s;
-  for (const Literal& l : ls_) {
-    if (!l.sign()) {
-      s.insert(s.end(), l.pred());
-    }
-  }
-  return s;
 }
 
 void Clause::CollectVariables(Variable::SortedSet* vs) const {

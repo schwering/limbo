@@ -47,7 +47,7 @@ void Setup::AddClauseWithoutConsistencyCheck(const Clause& c) {
 void Setup::UpdateHPlusFor(const Variable::SortedSet& vs) {
   for (const auto& p : vs) {
     const Term::Sort& sort = p.first;
-    std::set<StdName>& ns = hplus_[sort];
+    StdName::Set& ns = hplus_[sort];
     const int need_n_vars = p.second.size();
     const int have_n_vars = std::distance(ns.begin(),
                                           ns.lower_bound(StdName::MIN_NORMAL));
@@ -92,8 +92,8 @@ void Setup::GroundBoxes(const TermSeq& z) {
   }
 }
 
-std::set<Atom> Setup::FullStaticPel() const {
-  std::set<Atom> pel;
+Atom::Set Setup::FullStaticPel() const {
+  Atom::Set pel;
   for (const Clause& c : cs_) {
     if (!c.box()) {
       for (const Assignment theta : c.ewff().Models(hplus_)) {
@@ -109,8 +109,8 @@ std::set<Atom> Setup::FullStaticPel() const {
   return pel;
 }
 
-std::set<Literal> Setup::Rel(const SimpleClause& c) const {
-  std::set<Literal> rel;
+Literal::Set Setup::Rel(const SimpleClause& c) const {
+  Literal::Set rel;
   std::deque<Literal> frontier(c.begin(), c.end());
   while (!frontier.empty()) {
     const Literal& l = frontier.front();
@@ -125,7 +125,7 @@ std::set<Literal> Setup::Rel(const SimpleClause& c) const {
   return rel;
 }
 
-std::set<Atom> Setup::Pel(const SimpleClause& c) const {
+Atom::Set Setup::Pel(const SimpleClause& c) const {
   // Pel is the set of all atoms a such that both a and ~a are relevant to prove
   // some literal in l:
   // Pel(c) = { a | for all a, l such that a in Rel(l), ~a in Rel(l), l in c }
@@ -135,8 +135,8 @@ std::set<Atom> Setup::Pel(const SimpleClause& c) const {
   // state axioms introduce no nondeterminism. However, we add new knowledge
   // through sensing literals in future situations. Is the limitation to initial
   // literals still complete?
-  const std::set<Literal> rel = Rel(c);
-  std::set<Atom> pel;
+  const Literal::Set rel = Rel(c);
+  Atom::Set pel;
   for (auto it = rel.begin(); it != rel.end(); ++it) {
     const Literal& l = *it;
     if (!l.sign()) {
@@ -169,7 +169,7 @@ bool Setup::ContainsEmptyClause() const {
   return it != cs_.end() && it->literals().size() == 0;
 }
 
-size_t Setup::MinimizeWrt(std::set<Clause>::iterator it) {
+size_t Setup::MinimizeWrt(Clause::Set::iterator it) {
   if (ContainsEmptyClause()) {
     size_t n = cs_.size();
     cs_.clear();
@@ -265,7 +265,7 @@ bool Setup::SplitRelevant(const Atom& a, const Clause& c, split_level k) {
   return false;
 }
 
-bool Setup::SubsumesWithSplits(std::set<Atom> pel,
+bool Setup::SubsumesWithSplits(Atom::Set pel,
                                const SimpleClause& c,
                                split_level k) {
   if (Subsumes(Clause(Ewff::TRUE, c))) {
@@ -312,7 +312,7 @@ bool Setup::Inconsistent(split_level k) {
       return true;
     }
   }
-  const std::set<Atom> pel = k <= 0 ? std::set<Atom>() : FullStaticPel();
+  const Atom::Set pel = k <= 0 ? Atom::Set() : FullStaticPel();
   for (; l <= k; ++l) {
     const bool r = SubsumesWithSplits(pel, SimpleClause::EMPTY, l);
     incons_[l] = r;
@@ -335,7 +335,7 @@ bool Setup::Entails(const SimpleClause& c, split_level k) {
     GroundBoxes(l.z());
   }
   UpdateHPlusFor(c);
-  const std::set<Atom> pel = k <= 0 ? std::set<Atom>() : Pel(c);
+  const Atom::Set pel = k <= 0 ? Atom::Set() : Pel(c);
   return SubsumesWithSplits(pel, c, k);
 }
 
@@ -439,7 +439,7 @@ bool Setups::Entails(const SimpleClause& neg_phi, const SimpleClause& psi,
   return true;
 }
 
-std::ostream& operator<<(std::ostream& os, const std::set<Clause>& cs) {
+std::ostream& operator<<(std::ostream& os, const Clause::Set& cs) {
   for (const Clause& c : cs) {
     os << "    " << c << std::endl;
   }

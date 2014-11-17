@@ -35,7 +35,7 @@ class Setup {
   bool Inconsistent(split_level k);
   bool Entails(const SimpleClause& c, split_level k);
 
-  const std::set<Clause>& clauses() const { return cs_; }
+  const Clause::Set& clauses() const { return cs_; }
   const StdName::SortedSet& hplus() const { return hplus_; }
 
  private:
@@ -61,21 +61,20 @@ class Setup {
   void UpdateHPlusFor(const SimpleClause& c);
   void UpdateHPlusFor(const Clause& c);
   void GroundBoxes(const TermSeq& z);
-  std::set<Atom> FullStaticPel() const;
-  std::set<Literal> Rel(const SimpleClause& c) const;
-  std::set<Atom> Pel(const SimpleClause& c) const;
+  Atom::Set FullStaticPel() const;
+  Literal::Set Rel(const SimpleClause& c) const;
+  Atom::Set Pel(const SimpleClause& c) const;
   bool ContainsEmptyClause() const;
-  size_t MinimizeWrt(std::set<Clause>::iterator c);
+  size_t MinimizeWrt(Clause::Set::iterator c);
   void Minimize();
   void PropagateUnits();
   bool Subsumes(const Clause& c);
-  bool SubsumesWithSplits(std::set<Atom> pel, const SimpleClause& c,
-                          split_level k);
+  bool SubsumesWithSplits(Atom::Set pel, const SimpleClause& c, split_level k);
   bool SplitRelevant(const Atom& a, const Clause& c, split_level k);
 
-  std::set<Clause> cs_;
-  std::set<Clause> boxes_;
-  std::set<TermSeq> grounded_;
+  Clause::Set cs_;
+  Clause::Set boxes_;
+  TermSeq::Set grounded_;
   BitMap incons_;
   StdName::SortedSet hplus_;
 };
@@ -125,7 +124,7 @@ class Setups {
   std::vector<BeliefConditional> bcs_;
 };
 
-std::ostream& operator<<(std::ostream& os, const std::set<Clause>& cs);
+std::ostream& operator<<(std::ostream& os, const Clause::Set& cs);
 std::ostream& operator<<(std::ostream& os, const Setup& s);
 std::ostream& operator<<(std::ostream& os, const Setups& ss);
 

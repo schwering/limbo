@@ -381,7 +381,7 @@ Maybe<Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
   } else if (is_functor) {
     const auto p = pred_builder_.Get(ec_alpha);
     if (!p) {
-      return Nothing;\
+      return Nothing;
     }
     const bool sign = true;
     TermSeq args;
@@ -394,13 +394,13 @@ Maybe<Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
   } else if (is_atom) {
     const auto p = pred_builder_.Get(ec_alpha);
     if (!p) {
-      return Nothing;\
+      return Nothing;
     }
     const bool sign = true;
     const Literal l({}, sign, p.val, {});
     return Just(Formula::Lit(l));
   } else {
-    return Nothing;\
+    return Nothing;
   }
 }
 

@@ -18,19 +18,27 @@ namespace esbl {
 
 class Ewff {
  public:
+  struct VarNeqName : public std::pair<Variable, StdName> {
+    typedef std::set<VarNeqName> Set;
+    using std::pair<Variable, StdName>::pair;
+  };
+
+  struct VarNeqVar : public std::pair<Variable, Variable> {
+    typedef std::set<VarNeqVar> Set;
+    using std::pair<Variable, Variable>::pair;
+  };
+
   static const Ewff TRUE;
 
   Ewff() = default;
   Ewff(const Ewff&) = default;
   Ewff& operator=(const Ewff&) = default;
 
-  static Maybe<Ewff> Create(
-      const std::set<std::pair<Variable, StdName>>& neq_name,
-      const std::set<std::pair<Variable, Variable>>& neq_var);
+  static Maybe<Ewff> Create(const VarNeqName::Set& neq_name,
+                            const VarNeqVar::Set& neq_var);
   static Ewff And(const Ewff& e1, const Ewff& e2);
 
   bool operator==(const Ewff& e) const;
-  bool operator!=(const Ewff& e) const;
   bool operator<(const Ewff& e) const;
 
   Maybe<Ewff> Substitute(const Unifier& theta) const;
@@ -41,7 +49,7 @@ class Ewff {
   bool SatisfiedBy(const Assignment &theta) const;
   std::list<Assignment> Models(const StdName::SortedSet& hplus) const;
 
-  void RestrictVariable(const std::set<Variable>& vs);
+  void RestrictVariable(const Variable::Set& vs);
 
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
@@ -49,21 +57,20 @@ class Ewff {
  private:
   friend std::ostream& operator<<(std::ostream& os, const Ewff& e);
 
-  Ewff(const std::set<std::pair<Variable, StdName>>& neq_name,
-       const std::set<std::pair<Variable, Variable>>& neq_var);
+  Ewff(const VarNeqName::Set& neq_name, const VarNeqVar::Set& neq_var);
 
   bool SubstituteName(const Variable& x, const StdName& n);
   bool SubstituteVariable(const Variable& x, const Variable& y);
 
-  void GenerateModels(const std::set<Variable>::const_iterator first,
-                      const std::set<Variable>::const_iterator last,
+  void GenerateModels(const Variable::Set::const_iterator first,
+                      const Variable::Set::const_iterator last,
                       const StdName::SortedSet& hplus,
                       Assignment* theta,
                       std::list<Assignment>* models) const;
-  std::set<Variable> Variables() const;
+  Variable::Set Variables() const;
 
-  std::set<std::pair<Variable, StdName>> neq_name_;
-  std::set<std::pair<Variable, Variable>> neq_var_;
+  VarNeqName::Set neq_name_;
+  VarNeqVar::Set neq_var_;
 };
 
 std::ostream& operator<<(std::ostream& os, const Ewff& e);

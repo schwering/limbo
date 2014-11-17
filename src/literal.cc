@@ -12,10 +12,6 @@ bool Literal::operator==(const Literal& l) const {
   return Atom::operator==(l) && sign_ == l.sign_;
 }
 
-bool Literal::operator!=(const Literal& l) const {
-  return !operator==(l);
-}
-
 bool Literal::operator<(const Literal& l) const {
   return Atom::operator<(l) || (Atom::operator==(l) && sign_ < l.sign_);
 }
@@ -36,7 +32,7 @@ std::ostream& operator<<(std::ostream& os, const Literal& l) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const std::set<Literal>& ls) {
+std::ostream& operator<<(std::ostream& os, const Literal::Set& ls) {
   os << "{ ";
   for (auto it = ls.begin(); it != ls.end(); ++it) {
     if (it != ls.begin()) {

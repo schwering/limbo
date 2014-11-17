@@ -15,6 +15,8 @@ namespace esbl {
 
 class Atom {
  public:
+  typedef std::set<Atom> Set;
+
   typedef int PredId;
 
   static constexpr PredId SF = -1;
@@ -29,7 +31,6 @@ class Atom {
   Atom& operator=(const Atom&) = default;
 
   bool operator==(const Atom& a) const;
-  bool operator!=(const Atom& a) const;
   bool operator<(const Atom& a) const;
 
   Atom PrependActions(const TermSeq& z) const;
@@ -49,7 +50,7 @@ class Atom {
 
   bool is_ground() const;
 
-  void CollectVariables(std::set<Variable>* vs) const;
+  void CollectVariables(Variable::Set* vs) const;
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
 
@@ -60,7 +61,7 @@ class Atom {
 };
 
 std::ostream& operator<<(std::ostream& os, const Atom& a);
-std::ostream& operator<<(std::ostream& os, const std::set<Atom>& as);
+std::ostream& operator<<(std::ostream& os, const Atom::Set& as);
 
 }  // namespace esbl
 

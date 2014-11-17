@@ -12,6 +12,8 @@ namespace esbl {
 
 class Literal : public Atom {
  public:
+  typedef std::set<Literal> Set;
+
   static const Literal MIN;
   static const Literal MAX;
 
@@ -22,7 +24,6 @@ class Literal : public Atom {
   Literal& operator=(const Literal&) = default;
 
   bool operator==(const Literal& l) const;
-  bool operator!=(const Literal& l) const;
   bool operator<(const Literal& l) const;
 
   static Literal Positive(const Atom& a) { return Literal(true, a); }
@@ -63,7 +64,7 @@ class SfLiteral : public Literal {
 };
 
 std::ostream& operator<<(std::ostream& os, const Literal& l);
-std::ostream& operator<<(std::ostream& os, const std::set<Literal>& ls);
+std::ostream& operator<<(std::ostream& os, const Literal::Set& ls);
 
 }  // namespace esbl
 

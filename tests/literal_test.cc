@@ -34,16 +34,16 @@ TEST(literal_test, less) {
   EXPECT_TRUE(b.Negative().sign() == false);
   EXPECT_TRUE(c.Negative().sign() == false);
 
-  EXPECT_TRUE(a.Flip() != a);
+  EXPECT_FALSE(a.Flip() == a);
   EXPECT_TRUE(a.Positive() == a);
-  EXPECT_TRUE(a.Negative() != a);
+  EXPECT_FALSE(a.Negative() == a);
 
-  EXPECT_TRUE(b.Flip() != b);
-  EXPECT_TRUE(b.Positive() != b);
+  EXPECT_FALSE(b.Flip() == b);
+  EXPECT_FALSE(b.Positive() == b);
   EXPECT_TRUE(b.Negative() == b);
 
-  EXPECT_TRUE(c.Flip() != c);
-  EXPECT_TRUE(c.Positive() != c);
+  EXPECT_FALSE(c.Flip() == c);
+  EXPECT_FALSE(c.Positive() == c);
   EXPECT_TRUE(c.Negative() == c);
 
   EXPECT_TRUE(a.Negative() < a.Positive());
@@ -52,7 +52,7 @@ TEST(literal_test, less) {
 
   EXPECT_TRUE((static_cast<Atom>(a) < static_cast<Atom>(b)) == (a < b));
 
-  EXPECT_TRUE((static_cast<Atom>(a) == static_cast<Atom>(a.Flip())) && (a != b));
-  EXPECT_TRUE((static_cast<const Atom&>(a) == static_cast<const Atom&>(a.Flip())) && (a != b));
+  EXPECT_TRUE((static_cast<Atom>(a) == static_cast<Atom>(a.Flip())) && !(a == b));
+  EXPECT_TRUE((static_cast<const Atom&>(a) == static_cast<const Atom&>(a.Flip())) && !(a == b));
 }
 

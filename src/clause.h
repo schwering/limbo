@@ -14,17 +14,13 @@
 
 namespace esbl {
 
-class SimpleClause : public std::set<Literal> {
+class SimpleClause : public Literal::Set {
  public:
   static const SimpleClause EMPTY;
 
-  using std::set<Literal>::set;
+  using Literal::Set::Set;
   bool operator==(const SimpleClause& c) const;
-  bool operator!=(const SimpleClause& c) const;
-  bool operator<=(const SimpleClause& c) const;
-  bool operator>=(const SimpleClause& c) const;
   bool operator<(const SimpleClause& c) const;
-  bool operator>(const SimpleClause& c) const;
 
   SimpleClause PrependActions(const TermSeq& z) const;
 
@@ -35,9 +31,9 @@ class SimpleClause : public std::set<Literal> {
 
   std::list<SimpleClause> Instances(const StdName::SortedSet& hplus) const;
 
-  std::set<Atom> Sensings() const;
+  Atom::Set Sensings() const;
 
-  std::set<Variable> Variables() const;
+  Variable::Set Variables() const;
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
 
@@ -47,8 +43,8 @@ class SimpleClause : public std::set<Literal> {
   void SubsumedBy(const const_iterator first, const const_iterator last,
                   const Unifier& theta, std::list<Unifier>* thetas) const;
 
-  void GenerateInstances(const std::set<Variable>::const_iterator first,
-                         const std::set<Variable>::const_iterator last,
+  void GenerateInstances(const Variable::Set::const_iterator first,
+                         const Variable::Set::const_iterator last,
                          const StdName::SortedSet& hplus,
                          Assignment* theta,
                          std::list<SimpleClause>* instances) const;
@@ -56,6 +52,8 @@ class SimpleClause : public std::set<Literal> {
 
 class Clause {
  public:
+  typedef std::set<Clause> Set;
+
   static const Clause EMPTY;
   static const Clause MIN_UNIT;
   static const Clause MAX_UNIT;
@@ -69,7 +67,6 @@ class Clause {
   Clause& operator=(const Clause&) = default;
 
   bool operator==(const Clause& c) const;
-  bool operator!=(const Clause& c) const;
   bool operator<(const Clause& c) const;
 
   Clause InstantiateBox(const TermSeq& z) const;
@@ -79,15 +76,12 @@ class Clause {
            std::deque<Literal>* rel) const;
   bool Subsumes(const Clause& c) const;
   bool SplitRelevant(const Atom& a, const Clause& c, int k) const;
-  size_t ResolveWithUnit(const Clause& unit, std::set<Clause>* rs) const;
+  size_t ResolveWithUnit(const Clause& unit, Clause::Set* rs) const;
 
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
   const SimpleClause& literals() const { return ls_; }
   bool is_unit() const { return ls_.size() == 1; }
-
-  std::set<Atom::PredId> positive_preds() const;
-  std::set<Atom::PredId> negative_preds() const;
 
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;

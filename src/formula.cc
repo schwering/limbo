@@ -38,6 +38,7 @@ class Formula::Cnf {
   void Print(std::ostream* os) const;
 
  private:
+  struct Equality;
   class KLiteral;
   class BLiteral;
 
@@ -45,8 +46,19 @@ class Formula::Cnf {
   std::unique_ptr<std::set<Disj>> ds_;
 };
 
+struct Formula::Cnf::Equality : public std::pair<Term, Term> {
+ public:
+  typedef std::set<Equality> Set;
+  using std::pair<Term, Term>::pair;
+
+  bool equal() const { return first == second; }
+  bool is_ground() const { return first.is_ground() && second.is_ground(); }
+};
+
 class Formula::Cnf::KLiteral {
  public:
+  typedef std::set<KLiteral> Set;
+
   KLiteral() = default;
   KLiteral(split_level k, const TermSeq& z, bool sign, const Cnf& phi)
       : k_(k), z_(z), sign_(sign), phi_(phi) {}
@@ -87,6 +99,8 @@ class Formula::Cnf::KLiteral {
 
 class Formula::Cnf::BLiteral {
  public:
+  typedef std::set<BLiteral> Set;
+
   BLiteral() = default;
   BLiteral(split_level k, const TermSeq& z, bool sign, const Cnf& neg_phi,
            const Cnf& psi)
@@ -133,6 +147,8 @@ class Formula::Cnf::BLiteral {
 
 class Formula::Cnf::Disj {
  public:
+  typedef std::set<Disj> Set;
+
   Disj() = default;
   Disj(const Disj&) = default;
   Disj& operator=(const Disj&) = default;
@@ -182,11 +198,11 @@ class Formula::Cnf::Disj {
   void Print(std::ostream* os) const;
 
  private:
-  std::set<std::pair<Term, Term>> eqs_;
-  std::set<std::pair<Term, Term>> neqs_;
+  Equality::Set eqs_;
+  Equality::Set neqs_;
   SimpleClause c_;
-  std::set<KLiteral> ks_;
-  std::set<BLiteral> bs_;
+  KLiteral::Set ks_;
+  BLiteral::Set bs_;
 };
 
 struct Formula::Equal : public Formula {
@@ -430,7 +446,7 @@ struct Formula::Quantifier : public Formula {
   }
 
   Cnf MakeCnf(StdName::SortedSet* hplus) const override {
-    std::set<StdName>& new_ns = (*hplus)[x.sort()];
+    StdName::Set& new_ns = (*hplus)[x.sort()];
     for (Term::Id id = 0; ; ++id) {
       assert(id <= static_cast<int>(new_ns.size()));
       const StdName n = Term::Factory::CreatePlaceholderStdName(id, x.sort());
@@ -441,7 +457,7 @@ struct Formula::Quantifier : public Formula {
     }
     // Memorize names for this x because the recursive call might add additional
     // names which must not be substituted for this x.
-    const std::set<StdName> this_ns = new_ns;
+    const StdName::Set this_ns = new_ns;
     const Cnf c = phi->MakeCnf(hplus);
     bool init = false;
     Cnf r;
@@ -726,7 +742,7 @@ bool Formula::EntailedBy(Term::Factory* tf, Setups* setups,
   return cnf.EntailedBy(setups, k);
 }
 
-Formula::Cnf::Cnf() : ds_(new std::set<Formula::Cnf::Disj>()) {}
+Formula::Cnf::Cnf() : ds_(new Disj::Set()) {}
 
 Formula::Cnf::Cnf(const Formula::Cnf::Disj& d) : Cnf() {
   ds_->insert(d);
@@ -776,7 +792,7 @@ bool Formula::Cnf::operator==(const Formula::Cnf& c) const {
 }
 
 void Formula::Cnf::Minimize() {
-  std::set<Disj> new_ds;
+  Disj::Set new_ds;
   for (const Disj& d : *ds_) {
     assert(d.is_ground());
     if (!d.Tautologous()) {
@@ -942,32 +958,31 @@ bool Formula::Cnf::Disj::Subsumes(const Disj& d) const {
   return std::includes(d.eqs_.begin(), d.eqs_.end(),
                        eqs_.begin(), eqs_.end()) &&
       std::includes(d.neqs_.begin(), d.neqs_.end(),
-                       neqs_.begin(), neqs_.end()) &&
+                    neqs_.begin(), neqs_.end()) &&
       std::includes(d.c_.begin(), d.c_.end(),
-                       c_.begin(), c_.end()) &&
+                    c_.begin(), c_.end()) &&
       std::includes(d.ks_.begin(), d.ks_.end(),
-                       ks_.begin(), ks_.end()) &&
+                    ks_.begin(), ks_.end()) &&
       std::includes(d.bs_.begin(), d.bs_.end(),
-                       bs_.begin(), bs_.end());
+                    bs_.begin(), bs_.end());
 }
 
 bool Formula::Cnf::Disj::Tautologous() const {
   assert(is_ground());
-  auto eq = [](const std::pair<Term, Term>& p) { return p.first == p.second; };
-  auto neq = [](const std::pair<Term, Term>& p) { return p.first != p.second; };
-  return std::any_of(eqs_.begin(), eqs_.end(), eq) ||
-      std::any_of(neqs_.begin(), neqs_.end(), neq) ||
+  return std::any_of(eqs_.begin(), eqs_.end(),
+                     [](const Equality& e) { return e.equal(); }) ||
+      std::any_of(neqs_.begin(), neqs_.end(),
+                  [](const Equality& e) { return !e.equal(); }) ||
       TautologousLiterals(c_) ||
       TautologousLiterals(ks_) ||
       TautologousLiterals(bs_);
 }
 
 bool Formula::Cnf::Disj::is_ground() const {
-  const auto is_ground = [](const std::pair<Term, Term>& p) {
-    return p.first.is_ground() && p.second.is_ground();
-  };
-  return std::all_of(eqs_.begin(), eqs_.end(), is_ground) &&
-      std::all_of(neqs_.begin(), neqs_.end(), is_ground) &&
+  return std::all_of(eqs_.begin(), eqs_.end(),
+                     [](const Equality& e) { return e.is_ground(); }) &&
+      std::all_of(neqs_.begin(), neqs_.end(),
+                  [](const Equality& e) { return e.is_ground(); }) &&
       c_.is_ground() &&
       std::all_of(ks_.begin(), ks_.end(),
                   [](const KLiteral& l) { return l.is_ground(); }) &&

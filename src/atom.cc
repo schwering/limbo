@@ -15,10 +15,6 @@ bool Atom::operator==(const Atom& a) const {
   return pred_ == a.pred_ && z_ == a.z_ && args_ == a.args_;
 }
 
-bool Atom::operator!=(const Atom& a) const {
-  return !operator==(a);
-}
-
 bool Atom::operator<(const Atom& a) const {
   return std::tie(pred_, z_, args_) < std::tie(a.pred_, a.z_, a.args_);
 }
@@ -99,7 +95,7 @@ bool Atom::is_ground() const {
                      [](const Term& t) { return t.is_ground(); });
 }
 
-void Atom::CollectVariables(std::set<Variable>* vs) const {
+void Atom::CollectVariables(Variable::Set* vs) const {
   z_.CollectVariables(vs);
   args_.CollectVariables(vs);
 }
@@ -125,7 +121,7 @@ std::ostream& operator<<(std::ostream& os, const Atom& a) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const std::set<Atom>& as) {
+std::ostream& operator<<(std::ostream& os, const Atom::Set& as) {
   os << "{ ";
   for (auto it = as.begin(); it != as.end(); ++it) {
     if (it != as.begin()) {

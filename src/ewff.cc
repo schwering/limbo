@@ -11,8 +11,7 @@ namespace esbl {
 
 const Ewff Ewff::TRUE = Ewff({}, {});
 
-Ewff::Ewff(const std::set<std::pair<Variable, StdName>>& neq_name,
-           const std::set<std::pair<Variable, Variable>>& neq_var)
+Ewff::Ewff(const VarNeqName::Set& neq_name, const VarNeqVar::Set& neq_var)
     : neq_name_(neq_name), neq_var_(neq_var) {
   for (auto xny = neq_var_.begin(); xny != neq_var_.end(); ) {
     if (xny->second < xny->first) {
@@ -24,9 +23,8 @@ Ewff::Ewff(const std::set<std::pair<Variable, StdName>>& neq_name,
   }
 }
 
-Maybe<Ewff> Ewff::Create(
-    const std::set<std::pair<Variable, StdName>>& neq_name,
-    const std::set<std::pair<Variable, Variable>>& neq_var) {
+Maybe<Ewff> Ewff::Create(const VarNeqName::Set& neq_name,
+                         const VarNeqVar::Set& neq_var) {
   for (const auto& xny : neq_var) {
     if (xny.first == xny.second) {
       return Nothing;
@@ -36,10 +34,8 @@ Maybe<Ewff> Ewff::Create(
 }
 
 Ewff Ewff::And(const Ewff& e1, const Ewff& e2) {
-  Ewff e =
-      (e1.neq_var_.size() + e2.neq_name_.size() >
-       e2.neq_var_.size() + e2.neq_name_.size())
-      ? e1 : e2;
+  Ewff e = (e1.neq_var_.size() + e2.neq_name_.size() >
+            e2.neq_var_.size() + e2.neq_name_.size()) ? e1 : e2;
   const Ewff& add = (&e == &e1) ? e2 : e1;
   e.neq_name_.insert(add.neq_name_.begin(), add.neq_name_.end());
   e.neq_var_.insert(add.neq_var_.begin(), add.neq_var_.end());
@@ -51,10 +47,6 @@ bool Ewff::operator==(const Ewff& c) const {
     return true;
   }
   return neq_name_ == c.neq_name_ && neq_var_ == c.neq_var_;
-}
-
-bool Ewff::operator!=(const Ewff& c) const {
-  return !operator==(c);
 }
 
 bool Ewff::operator<(const Ewff& c) const {
@@ -180,8 +172,8 @@ bool Ewff::SatisfiedBy(const Assignment& theta) const {
   return true;
 }
 
-void Ewff::GenerateModels(const std::set<Variable>::const_iterator first,
-                          const std::set<Variable>::const_iterator last,
+void Ewff::GenerateModels(const Variable::Set::const_iterator first,
+                          const Variable::Set::const_iterator last,
                           const StdName::SortedSet& hplus,
                           Assignment* theta,
                           std::list<Assignment>* models) const {
@@ -192,7 +184,7 @@ void Ewff::GenerateModels(const std::set<Variable>::const_iterator first,
     if (ns_it == hplus.end()) {
       return;
     }
-    const std::set<StdName>& ns = ns_it->second;
+    const StdName::Set& ns = ns_it->second;
     for (const StdName& n : ns) {
       (*theta)[x] = n;
       GenerateModels(std::next(first), last, hplus, theta, models);
@@ -206,13 +198,13 @@ void Ewff::GenerateModels(const std::set<Variable>::const_iterator first,
 std::list<Assignment> Ewff::Models(const StdName::SortedSet& hplus) const {
   std::list<Assignment> models;
   Assignment theta;
-  std::set<Variable> vs = Variables();
+  Variable::Set vs = Variables();
   GenerateModels(vs.begin(), vs.end(), hplus, &theta, &models);
   return models;
 }
 
-std::set<Variable> Ewff::Variables() const {
-  std::set<Variable> vs;
+Variable::Set Ewff::Variables() const {
+  Variable::Set vs;
   for (const auto& xnn : neq_name_) {
     const Variable& x = xnn.first;
     vs.insert(x);
@@ -226,7 +218,7 @@ std::set<Variable> Ewff::Variables() const {
   return vs;
 }
 
-void Ewff::RestrictVariable(const std::set<Variable>& vs) {
+void Ewff::RestrictVariable(const Variable::Set& vs) {
   for (auto xnn = neq_name_.begin(); xnn != neq_name_.end(); ) {
     const Variable& x = xnn->first;
     if (vs.count(x) == 0) {

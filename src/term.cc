@@ -30,10 +30,6 @@ bool Term::operator==(const Term& t) const {
   return kind_ == t.kind_ && id_ == t.id_ && sort_ == t.sort_;
 }
 
-bool Term::operator!=(const Term& t) const {
-  return !(*this == t);
-}
-
 bool Term::operator<(const Term& t) const {
   return std::tie(kind_, id_, sort_) < std::tie(t.kind_, t.id_, t.sort_);
 }
@@ -161,7 +157,7 @@ bool TermSeq::Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta) {
   return true;
 }
 
-void TermSeq::CollectVariables(std::set<Variable>* vs) const {
+void TermSeq::CollectVariables(Variable::Set* vs) const {
   for (const Term& t : *this) {
     if (t.is_variable()) {
       (*vs).insert(Variable(t));
