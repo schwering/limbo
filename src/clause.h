@@ -8,6 +8,7 @@
 #include <list>
 #include <set>
 #include <utility>
+#include "./compar.h"
 #include "./ewff.h"
 #include "./literal.h"
 #include "./maybe.h"
@@ -16,15 +17,13 @@ namespace esbl {
 
 class SimpleClause : public Literal::Set {
  public:
+  struct Comparator;
+
   static const SimpleClause EMPTY;
 
   using Literal::Set::Set;
   bool operator==(const SimpleClause& c) const {
     return std::operator==(*this, c);
-  }
-  bool operator<(const SimpleClause& c) const {
-    return size() < c.size() ||
-        (size() == c.size() && std::operator<(*this, c));
   }
 
   SimpleClause PrependActions(const TermSeq& z) const;
@@ -57,7 +56,8 @@ class SimpleClause : public Literal::Set {
 
 class Clause {
  public:
-  typedef std::set<Clause> Set;
+  struct Comparator;
+  typedef std::set<Clause, Comparator> Set;
 
   static const Clause EMPTY;
   static const Clause MIN_UNIT;
@@ -73,10 +73,6 @@ class Clause {
 
   bool operator==(const Clause& c) const {
     return ls_ == c.ls_ && box_ == c.box_ && e_ == c.e_;
-  }
-  bool operator<(const Clause& c) const {
-    // shortest clauses first
-    return std::tie(ls_, box_, e_) < std::tie(c.ls_, c.box_, c.e_);
   }
 
   Clause InstantiateBox(const TermSeq& z) const;
@@ -103,6 +99,31 @@ class Clause {
   bool box_;
   Ewff e_;
   SimpleClause ls_;
+};
+
+struct SimpleClause::Comparator {
+  typedef SimpleClause value_type;
+
+  bool operator()(const SimpleClause& c, const SimpleClause& d) const {
+    return comp(c.size(), c, d.size(), d);
+  }
+
+ private:
+  LexiComparator<LessComparator<size_t>,
+                 ContainerComparator<Literal::Set>> comp;
+};
+
+struct Clause::Comparator {
+  typedef Clause value_type;
+
+  bool operator()(const Clause& c, const Clause& d) const {
+    return comp(c.ls_, c.box_, c.e_, d.ls_, d.box_, d.e_);
+  }
+ 
+ private:
+  LexiComparator<SimpleClause::Comparator,
+                 LessComparator<bool>,
+                 Ewff::Comparator> comp;
 };
 
 std::ostream& operator<<(std::ostream& os, const SimpleClause& c);

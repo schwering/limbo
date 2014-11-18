@@ -15,7 +15,8 @@ namespace esbl {
 
 class Atom {
  public:
-  typedef std::set<Atom> Set;
+  struct Comparator;
+  typedef std::set<Atom, Comparator> Set;
 
   typedef int PredId;
 
@@ -32,9 +33,6 @@ class Atom {
 
   bool operator==(const Atom& a) const {
     return pred_ == a.pred_ && z_ == a.z_ && args_ == a.args_;
-  }
-  bool operator<(const Atom& a) const {
-    return std::tie(pred_, z_, args_) < std::tie(a.pred_, a.z_, a.args_);
   }
 
   Atom PrependActions(const TermSeq& z) const;
@@ -62,6 +60,23 @@ class Atom {
   TermSeq z_;
   PredId pred_;
   TermSeq args_;
+};
+
+struct Atom::Comparator {
+  typedef Atom value_type;
+
+  bool operator()(const Atom& a, const Atom& b) const {
+    return std::tie(a.pred_, a.z_, a.args_) < std::tie(b.pred_, b.z_, b.args_);
+  }
+
+  Atom LowerBound(const PredId& p) const {
+    return Atom({}, p, {});
+  }
+
+  Atom UpperBound(const PredId& p) const {
+    assert(p < p + 1);
+    return Atom({}, p + 1, {});
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const Atom& a);

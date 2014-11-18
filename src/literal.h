@@ -12,7 +12,8 @@ namespace esbl {
 
 class Literal : public Atom {
  public:
-  typedef std::set<Literal> Set;
+  struct Comparator;
+  typedef std::set<Literal, Comparator> Set;
 
   static const Literal MIN;
   static const Literal MAX;
@@ -25,9 +26,6 @@ class Literal : public Atom {
 
   bool operator==(const Literal& l) const {
     return Atom::operator==(l) && sign_ == l.sign_;
-  }
-  bool operator<(const Literal& l) const {
-    return Atom::operator<(l) || (Atom::operator==(l) && sign_ < l.sign_);
   }
 
   static Literal Positive(const Atom& a) { return Literal(true, a); }
@@ -69,6 +67,25 @@ class SfLiteral : public Literal {
 
   SfLiteral(const SfLiteral&) = default;
   SfLiteral& operator=(const SfLiteral&) = default;
+};
+
+struct Literal::Comparator {
+  typedef Literal value_type;
+
+  bool operator()(const Literal& l1, const Literal& l2) const {
+    return atom_comp(l1, l2) || (!atom_comp(l2, l1) && l1.sign_ < l2.sign_);
+  }
+
+  Literal LowerBound(const PredId& p) const {
+    return Literal({}, false, p, {});
+  }
+
+  Literal UpperBound(const PredId& p) const {
+    return Literal({}, false, p + 1, {});
+  }
+
+ private:
+  Atom::Comparator atom_comp;
 };
 
 std::ostream& operator<<(std::ostream& os, const Literal& l);

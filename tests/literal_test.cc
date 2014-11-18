@@ -6,6 +6,14 @@
 
 using namespace esbl;
 
+inline bool operator<(const Atom& a, const Atom& b) {
+  return Atom::Comparator()(a, b);
+}
+
+inline bool operator<(const Literal& a, const Literal& b) {
+  return Literal::Comparator()(a, b);
+}
+
 TEST(literal_test, less) {
   Term::Factory f;
   StdName n1 = f.CreateStdName(1, 1);

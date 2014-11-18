@@ -6,11 +6,13 @@
 #include <utility>
 #include <tuple>
 #include "./formula.h"
+#include "./compar.h"
 
 namespace esbl {
 
 class Formula::Cnf {
  public:
+  struct Comparator;
   class Disj;
 
   Cnf();
@@ -22,7 +24,6 @@ class Formula::Cnf {
   Cnf And(const Cnf& c) const;
   Cnf Or(const Cnf& c) const;
 
-  bool operator<(const Cnf& c) const;
   bool operator==(const Cnf& c) const;
 
   void Minimize();
@@ -43,7 +44,7 @@ class Formula::Cnf {
   class BLiteral;
 
   // unique_ptr prevents incomplete type errors
-  std::unique_ptr<std::set<Disj>> ds_;
+  std::unique_ptr<std::set<Disj, LessComparator<Disj>>> ds_;
 };
 
 struct Formula::Cnf::Equality : public std::pair<Term, Term> {
@@ -57,18 +58,14 @@ struct Formula::Cnf::Equality : public std::pair<Term, Term> {
 
 class Formula::Cnf::KLiteral {
  public:
-  typedef std::set<KLiteral> Set;
+  struct Comparator;
+  typedef std::set<KLiteral, Comparator> Set;
 
   KLiteral() = default;
   KLiteral(split_level k, const TermSeq& z, bool sign, const Cnf& phi)
       : k_(k), z_(z), sign_(sign), phi_(phi) {}
   KLiteral(const KLiteral&) = default;
   KLiteral& operator=(const KLiteral&) = default;
-
-  bool operator<(const KLiteral& l) const {
-    return std::tie(z_, phi_, sign_, k_) <
-        std::tie(l.z_, l.phi_, l.sign_, l.k_);
-  }
 
   bool operator==(const KLiteral& l) const {
     return std::tie(z_, phi_, sign_, k_) ==
@@ -99,7 +96,8 @@ class Formula::Cnf::KLiteral {
 
 class Formula::Cnf::BLiteral {
  public:
-  typedef std::set<BLiteral> Set;
+  struct Comparator;
+  typedef std::set<BLiteral, Comparator> Set;
 
   BLiteral() = default;
   BLiteral(split_level k, const TermSeq& z, bool sign, const Cnf& neg_phi,
@@ -107,11 +105,6 @@ class Formula::Cnf::BLiteral {
       : k_(k), z_(z), sign_(sign), neg_phi_(neg_phi), psi_(psi) {}
   BLiteral(const BLiteral&) = default;
   BLiteral& operator=(const BLiteral&) = default;
-
-  bool operator<(const BLiteral& l) const {
-    return std::tie(z_, neg_phi_, psi_, sign_, k_) <
-        std::tie(l.z_, l.neg_phi_, l.psi_, l.sign_, l.k_);
-  }
 
   bool operator==(const BLiteral& l) const {
     return std::tie(z_, neg_phi_, psi_, sign_, k_) ==
@@ -145,9 +138,47 @@ class Formula::Cnf::BLiteral {
   Cnf psi_;
 };
 
+struct Formula::Cnf::Comparator {
+  typedef Cnf value_type;
+
+  bool operator()(const Cnf& c, const Cnf& d) const;
+};
+
+struct Formula::Cnf::KLiteral::Comparator {
+  typedef KLiteral value_type;
+
+  bool operator()(const KLiteral& l1, const KLiteral& l2) const {
+    return comp(l1.z_, l1.phi_, l1.sign_, l1.k_,
+                l2.z_, l2.phi_, l2.sign_, l2.k_);
+  }
+
+ private:
+  LexiComparator<LessComparator<TermSeq>,
+                 Formula::Cnf::Comparator,
+                 LessComparator<bool>,
+                 LessComparator<split_level>> comp;
+};
+
+struct Formula::Cnf::BLiteral::Comparator {
+  typedef BLiteral value_type;
+
+  bool operator()(const BLiteral& l1, const BLiteral& l2) const {
+    return comp(l1.z_, l1.neg_phi_, l1.psi_, l1.sign_, l1.k_,
+                l2.z_, l2.neg_phi_, l2.psi_, l2.sign_, l2.k_);
+  }
+
+ private:
+  LexiComparator<LessComparator<TermSeq>,
+                 Formula::Cnf::Comparator,
+                 Formula::Cnf::Comparator,
+                 LessComparator<bool>,
+                 LessComparator<split_level>> comp;
+};
+
 class Formula::Cnf::Disj {
  public:
-  typedef std::set<Disj> Set;
+  struct Comparator;
+  typedef std::set<Disj, LessComparator<Disj>> Set;
 
   Disj() = default;
   Disj(const Disj&) = default;
@@ -160,7 +191,7 @@ class Formula::Cnf::Disj {
   bool Subsumes(const Disj& d) const;
   bool Tautologous() const;
 
-  bool operator<(const Disj& d) const;
+  bool operator<(const Formula::Cnf::Disj& d) const;
   bool operator==(const Disj& d) const;
 
   void AddEq(const Term& t1, const Term& t2) {
@@ -204,6 +235,32 @@ class Formula::Cnf::Disj {
   KLiteral::Set ks_;
   BLiteral::Set bs_;
 };
+
+struct Formula::Cnf::Disj::Comparator {
+  typedef Disj value_type;
+
+  bool operator()(const Disj& c, const Disj& d) const {
+    const size_t n1 = c.eqs_.size() + c.neqs_.size() + c.c_.size() +
+        c.ks_.size() + c.bs_.size();
+    const size_t n2 = d.eqs_.size() + d.neqs_.size() + d.c_.size() +
+        d.ks_.size() + d.bs_.size();
+    return comp(n1, c.eqs_, c.neqs_, c.c_, c.ks_, c.bs_,
+                n2, d.eqs_, d.neqs_, d.c_, d.ks_, d.bs_);
+  }
+
+ private:
+  LexiComparator<LessComparator<size_t>,
+                 LessComparator<Equality::Set>,
+                 LessComparator<Equality::Set>,
+                 SimpleClause::Comparator,
+                 ContainerComparator<KLiteral::Set>,
+                 ContainerComparator<BLiteral::Set>> comp;
+};
+
+bool Formula::Cnf::Comparator::operator()(const Cnf& c, const Cnf& d) const {
+  ContainerComparator<Disj::Set> compar;
+  return compar(*c.ds_, *d.ds_);
+}
 
 struct Formula::Equal : public Formula {
   bool sign;
@@ -783,10 +840,6 @@ Formula::Cnf Formula::Cnf::Or(const Cnf& c) const {
   return r;
 }
 
-bool Formula::Cnf::operator<(const Formula::Cnf& c) const {
-  return *ds_ < *c.ds_;
-}
-
 bool Formula::Cnf::operator==(const Formula::Cnf& c) const {
   return *ds_ == *c.ds_;
 }
@@ -924,13 +977,8 @@ Formula::Cnf::Disj Formula::Cnf::Disj::Substitute(const Unifier& theta) const {
 }
 
 bool Formula::Cnf::Disj::operator<(const Formula::Cnf::Disj& d) const {
-  // shortest disjunctions first
-  const size_t n = eqs_.size() + neqs_.size() + c_.size() +
-      ks_.size() + bs_.size();
-  const size_t dn = d.eqs_.size() + d.neqs_.size() + d.c_.size() +
-      d.ks_.size() + d.bs_.size();
-  return std::tie(n, eqs_, neqs_, c_, ks_, bs_) <
-      std::tie(dn, d.eqs_, d.neqs_, d.c_, d.ks_, d.bs_);
+  Comparator comp;
+  return comp(*this, d);
 }
 
 bool Formula::Cnf::Disj::operator==(const Formula::Cnf::Disj& d) const {
@@ -941,7 +989,7 @@ bool Formula::Cnf::Disj::operator==(const Formula::Cnf::Disj& d) const {
 template<class T>
 bool TautologousLiterals(const T& ls) {
   for (auto it = ls.begin(); it != ls.end(); ) {
-    assert(it->Negative() < it->Positive());
+    //assert(it->Negative() < it->Positive());
     const auto jt = std::next(it);
     assert(ls.find(it->Flip()) == ls.end() || ls.find(it->Flip()) == jt);
     if (jt != ls.end() && !it->sign() && *it == jt->Flip()) {
@@ -956,15 +1004,15 @@ bool Formula::Cnf::Disj::Subsumes(const Disj& d) const {
   assert(ground());
   assert(d.ground());
   return std::includes(d.eqs_.begin(), d.eqs_.end(),
-                       eqs_.begin(), eqs_.end()) &&
+                       eqs_.begin(), eqs_.end(), neqs_.key_comp()) &&
       std::includes(d.neqs_.begin(), d.neqs_.end(),
-                    neqs_.begin(), neqs_.end()) &&
+                    neqs_.begin(), neqs_.end(), neqs_.key_comp()) &&
       std::includes(d.c_.begin(), d.c_.end(),
-                    c_.begin(), c_.end()) &&
+                    c_.begin(), c_.end(), c_.key_comp()) &&
       std::includes(d.ks_.begin(), d.ks_.end(),
-                    ks_.begin(), ks_.end()) &&
+                    ks_.begin(), ks_.end(), ks_.key_comp()) &&
       std::includes(d.bs_.begin(), d.bs_.end(),
-                    bs_.begin(), bs_.end());
+                    bs_.begin(), bs_.end(), bs_.key_comp());
 }
 
 bool Formula::Cnf::Disj::Tautologous() const {

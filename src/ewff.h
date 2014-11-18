@@ -22,11 +22,11 @@ class Ewff {
     typedef std::set<VarNeqName> Set;
     using std::pair<Variable, StdName>::pair;
   };
-
   struct VarNeqVar : public std::pair<Variable, Variable> {
     typedef std::set<VarNeqVar> Set;
     using std::pair<Variable, Variable>::pair;
   };
+  struct Comparator;
 
   static const Ewff TRUE;
 
@@ -40,9 +40,6 @@ class Ewff {
 
   bool operator==(const Ewff& e) const {
     return neq_name_ == e.neq_name_ && neq_var_ == e.neq_var_;
-  }
-  bool operator<(const Ewff& e) const {
-    return std::tie(neq_name_, neq_var_) < std::tie(e.neq_name_, e.neq_var_);
   }
 
   Maybe<Ewff> Substitute(const Unifier& theta) const;
@@ -75,6 +72,15 @@ class Ewff {
 
   VarNeqName::Set neq_name_;
   VarNeqVar::Set neq_var_;
+};
+
+struct Ewff::Comparator {
+  typedef Ewff value_type;
+
+  bool operator()(const Ewff& e1, const Ewff& e2) const {
+    return std::tie(e1.neq_name_, e1.neq_var_) <
+           std::tie(e2.neq_name_, e2.neq_var_);
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const Ewff& e);
