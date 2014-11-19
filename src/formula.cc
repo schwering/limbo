@@ -153,10 +153,10 @@ struct Formula::Cnf::KLiteral::Comparator {
   }
 
  private:
-  LexiComparator<LessComparator<TermSeq>,
-                 Formula::Cnf::Comparator,
-                 LessComparator<bool>,
-                 LessComparator<split_level>> comp;
+  LexicographicComparator<LessComparator<TermSeq>,
+                          Formula::Cnf::Comparator,
+                          LessComparator<bool>,
+                          LessComparator<split_level>> comp;
 };
 
 struct Formula::Cnf::BLiteral::Comparator {
@@ -168,11 +168,11 @@ struct Formula::Cnf::BLiteral::Comparator {
   }
 
  private:
-  LexiComparator<LessComparator<TermSeq>,
-                 Formula::Cnf::Comparator,
-                 Formula::Cnf::Comparator,
-                 LessComparator<bool>,
-                 LessComparator<split_level>> comp;
+  LexicographicComparator<LessComparator<TermSeq>,
+                          Formula::Cnf::Comparator,
+                          Formula::Cnf::Comparator,
+                          LessComparator<bool>,
+                          LessComparator<split_level>> comp;
 };
 
 class Formula::Cnf::Disj {
@@ -249,16 +249,16 @@ struct Formula::Cnf::Disj::Comparator {
   }
 
  private:
-  LexiComparator<LessComparator<size_t>,
-                 LessComparator<Equality::Set>,
-                 LessComparator<Equality::Set>,
-                 SimpleClause::Comparator,
-                 ContainerComparator<KLiteral::Set>,
-                 ContainerComparator<BLiteral::Set>> comp;
+  LexicographicComparator<LessComparator<size_t>,
+                          LessComparator<Equality::Set>,
+                          LessComparator<Equality::Set>,
+                          SimpleClause::Comparator,
+                          LexicographicContainerComparator<KLiteral::Set>,
+                          LexicographicContainerComparator<BLiteral::Set>> comp;
 };
 
 bool Formula::Cnf::Comparator::operator()(const Cnf& c, const Cnf& d) const {
-  ContainerComparator<Disj::Set> compar;
+  LexicographicContainerComparator<Disj::Set> compar;
   return compar(*c.ds_, *d.ds_);
 }
 
@@ -989,7 +989,7 @@ bool Formula::Cnf::Disj::operator==(const Formula::Cnf::Disj& d) const {
 template<class T>
 bool TautologousLiterals(const T& ls) {
   for (auto it = ls.begin(); it != ls.end(); ) {
-    //assert(it->Negative() < it->Positive());
+    assert(ls.key_comp()(it->Negative(), it->Positive()));
     const auto jt = std::next(it);
     assert(ls.find(it->Flip()) == ls.end() || ls.find(it->Flip()) == jt);
     if (jt != ls.end() && !it->sign() && *it == jt->Flip()) {

@@ -28,6 +28,7 @@
 #define SRC_FORMULA_H_
 
 #include <memory>
+#include <utility>
 #include <vector>
 #include "./setup.h"
 #include "./term.h"

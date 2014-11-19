@@ -109,8 +109,8 @@ struct SimpleClause::Comparator {
   }
 
  private:
-  LexiComparator<LessComparator<size_t>,
-                 ContainerComparator<Literal::Set>> comp;
+  LexicographicComparator<LessComparator<size_t>,
+                          LexicographicContainerComparator<Literal::Set>> comp;
 };
 
 struct Clause::Comparator {
@@ -119,11 +119,11 @@ struct Clause::Comparator {
   bool operator()(const Clause& c, const Clause& d) const {
     return comp(c.ls_, c.box_, c.e_, d.ls_, d.box_, d.e_);
   }
- 
+
  private:
-  LexiComparator<SimpleClause::Comparator,
-                 LessComparator<bool>,
-                 Ewff::Comparator> comp;
+  LexicographicComparator<SimpleClause::Comparator,
+                          LessComparator<bool>,
+                          Ewff::Comparator> comp;
 };
 
 std::ostream& operator<<(std::ostream& os, const SimpleClause& c);

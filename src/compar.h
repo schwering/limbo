@@ -17,7 +17,7 @@ struct LessComparator {
 };
 
 template<class T, class Compar = typename T::key_compare>
-struct ContainerComparator {
+struct LexicographicContainerComparator {
   typedef T value_type;
   bool operator()(const T& t1, const T& t2) const {
     return std::lexicographical_compare(t1.begin(), t1.end(),
@@ -30,7 +30,7 @@ struct ContainerComparator {
 };
 
 template<class Compar, class... Compars>
-struct LexiComparator {
+struct LexicographicComparator {
   bool operator()(const typename Compar::value_type& x,
                   const typename Compars::value_type&... xs,
                   const typename Compar::value_type& y,
@@ -46,11 +46,11 @@ struct LexiComparator {
 
  private:
   Compar head_comp;
-  LexiComparator<Compars...> tail_comp;
+  LexicographicComparator<Compars...> tail_comp;
 };
 
 template<class Compar>
-struct LexiComparator<Compar> {
+struct LexicographicComparator<Compar> {
   bool operator()(const typename Compar::value_type& x,
                   const typename Compar::value_type& y) const {
     return comp(x, y);
