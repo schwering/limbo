@@ -146,8 +146,8 @@ Atom::Set Setup::Pel(const SimpleClause& c) const {
     if (!l.z().empty() && c.find(l) == c.end()) {
       continue;
     }
-    const auto first = rel.lower_bound(l.LowerBound());
-    const auto last = rel.lower_bound(l.UpperBound());
+    const auto first = rel.lower_bound(rel.key_comp().LowerBound(l.pred()));
+    const auto last = rel.lower_bound(rel.key_comp().UpperBound(l.pred()));
     for (auto jt = first; jt != last; ++jt) {
       const Literal& ll = *jt;
       assert(l.pred() == ll.pred());

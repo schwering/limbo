@@ -71,15 +71,6 @@ Maybe<Unifier> Atom::Unify(const Atom& a, const Atom& b) {
   return Perhaps(succ, theta);
 }
 
-Atom Atom::LowerBound() const {
-  return Atom({}, pred_, {});
-}
-
-Atom Atom::UpperBound() const {
-  assert(pred_ < std::numeric_limits<PredId>::max());
-  return Atom({}, pred_ + 1, {});
-}
-
 bool Atom::ground() const {
   return std::all_of(z_.begin(), z_.end(),
                      [](const Term& t) { return t.ground(); }) &&

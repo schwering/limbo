@@ -47,13 +47,6 @@ class Literal : public Atom {
     return Literal(sign(), Atom::Ground(theta));
   }
 
-  Literal LowerBound() const {
-    return Literal(false, Atom::LowerBound());
-  }
-  Literal UpperBound() const {
-    return Literal(false, Atom::UpperBound());
-  }
-
   bool sign() const { return sign_; }
 
  private:

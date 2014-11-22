@@ -47,8 +47,8 @@ void SimpleClause::SubsumedBy(const const_iterator first,
     return;
   }
   const Literal l = first->Substitute(theta);
-  const auto first2 = lower_bound(l.LowerBound());
-  const auto last2 = lower_bound(l.UpperBound());
+  const auto first2 = lower_bound(key_comp().LowerBound(l.pred()));
+  const auto last2 = lower_bound(key_comp().UpperBound(l.pred()));
   for (auto it = first2; it != last2; ++it) {
     const Literal& ll = *it;
     assert(l.pred() == ll.pred());
@@ -225,8 +225,8 @@ bool Clause::Subsumes(const Clause& c) const {
   }
   if (box_) {
     const Literal& l = *ls_.begin();
-    const auto first = c.ls_.lower_bound(l.LowerBound());
-    const auto last = c.ls_.lower_bound(l.UpperBound());
+    const auto first = c.ls_.lower_bound(c.ls_.key_comp().LowerBound(l.pred()));
+    const auto last = c.ls_.lower_bound(c.ls_.key_comp().UpperBound(l.pred()));
     for (auto it = first; it != last; ++it) {
       const Literal& ll = *it;
       assert(l.pred() == ll.pred());
@@ -300,8 +300,8 @@ bool Clause::SplitRelevant(const Atom& a, const Clause& c, int k) const {
 size_t Clause::ResolveWithUnit(const Clause& unit, Clause::Set* rs) const {
   assert(unit.is_unit());
   const Literal& unit_l = *unit.literals().begin();
-  const auto first = ls_.lower_bound(unit_l.LowerBound());
-  const auto last = ls_.lower_bound(unit_l.UpperBound());
+  const auto first = ls_.lower_bound(ls_.key_comp().LowerBound(unit_l.pred()));
+  const auto last = ls_.lower_bound(ls_.key_comp().UpperBound(unit_l.pred()));
   size_t n_new_clauses = 0;
   for (auto it = first; it != last; ++it) {
     const Literal& l = *it;

@@ -43,9 +43,6 @@ class Atom {
   static bool Unify(const Atom& a, const Atom& b, Unifier* theta);
   static Maybe<Unifier> Unify(const Atom& a, const Atom& b);
 
-  Atom LowerBound() const;
-  Atom UpperBound() const;
-
   const TermSeq& z() const { return z_; }
   PredId pred() const { return pred_; }
   const TermSeq& args() const { return args_; }
