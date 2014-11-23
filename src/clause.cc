@@ -3,7 +3,6 @@
 
 #include "./clause.h"
 #include <algorithm>
-#include <cassert>
 #include <numeric>
 #include <tuple>
 
@@ -11,8 +10,6 @@ namespace esbl {
 
 const SimpleClause SimpleClause::EMPTY({});
 const Clause Clause::EMPTY(false, Ewff::TRUE, {});
-const Clause Clause::MIN_UNIT(false, Ewff::TRUE, {Literal::MIN});
-const Clause Clause::MAX_UNIT(false, Ewff::TRUE, {Literal::MAX});
 
 SimpleClause SimpleClause::PrependActions(const TermSeq& z) const {
   SimpleClause c;

@@ -24,9 +24,6 @@ class Atom {
   static constexpr PredId SF = -1;
   static constexpr PredId POSS = -2;
 
-  static const Atom MIN;
-  static const Atom MAX;
-
   Atom(const TermSeq& z, PredId pred, const TermSeq& args)
       : z_(z), pred_(pred), args_(args) {}
   Atom(const Atom&) = default;

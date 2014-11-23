@@ -4,6 +4,7 @@
 #ifndef SRC_CLAUSE_H_
 #define SRC_CLAUSE_H_
 
+#include <cassert>
 #include <deque>
 #include <list>
 #include <set>
@@ -57,11 +58,9 @@ class SimpleClause : public Literal::Set {
 class Clause {
  public:
   struct Comparator;
-  typedef std::set<Clause, Comparator> Set;
+  class Set;
 
   static const Clause EMPTY;
-  static const Clause MIN_UNIT;
-  static const Clause MAX_UNIT;
 
   Clause() = default;
   Clause(const Ewff& e, const SimpleClause& ls)
@@ -87,6 +86,7 @@ class Clause {
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
   const SimpleClause& literals() const { return ls_; }
+  bool is_empty() const { return ls_.size() == 0; }
   bool is_unit() const { return ls_.size() == 1; }
 
   void CollectVariables(Variable::SortedSet* vs) const;
@@ -124,6 +124,22 @@ struct Clause::Comparator {
   LexicographicComparator<SimpleClause::Comparator,
                           LessComparator<bool>,
                           Ewff::Comparator> comp;
+};
+
+class Clause::Set : public std::set<Clause, Comparator> {
+ public:
+  using std::set<Clause, Comparator>::set;
+
+  const_iterator first_unit() const {
+    auto it = begin();
+    if (it != end() && it->is_empty()) {
+      ++it;
+    }
+    if (it == end() || !it->is_unit()) {
+      return end();
+    }
+    return it;
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const SimpleClause& c);

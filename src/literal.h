@@ -17,9 +17,6 @@ class Literal : public Atom {
   struct BySignAndPredOnlyComparator;
   class Set;
 
-  static const Literal MIN;
-  static const Literal MAX;
-
   Literal(bool sign, const Atom& a) : Atom(a), sign_(sign) {}
   Literal(const TermSeq& z, bool sign, PredId pred, const TermSeq& args)
       : Atom(z, pred, args), sign_(sign) {}
@@ -122,7 +119,7 @@ class Literal::Set : public std::set<Literal, Comparator> {
 
   template<typename T>
   struct iter_range {
-    iter_range(T&& first, T&& last) : first(first), last(last) {}
+    iter_range(T&& first, T&& last) : first(first), last(last) {}  // NOLINT
     T first;
     T last;
     T begin() const { return first; }

@@ -5,9 +5,6 @@
 
 namespace esbl {
 
-const Literal Literal::MIN(false, Atom::MIN);
-const Literal Literal::MAX(true, Atom::MAX);
-
 std::ostream& operator<<(std::ostream& os, const Literal& l) {
   if (!l.sign()) {
     os << '~';

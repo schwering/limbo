@@ -202,25 +202,17 @@ void Setup::PropagateUnits() {
   }
   size_t n_units = 0;
   for (;;) {
-    const auto first = cs_.lower_bound(Clause::MIN_UNIT);
-    const auto last = cs_.upper_bound(Clause::MAX_UNIT);
-    const size_t d = std::distance(first, last);
+    const auto first = cs_.first_unit();
+    const size_t d = count_while(first, cs_.end(),
+                                 [](const Clause& c) { return c.is_unit(); });
     if (d <= n_units) {
       break;
     }
-    assert(std::all_of(first, last, [](const Clause& c) {return c.is_unit();}));
     n_units = d;
     size_t n_new_clauses = 0;
     for (const Clause& c : cs_) {
-      for (auto it = first; it != last; ++it) {
+      for (auto it = first; it != cs_.end() && it->is_unit(); ++it) {
         const Clause& unit = *it;
-        if (!unit.is_unit()) {
-          // We might encounter a non-unit clause here because a resolvent
-          // generated in a previous iteration may be non-unit and less than
-          // *last.
-          break;
-        }
-        assert(unit.is_unit());
         n_new_clauses += c.ResolveWithUnit(unit, &cs_);
       }
     }

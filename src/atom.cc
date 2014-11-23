@@ -8,9 +8,6 @@
 
 namespace esbl {
 
-const Atom Atom::MIN({}, std::numeric_limits<PredId>::min(), {});
-const Atom Atom::MAX({}, std::numeric_limits<PredId>::max(), {});
-
 Atom Atom::PrependActions(const TermSeq& z) const {
   Atom a = *this;
   a.z_.insert(a.z_.begin(), z.begin(), z.end());
