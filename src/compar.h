@@ -1,7 +1,5 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
-//
-// To handle Maybe<std::unique_ptr<T>> we use std::forward(). Is that correct?
 
 #ifndef SRC_COMPAR_H_
 #define SRC_COMPAR_H_

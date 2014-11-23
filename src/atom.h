@@ -8,6 +8,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include "./compar.h"
 #include "./maybe.h"
 #include "./term.h"
 
@@ -63,7 +64,8 @@ struct Atom::Comparator {
   typedef Atom value_type;
 
   bool operator()(const Atom& a, const Atom& b) const {
-    return std::tie(a.pred_, a.z_, a.args_) < std::tie(b.pred_, b.z_, b.args_);
+    return comp(a.pred_, a.z_, a.args_,
+                b.pred_, b.z_, b.args_);
   }
 
   Atom LowerBound(const PredId& p) const {
@@ -74,6 +76,11 @@ struct Atom::Comparator {
     assert(p < p + 1);
     return Atom({}, p + 1, {});
   }
+
+ private:
+  LexicographicComparator<LessComparator<PredId>,
+                          LessComparator<TermSeq>,
+                          LessComparator<TermSeq>> comp;
 };
 
 std::ostream& operator<<(std::ostream& os, const Atom& a);

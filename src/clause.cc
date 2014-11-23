@@ -47,14 +47,9 @@ void SimpleClause::SubsumedBy(const const_iterator first,
     return;
   }
   const Literal l = first->Substitute(theta);
-  const auto first2 = lower_bound(key_comp().LowerBound(l.pred()));
-  const auto last2 = lower_bound(key_comp().UpperBound(l.pred()));
-  for (auto it = first2; it != last2; ++it) {
-    const Literal& ll = *it;
+  for (const Literal& ll : range(l.sign(), l.pred())) {
     assert(l.pred() == ll.pred());
-    if (l.sign() != ll.sign()) {
-      continue;
-    }
+    assert(l.sign() == ll.sign());
     Unifier theta2 = theta;
     const bool succ = ll.Matches(l, &theta2);
     if (succ && ll == l.Substitute(theta2)) {
@@ -202,37 +197,19 @@ bool Clause::Subsumes(const Clause& c) const {
   if (!box_ && c.box_) {
     return false;
   }
-  auto cmp_maybe_subsuming =
-      box_
-      ? [](const Literal& l1, const Literal& l2) {
-          return l1.pred() < l2.pred();
-        }
-      : [](const Literal& l1, const Literal& l2) {
-          return l1.pred() < l2.pred() ||
-              (l1.pred() == l2.pred() &&
-               l1.z().size() < l2.z().size()) ||
-              (l1.pred() == l2.pred() &&
-               l1.z() == l2.z() &&
-               l1.args().size() < l2.args().size()) ||
-              (l1.pred() == l2.pred() &&
-               l1.z() == l2.z() &&
-               l1.args() == l2.args() &&
-               l1.sign() < l2.sign());
-        };
-  if (!std::includes(c.ls_.begin(), c.ls_.end(), ls_.begin(), ls_.end(),
-                     cmp_maybe_subsuming)) {
+  if ((box_ && !std::includes(c.ls_.begin(), c.ls_.end(),
+                              ls_.begin(), ls_.end(),
+                              Literal::BySignAndPredOnlyComparator())) ||
+      (!box_ && !std::includes(c.ls_.begin(), c.ls_.end(),
+                               ls_.begin(), ls_.end(),
+                               Literal::BySizeOnlyCompatator()))) {
     return false;
   }
   if (box_) {
     const Literal& l = *ls_.begin();
-    const auto first = c.ls_.lower_bound(c.ls_.key_comp().LowerBound(l.pred()));
-    const auto last = c.ls_.lower_bound(c.ls_.key_comp().UpperBound(l.pred()));
-    for (auto it = first; it != last; ++it) {
-      const Literal& ll = *it;
+    for (const Literal& ll : c.ls_.range(l.sign(), l.pred())) {
       assert(l.pred() == ll.pred());
-      if (l.sign() != ll.sign()) {
-        continue;
-      }
+      assert(l.sign() == ll.sign());
       const Maybe<TermSeq> z = ll.z().WithoutLast(l.z().size());
       if (z && InstantiateBox(z.val).Subsumes(c)) {
         return true;
@@ -300,15 +277,10 @@ bool Clause::SplitRelevant(const Atom& a, const Clause& c, int k) const {
 size_t Clause::ResolveWithUnit(const Clause& unit, Clause::Set* rs) const {
   assert(unit.is_unit());
   const Literal& unit_l = *unit.literals().begin();
-  const auto first = ls_.lower_bound(ls_.key_comp().LowerBound(unit_l.pred()));
-  const auto last = ls_.lower_bound(ls_.key_comp().UpperBound(unit_l.pred()));
   size_t n_new_clauses = 0;
-  for (auto it = first; it != last; ++it) {
-    const Literal& l = *it;
+  for (const Literal& l : ls_.range(!unit_l.sign(), unit_l.pred())) {
     assert(unit_l.pred() == l.pred());
-    if (unit_l.sign() == l.sign()) {
-      continue;
-    }
+    assert(unit_l.sign() != l.sign());
     Maybe<Unifier, Clause> p = Unify(l, unit_l);
     if (!p) {
       continue;

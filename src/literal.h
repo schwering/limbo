@@ -13,7 +13,9 @@ namespace esbl {
 class Literal : public Atom {
  public:
   struct Comparator;
-  typedef std::set<Literal, Comparator> Set;
+  struct BySizeOnlyCompatator;
+  struct BySignAndPredOnlyComparator;
+  class Set;
 
   static const Literal MIN;
   static const Literal MAX;
@@ -66,19 +68,78 @@ struct Literal::Comparator {
   typedef Literal value_type;
 
   bool operator()(const Literal& l1, const Literal& l2) const {
-    return atom_comp(l1, l2) || (!atom_comp(l2, l1) && l1.sign_ < l2.sign_);
+    return comp(l1.pred(), l1.sign_, l1.z(), l1.args(),
+                l2.pred(), l2.sign_, l2.z(), l2.args());
   }
 
-  Literal LowerBound(const PredId& p) const {
-    return Literal({}, false, p, {});
+  Literal LowerBound(bool sign, const PredId& p) const {
+    return Literal({}, sign, p, {});
   }
 
-  Literal UpperBound(const PredId& p) const {
-    return Literal({}, false, p + 1, {});
+  Literal UpperBound(bool sign, const PredId& p) const {
+    assert(p + 1 > p);
+    return Literal({}, !sign, !sign ? p : p + 1, {});
   }
 
  private:
-  Atom::Comparator atom_comp;
+  LexicographicComparator<LessComparator<PredId>,
+                          LessComparator<bool>,
+                          LessComparator<TermSeq>,
+                          LessComparator<TermSeq>> comp;
+};
+
+struct Literal::BySizeOnlyCompatator {
+  typedef Literal value_type;
+
+  bool operator()(const Literal& l1, const Literal& l2) const {
+    return comp(l1.pred(), l1.sign_, l1.z().size(), l1.args().size(),
+                l2.pred(), l2.sign_, l2.z().size(), l2.args().size());
+  }
+
+ private:
+  LexicographicComparator<LessComparator<PredId>,
+                          LessComparator<bool>,
+                          LessComparator<size_t>,
+                          LessComparator<size_t>> comp;
+};
+
+struct Literal::BySignAndPredOnlyComparator {
+  typedef Literal value_type;
+
+  bool operator()(const Literal& l1, const Literal& l2) const {
+    return comp(l1.pred(), l1.sign_,
+                l2.pred(), l2.sign_);
+  }
+
+ private:
+  LexicographicComparator<LessComparator<PredId>,
+                          LessComparator<bool>> comp;
+};
+
+class Literal::Set : public std::set<Literal, Comparator> {
+ public:
+  using std::set<Literal, Comparator>::set;
+
+  template<typename T>
+  struct iter_range {
+    iter_range(T&& first, T&& last) : first(first), last(last) {}
+    T first;
+    T last;
+    T begin() const { return first; }
+    T end() const { return last; }
+  };
+
+  iter_range<iterator> range(bool sign, PredId pred) {
+    return iter_range<iterator>(
+        lower_bound(key_comp().LowerBound(sign, pred)),
+        lower_bound(key_comp().UpperBound(sign, pred)));
+  }
+
+  iter_range<const_iterator> range(bool sign, PredId pred) const {
+    return iter_range<const_iterator>(
+        lower_bound(key_comp().LowerBound(sign, pred)),
+        lower_bound(key_comp().UpperBound(sign, pred)));
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const Literal& l);

@@ -58,7 +58,8 @@ TEST(literal_test, less) {
   EXPECT_TRUE(b.Negative() < b.Positive());
   EXPECT_TRUE(c.Negative() < c.Positive());
 
-  EXPECT_TRUE((static_cast<Atom>(a) < static_cast<Atom>(b)) == (a < b));
+  EXPECT_TRUE(a.sign() != b.sign() || (static_cast<Atom>(a) < static_cast<Atom>(b)) == (a < b));
+  EXPECT_TRUE(a.sign() == b.sign() || (static_cast<Atom>(a) < static_cast<Atom>(b)) == (a < b.Flip()));
 
   EXPECT_TRUE((static_cast<Atom>(a) == static_cast<Atom>(a.Flip())) && !(a == b));
   EXPECT_TRUE((static_cast<const Atom&>(a) == static_cast<const Atom&>(a.Flip())) && !(a == b));

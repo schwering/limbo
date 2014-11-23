@@ -146,14 +146,9 @@ Atom::Set Setup::Pel(const SimpleClause& c) const {
     if (!l.z().empty() && c.find(l) == c.end()) {
       continue;
     }
-    const auto first = rel.lower_bound(rel.key_comp().LowerBound(l.pred()));
-    const auto last = rel.lower_bound(rel.key_comp().UpperBound(l.pred()));
-    for (auto jt = first; jt != last; ++jt) {
-      const Literal& ll = *jt;
+    for (const Literal& ll : rel.range(!l.sign(), l.pred())) {
       assert(l.pred() == ll.pred());
-      if (ll.sign()) {
-        continue;
-      }
+      assert(l.sign() != ll.sign());
       Unifier theta;
       const bool succ = Atom::Unify(l, ll, &theta);
       if (succ) {
