@@ -69,8 +69,17 @@ struct Literal::Comparator {
                 l2.pred(), l2.sign_, l2.z(), l2.args());
   }
 
+  Literal LowerBound(const PredId& p) const {
+    return Literal({}, false, p, {});
+  }
+
   Literal LowerBound(bool sign, const PredId& p) const {
     return Literal({}, sign, p, {});
+  }
+
+  Literal UpperBound(const PredId& p) const {
+    assert(p + 1 > p);
+    return Literal({}, false, p + 1, {});
   }
 
   Literal UpperBound(bool sign, const PredId& p) const {
@@ -126,10 +135,10 @@ class Literal::Set : public std::set<Literal, Comparator> {
     T end() const { return last; }
   };
 
-  iter_range<iterator> range(bool sign, PredId pred) {
-    return iter_range<iterator>(
-        lower_bound(key_comp().LowerBound(sign, pred)),
-        lower_bound(key_comp().UpperBound(sign, pred)));
+  iter_range<const_iterator> range(PredId pred) const {
+    return iter_range<const_iterator>(
+        lower_bound(key_comp().LowerBound(pred)),
+        lower_bound(key_comp().UpperBound(pred)));
   }
 
   iter_range<const_iterator> range(bool sign, PredId pred) const {
