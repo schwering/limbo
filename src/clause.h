@@ -79,7 +79,7 @@ class Clause {
   Clause InstantiateBox(const TermSeq& z) const;
 
   void Rel(const StdName::SortedSet& hplus,
-           const Literal& ext_l,
+           const Literal& goal_lit,
            std::deque<Literal>* rel) const;
   bool Subsumes(const Clause& c) const;
   bool SplitRelevant(const Atom& a, const Clause& c, int k) const;
@@ -97,7 +97,6 @@ class Clause {
 
  private:
   Maybe<Clause> Substitute(const Unifier& theta) const;
-  Maybe<Unifier, Clause> Unify(const Atom& cl_a, const Atom& ext_a) const;
   static Maybe<Clause> ResolveWrt(const Clause& c1, const Clause& c2,
                                   const Literal& l1, const Literal& l2);
 

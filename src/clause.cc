@@ -180,31 +180,6 @@ Maybe<Clause> Clause::Substitute(const Unifier& theta) const {
   return Just(Clause(box_, e.val, ls));
 }
 
-Maybe<Unifier, Clause> Clause::Unify(const Atom& cl_a,
-                                     const Atom& ext_a) const {
-  if (box_) {
-    const Maybe<TermSeq> z = ext_a.z().WithoutLast(cl_a.z().size());
-    if (!z) {
-      return Nothing;
-    }
-    const Atom a = cl_a.PrependActions(z.val);
-    const Clause c = InstantiateBox(z.val);
-    return c.Unify(a, ext_a);
-  } else {
-    const Maybe<Unifier> theta = Atom::Unify(cl_a, ext_a);
-    if (!theta) {
-      return Nothing;
-    }
-    const Maybe<Ewff> e = e_.Substitute(theta.val);
-    if (!e) {
-      return Nothing;
-    }
-    const SimpleClause ls = ls_.Substitute(theta.val);
-    const Clause c = Clause(false, e.val, ls);
-    return Just(theta.val, c);
-  }
-}
-
 bool Clause::Subsumes(const Clause& c) const {
   if (ls_.empty()) {
     return true;
@@ -243,10 +218,11 @@ bool Clause::Subsumes(const Clause& c) const {
 }
 
 void Clause::Rel(const StdName::SortedSet& hplus,
-                 const Literal &ext_l,
+                 const Literal& goal_lit,
                  std::deque<Literal>* rel) const {
   const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
       [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
+  const Clause goal = Clause(Ewff::TRUE, {goal_lit.Flip()});
   // Given a clause l and a clause e->c such that for some l' in c with
   // l = l'.theta for some theta and |= e.theta.theta' for some theta', for all
   // clauses l'' c.theta.theta', its negation ~l'' is relevant to l.
@@ -255,22 +231,18 @@ void Clause::Rel(const StdName::SortedSet& hplus,
   // Due to the constrained form of BATs, only l' with maximum action length in
   // e->c must be considered. Intuitively, in an SSA Box([a]F <-> ...) this is
   // [a]F, and in Box(SF(a) <-> ...) it is every literal of the fluent.
-  for (const Literal& cl_l : ls_) {
-    if (ext_l.sign() != cl_l.sign() ||
-        ext_l.pred() != cl_l.pred() ||
-        cl_l.z().size() < max_z) {
+  for (const Literal& l : ls_.range(goal_lit.sign(), goal_lit.pred())) {
+    assert(goal_lit.sign() == l.sign());
+    assert(goal_lit.pred() == l.pred());
+    if (l.z().size() < max_z) {
       continue;
     }
-    Maybe<Unifier, Clause> p = Unify(cl_l, ext_l);
-    if (!p) {
+    Maybe<Clause> c = ResolveWrt(*this, goal, l, *goal.ls_.begin());
+    if (!c) {
       continue;
     }
-    const Unifier& theta = p.val1;
-    Clause& c = p.val2;
-    size_t n = c.ls_.erase(ext_l.Substitute(theta));
-    assert(n >= 1);
-    for (const Assignment& theta : c.e_.Models(hplus)) {
-      for (const Literal& ll : c.ls_) {
+    for (const Assignment& theta : c.val.e_.Models(hplus)) {
+      for (const Literal& ll : c.val.ls_) {
         rel->insert(rel->end(), ll.Ground(theta).Flip());
       }
     }
