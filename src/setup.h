@@ -124,7 +124,6 @@ class Setups {
   std::vector<BeliefConditional> bcs_;
 };
 
-std::ostream& operator<<(std::ostream& os, const Clause::Set& cs);
 std::ostream& operator<<(std::ostream& os, const Setup& s);
 std::ostream& operator<<(std::ostream& os, const Setups& ss);
 

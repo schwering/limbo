@@ -11,6 +11,35 @@ namespace esbl {
 const SimpleClause SimpleClause::EMPTY({});
 const Clause Clause::EMPTY(false, Ewff::TRUE, {});
 
+SimpleClause SimpleClause::ResolveWrt(const SimpleClause& c1,
+                                      const SimpleClause& c2,
+                                      const Literal& l1,
+                                      const Literal& l2) {
+  assert(c1.find(l1) != c1.end());
+  assert(c2.find(l2) != c2.end());
+  if (c1.size() == 1 && c2.size() == 1) {
+    return EMPTY;
+  } else if (c1.size() == 1) {
+    SimpleClause c = c2;
+    c.erase(l2);
+    return c;
+  } else if (c2.size() == 1) {
+    SimpleClause c = c1;
+    c.erase(l1);
+    return c;
+  } else {
+    SimpleClause r1 = c1;
+    r1.erase(l1);
+    SimpleClause r2 = c2;
+    r1.erase(l2);
+    BySizeComparator<SimpleClause> compar;
+    SimpleClause r = std::max(r1, r2, compar);
+    const SimpleClause& add = std::min(r1, r2, compar);
+    r.insert(add.begin(), add.end());
+    return r;
+  }
+}
+
 SimpleClause SimpleClause::PrependActions(const TermSeq& z) const {
   SimpleClause c;
   for (const Literal& l : *this) {
@@ -59,16 +88,6 @@ std::list<Unifier> SimpleClause::Subsumes(const SimpleClause& c) const {
   std::list<Unifier> thetas;
   c.SubsumedBy(begin(), end(), Unifier(), &thetas);
   return thetas;
-}
-
-Maybe<Unifier, SimpleClause> SimpleClause::Unify(const Atom& cl_a,
-                                                 const Atom& ext_a) const {
-  const Maybe<Unifier> theta = Atom::Unify(cl_a, ext_a);
-  if (!theta) {
-    return Nothing;
-  }
-  SimpleClause c = Substitute(theta.val);
-  return Just(theta.val, c);
 }
 
 void SimpleClause::GenerateInstances(const Variable::Set::const_iterator first,
@@ -172,18 +191,17 @@ Maybe<Unifier, Clause> Clause::Unify(const Atom& cl_a,
     const Clause c = InstantiateBox(z.val);
     return c.Unify(a, ext_a);
   } else {
-    const Maybe<Unifier, SimpleClause> p = ls_.Unify(cl_a, ext_a);
-    if (!p) {
+    const Maybe<Unifier> theta = Atom::Unify(cl_a, ext_a);
+    if (!theta) {
       return Nothing;
     }
-    const Unifier& theta = p.val1;
-    const SimpleClause& ls = p.val2;
-    const Maybe<Ewff> e = e_.Substitute(theta);
+    const Maybe<Ewff> e = e_.Substitute(theta.val);
     if (!e) {
       return Nothing;
     }
+    const SimpleClause ls = ls_.Substitute(theta.val);
     const Clause c = Clause(false, e.val, ls);
-    return Just(theta, c);
+    return Just(theta.val, c);
   }
 }
 
@@ -271,33 +289,63 @@ bool Clause::SplitRelevant(const Atom& a, const Clause& c, int k) const {
          (ls_size <= k + 1 || ls_size - c_size <= k);
 }
 
-size_t Clause::ResolveWithUnit(const Clause& unit, Clause::Set* rs) const {
-  assert(unit.is_unit());
-  const Literal& unit_l = *unit.literals().begin();
-  size_t n_new_clauses = 0;
-  for (const Literal& l : ls_.range(!unit_l.sign(), unit_l.pred())) {
-    assert(unit_l.pred() == l.pred());
-    assert(unit_l.sign() != l.sign());
-    Maybe<Unifier, Clause> p = Unify(l, unit_l);
-    if (!p) {
-      continue;
+Maybe<Clause> Clause::ResolveWrt(const Clause& c1, const Clause& c2,
+                                 const Literal& l1, const Literal& l2) {
+  assert(l1.sign() != l2.sign());
+  assert(c1.ls_.find(l1) != c1.ls_.end());
+  assert(c2.ls_.find(l2) != c2.ls_.end());
+  if (c1.box_) {
+    const Maybe<TermSeq> z = l2.z().WithoutLast(l1.z().size());
+    if (!z) {
+      return Nothing;
     }
-    const Unifier& theta = p.val1;
-    Clause& d = p.val2;
-    const Maybe<Ewff> unit_e = unit.e_.Substitute(theta);
-    if (!unit_e) {
-      continue;
+    const Literal ll1 = l1.PrependActions(z.val);
+    const Clause cc1 = c1.InstantiateBox(z.val);
+    Maybe<Clause> d = ResolveWrt(cc1, c2, ll1, l2);
+    if (d) {
+      d.val.box_ = c2.box_;
     }
-    const size_t n = d.ls_.erase(unit_l.Substitute(theta).Flip());
-    assert(n > 0);
-    d.e_ = Ewff::And(d.e_, unit_e.val);
-    d.e_.RestrictVariable(d.ls_.Variables());
-    const auto pp = rs->insert(d);
-    if (pp.second) {
-      ++n_new_clauses;
+    return d;
+  } else if (c2.box_) {
+    return ResolveWrt(c2, c1, l2, l1);
+  } else {
+    const Maybe<Unifier> theta = Atom::Unify(l1, l2);
+    if (!theta) {
+      return Nothing;
+    }
+    const Maybe<Ewff> e1 = c1.e_.Substitute(theta.val);
+    if (!e1) {
+      return Nothing;
+    }
+    const Maybe<Ewff> e2 = c2.e_.Substitute(theta.val);
+    if (!e2) {
+      return Nothing;
+    }
+    const SimpleClause ls =
+        SimpleClause::ResolveWrt(c1.ls_, c2.ls_, l1, l2).Substitute(theta.val);
+    Ewff e = Ewff::And(e1.val, e2.val);
+    e.RestrictVariable(ls.Variables());
+    return Just(Clause(false, e, ls));
+  }
+}
+
+size_t Clause::ResolveWrt(const Clause& c1, const Clause& c2, const Atom& a,
+                          Clause::Set* rs) {
+  size_t n = 0;
+  for (const Literal& l1 : c1.ls_.range(a.pred())) {
+    for (const Literal& l2 : c2.ls_.range(!l1.sign(), l1.pred())) {
+      assert(l1.pred() == l2.pred());
+      assert(l1.sign() != l2.sign());
+      Maybe<Clause> c = ResolveWrt(c1, c2, l1, l2);
+      if (c) {
+        const auto p = rs->insert(c.val);
+        if (p.second) {
+          ++n;
+        }
+      }
     }
   }
-  return n_new_clauses;
+  return n;
 }
 
 void Clause::CollectVariables(Variable::SortedSet* vs) const {
@@ -330,6 +378,15 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
   if (c.box()) {
     os << ")";
   }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Clause::Set& cs) {
+  os << "{" << std::endl;
+  for (const Clause& c : cs) {
+    os << ", " << c << std::endl;
+  }
+  os << "}" << std::endl;
   return os;
 }
 

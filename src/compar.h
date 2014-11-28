@@ -27,6 +27,14 @@ struct LexicographicContainerComparator {
   Compar comp;
 };
 
+template<class T>
+struct BySizeComparator {
+  typedef T value_type;
+  bool operator()(const T& t1, const T& t2) const {
+    return t1.size() < t2.size();
+  }
+};
+
 template<class Compar, class... Compars>
 struct LexicographicComparator {
   bool operator()(const typename Compar::value_type& x,

@@ -23,6 +23,9 @@ class SimpleClause : public Literal::Set {
   static const SimpleClause EMPTY;
 
   using Literal::Set::Set;
+  static SimpleClause ResolveWrt(const SimpleClause& c1, const SimpleClause& c2,
+                                 const Literal& l1, const Literal& l2);
+
   bool operator==(const SimpleClause& c) const {
     return std::operator==(*this, c);
   }
@@ -32,7 +35,6 @@ class SimpleClause : public Literal::Set {
   SimpleClause Substitute(const Unifier& theta) const;
   SimpleClause Ground(const Assignment& theta) const;
   std::list<Unifier> Subsumes(const SimpleClause& c) const;
-  Maybe<Unifier, SimpleClause> Unify(const Atom& cl_a, const Atom& ext_a) const;
 
   std::list<SimpleClause> Instances(const StdName::SortedSet& hplus) const;
 
@@ -81,7 +83,8 @@ class Clause {
            std::deque<Literal>* rel) const;
   bool Subsumes(const Clause& c) const;
   bool SplitRelevant(const Atom& a, const Clause& c, int k) const;
-  size_t ResolveWithUnit(const Clause& unit, Clause::Set* rs) const;
+  static size_t ResolveWrt(const Clause& c1, const Clause& c2, const Atom& a,
+                           Clause::Set* rs);
 
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
@@ -95,6 +98,8 @@ class Clause {
  private:
   Maybe<Clause> Substitute(const Unifier& theta) const;
   Maybe<Unifier, Clause> Unify(const Atom& cl_a, const Atom& ext_a) const;
+  static Maybe<Clause> ResolveWrt(const Clause& c1, const Clause& c2,
+                                  const Literal& l1, const Literal& l2);
 
   bool box_;
   Ewff e_;
@@ -144,6 +149,7 @@ class Clause::Set : public std::set<Clause, Comparator> {
 
 std::ostream& operator<<(std::ostream& os, const SimpleClause& c);
 std::ostream& operator<<(std::ostream& os, const Clause& c);
+std::ostream& operator<<(std::ostream& os, const Clause::Set& cs);
 
 }  // namespace esbl
 

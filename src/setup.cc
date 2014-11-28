@@ -213,7 +213,8 @@ void Setup::PropagateUnits() {
     for (const Clause& c : cs_) {
       for (auto it = first; it != cs_.end() && it->is_unit(); ++it) {
         const Clause& unit = *it;
-        n_new_clauses += c.ResolveWithUnit(unit, &cs_);
+        const Literal& unit_l = *unit.literals().begin();
+        n_new_clauses += Clause::ResolveWrt(c, unit, unit_l, &cs_);
       }
     }
     if (n_new_clauses > 0) {
@@ -426,18 +427,9 @@ bool Setups::Entails(const SimpleClause& neg_phi, const SimpleClause& psi,
   return true;
 }
 
-std::ostream& operator<<(std::ostream& os, const Clause::Set& cs) {
-  for (const Clause& c : cs) {
-    os << "    " << c << std::endl;
-  }
-  return os;
-}
-
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
   os << "Setup:" << std::endl;
-  for (const Clause& c : s.clauses()) {
-    os << "    " << c << std::endl;
-  }
+  os << s.clauses() << std::endl;
   return os;
 }
 
