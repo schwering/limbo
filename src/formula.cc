@@ -4,11 +4,12 @@
 #include <algorithm>
 #include <cassert>
 #include <utility>
-#include <tuple>
 #include "./formula.h"
 #include "./compar.h"
 
 namespace esbl {
+
+// {{{
 
 class Formula::Cnf {
  public:
@@ -43,7 +44,7 @@ class Formula::Cnf {
   class KLiteral;
   class BLiteral;
 
-  // unique_ptr prevents incomplete type errors
+  // Using unique_ptr prevents incomplete type errors.
   std::unique_ptr<std::set<Disj, LessComparator<Disj>>> ds_;
 };
 
@@ -68,8 +69,7 @@ class Formula::Cnf::KLiteral {
   KLiteral& operator=(const KLiteral&) = default;
 
   bool operator==(const KLiteral& l) const {
-    return std::tie(z_, phi_, sign_, k_) ==
-        std::tie(l.z_, l.phi_, l.sign_, l.k_);
+    return z_ == l.z_ && phi_ == l.phi_ && sign_ == l.sign_ && k_ == l.k_;
   }
 
   KLiteral Flip() const { return KLiteral(k_, z_, !sign_, phi_); }
@@ -107,8 +107,8 @@ class Formula::Cnf::BLiteral {
   BLiteral& operator=(const BLiteral&) = default;
 
   bool operator==(const BLiteral& l) const {
-    return std::tie(z_, neg_phi_, psi_, sign_, k_) ==
-        std::tie(l.z_, l.neg_phi_, l.psi_, l.sign_, l.k_);
+    return z_ == l.z_ && neg_phi_ == l.neg_phi_ && psi_ == l.psi_ &&
+        sign_ == l.sign_ && k_ == l.k_;
   }
 
   BLiteral Flip() const { return BLiteral(k_, z_, !sign_, neg_phi_, psi_); }
@@ -191,7 +191,10 @@ class Formula::Cnf::Disj {
   bool Subsumes(const Disj& d) const;
   bool Tautologous() const;
 
+  // Just forwards to Comparator::operator(). The only purpose is that this
+  // allows Cnf to declare a set of Disj.
   bool operator<(const Formula::Cnf::Disj& d) const;
+
   bool operator==(const Disj& d) const;
 
   void AddEq(const Term& t1, const Term& t2) {
@@ -261,6 +264,339 @@ bool Formula::Cnf::Comparator::operator()(const Cnf& c, const Cnf& d) const {
   LexicographicContainerComparator<Disj::Set> compar;
   return compar(*c.ds_, *d.ds_);
 }
+
+Formula::Cnf::Cnf() : ds_(new Disj::Set()) {}
+
+Formula::Cnf::Cnf(const Formula::Cnf::Disj& d) : Cnf() {
+  ds_->insert(d);
+}
+
+Formula::Cnf::Cnf(const Cnf& c) : Cnf() {
+  *ds_ = *c.ds_;
+}
+
+Formula::Cnf& Formula::Cnf::operator=(const Formula::Cnf& c) {
+  *ds_ = *c.ds_;
+  return *this;
+}
+
+Formula::Cnf Formula::Cnf::Substitute(const Unifier& theta) const {
+  Cnf c;
+  for (const Disj& d : *ds_) {
+    c.ds_->insert(d.Substitute(theta));
+  }
+  return c;
+}
+
+Formula::Cnf Formula::Cnf::And(const Cnf& c) const {
+  Cnf r = *this;
+  r.ds_->insert(c.ds_->begin(), c.ds_->end());
+  assert(r.ds_->size() <= ds_->size() + c.ds_->size());
+  return r;
+}
+
+Formula::Cnf Formula::Cnf::Or(const Cnf& c) const {
+  Cnf r;
+  for (const Disj& d1 : *ds_) {
+    for (const Disj& d2 : *c.ds_) {
+      r.ds_->insert(Cnf::Disj::Concat(d1, d2));
+    }
+  }
+  assert(r.ds_->size() <= ds_->size() * c.ds_->size());
+  return r;
+}
+
+bool Formula::Cnf::operator==(const Formula::Cnf& c) const {
+  return *ds_ == *c.ds_;
+}
+
+void Formula::Cnf::Minimize() {
+  Disj::Set new_ds;
+  for (const Disj& d : *ds_) {
+    assert(d.ground());
+    if (!d.Tautologous()) {
+      Disj dd = d;
+      dd.ClearEqs();
+      dd.ClearNeqs();
+      new_ds.insert(new_ds.end(), dd);
+    }
+  }
+  std::swap(*ds_, new_ds);
+  do {
+    new_ds.clear();
+    for (auto it = ds_->begin(); it != ds_->end(); ++it) {
+      // Disj::operator< orders by clause length first, so subsumed clauses
+      // are greater than the subsuming.
+      for (auto jt = std::next(it); jt != ds_->end(); ) {
+        if (it->Subsumes(*jt)) {
+          jt = ds_->erase(jt);
+        } else {
+          Maybe<Disj> d = Disj::Resolve(*it, *jt);
+          if (d) {
+            new_ds.insert(d.val);
+          }
+          ++jt;
+        }
+      }
+    }
+    ds_->insert(new_ds.begin(), new_ds.end());
+  } while (!new_ds.empty());
+}
+
+bool Formula::Cnf::ground() const {
+  return std::all_of(ds_->begin(), ds_->end(),
+                     [](const Disj& d) { return d.ground(); });
+}
+
+void Formula::Cnf::AddToSetup(Setup* setup) const {
+  for (const Disj& d : *ds_) {
+    d.AddToSetup(setup);
+  }
+}
+
+void Formula::Cnf::AddToSetups(Setups* setups) const {
+  for (const Disj& d : *ds_) {
+    d.AddToSetups(setups);
+  }
+}
+
+bool Formula::Cnf::EntailedBy(Setup* s, split_level k) const {
+  return std::all_of(ds_->begin(), ds_->end(),
+                     [s, k](const Disj& d) { return d.EntailedBy(s, k); });
+}
+
+bool Formula::Cnf::EntailedBy(Setups* s, split_level k) const {
+  return std::all_of(ds_->begin(), ds_->end(),
+                     [s, k](const Disj& d) { return d.EntailedBy(s, k); });
+}
+
+void Formula::Cnf::Print(std::ostream* os) const {
+  *os << '(';
+  for (auto it = ds_->begin(); it != ds_->end(); ++it) {
+    if (it != ds_->begin()) {
+      *os << " ^ ";
+    }
+    it->Print(os);
+  }
+  *os << ')';
+}
+
+Formula::Cnf::Disj Formula::Cnf::Disj::Concat(const Disj& d1, const Disj& d2) {
+  Disj d = d1;
+  d.eqs_.insert(d2.eqs_.begin(), d2.eqs_.end());
+  d.neqs_.insert(d2.neqs_.begin(), d2.neqs_.end());
+  d.c_.insert(d2.c_.begin(), d2.c_.end());
+  d.ks_.insert(d2.ks_.begin(), d2.ks_.end());
+  d.bs_.insert(d2.bs_.begin(), d2.bs_.end());
+  return d;
+}
+
+template<class T>
+bool ResolveLiterals(T* lhs, const T& rhs) {
+  for (const auto& l : rhs) {
+    const auto it = lhs->find(l.Flip());
+    if (it != lhs->end()) {
+      lhs->erase(it);
+      return true;
+    }
+  }
+  return false;
+}
+
+Maybe<Formula::Cnf::Disj> Formula::Cnf::Disj::Resolve(const Disj& d1,
+                                                      const Disj& d2) {
+  assert(d1.eqs_.empty() && d1.neqs_.empty());
+  assert(d2.eqs_.empty() && d2.neqs_.empty());
+  assert(d1.ground());
+  assert(d2.ground());
+  if (d1.c_.size() + d1.ks_.size() + d1.bs_.size() >
+      d2.c_.size() + d2.ks_.size() + d2.bs_.size()) {
+    return Resolve(d2, d1);
+  }
+  Disj r = d2;
+  if (ResolveLiterals(&r.c_, d1.c_) ||
+      ResolveLiterals(&r.ks_, d1.ks_) ||
+      ResolveLiterals(&r.bs_, d1.bs_)) {
+    return Perhaps(!r.Tautologous(), r);
+  }
+  return Nothing;
+}
+
+Formula::Cnf::Disj Formula::Cnf::Disj::Substitute(const Unifier& theta) const {
+  Disj d;
+  for (const auto& p : eqs_) {
+    d.eqs_.insert(std::make_pair(p.first.Substitute(theta),
+                                 p.second.Substitute(theta)));
+  }
+  for (const auto& p : neqs_) {
+    d.eqs_.insert(std::make_pair(p.first.Substitute(theta),
+                                 p.second.Substitute(theta)));
+  }
+  d.c_ = c_.Substitute(theta);
+  for (const auto& k : ks_) {
+    d.ks_.insert(k.Substitute(theta));
+  }
+  for (const auto& b : bs_) {
+    d.bs_.insert(b.Substitute(theta));
+  }
+  return d;
+}
+
+bool Formula::Cnf::Disj::operator==(const Formula::Cnf::Disj& d) const {
+  return eqs_ == d.eqs_ && neqs_ == d.neqs_ && c_ == d.c_ && ks_ == d.ks_ &&
+      bs_ == d.bs_;
+}
+
+template<class T>
+bool TautologousLiterals(const T& ls) {
+  for (auto it = ls.begin(); it != ls.end(); ) {
+    assert(ls.key_comp()(it->Negative(), it->Positive()));
+    const auto jt = std::next(it);
+    assert(ls.find(it->Flip()) == ls.end() || ls.find(it->Flip()) == jt);
+    if (jt != ls.end() && !it->sign() && *it == jt->Flip()) {
+      return true;
+    }
+    it = jt;
+  }
+  return false;
+}
+
+bool Formula::Cnf::Disj::Subsumes(const Disj& d) const {
+  assert(ground());
+  assert(d.ground());
+  return std::includes(d.eqs_.begin(), d.eqs_.end(),
+                       eqs_.begin(), eqs_.end(), neqs_.key_comp()) &&
+      std::includes(d.neqs_.begin(), d.neqs_.end(),
+                    neqs_.begin(), neqs_.end(), neqs_.key_comp()) &&
+      std::includes(d.c_.begin(), d.c_.end(),
+                    c_.begin(), c_.end(), c_.key_comp()) &&
+      std::includes(d.ks_.begin(), d.ks_.end(),
+                    ks_.begin(), ks_.end(), ks_.key_comp()) &&
+      std::includes(d.bs_.begin(), d.bs_.end(),
+                    bs_.begin(), bs_.end(), bs_.key_comp());
+}
+
+bool Formula::Cnf::Disj::Tautologous() const {
+  assert(ground());
+  return std::any_of(eqs_.begin(), eqs_.end(),
+                     [](const Equality& e) { return e.equal(); }) ||
+      std::any_of(neqs_.begin(), neqs_.end(),
+                  [](const Equality& e) { return !e.equal(); }) ||
+      TautologousLiterals(c_) ||
+      TautologousLiterals(ks_) ||
+      TautologousLiterals(bs_);
+}
+
+bool Formula::Cnf::Disj::ground() const {
+  return std::all_of(eqs_.begin(), eqs_.end(),
+                     [](const Equality& e) { return e.ground(); }) &&
+      std::all_of(neqs_.begin(), neqs_.end(),
+                  [](const Equality& e) { return e.ground(); }) &&
+      c_.ground() &&
+      std::all_of(ks_.begin(), ks_.end(),
+                  [](const KLiteral& l) { return l.ground(); }) &&
+      std::all_of(bs_.begin(), bs_.end(),
+                  [](const BLiteral& l) { return l.ground(); });
+}
+
+void Formula::Cnf::Disj::AddToSetup(Setup* setup) const {
+  assert(eqs_.empty() && neqs_.empty());
+  assert(ks_.empty() && bs_.empty());
+  setup->AddClause(Clause(Ewff::TRUE, c_));
+}
+
+void Formula::Cnf::Disj::AddToSetups(Setups* setups) const {
+  assert(eqs_.empty() && neqs_.empty());
+  assert(ks_.empty() && bs_.empty());
+  setups->AddClause(Clause(Ewff::TRUE, c_));
+}
+
+bool Formula::Cnf::Disj::EntailedBy(Setup* s, split_level k) const {
+  assert(bs_.empty());
+  if (Tautologous()) {
+    return true;
+  }
+  if (s->Entails(c_, k)) {
+    return true;
+  }
+  for (const KLiteral& l : ks_) {
+    // TODO(chs) (1) The negation of d.c_ should be added to the setup.
+    // TODO(chs) (2) Or representation theorem instead of (1)?
+    // That way, at least the SSA of knowledge/belief should be come out
+    // correctly.
+    if (l.phi().EntailedBy(s, l.k())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Formula::Cnf::Disj::EntailedBy(Setups* s, split_level k) const {
+  if (Tautologous()) {
+    return true;
+  }
+  if (s->Entails(c_, k)) {
+    return true;
+  }
+  for (const KLiteral& l : ks_) {
+    if (l.phi().EntailedBy(s, l.k())) {
+      return true;
+    }
+  }
+  // TODO(chs) ~neg_phi => psi, c.f. TODOs for Knowledge class; API changes
+  // needed to account for ~neg_phi and psi at once.
+  assert(bs_.empty());
+  return false;
+}
+
+void Formula::Cnf::Disj::Print(std::ostream* os) const {
+  *os << '(';
+  for (auto it = eqs_.begin(); it != eqs_.end(); ++it) {
+    if (it != eqs_.begin()) {
+      *os << " v ";
+    }
+    *os << it->first << " = " << it->second;
+  }
+  for (auto it = neqs_.begin(); it != neqs_.end(); ++it) {
+    if (!eqs_.empty() || it != neqs_.begin()) {
+      *os << " v ";
+    }
+    *os << it->first << " != " << it->second;
+  }
+  for (auto it = c_.begin(); it != c_.end(); ++it) {
+    if (!eqs_.empty() || !neqs_.empty() || it != c_.begin()) {
+      *os << " v ";
+    }
+    *os << *it;
+  }
+  for (auto it = ks_.begin(); it != ks_.end(); ++it) {
+    if (!eqs_.empty() || !neqs_.empty() || !c_.empty() ||
+        it != ks_.begin()) {
+      *os << " v ";
+    }
+    const char* s = it->sign() ? "" : "~";
+    *os << s << "K_" << it->k() << '(';
+    it->phi().Print(os);
+    *os << ')';
+  }
+  for (auto it = bs_.begin(); it != bs_.end(); ++it) {
+    if (!eqs_.empty() || !neqs_.empty() || !c_.empty() ||
+        !ks_.empty() || it != bs_.begin()) {
+      *os << " v ";
+    }
+    const char* s = it->sign() ? "" : "~";
+    *os << s << '[' << it->z() << ']' << "B_" << it->k() << "(~";
+    it->neg_phi().Print(os);
+    *os << " => ";
+    it->psi().Print(os);
+    *os << ')';
+  }
+  *os << ')';
+}
+
+// }}}
+
+// {{{
 
 struct Formula::Equal : public Formula {
   bool sign;
@@ -799,339 +1135,7 @@ bool Formula::EntailedBy(Term::Factory* tf, Setups* setups,
   return cnf.EntailedBy(setups, k);
 }
 
-Formula::Cnf::Cnf() : ds_(new Disj::Set()) {}
-
-Formula::Cnf::Cnf(const Formula::Cnf::Disj& d) : Cnf() {
-  ds_->insert(d);
-}
-
-Formula::Cnf::Cnf(const Cnf& c) : Cnf() {
-  *ds_ = *c.ds_;
-}
-
-Formula::Cnf& Formula::Cnf::operator=(const Formula::Cnf& c) {
-  *ds_ = *c.ds_;
-  return *this;
-}
-
-Formula::Cnf Formula::Cnf::Substitute(const Unifier& theta) const {
-  Cnf c;
-  for (const Disj& d : *ds_) {
-    c.ds_->insert(d.Substitute(theta));
-  }
-  return c;
-}
-
-Formula::Cnf Formula::Cnf::And(const Cnf& c) const {
-  Cnf r = *this;
-  r.ds_->insert(c.ds_->begin(), c.ds_->end());
-  assert(r.ds_->size() <= ds_->size() + c.ds_->size());
-  return r;
-}
-
-Formula::Cnf Formula::Cnf::Or(const Cnf& c) const {
-  Cnf r;
-  for (const Disj& d1 : *ds_) {
-    for (const Disj& d2 : *c.ds_) {
-      r.ds_->insert(Cnf::Disj::Concat(d1, d2));
-    }
-  }
-  assert(r.ds_->size() <= ds_->size() * c.ds_->size());
-  return r;
-}
-
-bool Formula::Cnf::operator==(const Formula::Cnf& c) const {
-  return *ds_ == *c.ds_;
-}
-
-void Formula::Cnf::Minimize() {
-  Disj::Set new_ds;
-  for (const Disj& d : *ds_) {
-    assert(d.ground());
-    if (!d.Tautologous()) {
-      Disj dd = d;
-      dd.ClearEqs();
-      dd.ClearNeqs();
-      new_ds.insert(new_ds.end(), dd);
-    }
-  }
-  std::swap(*ds_, new_ds);
-  do {
-    new_ds.clear();
-    for (auto it = ds_->begin(); it != ds_->end(); ++it) {
-      // Disj::operator< orders by clause length first, so subsumed clauses
-      // are greater than the subsuming.
-      for (auto jt = std::next(it); jt != ds_->end(); ) {
-        if (it->Subsumes(*jt)) {
-          jt = ds_->erase(jt);
-        } else {
-          Maybe<Disj> d = Disj::Resolve(*it, *jt);
-          if (d) {
-            new_ds.insert(d.val);
-          }
-          ++jt;
-        }
-      }
-    }
-    ds_->insert(new_ds.begin(), new_ds.end());
-  } while (!new_ds.empty());
-}
-
-bool Formula::Cnf::ground() const {
-  return std::all_of(ds_->begin(), ds_->end(),
-                     [](const Disj& d) { return d.ground(); });
-}
-
-void Formula::Cnf::AddToSetup(Setup* setup) const {
-  for (const Disj& d : *ds_) {
-    d.AddToSetup(setup);
-  }
-}
-
-void Formula::Cnf::AddToSetups(Setups* setups) const {
-  for (const Disj& d : *ds_) {
-    d.AddToSetups(setups);
-  }
-}
-
-bool Formula::Cnf::EntailedBy(Setup* s, split_level k) const {
-  return std::all_of(ds_->begin(), ds_->end(),
-                     [s, k](const Disj& d) { return d.EntailedBy(s, k); });
-}
-
-bool Formula::Cnf::EntailedBy(Setups* s, split_level k) const {
-  return std::all_of(ds_->begin(), ds_->end(),
-                     [s, k](const Disj& d) { return d.EntailedBy(s, k); });
-}
-
-void Formula::Cnf::Print(std::ostream* os) const {
-  *os << '(';
-  for (auto it = ds_->begin(); it != ds_->end(); ++it) {
-    if (it != ds_->begin()) {
-      *os << " ^ ";
-    }
-    it->Print(os);
-  }
-  *os << ')';
-}
-
-Formula::Cnf::Disj Formula::Cnf::Disj::Concat(const Disj& d1, const Disj& d2) {
-  Disj d = d1;
-  d.eqs_.insert(d2.eqs_.begin(), d2.eqs_.end());
-  d.neqs_.insert(d2.neqs_.begin(), d2.neqs_.end());
-  d.c_.insert(d2.c_.begin(), d2.c_.end());
-  d.ks_.insert(d2.ks_.begin(), d2.ks_.end());
-  d.bs_.insert(d2.bs_.begin(), d2.bs_.end());
-  return d;
-}
-
-template<class T>
-bool ResolveLiterals(T* lhs, const T& rhs) {
-  for (const auto& l : rhs) {
-    const auto it = lhs->find(l.Flip());
-    if (it != lhs->end()) {
-      lhs->erase(it);
-      return true;
-    }
-  }
-  return false;
-}
-
-Maybe<Formula::Cnf::Disj> Formula::Cnf::Disj::Resolve(const Disj& d1,
-                                                      const Disj& d2) {
-  assert(d1.eqs_.empty() && d1.neqs_.empty());
-  assert(d2.eqs_.empty() && d2.neqs_.empty());
-  assert(d1.ground());
-  assert(d2.ground());
-  if (d1.c_.size() + d1.ks_.size() + d1.bs_.size() >
-      d2.c_.size() + d2.ks_.size() + d2.bs_.size()) {
-    return Resolve(d2, d1);
-  }
-  Disj r = d2;
-  if (ResolveLiterals(&r.c_, d1.c_) ||
-      ResolveLiterals(&r.ks_, d1.ks_) ||
-      ResolveLiterals(&r.bs_, d1.bs_)) {
-    return Perhaps(!r.Tautologous(), r);
-  }
-  return Nothing;
-}
-
-Formula::Cnf::Disj Formula::Cnf::Disj::Substitute(const Unifier& theta) const {
-  Disj d;
-  for (const auto& p : eqs_) {
-    d.eqs_.insert(std::make_pair(p.first.Substitute(theta),
-                                 p.second.Substitute(theta)));
-  }
-  for (const auto& p : neqs_) {
-    d.eqs_.insert(std::make_pair(p.first.Substitute(theta),
-                                 p.second.Substitute(theta)));
-  }
-  d.c_ = c_.Substitute(theta);
-  for (const auto& k : ks_) {
-    d.ks_.insert(k.Substitute(theta));
-  }
-  for (const auto& b : bs_) {
-    d.bs_.insert(b.Substitute(theta));
-  }
-  return d;
-}
-
-bool Formula::Cnf::Disj::operator<(const Formula::Cnf::Disj& d) const {
-  Comparator comp;
-  return comp(*this, d);
-}
-
-bool Formula::Cnf::Disj::operator==(const Formula::Cnf::Disj& d) const {
-  return std::tie(eqs_, neqs_, c_, ks_, bs_) ==
-      std::tie(d.eqs_, d.neqs_, d.c_, d.ks_, d.bs_);
-}
-
-template<class T>
-bool TautologousLiterals(const T& ls) {
-  for (auto it = ls.begin(); it != ls.end(); ) {
-    assert(ls.key_comp()(it->Negative(), it->Positive()));
-    const auto jt = std::next(it);
-    assert(ls.find(it->Flip()) == ls.end() || ls.find(it->Flip()) == jt);
-    if (jt != ls.end() && !it->sign() && *it == jt->Flip()) {
-      return true;
-    }
-    it = jt;
-  }
-  return false;
-}
-
-bool Formula::Cnf::Disj::Subsumes(const Disj& d) const {
-  assert(ground());
-  assert(d.ground());
-  return std::includes(d.eqs_.begin(), d.eqs_.end(),
-                       eqs_.begin(), eqs_.end(), neqs_.key_comp()) &&
-      std::includes(d.neqs_.begin(), d.neqs_.end(),
-                    neqs_.begin(), neqs_.end(), neqs_.key_comp()) &&
-      std::includes(d.c_.begin(), d.c_.end(),
-                    c_.begin(), c_.end(), c_.key_comp()) &&
-      std::includes(d.ks_.begin(), d.ks_.end(),
-                    ks_.begin(), ks_.end(), ks_.key_comp()) &&
-      std::includes(d.bs_.begin(), d.bs_.end(),
-                    bs_.begin(), bs_.end(), bs_.key_comp());
-}
-
-bool Formula::Cnf::Disj::Tautologous() const {
-  assert(ground());
-  return std::any_of(eqs_.begin(), eqs_.end(),
-                     [](const Equality& e) { return e.equal(); }) ||
-      std::any_of(neqs_.begin(), neqs_.end(),
-                  [](const Equality& e) { return !e.equal(); }) ||
-      TautologousLiterals(c_) ||
-      TautologousLiterals(ks_) ||
-      TautologousLiterals(bs_);
-}
-
-bool Formula::Cnf::Disj::ground() const {
-  return std::all_of(eqs_.begin(), eqs_.end(),
-                     [](const Equality& e) { return e.ground(); }) &&
-      std::all_of(neqs_.begin(), neqs_.end(),
-                  [](const Equality& e) { return e.ground(); }) &&
-      c_.ground() &&
-      std::all_of(ks_.begin(), ks_.end(),
-                  [](const KLiteral& l) { return l.ground(); }) &&
-      std::all_of(bs_.begin(), bs_.end(),
-                  [](const BLiteral& l) { return l.ground(); });
-}
-
-void Formula::Cnf::Disj::AddToSetup(Setup* setup) const {
-  assert(eqs_.empty() && neqs_.empty());
-  assert(ks_.empty() && bs_.empty());
-  setup->AddClause(Clause(Ewff::TRUE, c_));
-}
-
-void Formula::Cnf::Disj::AddToSetups(Setups* setups) const {
-  assert(eqs_.empty() && neqs_.empty());
-  assert(ks_.empty() && bs_.empty());
-  setups->AddClause(Clause(Ewff::TRUE, c_));
-}
-
-bool Formula::Cnf::Disj::EntailedBy(Setup* s, split_level k) const {
-  assert(bs_.empty());
-  if (Tautologous()) {
-    return true;
-  }
-  if (s->Entails(c_, k)) {
-    return true;
-  }
-  for (const KLiteral& l : ks_) {
-    // TODO(chs) (1) The negation of d.c_ should be added to the setup.
-    // TODO(chs) (2) Or representation theorem instead of (1)?
-    // That way, at least the SSA of knowledge/belief should be come out
-    // correctly.
-    if (l.phi().EntailedBy(s, l.k())) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool Formula::Cnf::Disj::EntailedBy(Setups* s, split_level k) const {
-  if (Tautologous()) {
-    return true;
-  }
-  if (s->Entails(c_, k)) {
-    return true;
-  }
-  for (const KLiteral& l : ks_) {
-    if (l.phi().EntailedBy(s, l.k())) {
-      return true;
-    }
-  }
-  // TODO(chs) ~neg_phi => psi, c.f. TODOs for Knowledge class; API changes
-  // needed to account for ~neg_phi and psi at once.
-  assert(bs_.empty());
-  return false;
-}
-
-void Formula::Cnf::Disj::Print(std::ostream* os) const {
-  *os << '(';
-  for (auto it = eqs_.begin(); it != eqs_.end(); ++it) {
-    if (it != eqs_.begin()) {
-      *os << " v ";
-    }
-    *os << it->first << " = " << it->second;
-  }
-  for (auto it = neqs_.begin(); it != neqs_.end(); ++it) {
-    if (!eqs_.empty() || it != neqs_.begin()) {
-      *os << " v ";
-    }
-    *os << it->first << " != " << it->second;
-  }
-  for (auto it = c_.begin(); it != c_.end(); ++it) {
-    if (!eqs_.empty() || !neqs_.empty() || it != c_.begin()) {
-      *os << " v ";
-    }
-    *os << *it;
-  }
-  for (auto it = ks_.begin(); it != ks_.end(); ++it) {
-    if (!eqs_.empty() || !neqs_.empty() || !c_.empty() ||
-        it != ks_.begin()) {
-      *os << " v ";
-    }
-    const char* s = it->sign() ? "" : "~";
-    *os << s << "K_" << it->k() << '(';
-    it->phi().Print(os);
-    *os << ')';
-  }
-  for (auto it = bs_.begin(); it != bs_.end(); ++it) {
-    if (!eqs_.empty() || !neqs_.empty() || !c_.empty() ||
-        !ks_.empty() || it != bs_.begin()) {
-      *os << " v ";
-    }
-    const char* s = it->sign() ? "" : "~";
-    *os << s << '[' << it->z() << ']' << "B_" << it->k() << "(~";
-    it->neg_phi().Print(os);
-    *os << " => ";
-    it->psi().Print(os);
-    *os << ')';
-  }
-  *os << ')';
-}
+// }}}
 
 }  // namespace esbl
 
