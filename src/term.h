@@ -158,7 +158,8 @@ class TermSeq : public std::vector<Term> {
 
   using std::vector<Term>::vector;
 
-  Maybe<Term, TermSeq> Split() const;
+  Maybe<Term, TermSeq> SplitHead() const;
+  Maybe<TermSeq, Term> SplitLast() const;
   Maybe<TermSeq> WithoutLast(const size_t n) const;
   TermSeq Substitute(const Unifier& theta) const;
   bool Matches(const TermSeq& z, Unifier* theta) const;

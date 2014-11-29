@@ -99,13 +99,22 @@ const StdName StdName::MAX(Term(Term::NAME,
                                 std::numeric_limits<Term::Id>::max(),
                                 std::numeric_limits<Term::Sort>::max()));
 
-Maybe<Term, TermSeq> TermSeq::Split() const {
+Maybe<Term, TermSeq> TermSeq::SplitHead() const {
   if (empty()) {
     return Nothing;
   }
-  const Term head = *begin();
+  const Term head(*begin());
   const TermSeq tail(std::next(begin()), end());
   return Just(head, tail);
+}
+
+Maybe<TermSeq, Term> TermSeq::SplitLast() const {
+  if (empty()) {
+    return Nothing;
+  }
+  const TermSeq init(begin(), std::prev(end()));
+  const Term last(*std::prev(end()));
+  return Just(init, last);
 }
 
 Maybe<TermSeq> TermSeq::WithoutLast(const size_t n) const {

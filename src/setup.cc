@@ -124,7 +124,7 @@ void Setup::Progress(const StdName& n) {
     SimpleClause ls;
     bool succ = true;
     for (const Literal& l : c.literals()) {
-      const Maybe<Term, TermSeq> tz = l.z().Split();
+      const Maybe<Term, TermSeq> tz = l.z().SplitHead();
       if (!tz || !Term::Unify(tz.val1, n, &theta)) {
         succ = false;
         break;
@@ -144,7 +144,7 @@ void Setup::Progress(const StdName& n) {
   // Also drop the first action from the memory of grounded sequences.
   TermSeq::Set grounded;
   for (const TermSeq& z : grounded_) {
-    Maybe<Term, TermSeq> tz = z.Split();
+    Maybe<Term, TermSeq> tz = z.SplitHead();
     if (tz) {
       grounded.insert(grounded.end(), tz.val2);
     }

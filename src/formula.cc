@@ -442,6 +442,11 @@ Formula::Cnf::Disj Formula::Cnf::Disj::Substitute(const Unifier& theta) const {
   return d;
 }
 
+bool Formula::Cnf::Disj::operator<(const Formula::Cnf::Disj& d) const {
+  Comparator comp;
+  return comp(*this, d);
+}
+
 bool Formula::Cnf::Disj::operator==(const Formula::Cnf::Disj& d) const {
   return eqs_ == d.eqs_ && neqs_ == d.neqs_ && c_ == d.c_ && ks_ == d.ks_ &&
       bs_ == d.bs_;
@@ -926,10 +931,20 @@ struct Formula::Knowledge : public Formula {
     return Cnf(d);
   }
 
-  Ptr Regress(Term::Factory*, const DynamicAxioms&) const override {
-    assert(false);
-    // TODO(chs) implement
-    return Copy();
+  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
+    Maybe<TermSeq, Term> zt = z.SplitLast();
+    if (zt) {
+      Ptr pos(new struct Lit(SfLiteral(zt.val1, zt.val2, true)));
+      Ptr neg(new struct Lit(SfLiteral(zt.val1, zt.val2, false)));
+      Ptr beta(Act(zt.val1, Or(And(pos->Copy(), Know(k, OnlyIf(pos->Copy(), Act(zt.val2, phi->Copy())))),     // NOLINT
+                               And(neg->Copy(), Know(k, OnlyIf(neg->Copy(), Act(zt.val2, phi->Copy())))))));  // NOLINT
+      if (!sign) {
+        beta->Negate();
+      }
+      return std::move(beta);
+    } else {
+      return Ptr(new Knowledge(k, z, sign, phi->Regress(tf, axioms)));
+    }
   }
 
   void Print(std::ostream* os) const override {
@@ -988,11 +1003,22 @@ struct Formula::Belief : public Formula {
     return Cnf(d);
   }
 
-  Ptr Regress(Term::Factory*, const DynamicAxioms&) const override {
-    assert(false);
-    // TODO(chs) implement
-    return Copy();
+  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
+    Maybe<TermSeq, Term> zt = z.SplitLast();
+    if (zt) {
+      Ptr pos(new struct Lit(SfLiteral(zt.val1, zt.val2, true)));
+      Ptr neg(new struct Lit(SfLiteral(zt.val1, zt.val2, false)));
+      Ptr beta(Act(zt.val1, Or(And(pos->Copy(), Believe(k, And(pos->Copy(), Act(zt.val2, neg_phi->Copy())), Act(zt.val2, psi->Copy()))),     // NOLINT
+                               And(neg->Copy(), Believe(k, And(neg->Copy(), Act(zt.val2, neg_phi->Copy())), Act(zt.val2, psi->Copy()))))));  // NOLINT
+      if (!sign) {
+        beta->Negate();
+      }
+      return std::move(beta);
+    } else {
+      return Ptr(new Belief(k, z, sign, neg_phi->Regress(tf, axioms), psi->Regress(tf, axioms)));  // NOLINT
+    }
   }
+
 
   void Print(std::ostream* os) const override {
     *os << "K_" << k << '(' << '~' << *neg_phi << " => " << *psi << ')';
