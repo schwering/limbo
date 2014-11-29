@@ -45,6 +45,8 @@ class SimpleClause : public Literal::Set {
   void CollectNames(StdName::SortedSet* ns) const;
 
   bool ground() const;
+  bool unit() const { return size() == 1; }
+  bool dynamic() const;
 
  private:
   void SubsumedBy(const const_iterator first, const const_iterator last,
@@ -82,15 +84,17 @@ class Clause {
            const Literal& goal_lit,
            std::deque<Literal>* rel) const;
   bool Subsumes(const Clause& c) const;
+  bool Tautologous() const;
   bool SplitRelevant(const Atom& a, const Clause& c, int k) const;
-  static size_t ResolveWrt(const Clause& c1, const Clause& c2, const Atom& a,
+  static size_t ResolveWrt(const Clause& c1, const Clause& c2, Atom::PredId p,
                            Clause::Set* rs);
 
   bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
   const SimpleClause& literals() const { return ls_; }
-  bool is_empty() const { return ls_.size() == 0; }
-  bool is_unit() const { return ls_.size() == 1; }
+  bool empty() const { return ls_.empty(); }
+  bool unit() const { return ls_.unit(); }
+  bool dynamic() const { return ls_.dynamic(); }
 
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
@@ -136,10 +140,10 @@ class Clause::Set : public std::set<Clause, Comparator> {
 
   const_iterator first_unit() const {
     auto it = begin();
-    if (it != end() && it->is_empty()) {
+    if (it != end() && it->empty()) {
       ++it;
     }
-    if (it == end() || !it->is_unit()) {
+    if (it == end() || !it->unit()) {
       return end();
     }
     return it;

@@ -17,24 +17,28 @@ SimpleClause SimpleClause::ResolveWrt(const SimpleClause& c1,
                                       const Literal& l2) {
   assert(c1.find(l1) != c1.end());
   assert(c2.find(l2) != c2.end());
-  if (c1.size() == 1 && c2.size() == 1) {
+  if (c1.unit() && c2.unit()) {
     return EMPTY;
-  } else if (c1.size() == 1) {
+  } else if (c1.unit()) {
     SimpleClause c = c2;
-    c.erase(l2);
+    size_t n = c.erase(l2);
+    assert(n == 1);
     return c;
-  } else if (c2.size() == 1) {
+  } else if (c2.unit()) {
     SimpleClause c = c1;
-    c.erase(l1);
+    size_t n = c.erase(l1);
+    assert(n == 1);
     return c;
   } else {
     SimpleClause r1 = c1;
-    r1.erase(l1);
     SimpleClause r2 = c2;
-    r1.erase(l2);
+    size_t n1 = r1.erase(l1);
+    size_t n2 = r2.erase(l2);
+    assert(n1 == 1);
+    assert(n2 == 1);
     BySizeComparator<SimpleClause> compar;
     SimpleClause r = std::max(r1, r2, compar);
-    const SimpleClause& add = std::min(r1, r2, compar);
+    const SimpleClause& add = std::max(r2, r1, compar);
     r.insert(add.begin(), add.end());
     return r;
   }
@@ -158,12 +162,13 @@ void SimpleClause::CollectNames(StdName::SortedSet* ns) const {
 }
 
 bool SimpleClause::ground() const {
-  for (const Literal& l : *this) {
-    if (!l.ground()) {
-      return false;
-    }
-  }
-  return true;
+  return std::all_of(begin(), end(),
+                     [](const Literal& l) { return l.ground(); });
+}
+
+bool SimpleClause::dynamic() const {
+  return std::any_of(begin(), end(),
+                     [](const Literal& l) { return l.dynamic(); });
 }
 
 Clause Clause::InstantiateBox(const TermSeq& z) const {
@@ -178,6 +183,38 @@ Maybe<Clause> Clause::Substitute(const Unifier& theta) const {
   }
   const SimpleClause ls = ls_.Substitute(theta);
   return Just(Clause(box_, e.val, ls));
+}
+
+void Clause::Rel(const StdName::SortedSet& hplus,
+                 const Literal& goal_lit,
+                 std::deque<Literal>* rel) const {
+  const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
+      [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
+  const Clause goal = Clause(Ewff::TRUE, {goal_lit.Flip()});
+  // Given a clause l and a clause e->c such that for some l' in c with
+  // l = l'.theta for some theta and |= e.theta.theta' for some theta', for all
+  // clauses l'' c.theta.theta', its negation ~l'' is relevant to l.
+  // Relevance means that splitting ~l'' may help to prove l.
+  // In case c is a box clause, it must be unified as well.
+  // Due to the constrained form of BATs, only l' with maximum action length in
+  // e->c must be considered. Intuitively, in an SSA Box([a]F <-> ...) this is
+  // [a]F, and in Box(SF(a) <-> ...) it is every literal of the fluent.
+  for (const Literal& l : ls_.range(goal_lit.sign(), goal_lit.pred())) {
+    assert(goal_lit.sign() == l.sign());
+    assert(goal_lit.pred() == l.pred());
+    if (l.z().size() < max_z) {
+      continue;
+    }
+    Maybe<Clause> c = ResolveWrt(*this, goal, l, *goal.ls_.begin());
+    if (!c) {
+      continue;
+    }
+    for (const Assignment& theta : c.val.e_.Models(hplus)) {
+      for (const Literal& ll : c.val.ls_) {
+        rel->insert(rel->end(), ll.Ground(theta).Flip());
+      }
+    }
+  }
 }
 
 bool Clause::Subsumes(const Clause& c) const {
@@ -217,36 +254,21 @@ bool Clause::Subsumes(const Clause& c) const {
   }
 }
 
-void Clause::Rel(const StdName::SortedSet& hplus,
-                 const Literal& goal_lit,
-                 std::deque<Literal>* rel) const {
-  const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
-      [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
-  const Clause goal = Clause(Ewff::TRUE, {goal_lit.Flip()});
-  // Given a clause l and a clause e->c such that for some l' in c with
-  // l = l'.theta for some theta and |= e.theta.theta' for some theta', for all
-  // clauses l'' c.theta.theta', its negation ~l'' is relevant to l.
-  // Relevance means that splitting ~l'' may help to prove l.
-  // In case c is a box clause, it must be unified as well.
-  // Due to the constrained form of BATs, only l' with maximum action length in
-  // e->c must be considered. Intuitively, in an SSA Box([a]F <-> ...) this is
-  // [a]F, and in Box(SF(a) <-> ...) it is every literal of the fluent.
-  for (const Literal& l : ls_.range(goal_lit.sign(), goal_lit.pred())) {
-    assert(goal_lit.sign() == l.sign());
-    assert(goal_lit.pred() == l.pred());
-    if (l.z().size() < max_z) {
-      continue;
-    }
-    Maybe<Clause> c = ResolveWrt(*this, goal, l, *goal.ls_.begin());
-    if (!c) {
-      continue;
-    }
-    for (const Assignment& theta : c.val.e_.Models(hplus)) {
-      for (const Literal& ll : c.val.ls_) {
-        rel->insert(rel->end(), ll.Ground(theta).Flip());
+bool Clause::Tautologous() const {
+  for (const Literal& l : ls_) {
+    if (!l.sign()) {
+      for (const Literal& ll : ls_.range(!l.sign(), l.pred())) {
+        const Maybe<Unifier> theta = Atom::Unify(l, ll);
+        if (theta) {
+          const Maybe<Ewff> e = e_.Substitute(theta.val);
+          if (e) {
+            return true;
+          }
+        }
       }
     }
   }
+  return false;
 }
 
 bool Clause::SplitRelevant(const Atom& a, const Clause& c, int k) const {
@@ -301,17 +323,17 @@ Maybe<Clause> Clause::ResolveWrt(const Clause& c1, const Clause& c2,
   }
 }
 
-size_t Clause::ResolveWrt(const Clause& c1, const Clause& c2, const Atom& a,
+size_t Clause::ResolveWrt(const Clause& c1, const Clause& c2, Atom::PredId p,
                           Clause::Set* rs) {
   size_t n = 0;
-  for (const Literal& l1 : c1.ls_.range(a.pred())) {
-    for (const Literal& l2 : c2.ls_.range(!l1.sign(), l1.pred())) {
+  for (const Literal& l1 : c1.ls_.range(p)) {
+    for (const Literal& l2 : c2.ls_.range(!l1.sign(), p)) {
       assert(l1.pred() == l2.pred());
       assert(l1.sign() != l2.sign());
       Maybe<Clause> c = ResolveWrt(c1, c2, l1, l2);
       if (c) {
-        const auto p = rs->insert(c.val);
-        if (p.second) {
+        const auto pp = rs->insert(c.val);
+        if (pp.second) {
           ++n;
         }
       }

@@ -131,3 +131,38 @@ TEST(clause, subsumption)
   }
 }
 
+TEST(clause, tautologous) {
+  Term::Factory tf;
+  const StdName m = tf.CreateStdName(1, 0);
+  const StdName n = tf.CreateStdName(0, 0);
+  const Variable x = tf.CreateVariable(0);
+  const Variable y = tf.CreateVariable(0);
+  const Atom::PredId P = 0;
+  const Atom::PredId Q = 1;
+  Clause empty(true, Ewff::TRUE, SimpleClause());
+  Clause tauto0(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {m}), Literal({}, false, P, {m})});
+  Clause tauto1(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {x})});
+  Clause tauto2(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {y})});
+  Clause tauto3(true, Ewff::Create({{x, m}, {y, n}}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {x})});
+  Clause tauto4(true, Ewff::Create({{x, m}, {y, n}}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {y})});
+  Clause tauto5(true, Ewff::Create({{x, m}, {y, n}}, {{x, y}}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {x})});
+  Clause nontauto0(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {x}), Literal({}, true, P, {y})});
+  Clause nontauto1(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, Q, {y})});
+  Clause nontauto2(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {m}), Literal({}, false, P, {n})});
+  Clause nontauto3(true, Ewff::Create({{x, m}, {y, n}}, {{x, y}}).val, {Literal({}, true, P, {m}), Literal({}, false, P, {n})});
+  Clause nontauto4(true, Ewff::Create({{x, m}, {y, n}}, {{x, y}}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {y})});
+  Clause nontauto5(true, Ewff::Create({}, {{x, y}}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {y})});
+  EXPECT_FALSE(empty.Tautologous());
+  EXPECT_TRUE(tauto0.Tautologous());
+  EXPECT_TRUE(tauto1.Tautologous());
+  EXPECT_TRUE(tauto2.Tautologous());
+  EXPECT_TRUE(tauto3.Tautologous());
+  EXPECT_TRUE(tauto4.Tautologous());
+  EXPECT_TRUE(tauto5.Tautologous());
+  EXPECT_FALSE(nontauto1.Tautologous());
+  EXPECT_FALSE(nontauto2.Tautologous());
+  EXPECT_FALSE(nontauto3.Tautologous());
+  EXPECT_FALSE(nontauto4.Tautologous());
+  EXPECT_FALSE(nontauto5.Tautologous());
+}
+

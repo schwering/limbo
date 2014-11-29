@@ -156,3 +156,48 @@ TEST(setup, eventual_consistency_long) {
   }
 }
 
+TEST(setup, progression_short) {
+  Term::Factory tf;
+  esbl::Setup s0;
+  const Atom::PredId P = 0;
+  const Atom::PredId Q = 1;
+  const StdName n1 = tf.CreateStdName(0, 0);
+  const StdName n2 = tf.CreateStdName(1, 0);
+  s0.AddClause(Clause(false, Ewff::TRUE, {Literal({}, true, P, {}), Literal({}, true, Q, {})}));
+  {
+    const Variable a = tf.CreateVariable(0);
+    const Maybe<Ewff> e = Ewff::Create({{a, n2}}, {});
+    EXPECT_TRUE(e);
+    s0.AddClause(Clause(true, e.val, {Literal({}, false, P, {}), Literal({a}, true, P, {})}));
+  }
+  {
+    const Variable a = tf.CreateVariable(0);
+    const Maybe<Ewff> e = Ewff::Create({{a, n2}}, {});
+    EXPECT_TRUE(e);
+    s0.AddClause(Clause(true, e.val, {Literal({}, true, P, {}), Literal({a}, false, P, {})}));
+  }
+  {
+    const Variable a = tf.CreateVariable(0);
+    const Maybe<Ewff> e = Ewff::Create({{a, n2}}, {});
+    EXPECT_TRUE(e);
+    s0.AddClause(Clause(true, e.val, {Literal({}, false, Q, {}), Literal({a}, true, Q, {})}));
+  }
+  {
+    const Variable a = tf.CreateVariable(0);
+    const Maybe<Ewff> e = Ewff::Create({{a, n2}}, {});
+    EXPECT_TRUE(e);
+    s0.AddClause(Clause(true, e.val, {Literal({}, true, Q, {}), Literal({a}, false, Q, {})}));
+  }
+
+  esbl::Setup s1 = s0;
+  for (int i = 0; i < 10; ++i) {
+    s1.Progress(n1);
+    EXPECT_TRUE(s0.clauses() == s1.clauses());
+  }
+
+  esbl::Setup s2 = s0;
+  s2.Progress(n2);
+  EXPECT_FALSE(s0.clauses() == s2.clauses());
+  EXPECT_TRUE(s2.clauses().empty());
+}
+

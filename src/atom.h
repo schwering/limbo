@@ -46,6 +46,7 @@ class Atom {
   const TermSeq& args() const { return args_; }
 
   bool ground() const;
+  bool dynamic() const { return !z_.empty(); }
 
   void CollectVariables(Variable::Set* vs) const;
   void CollectVariables(Variable::SortedSet* vs) const;

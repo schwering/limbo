@@ -92,6 +92,66 @@ void Setup::GroundBoxes(const TermSeq& z) {
   }
 }
 
+void Setup::Progress(const StdName& n) {
+  // Resolve static clauses with successor state axioms.
+  GroundBoxes({});
+  size_t n_new_clauses;
+  do {
+    n_new_clauses = 0;
+    for (const Clause& c : cs_) {
+      for (const Clause& d : cs_) {
+        if (d.dynamic()) {
+          for (const Literal& l : c.literals()) {
+            if (!l.dynamic()) {
+              n_new_clauses += Clause::ResolveWrt(c, d, l.pred(), &cs_);
+            }
+          }
+        }
+      }
+    }
+  } while (n_new_clauses > 0);
+  Minimize();
+  // Remove all clauses that refer to pre-[n] situations. Notice that first
+  // action of the clauses may be (and typically is) a variable which needs to
+  // be unified with n.
+  Clause::Set cs;
+  for (const Clause& c : cs_) {
+    assert(!c.box());
+    if (c.Tautologous()) {
+      continue;
+    }
+    Unifier theta;
+    SimpleClause ls;
+    bool succ = true;
+    for (const Literal& l : c.literals()) {
+      const Maybe<Term, TermSeq> tz = l.z().Split();
+      if (!tz || !Term::Unify(tz.val1, n, &theta)) {
+        succ = false;
+        break;
+      }
+      ls.insert(ls.end(), Literal(tz.val2, l.sign(), l.pred(), l.args()));
+    }
+    if (succ) {
+      Maybe<Ewff> e = c.ewff().Substitute(theta);
+      if (e) {
+        ls = ls.Substitute(theta);
+        e.val.RestrictVariable(ls.Variables());
+        cs.insert(cs.end(), Clause(e.val, ls));
+      }
+    }
+  }
+  std::swap(cs_, cs);
+  // Also drop the first action from the memory of grounded sequences.
+  TermSeq::Set grounded;
+  for (const TermSeq& z : grounded_) {
+    Maybe<Term, TermSeq> tz = z.Split();
+    if (tz) {
+      grounded.insert(grounded.end(), tz.val2);
+    }
+  }
+  std::swap(grounded_, grounded);
+}
+
 Atom::Set Setup::FullStaticPel() const {
   Atom::Set pel;
   for (const Clause& c : cs_) {
@@ -204,17 +264,17 @@ void Setup::PropagateUnits() {
   for (;;) {
     const auto first = cs_.first_unit();
     const size_t d = count_while(first, cs_.end(),
-                                 [](const Clause& c) { return c.is_unit(); });
+                                 [](const Clause& c) { return c.unit(); });
     if (d <= n_units) {
       break;
     }
     n_units = d;
     size_t n_new_clauses = 0;
     for (const Clause& c : cs_) {
-      for (auto it = first; it != cs_.end() && it->is_unit(); ++it) {
+      for (auto it = first; it != cs_.end() && it->unit(); ++it) {
         const Clause& unit = *it;
         const Literal& unit_l = *unit.literals().begin();
-        n_new_clauses += Clause::ResolveWrt(c, unit, unit_l, &cs_);
+        n_new_clauses += Clause::ResolveWrt(c, unit, unit_l.pred(), &cs_);
       }
     }
     if (n_new_clauses > 0) {
@@ -343,7 +403,8 @@ void Setups::AddClause(const Clause& c) {
   }
 }
 
-void Setups::AddBeliefConditional(const Clause& neg_phi, const Clause& psi,
+void Setups::AddBeliefConditional(const Clause& neg_phi,
+                                  const Clause& psi,
                                   split_level k) {
   // I'm not sure if and how non-ground belief conditionals should be
   // implemented. I suppose that in ESB they could lead to infinitely many
@@ -417,7 +478,8 @@ bool Setups::Entails(const SimpleClause& c, split_level k) {
   return true;
 }
 
-bool Setups::Entails(const SimpleClause& neg_phi, const SimpleClause& psi,
+bool Setups::Entails(const SimpleClause& neg_phi,
+                     const SimpleClause& psi,
                      split_level k) {
   for (Setup& s : ss_) {
     if (!s.Entails(neg_phi, k)) {

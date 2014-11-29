@@ -32,6 +32,8 @@ class Setup {
   void AddClause(const Clause& c);
   void GuaranteeConsistency(split_level k);
 
+  void Progress(const StdName& n);
+
   bool Inconsistent(split_level k);
   bool Entails(const SimpleClause& c, split_level k);
 
