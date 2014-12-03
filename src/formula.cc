@@ -6,10 +6,11 @@
 #include <utility>
 #include "./formula.h"
 #include "./compar.h"
+#include <iostream>
 
 namespace esbl {
 
-// {{{
+// {{{ Clausal Normal Form definition and conversion.
 
 class Formula::Cnf {
  public:
@@ -31,8 +32,8 @@ class Formula::Cnf {
 
   bool ground() const;
 
-  bool EntailedBy(Setup* setup, split_level k) const;
-  bool EntailedBy(Setups* setups, split_level k) const;
+  bool Eval(Setup* setup, split_level k) const;
+  bool Eval(Setups* setups, split_level k) const;
 
   void AddToSetup(Setup* setup) const;
   void AddToSetups(Setups* setups) const;
@@ -223,8 +224,8 @@ class Formula::Cnf::Disj {
 
   bool ground() const;
 
-  bool EntailedBy(Setup* setup, split_level k) const;
-  bool EntailedBy(Setups* setups, split_level k) const;
+  bool Eval(Setup* setup, split_level k) const;
+  bool Eval(Setups* setups, split_level k) const;
 
   void AddToSetup(Setup* setup) const;
   void AddToSetups(Setups* setups) const;
@@ -360,14 +361,14 @@ void Formula::Cnf::AddToSetups(Setups* setups) const {
   }
 }
 
-bool Formula::Cnf::EntailedBy(Setup* s, split_level k) const {
+bool Formula::Cnf::Eval(Setup* s, split_level k) const {
   return std::all_of(ds_->begin(), ds_->end(),
-                     [s, k](const Disj& d) { return d.EntailedBy(s, k); });
+                     [s, k](const Disj& d) { return d.Eval(s, k); });
 }
 
-bool Formula::Cnf::EntailedBy(Setups* s, split_level k) const {
+bool Formula::Cnf::Eval(Setups* s, split_level k) const {
   return std::all_of(ds_->begin(), ds_->end(),
-                     [s, k](const Disj& d) { return d.EntailedBy(s, k); });
+                     [s, k](const Disj& d) { return d.Eval(s, k); });
 }
 
 void Formula::Cnf::Print(std::ostream* os) const {
@@ -516,7 +517,7 @@ void Formula::Cnf::Disj::AddToSetups(Setups* setups) const {
   setups->AddClause(Clause(Ewff::TRUE, c_));
 }
 
-bool Formula::Cnf::Disj::EntailedBy(Setup* s, split_level k) const {
+bool Formula::Cnf::Disj::Eval(Setup* s, split_level k) const {
   assert(bs_.empty());
   if (Tautologous()) {
     return true;
@@ -529,14 +530,14 @@ bool Formula::Cnf::Disj::EntailedBy(Setup* s, split_level k) const {
     // TODO(chs) (2) Or representation theorem instead of (1)?
     // That way, at least the SSA of knowledge/belief should be come out
     // correctly.
-    if (l.phi().EntailedBy(s, l.k())) {
+    if (l.phi().Eval(s, l.k())) {
       return true;
     }
   }
   return false;
 }
 
-bool Formula::Cnf::Disj::EntailedBy(Setups* s, split_level k) const {
+bool Formula::Cnf::Disj::Eval(Setups* s, split_level k) const {
   if (Tautologous()) {
     return true;
   }
@@ -544,7 +545,7 @@ bool Formula::Cnf::Disj::EntailedBy(Setups* s, split_level k) const {
     return true;
   }
   for (const KLiteral& l : ks_) {
-    if (l.phi().EntailedBy(s, l.k())) {
+    if (l.phi().Eval(s, l.k())) {
       return true;
     }
   }
@@ -600,8 +601,7 @@ void Formula::Cnf::Disj::Print(std::ostream* os) const {
 }
 
 // }}}
-
-// {{{
+// {{{ Specializations of Formula, particularly MakeCnf() and Regress().
 
 struct Formula::Equal : public Formula {
   bool sign;
@@ -915,12 +915,12 @@ struct Formula::Knowledge : public Formula {
 
   std::pair<Truth, Ptr> Simplify() const override {
     auto p = phi->Simplify();
-    if (sign && p.first == TRIVIALLY_TRUE) {
-      return std::make_pair(TRIVIALLY_TRUE, Ptr());
+    if (p.first == TRIVIALLY_TRUE) {
+      return std::make_pair(sign ? TRIVIALLY_TRUE : TRIVIALLY_FALSE, Ptr());
+    } else if (p.first == TRIVIALLY_FALSE) {
+      p.second = False();
     }
-    if (!sign && p.first == TRIVIALLY_FALSE) {
-      return std::make_pair(TRIVIALLY_FALSE, Ptr());
-    }
+    assert(p.first == NONTRIVIAL);
     Ptr know = Ptr(new Knowledge(k, z, sign, std::move(p.second)));
     return std::make_pair(NONTRIVIAL, std::move(know));
   }
@@ -936,8 +936,11 @@ struct Formula::Knowledge : public Formula {
     if (zt) {
       Ptr pos(new struct Lit(SfLiteral(zt.val1, zt.val2, true)));
       Ptr neg(new struct Lit(SfLiteral(zt.val1, zt.val2, false)));
-      Ptr beta(Act(zt.val1, Or(And(pos->Copy(), Know(k, OnlyIf(pos->Copy(), Act(zt.val2, phi->Copy())))),     // NOLINT
-                               And(neg->Copy(), Know(k, OnlyIf(neg->Copy(), Act(zt.val2, phi->Copy())))))));  // NOLINT
+      Ptr beta(Act(zt.val1,
+        Or(And(pos->Copy(),
+               Know(k, OnlyIf(pos->Copy(), Act(zt.val2, phi->Copy())))),
+           And(neg->Copy(),
+               Know(k, OnlyIf(neg->Copy(), Act(zt.val2, phi->Copy())))))));
       if (!sign) {
         beta->Negate();
       }
@@ -986,12 +989,18 @@ struct Formula::Belief : public Formula {
   std::pair<Truth, Ptr> Simplify() const override {
     auto p1 = neg_phi->Simplify();
     auto p2 = psi->Simplify();
-    if (sign && p1.first == TRIVIALLY_FALSE) {
-      return std::make_pair(TRIVIALLY_FALSE, Ptr());
+    if (p1.first == TRIVIALLY_TRUE) {
+      p1.second = True();
+    } else if (p1.first == TRIVIALLY_FALSE) {
+      p1.second = False();
     }
-    if (!sign && p2.first == TRIVIALLY_TRUE) {
-      return std::make_pair(TRIVIALLY_TRUE, Ptr());
+    if (p2.first == TRIVIALLY_TRUE) {
+      return std::make_pair(sign ? TRIVIALLY_TRUE : TRIVIALLY_FALSE, Ptr());
+    } else if (p2.first == TRIVIALLY_FALSE) {
+      p2.second = False();
     }
+    assert(p1.second);
+    assert(p2.second);
     Ptr b = Ptr(new Belief(k, z, sign, std::move(p1.second),
                            std::move(p2.second)));
     return std::make_pair(NONTRIVIAL, std::move(b));
@@ -1008,8 +1017,15 @@ struct Formula::Belief : public Formula {
     if (zt) {
       Ptr pos(new struct Lit(SfLiteral(zt.val1, zt.val2, true)));
       Ptr neg(new struct Lit(SfLiteral(zt.val1, zt.val2, false)));
-      Ptr beta(Act(zt.val1, Or(And(pos->Copy(), Believe(k, And(pos->Copy(), Act(zt.val2, neg_phi->Copy())), Act(zt.val2, psi->Copy()))),     // NOLINT
-                               And(neg->Copy(), Believe(k, And(neg->Copy(), Act(zt.val2, neg_phi->Copy())), Act(zt.val2, psi->Copy()))))));  // NOLINT
+      Ptr beta(Act(zt.val1,
+        Or(And(pos->Copy(),
+               Believe(k,
+                       And(pos->Copy(), Act(zt.val2, neg_phi->Copy())),
+                       Act(zt.val2, psi->Copy()))),
+           And(neg->Copy(),
+               Believe(k,
+                       And(neg->Copy(), Act(zt.val2, neg_phi->Copy())),
+                       Act(zt.val2, psi->Copy()))))));
       if (!sign) {
         beta->Negate();
       }
@@ -1019,11 +1035,22 @@ struct Formula::Belief : public Formula {
     }
   }
 
-
   void Print(std::ostream* os) const override {
-    *os << "K_" << k << '(' << '~' << *neg_phi << " => " << *psi << ')';
+    *os << "B_" << k << '(' << '~' << *neg_phi << " => " << *psi << ')';
   }
 };
+
+// }}}
+// {{{ Formula members.
+
+Formula::Ptr Formula::True() {
+  const StdName n = Term::Factory::CreatePlaceholderStdName(0, 0);
+  return Eq(n, n);
+}
+
+Formula::Ptr Formula::False() {
+  return Neg(True());
+}
 
 Formula::Ptr Formula::Eq(const Term& t1, const Term& t2) {
   return Ptr(new Equal(t1, t2));
@@ -1090,6 +1117,10 @@ Formula::Ptr Formula::Know(split_level k, Ptr phi) {
   return Ptr(new Knowledge(k, {}, false, std::move(phi)));
 }
 
+Formula::Ptr Formula::Believe(split_level k, Ptr psi) {
+  return Believe(k, True(), std::move(psi));
+}
+
 Formula::Ptr Formula::Believe(split_level k, Ptr neg_phi, Ptr psi) {
   return Ptr(new Belief(k, {}, false, std::move(neg_phi), std::move(psi)));
 }
@@ -1128,37 +1159,36 @@ void Formula::AddToSetups(Term::Factory* tf, Setups* setups) const {
   cnf.AddToSetups(setups);
 }
 
-bool Formula::EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const {
+bool Formula::Eval(Term::Factory* tf, Setup* setup) const {
   StdName::SortedSet hplus = tf->sorted_names();
   std::pair<Truth, Ptr> p = Simplify();
   if (p.first == TRIVIALLY_TRUE) {
     return true;
   }
   if (p.first == TRIVIALLY_FALSE) {
-    return setup->Inconsistent(k);
+    return setup->Inconsistent(0);
   }
   Ptr phi = std::move(p.second);
   assert(phi);
   Cnf cnf = phi->MakeCnf(&hplus);
   cnf.Minimize();
-  return cnf.EntailedBy(setup, k);
+  return cnf.Eval(setup, 0);
 }
 
-bool Formula::EntailedBy(Term::Factory* tf, Setups* setups,
-                         split_level k) const {
+bool Formula::Eval(Term::Factory* tf, Setups* setups) const {
   StdName::SortedSet hplus = tf->sorted_names();
   std::pair<Truth, Ptr> p = Simplify();
   if (p.first == TRIVIALLY_TRUE) {
     return true;
   }
   if (p.first == TRIVIALLY_FALSE) {
-    return setups->Inconsistent(k);
+    return setups->Inconsistent(0);
   }
   Ptr phi = std::move(p.second);
   assert(phi);
   Cnf cnf = phi->MakeCnf(&hplus);
   cnf.Minimize();
-  return cnf.EntailedBy(setups, k);
+  return cnf.Eval(setups, 0);
 }
 
 // }}}

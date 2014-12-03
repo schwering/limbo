@@ -47,6 +47,8 @@ class Formula {
   Formula& operator=(const Formula&) = delete;
   virtual ~Formula() {}
 
+  static Ptr True();
+  static Ptr False();
   static Ptr Eq(const Term& t1, const Term& t2);
   static Ptr Neq(const Term& t1, const Term& t2);
   static Ptr Lit(const Literal& l);
@@ -61,10 +63,10 @@ class Formula {
   static Ptr Exists(const Variable& x, Ptr phi);
   static Ptr Forall(const Variable& x, Ptr phi);
   static Ptr Know(split_level k, Ptr phi);
+  static Ptr Believe(split_level k, Ptr psi);
   static Ptr Believe(split_level k, Ptr neg_phi, Ptr psi);
 
   virtual Ptr Copy() const = 0;
-  virtual void PrependActions(const TermSeq& z) = 0;
   virtual void SubstituteInPlace(const Unifier& theta) = 0;
 
   virtual Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const = 0;
@@ -72,8 +74,8 @@ class Formula {
   void AddToSetup(Term::Factory* tf, Setup* setup) const;
   void AddToSetups(Term::Factory* tf, Setups* setups) const;
 
-  bool EntailedBy(Term::Factory* tf, Setup* setup, split_level k) const;
-  bool EntailedBy(Term::Factory* tf, Setups* setups, split_level k) const;
+  bool Eval(Term::Factory* tf, Setup* setup) const;
+  bool Eval(Term::Factory* tf, Setups* setups) const;
 
  private:
   friend std::ostream& operator<<(std::ostream& os, const Formula& phi);
@@ -88,6 +90,7 @@ class Formula {
   class Cnf;
 
   virtual void Negate() = 0;
+  virtual void PrependActions(const TermSeq& z) = 0;
   virtual void CollectFreeVariables(Variable::SortedSet* vs) const = 0;
   virtual std::pair<Truth, Ptr> Simplify() const = 0;
   virtual Cnf MakeCnf(StdName::SortedSet* hplus) const = 0;

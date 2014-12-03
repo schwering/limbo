@@ -18,20 +18,20 @@ TEST(formula, gl) {
                                  Formula::Lit(Literal({}, true, bat.d2, {})));
 
   // Property 1
-  EXPECT_TRUE(Formula::Neg(close->Copy())->EntailedBy(&bat.tf(), &s, 0));
+  EXPECT_TRUE(Formula::Know(0, Formula::Neg(close->Copy()))->Eval(&bat.tf(), &s));
 
   s.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.forward, true)}));
 
   // Property 2
-  EXPECT_FALSE(Formula::Act(bat.forward, maybe_close->Copy())->EntailedBy(&bat.tf(), &s, 0));
+  EXPECT_FALSE(Formula::Know(0, Formula::Act(bat.forward, maybe_close->Copy()))->Eval(&bat.tf(), &s));
 
   // Property 3
-  EXPECT_TRUE(Formula::Act(bat.forward, maybe_close->Copy())->EntailedBy(&bat.tf(), &s, 1));
+  EXPECT_TRUE(Formula::Know(1, Formula::Act(bat.forward, maybe_close->Copy()))->Eval(&bat.tf(), &s));
 
   s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.forward}, bat.sonar, true)}));
 
   // Property 4
-  EXPECT_TRUE(Formula::Act({bat.forward, bat.sonar}, close->Copy())->EntailedBy(&bat.tf(), &s, 1));
+  EXPECT_TRUE(Formula::Know(1, Formula::Act({bat.forward, bat.sonar}, close->Copy()))->Eval(&bat.tf(), &s));
 }
 
 TEST(formula, gl_regression) {
@@ -43,25 +43,25 @@ TEST(formula, gl_regression) {
                                  Formula::Lit(Literal({}, true, bat.d2, {})));
 
   // Property 1
-  Formula::Ptr reg1 = Formula::Neg(close->Copy())->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg1->EntailedBy(&bat.tf(), &s, 0));
+  Formula::Ptr reg1 = Formula::Know(0, Formula::Neg(close->Copy()))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg1->Eval(&bat.tf(), &s));
 
   Formula::Lit(SfLiteral({}, bat.forward, true))->Regress(&bat.tf(), bat)->AddToSetup(&bat.tf(), &s);
 
   // Property 2
-  Formula::Ptr reg2 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
-  //EXPECT_FALSE(reg2->EntailedBy(&bat.tf(), &s, 0)); // here regression differs from ESL
-  EXPECT_TRUE(reg2->EntailedBy(&bat.tf(), &s, 0));
+  Formula::Ptr reg2 = Formula::Act(bat.forward, Formula::Know(0, maybe_close->Copy()))->Regress(&bat.tf(), bat);
+  //EXPECT_FALSE(reg2->Eval(&bat.tf(), &s)); // here regression differs from ESL
+  EXPECT_TRUE(reg2->Eval(&bat.tf(), &s));
 
   // Property 3
-  Formula::Ptr reg3 = Formula::Act(bat.forward, maybe_close->Copy())->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg3->EntailedBy(&bat.tf(), &s, 1));
+  Formula::Ptr reg3 = Formula::Act(bat.forward, Formula::Know(1, maybe_close->Copy()))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg3->Eval(&bat.tf(), &s));
 
   Formula::Lit(SfLiteral({bat.forward}, bat.sonar, true))->Regress(&bat.tf(), bat)->AddToSetup(&bat.tf(), &s);
 
   // Property 4
-  Formula::Ptr reg4 = Formula::Act({bat.forward, bat.sonar}, close->Copy())->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg4->EntailedBy(&bat.tf(), &s, 1));
+  Formula::Ptr reg4 = Formula::Act({bat.forward, bat.sonar}, Formula::Know(1, close->Copy()))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg4->Eval(&bat.tf(), &s));
 }
 
 TEST(formula, morri) {
@@ -70,27 +70,36 @@ TEST(formula, morri) {
   auto& s = bat.setups();
 
   // Property 1
-  EXPECT_TRUE(Formula::Lit(Literal({}, false, bat.L1, {}))->EntailedBy(&bat.tf(), &s, 2));
+  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
+  Formula::Ptr q1 = Formula::Believe(2, Formula::Lit(Literal({}, false, bat.L1, {})));
+  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
+  std::cout << __FILE__ << ":" << *q1 << std::endl;
+  EXPECT_TRUE(q1->Eval(&bat.tf(), &s));
+  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
 
   // Property 2
+  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
   s.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.SL, true)}));
-  EXPECT_TRUE(Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
-                                                Formula::Lit(Literal({}, true, bat.R1, {}))))->EntailedBy(&bat.tf(), &s, 2));
+  EXPECT_TRUE(Formula::Act(bat.SL, Formula::Know(2, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
+                                                                 Formula::Lit(Literal({}, true, bat.R1, {})))))->Eval(&bat.tf(), &s));
 
+  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
   // Property 3
   s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL}, bat.SR1, false)}));
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {}))))->EntailedBy(&bat.tf(), &s, 2));
+  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))->Eval(&bat.tf(), &s));
 
   // Property 5
-  EXPECT_FALSE(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {})))->EntailedBy(&bat.tf(), &s, 2));
-  EXPECT_FALSE(Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->EntailedBy(&bat.tf(), &s, 2));
+  EXPECT_FALSE(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Eval(&bat.tf(), &s));
+  EXPECT_FALSE(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.L1, {})))))->Eval(&bat.tf(), &s));
+  EXPECT_TRUE(Formula::And(Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Lit(Literal({}, true, bat.L1, {}))))),
+                           Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Lit(Literal({}, false, bat.L1, {}))))))->Eval(&bat.tf(), &s));
 
   // Property 6
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {})))->EntailedBy(&bat.tf(), &s, 2));
+  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Know(2, Formula::Lit(Literal({}, true, bat.R1, {}))))->Eval(&bat.tf(), &s));
 
   // Property 6
   s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true)}));
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->EntailedBy(&bat.tf(), &s, 2));
+  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Know(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Eval(&bat.tf(), &s));
 }
 
 TEST(formula, morri_regression) {
@@ -99,34 +108,37 @@ TEST(formula, morri_regression) {
   auto& s = bat.setups();
 
   // Property 1
-  Formula::Ptr reg1 = Formula::Lit(Literal({}, false, bat.L1, {}))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg1->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg1 = Formula::Believe(2, Formula::Lit(Literal({}, false, bat.L1, {})))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg1->Eval(&bat.tf(), &s));
 
   // Property 2
   Formula::Lit(SfLiteral({}, bat.SL, true))->Regress(&bat.tf(), bat)->AddToSetups(&bat.tf(), &s);
-  Formula::Ptr reg2 = Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
-                                                               Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg2->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg2 = Formula::Act(bat.SL, Formula::Believe(2, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
+                                                                            Formula::Lit(Literal({}, true, bat.R1, {})))))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg2->Eval(&bat.tf(), &s));
 
   // Property 3
   Formula::Lit(SfLiteral({bat.SL}, bat.SR1, false))->Regress(&bat.tf(), bat)->AddToSetups(&bat.tf(), &s);
-  Formula::Ptr reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg3->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg3->Eval(&bat.tf(), &s));
 
   // Property 5
-  Formula::Ptr reg4 = Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {})))->Regress(&bat.tf(), bat);
-  EXPECT_FALSE(reg4->EntailedBy(&bat.tf(), &s, 2));
-  Formula::Ptr reg5 = Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
-  EXPECT_FALSE(reg5->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg5a = Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
+  EXPECT_FALSE(reg5a->Eval(&bat.tf(), &s));
+  Formula::Ptr reg5b = Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.L1, {})))))->Regress(&bat.tf(), bat);
+  EXPECT_FALSE(reg5b->Eval(&bat.tf(), &s));
+  Formula::Ptr reg5 = Formula::And(Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.L1, {}))))),
+                                   Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Lit(Literal({}, false, bat.L1, {}))))))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg5->Eval(&bat.tf(), &s));
 
   // Property 6
-  Formula::Ptr reg6 = Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {})))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg6->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg6 = Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg6->Eval(&bat.tf(), &s));
 
   // Property 6
   Formula::Lit(SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true))->Regress(&bat.tf(), bat)->AddToSetups(&bat.tf(), &s);
-  Formula::Ptr reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {})))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg7->EntailedBy(&bat.tf(), &s, 2));
+  Formula::Ptr reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
+  EXPECT_TRUE(reg7->Eval(&bat.tf(), &s));
 }
 
 TEST(formula, fol_incompleteness_positive1) {
@@ -140,7 +152,7 @@ TEST(formula, fol_incompleteness_positive1) {
                           Formula::Lit(Literal({}, false, 0, {y})))));
   esbl::Setup s;
   for (Setup::split_level k = 1; k < 2; ++k) {
-    EXPECT_EQ(q->EntailedBy(&tf, &s, k), k > 0);
+    EXPECT_EQ(Formula::Know(k, q->Copy())->Eval(&tf, &s), k > 0);
   }
 }
 
@@ -157,10 +169,10 @@ TEST(formula, fol_incompleteness_positive2) {
   auto q = Formula::Or(std::move(q1), std::move(q2));
   esbl::Setup s;
   for (Setup::split_level k = 0; k < 5; ++k) {
-    //EXPECT_EQ(q->EntailedBy(&tf, &s, k), k > 0);
+    //EXPECT_EQ(Formula::Know(k, q->Copy())->Eval(&tf, &s), k > 0);
     // It holds even for k = 0 because our CNF we drop tautologous clauses from
     // the CNF.
-    EXPECT_TRUE(q->EntailedBy(&tf, &s, k));
+    EXPECT_TRUE(Formula::Know(k, q->Copy())->Eval(&tf, &s));
   }
 }
 
@@ -175,7 +187,7 @@ TEST(formula, fol_incompleteness_negative1) {
                           Formula::Lit(Literal({}, false, 0, {y})))));
   esbl::Setup s;
   for (Setup::split_level k = 1; k < 2; ++k) {
-    EXPECT_FALSE(q->EntailedBy(&tf, &s, k));
+    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(&tf, &s));
   }
 }
 
@@ -192,7 +204,7 @@ TEST(formula, fol_incompleteness_negative2) {
   auto q = Formula::Or(std::move(q2), std::move(q1));
   esbl::Setup s;
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_FALSE(q->EntailedBy(&tf, &s, k));
+    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(&tf, &s));
   }
 }
 
@@ -207,7 +219,7 @@ TEST(formula, fol_incompleteness_reverse) {
   auto q = Formula::Or(std::move(q1), std::move(q2));
   esbl::Setup s;
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_FALSE(q->EntailedBy(&tf, &s, k));
+    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(&tf, &s));
   }
 }
 
@@ -220,7 +232,7 @@ TEST(formula, fol_setup_universal) {
   s.AddClause(Clause(Ewff::TRUE, SimpleClause({Literal({}, true, 0, {x})})));
   auto q = Formula::Forall(y, Formula::Lit(Literal({}, true, 0, {y})));
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_TRUE(q->EntailedBy(&tf, &s, k));
+    EXPECT_TRUE(Formula::Know(k, q->Copy())->Eval(&tf, &s));
   }
 }
 
@@ -236,7 +248,7 @@ TEST(formula, query_resolution) {
   auto phi = Formula::And(Formula::Or(Formula::Lit(q), Formula::Lit(p)),
                           Formula::Or(Formula::Lit(q), Formula::Lit(p.Flip())));
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_TRUE(phi->EntailedBy(&tf, &s, k));
+    EXPECT_TRUE(Formula::Know(k, phi->Copy())->Eval(&tf, &s));
   }
 }
 

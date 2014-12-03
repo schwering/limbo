@@ -101,9 +101,11 @@ const std::string CONJUNCTION = "^";
 const std::string DISJUNCTION = "v";
 const std::string IMPLICATION = "->";
 const std::string EQUIVALENCE = "<->";
+const std::string ACTION = ":";
 const std::string EXISTS = "exists";
 const std::string FORALL = "forall";
-const std::string ACTION = ":";
+const std::string KNOW = "k";
+const std::string BELIEVE = "b";
 
 struct EC_word_comparator {
   bool operator()(const EC_word& lhs, const EC_word& rhs) const {
@@ -322,6 +324,17 @@ class FormulaBuilder {
   }\
   const Term::Sort sort = p_##sort.val;
 
+#define ARG_K(ec_alpha, k, i) \
+  EC_word ec_##k;\
+  if (ec_alpha.arg(i, ec_##k) != EC_succeed) {\
+    return Nothing;\
+  }\
+  long p_##k;\
+  if (ec_##k.is_long(&p_##k) != EC_succeed) {\
+    return Nothing;\
+  }\
+  const Formula::split_level k = static_cast<Formula::split_level>(p_##k);
+
 Maybe<Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
 {
   EC_functor f;
@@ -366,6 +379,11 @@ Maybe<Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
     term_builder_.PopVar(ec_var);
     beta = Formula::Exists(var, std::move(beta));
     return Just(std::move(beta));
+  } else if (is_functor && f.name() == ACTION && f.arity() == 2) {
+    ARG_TERM(ec_alpha, term, 1);
+    ARG_FORMULA(ec_alpha, beta, 2);
+    beta = Formula::Act(term, std::move(beta));
+    return Just(std::move(beta));
   } else if (is_functor && f.name() == FORALL && f.arity() == 3) {
     ARG_SORT(ec_alpha, sort, 2);
     ARG_QVAR(ec_alpha, var, sort, 1);
@@ -373,10 +391,21 @@ Maybe<Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
     term_builder_.PopVar(ec_var);
     beta = Formula::Forall(var, std::move(beta));
     return Just(std::move(beta));
-  } else if (is_functor && f.name() == ACTION && f.arity() == 2) {
-    ARG_TERM(ec_alpha, term, 1);
+  } else if (is_functor && f.name() == KNOW && f.arity() == 2) {
+    ARG_K(ec_alpha, k, 1);
     ARG_FORMULA(ec_alpha, beta, 2);
-    beta = Formula::Act(term, std::move(beta));
+    beta = Formula::Know(k, std::move(beta));
+    return Just(std::move(beta));
+  } else if (is_functor && f.name() == BELIEVE && f.arity() == 2) {
+    ARG_K(ec_alpha, k, 1);
+    ARG_FORMULA(ec_alpha, beta, 2);
+    beta = Formula::Believe(k, std::move(beta));
+    return Just(std::move(beta));
+  } else if (is_functor && f.name() == BELIEVE && f.arity() == 3) {
+    ARG_K(ec_alpha, k, 1);
+    ARG_FORMULA(ec_alpha, phi, 2);
+    ARG_FORMULA(ec_alpha, psi, 3);
+    Formula::Ptr beta = Formula::Believe(k, std::move(phi), std::move(psi));
     return Just(std::move(beta));
   } else if (is_functor) {
     const auto p = pred_builder_.Get(ec_alpha);
@@ -807,10 +836,10 @@ int p_entails()
   BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
   assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
   if (kbat) {
-    return alpha->EntailedBy(&kbat->tf(), &kbat->setup(), k) ? PSUCCEED : PFAIL;
+    return alpha->Eval(&kbat->tf(), &kbat->setup()) ? PSUCCEED : PFAIL;
   }
   if (bbat) {
-    return alpha->EntailedBy(&bbat->tf(), &bbat->setups(), k) ? PSUCCEED : PFAIL;
+    return alpha->Eval(&bbat->tf(), &bbat->setups()) ? PSUCCEED : PFAIL;
   }
   return PFAIL;
 }

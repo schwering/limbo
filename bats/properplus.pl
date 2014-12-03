@@ -273,7 +273,7 @@ compile_formula(Names, Alpha, T) :-
     with_output_to(atom(T), format('Formula::Neg(~w)', [T1])).
 compile_formula(_, Alpha, T) :-
     Alpha = true, !,
-    with_output_to(atom(T), format('Formula::Eq(tf_.CreatePlaceholderStdName(0, 0), tf_.CreatePlaceholderStdName(0, 0))', [])).
+    with_output_to(atom(T), format('Formula::True()', [])).
 compile_formula(Names, Alpha, T) :-
     compile_literal(Names, Alpha, T1),
     with_output_to(atom(T), format('Formula::Lit(~w)', [T1])).
