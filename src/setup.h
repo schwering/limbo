@@ -103,6 +103,8 @@ class Setups {
   const std::vector<Setup>& setups() const { return ss_; }
   const Setup& setup(size_t i) const { return ss_.at(i); }
   Setup& setup(size_t i) { return ss_.at(i); }
+  const Setup& last_setup() const { return ss_.back(); };
+  Setup& last_setup() { return ss_.back(); };
   const StdName::SortedSet& hplus() const { return setup(0).hplus(); }
 
  private:

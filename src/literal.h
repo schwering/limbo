@@ -7,6 +7,7 @@
 #include <set>
 #include <vector>
 #include "./atom.h"
+#include "./range.h"
 
 namespace esbl {
 
@@ -126,23 +127,14 @@ class Literal::Set : public std::set<Literal, Comparator> {
  public:
   using std::set<Literal, Comparator>::set;
 
-  template<typename T>
-  struct iter_range {
-    iter_range(T&& first, T&& last) : first(first), last(last) {}  // NOLINT
-    T first;
-    T last;
-    T begin() const { return first; }
-    T end() const { return last; }
-  };
-
-  iter_range<const_iterator> range(PredId pred) const {
-    return iter_range<const_iterator>(
+  Range<const_iterator> range(PredId pred) const {
+    return Range<const_iterator>(
         lower_bound(key_comp().LowerBound(pred)),
         lower_bound(key_comp().UpperBound(pred)));
   }
 
-  iter_range<const_iterator> range(bool sign, PredId pred) const {
-    return iter_range<const_iterator>(
+  Range<const_iterator> range(bool sign, PredId pred) const {
+    return Range<const_iterator>(
         lower_bound(key_comp().LowerBound(sign, pred)),
         lower_bound(key_comp().UpperBound(sign, pred)));
   }

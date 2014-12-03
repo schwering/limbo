@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 #include "./maybe.h"
+#include "./range.h"
 
 namespace esbl {
 
@@ -89,9 +90,9 @@ class Variable {
 
   Term::Id id() const { return t_.id_; }
   bool sort() const { return t_.sort_; }
-  bool ground() const { return t_.kind_ != Term::VAR; }
-  bool is_variable() const { return t_.kind_ == Term::VAR; }
-  bool is_name() const { return t_.kind_ == Term::NAME; }
+  bool ground() const { return t_.ground(); }
+  bool is_variable() const { return t_.is_variable(); }
+  bool is_name() const { return t_.is_name(); }
 
  private:
   friend class Term;
@@ -102,7 +103,7 @@ class Variable {
 class StdName {
  public:
   typedef std::set<StdName> Set;
-  typedef std::map<Term::Sort, Set> SortedSet;
+  class SortedSet;
 
   static const StdName MIN_NORMAL;
   static const StdName MIN;
@@ -124,15 +125,42 @@ class StdName {
 
   Term::Id id() const { return t_.id_; }
   bool sort() const { return t_.sort_; }
-  bool ground() const { return t_.kind_ != Term::VAR; }
-  bool is_variable() const { return t_.kind_ == Term::VAR; }
-  bool is_name() const { return t_.kind_ == Term::NAME; }
-  bool is_placeholder() const { return t_.id_ < 0; }
+  bool ground() const { return t_.ground(); }
+  bool is_variable() const { return t_.is_variable(); }
+  bool is_name() const { return t_.is_name(); }
+  bool is_placeholder() const { return t_.id_ < MIN_NORMAL.t_.id_; }
 
  private:
   friend class Term;
 
   Term t_;
+};
+
+class StdName::SortedSet : public std::map<Term::Sort, std::set<StdName>> {
+ public:
+  using std::map<Term::Sort, StdName::Set>::map;
+
+  Range<StdName::Set::const_iterator> lookup(Term::Sort sort) const {
+    auto it = find(sort);
+    if (it == end()) {
+      return EmptyRange;
+    }
+    return MakeRange(it->second.begin(), it->second.end());
+  }
+
+  SortedSet WithoutPlaceholders() const {
+    SortedSet ss = *this;
+    for (auto& p : ss) {
+      for (auto it = p.second.begin(); it != p.second.end(); ) {
+        if (it->is_placeholder()) {
+          it = p.second.erase(it);
+        } else {
+          ++it;
+        }
+      }
+    }
+    return ss;
+  }
 };
 
 class Term::Factory {

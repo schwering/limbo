@@ -758,7 +758,7 @@ int p_add_sensing_result()
     if (!ctx->UseRegression()) {
       kbat->setup().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
     } else {
-      Formula::Lit(SfLiteral(z, t, r))->Regress(ctx->tf(), ctx->bat())->AddToSetup(ctx->tf(), &kbat->setup());
+      Formula::Lit(SfLiteral(z, t, r))->Regress(ctx->tf(), ctx->bat())->AddToSetup(&kbat->setup());
     }
     return PSUCCEED;
   }
@@ -766,7 +766,7 @@ int p_add_sensing_result()
     if (!ctx->UseRegression()) {
       bbat->setups().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
     } else {
-      Formula::Lit(SfLiteral(z, t, r))->Regress(ctx->tf(), ctx->bat())->AddToSetups(ctx->tf(), &bbat->setups());
+      Formula::Lit(SfLiteral(z, t, r))->Regress(ctx->tf(), ctx->bat())->AddToSetups(&bbat->setups());
     }
     return PSUCCEED;
   }
@@ -836,10 +836,10 @@ int p_entails()
   BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
   assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
   if (kbat) {
-    return alpha->Eval(&kbat->tf(), &kbat->setup()) ? PSUCCEED : PFAIL;
+    return alpha->Eval(&kbat->setup()) ? PSUCCEED : PFAIL;
   }
   if (bbat) {
-    return alpha->Eval(&bbat->tf(), &bbat->setups()) ? PSUCCEED : PFAIL;
+    return alpha->Eval(&bbat->setups()) ? PSUCCEED : PFAIL;
   }
   return PFAIL;
 }

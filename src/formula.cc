@@ -623,13 +623,35 @@ struct Formula::Equal : public Formula {
     t2 = t2.Substitute(theta);
   }
 
-  void CollectFreeVariables(Variable::SortedSet* vs) const {
+  void GroundInPlace(const Assignment& theta) override {
+    t1 = t1.Ground(theta);
+    t2 = t2.Ground(theta);
+  }
+
+  void CollectFreeVariables(Variable::Set* vs) const override {
     if (t1.is_variable()) {
-      (*vs)[t1.sort()].insert(Variable(t1));
+      vs->insert(Variable(t1));
     }
     if (t2.is_variable()) {
-      (*vs)[t2.sort()].insert(Variable(t2));
+      vs->insert(Variable(t2));
     }
+  }
+
+  void CollectNames(StdName::SortedSet* ns) const override {
+    if (t1.is_name()) {
+      (*ns)[t1.sort()].insert(StdName(t1));
+    }
+    if (t2.is_name()) {
+      (*ns)[t2.sort()].insert(StdName(t2));
+    }
+  }
+
+  Ptr Reduce(const StdName::SortedSet&, Setup*) const override {
+    return Copy();
+  }
+
+  Ptr Reduce(const StdName::SortedSet&, Setups*) const override {
+    return Copy();
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
@@ -675,8 +697,24 @@ struct Formula::Lit : public Formula {
     l = l.Substitute(theta);
   }
 
-  void CollectFreeVariables(Variable::SortedSet* vs) const {
+  void GroundInPlace(const Assignment& theta) override {
+    l = l.Ground(theta);
+  }
+
+  void CollectFreeVariables(Variable::Set* vs) const override {
     l.CollectVariables(vs);
+  }
+
+  void CollectNames(StdName::SortedSet* ns) const override {
+    l.CollectNames(ns);
+  }
+
+  Ptr Reduce(const StdName::SortedSet&, Setup*) const override {
+    return Copy();
+  }
+
+  Ptr Reduce(const StdName::SortedSet&, Setups*) const override {
+    return Copy();
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
@@ -735,12 +773,30 @@ struct Formula::Junction : public Formula {
     r->SubstituteInPlace(theta);
   }
 
-  void CollectFreeVariables(Variable::SortedSet* vs) const {
+  void GroundInPlace(const Assignment& theta) override {
+    l->GroundInPlace(theta);
+    r->GroundInPlace(theta);
+  }
+
+  void CollectFreeVariables(Variable::Set* vs) const override {
     // We assume formulas to be rectified, so that's OK. Otherwise, if x
     // occurred freely in l but bound in r, we need to take care not to delete
     // it with the second call.
     l->CollectFreeVariables(vs);
     r->CollectFreeVariables(vs);
+  }
+
+  void CollectNames(StdName::SortedSet* ns) const override {
+    l->CollectNames(ns);
+    r->CollectNames(ns);
+  }
+
+  Ptr Reduce(const StdName::SortedSet& ns, Setup* s) const override {
+    return Ptr(new Junction(type, l->Reduce(ns, s), r->Reduce(ns, s)));
+  }
+
+  Ptr Reduce(const StdName::SortedSet& ns, Setups* s) const override {
+    return Ptr(new Junction(type, l->Reduce(ns, s), r->Reduce(ns, s)));
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
@@ -821,13 +877,32 @@ struct Formula::Quantifier : public Formula {
   }
 
   void SubstituteInPlace(const Unifier& theta) override {
-    x = Variable(x.Substitute(theta));
+    Unifier new_theta = theta;
+    new_theta.erase(x);
     phi->SubstituteInPlace(theta);
   }
 
-  void CollectFreeVariables(Variable::SortedSet* vs) const {
+  void GroundInPlace(const Assignment& theta) override {
+    Assignment new_theta = theta;
+    new_theta.erase(x);
+    phi->GroundInPlace(new_theta);
+  }
+
+  void CollectFreeVariables(Variable::Set* vs) const override {
     phi->CollectFreeVariables(vs);
-    (*vs)[x.sort()].erase(x);
+    vs->erase(x);
+  }
+
+  void CollectNames(StdName::SortedSet* ns) const override {
+    phi->CollectNames(ns);
+  }
+
+  Ptr Reduce(const StdName::SortedSet& ns, Setup* s) const override {
+    return Ptr(new Quantifier(type, x, phi->Reduce(ns, s)));
+  }
+
+  Ptr Reduce(const StdName::SortedSet& ns, Setups* s) const override {
+    return Ptr(new Quantifier(type, x, phi->Reduce(ns, s)));
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
@@ -845,7 +920,7 @@ struct Formula::Quantifier : public Formula {
 
   Cnf MakeCnf(StdName::SortedSet* hplus) const override {
     StdName::Set& new_ns = (*hplus)[x.sort()];
-    for (Term::Id id = 0; ; ++id) {
+    for (Term::Id id = 0; ; ++id) {  // that's not elegant at all
       assert(id <= static_cast<int>(new_ns.size()));
       const StdName n = Term::Factory::CreatePlaceholderStdName(id, x.sort());
       const auto p = new_ns.insert(n);
@@ -886,6 +961,71 @@ struct Formula::Quantifier : public Formula {
   }
 };
 
+namespace {
+void GenerateAssignments(const Variable::Set::const_iterator first,
+                         const Variable::Set::const_iterator last,
+                         const StdName::SortedSet& hplus,
+                         StdName::SortedSet additional_names,
+                         const Assignment& base_theta,
+                         std::list<Assignment>* rs) {
+  if (first == last) {
+    rs->push_back(base_theta);
+    return;
+  }
+  Variable::Set::const_iterator next = std::next(first);
+  const Variable& x = *first;
+  for (const StdName& n : hplus.lookup(x.sort())) {
+    Assignment theta = base_theta;
+    theta.insert(std::make_pair(x, n));
+    GenerateAssignments(next, last, hplus, additional_names, theta, rs);
+  }
+  const Term::Id id_prime = additional_names[x.sort()].size();
+  const StdName n_prime = Term::Factory::CreatePlaceholderStdName(id_prime,
+                                                                  x.sort());
+  const auto p = additional_names[x.sort()].insert(n_prime);
+  assert(p.second);
+  Assignment theta = base_theta;
+  theta.insert(std::make_pair(x, n_prime));
+  GenerateAssignments(next, last, hplus, additional_names, theta, rs);
+}
+
+std::list<Assignment> ReducedAssignments(const Variable::Set& vs,
+                                         const StdName::SortedSet& ns) {
+  std::list<Assignment> rs;
+  StdName::SortedSet additional_names;
+  GenerateAssignments(vs.begin(), vs.end(), ns, StdName::SortedSet(),
+                      Assignment(), &rs);
+  return rs;
+}
+
+Formula::Ptr ReducedFormula(const Assignment& theta) {
+  return Formula::Ptr();
+  std::vector<Formula::Ptr> conjs;
+  for (const auto& p : theta) {
+    const Variable& x = p.first;
+    const StdName& m = p.second;
+    if (!m.is_placeholder()) {
+      conjs.push_back(Formula::Eq(x, m));
+    } else {
+      for (const auto& q : theta) {
+        const Variable& y = q.first;
+        const StdName& n = q.second;
+        if (!n.is_placeholder()) {
+          conjs.push_back(Formula::Neq(x, n));
+        } else if (m == n) {
+          conjs.push_back(Formula::Eq(x, y));
+        }
+      }
+    }
+  }
+  Formula::Ptr phi;
+  for (Formula::Ptr& psi : conjs) {
+    phi = !phi ? std::move(psi) : Formula::And(std::move(phi), std::move(psi));
+  }
+  return std::move(phi);
+}
+}
+
 struct Formula::Knowledge : public Formula {
   split_level k;
   TermSeq z;
@@ -909,8 +1049,38 @@ struct Formula::Knowledge : public Formula {
     phi->SubstituteInPlace(theta);
   }
 
-  void CollectFreeVariables(Variable::SortedSet* vs) const {
+  void GroundInPlace(const Assignment& theta) override {
+    phi->GroundInPlace(theta);
+  }
+
+  void CollectFreeVariables(Variable::Set* vs) const override {
     phi->CollectFreeVariables(vs);
+  }
+
+  void CollectNames(StdName::SortedSet* ns) const override {
+    phi->CollectNames(ns);
+  }
+
+  Ptr Reduce(const StdName::SortedSet& ns, Setup* s) const override {
+    Variable::Set vs;
+    phi->CollectFreeVariables(&vs);
+    std::vector<Ptr> disjs;
+    for (const Assignment& theta : ReducedAssignments(vs, ns)) {
+      Ptr e = ReducedFormula(theta);
+      Ptr psi = phi->Copy();
+      psi->GroundInPlace(theta);
+      const bool holds = psi->Eval(s);
+      disjs.push_back(And(std::move(e), holds ? True() : False()));
+    }
+    Formula::Ptr phi;
+    for (Formula::Ptr& psi : disjs) {
+      phi = !phi ? std::move(psi) : Formula::Or(std::move(phi), std::move(psi));
+    }
+    return std::move(phi);
+  }
+
+  Ptr Reduce(const StdName::SortedSet& ns, Setups* s) const override {
+    return Reduce(ns, &s->last_setup());
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
@@ -946,6 +1116,7 @@ struct Formula::Knowledge : public Formula {
       }
       return std::move(beta);
     } else {
+      assert(z.empty());
       return Ptr(new Knowledge(k, z, sign, phi->Regress(tf, axioms)));
     }
   }
@@ -981,9 +1152,53 @@ struct Formula::Belief : public Formula {
     psi->SubstituteInPlace(theta);
   }
 
-  void CollectFreeVariables(Variable::SortedSet* vs) const {
+  void GroundInPlace(const Assignment& theta) override {
+    neg_phi->GroundInPlace(theta);
+    psi->GroundInPlace(theta);
+  }
+
+  void CollectFreeVariables(Variable::Set* vs) const override {
     neg_phi->CollectFreeVariables(vs);
     psi->CollectFreeVariables(vs);
+  }
+
+  void CollectNames(StdName::SortedSet* ns) const override {
+    neg_phi->CollectNames(ns);
+    psi->CollectNames(ns);
+  }
+
+  Ptr Reduce(const StdName::SortedSet&, Setup*) const override {
+    assert(false);
+    return Ptr();
+  }
+
+  Ptr Reduce(const StdName::SortedSet& ns, Setups* s) const override {
+    assert(false);
+    return Ptr();
+#if 0
+    Variable::Set vs1;
+    neg_phi->CollectFreeVariables(&vs1);
+    Variable::Set vs2;
+    psi->CollectFreeVariables(&vs2);
+    std::vector<Ptr> disjs;
+    for (const Assignment& theta1 : ReducedAssignments(vs1, ns)) {
+      for (const Assignment& theta2 : ReducedAssignments(vs2, ns)) {
+        Ptr e1 = ReducedFormula(theta1);
+        Ptr e2 = ReducedFormula(theta2);
+        Ptr neg_phi_copy = neg_phi->Copy();
+        Ptr psi_copy = psi->Copy();
+        neg_phi_copy->GroundInPlace(theta1);
+        psi_copy->GroundInPlace(theta2);
+        const bool phi_holds = psi->Eval(s);
+        disjs.push_back(And(std::move(e), holds ? True() : False()));
+      }
+    }
+    Formula::Ptr phi;
+    for (Formula::Ptr& psi : disjs) {
+      phi = !phi ? std::move(psi) : Formula::Or(std::move(phi), std::move(psi));
+    }
+    return std::move(phi);
+#endif
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
@@ -1031,7 +1246,10 @@ struct Formula::Belief : public Formula {
       }
       return std::move(beta);
     } else {
-      return Ptr(new Belief(k, z, sign, neg_phi->Regress(tf, axioms), psi->Regress(tf, axioms)));  // NOLINT
+      assert(z.empty());
+      return Ptr(new Belief(k, z, sign,
+                            neg_phi->Regress(tf, axioms),
+                            psi->Regress(tf, axioms)));
     }
   }
 
@@ -1125,8 +1343,9 @@ Formula::Ptr Formula::Believe(split_level k, Ptr neg_phi, Ptr psi) {
   return Ptr(new Belief(k, {}, false, std::move(neg_phi), std::move(psi)));
 }
 
-void Formula::AddToSetup(Term::Factory* tf, Setup* setup) const {
-  StdName::SortedSet hplus = tf->sorted_names();
+void Formula::AddToSetup(Setup* setup) const {
+  StdName::SortedSet hplus = setup->hplus().WithoutPlaceholders();
+  CollectNames(&hplus);
   std::pair<Truth, Ptr> p = Simplify();
   if (p.first == TRIVIALLY_TRUE) {
     return;
@@ -1142,8 +1361,9 @@ void Formula::AddToSetup(Term::Factory* tf, Setup* setup) const {
   cnf.AddToSetup(setup);
 }
 
-void Formula::AddToSetups(Term::Factory* tf, Setups* setups) const {
-  StdName::SortedSet hplus = tf->sorted_names();
+void Formula::AddToSetups(Setups* setups) const {
+  StdName::SortedSet hplus = setups->hplus().WithoutPlaceholders();
+  CollectNames(&hplus);
   std::pair<Truth, Ptr> p = Simplify();
   if (p.first == TRIVIALLY_TRUE) {
     return;
@@ -1159,8 +1379,9 @@ void Formula::AddToSetups(Term::Factory* tf, Setups* setups) const {
   cnf.AddToSetups(setups);
 }
 
-bool Formula::Eval(Term::Factory* tf, Setup* setup) const {
-  StdName::SortedSet hplus = tf->sorted_names();
+bool Formula::Eval(Setup* setup) const {
+  StdName::SortedSet hplus = setup->hplus().WithoutPlaceholders();
+  CollectNames(&hplus);
   std::pair<Truth, Ptr> p = Simplify();
   if (p.first == TRIVIALLY_TRUE) {
     return true;
@@ -1175,8 +1396,9 @@ bool Formula::Eval(Term::Factory* tf, Setup* setup) const {
   return cnf.Eval(setup, 0);
 }
 
-bool Formula::Eval(Term::Factory* tf, Setups* setups) const {
-  StdName::SortedSet hplus = tf->sorted_names();
+bool Formula::Eval(Setups* setups) const {
+  StdName::SortedSet hplus = setups->hplus().WithoutPlaceholders();
+  CollectNames(&hplus);
   std::pair<Truth, Ptr> p = Simplify();
   if (p.first == TRIVIALLY_TRUE) {
     return true;
@@ -1189,6 +1411,11 @@ bool Formula::Eval(Term::Factory* tf, Setups* setups) const {
   Cnf cnf = phi->MakeCnf(&hplus);
   cnf.Minimize();
   return cnf.Eval(setups, 0);
+}
+
+std::ostream& operator<<(std::ostream& os, const Formula& phi) {
+  phi.Print(&os);
+  return os;
 }
 
 // }}}

@@ -67,15 +67,18 @@ class Formula {
   static Ptr Believe(split_level k, Ptr neg_phi, Ptr psi);
 
   virtual Ptr Copy() const = 0;
+  virtual void PrependActions(const TermSeq& z) = 0;
   virtual void SubstituteInPlace(const Unifier& theta) = 0;
+  virtual void GroundInPlace(const Assignment& theta) = 0;
 
+  // tf is needed to create variables in order to keep the formula rectified.
   virtual Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const = 0;
 
-  void AddToSetup(Term::Factory* tf, Setup* setup) const;
-  void AddToSetups(Term::Factory* tf, Setups* setups) const;
+  void AddToSetup(Setup* setup) const;
+  void AddToSetups(Setups* setups) const;
 
-  bool Eval(Term::Factory* tf, Setup* setup) const;
-  bool Eval(Term::Factory* tf, Setups* setups) const;
+  bool Eval(Setup* setup) const;
+  bool Eval(Setups* setups) const;
 
  private:
   friend std::ostream& operator<<(std::ostream& os, const Formula& phi);
@@ -90,8 +93,10 @@ class Formula {
   class Cnf;
 
   virtual void Negate() = 0;
-  virtual void PrependActions(const TermSeq& z) = 0;
-  virtual void CollectFreeVariables(Variable::SortedSet* vs) const = 0;
+  virtual void CollectFreeVariables(Variable::Set* vs) const = 0;
+  virtual void CollectNames(StdName::SortedSet* ns) const = 0;
+  virtual Ptr Reduce(const StdName::SortedSet& ns, Setup* setup) const = 0;
+  virtual Ptr Reduce(const StdName::SortedSet& ns, Setups* setups) const = 0;
   virtual std::pair<Truth, Ptr> Simplify() const = 0;
   virtual Cnf MakeCnf(StdName::SortedSet* hplus) const = 0;
   virtual void Print(std::ostream* os) const = 0;
@@ -103,10 +108,7 @@ class DynamicAxioms {
                                              const Atom& a) const = 0;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const Formula& phi) {
-  phi.Print(&os);
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const Formula& phi);
 
 }  // namespace esbl
 
