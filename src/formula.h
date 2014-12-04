@@ -23,6 +23,17 @@
 // of the existential, which requires to show P(#1) or to show P(#2). The
 // implementation obtains (P(#1) v P(#2)) after grounding the query and thus
 // proves the query even for k = 0.
+//
+// On the scope of ns in Reduce() and MakeCnf(): the sorted set ns should
+// contain the non-placeholder names from the setup and all names from the
+// query. Currently, it is not the full query but the sub-formula within K, B or
+// a quantifier, respectively. This leads to more incompleteness, as for example
+// the material implication (P(#1) -> E x. P(x)) expands to (P(#1) -> P(#-123)),
+// because #1 does not occur in the scope of the quantifier. At least in the
+// case of quantifers, the formula can be converted to prenex form
+// E x. (P(#1) -> P(x)), which expands to (P(#1) -> P(#1) v P(#-123)). So in a
+// way, the current implementation allows th user to control the grounding and
+// thus a bit complexity.
 
 #ifndef SRC_FORMULA_H_
 #define SRC_FORMULA_H_
@@ -95,10 +106,12 @@ class Formula {
   virtual void Negate() = 0;
   virtual void CollectFreeVariables(Variable::Set* vs) const = 0;
   virtual void CollectNames(StdName::SortedSet* ns) const = 0;
-  virtual Ptr Reduce(const StdName::SortedSet& ns, Setup* setup) const = 0;
-  virtual Ptr Reduce(const StdName::SortedSet& ns, Setups* setups) const = 0;
+  virtual Ptr Reduce(Setup* setup,
+                     const StdName::SortedSet& kb_and_query_ns) const = 0;
+  virtual Ptr Reduce(Setups* setups,
+                     const StdName::SortedSet& kb_and_query_ns) const = 0;
   virtual std::pair<Truth, Ptr> Simplify() const = 0;
-  virtual Cnf MakeCnf(StdName::SortedSet* hplus) const = 0;
+  virtual Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns) const = 0;
   virtual void Print(std::ostream* os) const = 0;
 };
 

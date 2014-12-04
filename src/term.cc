@@ -99,6 +99,48 @@ const StdName StdName::MAX(Term(Term::NAME,
                                 std::numeric_limits<Term::Id>::max(),
                                 std::numeric_limits<Term::Sort>::max()));
 
+Range<StdName::Set::const_iterator> StdName::SortedSet::lookup(Term::Sort sort) const {
+  auto it = find(sort);
+  if (it == end()) {
+    return EmptyRange;
+  }
+  return MakeRange(it->second.begin(), it->second.end());
+}
+
+StdName StdName::SortedSet::AddNewPlaceholder(Term::Sort sort) {
+  StdName::Set& ns = (*this)[sort];
+  auto it = ns.begin();
+  const StdName n =
+      it == ns.end() || !it->is_placeholder()
+      ? Term::Factory::CreatePlaceholderStdName(0, sort)
+      : it->next_placeholder();
+  const auto p = ns.insert(n);
+  assert(p.second);
+  return n;
+}
+
+StdName StdName::next_placeholder() const {
+  assert(is_placeholder());
+  assert(id() < 0);
+  Term::Id next_id = id() - 1;
+  assert(next_id < 0);
+  return StdName(Term(Term::NAME, next_id, sort()));
+}
+
+StdName::SortedSet StdName::SortedSet::WithoutPlaceholders() const {
+  SortedSet ss = *this;
+  for (auto& p : ss) {
+    for (auto it = p.second.begin(); it != p.second.end(); ) {
+      if (it->is_placeholder()) {
+        it = p.second.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+  return ss;
+}
+
 Maybe<Term, TermSeq> TermSeq::SplitHead() const {
   if (empty()) {
     return Nothing;

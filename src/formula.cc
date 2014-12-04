@@ -38,6 +38,8 @@ class Formula::Cnf {
   void AddToSetup(Setup* setup) const;
   void AddToSetups(Setups* setups) const;
 
+  const std::set<Disj, LessComparator<Disj>>& clauses() { return *ds_; }
+
   void Print(std::ostream* os) const;
 
  private:
@@ -646,11 +648,11 @@ struct Formula::Equal : public Formula {
     }
   }
 
-  Ptr Reduce(const StdName::SortedSet&, Setup*) const override {
+  Ptr Reduce(Setup*, const StdName::SortedSet&) const {
     return Copy();
   }
 
-  Ptr Reduce(const StdName::SortedSet&, Setups*) const override {
+  Ptr Reduce(Setups*, const StdName::SortedSet&) const {
     return Copy();
   }
 
@@ -662,7 +664,7 @@ struct Formula::Equal : public Formula {
     return std::make_pair(NONTRIVIAL, Copy());
   }
 
-  Cnf MakeCnf(StdName::SortedSet*) const override {
+  Cnf MakeCnf(const StdName::SortedSet&) const override {
     Cnf::Disj d;
     if (sign) {
       d.AddEq(t1, t2);
@@ -709,11 +711,11 @@ struct Formula::Lit : public Formula {
     l.CollectNames(ns);
   }
 
-  Ptr Reduce(const StdName::SortedSet&, Setup*) const override {
+  Ptr Reduce(Setup*, const StdName::SortedSet&) const {
     return Copy();
   }
 
-  Ptr Reduce(const StdName::SortedSet&, Setups*) const override {
+  Ptr Reduce(Setups*, const StdName::SortedSet&) const {
     return Copy();
   }
 
@@ -721,7 +723,7 @@ struct Formula::Lit : public Formula {
     return std::make_pair(NONTRIVIAL, Copy());
   }
 
-  Cnf MakeCnf(StdName::SortedSet*) const override {
+  Cnf MakeCnf(const StdName::SortedSet&) const override {
     Cnf::Disj d;
     d.AddLiteral(l);
     return Cnf(d);
@@ -751,7 +753,10 @@ struct Formula::Junction : public Formula {
   Ptr r;
 
   Junction(Type type, Ptr l, Ptr r)
-      : type(type), l(std::move(l)), r(std::move(r)) {}
+      : type(type), l(std::move(l)), r(std::move(r)) {
+    assert(this->l);
+    assert(this->r);
+  }
 
   Ptr Copy() const override {
     return Ptr(new Junction(type, l->Copy(), r->Copy()));
@@ -791,12 +796,16 @@ struct Formula::Junction : public Formula {
     r->CollectNames(ns);
   }
 
-  Ptr Reduce(const StdName::SortedSet& ns, Setup* s) const override {
-    return Ptr(new Junction(type, l->Reduce(ns, s), r->Reduce(ns, s)));
+  Ptr Reduce(Setup* setup, const StdName::SortedSet& kb_and_query_ns) const {
+    return Ptr(new Junction(type,
+                            l->Reduce(setup, kb_and_query_ns),
+                            r->Reduce(setup, kb_and_query_ns)));
   }
 
-  Ptr Reduce(const StdName::SortedSet& ns, Setups* s) const override {
-    return Ptr(new Junction(type, l->Reduce(ns, s), r->Reduce(ns, s)));
+  Ptr Reduce(Setups* setups, const StdName::SortedSet& kb_and_query_ns) const {
+    return Ptr(new Junction(type,
+                            l->Reduce(setups, kb_and_query_ns),
+                            r->Reduce(setups, kb_and_query_ns)));
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
@@ -825,14 +834,17 @@ struct Formula::Junction : public Formula {
       }
     }
     assert(p1.first == NONTRIVIAL && p2.first == NONTRIVIAL);
-    Ptr psi = Ptr(new Junction(type, std::move(p1.second),
+    assert(p1.second);
+    assert(p2.second);
+    Ptr psi = Ptr(new Junction(type,
+                               std::move(p1.second),
                                std::move(p2.second)));
     return std::make_pair(NONTRIVIAL, std::move(psi));
   }
 
-  Cnf MakeCnf(StdName::SortedSet* hplus) const override {
-    const Cnf cnf_l = l->MakeCnf(hplus);
-    const Cnf cnf_r = r->MakeCnf(hplus);
+  Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns) const override {
+    const Cnf cnf_l = l->MakeCnf(kb_and_query_ns);
+    const Cnf cnf_r = r->MakeCnf(kb_and_query_ns);
     if (type == DISJUNCTION) {
       return cnf_l.Or(cnf_r);
     } else {
@@ -860,7 +872,9 @@ struct Formula::Quantifier : public Formula {
   Ptr phi;
 
   Quantifier(Type type, const Variable& x, Ptr phi)
-      : type(type), x(x), phi(std::move(phi)) {}
+      : type(type), x(x), phi(std::move(phi)) {
+    assert(this->phi);
+  }
 
   Ptr Copy() const override {
     return Ptr(new Quantifier(type, x, phi->Copy()));
@@ -897,12 +911,12 @@ struct Formula::Quantifier : public Formula {
     phi->CollectNames(ns);
   }
 
-  Ptr Reduce(const StdName::SortedSet& ns, Setup* s) const override {
-    return Ptr(new Quantifier(type, x, phi->Reduce(ns, s)));
+  Ptr Reduce(Setup* setup, const StdName::SortedSet& kb_and_query_ns) const {
+    return Ptr(new Quantifier(type, x, phi->Reduce(setup, kb_and_query_ns)));
   }
 
-  Ptr Reduce(const StdName::SortedSet& ns, Setups* s) const override {
-    return Ptr(new Quantifier(type, x, phi->Reduce(ns, s)));
+  Ptr Reduce(Setups* setups, const StdName::SortedSet& kb_and_query_ns) const {
+    return Ptr(new Quantifier(type, x, phi->Reduce(setups, kb_and_query_ns)));
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
@@ -918,23 +932,13 @@ struct Formula::Quantifier : public Formula {
     return std::make_pair(NONTRIVIAL, std::move(psi));
   }
 
-  Cnf MakeCnf(StdName::SortedSet* hplus) const override {
-    StdName::Set& new_ns = (*hplus)[x.sort()];
-    for (Term::Id id = 0; ; ++id) {  // that's not elegant at all
-      assert(id <= static_cast<int>(new_ns.size()));
-      const StdName n = Term::Factory::CreatePlaceholderStdName(id, x.sort());
-      const auto p = new_ns.insert(n);
-      if (p.second) {
-        break;
-      }
-    }
-    // Memorize names for this x because the recursive call might add additional
-    // names which must not be substituted for this x.
-    const StdName::Set this_ns = new_ns;
+  Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns) const override {
+    StdName::SortedSet hplus = kb_and_query_ns;
+    hplus.AddNewPlaceholder(x.sort());
     const Cnf c = phi->MakeCnf(hplus);
     bool init = false;
     Cnf r;
-    for (const StdName& n : this_ns) {
+    for (const StdName& n : hplus[x.sort()]) {
       const Cnf d = c.Substitute({{x, n}});
       if (!init) {
         r = d;
@@ -979,11 +983,7 @@ void GenerateAssignments(const Variable::Set::const_iterator first,
     theta.insert(std::make_pair(x, n));
     GenerateAssignments(next, last, hplus, additional_names, theta, rs);
   }
-  const Term::Id id_prime = additional_names[x.sort()].size();
-  const StdName n_prime = Term::Factory::CreatePlaceholderStdName(id_prime,
-                                                                  x.sort());
-  const auto p = additional_names[x.sort()].insert(n_prime);
-  assert(p.second);
+  const StdName n_prime = additional_names.AddNewPlaceholder(x.sort());
   Assignment theta = base_theta;
   theta.insert(std::make_pair(x, n_prime));
   GenerateAssignments(next, last, hplus, additional_names, theta, rs);
@@ -995,11 +995,11 @@ std::list<Assignment> ReducedAssignments(const Variable::Set& vs,
   StdName::SortedSet additional_names;
   GenerateAssignments(vs.begin(), vs.end(), ns, StdName::SortedSet(),
                       Assignment(), &rs);
+  assert(!rs.empty());
   return rs;
 }
 
 Formula::Ptr ReducedFormula(const Assignment& theta) {
-  return Formula::Ptr();
   std::vector<Formula::Ptr> conjs;
   for (const auto& p : theta) {
     const Variable& x = p.first;
@@ -1018,9 +1018,9 @@ Formula::Ptr ReducedFormula(const Assignment& theta) {
       }
     }
   }
-  Formula::Ptr phi;
+  Formula::Ptr phi = Formula::True();
   for (Formula::Ptr& psi : conjs) {
-    phi = !phi ? std::move(psi) : Formula::And(std::move(phi), std::move(psi));
+    phi = Formula::And(std::move(phi), std::move(psi));
   }
   return std::move(phi);
 }
@@ -1033,7 +1033,9 @@ struct Formula::Knowledge : public Formula {
   Ptr phi;
 
   Knowledge(split_level k, const TermSeq z, bool sign, Ptr phi)
-      : k(k), z(z), sign(sign), phi(std::move(phi)) {}
+      : k(k), z(z), sign(sign), phi(std::move(phi)) {
+    assert(this->phi);
+  }
 
   Ptr Copy() const override {
     return Ptr(new Knowledge(k, z, sign, phi->Copy()));
@@ -1061,26 +1063,50 @@ struct Formula::Knowledge : public Formula {
     phi->CollectNames(ns);
   }
 
-  Ptr Reduce(const StdName::SortedSet& ns, Setup* s) const override {
+  Ptr Reduce(Setup* setup, const StdName::SortedSet& kb_and_query_ns) const {
+    assert(z.empty());
     Variable::Set vs;
-    phi->CollectFreeVariables(&vs);
+    CollectFreeVariables(&vs);
     std::vector<Ptr> disjs;
-    for (const Assignment& theta : ReducedAssignments(vs, ns)) {
+    for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
       Ptr e = ReducedFormula(theta);
-      Ptr psi = phi->Copy();
-      psi->GroundInPlace(theta);
-      const bool holds = psi->Eval(s);
+      assert(e);
+      Ptr phi_copy = phi->Copy();
+      phi_copy->GroundInPlace(theta);
+      Truth truth;
+      std::tie(truth, phi_copy) = phi_copy->Simplify();
+      bool holds;
+      switch (truth) {
+        case TRIVIALLY_TRUE:
+          holds = true;
+          break;
+        case TRIVIALLY_FALSE:
+          holds = setup->Inconsistent(k);
+          break;
+        case NONTRIVIAL:
+          Cnf cnf = phi_copy->MakeCnf(kb_and_query_ns);
+          cnf.Minimize();
+          holds = std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
+                              [&setup, this](const Cnf::Disj& c) {
+                                return c.Eval(setup, k);
+                              });
+          break;
+      }
+      assert(e);
       disjs.push_back(And(std::move(e), holds ? True() : False()));
     }
-    Formula::Ptr phi;
-    for (Formula::Ptr& psi : disjs) {
-      phi = !phi ? std::move(psi) : Formula::Or(std::move(phi), std::move(psi));
+    Formula::Ptr r;
+    for (Formula::Ptr& disj : disjs) {
+      r = !r ? std::move(disj) : Formula::Or(std::move(r), std::move(disj));
     }
-    return std::move(phi);
+    if (!sign) {
+      r->Negate();
+    }
+    return std::move(r);
   }
 
-  Ptr Reduce(const StdName::SortedSet& ns, Setups* s) const override {
-    return Reduce(ns, &s->last_setup());
+  Ptr Reduce(Setups* setups, const StdName::SortedSet& kb_and_query_ns) const {
+    return Reduce(&setups->last_setup(), kb_and_query_ns);
   }
 
   std::pair<Truth, Ptr> Simplify() const override {
@@ -1095,9 +1121,9 @@ struct Formula::Knowledge : public Formula {
     return std::make_pair(NONTRIVIAL, std::move(know));
   }
 
-  Cnf MakeCnf(StdName::SortedSet* hplus) const override {
+  Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns) const override {
     Cnf::Disj d;
-    d.AddNested(k, z, sign, phi->MakeCnf(hplus));
+    d.AddNested(k, z, sign, phi->MakeCnf(kb_and_query_ns));
     return Cnf(d);
   }
 
@@ -1114,7 +1140,7 @@ struct Formula::Knowledge : public Formula {
       if (!sign) {
         beta->Negate();
       }
-      return std::move(beta);
+      return beta->Regress(tf, axioms);
     } else {
       assert(z.empty());
       return Ptr(new Knowledge(k, z, sign, phi->Regress(tf, axioms)));
@@ -1122,7 +1148,8 @@ struct Formula::Knowledge : public Formula {
   }
 
   void Print(std::ostream* os) const override {
-    *os << "K_" << k << '(' << *phi << ')';
+    const char* s = sign ? "" : "~";
+    *os << '[' << z << ']' << s << "K_" << k << '(' << *phi << ')';
   }
 };
 
@@ -1135,7 +1162,10 @@ struct Formula::Belief : public Formula {
 
   Belief(split_level k, const TermSeq& z, bool sign, Ptr neg_phi, Ptr psi)
       : k(k), z(z), sign(sign), neg_phi(std::move(neg_phi)),
-        psi(std::move(psi)) {}
+        psi(std::move(psi)) {
+    assert(this->neg_phi);
+    assert(this->psi);
+  }
 
   Ptr Copy() const override {
     return Ptr(new Belief(k, z, sign, neg_phi->Copy(), psi->Copy()));
@@ -1167,39 +1197,98 @@ struct Formula::Belief : public Formula {
     psi->CollectNames(ns);
   }
 
-  Ptr Reduce(const StdName::SortedSet&, Setup*) const override {
+  Ptr Reduce(Setup*, const StdName::SortedSet&) const {
     assert(false);
     return Ptr();
   }
 
-  Ptr Reduce(const StdName::SortedSet& ns, Setups* s) const override {
-    assert(false);
-    return Ptr();
-#if 0
-    Variable::Set vs1;
-    neg_phi->CollectFreeVariables(&vs1);
-    Variable::Set vs2;
-    psi->CollectFreeVariables(&vs2);
+  Ptr Reduce(Setups* setups, const StdName::SortedSet& kb_and_query_ns) const {
+    assert(z.empty());
+    Variable::Set vs;
+    CollectFreeVariables(&vs);
     std::vector<Ptr> disjs;
-    for (const Assignment& theta1 : ReducedAssignments(vs1, ns)) {
-      for (const Assignment& theta2 : ReducedAssignments(vs2, ns)) {
-        Ptr e1 = ReducedFormula(theta1);
-        Ptr e2 = ReducedFormula(theta2);
-        Ptr neg_phi_copy = neg_phi->Copy();
-        Ptr psi_copy = psi->Copy();
-        neg_phi_copy->GroundInPlace(theta1);
-        psi_copy->GroundInPlace(theta2);
-        const bool phi_holds = psi->Eval(s);
-        disjs.push_back(And(std::move(e), holds ? True() : False()));
+    for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
+      Ptr e = ReducedFormula(theta);
+      assert(e);
+      Ptr neg_phi_copy = neg_phi->Copy();
+      Ptr psi_copy = psi->Copy();
+      neg_phi_copy->GroundInPlace(theta);
+      psi_copy->GroundInPlace(theta);
+      Truth neg_phi_truth;
+      Truth psi_truth;
+      std::tie(neg_phi_truth, neg_phi_copy) = neg_phi_copy->Simplify();
+      std::tie(psi_truth, psi_copy) = psi_copy->Simplify();
+      bool holds;
+      switch (psi_truth) {
+        case TRIVIALLY_TRUE:
+          holds = true;
+          break;
+        case TRIVIALLY_FALSE:
+          holds = setups->Inconsistent(k);
+          break;
+        case NONTRIVIAL:
+          switch (neg_phi_truth) {
+            case TRIVIALLY_TRUE: {
+              Cnf cnf = psi_copy->MakeCnf(kb_and_query_ns);
+              cnf.Minimize();
+              holds = std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
+                                  [&setups, this](const Cnf::Disj& c) {
+                                    return c.Eval(&setups->first_setup(), k);
+                                  });
+              break;
+            }
+            case TRIVIALLY_FALSE:
+              holds = true;
+              break;
+            case NONTRIVIAL: {
+              Cnf neg_phi_cnf = neg_phi_copy->MakeCnf(kb_and_query_ns);
+              Cnf psi_cnf = psi_copy->MakeCnf(kb_and_query_ns);
+              neg_phi_cnf.Minimize();
+              psi_cnf.Minimize();
+              holds = true;
+              // TO show phi => psi, we look for the first setup which is
+              // consistent with phi and then test whether it also entails psi.
+              // A setup is consistent with phi iff it does not entail neg_phi.
+              // Since neg_phi_cnf is a conjunction of clauses, this is true if
+              // any of these clauses is not entailed.
+              for (size_t i = 0; i < setups->n_setups(); ++i) {
+                std::cout << "Level " << i << std::endl;
+                Setup* s = &setups->setup(i);
+                const bool consistent_with_phi =
+                    std::any_of(neg_phi_cnf.clauses().begin(),
+                                neg_phi_cnf.clauses().end(),
+                                [&s, this](const Cnf::Disj& c) {
+                                  return !c.Eval(s, k);
+                                });
+                std::cout << *neg_phi << " is " << (consistent_with_phi ? "consistent" : "inconsistent") << std::endl;
+                if (consistent_with_phi) {
+                  holds = std::all_of(psi_cnf.clauses().begin(),
+                                      psi_cnf.clauses().end(),
+                                      [&s, this](const Cnf::Disj& c) {
+                                        return c.Eval(s, k);
+                                      });
+                  std::cout << *psi << " follows " << (holds ? "" : "not") << std::endl;
+                  break;
+                }
+              }
+              break;
+            }
+          }
+          break;
       }
+      assert(e);
+      disjs.push_back(And(std::move(e), holds ? True() : False()));
     }
-    Formula::Ptr phi;
-    for (Formula::Ptr& psi : disjs) {
-      phi = !phi ? std::move(psi) : Formula::Or(std::move(phi), std::move(psi));
+    Formula::Ptr r;
+    for (Formula::Ptr& disj : disjs) {
+      r = !r ? std::move(disj) : Formula::Or(std::move(r), std::move(disj));
     }
-    return std::move(phi);
-#endif
+    if (!sign) {
+      r->Negate();
+    }
+    return std::move(r);
   }
+
 
   std::pair<Truth, Ptr> Simplify() const override {
     auto p1 = neg_phi->Simplify();
@@ -1221,9 +1310,10 @@ struct Formula::Belief : public Formula {
     return std::make_pair(NONTRIVIAL, std::move(b));
   }
 
-  Cnf MakeCnf(StdName::SortedSet* hplus) const override {
+  Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns) const override {
     Cnf::Disj d;
-    d.AddNested(k, z, sign, neg_phi->MakeCnf(hplus), psi->MakeCnf(hplus));
+    d.AddNested(k, z, sign, neg_phi->MakeCnf(kb_and_query_ns),
+                psi->MakeCnf(kb_and_query_ns));
     return Cnf(d);
   }
 
@@ -1244,7 +1334,7 @@ struct Formula::Belief : public Formula {
       if (!sign) {
         beta->Negate();
       }
-      return std::move(beta);
+      return beta->Regress(tf, axioms);
     } else {
       assert(z.empty());
       return Ptr(new Belief(k, z, sign,
@@ -1254,7 +1344,9 @@ struct Formula::Belief : public Formula {
   }
 
   void Print(std::ostream* os) const override {
-    *os << "B_" << k << '(' << '~' << *neg_phi << " => " << *psi << ')';
+    const char* s = sign ? "" : "~";
+    *os << '[' << z << ']' << s <<
+        "B_" << k << '(' << '~' << *neg_phi << " => " << *psi << ')';
   }
 };
 
@@ -1332,7 +1424,7 @@ Formula::Ptr Formula::Forall(const Variable& x, Ptr phi) {
 }
 
 Formula::Ptr Formula::Know(split_level k, Ptr phi) {
-  return Ptr(new Knowledge(k, {}, false, std::move(phi)));
+  return Ptr(new Knowledge(k, {}, true, std::move(phi)));
 }
 
 Formula::Ptr Formula::Believe(split_level k, Ptr psi) {
@@ -1340,7 +1432,7 @@ Formula::Ptr Formula::Believe(split_level k, Ptr psi) {
 }
 
 Formula::Ptr Formula::Believe(split_level k, Ptr neg_phi, Ptr psi) {
-  return Ptr(new Belief(k, {}, false, std::move(neg_phi), std::move(psi)));
+  return Ptr(new Belief(k, {}, true, std::move(neg_phi), std::move(psi)));
 }
 
 void Formula::AddToSetup(Setup* setup) const {
@@ -1356,7 +1448,7 @@ void Formula::AddToSetup(Setup* setup) const {
   }
   Ptr phi = std::move(p.second);
   assert(phi);
-  Cnf cnf = phi->MakeCnf(&hplus);
+  Cnf cnf = phi->MakeCnf(hplus);
   cnf.Minimize();
   cnf.AddToSetup(setup);
 }
@@ -1374,43 +1466,52 @@ void Formula::AddToSetups(Setups* setups) const {
   }
   Ptr phi = std::move(p.second);
   assert(phi);
-  Cnf cnf = phi->MakeCnf(&hplus);
+  Cnf cnf = phi->MakeCnf(hplus);
   cnf.Minimize();
   cnf.AddToSetups(setups);
 }
 
 bool Formula::Eval(Setup* setup) const {
-  StdName::SortedSet hplus = setup->hplus().WithoutPlaceholders();
-  CollectNames(&hplus);
-  std::pair<Truth, Ptr> p = Simplify();
-  if (p.first == TRIVIALLY_TRUE) {
+  StdName::SortedSet ns = setup->hplus().WithoutPlaceholders();
+  CollectNames(&ns);
+  Ptr phi = Reduce(setup, ns);
+  Truth truth;
+  std::tie(truth, phi) = phi->Simplify();
+  if (truth == TRIVIALLY_TRUE) {
     return true;
   }
-  if (p.first == TRIVIALLY_FALSE) {
+  if (truth == TRIVIALLY_FALSE) {
     return setup->Inconsistent(0);
   }
-  Ptr phi = std::move(p.second);
   assert(phi);
-  Cnf cnf = phi->MakeCnf(&hplus);
+  Cnf cnf = phi->MakeCnf(ns);
   cnf.Minimize();
-  return cnf.Eval(setup, 0);
+  return std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
+                     [&setup](const Cnf::Disj& c) {
+                       return c.Eval(setup, 0);
+                     });
 }
 
 bool Formula::Eval(Setups* setups) const {
-  StdName::SortedSet hplus = setups->hplus().WithoutPlaceholders();
-  CollectNames(&hplus);
-  std::pair<Truth, Ptr> p = Simplify();
-  if (p.first == TRIVIALLY_TRUE) {
+  StdName::SortedSet ns = setups->hplus().WithoutPlaceholders();
+  CollectNames(&ns);
+  std::cout << *this << std::endl;
+  Ptr phi = Reduce(setups, ns);
+  Truth truth;
+  std::tie(truth, phi) = phi->Simplify();
+  if (truth == TRIVIALLY_TRUE) {
     return true;
   }
-  if (p.first == TRIVIALLY_FALSE) {
+  if (truth == TRIVIALLY_FALSE) {
     return setups->Inconsistent(0);
   }
-  Ptr phi = std::move(p.second);
   assert(phi);
-  Cnf cnf = phi->MakeCnf(&hplus);
+  Cnf cnf = phi->MakeCnf(ns);
   cnf.Minimize();
-  return cnf.Eval(setups, 0);
+  return std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
+                     [&setups](const Cnf::Disj& c) {
+                       return c.Eval(&setups->last_setup(), 0);
+                     });
 }
 
 std::ostream& operator<<(std::ostream& os, const Formula& phi) {

@@ -70,36 +70,31 @@ TEST(formula, morri) {
   auto& s = bat.setups();
 
   // Property 1
-  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
   Formula::Ptr q1 = Formula::Believe(2, Formula::Lit(Literal({}, false, bat.L1, {})));
-  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
-  std::cout << __FILE__ << ":" << *q1 << std::endl;
   EXPECT_TRUE(q1->Eval(&s));
-  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
 
   // Property 2
-  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
   s.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.SL, true)}));
-  EXPECT_TRUE(Formula::Act(bat.SL, Formula::Know(2, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
-                                                                 Formula::Lit(Literal({}, true, bat.R1, {})))))->Eval(&s));
+  EXPECT_TRUE(Formula::Believe(2, Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
+                                                                    Formula::Lit(Literal({}, true, bat.R1, {})))))->Eval(&s));
 
-  std::cout << __FILE__ << ":" << __LINE__ << std::endl;
   // Property 3
   s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL}, bat.SR1, false)}));
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))->Eval(&s));
+  EXPECT_TRUE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))->Eval(&s));
 
   // Property 5
-  EXPECT_FALSE(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Eval(&s));
-  EXPECT_FALSE(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.L1, {})))))->Eval(&s));
-  EXPECT_TRUE(Formula::And(Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Lit(Literal({}, true, bat.L1, {}))))),
-                           Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Know(2, Formula::Lit(Literal({}, false, bat.L1, {}))))))->Eval(&s));
+  EXPECT_FALSE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->Eval(&s));
+  exit(0);
+  EXPECT_FALSE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.L1, {})))))->Eval(&s));
+  EXPECT_TRUE(Formula::And(Formula::Neg(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))),
+                           Formula::Neg(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, false, bat.L1, {}))))))->Eval(&s));
 
   // Property 6
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Know(2, Formula::Lit(Literal({}, true, bat.R1, {}))))->Eval(&s));
+  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.R1, {}))))->Eval(&s));
 
   // Property 6
   s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true)}));
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Know(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Eval(&s));
+  EXPECT_TRUE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {}))))->Eval(&s));
 }
 
 TEST(formula, morri_regression) {

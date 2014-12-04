@@ -133,34 +133,18 @@ class StdName {
  private:
   friend class Term;
 
+  StdName next_placeholder() const;
+
   Term t_;
 };
 
-class StdName::SortedSet : public std::map<Term::Sort, std::set<StdName>> {
+class StdName::SortedSet : public std::map<Term::Sort, StdName::Set> {
  public:
   using std::map<Term::Sort, StdName::Set>::map;
 
-  Range<StdName::Set::const_iterator> lookup(Term::Sort sort) const {
-    auto it = find(sort);
-    if (it == end()) {
-      return EmptyRange;
-    }
-    return MakeRange(it->second.begin(), it->second.end());
-  }
-
-  SortedSet WithoutPlaceholders() const {
-    SortedSet ss = *this;
-    for (auto& p : ss) {
-      for (auto it = p.second.begin(); it != p.second.end(); ) {
-        if (it->is_placeholder()) {
-          it = p.second.erase(it);
-        } else {
-          ++it;
-        }
-      }
-    }
-    return ss;
-  }
+  Range<StdName::Set::const_iterator> lookup(Term::Sort sort) const;
+  StdName AddNewPlaceholder(Term::Sort sort);
+  SortedSet WithoutPlaceholders() const;
 };
 
 class Term::Factory {
