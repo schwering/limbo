@@ -75,7 +75,7 @@ class Formula {
   static Ptr Forall(const Variable& x, Ptr phi);
   static Ptr Know(split_level k, Ptr phi);
   static Ptr Believe(split_level k, Ptr psi);
-  static Ptr Believe(split_level k, Ptr neg_phi, Ptr psi);
+  static Ptr Believe(split_level k, Ptr phi, Ptr psi);
 
   virtual Ptr Copy() const = 0;
   virtual void PrependActions(const TermSeq& z) = 0;
@@ -111,7 +111,9 @@ class Formula {
   virtual Ptr Reduce(Setups* setups,
                      const StdName::SortedSet& kb_and_query_ns) const = 0;
   virtual std::pair<Truth, Ptr> Simplify() const = 0;
-  virtual Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns) const = 0;
+  Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns) const;
+  virtual Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns,
+                      StdName::SortedSet* placeholders) const = 0;
   virtual void Print(std::ostream* os) const = 0;
 };
 

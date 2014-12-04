@@ -84,13 +84,12 @@ TEST(formula, morri) {
 
   // Property 5
   EXPECT_FALSE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->Eval(&s));
-  exit(0);
   EXPECT_FALSE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.L1, {})))))->Eval(&s));
   EXPECT_TRUE(Formula::And(Formula::Neg(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))),
                            Formula::Neg(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, false, bat.L1, {}))))))->Eval(&s));
 
   // Property 6
-  EXPECT_TRUE(Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.R1, {}))))->Eval(&s));
+  EXPECT_TRUE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {}))))->Eval(&s));
 
   // Property 6
   s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true)}));
