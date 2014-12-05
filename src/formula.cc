@@ -43,8 +43,6 @@ class Formula::Cnf {
 
  private:
   struct Equality;
-  class KLiteral;
-  class BLiteral;
 
   // Using unique_ptr prevents incomplete type errors.
   std::unique_ptr<std::set<Disj, LessComparator<Disj>>> ds_;
@@ -59,122 +57,10 @@ struct Formula::Cnf::Equality : public std::pair<Term, Term> {
   bool ground() const { return first.ground() && second.ground(); }
 };
 
-class Formula::Cnf::KLiteral {
- public:
-  struct Comparator;
-  typedef std::set<KLiteral, Comparator> Set;
-
-  KLiteral() = default;
-  KLiteral(split_level k, const TermSeq& z, bool sign, const Cnf& phi)
-      : k_(k), z_(z), sign_(sign), phi_(phi) {}
-  KLiteral(const KLiteral&) = default;
-  KLiteral& operator=(const KLiteral&) = default;
-
-  bool operator==(const KLiteral& l) const {
-    return z_ == l.z_ && phi_ == l.phi_ && sign_ == l.sign_ && k_ == l.k_;
-  }
-
-  KLiteral Flip() const { return KLiteral(k_, z_, !sign_, phi_); }
-  KLiteral Positive() const { return KLiteral(k_, z_, true, phi_); }
-  KLiteral Negative() const { return KLiteral(k_, z_, false, phi_); }
-
-  KLiteral Substitute(const Unifier& theta) const {
-    return KLiteral(k_, z_.Substitute(theta), sign_, phi_.Substitute(theta));
-  }
-
-  split_level k() const { return k_; }
-  const TermSeq& z() const { return z_; }
-  bool sign() const { return sign_; }
-  const Cnf& phi() const { return phi_; }
-
-  bool ground() const { return z_.ground() && phi_.ground(); }
-
- private:
-  split_level k_;
-  TermSeq z_;
-  bool sign_;
-  Cnf phi_;
-};
-
-class Formula::Cnf::BLiteral {
- public:
-  struct Comparator;
-  typedef std::set<BLiteral, Comparator> Set;
-
-  BLiteral() = default;
-  BLiteral(split_level k, const TermSeq& z, bool sign, const Cnf& phi,
-           const Cnf& psi)
-      : k_(k), z_(z), sign_(sign), phi_(phi), psi_(psi) {}
-  BLiteral(const BLiteral&) = default;
-  BLiteral& operator=(const BLiteral&) = default;
-
-  bool operator==(const BLiteral& l) const {
-    return z_ == l.z_ && phi_ == l.phi_ && psi_ == l.psi_ &&
-        sign_ == l.sign_ && k_ == l.k_;
-  }
-
-  BLiteral Flip() const { return BLiteral(k_, z_, !sign_, phi_, psi_); }
-  BLiteral Positive() const { return BLiteral(k_, z_, true, phi_, psi_); }
-  BLiteral Negative() const { return BLiteral(k_, z_, false, phi_, psi_); }
-
-  BLiteral Substitute(const Unifier& theta) const {
-    return BLiteral(k_, z_.Substitute(theta), sign_,
-                    phi_.Substitute(theta), psi_.Substitute(theta));
-  }
-
-  split_level k() const { return k_; }
-  const TermSeq& z() const { return z_; }
-  bool sign() const { return sign_; }
-  const Cnf& phi() const { return phi_; }
-  const Cnf& psi() const { return psi_; }
-
-  bool ground() const {
-    return z_.ground() && phi_.ground() && psi_.ground();
-  }
-
- private:
-  split_level k_;
-  TermSeq z_;
-  bool sign_;
-  Cnf phi_;
-  Cnf psi_;
-};
-
 struct Formula::Cnf::Comparator {
   typedef Cnf value_type;
 
   bool operator()(const Cnf& c, const Cnf& d) const;
-};
-
-struct Formula::Cnf::KLiteral::Comparator {
-  typedef KLiteral value_type;
-
-  bool operator()(const KLiteral& l1, const KLiteral& l2) const {
-    return comp(l1.z_, l1.phi_, l1.sign_, l1.k_,
-                l2.z_, l2.phi_, l2.sign_, l2.k_);
-  }
-
- private:
-  LexicographicComparator<LessComparator<TermSeq>,
-                          Formula::Cnf::Comparator,
-                          LessComparator<bool>,
-                          LessComparator<split_level>> comp;
-};
-
-struct Formula::Cnf::BLiteral::Comparator {
-  typedef BLiteral value_type;
-
-  bool operator()(const BLiteral& l1, const BLiteral& l2) const {
-    return comp(l1.z_, l1.phi_, l1.psi_, l1.sign_, l1.k_,
-                l2.z_, l2.phi_, l2.psi_, l2.sign_, l2.k_);
-  }
-
- private:
-  LexicographicComparator<LessComparator<TermSeq>,
-                          Formula::Cnf::Comparator,
-                          Formula::Cnf::Comparator,
-                          LessComparator<bool>,
-                          LessComparator<split_level>> comp;
 };
 
 class Formula::Cnf::Disj {
@@ -214,15 +100,6 @@ class Formula::Cnf::Disj {
     c_.insert(l);
   }
 
-  void AddNested(split_level k, const TermSeq& z, bool sign, const Cnf& phi) {
-    ks_.insert(KLiteral(k, z, sign, phi));
-  }
-
-  void AddNested(split_level k, const TermSeq& z, bool sign, const Cnf& phi,
-                 const Cnf& psi) {
-    bs_.insert(BLiteral(k, z, sign, phi, psi));
-  }
-
   bool ground() const;
 
   bool Eval(Setup* setup, split_level k) const;
@@ -237,29 +114,23 @@ class Formula::Cnf::Disj {
   Equality::Set eqs_;
   Equality::Set neqs_;
   SimpleClause c_;
-  KLiteral::Set ks_;
-  BLiteral::Set bs_;
 };
 
 struct Formula::Cnf::Disj::Comparator {
   typedef Disj value_type;
 
   bool operator()(const Disj& c, const Disj& d) const {
-    const size_t n1 = c.eqs_.size() + c.neqs_.size() + c.c_.size() +
-        c.ks_.size() + c.bs_.size();
-    const size_t n2 = d.eqs_.size() + d.neqs_.size() + d.c_.size() +
-        d.ks_.size() + d.bs_.size();
-    return comp(n1, c.eqs_, c.neqs_, c.c_, c.ks_, c.bs_,
-                n2, d.eqs_, d.neqs_, d.c_, d.ks_, d.bs_);
+    const size_t n1 = c.eqs_.size() + c.neqs_.size() + c.c_.size();
+    const size_t n2 = d.eqs_.size() + d.neqs_.size() + d.c_.size();
+    return comp(n1, c.eqs_, c.neqs_, c.c_,
+                n2, d.eqs_, d.neqs_, d.c_);
   }
 
  private:
   LexicographicComparator<LessComparator<size_t>,
                           LessComparator<Equality::Set>,
                           LessComparator<Equality::Set>,
-                          SimpleClause::Comparator,
-                          LexicographicContainerComparator<KLiteral::Set>,
-                          LexicographicContainerComparator<BLiteral::Set>> comp;
+                          SimpleClause::Comparator> comp;
 };
 
 bool Formula::Cnf::Comparator::operator()(const Cnf& c, const Cnf& d) const {
@@ -399,8 +270,6 @@ Formula::Cnf::Disj Formula::Cnf::Disj::Concat(const Disj& d1, const Disj& d2) {
   d.eqs_.insert(d2.eqs_.begin(), d2.eqs_.end());
   d.neqs_.insert(d2.neqs_.begin(), d2.neqs_.end());
   d.c_.insert(d2.c_.begin(), d2.c_.end());
-  d.ks_.insert(d2.ks_.begin(), d2.ks_.end());
-  d.bs_.insert(d2.bs_.begin(), d2.bs_.end());
   return d;
 }
 
@@ -425,14 +294,11 @@ Maybe<Formula::Cnf::Disj> Formula::Cnf::Disj::Resolve(const Disj& d1,
   assert(d2.eqs_.empty() && d2.neqs_.empty());
   assert(d1.ground());
   assert(d2.ground());
-  if (d1.c_.size() + d1.ks_.size() + d1.bs_.size() >
-      d2.c_.size() + d2.ks_.size() + d2.bs_.size()) {
+  if (d1.c_.size() > d2.c_.size()) {
     return Resolve(d2, d1);
   }
   Disj r = d2;
-  if (ResolveLiterals(&r.c_, d1.c_) ||
-      ResolveLiterals(&r.ks_, d1.ks_) ||
-      ResolveLiterals(&r.bs_, d1.bs_)) {
+  if (ResolveLiterals(&r.c_, d1.c_)) {
     return Perhaps(!r.Tautologous(), r);
   }
   return Nothing;
@@ -449,12 +315,6 @@ Formula::Cnf::Disj Formula::Cnf::Disj::Substitute(const Unifier& theta) const {
                                  p.second.Substitute(theta)));
   }
   d.c_ = c_.Substitute(theta);
-  for (const auto& k : ks_) {
-    d.ks_.insert(k.Substitute(theta));
-  }
-  for (const auto& b : bs_) {
-    d.bs_.insert(b.Substitute(theta));
-  }
   return d;
 }
 
@@ -464,8 +324,7 @@ bool Formula::Cnf::Disj::operator<(const Formula::Cnf::Disj& d) const {
 }
 
 bool Formula::Cnf::Disj::operator==(const Formula::Cnf::Disj& d) const {
-  return eqs_ == d.eqs_ && neqs_ == d.neqs_ && c_ == d.c_ && ks_ == d.ks_ &&
-      bs_ == d.bs_;
+  return eqs_ == d.eqs_ && neqs_ == d.neqs_ && c_ == d.c_;
 }
 
 template<class T>
@@ -490,11 +349,7 @@ bool Formula::Cnf::Disj::Subsumes(const Disj& d) const {
       std::includes(d.neqs_.begin(), d.neqs_.end(),
                     neqs_.begin(), neqs_.end(), neqs_.key_comp()) &&
       std::includes(d.c_.begin(), d.c_.end(),
-                    c_.begin(), c_.end(), c_.key_comp()) &&
-      std::includes(d.ks_.begin(), d.ks_.end(),
-                    ks_.begin(), ks_.end(), ks_.key_comp()) &&
-      std::includes(d.bs_.begin(), d.bs_.end(),
-                    bs_.begin(), bs_.end(), bs_.key_comp());
+                    c_.begin(), c_.end(), c_.key_comp());
 }
 
 bool Formula::Cnf::Disj::Tautologous() const {
@@ -503,9 +358,7 @@ bool Formula::Cnf::Disj::Tautologous() const {
                      [](const Equality& e) { return e.equal(); }) ||
       std::any_of(neqs_.begin(), neqs_.end(),
                   [](const Equality& e) { return !e.equal(); }) ||
-      TautologousLiterals(c_) ||
-      TautologousLiterals(ks_) ||
-      TautologousLiterals(bs_);
+      TautologousLiterals(c_);
 }
 
 bool Formula::Cnf::Disj::ground() const {
@@ -513,41 +366,25 @@ bool Formula::Cnf::Disj::ground() const {
                      [](const Equality& e) { return e.ground(); }) &&
       std::all_of(neqs_.begin(), neqs_.end(),
                   [](const Equality& e) { return e.ground(); }) &&
-      c_.ground() &&
-      std::all_of(ks_.begin(), ks_.end(),
-                  [](const KLiteral& l) { return l.ground(); }) &&
-      std::all_of(bs_.begin(), bs_.end(),
-                  [](const BLiteral& l) { return l.ground(); });
+      c_.ground();
 }
 
 void Formula::Cnf::Disj::AddToSetup(Setup* setup) const {
   assert(eqs_.empty() && neqs_.empty());
-  assert(ks_.empty() && bs_.empty());
   setup->AddClause(Clause(Ewff::TRUE, c_));
 }
 
 void Formula::Cnf::Disj::AddToSetups(Setups* setups) const {
   assert(eqs_.empty() && neqs_.empty());
-  assert(ks_.empty() && bs_.empty());
   setups->AddClause(Clause(Ewff::TRUE, c_));
 }
 
 bool Formula::Cnf::Disj::Eval(Setup* s, split_level k) const {
-  assert(bs_.empty());
   if (Tautologous()) {
     return true;
   }
   if (s->Entails(c_, k)) {
     return true;
-  }
-  for (const KLiteral& l : ks_) {
-    // TODO(chs) (1) The negation of d.c_ should be added to the setup.
-    // TODO(chs) (2) Or representation theorem instead of (1)?
-    // That way, at least the SSA of knowledge/belief should be come out
-    // correctly.
-    if (l.phi().Eval(s, l.k())) {
-      return true;
-    }
   }
   return false;
 }
@@ -559,14 +396,6 @@ bool Formula::Cnf::Disj::Eval(Setups* s, split_level k) const {
   if (s->Entails(c_, k)) {
     return true;
   }
-  for (const KLiteral& l : ks_) {
-    if (l.phi().Eval(s, l.k())) {
-      return true;
-    }
-  }
-  // TODO(chs) ~neg_phi => psi, c.f. TODOs for Knowledge class; API changes
-  // needed to account for ~neg_phi and psi at once.
-  assert(bs_.empty());
   return false;
 }
 
@@ -590,35 +419,13 @@ void Formula::Cnf::Disj::Print(std::ostream* os) const {
     }
     *os << *it;
   }
-  for (auto it = ks_.begin(); it != ks_.end(); ++it) {
-    if (!eqs_.empty() || !neqs_.empty() || !c_.empty() ||
-        it != ks_.begin()) {
-      *os << " v ";
-    }
-    const char* s = it->sign() ? "" : "~";
-    *os << s << "K_" << it->k() << '(';
-    it->phi().Print(os);
-    *os << ')';
-  }
-  for (auto it = bs_.begin(); it != bs_.end(); ++it) {
-    if (!eqs_.empty() || !neqs_.empty() || !c_.empty() ||
-        !ks_.empty() || it != bs_.begin()) {
-      *os << " v ";
-    }
-    const char* s = it->sign() ? "" : "~";
-    *os << s << '[' << it->z() << ']' << "B_" << it->k() << "(";
-    it->phi().Print(os);
-    *os << " => ";
-    it->psi().Print(os);
-    *os << ')';
-  }
   *os << ')';
 }
 
 // }}}
 // {{{ Specializations of Formula, particularly MakeCnf() and Regress().
 
-struct Formula::Equal : public Formula {
+struct Formula::Obj::Equal : public Formula::Obj {
   bool sign;
   Term t1;
   Term t2;
@@ -627,7 +434,7 @@ struct Formula::Equal : public Formula {
   Equal(bool sign, const Term& t1, const Term& t2)
       : sign(sign), t1(t1), t2(t2) {}
 
-  Ptr Copy() const override { return Ptr(new Equal(sign, t1, t2)); }
+  ObjPtr ObjCopy() const override { return ObjPtr(new Equal(sign, t1, t2)); }
 
   void Negate() override { sign = !sign; }
 
@@ -661,20 +468,20 @@ struct Formula::Equal : public Formula {
     }
   }
 
-  Ptr Reduce(Setup*, const StdName::SortedSet&) const override {
-    return Copy();
+  ObjPtr Reduce(Setup*, const StdName::SortedSet&) const override {
+    return ObjCopy();
   }
 
-  Ptr Reduce(Setups*, const StdName::SortedSet&) const override {
-    return Copy();
+  ObjPtr Reduce(Setups*, const StdName::SortedSet&) const override {
+    return ObjCopy();
   }
 
-  std::pair<Truth, Ptr> Simplify() const override {
+  std::pair<Truth, ObjPtr> Simplify() const override {
     if ((t1.ground() && t2.ground()) || t1 == t2) {
       const Truth t = (t1 == t2) == sign ? TRIVIALLY_TRUE : TRIVIALLY_FALSE;
-      return std::make_pair(t, Ptr());
+      return std::make_pair(t, ObjPtr());
     }
-    return std::make_pair(NONTRIVIAL, Copy());
+    return std::make_pair(NONTRIVIAL, ObjCopy());
   }
 
   Cnf MakeCnf(const StdName::SortedSet&, StdName::SortedSet*) const override {
@@ -687,8 +494,8 @@ struct Formula::Equal : public Formula {
     return Cnf(d);
   }
 
-  Ptr Regress(Term::Factory*, const DynamicAxioms&) const override {
-    return Copy();
+  ObjPtr ObjRegress(Term::Factory*, const DynamicAxioms&) const override {
+    return ObjCopy();
   }
 
   void Print(std::ostream* os) const override {
@@ -697,12 +504,12 @@ struct Formula::Equal : public Formula {
   }
 };
 
-struct Formula::Lit : public Formula {
+struct Formula::Obj::Lit : public Formula::Obj {
   Literal l;
 
   explicit Lit(const Literal& l) : l(l) {}
 
-  Ptr Copy() const override { return Ptr(new Lit(l)); }
+  ObjPtr ObjCopy() const override { return ObjPtr(new Lit(l)); }
 
   void Negate() override { l = l.Flip(); }
 
@@ -724,16 +531,16 @@ struct Formula::Lit : public Formula {
     l.CollectNames(ns);
   }
 
-  Ptr Reduce(Setup*, const StdName::SortedSet&) const override {
-    return Copy();
+  ObjPtr Reduce(Setup*, const StdName::SortedSet&) const override {
+    return ObjCopy();
   }
 
-  Ptr Reduce(Setups*, const StdName::SortedSet&) const override {
-    return Copy();
+  ObjPtr Reduce(Setups*, const StdName::SortedSet&) const override {
+    return ObjCopy();
   }
 
-  std::pair<Truth, Ptr> Simplify() const override {
-    return std::make_pair(NONTRIVIAL, Copy());
+  std::pair<Truth, ObjPtr> Simplify() const override {
+    return std::make_pair(NONTRIVIAL, ObjCopy());
   }
 
   Cnf MakeCnf(const StdName::SortedSet&, StdName::SortedSet*) const override {
@@ -742,15 +549,16 @@ struct Formula::Lit : public Formula {
     return Cnf(d);
   }
 
-  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
-    Maybe<Ptr> phi = axioms.RegressOneStep(tf, static_cast<const Atom&>(l));
+  ObjPtr ObjRegress(Term::Factory* tf,
+                    const DynamicAxioms& axioms) const override {
+    Maybe<ObjPtr> phi = axioms.RegressOneStep(tf, static_cast<const Atom&>(l));
     if (!phi) {
-      return Copy();
+      return ObjCopy();
     }
     if (!l.sign()) {
       phi.val->Negate();
     }
-    return phi.val->Regress(tf, axioms);
+    return phi.val->ObjRegress(tf, axioms);
   }
 
   void Print(std::ostream* os) const override {
@@ -758,77 +566,114 @@ struct Formula::Lit : public Formula {
   }
 };
 
-struct Formula::Junction : public Formula {
+template<class BaseFormula>
+struct Formula::BaseJunction : public BaseFormula {
   enum Type { DISJUNCTION, CONJUNCTION };
 
   Type type;
-  Ptr l;
-  Ptr r;
 
-  Junction(Type type, Ptr l, Ptr r)
-      : type(type), l(std::move(l)), r(std::move(r)) {
-    assert(this->l);
-    assert(this->r);
-  }
-
-  Ptr Copy() const override {
-    return Ptr(new Junction(type, l->Copy(), r->Copy()));
-  }
+  BaseJunction(Type type) : type(type) {}
+  virtual ~BaseJunction() {}
 
   void Negate() override {
     type = type == DISJUNCTION ? CONJUNCTION : DISJUNCTION;
-    l->Negate();
-    r->Negate();
+    get_l()->Negate();
+    get_r()->Negate();
   }
 
   void PrependActions(const TermSeq& z) override {
-    l->PrependActions(z);
-    r->PrependActions(z);
+    get_l()->PrependActions(z);
+    get_r()->PrependActions(z);
   }
 
   void SubstituteInPlace(const Unifier& theta) override {
-    l->SubstituteInPlace(theta);
-    r->SubstituteInPlace(theta);
+    get_l()->SubstituteInPlace(theta);
+    get_r()->SubstituteInPlace(theta);
   }
 
   void GroundInPlace(const Assignment& theta) override {
-    l->GroundInPlace(theta);
-    r->GroundInPlace(theta);
+    get_l()->GroundInPlace(theta);
+    get_r()->GroundInPlace(theta);
   }
 
   void CollectFreeVariables(Variable::Set* vs) const override {
     // We assume formulas to be rectified, so that's OK. Otherwise, if x
     // occurred freely in l but bound in r, we need to take care not to delete
     // it with the second call.
-    l->CollectFreeVariables(vs);
-    r->CollectFreeVariables(vs);
+    get_l()->CollectFreeVariables(vs);
+    get_r()->CollectFreeVariables(vs);
   }
 
   void CollectNames(StdName::SortedSet* ns) const override {
-    l->CollectNames(ns);
-    r->CollectNames(ns);
+    get_l()->CollectNames(ns);
+    get_r()->CollectNames(ns);
   }
 
-  Ptr Reduce(Setup* setup,
-             const StdName::SortedSet& kb_and_query_ns) const override {
-    return Ptr(new Junction(type,
-                            l->Reduce(setup, kb_and_query_ns),
-                            r->Reduce(setup, kb_and_query_ns)));
+  ObjPtr Reduce(Setup* setup,
+                const StdName::SortedSet& kb_and_query_ns) const override;
+  ObjPtr Reduce(Setups* setups,
+                const StdName::SortedSet& kb_and_query_ns) const override;
+
+  void Print(std::ostream* os) const override {
+    const char c = type == DISJUNCTION ? 'v' : '^';
+    *os << '(' << *get_l() << ' ' << c << ' ' << *get_r() << ')';
   }
 
-  Ptr Reduce(Setups* setups,
-             const StdName::SortedSet& kb_and_query_ns) const override {
-    return Ptr(new Junction(type,
-                            l->Reduce(setups, kb_and_query_ns),
-                            r->Reduce(setups, kb_and_query_ns)));
+ protected:
+  virtual Formula* get_l() = 0;
+  virtual Formula* get_r() = 0;
+  virtual const Formula* get_l() const = 0;
+  virtual const Formula* get_r() const = 0;
+};
+
+struct Formula::Junction : public Formula::BaseJunction<Formula> {
+  Ptr l;
+  Ptr r;
+
+  Junction(Type type, Ptr l, Ptr r)
+      : BaseJunction(type), l(std::move(l)), r(std::move(r)) {}
+
+  Ptr Copy() const override {
+    return Ptr(new Junction(type, l->Copy(), r->Copy()));
   }
 
-  std::pair<Truth, Ptr> Simplify() const override {
+  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
+    Ptr ll = get_l()->Regress(tf, axioms);
+    Ptr rr = get_r()->Regress(tf, axioms);
+    return Ptr(new Junction(type, std::move(ll), std::move(rr)));
+  }
+
+ protected:
+  virtual Formula* get_l() override { return l.get(); }
+  virtual Formula* get_r() override { return r.get(); }
+  virtual const Formula* get_l() const override { return l.get(); }
+  virtual const Formula* get_r() const override { return r.get(); }
+};
+
+struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
+  ObjPtr l;
+  ObjPtr r;
+
+  Junction(Type type, ObjPtr l, ObjPtr r)
+      : BaseJunction(type), l(std::move(l)), r(std::move(r)) {}
+
+  ObjPtr ObjCopy() const override {
+    return ObjPtr(new Junction(type, l->ObjCopy(), r->ObjCopy()));
+  }
+
+  ObjPtr ObjRegress(Term::Factory* tf,
+                    const DynamicAxioms& axioms) const override {
+    ObjPtr ll = l->ObjRegress(tf, axioms);
+    ObjPtr rr = r->ObjRegress(tf, axioms);
+    return ObjPtr(new Junction(type, std::move(ll), std::move(rr)));
+  }
+
+  std::pair<Truth, ObjPtr> Simplify() const override {
     auto p1 = l->Simplify();
     auto p2 = r->Simplify();
     if (type == DISJUNCTION) {
       if (p1.first == TRIVIALLY_TRUE || p2.first == TRIVIALLY_TRUE) {
-        return std::make_pair(TRIVIALLY_TRUE, Ptr());
+        return std::make_pair(TRIVIALLY_TRUE, ObjPtr());
       }
       if (p1.first == TRIVIALLY_FALSE) {
         return p2;
@@ -839,7 +684,7 @@ struct Formula::Junction : public Formula {
     }
     if (type == CONJUNCTION) {
       if (p1.first == TRIVIALLY_FALSE || p2.first == TRIVIALLY_FALSE) {
-        return std::make_pair(TRIVIALLY_FALSE, Ptr());
+        return std::make_pair(TRIVIALLY_FALSE, ObjPtr());
       }
       if (p1.first == TRIVIALLY_TRUE) {
         return p2;
@@ -851,9 +696,7 @@ struct Formula::Junction : public Formula {
     assert(p1.first == NONTRIVIAL && p2.first == NONTRIVIAL);
     assert(p1.second);
     assert(p2.second);
-    Ptr psi = Ptr(new Junction(type,
-                               std::move(p1.second),
-                               std::move(p2.second)));
+    ObjPtr psi(new Junction(type, std::move(p1.second), std::move(p2.second)));
     return std::make_pair(NONTRIVIAL, std::move(psi));
   }
 
@@ -868,85 +711,141 @@ struct Formula::Junction : public Formula {
     }
   }
 
-  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
-    Ptr ll = l->Regress(tf, axioms);
-    Ptr rr = r->Regress(tf, axioms);
-    return Ptr(new Junction(type, std::move(ll), std::move(rr)));
-  }
-
-  void Print(std::ostream* os) const override {
-    const char c = type == DISJUNCTION ? 'v' : '^';
-    *os << '(' << *l << ' ' << c << ' ' << *r << ')';
-  }
+ protected:
+  virtual Formula* get_l() override { return l.get(); }
+  virtual Formula* get_r() override { return r.get(); }
+  virtual const Formula* get_l() const override { return l.get(); }
+  virtual const Formula* get_r() const override { return r.get(); }
 };
 
-struct Formula::Quantifier : public Formula {
+template<class BaseFormula>
+Formula::ObjPtr Formula::BaseJunction<BaseFormula>::Reduce(
+    Setup* setup, const StdName::SortedSet& kb_and_query_ns) const {
+  auto new_type = type == CONJUNCTION
+      ? Obj::Junction::CONJUNCTION
+      : Obj::Junction::DISJUNCTION;
+  return ObjPtr(new Obj::Junction(new_type,
+                                  get_l()->Reduce(setup, kb_and_query_ns),
+                                  get_r()->Reduce(setup, kb_and_query_ns)));
+}
+
+template<class BaseFormula>
+Formula::ObjPtr Formula::BaseJunction<BaseFormula>::Reduce(
+    Setups* setups, const StdName::SortedSet& kb_and_query_ns) const {
+  auto new_type = type == CONJUNCTION
+      ? Obj::Junction::CONJUNCTION
+      : Obj::Junction::DISJUNCTION;
+  return ObjPtr(new Obj::Junction(new_type,
+                                  get_l()->Reduce(setups, kb_and_query_ns),
+                                  get_r()->Reduce(setups, kb_and_query_ns)));
+}
+
+template<class BaseFormula>
+struct Formula::BaseQuantifier : public BaseFormula {
   enum Type { EXISTENTIAL, UNIVERSAL };
 
   Type type;
   Variable x;
-  Ptr phi;
 
-  Quantifier(Type type, const Variable& x, Ptr phi)
-      : type(type), x(x), phi(std::move(phi)) {
-    assert(this->phi);
-  }
-
-  Ptr Copy() const override {
-    return Ptr(new Quantifier(type, x, phi->Copy()));
-  }
+  BaseQuantifier(Type type, const Variable& x) : type(type), x(x) {}
+  virtual ~BaseQuantifier() {}
 
   void Negate() override {
     type = type == EXISTENTIAL ? UNIVERSAL : EXISTENTIAL;
-    phi->Negate();
+    get_phi()->Negate();
   }
 
   void PrependActions(const TermSeq& z) override {
     assert(std::find(z.begin(), z.end(), x) == z.end());
-    phi->PrependActions(z);
+    get_phi()->PrependActions(z);
   }
 
   void SubstituteInPlace(const Unifier& theta) override {
     Unifier new_theta = theta;
     new_theta.erase(x);
-    phi->SubstituteInPlace(theta);
+    get_phi()->SubstituteInPlace(theta);
   }
 
   void GroundInPlace(const Assignment& theta) override {
     Assignment new_theta = theta;
     new_theta.erase(x);
-    phi->GroundInPlace(new_theta);
+    get_phi()->GroundInPlace(new_theta);
   }
 
   void CollectFreeVariables(Variable::Set* vs) const override {
-    phi->CollectFreeVariables(vs);
+    get_phi()->CollectFreeVariables(vs);
     vs->erase(x);
   }
 
   void CollectNames(StdName::SortedSet* ns) const override {
-    phi->CollectNames(ns);
+    get_phi()->CollectNames(ns);
   }
 
-  Ptr Reduce(Setup* setup,
-             const StdName::SortedSet& kb_and_query_ns) const override {
-    return Ptr(new Quantifier(type, x, phi->Reduce(setup, kb_and_query_ns)));
+  ObjPtr Reduce(Setup* setup,
+                const StdName::SortedSet& kb_and_query_ns) const override;
+  ObjPtr Reduce(Setups* setups,
+             const StdName::SortedSet& kb_and_query_ns) const override;
+
+  void Print(std::ostream* os) const override {
+    const char* s = type == EXISTENTIAL ? "E " : "";
+    *os << '(' << s << x << ". " << *get_phi() << ')';
   }
 
-  Ptr Reduce(Setups* setups,
-             const StdName::SortedSet& kb_and_query_ns) const override {
-    return Ptr(new Quantifier(type, x, phi->Reduce(setups, kb_and_query_ns)));
+ protected:
+  virtual Formula* get_phi() = 0;
+  virtual const Formula* get_phi() const = 0;
+};
+
+struct Formula::Quantifier : public Formula::BaseQuantifier<Formula> {
+  Ptr phi;
+
+  Quantifier(Type type, const Variable& x, Ptr phi)
+      : BaseQuantifier(type, x), phi(std::move(phi)) {}
+
+  Ptr Copy() const override {
+    return Ptr(new Quantifier(type, x, phi->Copy()));
   }
 
-  std::pair<Truth, Ptr> Simplify() const override {
+  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
+    Ptr psi = get_phi()->Regress(tf, axioms);
+    const Variable y = tf->CreateVariable(x.sort());
+    psi->SubstituteInPlace({{x, y}});
+    return Ptr(new Quantifier(type, y, std::move(psi)));
+  }
+
+ protected:
+  virtual Formula* get_phi() override { return phi.get(); }
+  virtual const Formula* get_phi() const override { return phi.get(); }
+};
+
+struct Formula::Obj::Quantifier : public Formula::BaseQuantifier<Formula::Obj> {
+  ObjPtr phi;
+
+  Quantifier(Type type, const Variable& x, ObjPtr phi)
+      : BaseQuantifier(type, x), phi(std::move(phi)) {}
+
+  ObjPtr ObjCopy() const override {
+    return ObjPtr(new Quantifier(type, x, phi->ObjCopy()));
+  }
+
+  ObjPtr ObjRegress(Term::Factory* tf,
+                    const DynamicAxioms& axioms) const override {
+    ObjPtr psi = phi->ObjRegress(tf, axioms);
+    const Variable y = tf->CreateVariable(x.sort());
+    psi->SubstituteInPlace({{x, y}});
+    return ObjPtr(new Quantifier(type, y, std::move(psi)));
+  }
+
+  std::pair<Truth, ObjPtr> Simplify() const override {
     auto p = phi->Simplify();
     if (type == EXISTENTIAL && p.first == TRIVIALLY_TRUE) {
-      return std::make_pair(TRIVIALLY_TRUE, Ptr());
+      return std::make_pair(TRIVIALLY_TRUE, ObjPtr());
     }
     if (type == UNIVERSAL && p.first == TRIVIALLY_FALSE) {
-      return std::make_pair(TRIVIALLY_FALSE, Ptr());
+      return std::make_pair(TRIVIALLY_FALSE, ObjPtr());
     }
     assert(p.first == NONTRIVIAL);
-    Ptr psi = Ptr(new Quantifier(type, x, std::move(p.second)));
+    ObjPtr psi(new Quantifier(type, x, std::move(p.second)));
     return std::make_pair(NONTRIVIAL, std::move(psi));
   }
 
@@ -977,18 +876,30 @@ struct Formula::Quantifier : public Formula {
     return r;
   }
 
-  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
-    Ptr psi = phi->Regress(tf, axioms);
-    const Variable y = tf->CreateVariable(x.sort());
-    psi->SubstituteInPlace({{x, y}});
-    return Ptr(new Quantifier(type, y, std::move(psi)));
-  }
-
-  void Print(std::ostream* os) const override {
-    const char* s = type == EXISTENTIAL ? "E " : "";
-    *os << '(' << s << x << ". " << *phi << ')';
-  }
+ protected:
+  virtual Formula* get_phi() override { return phi.get(); }
+  virtual const Formula* get_phi() const override { return phi.get(); }
 };
+
+template<class BaseFormula>
+Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(Setup* setup,
+              const StdName::SortedSet& kb_and_query_ns) const {
+  auto new_type = type == EXISTENTIAL
+      ? Obj::Quantifier::EXISTENTIAL
+      : Obj::Quantifier::UNIVERSAL;
+  return ObjPtr(new Obj::Quantifier(new_type, x,
+                                    get_phi()->Reduce(setup, kb_and_query_ns)));
+}
+
+template<class BaseFormula>
+Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(Setups* setups,
+           const StdName::SortedSet& kb_and_query_ns) const {
+  auto new_type = type == EXISTENTIAL
+      ? Obj::Quantifier::EXISTENTIAL
+      : Obj::Quantifier::UNIVERSAL;
+  return ObjPtr(new Obj::Quantifier(new_type, x,
+                                    get_phi()->Reduce(setups, kb_and_query_ns)));
+}
 
 namespace {
 void GenerateAssignments(const Variable::Set::const_iterator first,
@@ -1024,8 +935,8 @@ std::list<Assignment> ReducedAssignments(const Variable::Set& vs,
   return rs;
 }
 
-Formula::Ptr ReducedFormula(const Assignment& theta) {
-  std::vector<Formula::Ptr> conjs;
+Formula::ObjPtr ReducedFormula(const Assignment& theta) {
+  std::vector<Formula::ObjPtr> conjs;
   for (const auto& p : theta) {
     const Variable& x = p.first;
     const StdName& m = p.second;
@@ -1043,8 +954,8 @@ Formula::Ptr ReducedFormula(const Assignment& theta) {
       }
     }
   }
-  Formula::Ptr phi = Formula::True();
-  for (Formula::Ptr& psi : conjs) {
+  Formula::ObjPtr phi = Formula::True();
+  for (Formula::ObjPtr& psi : conjs) {
     phi = Formula::And(std::move(phi), std::move(psi));
   }
   return std::move(phi);
@@ -1088,19 +999,19 @@ struct Formula::Knowledge : public Formula {
     phi->CollectNames(ns);
   }
 
-  Ptr Reduce(Setup* setup,
-             const StdName::SortedSet& kb_and_query_ns) const override {
+  ObjPtr Reduce(Setup* setup,
+                const StdName::SortedSet& kb_and_query_ns) const override {
     assert(z.empty());
     Variable::Set vs;
     CollectFreeVariables(&vs);
-    std::vector<Ptr> disjs;
+    std::vector<ObjPtr> disjs;
     for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
-      Ptr e = ReducedFormula(theta);
+      ObjPtr e = ReducedFormula(theta);
       assert(e);
-      Ptr phi_copy = phi->Copy();
-      phi_copy->GroundInPlace(theta);
+      ObjPtr phi_red = phi->Reduce(setup, kb_and_query_ns);
+      phi_red->GroundInPlace(theta);
       Truth truth;
-      std::tie(truth, phi_copy) = phi_copy->Simplify();
+      std::tie(truth, phi_red) = phi_red->Simplify();
       bool holds;
       switch (truth) {
         case TRIVIALLY_TRUE:
@@ -1110,7 +1021,7 @@ struct Formula::Knowledge : public Formula {
           holds = setup->Inconsistent(k);
           break;
         case NONTRIVIAL:
-          Cnf cnf = phi_copy->MakeCnf(kb_and_query_ns);
+          Cnf cnf = phi_red->MakeCnf(kb_and_query_ns);
           cnf.Minimize();
           holds = std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
                               [&setup, this](const Cnf::Disj& c) {
@@ -1121,8 +1032,8 @@ struct Formula::Knowledge : public Formula {
       assert(e);
       disjs.push_back(And(std::move(e), holds ? True() : False()));
     }
-    Formula::Ptr r;
-    for (Formula::Ptr& disj : disjs) {
+    Formula::ObjPtr r;
+    for (Formula::ObjPtr& disj : disjs) {
       r = !r ? std::move(disj) : Formula::Or(std::move(r), std::move(disj));
     }
     if (!sign) {
@@ -1131,35 +1042,16 @@ struct Formula::Knowledge : public Formula {
     return std::move(r);
   }
 
-  Ptr Reduce(Setups* setups,
-             const StdName::SortedSet& kb_and_query_ns) const override {
+  ObjPtr Reduce(Setups* setups,
+                const StdName::SortedSet& kb_and_query_ns) const override {
     return Reduce(&setups->last_setup(), kb_and_query_ns);
-  }
-
-  std::pair<Truth, Ptr> Simplify() const override {
-    auto p = phi->Simplify();
-    if (p.first == TRIVIALLY_TRUE) {
-      return std::make_pair(sign ? TRIVIALLY_TRUE : TRIVIALLY_FALSE, Ptr());
-    } else if (p.first == TRIVIALLY_FALSE) {
-      p.second = False();
-    }
-    assert(p.first == NONTRIVIAL);
-    Ptr know = Ptr(new Knowledge(k, z, sign, std::move(p.second)));
-    return std::make_pair(NONTRIVIAL, std::move(know));
-  }
-
-  Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns,
-              StdName::SortedSet* placeholders) const override {
-    Cnf::Disj d;
-    d.AddNested(k, z, sign, phi->MakeCnf(kb_and_query_ns, placeholders));
-    return Cnf(d);
   }
 
   Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
     Maybe<TermSeq, Term> zt = z.SplitLast();
     if (zt) {
-      Ptr pos(new struct Lit(SfLiteral(zt.val1, zt.val2, true)));
-      Ptr neg(new struct Lit(SfLiteral(zt.val1, zt.val2, false)));
+      ObjPtr pos(new Obj::Lit(SfLiteral(zt.val1, zt.val2, true)));
+      ObjPtr neg(new Obj::Lit(SfLiteral(zt.val1, zt.val2, false)));
       Ptr beta(Act(zt.val1,
         Or(And(pos->Copy(),
                Know(k, OnlyIf(pos->Copy(), Act(zt.val2, phi->Copy())))),
@@ -1225,29 +1117,29 @@ struct Formula::Belief : public Formula {
     psi->CollectNames(ns);
   }
 
-  Ptr Reduce(Setup*,
-             const StdName::SortedSet&) const override {
+  ObjPtr Reduce(Setup*,
+                const StdName::SortedSet&) const override {
     assert(false);
-    return Ptr();
+    return ObjPtr();
   }
 
-  Ptr Reduce(Setups* setups,
-             const StdName::SortedSet& kb_and_query_ns) const override {
+  ObjPtr Reduce(Setups* setups,
+                const StdName::SortedSet& kb_and_query_ns) const override {
     assert(z.empty());
     Variable::Set vs;
     CollectFreeVariables(&vs);
-    std::vector<Ptr> disjs;
+    std::vector<ObjPtr> disjs;
     for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
-      Ptr e = ReducedFormula(theta);
+      ObjPtr e = ReducedFormula(theta);
       assert(e);
-      Ptr phi_copy = phi->Copy();
-      Ptr psi_copy = psi->Copy();
-      phi_copy->GroundInPlace(theta);
-      psi_copy->GroundInPlace(theta);
+      ObjPtr phi_red = phi->Reduce(setups, kb_and_query_ns);
+      ObjPtr psi_red = psi->Reduce(setups, kb_and_query_ns);
+      phi_red->GroundInPlace(theta);
+      psi_red->GroundInPlace(theta);
       Truth phi_truth;
       Truth psi_truth;
-      std::tie(phi_truth, phi_copy) = phi_copy->Simplify();
-      std::tie(psi_truth, psi_copy) = psi_copy->Simplify();
+      std::tie(phi_truth, phi_red) = phi_red->Simplify();
+      std::tie(psi_truth, psi_red) = psi_red->Simplify();
       bool holds;
       switch (psi_truth) {
         case TRIVIALLY_TRUE:
@@ -1259,7 +1151,7 @@ struct Formula::Belief : public Formula {
         case NONTRIVIAL:
           switch (phi_truth) {
             case TRIVIALLY_TRUE: {
-              Cnf psi_cnf = psi_copy->MakeCnf(kb_and_query_ns);
+              Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
               psi_cnf.Minimize();
               // To show True => psi, we look for the first consistent setup.
               for (size_t i = 0; i < setups->n_setups(); ++i) {
@@ -1279,10 +1171,10 @@ struct Formula::Belief : public Formula {
               holds = true;
               break;
             case NONTRIVIAL: {
-              Ptr neg_phi = std::move(phi_copy);
+              ObjPtr neg_phi = std::move(phi_red);
               neg_phi->Negate();
               Cnf neg_phi_cnf = neg_phi->MakeCnf(kb_and_query_ns);
-              Cnf psi_cnf = psi_copy->MakeCnf(kb_and_query_ns);
+              Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
               neg_phi_cnf.Minimize();
               psi_cnf.Minimize();
               holds = true;
@@ -1316,8 +1208,8 @@ struct Formula::Belief : public Formula {
       assert(e);
       disjs.push_back(And(std::move(e), holds ? True() : False()));
     }
-    Formula::Ptr r;
-    for (Formula::Ptr& disj : disjs) {
+    Formula::ObjPtr r;
+    for (Formula::ObjPtr& disj : disjs) {
       r = !r ? std::move(disj) : Formula::Or(std::move(r), std::move(disj));
     }
     if (!sign) {
@@ -1326,40 +1218,11 @@ struct Formula::Belief : public Formula {
     return std::move(r);
   }
 
-
-  std::pair<Truth, Ptr> Simplify() const override {
-    auto p1 = phi->Simplify();
-    auto p2 = psi->Simplify();
-    if (p1.first == TRIVIALLY_TRUE) {
-      p1.second = True();
-    } else if (p1.first == TRIVIALLY_FALSE) {
-      p1.second = False();
-    }
-    if (p2.first == TRIVIALLY_TRUE) {
-      return std::make_pair(sign ? TRIVIALLY_TRUE : TRIVIALLY_FALSE, Ptr());
-    } else if (p2.first == TRIVIALLY_FALSE) {
-      p2.second = False();
-    }
-    assert(p1.second);
-    assert(p2.second);
-    Ptr b = Ptr(new Belief(k, z, sign, std::move(p1.second),
-                           std::move(p2.second)));
-    return std::make_pair(NONTRIVIAL, std::move(b));
-  }
-
-  Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns,
-              StdName::SortedSet* placeholders) const override {
-    Cnf::Disj d;
-    d.AddNested(k, z, sign, phi->MakeCnf(kb_and_query_ns, placeholders),
-                psi->MakeCnf(kb_and_query_ns, placeholders));
-    return Cnf(d);
-  }
-
   Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
     Maybe<TermSeq, Term> zt = z.SplitLast();
     if (zt) {
-      Ptr pos(new struct Lit(SfLiteral(zt.val1, zt.val2, true)));
-      Ptr neg(new struct Lit(SfLiteral(zt.val1, zt.val2, false)));
+      ObjPtr pos(new Obj::Lit(SfLiteral(zt.val1, zt.val2, true)));
+      ObjPtr neg(new Obj::Lit(SfLiteral(zt.val1, zt.val2, false)));
       Ptr beta(Act(zt.val1,
         Or(And(pos->Copy(),
                Believe(k,
@@ -1391,27 +1254,33 @@ struct Formula::Belief : public Formula {
 // }}}
 // {{{ Formula members.
 
-Formula::Ptr Formula::True() {
+Formula::ObjPtr Formula::True() {
   const StdName n = Term::Factory::CreatePlaceholderStdName(0, 0);
   return Eq(n, n);
 }
 
-Formula::Ptr Formula::False() {
+Formula::ObjPtr Formula::False() {
   return Neg(True());
 }
 
-Formula::Ptr Formula::Eq(const Term& t1, const Term& t2) {
-  return Ptr(new Equal(t1, t2));
+Formula::ObjPtr Formula::Eq(const Term& t1, const Term& t2) {
+  return ObjPtr(new Obj::Equal(t1, t2));
 }
 
-Formula::Ptr Formula::Neq(const Term& t1, const Term& t2) {
-  Ptr eq(std::move(Eq(t1, t2)));
+Formula::ObjPtr Formula::Neq(const Term& t1, const Term& t2) {
+  ObjPtr eq(std::move(Eq(t1, t2)));
   eq->Negate();
   return std::move(eq);
 }
 
-Formula::Ptr Formula::Lit(const Literal& l) {
-  return Ptr(new struct Lit(l));
+Formula::ObjPtr Formula::Lit(const Literal& l) {
+  return ObjPtr(new Obj::Lit(l));
+}
+
+Formula::ObjPtr Formula::Or(ObjPtr phi1, ObjPtr phi2) {
+  return ObjPtr(new Obj::Junction(Obj::Junction::DISJUNCTION,
+                                  std::move(phi1),
+                                  std::move(phi2)));
 }
 
 Formula::Ptr Formula::Or(Ptr phi1, Ptr phi2) {
@@ -1420,18 +1289,37 @@ Formula::Ptr Formula::Or(Ptr phi1, Ptr phi2) {
                           std::move(phi2)));
 }
 
+Formula::ObjPtr Formula::And(ObjPtr phi1, ObjPtr phi2) {
+  return ObjPtr(new Obj::Junction(Obj::Junction::CONJUNCTION,
+                                  std::move(phi1),
+                                  std::move(phi2)));
+}
+
 Formula::Ptr Formula::And(Ptr phi1, Ptr phi2) {
   return Ptr(new Junction(Junction::CONJUNCTION,
                           std::move(phi1),
                           std::move(phi2)));
 }
 
+Formula::ObjPtr Formula::OnlyIf(ObjPtr phi1, ObjPtr phi2) {
+  return Or(Neg(std::move(phi1)), std::move(phi2));
+}
+
 Formula::Ptr Formula::OnlyIf(Ptr phi1, Ptr phi2) {
   return Or(Neg(std::move(phi1)), std::move(phi2));
 }
 
+Formula::ObjPtr Formula::If(ObjPtr phi1, ObjPtr phi2) {
+  return Or(Neg(std::move(phi2)), std::move(phi1));
+}
+
 Formula::Ptr Formula::If(Ptr phi1, Ptr phi2) {
   return Or(Neg(std::move(phi2)), std::move(phi1));
+}
+
+Formula::ObjPtr Formula::Iff(ObjPtr phi1, ObjPtr phi2) {
+  return And(If(std::move(phi1->ObjCopy()), std::move(phi2->ObjCopy())),
+             OnlyIf(std::move(phi1), std::move(phi2)));
 }
 
 Formula::Ptr Formula::Iff(Ptr phi1, Ptr phi2) {
@@ -1439,13 +1327,27 @@ Formula::Ptr Formula::Iff(Ptr phi1, Ptr phi2) {
              OnlyIf(std::move(phi1), std::move(phi2)));
 }
 
+Formula::ObjPtr Formula::Neg(ObjPtr phi) {
+  phi->Negate();
+  return std::move(phi);
+}
+
 Formula::Ptr Formula::Neg(Ptr phi) {
   phi->Negate();
   return std::move(phi);
 }
 
+Formula::ObjPtr Formula::Act(const Term& t, ObjPtr phi) {
+  return Act(TermSeq{t}, std::move(phi));
+}
+
 Formula::Ptr Formula::Act(const Term& t, Ptr phi) {
   return Act(TermSeq{t}, std::move(phi));
+}
+
+Formula::ObjPtr Formula::Act(const TermSeq& z, ObjPtr phi) {
+  phi->PrependActions(z);
+  return std::move(phi);
 }
 
 Formula::Ptr Formula::Act(const TermSeq& z, Ptr phi) {
@@ -1453,8 +1355,18 @@ Formula::Ptr Formula::Act(const TermSeq& z, Ptr phi) {
   return std::move(phi);
 }
 
+Formula::ObjPtr Formula::Exists(const Variable& x, ObjPtr phi) {
+  return ObjPtr(new Obj::Quantifier(Obj::Quantifier::EXISTENTIAL, x,
+                                    std::move(phi)));
+}
+
 Formula::Ptr Formula::Exists(const Variable& x, Ptr phi) {
   return Ptr(new Quantifier(Quantifier::EXISTENTIAL, x, std::move(phi)));
+}
+
+Formula::ObjPtr Formula::Forall(const Variable& x, ObjPtr phi) {
+  return ObjPtr(new Obj::Quantifier(Obj::Quantifier::UNIVERSAL, x,
+                                    std::move(phi)));
 }
 
 Formula::Ptr Formula::Forall(const Variable& x, Ptr phi) {
@@ -1473,51 +1385,16 @@ Formula::Ptr Formula::Believe(split_level k, Ptr phi, Ptr psi) {
   return Ptr(new Belief(k, {}, true, std::move(phi), std::move(psi)));
 }
 
-Formula::Cnf Formula::MakeCnf(const StdName::SortedSet& kb_and_query_ns) const {
+Formula::Cnf Formula::Obj::MakeCnf(
+    const StdName::SortedSet& kb_and_query_ns) const {
   StdName::SortedSet placeholders;
   return MakeCnf(kb_and_query_ns, &placeholders);
-}
-
-void Formula::AddToSetup(Setup* setup) const {
-  StdName::SortedSet hplus = setup->hplus().WithoutPlaceholders();
-  CollectNames(&hplus);
-  std::pair<Truth, Ptr> p = Simplify();
-  if (p.first == TRIVIALLY_TRUE) {
-    return;
-  }
-  if (p.first == TRIVIALLY_FALSE) {
-    setup->AddClause(Clause::EMPTY);
-    return;
-  }
-  Ptr phi = std::move(p.second);
-  assert(phi);
-  Cnf cnf = phi->MakeCnf(hplus);
-  cnf.Minimize();
-  cnf.AddToSetup(setup);
-}
-
-void Formula::AddToSetups(Setups* setups) const {
-  StdName::SortedSet hplus = setups->hplus().WithoutPlaceholders();
-  CollectNames(&hplus);
-  std::pair<Truth, Ptr> p = Simplify();
-  if (p.first == TRIVIALLY_TRUE) {
-    return;
-  }
-  if (p.first == TRIVIALLY_FALSE) {
-    setups->AddClause(Clause::EMPTY);
-    return;
-  }
-  Ptr phi = std::move(p.second);
-  assert(phi);
-  Cnf cnf = phi->MakeCnf(hplus);
-  cnf.Minimize();
-  cnf.AddToSetups(setups);
 }
 
 bool Formula::Eval(Setup* setup) const {
   StdName::SortedSet ns = setup->hplus().WithoutPlaceholders();
   CollectNames(&ns);
-  Ptr phi = Reduce(setup, ns);
+  ObjPtr phi = Reduce(setup, ns);
   Truth truth;
   std::tie(truth, phi) = phi->Simplify();
   if (truth == TRIVIALLY_TRUE) {
@@ -1539,15 +1416,7 @@ bool Formula::Eval(Setups* setups) const {
   StdName::SortedSet ns = setups->hplus().WithoutPlaceholders();
   CollectNames(&ns);
   Truth truth;
-  Ptr phi;
-  std::tie(truth, phi) = Simplify();
-  if (truth == TRIVIALLY_TRUE) {
-    return true;
-  }
-  if (truth == TRIVIALLY_FALSE) {
-    return setups->Inconsistent(0);
-  }
-  phi = Reduce(setups, ns);
+  ObjPtr phi = Reduce(setups, ns);
   std::tie(truth, phi) = phi->Simplify();
   if (truth == TRIVIALLY_TRUE) {
     return true;
@@ -1562,6 +1431,51 @@ bool Formula::Eval(Setups* setups) const {
                      [&setups](const Cnf::Disj& c) {
                        return c.Eval(&setups->last_setup(), 0);
                      });
+}
+
+Formula::Ptr Formula::Obj::Copy() const {
+  return ObjCopy();
+}
+
+Formula::Ptr Formula::Obj::Regress(Term::Factory* tf,
+                                   const DynamicAxioms& axioms) const {
+  return ObjRegress(tf, axioms);
+}
+
+void Formula::Obj::AddToSetup(Setup* setup) const {
+  StdName::SortedSet hplus = setup->hplus().WithoutPlaceholders();
+  CollectNames(&hplus);
+  std::pair<Truth, ObjPtr> p = Simplify();
+  if (p.first == TRIVIALLY_TRUE) {
+    return;
+  }
+  if (p.first == TRIVIALLY_FALSE) {
+    setup->AddClause(Clause::EMPTY);
+    return;
+  }
+  ObjPtr phi = std::move(p.second);
+  assert(phi);
+  Cnf cnf = phi->MakeCnf(hplus);
+  cnf.Minimize();
+  cnf.AddToSetup(setup);
+}
+
+void Formula::Obj::AddToSetups(Setups* setups) const {
+  StdName::SortedSet hplus = setups->hplus().WithoutPlaceholders();
+  CollectNames(&hplus);
+  std::pair<Truth, ObjPtr> p = Simplify();
+  if (p.first == TRIVIALLY_TRUE) {
+    return;
+  }
+  if (p.first == TRIVIALLY_FALSE) {
+    setups->AddClause(Clause::EMPTY);
+    return;
+  }
+  ObjPtr phi = std::move(p.second);
+  assert(phi);
+  Cnf cnf = phi->MakeCnf(hplus);
+  cnf.Minimize();
+  cnf.AddToSetups(setups);
 }
 
 std::ostream& operator<<(std::ostream& os, const Formula& phi) {

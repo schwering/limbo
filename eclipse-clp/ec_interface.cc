@@ -419,7 +419,7 @@ Maybe<Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
         args.push_back(term);
     }
     const Literal l({}, sign, p.val, args);
-    return Just(Formula::Lit(l));
+    return Just(Formula::Ptr(Formula::Lit(l)));
   } else if (is_atom) {
     const auto p = pred_builder_.Get(ec_alpha);
     if (!p) {
@@ -427,7 +427,7 @@ Maybe<Formula::Ptr> FormulaBuilder::Build(EC_word ec_alpha)
     }
     const bool sign = true;
     const Literal l({}, sign, p.val, {});
-    return Just(Formula::Lit(l));
+    return Just(Formula::Ptr(Formula::Lit(l)));
   } else {
     return Nothing;
   }
@@ -758,7 +758,7 @@ int p_add_sensing_result()
     if (!ctx->UseRegression()) {
       kbat->setup().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
     } else {
-      Formula::Lit(SfLiteral(z, t, r))->Regress(ctx->tf(), ctx->bat())->AddToSetup(&kbat->setup());
+      Formula::Lit(SfLiteral(z, t, r))->ObjRegress(ctx->tf(), ctx->bat())->AddToSetup(&kbat->setup());
     }
     return PSUCCEED;
   }
@@ -766,7 +766,7 @@ int p_add_sensing_result()
     if (!ctx->UseRegression()) {
       bbat->setups().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
     } else {
-      Formula::Lit(SfLiteral(z, t, r))->Regress(ctx->tf(), ctx->bat())->AddToSetups(&bbat->setups());
+      Formula::Lit(SfLiteral(z, t, r))->ObjRegress(ctx->tf(), ctx->bat())->AddToSetups(&bbat->setups());
     }
     return PSUCCEED;
   }

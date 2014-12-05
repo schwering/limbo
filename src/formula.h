@@ -50,7 +50,10 @@ class DynamicAxioms;
 
 class Formula {
  public:
-  typedef std::unique_ptr<Formula> Ptr;
+  class Obj;
+  struct Ptr;
+  struct ObjPtr;
+
   typedef Setup::split_level split_level;
 
   Formula() = default;
@@ -58,20 +61,30 @@ class Formula {
   Formula& operator=(const Formula&) = delete;
   virtual ~Formula() {}
 
-  static Ptr True();
-  static Ptr False();
-  static Ptr Eq(const Term& t1, const Term& t2);
-  static Ptr Neq(const Term& t1, const Term& t2);
-  static Ptr Lit(const Literal& l);
+  static ObjPtr True();
+  static ObjPtr False();
+  static ObjPtr Eq(const Term& t1, const Term& t2);
+  static ObjPtr Neq(const Term& t1, const Term& t2);
+  static ObjPtr Lit(const Literal& l);
+  static ObjPtr Or(ObjPtr phi1, ObjPtr phi2);
   static Ptr Or(Ptr phi1, Ptr phi2);
+  static ObjPtr And(ObjPtr phi1, ObjPtr phi2);
   static Ptr And(Ptr phi1, Ptr phi2);
+  static ObjPtr OnlyIf(ObjPtr phi1, ObjPtr phi2);
   static Ptr OnlyIf(Ptr phi1, Ptr phi2);
+  static ObjPtr If(ObjPtr phi1, ObjPtr phi2);
   static Ptr If(Ptr phi1, Ptr phi2);
+  static ObjPtr Iff(ObjPtr phi1, ObjPtr phi2);
   static Ptr Iff(Ptr phi1, Ptr phi2);
+  static ObjPtr Neg(ObjPtr phi);
   static Ptr Neg(Ptr phi);
+  static ObjPtr Act(const Term& t, ObjPtr phi);
   static Ptr Act(const Term& t, Ptr phi);
+  static ObjPtr Act(const TermSeq& z, ObjPtr phi);
   static Ptr Act(const TermSeq& z, Ptr phi);
+  static ObjPtr Exists(const Variable& x, ObjPtr phi);
   static Ptr Exists(const Variable& x, Ptr phi);
+  static ObjPtr Forall(const Variable& x, ObjPtr phi);
   static Ptr Forall(const Variable& x, Ptr phi);
   static Ptr Know(split_level k, Ptr phi);
   static Ptr Believe(split_level k, Ptr psi);
@@ -85,17 +98,17 @@ class Formula {
   // tf is needed to create variables in order to keep the formula rectified.
   virtual Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const = 0;
 
-  void AddToSetup(Setup* setup) const;
-  void AddToSetups(Setups* setups) const;
-
   bool Eval(Setup* setup) const;
   bool Eval(Setups* setups) const;
 
  private:
   friend std::ostream& operator<<(std::ostream& os, const Formula& phi);
 
-  struct Equal;
-  struct Lit;
+  template<class BaseFormula>
+  struct BaseJunction;
+  template<class BaseFormula>
+  struct BaseQuantifier;
+
   struct Junction;
   struct Quantifier;
   struct Knowledge;
@@ -106,21 +119,83 @@ class Formula {
   virtual void Negate() = 0;
   virtual void CollectFreeVariables(Variable::Set* vs) const = 0;
   virtual void CollectNames(StdName::SortedSet* ns) const = 0;
-  virtual Ptr Reduce(Setup* setup,
-                     const StdName::SortedSet& kb_and_query_ns) const = 0;
-  virtual Ptr Reduce(Setups* setups,
-                     const StdName::SortedSet& kb_and_query_ns) const = 0;
-  virtual std::pair<Truth, Ptr> Simplify() const = 0;
+  virtual ObjPtr Reduce(Setup* setup,
+                        const StdName::SortedSet& kb_and_query_ns) const = 0;
+  virtual ObjPtr Reduce(Setups* setups,
+                        const StdName::SortedSet& kb_and_query_ns) const = 0;
+  virtual void Print(std::ostream* os) const = 0;
+};
+
+class Formula::Obj : public Formula {
+ public:
+  virtual Ptr Copy() const override;
+  virtual ObjPtr ObjCopy() const = 0;
+
+  virtual Ptr Regress(Term::Factory* tf,
+                      const DynamicAxioms& axioms) const override;
+  virtual ObjPtr ObjRegress(Term::Factory* tf,
+                            const DynamicAxioms& axioms) const = 0;
+
+  void AddToSetup(Setup* setup) const;
+  void AddToSetups(Setups* setups) const;
+
+ private:
+  friend class Formula;
+
+  struct Equal;
+  struct Lit;
+  struct Junction;
+  struct Quantifier;
+
+  virtual std::pair<Truth, ObjPtr> Simplify() const = 0;
   Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns) const;
   virtual Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns,
                       StdName::SortedSet* placeholders) const = 0;
-  virtual void Print(std::ostream* os) const = 0;
+};
+
+struct Formula::Ptr {
+  typedef std::unique_ptr<Formula> unique_ptr;
+
+  Ptr() : ptr_() {}
+  Ptr(Formula* ptr) : ptr_(ptr) {}
+  Ptr(unique_ptr&& ptr) : ptr_(std::forward<unique_ptr>(ptr)) {}  // NOLINT
+  Ptr(Ptr&& ptr) : ptr_(std::forward<unique_ptr>(ptr.ptr_)) {}  // NOLINT
+  virtual ~Ptr() {}
+
+  Ptr& operator=(Ptr&& ptr) { ptr_ = std::forward<unique_ptr>(ptr.ptr_); return *this; }
+  Ptr& operator=(std::nullptr_t np) { ptr_ = np; return *this; }
+
+  virtual Formula* get() const { return ptr_.get(); }
+  Formula* operator->() const { return ptr_.operator->(); }
+  Formula& operator*() const { return ptr_.operator*(); }
+  operator bool() const { return ptr_.operator bool(); }
+
+ protected:
+  unique_ptr ptr_;
+};
+
+struct Formula::ObjPtr : public Formula::Ptr {
+  typedef std::unique_ptr<Formula::Obj> unique_ptr;
+
+  ObjPtr() : Ptr() {}
+  ObjPtr(Formula::Obj* ptr) : Ptr(ptr) {}
+  ObjPtr(unique_ptr&& ptr) : Ptr(std::move(ptr)) {}  // NOLINT
+  ObjPtr(ObjPtr&& ptr) : Ptr(std::move(ptr.ptr_)) {}  // NOLINT
+  virtual ~ObjPtr() {}
+
+  ObjPtr& operator=(ObjPtr&& ptr) { ptr_ = std::forward<Ptr::unique_ptr>(ptr.ptr_); return *this; }
+  ObjPtr& operator=(std::nullptr_t np) { ptr_ = np; return *this; }
+
+  virtual Formula::Obj* get() const { return static_cast<Formula::Obj*>(ptr_.get()); }
+  Formula::Obj* operator->() const { return static_cast<Formula::Obj*>(ptr_.operator->()); }
+  Formula::Obj& operator*() const { return static_cast<Formula::Obj&>(ptr_.operator*()); }
+  operator bool() const { return ptr_.operator bool(); }
 };
 
 class DynamicAxioms {
  public:
-  virtual Maybe<Formula::Ptr> RegressOneStep(Term::Factory* tf,
-                                             const Atom& a) const = 0;
+  virtual Maybe<Formula::ObjPtr> RegressOneStep(Term::Factory* tf,
+                                                const Atom& a) const = 0;
 };
 
 std::ostream& operator<<(std::ostream& os, const Formula& phi);

@@ -27,8 +27,8 @@ class Bat : public DynamicAxioms {
 
   virtual Term::Id max_std_name() const = 0;
   virtual Atom::PredId max_pred() const = 0;
-  Maybe<Formula::Ptr> RegressOneStep(Term::Factory* tf,
-                                     const Atom& a) const override = 0;
+  Maybe<Formula::ObjPtr> RegressOneStep(Term::Factory* tf,
+                                        const Atom& a) const override = 0;
 
   Term::Factory& tf() { return tf_; }
   const Term::Factory& tf() const { return tf_; }

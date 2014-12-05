@@ -46,7 +46,7 @@ TEST(formula, gl_regression) {
   Formula::Ptr reg1 = Formula::Know(0, Formula::Neg(close->Copy()))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg1->Eval(&s));
 
-  Formula::Lit(SfLiteral({}, bat.forward, true))->Regress(&bat.tf(), bat)->AddToSetup(&s);
+  Formula::Lit(SfLiteral({}, bat.forward, true))->ObjRegress(&bat.tf(), bat)->AddToSetup(&s);
 
   // Property 2
   Formula::Ptr reg2 = Formula::Act(bat.forward, Formula::Know(0, maybe_close->Copy()))->Regress(&bat.tf(), bat);
@@ -57,7 +57,7 @@ TEST(formula, gl_regression) {
   Formula::Ptr reg3 = Formula::Act(bat.forward, Formula::Know(1, maybe_close->Copy()))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg3->Eval(&s));
 
-  Formula::Lit(SfLiteral({bat.forward}, bat.sonar, true))->Regress(&bat.tf(), bat)->AddToSetup(&s);
+  Formula::Lit(SfLiteral({bat.forward}, bat.sonar, true))->ObjRegress(&bat.tf(), bat)->AddToSetup(&s);
 
   // Property 4
   Formula::Ptr reg4 = Formula::Act({bat.forward, bat.sonar}, Formula::Know(1, close->Copy()))->Regress(&bat.tf(), bat);
@@ -106,13 +106,13 @@ TEST(formula, morri_regression) {
   EXPECT_TRUE(reg1->Eval(&s));
 
   // Property 2
-  Formula::Lit(SfLiteral({}, bat.SL, true))->Regress(&bat.tf(), bat)->AddToSetups(&s);
+  Formula::Lit(SfLiteral({}, bat.SL, true))->ObjRegress(&bat.tf(), bat)->AddToSetups(&s);
   Formula::Ptr reg2 = Formula::Act(bat.SL, Formula::Believe(2, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
                                                                             Formula::Lit(Literal({}, true, bat.R1, {})))))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg2->Eval(&s));
 
   // Property 3
-  Formula::Lit(SfLiteral({bat.SL}, bat.SR1, false))->Regress(&bat.tf(), bat)->AddToSetups(&s);
+  Formula::Lit(SfLiteral({bat.SL}, bat.SR1, false))->ObjRegress(&bat.tf(), bat)->AddToSetups(&s);
   Formula::Ptr reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg3->Eval(&s));
 
@@ -130,7 +130,7 @@ TEST(formula, morri_regression) {
   EXPECT_TRUE(reg6->Eval(&s));
 
   // Property 6
-  Formula::Lit(SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true))->Regress(&bat.tf(), bat)->AddToSetups(&s);
+  Formula::Lit(SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true))->ObjRegress(&bat.tf(), bat)->AddToSetups(&s);
   Formula::Ptr reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(reg7->Eval(&s));
 }
