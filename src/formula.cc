@@ -313,36 +313,47 @@ bool Formula::Cnf::operator==(const Formula::Cnf& c) const {
 }
 
 void Formula::Cnf::Minimize() {
-  Disj::Set new_ds;
+  // The bool says that the prime implicate is essential.
+  std::map<Disj, bool, LessComparator<Disj>> pis;
   for (const Disj& d : *ds_) {
     assert(d.ground());
     if (!d.Tautologous()) {
       Disj dd = d;
       dd.ClearEqs();
       dd.ClearNeqs();
-      new_ds.insert(new_ds.end(), dd);
+      pis.insert(pis.end(), std::make_pair(dd, true));
     }
   }
-  std::swap(*ds_, new_ds);
+  bool repeat;
   do {
-    new_ds.clear();
-    for (auto it = ds_->begin(); it != ds_->end(); ++it) {
-      // Disj::operator< orders by clause length first, so subsumed clauses
-      // are greater than the subsuming.
-      for (auto jt = std::next(it); jt != ds_->end(); ) {
-        if (it->Subsumes(*jt)) {
-          jt = ds_->erase(jt);
-        } else {
-          Maybe<Disj> d = Disj::Resolve(*it, *jt);
-          if (d) {
-            new_ds.insert(d.val);
-          }
-          ++jt;
+    repeat = false;
+    for (auto it = pis.begin(); it != pis.end(); ++it) {
+      for (auto jt = pis.begin(); jt != it; ++jt) {
+        Maybe<Disj> d = Disj::Resolve(it->first, jt->first);
+        if (d) {
+          const auto p = pis.insert(std::make_pair(d.val, false));
+          p.first->second = !(it->second || it->second);
+          repeat |= p.second;
         }
       }
     }
-    ds_->insert(new_ds.begin(), new_ds.end());
-  } while (!new_ds.empty());
+  } while (repeat);
+  // Disj::operator< orders by clause length first, so subsumed clauses
+  // are greater than the subsuming.
+  for (auto it = pis.rbegin(); it != pis.rend(); ++it) {
+    for (auto jt = pis.rbegin(); jt != it; ++jt) {
+      if (!it->second && jt->second && it->first.Subsumes(jt->first)) {
+        it->second = true;
+        jt->second = false;
+      }
+    }
+  }
+  ds_->clear();
+  for (const auto& p : pis) {
+    if (p.second) {
+      ds_->insert(ds_->end(), p.first);
+    }
+  }
 }
 
 bool Formula::Cnf::ground() const {
@@ -395,14 +406,17 @@ Formula::Cnf::Disj Formula::Cnf::Disj::Concat(const Disj& d1, const Disj& d2) {
 
 template<class T>
 bool ResolveLiterals(T* lhs, const T& rhs) {
+  bool succ = false;
   for (const auto& l : rhs) {
     const auto it = lhs->find(l.Flip());
     if (it != lhs->end()) {
       lhs->erase(it);
-      return true;
+      succ = true;
+    } else {
+      lhs->insert(l);
     }
   }
-  return false;
+  return succ;
 }
 
 Maybe<Formula::Cnf::Disj> Formula::Cnf::Disj::Resolve(const Disj& d1,
