@@ -48,13 +48,10 @@ void Setup::UpdateHPlusFor(const Variable::SortedSet& vs) {
   for (const auto& p : vs) {
     const Term::Sort& sort = p.first;
     StdName::Set& ns = hplus_[sort];
-    const int need_n_vars = p.second.size();
-    const int have_n_vars = std::distance(ns.begin(),
-                                          ns.lower_bound(StdName::MIN_NORMAL));
-    for (int i = have_n_vars; i < need_n_vars; ++i) {
-      const StdName n = Term::Factory::CreatePlaceholderStdName(i, sort);
-      const auto p = ns.insert(n);
-      assert(p.second);
+    const int need_n_placeholders = p.second.size();
+    const int have_n_placeholders = ns.n_placeholders();
+    for (int i = have_n_placeholders; i < need_n_placeholders; ++i) {
+      hplus_.AddNewPlaceholder(sort);
     }
   }
 }
@@ -379,10 +376,10 @@ bool Setup::Entails(const SimpleClause& c, split_level k) {
   if (Inconsistent(k)) {
     return true;
   }
+  UpdateHPlusFor(c);
   for (const Literal& l : c) {
     GroundBoxes(l.z());
   }
-  UpdateHPlusFor(c);
   const Atom::Set pel = k <= 0 ? Atom::Set() : Pel(c);
   return SubsumesWithSplits(pel, c, k);
 }

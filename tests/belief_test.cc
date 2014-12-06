@@ -11,7 +11,7 @@ using namespace bats;
 TEST(setup, morri) {
   constexpr Setups::split_level k = 2;
   Ecai2014 bat(k);
-  auto& s1 = bat.setups();
+  auto s1 = bat.setups();
   EXPECT_EQ(s1.setups().size(), 3);
 
   // Property 1

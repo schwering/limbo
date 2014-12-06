@@ -98,17 +98,14 @@ class Formula {
   // tf is needed to create variables in order to keep the formula rectified.
   virtual Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const = 0;
 
-  bool Eval(Setup* setup) const;
-  bool Eval(Setups* setups) const;
+  bool Eval(const Setup& setup) const;
+  bool Eval(const Setups& setups) const;
 
  private:
   friend std::ostream& operator<<(std::ostream& os, const Formula& phi);
 
-  template<class BaseFormula>
-  struct BaseJunction;
-  template<class BaseFormula>
-  struct BaseQuantifier;
-
+  template<class BaseFormula> struct BaseJunction;
+  template<class BaseFormula> struct BaseQuantifier;
   struct Junction;
   struct Quantifier;
   struct Knowledge;
@@ -119,9 +116,9 @@ class Formula {
   virtual void Negate() = 0;
   virtual void CollectFreeVariables(Variable::Set* vs) const = 0;
   virtual void CollectNames(StdName::SortedSet* ns) const = 0;
-  virtual ObjPtr Reduce(Setup* setup,
+  virtual ObjPtr Reduce(const Setup& setup,
                         const StdName::SortedSet& kb_and_query_ns) const = 0;
-  virtual ObjPtr Reduce(Setups* setups,
+  virtual ObjPtr Reduce(const Setups& setups,
                         const StdName::SortedSet& kb_and_query_ns) const = 0;
   virtual void Print(std::ostream* os) const = 0;
 };

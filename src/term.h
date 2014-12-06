@@ -95,14 +95,12 @@ class Variable {
   bool is_name() const { return t_.is_name(); }
 
  private:
-  friend class Term;
-
   Term t_;
 };
 
 class StdName {
  public:
-  typedef std::set<StdName> Set;
+  class Set;
   class SortedSet;
 
   static const StdName MIN_NORMAL;
@@ -131,11 +129,16 @@ class StdName {
   bool is_placeholder() const { return t_.id_ < MIN_NORMAL.t_.id_; }
 
  private:
-  friend class Term;
-
   StdName next_placeholder() const;
 
   Term t_;
+};
+
+class StdName::Set : public std::set<StdName> {
+ public:
+  using std::set<StdName>::set;
+
+  size_t n_placeholders() const;
 };
 
 class StdName::SortedSet : public std::map<Term::Sort, StdName::Set> {
@@ -155,7 +158,6 @@ class Term::Factory {
 
   Variable CreateVariable(Term::Sort sort);
   StdName CreateStdName(Term::Id id, Term::Sort sort);
-  static StdName CreatePlaceholderStdName(Term::Id id, Term::Sort sort);
 
   const StdName::SortedSet& sorted_names() const { return names_; }
 

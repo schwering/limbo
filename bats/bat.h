@@ -101,7 +101,7 @@ class KBat : public Bat {
  public:
   KBat() : s_() {}
 
-  Setup& setup() { return s_; }
+  Setup* mutable_setup() { return &s_; }
   const Setup& setup() const { return s_; }
 
  protected:
@@ -112,7 +112,7 @@ class BBat : public Bat {
  public:
   BBat() : s_() {}
 
-  virtual Setups& setups() { return s_; }
+  virtual Setups* mutable_setups() { return &s_; }
   virtual const Setups& setups() const { return s_; }
 
  protected:

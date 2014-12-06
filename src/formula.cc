@@ -31,8 +31,8 @@ class Formula::Cnf {
 
   bool ground() const;
 
-  bool Eval(Setup* setup, split_level k) const;
-  bool Eval(Setups* setups, split_level k) const;
+  bool Eval(const Setup& setup, split_level k) const;
+  bool Eval(const Setups& setups, split_level k) const;
 
   void AddToSetup(Setup* setup) const;
   void AddToSetups(Setups* setups) const;
@@ -102,8 +102,8 @@ class Formula::Cnf::Disj {
 
   bool ground() const;
 
-  bool Eval(Setup* setup, split_level k) const;
-  bool Eval(Setups* setups, split_level k) const;
+  bool Eval(const Setup& setup, split_level k) const;
+  bool Eval(const Setups& setups, split_level k) const;
 
   void AddToSetup(Setup* setup) const;
   void AddToSetups(Setups* setups) const;
@@ -244,12 +244,12 @@ void Formula::Cnf::AddToSetups(Setups* setups) const {
   }
 }
 
-bool Formula::Cnf::Eval(Setup* s, split_level k) const {
+bool Formula::Cnf::Eval(const Setup& s, split_level k) const {
   return std::all_of(ds_->begin(), ds_->end(),
                      [s, k](const Disj& d) { return d.Eval(s, k); });
 }
 
-bool Formula::Cnf::Eval(Setups* s, split_level k) const {
+bool Formula::Cnf::Eval(const Setups& s, split_level k) const {
   return std::all_of(ds_->begin(), ds_->end(),
                      [s, k](const Disj& d) { return d.Eval(s, k); });
 }
@@ -379,21 +379,21 @@ void Formula::Cnf::Disj::AddToSetups(Setups* setups) const {
   setups->AddClause(Clause(Ewff::TRUE, c_));
 }
 
-bool Formula::Cnf::Disj::Eval(Setup* s, split_level k) const {
+bool Formula::Cnf::Disj::Eval(const Setup& s, split_level k) const {
   if (Tautologous()) {
     return true;
   }
-  if (s->Entails(c_, k)) {
+  if (s.Entails(c_, k)) {
     return true;
   }
   return false;
 }
 
-bool Formula::Cnf::Disj::Eval(Setups* s, split_level k) const {
+bool Formula::Cnf::Disj::Eval(const Setups& s, split_level k) const {
   if (Tautologous()) {
     return true;
   }
-  if (s->Entails(c_, k)) {
+  if (s.Entails(c_, k)) {
     return true;
   }
   return false;
@@ -468,11 +468,11 @@ struct Formula::Obj::Equal : public Formula::Obj {
     }
   }
 
-  ObjPtr Reduce(Setup*, const StdName::SortedSet&) const override {
+  ObjPtr Reduce(const Setup&, const StdName::SortedSet&) const override {
     return ObjCopy();
   }
 
-  ObjPtr Reduce(Setups*, const StdName::SortedSet&) const override {
+  ObjPtr Reduce(const Setups&, const StdName::SortedSet&) const override {
     return ObjCopy();
   }
 
@@ -531,11 +531,11 @@ struct Formula::Obj::Lit : public Formula::Obj {
     l.CollectNames(ns);
   }
 
-  ObjPtr Reduce(Setup*, const StdName::SortedSet&) const override {
+  ObjPtr Reduce(const Setup&, const StdName::SortedSet&) const override {
     return ObjCopy();
   }
 
-  ObjPtr Reduce(Setups*, const StdName::SortedSet&) const override {
+  ObjPtr Reduce(const Setups&, const StdName::SortedSet&) const override {
     return ObjCopy();
   }
 
@@ -609,9 +609,9 @@ struct Formula::BaseJunction : public BaseFormula {
     get_r()->CollectNames(ns);
   }
 
-  ObjPtr Reduce(Setup* setup,
+  ObjPtr Reduce(const Setup& setup,
                 const StdName::SortedSet& kb_and_query_ns) const override;
-  ObjPtr Reduce(Setups* setups,
+  ObjPtr Reduce(const Setups& setups,
                 const StdName::SortedSet& kb_and_query_ns) const override;
 
   void Print(std::ostream* os) const override {
@@ -720,7 +720,7 @@ struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
 
 template<class BaseFormula>
 Formula::ObjPtr Formula::BaseJunction<BaseFormula>::Reduce(
-    Setup* setup, const StdName::SortedSet& kb_and_query_ns) const {
+    const Setup& setup, const StdName::SortedSet& kb_and_query_ns) const {
   auto new_type = type == CONJUNCTION
       ? Obj::Junction::CONJUNCTION
       : Obj::Junction::DISJUNCTION;
@@ -731,7 +731,7 @@ Formula::ObjPtr Formula::BaseJunction<BaseFormula>::Reduce(
 
 template<class BaseFormula>
 Formula::ObjPtr Formula::BaseJunction<BaseFormula>::Reduce(
-    Setups* setups, const StdName::SortedSet& kb_and_query_ns) const {
+    const Setups& setups, const StdName::SortedSet& kb_and_query_ns) const {
   auto new_type = type == CONJUNCTION
       ? Obj::Junction::CONJUNCTION
       : Obj::Junction::DISJUNCTION;
@@ -781,10 +781,10 @@ struct Formula::BaseQuantifier : public BaseFormula {
     get_phi()->CollectNames(ns);
   }
 
-  ObjPtr Reduce(Setup* setup,
+  ObjPtr Reduce(const Setup& setup,
                 const StdName::SortedSet& kb_and_query_ns) const override;
-  ObjPtr Reduce(Setups* setups,
-             const StdName::SortedSet& kb_and_query_ns) const override;
+  ObjPtr Reduce(const Setups& setups,
+                const StdName::SortedSet& kb_and_query_ns) const override;
 
   void Print(std::ostream* os) const override {
     const char* s = type == EXISTENTIAL ? "E " : "";
@@ -882,8 +882,8 @@ struct Formula::Obj::Quantifier : public Formula::BaseQuantifier<Formula::Obj> {
 };
 
 template<class BaseFormula>
-Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(Setup* setup,
-              const StdName::SortedSet& kb_and_query_ns) const {
+Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(
+    const Setup& setup, const StdName::SortedSet& kb_and_query_ns) const {
   auto new_type = type == EXISTENTIAL
       ? Obj::Quantifier::EXISTENTIAL
       : Obj::Quantifier::UNIVERSAL;
@@ -892,8 +892,8 @@ Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(Setup* setup,
 }
 
 template<class BaseFormula>
-Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(Setups* setups,
-           const StdName::SortedSet& kb_and_query_ns) const {
+Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(
+    const Setups& setups, const StdName::SortedSet& kb_and_query_ns) const {
   auto new_type = type == EXISTENTIAL
       ? Obj::Quantifier::EXISTENTIAL
       : Obj::Quantifier::UNIVERSAL;
@@ -999,7 +999,7 @@ struct Formula::Knowledge : public Formula {
     phi->CollectNames(ns);
   }
 
-  ObjPtr Reduce(Setup* setup,
+  ObjPtr Reduce(const Setup& setup,
                 const StdName::SortedSet& kb_and_query_ns) const override {
     assert(z.empty());
     Variable::Set vs;
@@ -1018,7 +1018,7 @@ struct Formula::Knowledge : public Formula {
           holds = true;
           break;
         case TRIVIALLY_FALSE:
-          holds = setup->Inconsistent(k);
+          holds = setup.Inconsistent(k);
           break;
         case NONTRIVIAL:
           Cnf cnf = phi_red->MakeCnf(kb_and_query_ns);
@@ -1042,9 +1042,9 @@ struct Formula::Knowledge : public Formula {
     return std::move(r);
   }
 
-  ObjPtr Reduce(Setups* setups,
+  ObjPtr Reduce(const Setups& setups,
                 const StdName::SortedSet& kb_and_query_ns) const override {
-    return Reduce(&setups->last_setup(), kb_and_query_ns);
+    return Reduce(setups.last_setup(), kb_and_query_ns);
   }
 
   Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
@@ -1117,13 +1117,13 @@ struct Formula::Belief : public Formula {
     psi->CollectNames(ns);
   }
 
-  ObjPtr Reduce(Setup*,
+  ObjPtr Reduce(const Setup&,
                 const StdName::SortedSet&) const override {
     assert(false);
     return ObjPtr();
   }
 
-  ObjPtr Reduce(Setups* setups,
+  ObjPtr Reduce(const Setups& setups,
                 const StdName::SortedSet& kb_and_query_ns) const override {
     assert(z.empty());
     Variable::Set vs;
@@ -1146,7 +1146,7 @@ struct Formula::Belief : public Formula {
           holds = true;
           break;
         case TRIVIALLY_FALSE:
-          holds = setups->Inconsistent(k);
+          holds = setups.Inconsistent(k);
           break;
         case NONTRIVIAL:
           switch (phi_truth) {
@@ -1154,9 +1154,9 @@ struct Formula::Belief : public Formula {
               Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
               psi_cnf.Minimize();
               // To show True => psi, we look for the first consistent setup.
-              for (size_t i = 0; i < setups->n_setups(); ++i) {
-                Setup* s = &setups->setup(i);
-                if (!s->Inconsistent(k)) {
+              for (size_t i = 0; i < setups.n_setups(); ++i) {
+                const Setup& s = setups.setup(i);
+                if (!s.Inconsistent(k)) {
                   holds = std::all_of(psi_cnf.clauses().begin(),
                                       psi_cnf.clauses().end(),
                                       [&s, this](const Cnf::Disj& c) {
@@ -1183,8 +1183,8 @@ struct Formula::Belief : public Formula {
               // A setup is consistent with phi iff it does not entail neg_phi.
               // Since neg_phi_cnf is a conjunction of clauses, this is true if
               // any of these clauses is not entailed.
-              for (size_t i = 0; i < setups->n_setups(); ++i) {
-                Setup* s = &setups->setup(i);
+              for (size_t i = 0; i < setups.n_setups(); ++i) {
+                const Setup& s = setups.setup(i);
                 const bool consistent_with_phi =
                     std::any_of(neg_phi_cnf.clauses().begin(),
                                  neg_phi_cnf.clauses().end(),
@@ -1255,7 +1255,7 @@ struct Formula::Belief : public Formula {
 // {{{ Formula members.
 
 Formula::ObjPtr Formula::True() {
-  const StdName n = Term::Factory::CreatePlaceholderStdName(0, 0);
+  const StdName n = StdName();
   return Eq(n, n);
 }
 
@@ -1391,8 +1391,8 @@ Formula::Cnf Formula::Obj::MakeCnf(
   return MakeCnf(kb_and_query_ns, &placeholders);
 }
 
-bool Formula::Eval(Setup* setup) const {
-  StdName::SortedSet ns = setup->hplus().WithoutPlaceholders();
+bool Formula::Eval(const Setup& setup) const {
+  StdName::SortedSet ns = setup.hplus().WithoutPlaceholders();
   CollectNames(&ns);
   ObjPtr phi = Reduce(setup, ns);
   Truth truth;
@@ -1401,7 +1401,7 @@ bool Formula::Eval(Setup* setup) const {
     return true;
   }
   if (truth == TRIVIALLY_FALSE) {
-    return setup->Inconsistent(0);
+    return setup.Inconsistent(0);
   }
   assert(phi);
   Cnf cnf = phi->MakeCnf(ns);
@@ -1412,8 +1412,8 @@ bool Formula::Eval(Setup* setup) const {
                      });
 }
 
-bool Formula::Eval(Setups* setups) const {
-  StdName::SortedSet ns = setups->hplus().WithoutPlaceholders();
+bool Formula::Eval(const Setups& setups) const {
+  StdName::SortedSet ns = setups.hplus().WithoutPlaceholders();
   CollectNames(&ns);
   Truth truth;
   ObjPtr phi = Reduce(setups, ns);
@@ -1422,14 +1422,14 @@ bool Formula::Eval(Setups* setups) const {
     return true;
   }
   if (truth == TRIVIALLY_FALSE) {
-    return setups->Inconsistent(0);
+    return setups.Inconsistent(0);
   }
   assert(phi);
   Cnf cnf = phi->MakeCnf(ns);
   cnf.Minimize();
   return std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
                      [&setups](const Cnf::Disj& c) {
-                       return c.Eval(&setups->last_setup(), 0);
+                       return c.Eval(setups.last_setup(), 0);
                      });
 }
 

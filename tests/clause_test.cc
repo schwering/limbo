@@ -22,7 +22,7 @@ static Variable x4 = f.CreateVariable(1);
 static Variable x5 = f.CreateVariable(1);
 static Variable x6 = f.CreateVariable(1);
 
-static std::set<StdName> names{n0,n1,n2,n3,n4,n5,n6};
+static StdName::Set names{n0,n1,n2,n3,n4,n5,n6};
 static StdName::SortedSet hplus{{1, names}};
 
 static Atom::PredId O = 2;

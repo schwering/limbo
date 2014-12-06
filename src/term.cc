@@ -20,12 +20,6 @@ StdName Term::Factory::CreateStdName(Term::Id id, Term::Sort sort) {
   return n;
 }
 
-StdName Term::Factory::CreatePlaceholderStdName(Term::Id id, Term::Sort sort) {
-  id = -1 * id - 1;
-  assert(id < 0);
-  return StdName(Term(Term::NAME, id, sort));
-}
-
 Term Term::Substitute(const Unifier& theta) const {
   if (is_variable()) {
     auto it = theta.find(Variable(*this));
@@ -99,7 +93,29 @@ const StdName StdName::MAX(Term(Term::NAME,
                                 std::numeric_limits<Term::Id>::max(),
                                 std::numeric_limits<Term::Sort>::max()));
 
-Range<StdName::Set::const_iterator> StdName::SortedSet::lookup(Term::Sort sort) const {
+StdName StdName::next_placeholder() const {
+  assert(is_placeholder());
+  assert(id() < 0);
+  Term::Id next_id = id() - 1;
+  assert(next_id < 0);
+  return StdName(Term(Term::NAME, next_id, sort()));
+}
+
+size_t StdName::Set::n_placeholders() const {
+  size_t n;
+  auto it = begin();
+  if (it == end() || !it->is_placeholder()) {
+    n = 0;
+  } else {
+    n = -1 * it->id();
+  }
+  assert(n == static_cast<size_t>(
+          std::distance(begin(), lower_bound(StdName::MIN_NORMAL))));
+  return n;
+}
+
+Range<StdName::Set::const_iterator>
+StdName::SortedSet::lookup(Term::Sort sort) const {
   auto it = find(sort);
   if (it == end()) {
     return EmptyRange;
@@ -112,19 +128,11 @@ StdName StdName::SortedSet::AddNewPlaceholder(Term::Sort sort) {
   auto it = ns.begin();
   const StdName n =
       it == ns.end() || !it->is_placeholder()
-      ? Term::Factory::CreatePlaceholderStdName(0, sort)
+      ? StdName(Term(Term::NAME, -1, sort))
       : it->next_placeholder();
   const auto p = ns.insert(n);
   assert(p.second);
   return n;
-}
-
-StdName StdName::next_placeholder() const {
-  assert(is_placeholder());
-  assert(id() < 0);
-  Term::Id next_id = id() - 1;
-  assert(next_id < 0);
-  return StdName(Term(Term::NAME, next_id, sort()));
 }
 
 StdName::SortedSet StdName::SortedSet::WithoutPlaceholders() const {

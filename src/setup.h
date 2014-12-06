@@ -1,14 +1,19 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 //
-// FullStaticPel(), Rel(), Pel(), ... depend on HPlus.
+// FullStaticPel(), Rel(), Pel(), ... depend on hplus.
 //
 // Assuming we have rather few different action sequences, we instantiate boxes
 // by grounding them already instead of instantiating them with sequences of
 // action variables.
 //
-// Is a setup for a minimal HPlus inconsistent iff it is inconsistent for any
-// HPlus?
+// There are const versions of Inconsistent() and Entails() which just perform a
+// const_cast. Their behavior is not-const for two reasons: Firstly, they update
+// the inconsistency cache, which is hidden from the outside, though. Secondly,
+// they add names to hplus, which is reflected in the return value of hplus().
+//
+// Is a setup for a minimal hplus inconsistent iff it is inconsistent for any
+// hplus?
 
 #ifndef SRC_SETUP_H_
 #define SRC_SETUP_H_
@@ -36,6 +41,13 @@ class Setup {
 
   bool Inconsistent(split_level k);
   bool Entails(const SimpleClause& c, split_level k);
+
+  bool Inconsistent(split_level k) const {
+    return const_cast<Setup*>(this)->Inconsistent(k);
+  }
+  bool Entails(const SimpleClause& c, split_level k) const {
+    return const_cast<Setup*>(this)->Entails(c, k);
+  }
 
   const Clause::Set& clauses() const { return cs_; }
   const StdName::SortedSet& hplus() const { return hplus_; }
@@ -100,13 +112,25 @@ class Setups {
   bool Entails(const SimpleClause& neg_phi, const SimpleClause& psi,
                split_level k);
 
+  bool Inconsistent(split_level k) const {
+    return const_cast<Setups*>(this)->Inconsistent(k);
+  }
+  bool Entails(const SimpleClause& c, split_level k) const {
+    return const_cast<Setups*>(this)->Entails(c, k);
+  }
+  bool Entails(const SimpleClause& neg_phi, const SimpleClause& psi,
+               split_level k) const {
+    return const_cast<Setups*>(this)->Entails(neg_phi, psi, k);
+  }
+
   const std::vector<Setup>& setups() const { return ss_; }
-  const Setup& setup(size_t i) const { return ss_.at(i); }
   size_t n_setups() const { return ss_.size(); }
-  Setup& setup(size_t i) { return ss_.at(i); }
+  const Setup& setup(size_t i) const { return ss_.at(i); }
+  const Setup& first_setup() const { return ss_.front(); };
   const Setup& last_setup() const { return ss_.back(); };
-  Setup& first_setup() { return ss_.front(); };
-  Setup& last_setup() { return ss_.back(); };
+  Setup* mutable_setup(size_t i) { return &ss_.at(i); }
+  Setup* mutable_first_setup() { return &ss_.front(); };
+  Setup* mutable_last_setup() { return &ss_.back(); };
   const StdName::SortedSet& hplus() const { return setup(0).hplus(); }
 
  private:

@@ -10,42 +10,42 @@ using namespace bats;
 
 TEST(setup, gl_static) {
   Kr2014 bat;
-  auto& s = bat.setup();
-  s.GuaranteeConsistency(3);
-  EXPECT_TRUE(s.Entails({Literal({}, false, bat.d0, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal({}, false, bat.d1, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, true, bat.d0, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, true, bat.d1, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, true, bat.d2, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, false, bat.d2, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, true, bat.d3, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, false, bat.d3, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal({}, true, bat.d2, {}),
-                         Literal({}, true, bat.d3, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, false, bat.d2, {}),
-                          Literal({}, false, bat.d3, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal({}, true, bat.d1, {}),
-                         Literal({}, true, bat.d2, {}),
-                         Literal({}, true, bat.d3, {})}, 0));
+  auto s = bat.mutable_setup();
+  s->GuaranteeConsistency(3);
+  EXPECT_TRUE(s->Entails({Literal({}, false, bat.d0, {})}, 0));
+  EXPECT_TRUE(s->Entails({Literal({}, false, bat.d1, {})}, 0));
+  EXPECT_FALSE(s->Entails({Literal({}, true, bat.d0, {})}, 0));
+  EXPECT_FALSE(s->Entails({Literal({}, true, bat.d1, {})}, 0));
+  EXPECT_FALSE(s->Entails({Literal({}, true, bat.d2, {})}, 0));
+  EXPECT_FALSE(s->Entails({Literal({}, false, bat.d2, {})}, 0));
+  EXPECT_FALSE(s->Entails({Literal({}, true, bat.d3, {})}, 0));
+  EXPECT_FALSE(s->Entails({Literal({}, false, bat.d3, {})}, 0));
+  EXPECT_TRUE(s->Entails({Literal({}, true, bat.d2, {}),
+                          Literal({}, true, bat.d3, {})}, 0));
+  EXPECT_FALSE(s->Entails({Literal({}, false, bat.d2, {}),
+                           Literal({}, false, bat.d3, {})}, 0));
+  EXPECT_TRUE(s->Entails({Literal({}, true, bat.d1, {}),
+                          Literal({}, true, bat.d2, {}),
+                          Literal({}, true, bat.d3, {})}, 0));
 }
 
 TEST(setup, gl_dynamic) {
   Kr2014 bat;
-  auto& s = bat.setup();
-  s.GuaranteeConsistency(3);
-  EXPECT_TRUE(s.Entails({Literal({bat.forward}, false, bat.d0, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({bat.forward}, true, bat.d0, {})}, 0));
-  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.forward, true)}));
-  EXPECT_FALSE(s.Entails({Literal({bat.forward}, true, bat.d1, {}),
-                          Literal({bat.forward}, true, bat.d2, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal({bat.forward}, true, bat.d1, {}),
-                         Literal({bat.forward}, true, bat.d2, {})}, 1));
-  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.forward}, bat.sonar, true)}));
+  auto s = bat.mutable_setup();
+  s->GuaranteeConsistency(3);
+  EXPECT_TRUE(s->Entails({Literal({bat.forward}, false, bat.d0, {})}, 0));
+  EXPECT_FALSE(s->Entails({Literal({bat.forward}, true, bat.d0, {})}, 0));
+  s->AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.forward, true)}));
+  EXPECT_FALSE(s->Entails({Literal({bat.forward}, true, bat.d1, {}),
+                           Literal({bat.forward}, true, bat.d2, {})}, 0));
+  EXPECT_TRUE(s->Entails({Literal({bat.forward}, true, bat.d1, {}),
+                          Literal({bat.forward}, true, bat.d2, {})}, 1));
+  s->AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.forward}, bat.sonar, true)}));
   const TermSeq z = {bat.forward, bat.sonar};
-  EXPECT_TRUE(s.Entails({Literal(z, false, bat.d0, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal(z, false, bat.d0, {})}, 1));
-  EXPECT_TRUE(s.Entails({Literal(z, true, bat.d1, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal(z, true, bat.d1, {})}, 1));
+  EXPECT_TRUE(s->Entails({Literal(z, false, bat.d0, {})}, 0));
+  EXPECT_TRUE(s->Entails({Literal(z, false, bat.d0, {})}, 1));
+  EXPECT_TRUE(s->Entails({Literal(z, true, bat.d1, {})}, 0));
+  EXPECT_TRUE(s->Entails({Literal(z, true, bat.d1, {})}, 1));
 }
 
 TEST(setup, eventual_completeness_static) {
