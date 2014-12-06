@@ -51,9 +51,8 @@ class DynamicAxioms;
 class Formula {
  public:
   class Obj;
-  struct Ptr;
-  struct ObjPtr;
-
+  typedef std::unique_ptr<Formula> Ptr;
+  typedef std::unique_ptr<Obj> ObjPtr;
   typedef Setup::split_level split_level;
 
   Formula() = default;
@@ -125,11 +124,10 @@ class Formula {
 
 class Formula::Obj : public Formula {
  public:
-  virtual Ptr Copy() const override;
+  Ptr Copy() const override;
   virtual ObjPtr ObjCopy() const = 0;
 
-  virtual Ptr Regress(Term::Factory* tf,
-                      const DynamicAxioms& axioms) const override;
+  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override;
   virtual ObjPtr ObjRegress(Term::Factory* tf,
                             const DynamicAxioms& axioms) const = 0;
 
@@ -148,45 +146,6 @@ class Formula::Obj : public Formula {
   Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns) const;
   virtual Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns,
                       StdName::SortedSet* placeholders) const = 0;
-};
-
-struct Formula::Ptr {
-  typedef std::unique_ptr<Formula> unique_ptr;
-
-  Ptr() : ptr_() {}
-  Ptr(Formula* ptr) : ptr_(ptr) {}
-  Ptr(unique_ptr&& ptr) : ptr_(std::forward<unique_ptr>(ptr)) {}  // NOLINT
-  Ptr(Ptr&& ptr) : ptr_(std::forward<unique_ptr>(ptr.ptr_)) {}  // NOLINT
-  virtual ~Ptr() {}
-
-  Ptr& operator=(Ptr&& ptr) { ptr_ = std::forward<unique_ptr>(ptr.ptr_); return *this; }
-  Ptr& operator=(std::nullptr_t np) { ptr_ = np; return *this; }
-
-  virtual Formula* get() const { return ptr_.get(); }
-  Formula* operator->() const { return ptr_.operator->(); }
-  Formula& operator*() const { return ptr_.operator*(); }
-  operator bool() const { return ptr_.operator bool(); }
-
- protected:
-  unique_ptr ptr_;
-};
-
-struct Formula::ObjPtr : public Formula::Ptr {
-  typedef std::unique_ptr<Formula::Obj> unique_ptr;
-
-  ObjPtr() : Ptr() {}
-  ObjPtr(Formula::Obj* ptr) : Ptr(ptr) {}
-  ObjPtr(unique_ptr&& ptr) : Ptr(std::move(ptr)) {}  // NOLINT
-  ObjPtr(ObjPtr&& ptr) : Ptr(std::move(ptr.ptr_)) {}  // NOLINT
-  virtual ~ObjPtr() {}
-
-  ObjPtr& operator=(ObjPtr&& ptr) { ptr_ = std::forward<Ptr::unique_ptr>(ptr.ptr_); return *this; }
-  ObjPtr& operator=(std::nullptr_t np) { ptr_ = np; return *this; }
-
-  virtual Formula::Obj* get() const { return static_cast<Formula::Obj*>(ptr_.get()); }
-  Formula::Obj* operator->() const { return static_cast<Formula::Obj*>(ptr_.operator->()); }
-  Formula::Obj& operator*() const { return static_cast<Formula::Obj&>(ptr_.operator*()); }
-  operator bool() const { return ptr_.operator bool(); }
 };
 
 class DynamicAxioms {

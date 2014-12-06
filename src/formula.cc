@@ -528,7 +528,7 @@ struct Formula::BaseJunction : public BaseFormula {
 
   Type type;
 
-  BaseJunction(Type type) : type(type) {}
+  explicit BaseJunction(Type type) : type(type) {}
   virtual ~BaseJunction() {}
 
   void Negate() override {
@@ -600,10 +600,10 @@ struct Formula::Junction : public Formula::BaseJunction<Formula> {
   }
 
  protected:
-  virtual Formula* get_l() override { return l.get(); }
-  virtual Formula* get_r() override { return r.get(); }
-  virtual const Formula* get_l() const override { return l.get(); }
-  virtual const Formula* get_r() const override { return r.get(); }
+  Formula* get_l() override { return l.get(); }
+  Formula* get_r() override { return r.get(); }
+  const Formula* get_l() const override { return l.get(); }
+  const Formula* get_r() const override { return r.get(); }
 };
 
 struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
@@ -668,10 +668,10 @@ struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
   }
 
  protected:
-  virtual Formula* get_l() override { return l.get(); }
-  virtual Formula* get_r() override { return r.get(); }
-  virtual const Formula* get_l() const override { return l.get(); }
-  virtual const Formula* get_r() const override { return r.get(); }
+  Formula* get_l() override { return l.get(); }
+  Formula* get_r() override { return r.get(); }
+  const Formula* get_l() const override { return l.get(); }
+  const Formula* get_r() const override { return r.get(); }
 };
 
 template<class BaseFormula>
@@ -770,8 +770,8 @@ struct Formula::Quantifier : public Formula::BaseQuantifier<Formula> {
   }
 
  protected:
-  virtual Formula* get_phi() override { return phi.get(); }
-  virtual const Formula* get_phi() const override { return phi.get(); }
+  Formula* get_phi() override { return phi.get(); }
+  const Formula* get_phi() const override { return phi.get(); }
 };
 
 struct Formula::Obj::Quantifier : public Formula::BaseQuantifier<Formula::Obj> {
@@ -833,8 +833,8 @@ struct Formula::Obj::Quantifier : public Formula::BaseQuantifier<Formula::Obj> {
   }
 
  protected:
-  virtual Formula* get_phi() override { return phi.get(); }
-  virtual const Formula* get_phi() const override { return phi.get(); }
+  Formula* get_phi() override { return phi.get(); }
+  const Formula* get_phi() const override { return phi.get(); }
 };
 
 template<class BaseFormula>
@@ -854,7 +854,8 @@ Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(
       ? Obj::Quantifier::EXISTENTIAL
       : Obj::Quantifier::UNIVERSAL;
   return ObjPtr(new Obj::Quantifier(new_type, x,
-                                    get_phi()->Reduce(setups, kb_and_query_ns)));
+                                    get_phi()->Reduce(setups,
+                                                      kb_and_query_ns)));
 }
 
 namespace {
@@ -916,7 +917,7 @@ Formula::ObjPtr ReducedFormula(const Assignment& theta) {
   }
   return std::move(phi);
 }
-}
+}  // namespace
 
 struct Formula::Knowledge : public Formula {
   split_level k;
