@@ -124,11 +124,11 @@ class Setups {
   }
 
   const std::vector<Setup>& setups() const { return ss_; }
-  size_t n_setups() const { return ss_.size(); }
-  const Setup& setup(size_t i) const { return ss_.at(i); }
+  belief_level n_setups() const { return ss_.size(); }
+  const Setup& setup(belief_level i) const { return ss_.at(i); }
   const Setup& first_setup() const { return ss_.front(); }
   const Setup& last_setup() const { return ss_.back(); }
-  Setup* mutable_setup(size_t i) { return &ss_.at(i); }
+  Setup* mutable_setup(belief_level i) { return &ss_.at(i); }
   Setup* mutable_first_setup() { return &ss_.front(); }
   Setup* mutable_last_setup() { return &ss_.back(); }
   const StdName::SortedSet& hplus() const { return setup(0).hplus(); }

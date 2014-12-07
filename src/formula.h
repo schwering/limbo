@@ -46,14 +46,14 @@
 
 namespace esbl {
 
-class DynamicAxioms;
+class BasicActionTheory;
 
 class Formula {
  public:
+  typedef Setup::split_level split_level;
   class Obj;
   typedef std::unique_ptr<Formula> Ptr;
   typedef std::unique_ptr<Obj> ObjPtr;
-  typedef Setup::split_level split_level;
 
   Formula() = default;
   Formula(const Formula&) = delete;
@@ -95,12 +95,14 @@ class Formula {
   virtual void GroundInPlace(const Assignment& theta) = 0;
 
   // tf is needed to create variables in order to keep the formula rectified.
-  virtual Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const = 0;
+  virtual Ptr Regress(Term::Factory* tf,
+                      const BasicActionTheory& bat) const = 0;
 
   bool Eval(const Setup& setup) const;
   bool Eval(const Setups& setups) const;
 
  private:
+  friend class BasicActionTheory;
   friend std::ostream& operator<<(std::ostream& os, const Formula& phi);
 
   template<class BaseFormula> struct BaseJunction;
@@ -115,9 +117,7 @@ class Formula {
   virtual void Negate() = 0;
   virtual void CollectFreeVariables(Variable::Set* vs) const = 0;
   virtual void CollectNames(StdName::SortedSet* ns) const = 0;
-  virtual ObjPtr Reduce(const Setup& setup,
-                        const StdName::SortedSet& kb_and_query_ns) const = 0;
-  virtual ObjPtr Reduce(const Setups& setups,
+  virtual ObjPtr Reduce(const BasicActionTheory& bat,
                         const StdName::SortedSet& kb_and_query_ns) const = 0;
   virtual void Print(std::ostream* os) const = 0;
 };
@@ -127,14 +127,15 @@ class Formula::Obj : public Formula {
   Ptr Copy() const override;
   virtual ObjPtr ObjCopy() const = 0;
 
-  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override;
+  Ptr Regress(Term::Factory* tf, const BasicActionTheory& bat) const override;
   virtual ObjPtr ObjRegress(Term::Factory* tf,
-                            const DynamicAxioms& axioms) const = 0;
+                            const BasicActionTheory& bat) const = 0;
 
   void AddToSetup(Setup* setup) const;
   void AddToSetups(Setups* setups) const;
 
  private:
+  friend class BasicActionTheory;
   friend class Formula;
 
   struct Equal;
@@ -148,10 +149,35 @@ class Formula::Obj : public Formula {
                       StdName::SortedSet* placeholders) const = 0;
 };
 
-class DynamicAxioms {
+class BasicActionTheory {
  public:
-  virtual Maybe<Formula::ObjPtr> RegressOneStep(Term::Factory* tf,
-                                                const Atom& a) const = 0;
+  typedef Setup::split_level split_level;
+  typedef Setups::belief_level belief_level;
+
+  virtual Maybe<Formula::ObjPtr> RegressOneStep(Term::Factory*,
+                                                const Atom&) const = 0;
+
+  virtual void GuaranteeConsistency(split_level k) = 0;
+  virtual void AddClause(const Clause& c) = 0;
+  void Add(const Formula::ObjPtr& phi);
+
+  bool Entails(const Formula::Ptr& phi) const;
+
+  virtual bool InconsistentAt(belief_level p,
+                              split_level k) const = 0;
+  virtual bool EntailsAt(belief_level p,
+                         const SimpleClause& c,
+                         split_level k) const = 0;
+
+  virtual bool Inconsistent(split_level k) const {
+    return InconsistentAt(n_levels() - 1, k);
+  }
+  virtual bool Entails(const SimpleClause& c, split_level k) const {
+    return EntailsAt(n_levels() - 1, c, k);
+  }
+
+  virtual size_t n_levels() const = 0;
+  virtual const StdName::SortedSet& names() const = 0;
 };
 
 std::ostream& operator<<(std::ostream& os, const Formula& phi);

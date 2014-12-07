@@ -688,18 +688,8 @@ int p_guarantee_consistency()
     return TYPE_ERROR;
   }
 
-  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
-  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
-  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
-  if (kbat) {
-    kbat->mutable_setup()->GuaranteeConsistency(k);
-    return PSUCCEED;
-  }
-  if (bbat) {
-    bbat->mutable_setups()->GuaranteeConsistency(k);
-    return PSUCCEED;
-  }
-  return PFAIL;
+  ctx->bat().GuaranteeConsistency(k);
+  return PSUCCEED;
 }
 
 extern "C"
@@ -751,26 +741,12 @@ int p_add_sensing_result()
     return TYPE_ERROR;
   }
 
-  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
-  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
-  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
-  if (kbat) {
-    if (!ctx->UseRegression()) {
-      kbat->mutable_setup()->AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
-    } else {
-      Formula::Lit(SfLiteral(z, t, r))->ObjRegress(ctx->tf(), ctx->bat())->AddToSetup(kbat->mutable_setup());
-    }
-    return PSUCCEED;
+  if (!ctx->UseRegression()) {
+    ctx->bat().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
+  } else {
+    ctx->bat().Add(Formula::Lit(SfLiteral(z, t, r))->ObjRegress(ctx->tf(), ctx->bat()));
   }
-  if (bbat) {
-    if (!ctx->UseRegression()) {
-      bbat->mutable_setups()->AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
-    } else {
-      Formula::Lit(SfLiteral(z, t, r))->ObjRegress(ctx->tf(), ctx->bat())->AddToSetups(bbat->mutable_setups());
-    }
-    return PSUCCEED;
-  }
-  return PFAIL;
+  return PSUCCEED;
 }
 
 extern "C"
@@ -792,16 +768,7 @@ int p_inconsistent()
     return TYPE_ERROR;
   }
 
-  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
-  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
-  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
-  if (kbat) {
-    return kbat->mutable_setup()->Inconsistent(k) ? PSUCCEED : PFAIL;
-  }
-  if (bbat) {
-    return bbat->mutable_setups()->Inconsistent(k) ? PSUCCEED : PFAIL;
-  }
-  return PFAIL;
+  return ctx->bat().Inconsistent(k) ? PSUCCEED : PFAIL;
 }
 
 extern "C"
@@ -832,15 +799,6 @@ int p_entails()
       ? std::move(maybe_alpha.val)
       : maybe_alpha.val->Regress(ctx->tf(), ctx->bat());
 
-  KBat* kbat = dynamic_cast<KBat*>(&ctx->bat());
-  BBat* bbat = dynamic_cast<BBat*>(&ctx->bat());
-  assert(static_cast<bool>(kbat) != static_cast<bool>(bbat));
-  if (kbat) {
-    return alpha->Eval(kbat->setup()) ? PSUCCEED : PFAIL;
-  }
-  if (bbat) {
-    return alpha->Eval(bbat->setups()) ? PSUCCEED : PFAIL;
-  }
-  return PFAIL;
+  return ctx->bat().Entails(alpha) ? PSUCCEED : PFAIL;
 }
 

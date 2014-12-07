@@ -285,7 +285,7 @@ compile_box(E, Alpha, Code) :-
     compile_ewff(Names, E, E_C),
     compile_clause(Names, Alpha, Alpha_C),
     with_output_to(atom(Alpha_C1), write_term(Alpha_C, [variable_names(Names)])),
-    with_output_to(atom(Code), format('{ ~wconst Maybe<Ewff> p = ~w; assert(p); const SimpleClause c = ~w; s_.AddClause(Clause(true,p.val,c)); }', [Vars_C, E_C, Alpha_C1])).
+    with_output_to(atom(Code), format('{ ~wconst Maybe<Ewff> p = ~w; assert(p); const SimpleClause c = ~w; AddClause(Clause(true,p.val,c)); }', [Vars_C, E_C, Alpha_C1])).
 
 compile_static(E, Alpha, Code) :-
     term_variables((E, Alpha), Vars),
@@ -294,7 +294,7 @@ compile_static(E, Alpha, Code) :-
     compile_ewff(Names, E, E_C),
     compile_clause(Names, Alpha, Alpha_C),
     with_output_to(atom(Alpha_C1), write_term(Alpha_C, [variable_names(Names)])),
-    with_output_to(atom(Code), format('{ ~wconst Maybe<Ewff> p = ~w; assert(p); const SimpleClause c = ~w; s_.AddClause(Clause(false,p.val,c)); }', [Vars_C, E_C, Alpha_C1])).
+    with_output_to(atom(Code), format('{ ~wconst Maybe<Ewff> p = ~w; assert(p); const SimpleClause c = ~w; AddClause(Clause(false,p.val,c)); }', [Vars_C, E_C, Alpha_C1])).
 
 compile_belief(E, NegPhi, Psi, Code) :-
     term_variables((E, NegPhi, Psi), Vars),
@@ -303,7 +303,7 @@ compile_belief(E, NegPhi, Psi, Code) :-
     compile_ewff(Names, E, E_C),
     compile_clause(Names, NegPhi, NegPhi_C),
     compile_clause(Names, Psi, Psi_C),
-    with_output_to(atom(Code), format('{ ~wconst Maybe<Ewff> p = ~w; assert(p); const SimpleClause neg_phi = ~w; const SimpleClause psi = ~w; s_.AddBeliefConditional(Clause(false, p.val, neg_phi), Clause(false, p.val, psi), k); }', [Vars_C, E_C, NegPhi_C, Psi_C])).
+    with_output_to(atom(Code), format('{ ~wconst Maybe<Ewff> p = ~w; assert(p); const SimpleClause neg_phi = ~w; const SimpleClause psi = ~w; AddBeliefConditional(Clause(p.val,neg_phi), Clause(p.val,psi), k); }', [Vars_C, E_C, NegPhi_C, Psi_C])).
 
 compile(StdNames, PredNames, Code) :-
     box(Alpha),

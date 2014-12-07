@@ -75,11 +75,7 @@ class Formula::Cnf {
 
     bool ground() const;
 
-    bool Eval(const Setup& setup, split_level k) const;
-    bool Eval(const Setups& setups, split_level k) const;
-
-    void AddToSetup(Setup* setup) const;
-    void AddToSetups(Setups* setups) const;
+    const SimpleClause& clause() const { return c_; }
 
     void Print(std::ostream* os) const;
 
@@ -117,28 +113,6 @@ class Formula::Cnf {
   bool ground() const {
     return std::all_of(cs_.begin(), cs_.end(),
                        [](const EClause& c) { return c.ground(); });
-  }
-
-  bool Eval(const Setup& s, split_level k) const {
-    return std::all_of(cs_.begin(), cs_.end(),
-                       [s, k](const EClause& c) { return c.Eval(s, k); });
-  }
-
-  bool Eval(const Setups& s, split_level k) const {
-    return std::all_of(cs_.begin(), cs_.end(),
-                       [s, k](const EClause& c) { return c.Eval(s, k); });
-  }
-
-  void AddToSetup(Setup* setup) const {
-    for (const EClause& c : cs_) {
-      c.AddToSetup(setup);
-    }
-  }
-
-  void AddToSetups(Setups* setups) const {
-    for (const EClause& c : cs_) {
-      c.AddToSetups(setups);
-    }
   }
 
   const EClause::Set& clauses() { return cs_; }
@@ -325,36 +299,6 @@ bool Formula::Cnf::EClause::ground() const {
       c_.ground();
 }
 
-void Formula::Cnf::EClause::AddToSetup(Setup* setup) const {
-  assert(eqs_.empty() && neqs_.empty());
-  setup->AddClause(Clause(Ewff::TRUE, c_));
-}
-
-void Formula::Cnf::EClause::AddToSetups(Setups* setups) const {
-  assert(eqs_.empty() && neqs_.empty());
-  setups->AddClause(Clause(Ewff::TRUE, c_));
-}
-
-bool Formula::Cnf::EClause::Eval(const Setup& s, split_level k) const {
-  if (Tautologous()) {
-    return true;
-  }
-  if (s.Entails(c_, k)) {
-    return true;
-  }
-  return false;
-}
-
-bool Formula::Cnf::EClause::Eval(const Setups& s, split_level k) const {
-  if (Tautologous()) {
-    return true;
-  }
-  if (s.Entails(c_, k)) {
-    return true;
-  }
-  return false;
-}
-
 void Formula::Cnf::EClause::Print(std::ostream* os) const {
   *os << '(';
   for (auto it = eqs_.begin(); it != eqs_.end(); ++it) {
@@ -424,11 +368,8 @@ struct Formula::Obj::Equal : public Formula::Obj {
     }
   }
 
-  ObjPtr Reduce(const Setup&, const StdName::SortedSet&) const override {
-    return ObjCopy();
-  }
-
-  ObjPtr Reduce(const Setups&, const StdName::SortedSet&) const override {
+  ObjPtr Reduce(const BasicActionTheory&,
+                const StdName::SortedSet&) const override {
     return ObjCopy();
   }
 
@@ -450,7 +391,7 @@ struct Formula::Obj::Equal : public Formula::Obj {
     return Cnf(c);
   }
 
-  ObjPtr ObjRegress(Term::Factory*, const DynamicAxioms&) const override {
+  ObjPtr ObjRegress(Term::Factory*, const BasicActionTheory&) const override {
     return ObjCopy();
   }
 
@@ -487,11 +428,8 @@ struct Formula::Obj::Lit : public Formula::Obj {
     l.CollectNames(ns);
   }
 
-  ObjPtr Reduce(const Setup&, const StdName::SortedSet&) const override {
-    return ObjCopy();
-  }
-
-  ObjPtr Reduce(const Setups&, const StdName::SortedSet&) const override {
+  ObjPtr Reduce(const BasicActionTheory&,
+                const StdName::SortedSet&) const override {
     return ObjCopy();
   }
 
@@ -506,15 +444,15 @@ struct Formula::Obj::Lit : public Formula::Obj {
   }
 
   ObjPtr ObjRegress(Term::Factory* tf,
-                    const DynamicAxioms& axioms) const override {
-    Maybe<ObjPtr> phi = axioms.RegressOneStep(tf, static_cast<const Atom&>(l));
+                    const BasicActionTheory& bat) const override {
+    Maybe<ObjPtr> phi = bat.RegressOneStep(tf, static_cast<const Atom&>(l));
     if (!phi) {
       return ObjCopy();
     }
     if (!l.sign()) {
       phi.val->Negate();
     }
-    return phi.val->ObjRegress(tf, axioms);
+    return phi.val->ObjRegress(tf, bat);
   }
 
   void Print(std::ostream* os) const override {
@@ -565,9 +503,7 @@ struct Formula::BaseJunction : public BaseFormula {
     get_r()->CollectNames(ns);
   }
 
-  ObjPtr Reduce(const Setup& setup,
-                const StdName::SortedSet& kb_and_query_ns) const override;
-  ObjPtr Reduce(const Setups& setups,
+  ObjPtr Reduce(const BasicActionTheory& bat,
                 const StdName::SortedSet& kb_and_query_ns) const override;
 
   void Print(std::ostream* os) const override {
@@ -593,9 +529,9 @@ struct Formula::Junction : public Formula::BaseJunction<Formula> {
     return Ptr(new Junction(type, l->Copy(), r->Copy()));
   }
 
-  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
-    Ptr ll = get_l()->Regress(tf, axioms);
-    Ptr rr = get_r()->Regress(tf, axioms);
+  Ptr Regress(Term::Factory* tf, const BasicActionTheory& bat) const override {
+    Ptr ll = get_l()->Regress(tf, bat);
+    Ptr rr = get_r()->Regress(tf, bat);
     return Ptr(new Junction(type, std::move(ll), std::move(rr)));
   }
 
@@ -618,9 +554,9 @@ struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
   }
 
   ObjPtr ObjRegress(Term::Factory* tf,
-                    const DynamicAxioms& axioms) const override {
-    ObjPtr ll = l->ObjRegress(tf, axioms);
-    ObjPtr rr = r->ObjRegress(tf, axioms);
+                    const BasicActionTheory& bat) const override {
+    ObjPtr ll = l->ObjRegress(tf, bat);
+    ObjPtr rr = r->ObjRegress(tf, bat);
     return ObjPtr(new Junction(type, std::move(ll), std::move(rr)));
   }
 
@@ -676,24 +612,14 @@ struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
 
 template<class BaseFormula>
 Formula::ObjPtr Formula::BaseJunction<BaseFormula>::Reduce(
-    const Setup& setup, const StdName::SortedSet& kb_and_query_ns) const {
+    const BasicActionTheory& bat,
+    const StdName::SortedSet& kb_and_query_ns) const {
   auto new_type = type == CONJUNCTION
       ? Obj::Junction::CONJUNCTION
       : Obj::Junction::DISJUNCTION;
   return ObjPtr(new Obj::Junction(new_type,
-                                  get_l()->Reduce(setup, kb_and_query_ns),
-                                  get_r()->Reduce(setup, kb_and_query_ns)));
-}
-
-template<class BaseFormula>
-Formula::ObjPtr Formula::BaseJunction<BaseFormula>::Reduce(
-    const Setups& setups, const StdName::SortedSet& kb_and_query_ns) const {
-  auto new_type = type == CONJUNCTION
-      ? Obj::Junction::CONJUNCTION
-      : Obj::Junction::DISJUNCTION;
-  return ObjPtr(new Obj::Junction(new_type,
-                                  get_l()->Reduce(setups, kb_and_query_ns),
-                                  get_r()->Reduce(setups, kb_and_query_ns)));
+                                  get_l()->Reduce(bat, kb_and_query_ns),
+                                  get_r()->Reduce(bat, kb_and_query_ns)));
 }
 
 template<class BaseFormula>
@@ -737,9 +663,7 @@ struct Formula::BaseQuantifier : public BaseFormula {
     get_phi()->CollectNames(ns);
   }
 
-  ObjPtr Reduce(const Setup& setup,
-                const StdName::SortedSet& kb_and_query_ns) const override;
-  ObjPtr Reduce(const Setups& setups,
+  ObjPtr Reduce(const BasicActionTheory& bat,
                 const StdName::SortedSet& kb_and_query_ns) const override;
 
   void Print(std::ostream* os) const override {
@@ -762,8 +686,8 @@ struct Formula::Quantifier : public Formula::BaseQuantifier<Formula> {
     return Ptr(new Quantifier(type, x, phi->Copy()));
   }
 
-  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
-    Ptr psi = get_phi()->Regress(tf, axioms);
+  Ptr Regress(Term::Factory* tf, const BasicActionTheory& bat) const override {
+    Ptr psi = get_phi()->Regress(tf, bat);
     const Variable y = tf->CreateVariable(x.sort());
     psi->SubstituteInPlace({{x, y}});
     return Ptr(new Quantifier(type, y, std::move(psi)));
@@ -785,8 +709,8 @@ struct Formula::Obj::Quantifier : public Formula::BaseQuantifier<Formula::Obj> {
   }
 
   ObjPtr ObjRegress(Term::Factory* tf,
-                    const DynamicAxioms& axioms) const override {
-    ObjPtr psi = phi->ObjRegress(tf, axioms);
+                    const BasicActionTheory& bat) const override {
+    ObjPtr psi = phi->ObjRegress(tf, bat);
     const Variable y = tf->CreateVariable(x.sort());
     psi->SubstituteInPlace({{x, y}});
     return ObjPtr(new Quantifier(type, y, std::move(psi)));
@@ -839,23 +763,13 @@ struct Formula::Obj::Quantifier : public Formula::BaseQuantifier<Formula::Obj> {
 
 template<class BaseFormula>
 Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(
-    const Setup& setup, const StdName::SortedSet& kb_and_query_ns) const {
+    const BasicActionTheory& bat,
+    const StdName::SortedSet& kb_and_query_ns) const {
   auto new_type = type == EXISTENTIAL
       ? Obj::Quantifier::EXISTENTIAL
       : Obj::Quantifier::UNIVERSAL;
   return ObjPtr(new Obj::Quantifier(new_type, x,
-                                    get_phi()->Reduce(setup, kb_and_query_ns)));
-}
-
-template<class BaseFormula>
-Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(
-    const Setups& setups, const StdName::SortedSet& kb_and_query_ns) const {
-  auto new_type = type == EXISTENTIAL
-      ? Obj::Quantifier::EXISTENTIAL
-      : Obj::Quantifier::UNIVERSAL;
-  return ObjPtr(new Obj::Quantifier(new_type, x,
-                                    get_phi()->Reduce(setups,
-                                                      kb_and_query_ns)));
+                                    get_phi()->Reduce(bat, kb_and_query_ns)));
 }
 
 namespace {
@@ -956,7 +870,7 @@ struct Formula::Knowledge : public Formula {
     phi->CollectNames(ns);
   }
 
-  ObjPtr Reduce(const Setup& setup,
+  ObjPtr Reduce(const BasicActionTheory& bat,
                 const StdName::SortedSet& kb_and_query_ns) const override {
     assert(z.empty());
     Variable::Set vs;
@@ -965,7 +879,7 @@ struct Formula::Knowledge : public Formula {
     for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
       ObjPtr e = ReducedFormula(theta);
       assert(e);
-      ObjPtr phi_red = phi->Reduce(setup, kb_and_query_ns);
+      ObjPtr phi_red = phi->Reduce(bat, kb_and_query_ns);
       phi_red->GroundInPlace(theta);
       Truth truth;
       std::tie(truth, phi_red) = phi_red->Simplify();
@@ -975,14 +889,15 @@ struct Formula::Knowledge : public Formula {
           holds = true;
           break;
         case TRIVIALLY_FALSE:
-          holds = setup.Inconsistent(k);
+          holds = bat.Inconsistent(k);
           break;
         case NONTRIVIAL:
           Cnf cnf = phi_red->MakeCnf(kb_and_query_ns);
           cnf.Minimize();
           holds = std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
-                              [&setup, this](const Cnf::EClause& c) {
-                                return c.Eval(setup, k);
+                              [&bat, this](const Cnf::EClause& c) {
+                                return c.Tautologous() ||
+                                       bat.Entails(c.clause(), k);
                               });
           break;
       }
@@ -999,12 +914,7 @@ struct Formula::Knowledge : public Formula {
     return std::move(r);
   }
 
-  ObjPtr Reduce(const Setups& setups,
-                const StdName::SortedSet& kb_and_query_ns) const override {
-    return Reduce(setups.last_setup(), kb_and_query_ns);
-  }
-
-  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
+  Ptr Regress(Term::Factory* tf, const BasicActionTheory& bat) const override {
     Maybe<TermSeq, Term> zt = z.SplitLast();
     if (zt) {
       ObjPtr pos(new Obj::Lit(SfLiteral(zt.val1, zt.val2, true)));
@@ -1017,10 +927,10 @@ struct Formula::Knowledge : public Formula {
       if (!sign) {
         beta->Negate();
       }
-      return beta->Regress(tf, axioms);
+      return beta->Regress(tf, bat);
     } else {
       assert(z.empty());
-      return Ptr(new Knowledge(k, z, sign, phi->Regress(tf, axioms)));
+      return Ptr(new Knowledge(k, z, sign, phi->Regress(tf, bat)));
     }
   }
 
@@ -1074,13 +984,7 @@ struct Formula::Belief : public Formula {
     psi->CollectNames(ns);
   }
 
-  ObjPtr Reduce(const Setup&,
-                const StdName::SortedSet&) const override {
-    assert(false);
-    return ObjPtr();
-  }
-
-  ObjPtr Reduce(const Setups& setups,
+  ObjPtr Reduce(const BasicActionTheory& bat,
                 const StdName::SortedSet& kb_and_query_ns) const override {
     assert(z.empty());
     Variable::Set vs;
@@ -1089,8 +993,8 @@ struct Formula::Belief : public Formula {
     for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
       ObjPtr e = ReducedFormula(theta);
       assert(e);
-      ObjPtr phi_red = phi->Reduce(setups, kb_and_query_ns);
-      ObjPtr psi_red = psi->Reduce(setups, kb_and_query_ns);
+      ObjPtr phi_red = phi->Reduce(bat, kb_and_query_ns);
+      ObjPtr psi_red = psi->Reduce(bat, kb_and_query_ns);
       phi_red->GroundInPlace(theta);
       psi_red->GroundInPlace(theta);
       Truth phi_truth;
@@ -1103,21 +1007,21 @@ struct Formula::Belief : public Formula {
           holds = true;
           break;
         case TRIVIALLY_FALSE:
-          holds = setups.Inconsistent(k);
+          holds = bat.Inconsistent(k);
           break;
         case NONTRIVIAL:
           switch (phi_truth) {
             case TRIVIALLY_TRUE: {
               Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
               psi_cnf.Minimize();
-              // To show True => psi, we look for the first consistent setup.
-              for (size_t i = 0; i < setups.n_setups(); ++i) {
-                const Setup& s = setups.setup(i);
-                if (!s.Inconsistent(k)) {
+              // To show True => psi, we look for the first consistent bat.
+              for (size_t p = 0; p < bat.n_levels(); ++p) {
+                if (!bat.InconsistentAt(p, k)) {
                   holds = std::all_of(psi_cnf.clauses().begin(),
                                       psi_cnf.clauses().end(),
-                                      [&s, this](const Cnf::EClause& c) {
-                                        return c.Eval(s, k);
+                                      [&bat, p, this](const Cnf::EClause& c) {
+                                        return c.Tautologous() ||
+                                               bat.EntailsAt(p, c.clause(), k);
                                       });
                   break;
                 }
@@ -1135,24 +1039,25 @@ struct Formula::Belief : public Formula {
               neg_phi_cnf.Minimize();
               psi_cnf.Minimize();
               holds = true;
-              // To show phi => psi, we look for the first setup which is
+              // To show phi => psi, we look for the first level which is
               // consistent with phi and then test whether it also entails psi.
-              // A setup is consistent with phi iff it does not entail neg_phi.
+              // A level is consistent with phi iff it does not entail neg_phi
               // Since neg_phi_cnf is a conjunction of clauses, this is true if
               // any of these clauses is not entailed.
-              for (size_t i = 0; i < setups.n_setups(); ++i) {
-                const Setup& s = setups.setup(i);
+              for (size_t p = 0; p < bat.n_levels(); ++p) {
                 const bool consistent_with_phi =
                     std::any_of(neg_phi_cnf.clauses().begin(),
                                  neg_phi_cnf.clauses().end(),
-                                 [&s, this](const Cnf::EClause& c) {
-                                   return !c.Eval(s, k);
+                                 [&bat, p, this](const Cnf::EClause& c) {
+                                   return !(c.Tautologous() ||
+                                            bat.EntailsAt(p, c.clause(), k));
                                  });
                 if (consistent_with_phi) {
                   holds = std::all_of(psi_cnf.clauses().begin(),
                                       psi_cnf.clauses().end(),
-                                      [&s, this](const Cnf::EClause& c) {
-                                        return c.Eval(s, k);
+                                      [&bat, p, this](const Cnf::EClause& c) {
+                                        return c.Tautologous() ||
+                                               bat.EntailsAt(p, c.clause(), k);
                                       });
                   break;
                 }
@@ -1175,7 +1080,7 @@ struct Formula::Belief : public Formula {
     return std::move(r);
   }
 
-  Ptr Regress(Term::Factory* tf, const DynamicAxioms& axioms) const override {
+  Ptr Regress(Term::Factory* tf, const BasicActionTheory& bat) const override {
     Maybe<TermSeq, Term> zt = z.SplitLast();
     if (zt) {
       ObjPtr pos(new Obj::Lit(SfLiteral(zt.val1, zt.val2, true)));
@@ -1192,12 +1097,12 @@ struct Formula::Belief : public Formula {
       if (!sign) {
         beta->Negate();
       }
-      return beta->Regress(tf, axioms);
+      return beta->Regress(tf, bat);
     } else {
       assert(z.empty());
       return Ptr(new Belief(k, z, sign,
-                            phi->Regress(tf, axioms),
-                            psi->Regress(tf, axioms)));
+                            phi->Regress(tf, bat),
+                            psi->Regress(tf, bat)));
     }
   }
 
@@ -1348,91 +1253,55 @@ Formula::Cnf Formula::Obj::MakeCnf(
   return MakeCnf(kb_and_query_ns, &placeholders);
 }
 
-bool Formula::Eval(const Setup& setup) const {
-  StdName::SortedSet ns = setup.hplus().WithoutPlaceholders();
-  CollectNames(&ns);
-  ObjPtr phi = Reduce(setup, ns);
-  Truth truth;
-  std::tie(truth, phi) = phi->Simplify();
-  if (truth == TRIVIALLY_TRUE) {
-    return true;
-  }
-  if (truth == TRIVIALLY_FALSE) {
-    return setup.Inconsistent(0);
-  }
-  assert(phi);
-  Cnf cnf = phi->MakeCnf(ns);
-  cnf.Minimize();
-  return std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
-                     [&setup](const Cnf::EClause& c) {
-                       return c.Eval(setup, 0);
-                     });
-}
-
-bool Formula::Eval(const Setups& setups) const {
-  StdName::SortedSet ns = setups.hplus().WithoutPlaceholders();
-  CollectNames(&ns);
-  Truth truth;
-  ObjPtr phi = Reduce(setups, ns);
-  std::tie(truth, phi) = phi->Simplify();
-  if (truth == TRIVIALLY_TRUE) {
-    return true;
-  }
-  if (truth == TRIVIALLY_FALSE) {
-    return setups.Inconsistent(0);
-  }
-  assert(phi);
-  Cnf cnf = phi->MakeCnf(ns);
-  cnf.Minimize();
-  return std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
-                     [&setups](const Cnf::EClause& c) {
-                       return c.Eval(setups.last_setup(), 0);
-                     });
-}
-
 Formula::Ptr Formula::Obj::Copy() const {
   return ObjCopy();
 }
 
 Formula::Ptr Formula::Obj::Regress(Term::Factory* tf,
-                                   const DynamicAxioms& axioms) const {
-  return ObjRegress(tf, axioms);
+                                   const BasicActionTheory& bat) const {
+  return ObjRegress(tf, bat);
 }
 
-void Formula::Obj::AddToSetup(Setup* setup) const {
-  StdName::SortedSet hplus = setup->hplus().WithoutPlaceholders();
-  CollectNames(&hplus);
-  std::pair<Truth, ObjPtr> p = Simplify();
-  if (p.first == TRIVIALLY_TRUE) {
-    return;
+bool BasicActionTheory::Entails(const Formula::Ptr& phi) const {
+  StdName::SortedSet ns = names();
+  phi->CollectNames(&ns);
+  Formula::ObjPtr psi = phi->Reduce(*this, ns);
+  Formula::Truth truth;
+  std::tie(truth, psi) = psi->Simplify();
+  if (truth == Formula::TRIVIALLY_TRUE) {
+    return true;
   }
-  if (p.first == TRIVIALLY_FALSE) {
-    setup->AddClause(Clause::EMPTY);
-    return;
+  if (truth == Formula::TRIVIALLY_FALSE) {
+    return Inconsistent(0);
   }
-  ObjPtr phi = std::move(p.second);
-  assert(phi);
-  Cnf cnf = phi->MakeCnf(hplus);
+  assert(psi);
+  Formula::Cnf cnf = psi->MakeCnf(ns);
   cnf.Minimize();
-  cnf.AddToSetup(setup);
+  return std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
+                     [this](const Formula::Cnf::EClause& c) {
+                       return c.Tautologous() || Entails(c.clause(), 0);
+                     });
 }
 
-void Formula::Obj::AddToSetups(Setups* setups) const {
-  StdName::SortedSet hplus = setups->hplus().WithoutPlaceholders();
-  CollectNames(&hplus);
-  std::pair<Truth, ObjPtr> p = Simplify();
-  if (p.first == TRIVIALLY_TRUE) {
+void BasicActionTheory::Add(const Formula::ObjPtr& phi) {
+  StdName::SortedSet hplus = names();
+  phi->CollectNames(&hplus);
+  Formula::ObjPtr psi;
+  Formula::Truth truth;
+  std::tie(truth, psi) = phi->Simplify();
+  if (truth == Formula::TRIVIALLY_TRUE) {
     return;
   }
-  if (p.first == TRIVIALLY_FALSE) {
-    setups->AddClause(Clause::EMPTY);
+  if (truth == Formula::TRIVIALLY_FALSE) {
+    AddClause(Clause::EMPTY);
     return;
   }
-  ObjPtr phi = std::move(p.second);
-  assert(phi);
-  Cnf cnf = phi->MakeCnf(hplus);
+  assert(psi);
+  Formula::Cnf cnf = psi->MakeCnf(hplus);
   cnf.Minimize();
-  cnf.AddToSetups(setups);
+  for (const Formula::Cnf::EClause& c : cnf.clauses()) {
+    AddClause(Clause(Ewff::TRUE, c.clause()));
+  }
 }
 
 std::ostream& operator<<(std::ostream& os, const Formula& phi) {

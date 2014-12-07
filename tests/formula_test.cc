@@ -11,32 +11,30 @@ using namespace bats;
 
 TEST(formula, gl) {
   Kr2014 bat;
-  auto s = bat.mutable_setup();
   auto close = Formula::Or(Formula::Lit(Literal({}, true, bat.d0, {})),
                            Formula::Lit(Literal({}, true, bat.d1, {})));
   auto maybe_close = Formula::Or(Formula::Lit(Literal({}, true, bat.d1, {})),
                                  Formula::Lit(Literal({}, true, bat.d2, {})));
 
   // Property 1
-  EXPECT_TRUE(Formula::Know(0, Formula::Neg(close->Copy()))->Eval(*s));
+  EXPECT_TRUE(bat.Entails(Formula::Know(0, Formula::Neg(close->Copy()))));
 
-  s->AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.forward, true)}));
+  bat.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.forward, true)}));
 
   // Property 2
-  EXPECT_FALSE(Formula::Know(0, Formula::Act(bat.forward, maybe_close->Copy()))->Eval(*s));
+  EXPECT_FALSE(bat.Entails(Formula::Know(0, Formula::Act(bat.forward, maybe_close->Copy()))));
 
   // Property 3
-  EXPECT_TRUE(Formula::Know(1, Formula::Act(bat.forward, maybe_close->Copy()))->Eval(*s));
+  EXPECT_TRUE(bat.Entails(Formula::Know(1, Formula::Act(bat.forward, maybe_close->Copy()))));
 
-  s->AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.forward}, bat.sonar, true)}));
+  bat.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.forward}, bat.sonar, true)}));
 
   // Property 4
-  EXPECT_TRUE(Formula::Know(1, Formula::Act({bat.forward, bat.sonar}, close->Copy()))->Eval(*s));
+  EXPECT_TRUE(bat.Entails(Formula::Know(1, Formula::Act({bat.forward, bat.sonar}, close->Copy()))));
 }
 
 TEST(formula, gl_regression) {
   Kr2014 bat;
-  auto s = bat.mutable_setup();
   auto close = Formula::Or(Formula::Lit(Literal({}, true, bat.d0, {})),
                            Formula::Lit(Literal({}, true, bat.d1, {})));
   auto maybe_close = Formula::Or(Formula::Lit(Literal({}, true, bat.d1, {})),
@@ -44,96 +42,133 @@ TEST(formula, gl_regression) {
 
   // Property 1
   Formula::Ptr reg1 = Formula::Know(0, Formula::Neg(close->Copy()))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg1->Eval(*s));
+  EXPECT_TRUE(bat.Entails(reg1));
 
-  Formula::Lit(SfLiteral({}, bat.forward, true))->ObjRegress(&bat.tf(), bat)->AddToSetup(s);
+  bat.Add(Formula::Lit(SfLiteral({}, bat.forward, true))->ObjRegress(&bat.tf(), bat));
 
   // Property 2
   Formula::Ptr reg2 = Formula::Act(bat.forward, Formula::Know(0, maybe_close->Copy()))->Regress(&bat.tf(), bat);
-  //EXPECT_FALSE(reg2->Eval(*s)); // here regression differs from ESL
-  EXPECT_TRUE(reg2->Eval(*s));
+  //EXPECT_FALSE(reg2)); // here regression differs from ESL
+  EXPECT_TRUE(bat.Entails(reg2));
 
   // Property 3
   Formula::Ptr reg3 = Formula::Act(bat.forward, Formula::Know(1, maybe_close->Copy()))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg3->Eval(*s));
+  EXPECT_TRUE(bat.Entails(reg3));
 
-  Formula::Lit(SfLiteral({bat.forward}, bat.sonar, true))->ObjRegress(&bat.tf(), bat)->AddToSetup(s);
+  bat.Add(Formula::Lit(SfLiteral({bat.forward}, bat.sonar, true))->ObjRegress(&bat.tf(), bat));
 
   // Property 4
   Formula::Ptr reg4 = Formula::Act({bat.forward, bat.sonar}, Formula::Know(1, close->Copy()))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg4->Eval(*s));
+  EXPECT_TRUE(bat.Entails(reg4));
 }
 
 TEST(formula, morri) {
   constexpr Setups::split_level k = 2;
   Ecai2014 bat(k);
-  auto s = bat.mutable_setups();
 
   // Property 1
   Formula::Ptr q1 = Formula::Believe(2, Formula::Lit(Literal({}, false, bat.L1, {})));
-  EXPECT_TRUE(q1->Eval(*s));
+  EXPECT_TRUE(bat.Entails(q1));
 
   // Property 2
-  s->AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.SL, true)}));
-  EXPECT_TRUE(Formula::Believe(2, Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
-                                                                    Formula::Lit(Literal({}, true, bat.R1, {})))))->Eval(*s));
+  bat.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.SL, true)}));
+  EXPECT_TRUE(bat.Entails(Formula::Believe(2, Formula::Act(bat.SL, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
+                                                                    Formula::Lit(Literal({}, true, bat.R1, {})))))));
 
   // Property 3
-  s->AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL}, bat.SR1, false)}));
-  EXPECT_TRUE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))->Eval(*s));
+  bat.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL}, bat.SR1, false)}));
+  EXPECT_TRUE(bat.Entails(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))));
 
   // Property 5
-  EXPECT_FALSE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))->Eval(*s));
-  EXPECT_FALSE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.L1, {})))))->Eval(*s));
-  EXPECT_TRUE(Formula::And(Formula::Neg(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))),
-                           Formula::Neg(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, false, bat.L1, {}))))))->Eval(*s));
+  EXPECT_FALSE(bat.Entails(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))));
+  EXPECT_FALSE(bat.Entails(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Neg(Formula::Lit(Literal({}, true, bat.L1, {})))))));
+  EXPECT_TRUE(bat.Entails(Formula::And(Formula::Neg(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, true, bat.L1, {}))))),
+                                       Formula::Neg(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1}, Formula::Lit(Literal({}, false, bat.L1, {}))))))));
 
   // Property 6
-  EXPECT_TRUE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {}))))->Eval(*s));
+  EXPECT_TRUE(bat.Entails(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Lit(Literal({}, true, bat.R1, {}))))));
 
   // Property 6
-  s->AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true)}));
-  EXPECT_TRUE(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {}))))->Eval(*s));
+  bat.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true)}));
+  EXPECT_TRUE(bat.Entails(Formula::Believe(2, Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Lit(Literal({}, true, bat.L1, {}))))));
 }
 
 TEST(formula, morri_regression) {
   constexpr Setups::split_level k = 2;
   Ecai2014 bat(k);
-  auto s = bat.mutable_setups();
 
   // Property 1
   Formula::Ptr reg1 = Formula::Believe(2, Formula::Lit(Literal({}, false, bat.L1, {})))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg1->Eval(*s));
+  EXPECT_TRUE(bat.Entails(reg1));
 
   // Property 2
-  Formula::Lit(SfLiteral({}, bat.SL, true))->ObjRegress(&bat.tf(), bat)->AddToSetups(s);
+  bat.Add(Formula::Lit(SfLiteral({}, bat.SL, true))->ObjRegress(&bat.tf(), bat));
   Formula::Ptr reg2 = Formula::Act(bat.SL, Formula::Believe(2, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
                                                                             Formula::Lit(Literal({}, true, bat.R1, {})))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg2->Eval(*s));
+  EXPECT_TRUE(bat.Entails(reg2));
 
   // Property 3
-  Formula::Lit(SfLiteral({bat.SL}, bat.SR1, false))->ObjRegress(&bat.tf(), bat)->AddToSetups(s);
+  bat.Add(Formula::Lit(SfLiteral({bat.SL}, bat.SR1, false))->ObjRegress(&bat.tf(), bat));
   Formula::Ptr reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg3->Eval(*s));
+  EXPECT_TRUE(bat.Entails(reg3));
 
   // Property 5
   Formula::Ptr reg5a = Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
-  EXPECT_FALSE(reg5a->Eval(*s));
+  EXPECT_FALSE(bat.Entails(reg5a));
   Formula::Ptr reg5b = Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.L1, {})))))->Regress(&bat.tf(), bat);
-  EXPECT_FALSE(reg5b->Eval(*s));
+  EXPECT_FALSE(bat.Entails(reg5b));
   Formula::Ptr reg5 = Formula::And(Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.L1, {}))))),
                                    Formula::Neg(Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Lit(Literal({}, false, bat.L1, {}))))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg5->Eval(*s));
+  EXPECT_TRUE(bat.Entails(reg5));
 
   // Property 6
   Formula::Ptr reg6 = Formula::Act({bat.SL, bat.SR1, bat.LV}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.R1, {}))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg6->Eval(*s));
+  EXPECT_TRUE(bat.Entails(reg6));
 
   // Property 6
-  Formula::Lit(SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true))->ObjRegress(&bat.tf(), bat)->AddToSetups(s);
+  bat.Add(Formula::Lit(SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true))->ObjRegress(&bat.tf(), bat));
   Formula::Ptr reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
-  EXPECT_TRUE(reg7->Eval(*s));
+  EXPECT_TRUE(bat.Entails(reg7));
 }
+
+class EmptyBat : public BasicActionTheory {
+ public:
+  Maybe<Formula::ObjPtr> RegressOneStep(Term::Factory*,
+                                        const Atom&) const override {
+    return Nothing;
+  }
+
+  void GuaranteeConsistency(split_level k) override {
+    s_.GuaranteeConsistency(k);
+  }
+
+  size_t n_levels() const override { return 1; }
+
+  const StdName::SortedSet& names() const override {
+    return ns_;
+  }
+
+  void AddClause(const Clause& c) override {
+    s_.AddClause(c);
+    ns_ = s_.hplus().WithoutPlaceholders();
+  }
+
+  bool InconsistentAt(belief_level p, split_level k) const override {
+    assert(p == 0);
+    return s_.Inconsistent(k);
+  }
+
+  bool EntailsAt(belief_level p,
+                 const SimpleClause& c,
+                 split_level k) const override {
+    assert(p == 0);
+    return s_.Entails(c, k);
+  }
+
+ private:
+  esbl::Setup s_;
+  StdName::SortedSet ns_;
+};
 
 TEST(formula, fol_incompleteness_positive1) {
   // The tautology (A x . E y . ~P(x) v P(y)) is provable in our variant of ESL.
@@ -144,10 +179,10 @@ TEST(formula, fol_incompleteness_positive1) {
   auto q = Formula::Forall(x, Formula::Exists(y,
               Formula::Or(Formula::Lit(Literal({}, true, 0, {x})),
                           Formula::Lit(Literal({}, false, 0, {y})))));
-  esbl::Setup s;
+  EmptyBat bat;
   for (Setup::split_level k = 1; k < 2; ++k) {
-    EXPECT_EQ(Formula::Know(k, q->Copy())->Eval(s), k > 0);
-    EXPECT_EQ(Formula::Know(k, q->Copy())->Eval(s), k > 0);
+    EXPECT_EQ(bat.Entails(Formula::Know(k, q->Copy())), k > 0);
+    EXPECT_EQ(bat.Entails(Formula::Know(k, q->Copy())), k > 0);
   }
 }
 
@@ -162,13 +197,13 @@ TEST(formula, fol_incompleteness_positive2) {
   auto q1 = Formula::Forall(x, Formula::Lit(Literal({}, true, 0, {x})));
   auto q2 = Formula::Exists(y, Formula::Neg(Formula::Lit(Literal({}, true, 0, {y}))));
   auto q = Formula::Or(std::move(q1), std::move(q2));
-  esbl::Setup s;
+  EmptyBat bat;
   for (Setup::split_level k = 0; k < 5; ++k) {
-    //EXPECT_EQ(Formula::Know(k, q->Copy())->Eval(s), k > 0);
+    //EXPECT_EQ(bat.Entails(Formula::Know(k, q->Copy())), k > 0);
     // It holds even for k = 0 because our CNF we drop tautologous clauses from
     // the CNF.
-    EXPECT_TRUE(Formula::Know(k, q->Copy())->Eval(s));
-    EXPECT_TRUE(Formula::Know(k, q->Copy())->Eval(s));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, q->Copy())));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, q->Copy())));
   }
 }
 
@@ -181,10 +216,10 @@ TEST(formula, fol_incompleteness_negative1) {
   auto q = Formula::Exists(x, Formula::Forall(y,
               Formula::Or(Formula::Lit(Literal({}, true, 0, {x})),
                           Formula::Lit(Literal({}, false, 0, {y})))));
-  esbl::Setup s;
+  EmptyBat bat;
   for (Setup::split_level k = 1; k < 2; ++k) {
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
   }
 }
 
@@ -199,10 +234,10 @@ TEST(formula, fol_incompleteness_negative2) {
   auto q1 = Formula::Forall(x, Formula::Lit(Literal({}, true, 0, {x})));
   auto q2 = Formula::Exists(y, Formula::Neg(Formula::Lit(Literal({}, true, 0, {y}))));
   auto q = Formula::Or(std::move(q2), std::move(q1));
-  esbl::Setup s;
+  EmptyBat bat;
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
   }
 }
 
@@ -215,24 +250,24 @@ TEST(formula, fol_incompleteness_reverse) {
   auto q1 = Formula::Forall(x, Formula::Lit(Literal({}, true, 0, {x})));
   auto q2 = Formula::Forall(y, Formula::Neg(Formula::Lit(Literal({}, true, 0, {y}))));
   auto q = Formula::Or(std::move(q1), std::move(q2));
-  esbl::Setup s;
+  EmptyBat bat;
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
   }
 }
 
 TEST(formula, fol_setup_universal) {
   // The setup { P(x) } should entail (A y . P(y)).
-  esbl::Setup s;
+  EmptyBat bat;
   Term::Factory tf;
   const Variable x = tf.CreateVariable(0);
   const Variable y = tf.CreateVariable(0);
-  s.AddClause(Clause(Ewff::TRUE, SimpleClause({Literal({}, true, 0, {x})})));
+  bat.AddClause(Clause(Ewff::TRUE, SimpleClause({Literal({}, true, 0, {x})})));
   auto q = Formula::Forall(y, Formula::Lit(Literal({}, true, 0, {y})));
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_TRUE(Formula::Know(k, q->Copy())->Eval(s));
-    EXPECT_TRUE(Formula::Know(k, q->Copy())->Eval(s));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, q->Copy())));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, q->Copy())));
   }
 }
 
@@ -240,16 +275,16 @@ TEST(formula, query_resolution) {
   // The query (p v q) ^ (~p v q) is subsumed by setup {q} for split k > 0.
   // And since we minimize the CNF, we obtain the query {q} and thus the query
   // should hold for k = 0 as well.
-  esbl::Setup s;
+  EmptyBat bat;
   Term::Factory tf;
   const Literal p = Literal({}, true, 0, {});
   const Literal q = Literal({}, true, 1, {});
-  s.AddClause(Clause(Ewff::TRUE, SimpleClause({q})));
+  bat.AddClause(Clause(Ewff::TRUE, SimpleClause({q})));
   auto phi = Formula::And(Formula::Or(Formula::Lit(q), Formula::Lit(p)),
                           Formula::Or(Formula::Lit(q), Formula::Lit(p.Flip())));
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_TRUE(Formula::Know(k, phi->Copy())->Eval(s));
-    EXPECT_TRUE(Formula::Know(k, phi->Copy())->Eval(s));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, phi->Copy())));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, phi->Copy())));
   }
 }
 
@@ -265,15 +300,15 @@ TEST(formula, fol_grounding1) {
       Formula::And(Formula::Lit(P(x)), Formula::And(Formula::Lit(P(y)), Formula::Lit(P(z)))))));
   auto q = Formula::Exists(x, Formula::Exists(x, Formula::Exists(z,
       Formula::And(Formula::Lit(Q(x)), Formula::And(Formula::Lit(Q(y)), Formula::Lit(Q(z)))))));
-  esbl::Setup s;
-  s.AddClause(Clause(Ewff::TRUE, {P(x)}));
+  EmptyBat bat;
+  bat.AddClause(Clause(Ewff::TRUE, {P(x)}));
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_TRUE(Formula::Know(k, p->Copy())->Eval(s));
-    EXPECT_TRUE(Formula::Know(k, p->Copy())->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, Formula::Neg(q->Copy()))->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, Formula::Neg(q->Copy()))->Eval(s));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, p->Copy())));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, p->Copy())));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, Formula::Neg(q->Copy()))));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, Formula::Neg(q->Copy()))));
   }
 }
 
@@ -289,15 +324,15 @@ TEST(formula, fol_grounding2) {
       Formula::And(Formula::Lit(P(x)), Formula::And(Formula::Lit(P(y)), Formula::Lit(P(z)))))));
   auto q = Formula::Exists(x, Formula::Exists(x, Formula::Exists(z,
       Formula::And(Formula::Lit(Q(x)), Formula::And(Formula::Lit(Q(y)), Formula::Lit(Q(z)))))));
-  esbl::Setup s;
-  s.AddClause(Clause(Ewff::TRUE, {P(x)}));
+  EmptyBat bat;
+  bat.AddClause(Clause(Ewff::TRUE, {P(x)}));
   for (Setup::split_level k = 0; k < 5; ++k) {
-    EXPECT_TRUE(Formula::Know(k, p->Copy())->Eval(s));
-    EXPECT_TRUE(Formula::Know(k, p->Copy())->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, q->Copy())->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, Formula::Neg(q->Copy()))->Eval(s));
-    EXPECT_FALSE(Formula::Know(k, Formula::Neg(q->Copy()))->Eval(s));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, p->Copy())));
+    EXPECT_TRUE(bat.Entails(Formula::Know(k, p->Copy())));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, q->Copy())));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, Formula::Neg(q->Copy()))));
+    EXPECT_FALSE(bat.Entails(Formula::Know(k, Formula::Neg(q->Copy()))));
   }
 }
 

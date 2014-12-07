@@ -18,7 +18,7 @@ namespace esbl {
 
 namespace bats {
 
-class Bat : public DynamicAxioms {
+class Bat : public BasicActionTheory {
  public:
   Bat() : tf_() {}
   Bat(const Bat&) = delete;
@@ -27,8 +27,6 @@ class Bat : public DynamicAxioms {
 
   virtual Term::Id max_std_name() const = 0;
   virtual Atom::PredId max_pred() const = 0;
-  Maybe<Formula::ObjPtr> RegressOneStep(Term::Factory* tf,
-                                        const Atom& a) const override = 0;
 
   Term::Factory& tf() { return tf_; }
   const Term::Factory& tf() const { return tf_; }
@@ -99,24 +97,91 @@ class Bat : public DynamicAxioms {
 
 class KBat : public Bat {
  public:
-  KBat() : s_() {}
+  KBat() : names_init_(false) {}
 
-  Setup* mutable_setup() { return &s_; }
+  void GuaranteeConsistency(split_level k) override {
+    s_.GuaranteeConsistency(k);
+  }
+
   const Setup& setup() const { return s_; }
+  size_t n_levels() const override { return 1; }
 
- protected:
+  const StdName::SortedSet& names() const override {
+    if (!names_init_) {
+      names_ = s_.hplus().WithoutPlaceholders();
+      names_init_ = true;
+    }
+    return names_;
+  }
+
+  void AddClause(const Clause& c) override {
+    s_.AddClause(c);
+    names_init_ = false;
+  }
+
+  bool InconsistentAt(belief_level p, split_level k) const override {
+    assert(p == 0);
+    return s_.Inconsistent(k);
+  }
+
+  bool EntailsAt(belief_level p,
+                 const SimpleClause& c,
+                 split_level k) const override {
+    assert(p == 0);
+    return s_.Entails(c, k);
+  }
+
+ private:
   Setup s_;
+  mutable StdName::SortedSet names_;
+  mutable bool names_init_;
 };
 
 class BBat : public Bat {
  public:
-  BBat() : s_() {}
+  BBat() : names_init_(false) {}
 
-  virtual Setups* mutable_setups() { return &s_; }
-  virtual const Setups& setups() const { return s_; }
+  void GuaranteeConsistency(split_level k) override {
+    s_.GuaranteeConsistency(k);
+  }
 
- protected:
+  const Setups& setups() const { return s_; }
+  size_t n_levels() const override { return s_.n_setups(); }
+
+  const StdName::SortedSet& names() const override {
+    if (!names_init_) {
+      names_ = s_.hplus().WithoutPlaceholders();
+      names_init_ = true;
+    }
+    return names_;
+  }
+
+  void AddClause(const Clause& c) override {
+    s_.AddClause(c);
+    names_init_ = false;
+  }
+
+  void AddBeliefConditional(const Clause& neg_phi,
+                            const Clause& psi,
+                            split_level k) {
+    s_.AddBeliefConditional(neg_phi, psi, k);
+    names_init_ = false;
+  }
+
+  bool InconsistentAt(belief_level p, split_level k) const override {
+    return s_.setup(p).Inconsistent(k);
+  }
+
+  bool EntailsAt(belief_level p,
+                 const SimpleClause& c,
+                 split_level k) const override {
+    return s_.setup(p).Entails(c, k);
+  }
+
+ private:
   Setups s_;
+  mutable StdName::SortedSet names_;
+  mutable bool names_init_;
 };
 
 }  // namespace bats
