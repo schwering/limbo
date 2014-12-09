@@ -31,8 +31,8 @@ struct Maybe<T> {
 
   template<typename U> Maybe(const Maybe<U>& m)            : succ(m.succ), val(m.val) {}  // NOLINT
   template<typename U> Maybe(Maybe<U>&& m)                 : succ(m.succ), val(m.val) {}  // NOLINT
-  template<typename U> Maybe& operator=(const Maybe<U>& m) { succ = m.succ; val = m.val; }  // NOLINT
-  template<typename U> Maybe& operator=(Maybe<U>&& m)      { succ = m.succ; val = m.val; }  // NOLINT
+  template<typename U> Maybe& operator=(const Maybe<U>& m) { succ = m.succ; val = m.val; return *this; }  // NOLINT
+  template<typename U> Maybe& operator=(Maybe<U>&& m)      { succ = m.succ; val = m.val; return *this; }  // NOLINT
 
   operator bool() const { return succ; }
 
@@ -54,8 +54,8 @@ struct Maybe<T1, T2> {
 
   template<typename U1, typename U2> Maybe(const Maybe<U1, U2>& m)       : succ(m.succ), val1(m.val1), val2(m.val2) {}  // NOLINT
   template<typename U1, typename U2> Maybe(Maybe<U1, U2>&& m)            : succ(m.succ), val1(m.val1), val2(m.val2) {}  // NOLINT
-  template<typename U1, typename U2> Maybe& operator=(Maybe<U1, U2>& m)  { succ = m.succ; val1 = m.val1; val2 = m.val2; }  // NOLINT
-  template<typename U1, typename U2> Maybe& operator=(Maybe<U1, U2>&& m) { succ = m.succ; val1 = m.val1; val2 = m.val2; }  // NOLINT
+  template<typename U1, typename U2> Maybe& operator=(Maybe<U1, U2>& m)  { succ = m.succ; val1 = m.val1; val2 = m.val2; return *this; }  // NOLINT
+  template<typename U1, typename U2> Maybe& operator=(Maybe<U1, U2>&& m) { succ = m.succ; val1 = m.val1; val2 = m.val2; return *this; }  // NOLINT
 
   operator bool() const { return succ; }
 

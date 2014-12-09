@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 #include <./ecai2014.h>
 #include <./kr2014.h>
+#include <./testbat.h>
 #include <./formula.h>
 
 using namespace esbl;
@@ -110,6 +111,7 @@ TEST(formula, morri_regression) {
   // Property 3
   bat.Add(Formula::Lit(SfLiteral({bat.SL}, bat.SR1, false))->ObjRegress(&bat.tf(), bat));
   Formula::Ptr reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))->Regress(&bat.tf(), bat);
+  std::cout << *reg3 << std::endl;
   EXPECT_TRUE(bat.Entails(reg3));
 
   // Property 5
@@ -129,6 +131,8 @@ TEST(formula, morri_regression) {
   bat.Add(Formula::Lit(SfLiteral({bat.SL,bat.SR1,bat.LV}, bat.SL, true))->ObjRegress(&bat.tf(), bat));
   Formula::Ptr reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(bat.Entails(reg7));
+
+  std::cout << queries << " Queries" << std::endl;
 }
 
 class EmptyBat : public BasicActionTheory {
@@ -162,6 +166,8 @@ class EmptyBat : public BasicActionTheory {
                  const SimpleClause& c,
                  split_level k) const override {
     assert(p == 0);
+    ++queries;
+    std::cout << __FILE__ << ":" << __LINE__ << ": belief level " << p << ": split level " << k << ": " << c << std::endl;
     return s_.Entails(c, k);
   }
 
@@ -334,5 +340,21 @@ TEST(formula, fol_grounding2) {
     EXPECT_FALSE(bat.Entails(Formula::Know(k, Formula::Neg(q->Copy()))));
     EXPECT_FALSE(bat.Entails(Formula::Know(k, Formula::Neg(q->Copy()))));
   }
+}
+
+TEST(formula, evals) {
+  Testbat bat;
+  Term::Factory tf;
+  Term t = tf.CreateStdName(0, 0);
+  auto phi1 = Formula::Act(t, Formula::Know(2, Formula::Lit(Literal({}, false, bat.p, {}))));
+  //auto phi2 = Formula::Act(t, Formula::Know(2, Formula::Lit(Literal({}, false, bat.p, {}))));
+  //EXPECT_FALSE(bat.Entails(phi1->Regress(&tf, bat)));
+  //EXPECT_FALSE(bat.Entails(phi2->Regress(&tf, bat)));
+  bat.Add(Formula::Lit(Literal({}, false, Atom::SF, {t}))->ObjRegress(&tf, bat));
+  std::cout << *phi1 << std::endl;
+  std::cout << *phi1->Regress(&tf, bat) << std::endl;
+  EXPECT_TRUE(bat.Entails(phi1->Regress(&tf, bat)));
+  //EXPECT_FALSE(bat.Entails(phi2->Regress(&tf, bat)));
+  std::cout << queries << " Queries" << std::endl;
 }
 

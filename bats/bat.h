@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <map>
+#include <iostream>
 #include <string>
 #include <utility>
 #include "./atom.h"
@@ -13,6 +14,8 @@
 #include "./maybe.h"
 #include "./setup.h"
 #include "./term.h"
+
+static int queries = 0;
 
 namespace esbl {
 
@@ -86,6 +89,25 @@ class Bat : public BasicActionTheory {
   }
 
  protected:
+#if 0
+  void ClearNegativeCacheEntries() const {
+    for (auto it = cache_.begin(); it != cache_.end(); ) {
+      assert(it->second);
+      if (it->second.val) {
+        ++it;
+      } else {
+        it = cache_.erase(it);
+      }
+    }
+  }
+
+  Maybe<bool>* CacheLookup(belief_level p,
+                           const SimpleClause& c,
+                           split_level k) const {
+    return &cache_[std::make_tuple(p, k, c)];
+  }
+#endif
+
   Term::Factory tf_;
   std::map<StdName, std::string> name_to_string_;
   std::map<Atom::PredId, std::string> pred_to_string_;
@@ -93,6 +115,24 @@ class Bat : public BasicActionTheory {
   std::map<std::string, StdName> string_to_name_;
   std::map<std::string, Atom::PredId> string_to_pred_;
   std::map<std::string, Term::Sort> string_to_sort_;
+
+ private:
+  struct Comparator {
+    typedef std::tuple<belief_level, split_level, SimpleClause> value_type;
+
+    LexicographicComparator<LessComparator<belief_level>,
+                            LessComparator<split_level>,
+                            SimpleClause::Comparator> compar;
+
+    bool operator()(const value_type& t1, const value_type& t2) const {
+      return compar(std::get<0>(t1), std::get<1>(t1), std::get<2>(t1),
+                    std::get<0>(t2), std::get<1>(t2), std::get<2>(t2));
+    }
+  };
+
+  mutable std::map<std::tuple<belief_level, split_level, SimpleClause>,
+                   Maybe<bool>,
+                   Comparator> cache_;
 };
 
 class KBat : public Bat {
@@ -101,6 +141,9 @@ class KBat : public Bat {
 
   void GuaranteeConsistency(split_level k) override {
     s_.GuaranteeConsistency(k);
+#if 0
+    ClearNegativeCacheEntries();
+#endif
   }
 
   const Setup& setup() const { return s_; }
@@ -117,6 +160,9 @@ class KBat : public Bat {
   void AddClause(const Clause& c) override {
     s_.AddClause(c);
     names_init_ = false;
+#if 0
+    ClearNegativeCacheEntries();
+#endif
   }
 
   bool InconsistentAt(belief_level p, split_level k) const override {
@@ -128,7 +174,19 @@ class KBat : public Bat {
                  const SimpleClause& c,
                  split_level k) const override {
     assert(p == 0);
-    return s_.Entails(c, k);
+#if 0
+    Maybe<bool>* r = CacheLookup(p, c, k);
+    if (*r) {
+      return r->val;
+    }
+    *r = Just(s_.Entails(c, k));
+    return r->val;
+#else
+    ++queries;
+    const bool r = s_.Entails(c, k);
+    std::cout << __FILE__ << ":" << __LINE__ << ": split level " << k << ": " << c << " = " << std::boolalpha << r << std::endl;
+    return r;
+#endif
   }
 
  private:
@@ -143,6 +201,9 @@ class BBat : public Bat {
 
   void GuaranteeConsistency(split_level k) override {
     s_.GuaranteeConsistency(k);
+#if 0
+    ClearNegativeCacheEntries();
+#endif
   }
 
   const Setups& setups() const { return s_; }
@@ -159,6 +220,9 @@ class BBat : public Bat {
   void AddClause(const Clause& c) override {
     s_.AddClause(c);
     names_init_ = false;
+#if 0
+    ClearNegativeCacheEntries();
+#endif
   }
 
   void AddBeliefConditional(const Clause& neg_phi,
@@ -166,6 +230,9 @@ class BBat : public Bat {
                             split_level k) {
     s_.AddBeliefConditional(neg_phi, psi, k);
     names_init_ = false;
+#if 0
+    ClearNegativeCacheEntries();
+#endif
   }
 
   bool InconsistentAt(belief_level p, split_level k) const override {
@@ -175,7 +242,19 @@ class BBat : public Bat {
   bool EntailsAt(belief_level p,
                  const SimpleClause& c,
                  split_level k) const override {
-    return s_.setup(p).Entails(c, k);
+#if 0
+    Maybe<bool>* r = CacheLookup(p, c, k);
+    if (*r) {
+      return r->val;
+    }
+    *r = Just(s_.setup(p).Entails(c, k));
+    return r->val;
+#else
+    ++queries;
+    const bool r = s_.setup(p).Entails(c, k);
+    std::cout << __FILE__ << ":" << __LINE__ << ": belief level " << p << ": split level " << k << ": " << c << " = " << std::boolalpha << r << std::endl;
+    return r;
+#endif
   }
 
  private:

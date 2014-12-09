@@ -3,11 +3,15 @@
 
 #include <algorithm>
 #include <cassert>
+#include <functional>
 #include <utility>
 #include "./formula.h"
 #include "./compar.h"
+#include <iostream>
 
 namespace esbl {
+
+static int eval_id = 0;
 
 // {{{ Clausal Normal Form definition and conversion.
 
@@ -15,32 +19,118 @@ class Formula::Cnf {
  public:
   class EClause {
    public:
-    struct Equality : public std::pair<Term, Term> {
+    class Equal {
      public:
-      typedef LessComparator<Equality> Comparator;
-      typedef std::set<Equality, Comparator> Set;
+      struct Comparator {
+        typedef Equal value_type;
 
-      using std::pair<Term, Term>::pair;
+        bool operator()(const Equal& lhs, const Equal& rhs) const {
+          return comp(lhs.sign_, lhs.t1_, lhs.t2_,
+                      rhs.sign_, rhs.t1_, rhs.t2_);
+        }
 
-      bool equal() const { return first == second; }
-      bool ground() const { return first.ground() && second.ground(); }
+       private:
+        LexicographicComparator<LessComparator<bool>,
+                                LessComparator<Term>,
+                                LessComparator<Term>> comp;
+      };
+      typedef std::set<Equal, Comparator> Set;
+
+      Equal() = default;
+      Equal(bool sign, const Term& t1, const Term& t2)
+          : sign_(sign), t1_(t1), t2_(t2) {}
+      Equal(const Equal&) = default;
+      Equal& operator=(const Equal&) = default;
+
+      bool operator==(const Equal& e) const {
+        return sign_ == e.sign_ && t1_ == e.t1_ && t2_ == e.t2_;
+      }
+
+      Equal Substitute(const Unifier& theta) const {
+        return Equal(sign_, t1_.Substitute(theta), t2_.Substitute(theta));
+      }
+
+      bool sign() const { return sign_; }
+      const Term& t1() const { return t1_; }
+      const Term& t2() const { return t2_; }
+
+      bool ground() const { return t1_.ground() && t2_.ground(); }
+      bool Holds() const { return sign_ == (t1_ == t2_); }
+
+     protected:
+      bool sign_;
+      Term t1_;
+      Term t2_;
+    };
+
+    class Eval {
+     protected:
+      struct Data;
+
+     public:
+      struct Comparator {
+        typedef Eval value_type;
+
+        bool operator()(const Eval& e1, const Eval& e2) const {
+          return compar(e1.sign_, e1.data_,
+                        e2.sign_, e2.data_);
+        }
+
+       private:
+        LexicographicComparator<LessComparator<bool>,
+                                LessComparator<std::shared_ptr<Data>>> compar;
+      };
+      typedef std::function<bool(const BasicActionTheory& bat)> Func;
+      typedef std::set<Eval, Comparator> Set;
+
+      Eval() = default;
+      Eval(const Func& func) : sign_(true), data_(new Data(func)) {}
+      Eval(const Eval&) = default;
+      Eval& operator=(const Eval&) = default;
+
+      bool operator==(const Eval& e) const {
+        return sign_ == e.sign_ && data_ == e.data_;
+      }
+
+      bool sign() const { return sign_; }
+
+      bool Evaluate(const BasicActionTheory& bat) const { 
+#if 0
+        data_->cache = Just(sign_ == data_->func(bat));
+#else
+        if (!data_->cache) {
+          data_->cache = Just(sign_ == data_->func(bat));
+        }
+#endif
+        return data_->cache.val;
+      }
+
+     protected:
+      struct Data {
+        explicit Data(const Func& func) : func(func) {}
+        Func func;
+        Maybe<bool> cache;
+      };
+
+      bool sign_;
+      std::shared_ptr<Data> data_;
     };
 
     struct Comparator {
       typedef EClause value_type;
 
       bool operator()(const EClause& lhs, const EClause& rhs) const {
-        const size_t n1 = lhs.eqs_.size() + lhs.neqs_.size() + lhs.c_.size();
-        const size_t n2 = rhs.eqs_.size() + rhs.neqs_.size() + rhs.c_.size();
-        return comp(n1, lhs.eqs_, lhs.neqs_, lhs.c_,
-                    n2, rhs.eqs_, rhs.neqs_, rhs.c_);
+        const size_t n1 = lhs.eqs_.size() + lhs.c_.size() + lhs.evals_.size();
+        const size_t n2 = rhs.eqs_.size() + rhs.c_.size() + rhs.evals_.size();
+        return comp(n1, lhs.eqs_, lhs.c_, lhs.evals_,
+                    n2, rhs.eqs_, rhs.c_, rhs.evals_);
       }
 
      private:
       LexicographicComparator<LessComparator<size_t>,
-                              LessComparator<EClause::Equality::Set>,
-                              LessComparator<EClause::Equality::Set>,
-                              SimpleClause::Comparator> comp;
+                              LexicographicContainerComparator<Equal::Set>,
+                              SimpleClause::Comparator,
+                              LexicographicContainerComparator<Eval::Set>> comp;
     };
 
     typedef std::set<EClause, Comparator> Set;
@@ -57,32 +147,45 @@ class Formula::Cnf {
     bool Tautologous() const;
 
     bool operator==(const EClause& c) const {
-      return eqs_ == c.eqs_ && neqs_ == c.neqs_ && c_ == c.c_;
+      return eqs_ == c.eqs_ && c_ == c.c_ && evals_ == c.evals_;
     }
 
-    void AddEq(const Term& t1, const Term& t2) {
-      eqs_.insert(Equality(t1, t2));
-    }
-
-    void AddNeq(const Term& t1, const Term& t2) {
-      neqs_.insert(Equality(t1, t2));
-    }
+    void AddEq(const Equal& e) { eqs_.insert(e); }
+    void AddLiteral(const Literal& l) { c_.insert(l); }
+    void AddEval(const Eval& e) { evals_.insert(e); }
 
     void ClearEqs() { eqs_.clear(); }
-    void ClearNeqs() { neqs_.clear(); }
 
-    void AddLiteral(const Literal& l) { c_.insert(l); }
-
-    bool ground() const;
+    bool ground() const {
+      return std::all_of(eqs_.begin(), eqs_.end(),
+                         [](const Equal& e) { return e.ground(); }) &&
+          c_.ground();
+    }
 
     const SimpleClause& clause() const { return c_; }
+
+    bool Evaluate(const BasicActionTheory& bat) const {
+      return std::any_of(evals_.begin(), evals_.end(),
+                         [&bat](const Eval& e) { return e.Evaluate(bat); });
+    }
+
+    bool Entailed(const BasicActionTheory& bat,
+                  BasicActionTheory::split_level k) const {
+      return Tautologous() || bat.Entails(c_, k) || Evaluate(bat);
+    }
+
+    bool EntailedAt(const BasicActionTheory& bat,
+                    BasicActionTheory::belief_level p,
+                    BasicActionTheory::split_level k) const {
+      return Tautologous() || bat.EntailsAt(p, c_, k) || Evaluate(bat);
+    }
 
     void Print(std::ostream* os) const;
 
    private:
-    Equality::Set eqs_;
-    Equality::Set neqs_;
+    Equal::Set eqs_;
     SimpleClause c_;
+    Eval::Set evals_;
   };
 
   struct Comparator {
@@ -115,7 +218,7 @@ class Formula::Cnf {
                        [](const EClause& c) { return c.ground(); });
   }
 
-  const EClause::Set& clauses() { return cs_; }
+  const EClause::Set& clauses() const { return cs_; }
 
   void Print(std::ostream* os) const {
     *os << '(';
@@ -159,17 +262,29 @@ Formula::Cnf Formula::Cnf::Or(const Cnf& rhs) const {
 }
 
 void Formula::Cnf::Minimize() {
+#if 0
+  struct Comparator {
+    bool operator()(const EClause& lhs, const EClause& rhs) const {
+      return comp(lhs.clause().size(), lhs.clause(),
+                  rhs.clause().size(), rhs.clause());
+    }
+
+   private:
+    LexicographicComparator<LessComparator<size_t>,
+                            SimpleClause::Comparator> comp;
+  };
   // The bool says that the prime implicate is essential.
-  std::map<EClause, bool, EClause::Comparator> pis;
+  const size_t n_clauses = cs_.size();
+  std::map<EClause, bool, Comparator> pis;
   for (const EClause& c : cs_) {
     assert(c.ground());
     if (!c.Tautologous()) {
       EClause dd = c;
       dd.ClearEqs();
-      dd.ClearNeqs();
       pis.insert(pis.end(), std::make_pair(dd, true));
     }
   }
+  const size_t n_pis = pis.size();
   bool repeat;
   do {
     repeat = false;
@@ -177,6 +292,10 @@ void Formula::Cnf::Minimize() {
       for (auto jt = pis.begin(); jt != it; ++jt) {
         Maybe<EClause> c = EClause::Resolve(it->first, jt->first);
         if (c) {
+          //it->first.Print(&std::cout); std::cout << std::endl;
+          //jt->first.Print(&std::cout); std::cout << std::endl;
+          //c.val.Print(&std::cout); std::cout << std::endl;
+          //std::cout << std::endl;
           const auto p = pis.insert(std::make_pair(c.val, false));
           p.first->second = !(it->second || it->second);
           repeat |= p.second;
@@ -200,14 +319,17 @@ void Formula::Cnf::Minimize() {
       cs_.insert(cs_.end(), p.first);
     }
   }
+  const size_t n_min_clauses = cs_.size();
+  std::cout << n_clauses << " -> " << n_pis << " -> " << n_min_clauses << std::endl;
+#endif
 }
 
 Formula::Cnf::EClause Formula::Cnf::EClause::Concat(const EClause& c1,
                                                     const EClause& c2) {
   EClause c = c1;
   c.eqs_.insert(c2.eqs_.begin(), c2.eqs_.end());
-  c.neqs_.insert(c2.neqs_.begin(), c2.neqs_.end());
   c.c_.insert(c2.c_.begin(), c2.c_.end());
+  c.evals_.insert(c2.evals_.begin(), c2.evals_.end());
   return c;
 }
 
@@ -228,14 +350,15 @@ bool ResolveLiterals(T* lhs, const T& rhs) {
 
 Maybe<Formula::Cnf::EClause> Formula::Cnf::EClause::Resolve(const EClause& c1,
                                                             const EClause& c2) {
-  assert(c1.eqs_.empty() && c1.neqs_.empty());
-  assert(c2.eqs_.empty() && c2.neqs_.empty());
+  assert(c1.eqs_.empty());
+  assert(c2.eqs_.empty());
   assert(c1.ground());
   assert(c2.ground());
   if (c1.c_.size() > c2.c_.size()) {
     return Resolve(c2, c1);
   }
   EClause r = c2;
+  r.evals_.insert(c1.evals_.begin(), c1.evals_.end());
   if (ResolveLiterals(&r.c_, c1.c_)) {
     return Perhaps(!r.Tautologous(), r);
   }
@@ -245,13 +368,8 @@ Maybe<Formula::Cnf::EClause> Formula::Cnf::EClause::Resolve(const EClause& c1,
 Formula::Cnf::EClause Formula::Cnf::EClause::Substitute(
     const Unifier& theta) const {
   EClause c;
-  for (const auto& p : eqs_) {
-    c.eqs_.insert(std::make_pair(p.first.Substitute(theta),
-                                 p.second.Substitute(theta)));
-  }
-  for (const auto& p : neqs_) {
-    c.eqs_.insert(std::make_pair(p.first.Substitute(theta),
-                                 p.second.Substitute(theta)));
+  for (const auto& e : eqs_) {
+    c.eqs_.insert(e.Substitute(theta));
   }
   c.c_ = c_.Substitute(theta);
   return c;
@@ -275,49 +393,43 @@ bool Formula::Cnf::EClause::Subsumes(const EClause& c) const {
   assert(ground());
   assert(c.ground());
   return std::includes(c.eqs_.begin(), c.eqs_.end(),
-                       eqs_.begin(), eqs_.end(), neqs_.key_comp()) &&
-      std::includes(c.neqs_.begin(), c.neqs_.end(),
-                    neqs_.begin(), neqs_.end(), neqs_.key_comp()) &&
+                       eqs_.begin(), eqs_.end(), eqs_.key_comp()) &&
       std::includes(c.c_.begin(), c.c_.end(),
-                    c_.begin(), c_.end(), c_.key_comp());
+                    c_.begin(), c_.end(), c_.key_comp()) &&
+      std::includes(c.evals_.begin(), c.evals_.end(),
+                    evals_.begin(), evals_.end(), evals_.key_comp());
 }
 
 bool Formula::Cnf::EClause::Tautologous() const {
   assert(ground());
   return std::any_of(eqs_.begin(), eqs_.end(),
-                     [](const Equality& e) { return e.equal(); }) ||
-      std::any_of(neqs_.begin(), neqs_.end(),
-                  [](const Equality& e) { return !e.equal(); }) ||
+                     [](const Equal& e) { return e.Holds(); }) ||
       TautologousLiterals(c_);
-}
-
-bool Formula::Cnf::EClause::ground() const {
-  return std::all_of(eqs_.begin(), eqs_.end(),
-                     [](const Equality& e) { return e.ground(); }) &&
-      std::all_of(neqs_.begin(), neqs_.end(),
-                  [](const Equality& e) { return e.ground(); }) &&
-      c_.ground();
 }
 
 void Formula::Cnf::EClause::Print(std::ostream* os) const {
   *os << '(';
-  for (auto it = eqs_.begin(); it != eqs_.end(); ++it) {
-    if (it != eqs_.begin()) {
+  bool first = true;
+  for (const Equal& eq : eqs_) {
+    if (!first) {
       *os << " v ";
     }
-    *os << it->first << " = " << it->second;
+    *os << eq.t1() << (eq.sign() ? " = " : " != ") << eq.t1();
+    first = false;
   }
-  for (auto it = neqs_.begin(); it != neqs_.end(); ++it) {
-    if (!eqs_.empty() || it != neqs_.begin()) {
+  for (const Literal& l : c_) {
+    if (!first) {
       *os << " v ";
     }
-    *os << it->first << " != " << it->second;
+    *os << l;
+    first = false;
   }
-  for (auto it = c_.begin(); it != c_.end(); ++it) {
-    if (!eqs_.empty() || !neqs_.empty() || it != c_.begin()) {
+  for (const Eval& e : evals_) {
+    if (!first) {
       *os << " v ";
     }
-    *os << *it;
+    *os << (e.sign() ? "" : "~") << "<Eval>";
+    first = false;
   }
   *os << ')';
 }
@@ -325,46 +437,41 @@ void Formula::Cnf::EClause::Print(std::ostream* os) const {
 // }}}
 // {{{ Specializations of Formula, particularly MakeCnf() and Regress().
 
-struct Formula::Obj::Equal : public Formula::Obj {
-  bool sign;
-  Term t1;
-  Term t2;
+struct Formula::Obj::Equal
+: public Formula::Obj, public Formula::Cnf::EClause::Equal {
+  using Formula::Cnf::EClause::Equal::Equal;
 
-  Equal(const Term& t1, const Term& t2) : Equal(true, t1, t2) {}
-  Equal(bool sign, const Term& t1, const Term& t2)
-      : sign(sign), t1(t1), t2(t2) {}
+  ObjPtr ObjCopy() const override { return ObjPtr(new Equal(*this)); }
 
-  ObjPtr ObjCopy() const override { return ObjPtr(new Equal(sign, t1, t2)); }
-
-  void Negate() override { sign = !sign; }
+  void Negate() override { sign_ = !sign_; }
 
   void PrependActions(const TermSeq&) override {}
 
   void SubstituteInPlace(const Unifier& theta) override {
-    t1 = t1.Substitute(theta);
-    t2 = t2.Substitute(theta);
+    t1_ = t1_.Substitute(theta);
+    t2_ = t2_.Substitute(theta);
   }
 
   void GroundInPlace(const Assignment& theta) override {
-    t1 = t1.Ground(theta);
-    t2 = t2.Ground(theta);
+    t1_ = t1_.Ground(theta);
+    t2_ = t2_.Ground(theta);
   }
 
   void CollectFreeVariables(Variable::Set* vs) const override {
-    if (t1.is_variable()) {
-      vs->insert(Variable(t1));
+    if (t1_.is_variable()) {
+      vs->insert(Variable(t1_));
     }
-    if (t2.is_variable()) {
-      vs->insert(Variable(t2));
+    if (t2_.is_variable()) {
+      vs->insert(Variable(t2_));
     }
   }
 
   void CollectNames(StdName::SortedSet* ns) const override {
-    if (t1.is_name()) {
-      (*ns)[t1.sort()].insert(StdName(t1));
+    if (t1_.is_name()) {
+      (*ns)[t1_.sort()].insert(StdName(t1_));
     }
-    if (t2.is_name()) {
-      (*ns)[t2.sort()].insert(StdName(t2));
+    if (t2_.is_name()) {
+      (*ns)[t2_.sort()].insert(StdName(t2_));
     }
   }
 
@@ -374,8 +481,8 @@ struct Formula::Obj::Equal : public Formula::Obj {
   }
 
   std::pair<Truth, ObjPtr> Simplify() const override {
-    if ((t1.ground() && t2.ground()) || t1 == t2) {
-      const Truth t = (t1 == t2) == sign ? TRIVIALLY_TRUE : TRIVIALLY_FALSE;
+    if (ground() || t1_ == t2_) {
+      const Truth t = Holds() ? TRIVIALLY_TRUE : TRIVIALLY_FALSE;
       return std::make_pair(t, ObjPtr());
     }
     return std::make_pair(NONTRIVIAL, ObjCopy());
@@ -383,11 +490,7 @@ struct Formula::Obj::Equal : public Formula::Obj {
 
   Cnf MakeCnf(const StdName::SortedSet&, StdName::SortedSet*) const override {
     Cnf::EClause c;
-    if (sign) {
-      c.AddEq(t1, t2);
-    } else {
-      c.AddNeq(t1, t2);
-    }
+    c.AddEq(*this);
     return Cnf(c);
   }
 
@@ -396,8 +499,8 @@ struct Formula::Obj::Equal : public Formula::Obj {
   }
 
   void Print(std::ostream* os) const override {
-    const char* s = sign ? "=" : "!=";
-    *os << '(' << t1 << ' ' << s << ' ' << t2 << ')';
+    const char* s = sign() ? "=" : "!=";
+    *os << '(' << t1() << ' ' << s << ' ' << t2() << ')';
   }
 };
 
@@ -457,6 +560,49 @@ struct Formula::Obj::Lit : public Formula::Obj {
 
   void Print(std::ostream* os) const override {
     *os << l;
+  }
+};
+
+struct Formula::Obj::Eval
+: public Formula::Obj, public Formula::Cnf::EClause::Eval {
+  using Formula::Cnf::EClause::Eval::Eval;
+
+  ObjPtr ObjCopy() const override { return ObjPtr(new Eval(*this)); }
+
+  void Negate() override { sign_ = !sign_; }
+
+  void PrependActions(const TermSeq&) override { }
+
+  void SubstituteInPlace(const Unifier&) override { }
+
+  void GroundInPlace(const Assignment&) override { }
+
+  void CollectFreeVariables(Variable::Set*) const override { }
+
+  void CollectNames(StdName::SortedSet*) const override { }
+
+  ObjPtr Reduce(const BasicActionTheory&,
+                const StdName::SortedSet&) const override {
+    return ObjCopy();
+  }
+
+  std::pair<Truth, ObjPtr> Simplify() const override {
+    return std::make_pair(NONTRIVIAL, ObjCopy());
+  }
+
+  Cnf MakeCnf(const StdName::SortedSet&, StdName::SortedSet*) const override {
+    Cnf::EClause c;
+    c.AddEval(*this);
+    return Cnf(c);
+  }
+
+  ObjPtr ObjRegress(Term::Factory*, const BasicActionTheory&) const override {
+    return ObjCopy();
+  }
+
+  void Print(std::ostream* os) const override {
+    const char* s = sign() ? "" : "~";
+    *os << s << "<Eval>";
   }
 };
 
@@ -883,30 +1029,49 @@ struct Formula::Knowledge : public Formula {
       phi_red->GroundInPlace(theta);
       Truth truth;
       std::tie(truth, phi_red) = phi_red->Simplify();
-      bool holds;
       switch (truth) {
         case TRIVIALLY_TRUE:
-          holds = true;
+          disjs.push_back(And(std::move(e), True()));
           break;
         case TRIVIALLY_FALSE:
-          holds = bat.Inconsistent(k);
+          disjs.push_back(And(std::move(e),
+                              bat.Inconsistent(k) ? True() : False()));
           break;
         case NONTRIVIAL:
+#if 0
           Cnf cnf = phi_red->MakeCnf(kb_and_query_ns);
           cnf.Minimize();
-          holds = std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
+          bool holds = std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
                               [&bat, this](const Cnf::EClause& c) {
                                 return c.Tautologous() ||
                                        bat.Entails(c.clause(), k);
                               });
+          disjs.push_back(And(std::move(e), holds ? True() : False()));
           break;
+#else
+          const split_level kk = k;
+          std::shared_ptr<Obj> phi_red_shared(phi_red.release());
+          const int id = eval_id++;
+          ObjPtr eval = ObjPtr(new Obj::Eval(
+                  [id, phi_red_shared, &kb_and_query_ns, kk](const BasicActionTheory& bat) {
+                    //std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " begins" << std::endl;
+                    Cnf cnf = phi_red_shared->MakeCnf(kb_and_query_ns);
+                    cnf.Minimize();
+                    bool r = std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
+                                       [&bat, kk](const Cnf::EClause& c) {
+                                         return c.Entailed(bat, kk);
+                                       });
+                    //std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
+                    return r;
+                  }));
+          disjs.push_back(And(std::move(e), std::move(eval)));
+          break;
+#endif
       }
-      assert(e);
-      disjs.push_back(And(std::move(e), holds ? True() : False()));
     }
-    Formula::ObjPtr r;
-    for (Formula::ObjPtr& disj : disjs) {
-      r = !r ? std::move(disj) : Formula::Or(std::move(r), std::move(disj));
+    ObjPtr r;
+    for (ObjPtr& disj : disjs) {
+      r = !r ? std::move(disj) : Or(std::move(r), std::move(disj));
     }
     if (!sign) {
       r->Negate();
@@ -987,6 +1152,7 @@ struct Formula::Belief : public Formula {
   ObjPtr Reduce(const BasicActionTheory& bat,
                 const StdName::SortedSet& kb_and_query_ns) const override {
     assert(z.empty());
+    const auto truth = [this](bool b) { return b ? True() : False(); };
     Variable::Set vs;
     CollectFreeVariables(&vs);
     std::vector<ObjPtr> disjs;
@@ -1001,44 +1167,54 @@ struct Formula::Belief : public Formula {
       Truth psi_truth;
       std::tie(phi_truth, phi_red) = phi_red->Simplify();
       std::tie(psi_truth, psi_red) = psi_red->Simplify();
-      bool holds;
       switch (psi_truth) {
         case TRIVIALLY_TRUE:
-          holds = true;
+          disjs.push_back(And(std::move(e), True()));
           break;
         case TRIVIALLY_FALSE:
-          holds = bat.Inconsistent(k);
+          disjs.push_back(And(std::move(e), truth(bat.Inconsistent(k))));
           break;
         case NONTRIVIAL:
           switch (phi_truth) {
             case TRIVIALLY_TRUE: {
-              Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
-              psi_cnf.Minimize();
-              // To show True => psi, we look for the first consistent bat.
-              for (size_t p = 0; p < bat.n_levels(); ++p) {
-                if (!bat.InconsistentAt(p, k)) {
-                  holds = std::all_of(psi_cnf.clauses().begin(),
-                                      psi_cnf.clauses().end(),
-                                      [&bat, p, this](const Cnf::EClause& c) {
-                                        return c.Tautologous() ||
-                                               bat.EntailsAt(p, c.clause(), k);
-                                      });
-                  break;
-                }
-              }
+              const split_level kk = k;
+              std::shared_ptr<Obj> psi_red_shared(psi_red.release());
+              const int id = eval_id++;
+              std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " created" << std::endl;
+              ObjPtr eval = ObjPtr(new Obj::Eval(
+                      [id, psi_red_shared, &kb_and_query_ns, kk](const BasicActionTheory& bat) {
+                        std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " begins" << std::endl;
+                        Cnf psi_cnf = psi_red_shared->MakeCnf(kb_and_query_ns);
+                        psi_cnf.Minimize();
+                        // To show True => psi, we look for the first consistent bat.
+                        for (size_t p = 0; p < bat.n_levels(); ++p) {
+                          if (!bat.InconsistentAt(p, kk)) {
+                            std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
+                            return std::all_of(psi_cnf.clauses().begin(),
+                                               psi_cnf.clauses().end(),
+                                               [&bat, p, kk](const Cnf::EClause& c) {
+                                                 return c.EntailedAt(bat, p, kk);
+                                               });
+                          }
+                        }
+                        std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
+                        return true;
+                      }));
+              disjs.push_back(And(std::move(e), std::move(eval)));
               break;
             }
             case TRIVIALLY_FALSE:
-              holds = true;
+              disjs.push_back(And(std::move(e), True()));
               break;
             case NONTRIVIAL: {
+#if 0
               ObjPtr neg_phi = std::move(phi_red);
               neg_phi->Negate();
               Cnf neg_phi_cnf = neg_phi->MakeCnf(kb_and_query_ns);
               Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
               neg_phi_cnf.Minimize();
               psi_cnf.Minimize();
-              holds = true;
+              bool holds = true;
               // To show phi => psi, we look for the first level which is
               // consistent with phi and then test whether it also entails psi.
               // A level is consistent with phi iff it does not entail neg_phi
@@ -1049,30 +1225,68 @@ struct Formula::Belief : public Formula {
                     std::any_of(neg_phi_cnf.clauses().begin(),
                                  neg_phi_cnf.clauses().end(),
                                  [&bat, p, this](const Cnf::EClause& c) {
-                                   return !(c.Tautologous() ||
-                                            bat.EntailsAt(p, c.clause(), k));
+                                   return !c.EntailedAt(bat, p, k);
                                  });
                 if (consistent_with_phi) {
                   holds = std::all_of(psi_cnf.clauses().begin(),
                                       psi_cnf.clauses().end(),
                                       [&bat, p, this](const Cnf::EClause& c) {
-                                        return c.Tautologous() ||
-                                               bat.EntailsAt(p, c.clause(), k);
+                                        return c.EntailedAt(bat, p, k);
                                       });
                   break;
                 }
               }
+              disjs.push_back(And(std::move(e), truth(holds)));
+#else
+              const split_level kk = k;
+              ObjPtr neg_phi = std::move(phi_red);
+              neg_phi->Negate();
+              std::shared_ptr<Obj> neg_phi_shared(neg_phi.release());
+              std::shared_ptr<Obj> psi_red_shared(psi_red.release());
+              const int id = eval_id++;
+              std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " created" << std::endl;
+              ObjPtr eval = ObjPtr(new Obj::Eval(
+                      [id, neg_phi_shared, psi_red_shared, kb_and_query_ns, kk](const BasicActionTheory& bat) {
+                        std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " begins" << std::endl;
+                        Cnf neg_phi_cnf = neg_phi_shared->MakeCnf(kb_and_query_ns);
+                        Cnf psi_cnf = psi_red_shared->MakeCnf(kb_and_query_ns);
+                        neg_phi_cnf.Minimize();
+                        psi_cnf.Minimize();
+                        // To show phi => psi, we look for the first level which is
+                        // consistent with phi and then test whether it also entails psi.
+                        // A level is consistent with phi iff it does not entail neg_phi
+                        // Since neg_phi_cnf is a conjunction of clauses, this is true if
+                        // any of these clauses is not entailed.
+                        for (size_t p = 0; p < bat.n_levels(); ++p) {
+                          const bool consistent_with_phi =
+                              std::any_of(neg_phi_cnf.clauses().begin(),
+                                           neg_phi_cnf.clauses().end(),
+                                           [&bat, p, kk](const Cnf::EClause& c) {
+                                             return !c.EntailedAt(bat, p, kk);
+                                           });
+                          if (consistent_with_phi) {
+                            std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
+                            return std::all_of(psi_cnf.clauses().begin(),
+                                               psi_cnf.clauses().end(),
+                                               [&bat, p, kk](const Cnf::EClause& c) {
+                                                 return c.EntailedAt(bat, p, kk);
+                                               });
+                          }
+                        }
+                        std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
+                        return true;
+                      }));
+              disjs.push_back(And(std::move(e), std::move(eval)));
+#endif
               break;
             }
           }
           break;
       }
-      assert(e);
-      disjs.push_back(And(std::move(e), holds ? True() : False()));
     }
-    Formula::ObjPtr r;
-    for (Formula::ObjPtr& disj : disjs) {
-      r = !r ? std::move(disj) : Formula::Or(std::move(r), std::move(disj));
+    ObjPtr r;
+    for (ObjPtr& disj : disjs) {
+      r = !r ? std::move(disj) : Or(std::move(r), std::move(disj));
     }
     if (!sign) {
       r->Negate();
@@ -1126,13 +1340,11 @@ Formula::ObjPtr Formula::False() {
 }
 
 Formula::ObjPtr Formula::Eq(const Term& t1, const Term& t2) {
-  return ObjPtr(new Obj::Equal(t1, t2));
+  return ObjPtr(new Obj::Equal(true, t1, t2));
 }
 
 Formula::ObjPtr Formula::Neq(const Term& t1, const Term& t2) {
-  ObjPtr eq(std::move(Eq(t1, t2)));
-  eq->Negate();
-  return std::move(eq);
+  return ObjPtr(new Obj::Equal(false, t1, t2));
 }
 
 Formula::ObjPtr Formula::Lit(const Literal& l) {
@@ -1279,7 +1491,7 @@ bool BasicActionTheory::Entails(const Formula::Ptr& phi) const {
   cnf.Minimize();
   return std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
                      [this](const Formula::Cnf::EClause& c) {
-                       return c.Tautologous() || Entails(c.clause(), 0);
+                       return c.Entailed(*this, 0);
                      });
 }
 

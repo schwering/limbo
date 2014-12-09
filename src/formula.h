@@ -56,8 +56,8 @@ class Formula {
   typedef std::unique_ptr<Obj> ObjPtr;
 
   Formula() = default;
-  Formula(const Formula&) = delete;
-  Formula& operator=(const Formula&) = delete;
+  Formula(const Formula&) = default;
+  Formula& operator=(const Formula&) = default;
   virtual ~Formula() {}
 
   static ObjPtr True();
@@ -98,9 +98,6 @@ class Formula {
   virtual Ptr Regress(Term::Factory* tf,
                       const BasicActionTheory& bat) const = 0;
 
-  bool Eval(const Setup& setup) const;
-  bool Eval(const Setups& setups) const;
-
  private:
   friend class BasicActionTheory;
   friend std::ostream& operator<<(std::ostream& os, const Formula& phi);
@@ -140,6 +137,7 @@ class Formula::Obj : public Formula {
 
   struct Equal;
   struct Lit;
+  struct Eval;
   struct Junction;
   struct Quantifier;
 
@@ -154,8 +152,8 @@ class BasicActionTheory {
   typedef Setup::split_level split_level;
   typedef Setups::belief_level belief_level;
 
-  virtual Maybe<Formula::ObjPtr> RegressOneStep(Term::Factory*,
-                                                const Atom&) const = 0;
+  virtual Maybe<Formula::ObjPtr> RegressOneStep(Term::Factory* tf,
+                                                const Atom& a) const = 0;
 
   virtual void GuaranteeConsistency(split_level k) = 0;
   virtual void AddClause(const Clause& c) = 0;
