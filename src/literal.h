@@ -9,7 +9,7 @@
 #include "./atom.h"
 #include "./range.h"
 
-namespace esbl {
+namespace lela {
 
 class Literal : public Atom {
  public:
@@ -143,7 +143,7 @@ class Literal::Set : public std::set<Literal, Comparator> {
 std::ostream& operator<<(std::ostream& os, const Literal& l);
 std::ostream& operator<<(std::ostream& os, const Literal::Set& ls);
 
-}  // namespace esbl
+}  // namespace lela
 
 #endif  // SRC_LITERAL_H_
 

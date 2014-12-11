@@ -12,7 +12,7 @@
 #include "./maybe.h"
 #include "./term.h"
 
-namespace esbl {
+namespace lela {
 
 class Atom {
  public:
@@ -84,7 +84,7 @@ struct Atom::Comparator {
 std::ostream& operator<<(std::ostream& os, const Atom& a);
 std::ostream& operator<<(std::ostream& os, const Atom::Set& as);
 
-}  // namespace esbl
+}  // namespace lela
 
 #endif  // SRC_ATOM_H_
 

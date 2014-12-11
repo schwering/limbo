@@ -7,7 +7,7 @@
 #include <memory>
 #include <tuple>
 
-namespace esbl {
+namespace lela {
 
 const Ewff Ewff::TRUE = Ewff({}, {});
 
@@ -265,5 +265,5 @@ std::ostream& operator<<(std::ostream& os, const Ewff& e) {
   return os;
 }
 
-}  // namespace esbl
+}  // namespace lela
 

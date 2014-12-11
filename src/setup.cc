@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <numeric>
 
-namespace esbl {
+namespace lela {
 
 void Setup::AddClause(const Clause& c) {
   if (c.box()) {
@@ -509,5 +509,5 @@ std::ostream& operator<<(std::ostream& os, const Setups& ss) {
   return os;
 }
 
-}  // namespace esbl
+}  // namespace lela
 

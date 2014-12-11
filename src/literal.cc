@@ -3,7 +3,7 @@
 
 #include "./literal.h"
 
-namespace esbl {
+namespace lela {
 
 std::ostream& operator<<(std::ostream& os, const Literal& l) {
   if (!l.sign()) {
@@ -25,5 +25,5 @@ std::ostream& operator<<(std::ostream& os, const Literal::Set& ls) {
   return os;
 }
 
-}  // namespace esbl
+}  // namespace lela
 

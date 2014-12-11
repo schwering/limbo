@@ -5,7 +5,7 @@
 #include <./kr2014.h>
 #include <./clause.h>
 
-using namespace esbl;
+using namespace lela;
 using namespace bats;
 
 TEST(setup, gl_static) {
@@ -49,7 +49,7 @@ TEST(setup, gl_dynamic) {
 }
 
 TEST(setup, eventual_completeness_static) {
-  esbl::Setup s;
+  lela::Setup s;
   const Literal p({}, true, 1, {});
   const Literal q({}, true, 2, {});
   EXPECT_FALSE(s.Entails({p, p.Flip()}, 0));
@@ -67,7 +67,7 @@ TEST(setup, eventual_completeness_dynamic) {
   Term::Factory tf;
   const StdName a = tf.CreateStdName(1, 1);
   const StdName b = tf.CreateStdName(2, 2);
-  esbl::Setup s;
+  lela::Setup s;
   const Literal p({a}, true, 1, {b});
   const Literal q({b}, true, 2, {a});
   EXPECT_FALSE(s.Entails({p, p.Flip()}, 0));
@@ -81,7 +81,7 @@ TEST(setup, eventual_completeness_dynamic) {
 
 TEST(setup, inconsistency) {
   for (int i = -3; i <= 3; ++i) {
-    esbl::Setup s;
+    lela::Setup s;
     const Literal a = Literal({}, true, 1, {});
     const Literal b = Literal({}, true, 2, {});
     s.AddClause(Clause(Ewff::TRUE, {a, b}));
@@ -110,7 +110,7 @@ TEST(setup, eventual_inconsistency_long) {
   for (size_t n = 1; n < SETUP_SIZE; ++n) {
     // Create a setup over n literals. For each combination of signs, there
     // shall be one clause in the setup. That is, we have 2^n clauses.
-    esbl::Setup s;
+    lela::Setup s;
     for (size_t i = 0; i < (1U << n); ++i) {
       // Create the i-th of 2^n many clauses.
       SimpleClause c;
@@ -135,7 +135,7 @@ TEST(setup, eventual_consistency_long) {
   for (size_t n = 1; n < SETUP_SIZE; ++n) {
     // Create a setup over n literals. For each combination of signs, there
     // shall be one clause in the setup. That is, we have 2^n clauses.
-    esbl::Setup s;
+    lela::Setup s;
     const SimpleClause query({Literal({}, true, n+1, {})});
     for (size_t i = 0; i < (1U << n); ++i) {
       // Create the i-th of 2^n many clauses.
@@ -158,7 +158,7 @@ TEST(setup, eventual_consistency_long) {
 
 TEST(setup, progression_short) {
   Term::Factory tf;
-  esbl::Setup s0;
+  lela::Setup s0;
   const Atom::PredId P = 0;
   const Atom::PredId Q = 1;
   const StdName n1 = tf.CreateStdName(0, 0);
@@ -189,13 +189,13 @@ TEST(setup, progression_short) {
     s0.AddClause(Clause(true, e.val, {Literal({}, true, Q, {}), Literal({a}, false, Q, {})}));
   }
 
-  esbl::Setup s1 = s0;
+  lela::Setup s1 = s0;
   for (int i = 0; i < 10; ++i) {
     s1.Progress(n1);
     EXPECT_TRUE(s0.clauses() == s1.clauses());
   }
 
-  esbl::Setup s2 = s0;
+  lela::Setup s2 = s0;
   s2.Progress(n2);
   EXPECT_FALSE(s0.clauses() == s2.clauses());
   EXPECT_TRUE(s2.clauses().empty());

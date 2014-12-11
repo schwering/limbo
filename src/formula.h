@@ -44,7 +44,7 @@
 #include "./setup.h"
 #include "./term.h"
 
-namespace esbl {
+namespace lela {
 
 class Bat;
 
@@ -211,7 +211,7 @@ class Bat {
 
 std::ostream& operator<<(std::ostream& os, const Formula& phi);
 
-}  // namespace esbl
+}  // namespace lela
 
 #endif  // SRC_FORMULA_H_
 

@@ -11,7 +11,7 @@
 #include <memory>
 #include <utility>
 
-namespace esbl {
+namespace lela {
 
 template<typename... Types>
 struct Maybe {
@@ -103,7 +103,7 @@ std::ostream& operator<<(std::ostream& os, const Maybe<T1, T2>& m) {
   return os;
 }
 
-}  // namespace esbl
+}  // namespace lela
 
 #endif  // SRC_MAYBE_H_
 

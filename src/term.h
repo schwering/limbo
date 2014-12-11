@@ -13,7 +13,7 @@
 #include "./maybe.h"
 #include "./range.h"
 
-namespace esbl {
+namespace lela {
 
 class Term;
 class Variable;
@@ -192,7 +192,7 @@ std::ostream& operator<<(std::ostream& os, const Unifier& theta);
 std::ostream& operator<<(std::ostream& os, const Assignment& theta);
 std::ostream& operator<<(std::ostream& os, const StdName::SortedSet& ns);
 
-}  // namespace esbl
+}  // namespace lela
 
 #endif  // SRC_TERM_H_
 

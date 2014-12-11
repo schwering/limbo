@@ -6,7 +6,7 @@
 #include <limits>
 #include <tuple>
 
-namespace esbl {
+namespace lela {
 
 Variable Term::Factory::CreateVariable(Term::Sort sort) {
   return Variable(Term(Term::VAR, var_counter_++, sort));
@@ -308,5 +308,5 @@ std::ostream& operator<<(std::ostream& os, const StdName::SortedSet& ns) {
   return os;
 }
 
-}  // namespace esbl
+}  // namespace lela
 

@@ -5,7 +5,7 @@
 #include <./ecai2014.h>
 #include <./clause.h>
 
-using namespace esbl;
+using namespace lela;
 using namespace bats;
 
 TEST(setup, morri) {

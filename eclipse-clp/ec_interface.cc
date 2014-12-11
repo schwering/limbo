@@ -1,13 +1,13 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 //
-// The ECLiPSe-CLP interface to ESBL provides the following external predicates:
+// The ECLiPSe-CLP interface to LELA provides the following external predicates:
 //
 // :- external(kcontext/2, p_kcontext).
 // :- external(bcontext/3, p_bcontext).
 //
 // These two can be used to initialize a BAT. The first one refers to normal
-// ESL BATs, whereas the second one refers to ESBL BATs which contain multiple
+// ESL BATs, whereas the second one refers to LELA BATs which contain multiple
 // setups. In both cases, the first argument is an atom by which afterwards the
 // BAT can be accessed. The second argument is the name of the BAT, which must
 // be hard-coded in Context::CreateInstance(). For belief BATs, the third
@@ -94,7 +94,7 @@ extern "C" {
 #include <./kr2014.h>
 #include <./kitchen.h>
 
-namespace esbl {
+namespace lela {
 
 const std::string NEGATION = "~";
 const std::string CONJUNCTION = "^";
@@ -532,8 +532,8 @@ std::map<EC_word, Context*, EC_word_comparator> Context::instances_;
 
 extern "C"
 int p_kcontext() {
-  using namespace esbl;
-  using namespace esbl::bats;
+  using namespace lela;
+  using namespace lela::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_bat = EC_arg(2);
@@ -544,8 +544,8 @@ int p_kcontext() {
 
 extern "C"
 int p_bcontext() {
-  using namespace esbl;
-  using namespace esbl::bats;
+  using namespace lela;
+  using namespace lela::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_bat = EC_arg(2);
@@ -563,8 +563,8 @@ int p_bcontext() {
 extern "C"
 int p_register_pred()
 {
-  using namespace esbl;
-  using namespace esbl::bats;
+  using namespace lela;
+  using namespace lela::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_w = EC_arg(2);
@@ -586,8 +586,8 @@ int p_register_pred()
 extern "C"
 int p_register_name()
 {
-  using namespace esbl;
-  using namespace esbl::bats;
+  using namespace lela;
+  using namespace lela::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_w = EC_arg(2);
@@ -622,7 +622,7 @@ int p_register_name()
 extern "C"
 int p_enable_regression()
 {
-  using namespace esbl;
+  using namespace lela;
 
   EC_word ec_key = EC_arg(1);
 
@@ -639,7 +639,7 @@ int p_enable_regression()
 extern "C"
 int p_disable_regression()
 {
-  using namespace esbl;
+  using namespace lela;
 
   EC_word ec_key = EC_arg(1);
 
@@ -656,7 +656,7 @@ int p_disable_regression()
 extern "C"
 int p_is_regression()
 {
-  using namespace esbl;
+  using namespace lela;
 
   EC_word ec_key = EC_arg(1);
 
@@ -671,8 +671,8 @@ int p_is_regression()
 extern "C"
 int p_guarantee_consistency()
 {
-  using namespace esbl;
-  using namespace esbl::bats;
+  using namespace lela;
+  using namespace lela::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_k = EC_arg(2);
@@ -694,8 +694,8 @@ int p_guarantee_consistency()
 extern "C"
 int p_add_sensing_result()
 {
-  using namespace esbl;
-  using namespace esbl::bats;
+  using namespace lela;
+  using namespace lela::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_z = EC_arg(2);
@@ -747,8 +747,8 @@ int p_add_sensing_result()
 extern "C"
 int p_inconsistent()
 {
-  using namespace esbl;
-  using namespace esbl::bats;
+  using namespace lela;
+  using namespace lela::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_k = EC_arg(2);
@@ -769,8 +769,8 @@ int p_inconsistent()
 extern "C"
 int p_entails()
 {
-  using namespace esbl;
-  using namespace esbl::bats;
+  using namespace lela;
+  using namespace lela::bats;
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_alpha = EC_arg(2);

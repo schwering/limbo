@@ -6,6 +6,8 @@
 
 #include <utility>
 
+namespace lela {
+
 template<typename T>
 struct Range {
   Range() : first(), last() {}
@@ -41,6 +43,8 @@ template<typename T>
 Range<T> MakeRange(T&& first, T&& last) {  // NOLINT
   return Range<T>(std::forward<T>(first), std::forward<T>(last));  // NOLINT
 }
+
+}  // namespace lela
 
 #endif  // SRC_RANGE_H_
 

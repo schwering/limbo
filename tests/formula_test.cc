@@ -7,7 +7,7 @@
 #include <./testbat.h>
 #include <./formula.h>
 
-using namespace esbl;
+using namespace lela;
 using namespace bats;
 
 TEST(formula, gl) {
@@ -170,7 +170,7 @@ class EmptyBat : public Bat {
   }
 
  private:
-  esbl::Setup s_;
+  lela::Setup s_;
   StdName::SortedSet ns_;
 };
 

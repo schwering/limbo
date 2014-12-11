@@ -1,8 +1,8 @@
-add_library (ESBL SHARED term.cc atom.cc literal.cc ewff.cc clause.cc setup.cc formula.cc)
+add_library (LELA SHARED term.cc atom.cc literal.cc ewff.cc clause.cc setup.cc formula.cc)
 
-target_link_libraries (ESBL ${LIBS})
+target_link_libraries (LELA ${LIBS})
 
-# Make sure the compiler can find include files for our ESBL library
-# when other libraries or executables link to ESBL
-target_include_directories (ESBL PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# Make sure the compiler can find include files for our LELA library
+# when other libraries or executables link to LELA
+target_include_directories (LELA PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

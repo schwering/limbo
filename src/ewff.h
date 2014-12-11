@@ -14,7 +14,7 @@
 #include "./maybe.h"
 #include "./term.h"
 
-namespace esbl {
+namespace lela {
 
 class Ewff {
  public:
@@ -85,7 +85,7 @@ struct Ewff::Comparator {
 
 std::ostream& operator<<(std::ostream& os, const Ewff& e);
 
-}  // namespace esbl
+}  // namespace lela
 
 #endif  // SRC_EWFF_H_
 

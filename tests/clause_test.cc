@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <./clause.h>
 
-using namespace esbl;
+using namespace lela;
 
 static Term::Factory f;
 static StdName n0 = f.CreateStdName(0, 1);

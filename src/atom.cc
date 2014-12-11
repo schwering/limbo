@@ -6,7 +6,7 @@
 #include <limits>
 #include "./atom.h"
 
-namespace esbl {
+namespace lela {
 
 Atom Atom::PrependActions(const TermSeq& z) const {
   Atom a = *this;
@@ -117,5 +117,5 @@ std::ostream& operator<<(std::ostream& os, const Atom::Set& as) {
   return os;
 }
 
-}  // namespace esbl
+}  // namespace lela
 

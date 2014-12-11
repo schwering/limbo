@@ -15,7 +15,7 @@
 #include "./setup.h"
 #include "./term.h"
 
-namespace esbl {
+namespace lela {
 
 namespace bats {
 
@@ -211,7 +211,7 @@ class BBat : public EclipseBat {
 
 }  // namespace bats
 
-}  // namespace esbl
+}  // namespace lela
 
 #endif  // BATS_BAT_H_
 

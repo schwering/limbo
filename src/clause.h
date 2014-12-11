@@ -14,7 +14,7 @@
 #include "./literal.h"
 #include "./maybe.h"
 
-namespace esbl {
+namespace lela {
 
 class SimpleClause : public Literal::Set {
  public:
@@ -154,7 +154,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleClause& c);
 std::ostream& operator<<(std::ostream& os, const Clause& c);
 std::ostream& operator<<(std::ostream& os, const Clause::Set& cs);
 
-}  // namespace esbl
+}  // namespace lela
 
 #endif  // SRC_CLAUSE_H_
 

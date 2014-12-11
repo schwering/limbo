@@ -13,8 +13,8 @@
 :- op(880, xfy, <->). % Equivalence
 :- op(890, xfy, =>).  % Belief conditional
 
-% Load the ESBL interface:
-:- load('../eclipse-clp/libEclipseESBL.so').
+% Load the LELA interface:
+:- load('../eclipse-clp/libEclipseLELA.so').
 :- external(kcontext/2, p_kcontext).
 :- external(bcontext/3, p_bcontext).
 :- external(register_pred/3, p_register_pred).

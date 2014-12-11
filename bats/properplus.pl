@@ -513,7 +513,7 @@ compile_all(Class, Input, Header, Body) :-
     % body
     format(BodyStream, '#include "~w"~n', [Header]),
     format(BodyStream, '~n', []),
-    format(BodyStream, 'namespace esbl {~n', []),
+    format(BodyStream, 'namespace lela {~n', []),
     format(BodyStream, '~n', []),
     format(BodyStream, 'namespace bats {~n', []),
     format(BodyStream, '~n', []),
@@ -536,7 +536,7 @@ compile_all(Class, Input, Header, Body) :-
     format(BodyStream, '~n', []),
     format(BodyStream, '}  // namespace bats~n', []),
     format(BodyStream, '~n', []),
-    format(BodyStream, '}  // namespace esbl~n', []),
+    format(BodyStream, '}  // namespace lela~n', []),
     format(BodyStream, '~n', []),
     % header
     format(HeaderStream, '#ifndef BATS_~w_H_~n', [Class]),
@@ -545,7 +545,7 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '#include <term.h>~n', []),
     format(HeaderStream, '#include "bat.h"~n', []),
     format(HeaderStream, '~n', []),
-    format(HeaderStream, 'namespace esbl {~n', []),
+    format(HeaderStream, 'namespace lela {~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, 'namespace bats {~n', []),
     format(HeaderStream, '~n', []),
@@ -566,7 +566,7 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '~n', []),
     format(HeaderStream, '}  // namespace bats~n', []),
     format(HeaderStream, '~n', []),
-    format(HeaderStream, '}  // namespace esbl~n', []),
+    format(HeaderStream, '}  // namespace lela~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, '#endif  // BATS_~w_H_~n', [Class]),
     ( Header = stdout ->

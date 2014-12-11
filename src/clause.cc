@@ -6,7 +6,7 @@
 #include <numeric>
 #include <tuple>
 
-namespace esbl {
+namespace lela {
 
 const SimpleClause SimpleClause::EMPTY({});
 const Clause Clause::EMPTY(false, Ewff::TRUE, {});
@@ -384,5 +384,5 @@ std::ostream& operator<<(std::ostream& os, const Clause::Set& cs) {
   return os;
 }
 
-}  // namespace esbl
+}  // namespace lela
 

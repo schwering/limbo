@@ -24,7 +24,7 @@
 #include <vector>
 #include "./clause.h"
 
-namespace esbl {
+namespace lela {
 
 class Setup {
  public:
@@ -157,7 +157,7 @@ class Setups {
 std::ostream& operator<<(std::ostream& os, const Setup& s);
 std::ostream& operator<<(std::ostream& os, const Setups& ss);
 
-}  // namespace esbl
+}  // namespace lela
 
 #endif  // SRC_SETUP_H_
 

@@ -8,7 +8,7 @@
 #include "./formula.h"
 #include "./compar.h"
 
-namespace esbl {
+namespace lela {
 
 // {{{ Clausal Normal Form definition and conversion.
 
@@ -1518,5 +1518,5 @@ std::ostream& operator<<(std::ostream& os, const Formula& phi) {
 
 // }}}
 
-}  // namespace esbl
+}  // namespace lela
 

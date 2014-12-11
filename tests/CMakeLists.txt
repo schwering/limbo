@@ -8,7 +8,7 @@ enable_testing ()
 
 foreach (test term atom literal ewff clause setup belief formula)
 	add_executable (${test}_test ${test}_test.cc)
-	target_link_libraries (${test}_test LINK_PUBLIC ESBL ${GTEST_BOTH_LIBRARIES} pthread)
+        target_link_libraries (${test}_test LINK_PUBLIC LELA ${GTEST_BOTH_LIBRARIES} pthread)
 	add_test (NAME ${test}_test COMMAND ${test}_test)
 endforeach()
 

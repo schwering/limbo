@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <./term.h>
 
-using namespace esbl;
+using namespace lela;
 
 TEST(term_test, dummy) {
   Term t;

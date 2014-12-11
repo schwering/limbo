@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <./literal.h>
 
-using namespace esbl;
+using namespace lela;
 
 inline bool operator<(const Atom& a, const Atom& b) {
   return Atom::Comparator()(a, b);
