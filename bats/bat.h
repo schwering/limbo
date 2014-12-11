@@ -184,7 +184,7 @@ class KBat : public Bat {
 #else
     ++queries;
     const bool r = s_.Entails(c, k);
-    std::cout << __FILE__ << ":" << __LINE__ << ": split level " << k << ": " << c << " = " << std::boolalpha << r << std::endl;
+    //std::cout << __FILE__ << ":" << __LINE__ << ": split level " << k << ": " << c << " = " << std::boolalpha << r << std::endl;
     return r;
 #endif
   }
@@ -252,7 +252,7 @@ class BBat : public Bat {
 #else
     ++queries;
     const bool r = s_.setup(p).Entails(c, k);
-    std::cout << __FILE__ << ":" << __LINE__ << ": belief level " << p << ": split level " << k << ": " << c << " = " << std::boolalpha << r << std::endl;
+    //std::cout << __FILE__ << ":" << __LINE__ << ": belief level " << p << ": split level " << k << ": " << c << " = " << std::boolalpha << r << std::endl;
     return r;
 #endif
   }

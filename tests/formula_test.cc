@@ -10,6 +10,7 @@
 using namespace esbl;
 using namespace bats;
 
+#if 1
 TEST(formula, gl) {
   Kr2014 bat;
   auto close = Formula::Or(Formula::Lit(Literal({}, true, bat.d0, {})),
@@ -104,14 +105,18 @@ TEST(formula, morri_regression) {
 
   // Property 2
   bat.Add(Formula::Lit(SfLiteral({}, bat.SL, true))->ObjRegress(&bat.tf(), bat));
+  Formula::Ptr phi2 = Formula::Act(bat.SL, Formula::Believe(2, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
+                                                                            Formula::Lit(Literal({}, true, bat.R1, {})))));
   Formula::Ptr reg2 = Formula::Act(bat.SL, Formula::Believe(2, Formula::And(Formula::Lit(Literal({}, true, bat.L1, {})),
                                                                             Formula::Lit(Literal({}, true, bat.R1, {})))))->Regress(&bat.tf(), bat);
+  //std::cout << "UNREGRESSED: " << *phi2 << std::endl;
+  //std::cout << "REGRESSED: " << *reg2 << std::endl;
   EXPECT_TRUE(bat.Entails(reg2));
 
   // Property 3
   bat.Add(Formula::Lit(SfLiteral({bat.SL}, bat.SR1, false))->ObjRegress(&bat.tf(), bat));
   Formula::Ptr reg3 = Formula::Act({bat.SL, bat.SR1}, Formula::Believe(2, Formula::Neg(Formula::Lit(Literal({}, true, bat.R1, {})))))->Regress(&bat.tf(), bat);
-  std::cout << *reg3 << std::endl;
+  //std::cout << *reg3 << std::endl;
   EXPECT_TRUE(bat.Entails(reg3));
 
   // Property 5
@@ -132,7 +137,8 @@ TEST(formula, morri_regression) {
   Formula::Ptr reg7 = Formula::Act({bat.SL, bat.SR1, bat.LV, bat.SL}, Formula::Believe(2, Formula::Lit(Literal({}, true, bat.L1, {}))))->Regress(&bat.tf(), bat);
   EXPECT_TRUE(bat.Entails(reg7));
 
-  std::cout << queries << " Queries" << std::endl;
+  //std::cout << queries << " Queries" << std::endl;
+  //exit(1);
 }
 
 class EmptyBat : public BasicActionTheory {
@@ -167,7 +173,7 @@ class EmptyBat : public BasicActionTheory {
                  split_level k) const override {
     assert(p == 0);
     ++queries;
-    std::cout << __FILE__ << ":" << __LINE__ << ": belief level " << p << ": split level " << k << ": " << c << std::endl;
+    //std::cout << __FILE__ << ":" << __LINE__ << ": belief level " << p << ": split level " << k << ": " << c << std::endl;
     return s_.Entails(c, k);
   }
 
@@ -341,11 +347,12 @@ TEST(formula, fol_grounding2) {
     EXPECT_FALSE(bat.Entails(Formula::Know(k, Formula::Neg(q->Copy()))));
   }
 }
+#endif
 
 TEST(formula, evals) {
   Testbat bat;
   Term::Factory tf;
-  Term t = tf.CreateStdName(0, 0);
+  Term t = tf.CreateStdName(0, bat.action);
   auto phi1 = Formula::Act(t, Formula::Know(2, Formula::Lit(Literal({}, false, bat.p, {}))));
   //auto phi2 = Formula::Act(t, Formula::Know(2, Formula::Lit(Literal({}, false, bat.p, {}))));
   //EXPECT_FALSE(bat.Entails(phi1->Regress(&tf, bat)));
