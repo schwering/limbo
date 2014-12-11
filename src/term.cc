@@ -23,6 +23,7 @@ StdName Term::Factory::CreateStdName(Term::Id id, Term::Sort sort) {
 Term Term::Substitute(const Unifier& theta) const {
   if (is_variable()) {
     auto it = theta.find(Variable(*this));
+    assert(it == theta.end() || !(it->second == *this));
     return it != theta.end() ? it->second.Substitute(theta) : *this;
   } else {
     return *this;

@@ -104,8 +104,8 @@ const std::string EQUIVALENCE = "<->";
 const std::string ACTION = ":";
 const std::string EXISTS = "exists";
 const std::string FORALL = "forall";
-const std::string KNOW = "k";
-const std::string BELIEVE = "b";
+const std::string KNOW = "know";
+const std::string BELIEVE = "believe";
 
 struct EC_word_comparator {
   bool operator()(const EC_word& lhs, const EC_word& rhs) const {
@@ -115,7 +115,7 @@ struct EC_word_comparator {
 
 class PredBuilder {
  public:
-  explicit PredBuilder(bats::Bat* bat) : bat_(bat) {}
+  explicit PredBuilder(bats::EclipseBat* bat) : bat_(bat) {}
   PredBuilder(const PredBuilder&) = delete;
   PredBuilder& operator=(const PredBuilder&) = delete;
 
@@ -152,13 +152,13 @@ class PredBuilder {
   }
 
  private:
-  bats::Bat* bat_;
+  bats::EclipseBat* bat_;
   std::map<EC_word, Atom::PredId, EC_word_comparator> preds_;
 };
 
 class TermBuilder {
  public:
-  explicit TermBuilder(bats::Bat* bat) : bat_(bat) {}
+  explicit TermBuilder(bats::EclipseBat* bat) : bat_(bat) {}
   TermBuilder(const TermBuilder&) = delete;
   TermBuilder& operator=(const TermBuilder&) = delete;
 
@@ -184,7 +184,7 @@ class TermBuilder {
   }
 
   Variable PushVar(EC_word w, Term::Sort sort) {
-    const Variable x = bat_->tf().CreateVariable(sort);
+    const Variable x = bat_->mutable_tf()->CreateVariable(sort);
     vars_[w].push_front(x);
     return x;
   }
@@ -227,14 +227,14 @@ class TermBuilder {
   }
 
  private:
-  bats::Bat* bat_;
+  bats::EclipseBat* bat_;
   std::map<EC_atom, StdName, EC_word_comparator> names_;
   std::map<EC_word, std::deque<Variable>, EC_word_comparator> vars_;
 };
 
 class SortBuilder {
  public:
-  SortBuilder(bats::Bat* bat, TermBuilder* tb) : bat_(bat), tb_(tb) {}
+  SortBuilder(bats::EclipseBat* bat, TermBuilder* tb) : bat_(bat), tb_(tb) {}
   SortBuilder(const SortBuilder&) = delete;
   SortBuilder& operator=(const SortBuilder&) = delete;
 
@@ -261,13 +261,13 @@ class SortBuilder {
   }
 
  private:
-  bats::Bat* bat_;
+  bats::EclipseBat* bat_;
   TermBuilder* tb_;
 };
 
 class FormulaBuilder {
  public:
-  explicit FormulaBuilder(bats::Bat* bat)
+  explicit FormulaBuilder(bats::EclipseBat* bat)
     : pred_builder_(bat),
       term_builder_(bat),
       sort_builder_(bat, &term_builder_) {}
@@ -455,13 +455,13 @@ class Context {
     }
     std::string s = a.name();
     std::transform(s.begin(), s.end(), s.begin(), ::toupper);
-    std::unique_ptr<bats::Bat> bat;
+    std::unique_ptr<bats::EclipseBat> bat;
     if (s == "KR2014") {
-      bat = std::unique_ptr<bats::Bat>(new bats::Kr2014());
+      bat = std::unique_ptr<bats::EclipseBat>(new bats::Kr2014());
     } else if (s == "ECAI2014") {
-      bat = std::unique_ptr<bats::Bat>(new bats::Ecai2014(k));
+      bat = std::unique_ptr<bats::EclipseBat>(new bats::Ecai2014(k));
     } else if (s == "KITCHEN") {
-      bat = std::unique_ptr<bats::Bat>(new bats::Kitchen());
+      bat = std::unique_ptr<bats::EclipseBat>(new bats::Kitchen());
     }
     if (!bat) {
       return nullptr;
@@ -493,26 +493,25 @@ class Context {
     delete self;
   }
 
-  void UseRegression(bool enable) { regression_enabled_ = enable; }
-  bool UseRegression() const { return regression_enabled_; }
+  void UseRegression(bool enable) { bat_->set_regression(enable); }
+  bool UseRegression() const { return bat_->regression(); }
 
-  Term::Factory* tf() { return &bat_->tf(); }
+  Term::Factory* tf() { return bat_->mutable_tf(); }
 
-  bats::Bat& bat() { return *bat_; };
+  bats::EclipseBat* bat() { return bat_.get(); };
   FormulaBuilder& formula_builder() { return formula_builder_; }
   PredBuilder& pred_builder() { return formula_builder_.pred_builder(); }
   TermBuilder& term_builder() { return formula_builder_.term_builder(); }
   SortBuilder& sort_builder() { return formula_builder_.sort_builder(); }
 
  private:
-  explicit Context(std::unique_ptr<bats::Bat> bat)
+  explicit Context(std::unique_ptr<bats::EclipseBat> bat)
       : bat_(std::move(bat)), formula_builder_(bat_.get()) {}
 
   static std::map<EC_word, Context*, EC_word_comparator> instances_;
 
-  std::unique_ptr<bats::Bat> bat_;
+  std::unique_ptr<bats::EclipseBat> bat_;
   FormulaBuilder formula_builder_;
-  bool regression_enabled_;
 };
 
 const t_ext_type Context::MethodTable = {
@@ -688,7 +687,7 @@ int p_guarantee_consistency()
     return TYPE_ERROR;
   }
 
-  ctx->bat().GuaranteeConsistency(k);
+  ctx->bat()->GuaranteeConsistency(k);
   return PSUCCEED;
 }
 
@@ -741,11 +740,7 @@ int p_add_sensing_result()
     return TYPE_ERROR;
   }
 
-  if (!ctx->UseRegression()) {
-    ctx->bat().AddClause(Clause(Ewff::TRUE, {SfLiteral(z, t, r)}));
-  } else {
-    ctx->bat().Add(Formula::Lit(SfLiteral(z, t, r))->ObjRegress(ctx->tf(), ctx->bat()));
-  }
+  ctx->bat()->Add(Formula::Lit(SfLiteral(z, t, r)));
   return PSUCCEED;
 }
 
@@ -768,7 +763,7 @@ int p_inconsistent()
     return TYPE_ERROR;
   }
 
-  return ctx->bat().Inconsistent(k) ? PSUCCEED : PFAIL;
+  return ctx->bat()->Inconsistent(k) ? PSUCCEED : PFAIL;
 }
 
 extern "C"
@@ -779,26 +774,16 @@ int p_entails()
 
   EC_word ec_key = EC_arg(1);
   EC_word ec_alpha = EC_arg(2);
-  EC_word ec_k = EC_arg(3);
 
   Context* ctx = Context::GetInstance(ec_key);
   if (!ctx) {
     return RANGE_ERROR;
   }
 
-  long k;
-  if (ec_k.is_long(&k) != EC_succeed) {
-    return TYPE_ERROR;
-  }
-
   Maybe<Formula::Ptr> maybe_alpha = ctx->formula_builder().Build(ec_alpha);
   if (!maybe_alpha) {
     return TYPE_ERROR;
   }
-  Formula::Ptr alpha = !ctx->UseRegression()
-      ? std::move(maybe_alpha.val)
-      : maybe_alpha.val->Regress(ctx->tf(), ctx->bat());
-
-  return ctx->bat().Entails(alpha) ? PSUCCEED : PFAIL;
+  return ctx->bat()->Entails(std::move(maybe_alpha.val)) ? PSUCCEED : PFAIL;
 }
 

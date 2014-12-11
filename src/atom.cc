@@ -94,7 +94,11 @@ std::ostream& operator<<(std::ostream& os, const Atom& a) {
   if (!a.z().empty()) {
     os << '[' << a.z() << ']';
   }
-  os << 'P' << a.pred();
+  if (a.pred() == Atom::SF) {
+    os << "SF";
+  } else {
+    os << 'P' << a.pred();
+  }
   if (!a.args().empty()) {
     os << '(' << a.args() << ')';
   }

@@ -7,11 +7,8 @@
 #include <utility>
 #include "./formula.h"
 #include "./compar.h"
-#include <iostream>
 
 namespace esbl {
-
-static int eval_id = 0;
 
 // {{{ Clausal Normal Form definition and conversion.
 
@@ -63,80 +60,20 @@ class Formula::Cnf {
       Term t2_;
     };
 
-    class Eval {
-     protected:
-      struct Data;
-
-     public:
-      struct Comparator {
-        typedef Eval value_type;
-
-        bool operator()(const Eval& e1, const Eval& e2) const {
-          return compar(e1.data_, e1.sign_, 
-                        e2.data_, e2.sign_);
-        }
-
-       private:
-        LexicographicComparator<LessComparator<std::shared_ptr<Data>>,
-                                LessComparator<bool>> compar;
-      };
-      typedef std::function<bool(const BasicActionTheory& bat)> Func;
-      typedef std::set<Eval, Comparator> Set;
-
-      Eval() = default;
-      Eval(const Func& func) : sign_(true), data_(new Data(func)) {}
-      Eval(const Eval&) = default;
-      Eval& operator=(const Eval&) = default;
-
-      bool operator==(const Eval& e) const {
-        return sign_ == e.sign_ && data_ == e.data_;
-      }
-
-      bool sign() const { return sign_; }
-
-      Eval Negative() const { Eval e = *this; e.sign_ = false; return e; }
-      Eval Positive() const { Eval e = *this; e.sign_ = true; return e; }
-      Eval Flip() const { Eval e = *this; e.sign_ = !sign_; return e; }
-
-      bool Evaluate(const BasicActionTheory& bat) const { 
-#if 0
-        data_->cache = Just(sign_ == data_->func(bat));
-#else
-        if (!data_->cache) {
-          data_->cache = Just(sign_ == data_->func(bat));
-        }
-#endif
-        return data_->cache.val;
-      }
-
-      const void* mem_id() const { return data_.get(); }
-
-     protected:
-      struct Data {
-        explicit Data(const Func& func) : func(func) {}
-        Func func;
-        Maybe<bool> cache;
-      };
-
-      bool sign_;
-      std::shared_ptr<Data> data_;
-    };
-
     struct Comparator {
       typedef EClause value_type;
 
       bool operator()(const EClause& lhs, const EClause& rhs) const {
-        const size_t n1 = lhs.eqs_.size() + lhs.c_.size() + lhs.evals_.size();
-        const size_t n2 = rhs.eqs_.size() + rhs.c_.size() + rhs.evals_.size();
-        return comp(n1, lhs.eqs_, lhs.c_, lhs.evals_,
-                    n2, rhs.eqs_, rhs.c_, rhs.evals_);
+        const size_t n1 = lhs.eqs_.size() + lhs.c_.size();
+        const size_t n2 = rhs.eqs_.size() + rhs.c_.size();
+        return comp(n1, lhs.eqs_, lhs.c_,
+                    n2, rhs.eqs_, rhs.c_);
       }
 
      private:
       LexicographicComparator<LessComparator<size_t>,
                               LexicographicContainerComparator<Equal::Set>,
-                              SimpleClause::Comparator,
-                              LexicographicContainerComparator<Eval::Set>> comp;
+                              SimpleClause::Comparator> comp;
     };
 
     typedef std::set<EClause, Comparator> Set;
@@ -153,12 +90,11 @@ class Formula::Cnf {
     bool Tautologous() const;
 
     bool operator==(const EClause& c) const {
-      return eqs_ == c.eqs_ && c_ == c.c_ && evals_ == c.evals_;
+      return eqs_ == c.eqs_ && c_ == c.c_;
     }
 
     void AddEq(const Equal& e) { eqs_.insert(e); }
     void AddLiteral(const Literal& l) { c_.insert(l); }
-    void AddEval(const Eval& e) { evals_.insert(e); }
 
     void ClearEqs() { eqs_.clear(); }
 
@@ -169,19 +105,12 @@ class Formula::Cnf {
     }
 
     const SimpleClause& clause() const { return c_; }
-    const Eval::Set& evals() const { return evals_; }
-
-    bool Evaluate(const BasicActionTheory& bat) const {
-      return std::any_of(evals_.begin(), evals_.end(),
-                         [&bat](const Eval& e) { return e.Evaluate(bat); });
-    }
 
     void Print(std::ostream* os) const;
 
    private:
     Equal::Set eqs_;
     SimpleClause c_;
-    Eval::Set evals_;
   };
 
   struct Comparator {
@@ -209,11 +138,11 @@ class Formula::Cnf {
 
   void Minimize();
 
-  bool Entailed(const BasicActionTheory& bat,
-                BasicActionTheory::split_level k) const;
-  bool EntailedAt(BasicActionTheory::belief_level p,
-                  const BasicActionTheory& bat,
-                  BasicActionTheory::split_level k) const;
+  bool Entailed(const Bat& bat,
+                Bat::split_level k) const;
+  bool EntailedAt(Bat::belief_level p,
+                  const Bat& bat,
+                  Bat::split_level k) const;
 
   bool ground() const {
     return std::all_of(cs_.begin(), cs_.end(),
@@ -264,70 +193,6 @@ Formula::Cnf Formula::Cnf::Or(const Cnf& rhs) const {
 }
 
 void Formula::Cnf::Minimize() {
-#if 0
-  // The bool says that the prime implicate is essential.
-  const size_t n_clauses = cs_.size();
-  //std::cout<<"NOW MEETING THE FOLLOWING CNF"<<std::endl;this->Print(&std::cout); std::cout<<std::endl;
-  std::map<EClause, bool, EClause::Comparator> pis;
-  for (const EClause& c : cs_) {
-    assert(c.ground());
-    if (!c.Tautologous()) {
-      EClause dd = c;
-      dd.ClearEqs();
-      pis.insert(pis.end(), std::make_pair(dd, true));
-    }
-  }
-  //std::cout<<"WITH THE NON-TAUTOLOGOUS CLAUSES"<<std::endl;
-  //for (const auto& p : pis) {
-  //  p.first.Print(&std::cout);
-  //  std::cout<<std::endl;
-  //}
-  //std::cout<<std::endl;
-  const size_t n_pis = pis.size();
-  bool repeat;
-  do {
-    repeat = false;
-    for (auto it = pis.begin(); it != pis.end(); ++it) {
-      for (auto jt = pis.begin(); jt != it; ++jt) {
-        Maybe<EClause> c = EClause::Resolve(it->first, jt->first);
-        if (c) {
-          //it->first.Print(&std::cout); std::cout << std::endl;
-          //jt->first.Print(&std::cout); std::cout << std::endl;
-          //c.val.Print(&std::cout); std::cout << std::endl;
-          //std::cout << std::endl;
-          assert(!it->first.Tautologous());
-          assert(!jt->first.Tautologous());
-          assert(!c.val.Tautologous());
-          const auto p = pis.insert(std::make_pair(c.val, false));
-          p.first->second = !it->second && !jt->second;
-          //auto it = pis.find(c.val);
-          //if (it != pis.end()) {
-          //  it->second = false;
-          //}
-        }
-        //if (pis.size() > 20) { std::cout << "klatscht gleich" << std::endl; assert(false); }
-      }
-    }
-  } while (repeat);
-  // EClause::operator< orders by clause length first, so subsumed clauses
-  // are greater than the subsuming.
-  for (auto it = pis.rbegin(); it != pis.rend(); ++it) {
-    for (auto jt = pis.rbegin(); jt != it; ++jt) {
-      if (!it->second && jt->second && it->first.Subsumes(jt->first)) {
-        it->second = true;
-        jt->second = false;
-      }
-    }
-  }
-  cs_.clear();
-  for (const auto& p : pis) {
-    if (p.second) {
-      cs_.insert(cs_.end(), p.first);
-    }
-  }
-  const size_t n_min_clauses = cs_.size();
-  std::cout << n_clauses << " -> " << n_pis << " -> " << n_min_clauses << std::endl;
-#else
   std::map<EClause, bool, EClause::Comparator> pis;
   for (const EClause& c : cs_) {
     assert(c.ground());
@@ -349,6 +214,7 @@ void Formula::Cnf::Minimize() {
             if (it != pis.end()) {
               it->second = false;
             }
+            // Checking for subsumed clauses takes too long:
             //for (auto kt = pis.rbegin(); kt != pis.rend(); ++kt) {
             //  if (kt != it && kt != jt && kt->second && c.val.Subsumes(kt->first)) {
             //    kt->second = false;
@@ -365,18 +231,17 @@ void Formula::Cnf::Minimize() {
       cs_.insert(cs_.end(), p.first);
     }
   }
-#endif
 }
 
-bool Formula::Cnf::Entailed(const BasicActionTheory& bat,
-                            BasicActionTheory::split_level k) const {
+bool Formula::Cnf::Entailed(const Bat& bat,
+                            Bat::split_level k) const {
   std::vector<bool> entailed(cs_.size(), false);
   {
     size_t i = 0;
     for (const EClause& c : cs_) {
       if (c.Tautologous()) {
         entailed[i] = true;
-      } else if (c.clause().empty() && c.evals().empty()) {
+      } else if (c.clause().empty()) {
         return false;
       }
       ++i;
@@ -385,25 +250,7 @@ bool Formula::Cnf::Entailed(const BasicActionTheory& bat,
   {
     size_t i = 0;
     for (const EClause& c : cs_) {
-      if (!entailed[i] && bat.Entails(c.clause(), k)) {
-        entailed[i] = true;
-      }
-      ++i;
-    }
-  }
-  {
-    size_t i = 0;
-    for (const EClause& c : cs_) {
-      if (!entailed[i] && c.evals().empty()) {
-        return false;
-      }
-      ++i;
-    }
-  }
-  {
-    size_t i = 0;
-    for (const EClause& c : cs_) {
-      if (!entailed[i] && c.Evaluate(bat)) {
+      if (!entailed[i] && bat.EntailsClause(c.clause(), k)) {
         entailed[i] = true;
       }
       ++i;
@@ -413,16 +260,16 @@ bool Formula::Cnf::Entailed(const BasicActionTheory& bat,
                      [](bool r) { return r; });
 }
 
-bool Formula::Cnf::EntailedAt(BasicActionTheory::belief_level p,
-                              const BasicActionTheory& bat,
-                              BasicActionTheory::split_level k) const {
+bool Formula::Cnf::EntailedAt(Bat::belief_level p,
+                              const Bat& bat,
+                              Bat::split_level k) const {
   std::vector<bool> entailed(cs_.size(), false);
   {
     size_t i = 0;
     for (const EClause& c : cs_) {
       if (c.Tautologous()) {
         entailed[i] = true;
-      } else if (c.clause().empty() && c.evals().empty()) {
+      } else if (c.clause().empty()) {
         return false;
       }
       ++i;
@@ -431,29 +278,11 @@ bool Formula::Cnf::EntailedAt(BasicActionTheory::belief_level p,
   {
     size_t i = 0;
     for (const EClause& c : cs_) {
-      if (!entailed[i] && bat.EntailsAt(p, c.clause(), k)) {
+      if (!entailed[i] && bat.EntailsClauseAt(p, c.clause(), k)) {
         entailed[i] = true;
       }
       ++i;
     }
-  }
-  {
-    size_t i = 0;
-    for (const EClause& c : cs_) {
-      if (!entailed[i] && c.evals().empty()) {
-        return false;
-      }
-      ++i;
-    }
-  }
-  {
-    size_t i = 0;
-    for (const EClause& c : cs_) {
-      if (!entailed[i] && c.Evaluate(bat)) {
-        entailed[i] = true;
-      }
-    }
-    ++i;
   }
   return std::all_of(entailed.begin(), entailed.end(),
                      [](bool r) { return r; });
@@ -464,7 +293,6 @@ Formula::Cnf::EClause Formula::Cnf::EClause::Concat(const EClause& c1,
   EClause c = c1;
   c.eqs_.insert(c2.eqs_.begin(), c2.eqs_.end());
   c.c_.insert(c2.c_.begin(), c2.c_.end());
-  c.evals_.insert(c2.evals_.begin(), c2.evals_.end());
   return c;
 }
 
@@ -493,7 +321,6 @@ Maybe<Formula::Cnf::EClause> Formula::Cnf::EClause::Resolve(const EClause& c1,
     return Resolve(c2, c1);
   }
   EClause r = c2;
-  r.evals_.insert(c1.evals_.begin(), c1.evals_.end());
   if (ResolveLiterals(&r.c_, c1.c_)) {
     return Perhaps(!r.Tautologous(), r);
   }
@@ -512,14 +339,18 @@ Formula::Cnf::EClause Formula::Cnf::EClause::Substitute(
 
 template<class T>
 bool TautologousLiterals(const T& ls) {
-  for (auto it = ls.begin(); it != ls.end(); ) {
+  for (auto it = ls.begin(); it != ls.end(); ++it) {
     assert(ls.key_comp()(it->Negative(), it->Positive()));
-    const auto jt = std::next(it);
-    assert(ls.find(it->Flip()) == ls.end() || ls.find(it->Flip()) == jt);
-    if (jt != ls.end() && !it->sign() && *it == jt->Flip()) {
-      return true;
+    if (!it->sign()) {
+      for (auto jt = std::next(it); jt != ls.end(); ++jt) {
+        if (it->pred() != jt->pred()) {
+          break;
+        }
+        if (jt->sign() && *it == jt->Flip()) {
+          return true;
+        }
+      }
     }
-    it = jt;
   }
   return false;
 }
@@ -529,21 +360,17 @@ bool Formula::Cnf::EClause::Subsumes(const EClause& c) const {
   assert(c.ground());
   return c.eqs_.size() >= eqs_.size() &&
       c.c_.size() >= c_.size() &&
-      c.evals_.size() >= evals_.size() &&
       std::includes(c.eqs_.begin(), c.eqs_.end(),
                        eqs_.begin(), eqs_.end(), eqs_.key_comp()) &&
       std::includes(c.c_.begin(), c.c_.end(),
-                    c_.begin(), c_.end(), c_.key_comp()) &&
-      std::includes(c.evals_.begin(), c.evals_.end(),
-                    evals_.begin(), evals_.end(), evals_.key_comp());
+                    c_.begin(), c_.end(), c_.key_comp());
 }
 
 bool Formula::Cnf::EClause::Tautologous() const {
   assert(ground());
   return std::any_of(eqs_.begin(), eqs_.end(),
                      [](const Equal& e) { return e.Holds(); }) ||
-      TautologousLiterals(c_) ||
-      TautologousLiterals(evals_);
+      TautologousLiterals(c_);
 }
 
 void Formula::Cnf::EClause::Print(std::ostream* os) const {
@@ -561,13 +388,6 @@ void Formula::Cnf::EClause::Print(std::ostream* os) const {
       *os << " v ";
     }
     *os << l;
-    first = false;
-  }
-  for (const Eval& e : evals_) {
-    if (!first) {
-      *os << " v ";
-    }
-    *os << (e.sign() ? "" : "~") << "<Eval " << e.mem_id() << ">";
     first = false;
   }
   *os << ')';
@@ -614,12 +434,16 @@ struct Formula::Obj::Equal
     }
   }
 
-  ObjPtr Reduce(const BasicActionTheory&,
-                const StdName::SortedSet&) const override {
+  ObjPtr ObjRegress(Bat*, bool) const override {
     return ObjCopy();
   }
 
-  std::pair<Truth, ObjPtr> Simplify() const override {
+  ObjPtr ObjGroundObjectiveSensings(Bat*,
+                                    const StdName::SortedSet&) const override {
+    return ObjCopy();
+  }
+
+  std::pair<Truth, ObjPtr> ObjSimplify() const override {
     if (ground() || t1_ == t2_) {
       const Truth t = Holds() ? TRIVIALLY_TRUE : TRIVIALLY_FALSE;
       return std::make_pair(t, ObjPtr());
@@ -627,14 +451,15 @@ struct Formula::Obj::Equal
     return std::make_pair(NONTRIVIAL, ObjCopy());
   }
 
+  ObjPtr Reduce(const Bat&,
+                const StdName::SortedSet&) const override {
+    return ObjCopy();
+  }
+
   Cnf MakeCnf(const StdName::SortedSet&, StdName::SortedSet*) const override {
     Cnf::EClause c;
     c.AddEq(*this);
     return Cnf(c);
-  }
-
-  ObjPtr ObjRegress(Term::Factory*, const BasicActionTheory&) const override {
-    return ObjCopy();
   }
 
   void Print(std::ostream* os) const override {
@@ -670,13 +495,35 @@ struct Formula::Obj::Lit : public Formula::Obj {
     l.CollectNames(ns);
   }
 
-  ObjPtr Reduce(const BasicActionTheory&,
-                const StdName::SortedSet&) const override {
-    return ObjCopy();
+  ObjPtr ObjRegress(Bat* bat, bool is_obj_level) const override {
+    if (is_obj_level) {
+      return ObjCopy();
+    }
+    Maybe<ObjPtr> phi = bat->RegressOneStep(static_cast<const Atom&>(l));
+    if (!phi) {
+      return ObjCopy();
+    }
+    if (!l.sign()) {
+      phi.val->Negate();
+    }
+    return phi.val->ObjRegress(bat, is_obj_level);
   }
 
-  std::pair<Truth, ObjPtr> Simplify() const override {
+  ObjPtr ObjGroundObjectiveSensings(
+      Bat* bat,
+      const StdName::SortedSet& kb_and_query_ns) const override {
+    assert(l.pred() == Atom::SF);
+    assert(l.args().size() == 1);
+    return Value(bat->Sensed(ObjCopy(), kb_and_query_ns));
+  }
+
+  std::pair<Truth, ObjPtr> ObjSimplify() const override {
     return std::make_pair(NONTRIVIAL, ObjCopy());
+  }
+
+  ObjPtr Reduce(const Bat&,
+                const StdName::SortedSet&) const override {
+    return ObjCopy();
   }
 
   Cnf MakeCnf(const StdName::SortedSet&, StdName::SortedSet*) const override {
@@ -685,63 +532,8 @@ struct Formula::Obj::Lit : public Formula::Obj {
     return Cnf(c);
   }
 
-  ObjPtr ObjRegress(Term::Factory* tf,
-                    const BasicActionTheory& bat) const override {
-    Maybe<ObjPtr> phi = bat.RegressOneStep(tf, static_cast<const Atom&>(l));
-    if (!phi) {
-      return ObjCopy();
-    }
-    if (!l.sign()) {
-      phi.val->Negate();
-    }
-    return phi.val->ObjRegress(tf, bat);
-  }
-
   void Print(std::ostream* os) const override {
     *os << l;
-  }
-};
-
-struct Formula::Obj::Eval
-: public Formula::Obj, public Formula::Cnf::EClause::Eval {
-  using Formula::Cnf::EClause::Eval::Eval;
-
-  ObjPtr ObjCopy() const override { return ObjPtr(new Eval(*this)); }
-
-  void Negate() override { sign_ = !sign_; }
-
-  void PrependActions(const TermSeq&) override { }
-
-  void SubstituteInPlace(const Unifier&) override { }
-
-  void GroundInPlace(const Assignment&) override { }
-
-  void CollectFreeVariables(Variable::Set*) const override { }
-
-  void CollectNames(StdName::SortedSet*) const override { }
-
-  ObjPtr Reduce(const BasicActionTheory&,
-                const StdName::SortedSet&) const override {
-    return ObjCopy();
-  }
-
-  std::pair<Truth, ObjPtr> Simplify() const override {
-    return std::make_pair(NONTRIVIAL, ObjCopy());
-  }
-
-  Cnf MakeCnf(const StdName::SortedSet&, StdName::SortedSet*) const override {
-    Cnf::EClause c;
-    c.AddEval(*this);
-    return Cnf(c);
-  }
-
-  ObjPtr ObjRegress(Term::Factory*, const BasicActionTheory&) const override {
-    return ObjCopy();
-  }
-
-  void Print(std::ostream* os) const override {
-    const char* s = sign() ? "" : "~";
-    *os << s << "<Eval>";
   }
 };
 
@@ -788,7 +580,7 @@ struct Formula::BaseJunction : public BaseFormula {
     get_r()->CollectNames(ns);
   }
 
-  ObjPtr Reduce(const BasicActionTheory& bat,
+  ObjPtr Reduce(const Bat& bat,
                 const StdName::SortedSet& kb_and_query_ns) const override;
 
   void Print(std::ostream* os) const override {
@@ -801,53 +593,10 @@ struct Formula::BaseJunction : public BaseFormula {
   virtual Formula* get_r() = 0;
   virtual const Formula* get_l() const = 0;
   virtual const Formula* get_r() const = 0;
-};
 
-struct Formula::Junction : public Formula::BaseJunction<Formula> {
-  Ptr l;
-  Ptr r;
-
-  Junction(Type type, Ptr l, Ptr r)
-      : BaseJunction(type), l(std::move(l)), r(std::move(r)) {}
-
-  Ptr Copy() const override {
-    return Ptr(new Junction(type, l->Copy(), r->Copy()));
-  }
-
-  Ptr Regress(Term::Factory* tf, const BasicActionTheory& bat) const override {
-    Ptr ll = get_l()->Regress(tf, bat);
-    Ptr rr = get_r()->Regress(tf, bat);
-    return Ptr(new Junction(type, std::move(ll), std::move(rr)));
-  }
-
- protected:
-  Formula* get_l() override { return l.get(); }
-  Formula* get_r() override { return r.get(); }
-  const Formula* get_l() const override { return l.get(); }
-  const Formula* get_r() const override { return r.get(); }
-};
-
-struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
-  ObjPtr l;
-  ObjPtr r;
-
-  Junction(Type type, ObjPtr l, ObjPtr r)
-      : BaseJunction(type), l(std::move(l)), r(std::move(r)) {}
-
-  ObjPtr ObjCopy() const override {
-    return ObjPtr(new Junction(type, l->ObjCopy(), r->ObjCopy()));
-  }
-
-  ObjPtr ObjRegress(Term::Factory* tf,
-                    const BasicActionTheory& bat) const override {
-    ObjPtr ll = l->ObjRegress(tf, bat);
-    ObjPtr rr = r->ObjRegress(tf, bat);
-    return ObjPtr(new Junction(type, std::move(ll), std::move(rr)));
-  }
-
-  std::pair<Truth, ObjPtr> Simplify() const override {
-    auto p1 = l->Simplify();
-    auto p2 = r->Simplify();
+  template<class PtrType>
+  std::pair<Truth, PtrType> GenSimplify(std::pair<Truth, PtrType> p1,
+                                        std::pair<Truth, PtrType> p2) const {
     if (type == DISJUNCTION) {
       if (p1.first == TRIVIALLY_TRUE || p2.first == TRIVIALLY_TRUE) {
         return std::make_pair(TRIVIALLY_TRUE, ObjPtr());
@@ -873,8 +622,76 @@ struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
     assert(p1.first == NONTRIVIAL && p2.first == NONTRIVIAL);
     assert(p1.second);
     assert(p2.second);
-    ObjPtr psi(new Junction(type, std::move(p1.second), std::move(p2.second)));
+    PtrType psi(new typename BaseFormula::Junction(type,
+                                                   std::move(p1.second),
+                                                   std::move(p2.second)));
     return std::make_pair(NONTRIVIAL, std::move(psi));
+  }
+};
+
+struct Formula::Junction : public Formula::BaseJunction<Formula> {
+  Ptr l;
+  Ptr r;
+
+  Junction(Type type, Ptr l, Ptr r)
+      : BaseJunction(type), l(std::move(l)), r(std::move(r)) {}
+
+  Ptr Copy() const override {
+    return Ptr(new Junction(type, l->Copy(), r->Copy()));
+  }
+
+  Ptr Regress(Bat* bat, bool is_obj_level) const override {
+    Ptr ll = l->Regress(bat, is_obj_level);
+    Ptr rr = r->Regress(bat, is_obj_level);
+    return Ptr(new Junction(type, std::move(ll), std::move(rr)));
+  }
+
+  Ptr GroundObjectiveSensings(
+      Bat* bat,
+      const StdName::SortedSet& kb_and_query_ns) const override {
+    Ptr ll = l->GroundObjectiveSensings(bat, kb_and_query_ns);
+    Ptr rr = r->GroundObjectiveSensings(bat, kb_and_query_ns);
+    return Ptr(new Junction(type, std::move(ll), std::move(rr)));
+  }
+
+  std::pair<Truth, Ptr> Simplify() const override {
+    return GenSimplify(l->Simplify(), r->Simplify());
+  }
+
+ protected:
+  Formula* get_l() override { return l.get(); }
+  Formula* get_r() override { return r.get(); }
+  const Formula* get_l() const override { return l.get(); }
+  const Formula* get_r() const override { return r.get(); }
+};
+
+struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
+  ObjPtr l;
+  ObjPtr r;
+
+  Junction(Type type, ObjPtr l, ObjPtr r)
+      : BaseJunction(type), l(std::move(l)), r(std::move(r)) {}
+
+  ObjPtr ObjCopy() const override {
+    return ObjPtr(new Junction(type, l->ObjCopy(), r->ObjCopy()));
+  }
+
+  ObjPtr ObjRegress(Bat* bat, bool is_obj_level) const override {
+    ObjPtr ll = l->ObjRegress(bat, is_obj_level);
+    ObjPtr rr = r->ObjRegress(bat, is_obj_level);
+    return ObjPtr(new Junction(type, std::move(ll), std::move(rr)));
+  }
+
+  ObjPtr ObjGroundObjectiveSensings(
+      Bat* bat,
+      const StdName::SortedSet& kb_and_query_ns) const override {
+    ObjPtr ll = l->ObjGroundObjectiveSensings(bat, kb_and_query_ns);
+    ObjPtr rr = r->ObjGroundObjectiveSensings(bat, kb_and_query_ns);
+    return ObjPtr(new Junction(type, std::move(ll), std::move(rr)));
+  }
+
+  std::pair<Truth, ObjPtr> ObjSimplify() const override {
+    return GenSimplify(l->ObjSimplify(), r->ObjSimplify());
   }
 
   Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns,
@@ -897,7 +714,7 @@ struct Formula::Obj::Junction : public Formula::BaseJunction<Formula::Obj> {
 
 template<class BaseFormula>
 Formula::ObjPtr Formula::BaseJunction<BaseFormula>::Reduce(
-    const BasicActionTheory& bat,
+    const Bat& bat,
     const StdName::SortedSet& kb_and_query_ns) const {
   auto new_type = type == CONJUNCTION
       ? Obj::Junction::CONJUNCTION
@@ -948,7 +765,7 @@ struct Formula::BaseQuantifier : public BaseFormula {
     get_phi()->CollectNames(ns);
   }
 
-  ObjPtr Reduce(const BasicActionTheory& bat,
+  ObjPtr Reduce(const Bat& bat,
                 const StdName::SortedSet& kb_and_query_ns) const override;
 
   void Print(std::ostream* os) const override {
@@ -959,6 +776,20 @@ struct Formula::BaseQuantifier : public BaseFormula {
  protected:
   virtual Formula* get_phi() = 0;
   virtual const Formula* get_phi() const = 0;
+
+  template<class PtrType>
+  std::pair<Truth, PtrType> GenSimplify(std::pair<Truth, PtrType> p) const {
+    if (type == EXISTENTIAL && p.first == TRIVIALLY_TRUE) {
+      return std::make_pair(TRIVIALLY_TRUE, ObjPtr());
+    }
+    if (type == UNIVERSAL && p.first == TRIVIALLY_FALSE) {
+      return std::make_pair(TRIVIALLY_FALSE, ObjPtr());
+    }
+    assert(p.first == NONTRIVIAL);
+    PtrType psi(new typename BaseFormula::Quantifier(type, x,
+                                                     std::move(p.second)));
+    return std::make_pair(NONTRIVIAL, std::move(psi));
+  }
 };
 
 struct Formula::Quantifier : public Formula::BaseQuantifier<Formula> {
@@ -971,11 +802,22 @@ struct Formula::Quantifier : public Formula::BaseQuantifier<Formula> {
     return Ptr(new Quantifier(type, x, phi->Copy()));
   }
 
-  Ptr Regress(Term::Factory* tf, const BasicActionTheory& bat) const override {
-    Ptr psi = get_phi()->Regress(tf, bat);
-    const Variable y = tf->CreateVariable(x.sort());
+  Ptr Regress(Bat* bat, bool is_obj_level) const override {
+    Ptr psi = phi->Regress(bat, is_obj_level);
+    const Variable y = bat->mutable_tf()->CreateVariable(x.sort());
     psi->SubstituteInPlace({{x, y}});
     return Ptr(new Quantifier(type, y, std::move(psi)));
+  }
+
+  Ptr GroundObjectiveSensings(
+      Bat* bat,
+      const StdName::SortedSet& kb_and_query_ns) const override {
+    Ptr psi = phi->GroundObjectiveSensings(bat, kb_and_query_ns);
+    return Ptr(new Quantifier(type, x, std::move(psi)));
+  }
+
+  std::pair<Truth, Ptr> Simplify() const override {
+    return GenSimplify(phi->Simplify());
   }
 
  protected:
@@ -993,25 +835,22 @@ struct Formula::Obj::Quantifier : public Formula::BaseQuantifier<Formula::Obj> {
     return ObjPtr(new Quantifier(type, x, phi->ObjCopy()));
   }
 
-  ObjPtr ObjRegress(Term::Factory* tf,
-                    const BasicActionTheory& bat) const override {
-    ObjPtr psi = phi->ObjRegress(tf, bat);
-    const Variable y = tf->CreateVariable(x.sort());
+  ObjPtr ObjRegress(Bat* bat, bool is_obj_level) const override {
+    ObjPtr psi = phi->ObjRegress(bat, is_obj_level);
+    const Variable y = bat->mutable_tf()->CreateVariable(x.sort());
     psi->SubstituteInPlace({{x, y}});
     return ObjPtr(new Quantifier(type, y, std::move(psi)));
   }
 
-  std::pair<Truth, ObjPtr> Simplify() const override {
-    auto p = phi->Simplify();
-    if (type == EXISTENTIAL && p.first == TRIVIALLY_TRUE) {
-      return std::make_pair(TRIVIALLY_TRUE, ObjPtr());
-    }
-    if (type == UNIVERSAL && p.first == TRIVIALLY_FALSE) {
-      return std::make_pair(TRIVIALLY_FALSE, ObjPtr());
-    }
-    assert(p.first == NONTRIVIAL);
-    ObjPtr psi(new Quantifier(type, x, std::move(p.second)));
-    return std::make_pair(NONTRIVIAL, std::move(psi));
+  ObjPtr ObjGroundObjectiveSensings(
+      Bat* bat,
+      const StdName::SortedSet& kb_and_query_ns) const override {
+    ObjPtr psi = phi->ObjGroundObjectiveSensings(bat, kb_and_query_ns);
+    return ObjPtr(new Quantifier(type, x, std::move(psi)));
+  }
+
+  std::pair<Truth, ObjPtr> ObjSimplify() const override {
+    return GenSimplify(phi->ObjSimplify());
   }
 
   Cnf MakeCnf(const StdName::SortedSet& kb_and_query_ns,
@@ -1048,7 +887,7 @@ struct Formula::Obj::Quantifier : public Formula::BaseQuantifier<Formula::Obj> {
 
 template<class BaseFormula>
 Formula::ObjPtr Formula::BaseQuantifier<BaseFormula>::Reduce(
-    const BasicActionTheory& bat,
+    const Bat& bat,
     const StdName::SortedSet& kb_and_query_ns) const {
   auto new_type = type == EXISTENTIAL
       ? Obj::Quantifier::EXISTENTIAL
@@ -1155,67 +994,7 @@ struct Formula::Knowledge : public Formula {
     phi->CollectNames(ns);
   }
 
-  ObjPtr Reduce(const BasicActionTheory& bat,
-                const StdName::SortedSet& kb_and_query_ns) const override {
-    assert(z.empty());
-    Variable::Set vs;
-    CollectFreeVariables(&vs);
-    std::vector<ObjPtr> disjs;
-    for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
-      ObjPtr e = ReducedFormula(theta);
-      assert(e);
-      ObjPtr phi_red = phi->Reduce(bat, kb_and_query_ns);
-      phi_red->GroundInPlace(theta);
-      Truth truth;
-      std::tie(truth, phi_red) = phi_red->Simplify();
-      switch (truth) {
-        case TRIVIALLY_TRUE:
-          disjs.push_back(And(std::move(e), True()));
-          break;
-        case TRIVIALLY_FALSE:
-          disjs.push_back(And(std::move(e),
-                              bat.Inconsistent(k) ? True() : False()));
-          break;
-        case NONTRIVIAL:
-#if 1
-          Cnf cnf = phi_red->MakeCnf(kb_and_query_ns);
-          cnf.Minimize();
-          bool holds = std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
-                              [&bat, this](const Cnf::EClause& c) {
-                                return c.Tautologous() ||
-                                       bat.Entails(c.clause(), k);
-                              });
-          disjs.push_back(And(std::move(e), holds ? True() : False()));
-          break;
-#else
-          const split_level kk = k;
-          std::shared_ptr<Obj> phi_red_shared(phi_red.release());
-          const int id = eval_id++;
-          ObjPtr eval = ObjPtr(new Obj::Eval(
-                  [id, phi_red_shared, &kb_and_query_ns, kk](const BasicActionTheory& bat) {
-                    //std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " begins" << std::endl;
-                    Cnf cnf = phi_red_shared->MakeCnf(kb_and_query_ns);
-                    cnf.Minimize();
-                    const bool r = cnf.Entailed(bat, kk);
-                    //std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
-                    return r;
-                  }));
-          disjs.push_back(And(std::move(e), std::move(eval)));
-          break;
-#endif
-      }
-    }
-    ObjPtr r;
-    for (ObjPtr& disj : disjs) {
-      r = !r ? std::move(disj) : Or(std::move(r), std::move(disj));
-    }
-    if (!sign) {
-      r->Negate();
-    }
-    return std::move(r);
-  }
-
-  Ptr Regress(Term::Factory* tf, const BasicActionTheory& bat) const override {
+  Ptr Regress(Bat* bat, bool is_obj_level) const override {
     Maybe<TermSeq, Term> zt = z.SplitLast();
     if (zt) {
       ObjPtr pos(new Obj::Lit(SfLiteral(zt.val1, zt.val2, true)));
@@ -1248,11 +1027,62 @@ struct Formula::Knowledge : public Formula {
         beta->Negate();
       }
 #endif
-      return beta->Regress(tf, bat);
+      return beta->Regress(bat, is_obj_level);
     } else {
       assert(z.empty());
-      return Ptr(new Knowledge(k, z, sign, phi->Regress(tf, bat)));
+      return Ptr(new Knowledge(k, z, sign, phi->Regress(bat, false)));
     }
+  }
+
+  Ptr GroundObjectiveSensings(Bat*, const StdName::SortedSet&) const override {
+    return Copy();
+  }
+
+  std::pair<Truth, Ptr> Simplify() const {
+    return std::make_pair(NONTRIVIAL, Copy());
+  }
+
+  ObjPtr Reduce(const Bat& bat,
+                const StdName::SortedSet& kb_and_query_ns) const override {
+    assert(z.empty());
+    Variable::Set vs;
+    CollectFreeVariables(&vs);
+    std::vector<ObjPtr> disjs;
+    for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
+      ObjPtr e = ReducedFormula(theta);
+      assert(e);
+      ObjPtr phi_red = phi->Reduce(bat, kb_and_query_ns);
+      phi_red->GroundInPlace(theta);
+      Truth truth;
+      std::tie(truth, phi_red) = phi_red->ObjSimplify();
+      switch (truth) {
+        case TRIVIALLY_TRUE:
+          disjs.push_back(And(std::move(e), True()));
+          break;
+        case TRIVIALLY_FALSE:
+          disjs.push_back(And(std::move(e),
+                              bat.Inconsistent(k) ? True() : False()));
+          break;
+        case NONTRIVIAL:
+          Cnf cnf = phi_red->MakeCnf(kb_and_query_ns);
+          cnf.Minimize();
+          bool holds = std::all_of(cnf.clauses().begin(), cnf.clauses().end(),
+                              [&bat, this](const Cnf::EClause& c) {
+                                return c.Tautologous() ||
+                                       bat.EntailsClause(c.clause(), k);
+                              });
+          disjs.push_back(And(std::move(e), holds ? True() : False()));
+          break;
+      }
+    }
+    ObjPtr r;
+    for (ObjPtr& disj : disjs) {
+      r = !r ? std::move(disj) : Or(std::move(r), std::move(disj));
+    }
+    if (!sign) {
+      r->Negate();
+    }
+    return std::move(r);
   }
 
   void Print(std::ostream* os) const override {
@@ -1305,144 +1135,7 @@ struct Formula::Belief : public Formula {
     psi->CollectNames(ns);
   }
 
-  ObjPtr Reduce(const BasicActionTheory& bat,
-                const StdName::SortedSet& kb_and_query_ns) const override {
-    assert(z.empty());
-    const auto truth = [this](bool b) { return b ? True() : False(); };
-    Variable::Set vs;
-    CollectFreeVariables(&vs);
-    std::vector<ObjPtr> disjs;
-    for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
-      ObjPtr e = ReducedFormula(theta);
-      assert(e);
-      ObjPtr phi_red = phi->Reduce(bat, kb_and_query_ns);
-      ObjPtr psi_red = psi->Reduce(bat, kb_and_query_ns);
-      phi_red->GroundInPlace(theta);
-      psi_red->GroundInPlace(theta);
-      Truth phi_truth;
-      Truth psi_truth;
-      std::tie(phi_truth, phi_red) = phi_red->Simplify();
-      std::tie(psi_truth, psi_red) = psi_red->Simplify();
-      switch (psi_truth) {
-        case TRIVIALLY_TRUE:
-          disjs.push_back(And(std::move(e), True()));
-          break;
-        case TRIVIALLY_FALSE:
-          disjs.push_back(And(std::move(e), truth(bat.Inconsistent(k))));
-          break;
-        case NONTRIVIAL:
-          switch (phi_truth) {
-            case TRIVIALLY_TRUE: {
-#if 1
-              Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
-              psi_cnf.Minimize();
-              bool holds = true;
-              // To show True => psi, we look for the first consistent bat.
-              for (size_t p = 0; p < bat.n_levels(); ++p) {
-                if (!bat.InconsistentAt(p, k)) {
-                  holds = psi_cnf.EntailedAt(p, bat, k);
-                  break;
-                }
-              }
-              disjs.push_back(And(std::move(e), truth(holds)));
-#else
-              const split_level kk = k;
-              std::shared_ptr<Obj> psi_red_shared(psi_red.release());
-              const int id = eval_id++;
-              std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " created" << std::endl;
-              ObjPtr eval = ObjPtr(new Obj::Eval(
-                      [id, psi_red_shared, &kb_and_query_ns, kk](const BasicActionTheory& bat) {
-                        std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " begins" << std::endl;
-                        Cnf psi_cnf = psi_red_shared->MakeCnf(kb_and_query_ns);
-                        psi_cnf.Minimize();
-                        // To show True => psi, we look for the first consistent bat.
-                        for (size_t p = 0; p < bat.n_levels(); ++p) {
-                          if (!bat.InconsistentAt(p, kk)) {
-                            std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
-                            return psi_cnf.EntailedAt(p, bat, kk);
-                          }
-                        }
-                        std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
-                        return true;
-                      }));
-              disjs.push_back(And(std::move(e), std::move(eval)));
-#endif
-              break;
-            }
-            case TRIVIALLY_FALSE:
-              disjs.push_back(And(std::move(e), True()));
-              break;
-            case NONTRIVIAL: {
-#if 1
-              ObjPtr neg_phi = std::move(phi_red);
-              neg_phi->Negate();
-              Cnf neg_phi_cnf = neg_phi->MakeCnf(kb_and_query_ns);
-              Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
-              neg_phi_cnf.Minimize();
-              psi_cnf.Minimize();
-              bool holds = true;
-              // To show phi => psi, we look for the first level which is
-              // consistent with phi and then test whether it also entails psi.
-              // A level is consistent with phi iff it does not entail neg_phi
-              // Since neg_phi_cnf is a conjunction of clauses, this is true if
-              // any of these clauses is not entailed.
-              for (size_t p = 0; p < bat.n_levels(); ++p) {
-                const bool cons_with_phi = !neg_phi_cnf.EntailedAt(p, bat, k);
-                if (cons_with_phi) {
-                  holds = psi_cnf.EntailedAt(p, bat, k);
-                  break;
-                }
-              }
-              disjs.push_back(And(std::move(e), truth(holds)));
-#else
-              const split_level kk = k;
-              ObjPtr neg_phi = std::move(phi_red);
-              neg_phi->Negate();
-              std::shared_ptr<Obj> neg_phi_shared(neg_phi.release());
-              std::shared_ptr<Obj> psi_red_shared(psi_red.release());
-              const int id = eval_id++;
-              std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " created" << std::endl;
-              ObjPtr eval = ObjPtr(new Obj::Eval(
-                      [id, neg_phi_shared, psi_red_shared, kb_and_query_ns, kk](const BasicActionTheory& bat) {
-                        std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " begins" << std::endl;
-                        Cnf neg_phi_cnf = neg_phi_shared->MakeCnf(kb_and_query_ns);
-                        Cnf psi_cnf = psi_red_shared->MakeCnf(kb_and_query_ns);
-                        neg_phi_cnf.Minimize();
-                        psi_cnf.Minimize();
-                        // To show phi => psi, we look for the first level which is
-                        // consistent with phi and then test whether it also entails psi.
-                        // A level is consistent with phi iff it does not entail neg_phi
-                        // Since neg_phi_cnf is a conjunction of clauses, this is true if
-                        // any of these clauses is not entailed.
-                        for (size_t p = 0; p < bat.n_levels(); ++p) {
-                          const bool consistent_with_phi = !neg_phi_cnf.EntailedAt(p, bat, kk);
-                          if (consistent_with_phi) {
-                            std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
-                            return psi_cnf.EntailedAt(p, bat, kk);
-                          }
-                        }
-                        std::cout << __FILE__ << ":" << __LINE__ << ": " << "EVAL " << id << " ends" << std::endl;
-                        return true;
-                      }));
-              disjs.push_back(And(std::move(e), std::move(eval)));
-#endif
-              break;
-            }
-          }
-          break;
-      }
-    }
-    ObjPtr r;
-    for (ObjPtr& disj : disjs) {
-      r = !r ? std::move(disj) : Or(std::move(r), std::move(disj));
-    }
-    if (!sign) {
-      r->Negate();
-    }
-    return std::move(r);
-  }
-
-  Ptr Regress(Term::Factory* tf, const BasicActionTheory& bat) const override {
+  Ptr Regress(Bat* bat, bool is_obj_level) const override {
     Maybe<TermSeq, Term> zt = z.SplitLast();
     if (zt) {
       ObjPtr pos(new Obj::Lit(SfLiteral(zt.val1, zt.val2, true)));
@@ -1485,13 +1178,101 @@ struct Formula::Belief : public Formula {
         beta->Negate();
       }
 #endif
-      return beta->Regress(tf, bat);
+      return beta->Regress(bat, is_obj_level);
     } else {
       assert(z.empty());
       return Ptr(new Belief(k, z, sign,
-                            phi->Regress(tf, bat),
-                            psi->Regress(tf, bat)));
+                            phi->Regress(bat, false),
+                            psi->Regress(bat, false)));
     }
+  }
+
+  Ptr GroundObjectiveSensings(Bat*, const StdName::SortedSet&) const override {
+    return Copy();
+  }
+
+  std::pair<Truth, Ptr> Simplify() const {
+    return std::make_pair(NONTRIVIAL, Copy());
+  }
+
+  ObjPtr Reduce(const Bat& bat,
+                const StdName::SortedSet& kb_and_query_ns) const override {
+    assert(z.empty());
+    Variable::Set vs;
+    CollectFreeVariables(&vs);
+    std::vector<ObjPtr> disjs;
+    for (const Assignment& theta : ReducedAssignments(vs, kb_and_query_ns)) {
+      ObjPtr e = ReducedFormula(theta);
+      assert(e);
+      ObjPtr phi_red = phi->Reduce(bat, kb_and_query_ns);
+      ObjPtr psi_red = psi->Reduce(bat, kb_and_query_ns);
+      phi_red->GroundInPlace(theta);
+      psi_red->GroundInPlace(theta);
+      Truth phi_truth;
+      Truth psi_truth;
+      std::tie(phi_truth, phi_red) = phi_red->ObjSimplify();
+      std::tie(psi_truth, psi_red) = psi_red->ObjSimplify();
+      switch (psi_truth) {
+        case TRIVIALLY_TRUE:
+          disjs.push_back(And(std::move(e), True()));
+          break;
+        case TRIVIALLY_FALSE:
+          disjs.push_back(And(std::move(e), Value(bat.Inconsistent(k))));
+          break;
+        case NONTRIVIAL:
+          switch (phi_truth) {
+            case TRIVIALLY_TRUE: {
+              Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
+              psi_cnf.Minimize();
+              bool holds = true;
+              // To show True => psi, we look for the first consistent bat.
+              for (size_t p = 0; p < bat.n_levels(); ++p) {
+                if (!bat.InconsistentAt(p, k)) {
+                  holds = psi_cnf.EntailedAt(p, bat, k);
+                  break;
+                }
+              }
+              disjs.push_back(And(std::move(e), Value(holds)));
+              break;
+            }
+            case TRIVIALLY_FALSE:
+              disjs.push_back(And(std::move(e), True()));
+              break;
+            case NONTRIVIAL: {
+              ObjPtr neg_phi = std::move(phi_red);
+              neg_phi->Negate();
+              Cnf neg_phi_cnf = neg_phi->MakeCnf(kb_and_query_ns);
+              Cnf psi_cnf = psi_red->MakeCnf(kb_and_query_ns);
+              neg_phi_cnf.Minimize();
+              psi_cnf.Minimize();
+              bool holds = true;
+              // To show phi => psi, we look for the first level which is
+              // consistent with phi and then test whether it also entails psi.
+              // A level is consistent with phi iff it does not entail neg_phi
+              // Since neg_phi_cnf is a conjunction of clauses, this is true if
+              // any of these clauses is not entailed.
+              for (size_t p = 0; p < bat.n_levels(); ++p) {
+                const bool cons_with_phi = !neg_phi_cnf.EntailedAt(p, bat, k);
+                if (cons_with_phi) {
+                  holds = psi_cnf.EntailedAt(p, bat, k);
+                  break;
+                }
+              }
+              disjs.push_back(And(std::move(e), Value(holds)));
+              break;
+            }
+          }
+          break;
+      }
+    }
+    ObjPtr r;
+    for (ObjPtr& disj : disjs) {
+      r = !r ? std::move(disj) : Or(std::move(r), std::move(disj));
+    }
+    if (!sign) {
+      r->Negate();
+    }
+    return std::move(r);
   }
 
   void Print(std::ostream* os) const override {
@@ -1511,6 +1292,10 @@ Formula::ObjPtr Formula::True() {
 
 Formula::ObjPtr Formula::False() {
   return Neg(True());
+}
+
+Formula::ObjPtr Formula::Value(bool b) {
+  return b ? True() : False();
 }
 
 Formula::ObjPtr Formula::Eq(const Term& t1, const Term& t2) {
@@ -1643,17 +1428,53 @@ Formula::Ptr Formula::Obj::Copy() const {
   return ObjCopy();
 }
 
-Formula::Ptr Formula::Obj::Regress(Term::Factory* tf,
-                                   const BasicActionTheory& bat) const {
-  return ObjRegress(tf, bat);
+Formula::Ptr Formula::Obj::Regress(Bat* bat, bool is_obj_level) const {
+  return ObjRegress(bat, is_obj_level);
 }
 
-bool BasicActionTheory::Entails(const Formula::Ptr& phi) const {
-  StdName::SortedSet ns = names();
-  phi->CollectNames(&ns);
-  Formula::ObjPtr psi = phi->Reduce(*this, ns);
+Formula::Ptr Formula::Obj::GroundObjectiveSensings(
+    Bat* bat, const StdName::SortedSet& kb_and_query_ns) const {
+  return ObjGroundObjectiveSensings(bat, kb_and_query_ns);
+}
+
+std::pair<Formula::Truth, Formula::Ptr> Formula::Obj::Simplify() const {
+  Truth truth;
+  Ptr phi;
+  std::tie(truth, phi) = ObjSimplify();
+  return std::make_pair(truth, std::move(phi));
+}
+
+bool Bat::Entails(Formula::Ptr phi) {
+  if (regression()) {
+    phi = phi->Regress(this, true);
+  }
+  StdName::SortedSet kb_and_query_ns = names();
+  phi->CollectNames(&kb_and_query_ns);
+  phi = phi->GroundObjectiveSensings(this, kb_and_query_ns);
   Formula::Truth truth;
-  std::tie(truth, psi) = psi->Simplify();
+  std::tie(truth, phi) = phi->Simplify();
+  if (truth == Formula::TRIVIALLY_TRUE) {
+    return true;
+  }
+  if (truth == Formula::TRIVIALLY_FALSE) {
+    return Inconsistent(0);
+  }
+  Formula::ObjPtr psi = phi->Reduce(*this, kb_and_query_ns);
+  return Entails(std::move(psi), kb_and_query_ns);
+}
+
+bool Bat::Sensed(Formula::ObjPtr phi,
+                 const StdName::SortedSet& kb_and_query_ns) {
+  if (regression()) {
+    phi = phi->ObjRegress(this, false);
+  }
+  return Entails(std::move(phi), kb_and_query_ns);
+}
+
+bool Bat::Entails(Formula::ObjPtr psi,
+                  const StdName::SortedSet& kb_and_query_ns) const {
+  Formula::Truth truth;
+  std::tie(truth, psi) = psi->ObjSimplify();
   if (truth == Formula::TRIVIALLY_TRUE) {
     return true;
   }
@@ -1661,20 +1482,20 @@ bool BasicActionTheory::Entails(const Formula::Ptr& phi) const {
     return Inconsistent(0);
   }
   assert(psi);
-  Formula::Cnf cnf = psi->MakeCnf(ns);
-  //std::cout << "REDUCED: " << *psi << std::endl;
-  //std::cout << "NORMALIZED: "; cnf.Print(&std::cout); std::cout << std::endl;
+  Formula::Cnf cnf = psi->MakeCnf(kb_and_query_ns);
   cnf.Minimize();
-  //std::cout << "MINIMIZED: "; cnf.Print(&std::cout); std::cout << std::endl;
   return cnf.Entailed(*this, 0);
 }
 
-void BasicActionTheory::Add(const Formula::ObjPtr& phi) {
+void Bat::Add(Formula::ObjPtr phi) {
+  if (regression()) {
+    phi = phi->ObjRegress(this, false);
+  }
   StdName::SortedSet hplus = names();
   phi->CollectNames(&hplus);
   Formula::ObjPtr psi;
   Formula::Truth truth;
-  std::tie(truth, psi) = phi->Simplify();
+  std::tie(truth, psi) = phi->ObjSimplify();
   if (truth == Formula::TRIVIALLY_TRUE) {
     return;
   }

@@ -15,24 +15,21 @@
 #include "./setup.h"
 #include "./term.h"
 
-static int queries = 0;
-
 namespace esbl {
 
 namespace bats {
 
-class Bat : public BasicActionTheory {
+class EclipseBat : public Bat {
  public:
-  Bat() : tf_() {}
-  Bat(const Bat&) = delete;
-  Bat& operator=(const Bat&) = default;
-  virtual ~Bat() {}
+  EclipseBat() = default;
+  EclipseBat(const EclipseBat&) = delete;
+  EclipseBat& operator=(const EclipseBat&) = delete;
+  virtual ~EclipseBat() {}
 
   virtual Term::Id max_std_name() const = 0;
   virtual Atom::PredId max_pred() const = 0;
-
-  Term::Factory& tf() { return tf_; }
-  const Term::Factory& tf() const { return tf_; }
+  virtual int n_queries() const = 0;
+  virtual void ResetQueryCounter() = 0;
 
   Maybe<std::string> NameToString(const StdName& n) const {
     const auto it = name_to_string_.find(n);
@@ -89,26 +86,6 @@ class Bat : public BasicActionTheory {
   }
 
  protected:
-#if 0
-  void ClearNegativeCacheEntries() const {
-    for (auto it = cache_.begin(); it != cache_.end(); ) {
-      assert(it->second);
-      if (it->second.val) {
-        ++it;
-      } else {
-        it = cache_.erase(it);
-      }
-    }
-  }
-
-  Maybe<bool>* CacheLookup(belief_level p,
-                           const SimpleClause& c,
-                           split_level k) const {
-    return &cache_[std::make_tuple(p, k, c)];
-  }
-#endif
-
-  Term::Factory tf_;
   std::map<StdName, std::string> name_to_string_;
   std::map<Atom::PredId, std::string> pred_to_string_;
   std::map<Term::Sort, std::string> sort_to_string_;
@@ -135,19 +112,18 @@ class Bat : public BasicActionTheory {
                    Comparator> cache_;
 };
 
-class KBat : public Bat {
+class KBat : public EclipseBat {
  public:
-  KBat() : names_init_(false) {}
+  KBat() = default;
 
   void GuaranteeConsistency(split_level k) override {
     s_.GuaranteeConsistency(k);
-#if 0
-    ClearNegativeCacheEntries();
-#endif
   }
 
   const Setup& setup() const { return s_; }
   size_t n_levels() const override { return 1; }
+  int n_queries() const override { return n_queries_; }
+  void ResetQueryCounter() override { n_queries_ = 0; }
 
   const StdName::SortedSet& names() const override {
     if (!names_init_) {
@@ -160,9 +136,6 @@ class KBat : public Bat {
   void AddClause(const Clause& c) override {
     s_.AddClause(c);
     names_init_ = false;
-#if 0
-    ClearNegativeCacheEntries();
-#endif
   }
 
   bool InconsistentAt(belief_level p, split_level k) const override {
@@ -170,44 +143,33 @@ class KBat : public Bat {
     return s_.Inconsistent(k);
   }
 
-  bool EntailsAt(belief_level p,
-                 const SimpleClause& c,
-                 split_level k) const override {
+  bool EntailsClauseAt(belief_level p,
+                       const SimpleClause& c,
+                       split_level k) const override {
     assert(p == 0);
-#if 0
-    Maybe<bool>* r = CacheLookup(p, c, k);
-    if (*r) {
-      return r->val;
-    }
-    *r = Just(s_.Entails(c, k));
-    return r->val;
-#else
-    ++queries;
-    const bool r = s_.Entails(c, k);
-    //std::cout << __FILE__ << ":" << __LINE__ << ": split level " << k << ": " << c << " = " << std::boolalpha << r << std::endl;
-    return r;
-#endif
+    ++n_queries_;
+    return s_.Entails(c, k);
   }
 
  private:
   Setup s_;
   mutable StdName::SortedSet names_;
-  mutable bool names_init_;
+  mutable bool names_init_ = false;
+  mutable int n_queries_ = 0;
 };
 
-class BBat : public Bat {
+class BBat : public EclipseBat {
  public:
-  BBat() : names_init_(false) {}
+  BBat() = default;
 
   void GuaranteeConsistency(split_level k) override {
     s_.GuaranteeConsistency(k);
-#if 0
-    ClearNegativeCacheEntries();
-#endif
   }
 
   const Setups& setups() const { return s_; }
   size_t n_levels() const override { return s_.n_setups(); }
+  int n_queries() const override { return n_queries_; }
+  void ResetQueryCounter() override { n_queries_ = 0; }
 
   const StdName::SortedSet& names() const override {
     if (!names_init_) {
@@ -220,9 +182,6 @@ class BBat : public Bat {
   void AddClause(const Clause& c) override {
     s_.AddClause(c);
     names_init_ = false;
-#if 0
-    ClearNegativeCacheEntries();
-#endif
   }
 
   void AddBeliefConditional(const Clause& neg_phi,
@@ -230,37 +189,24 @@ class BBat : public Bat {
                             split_level k) {
     s_.AddBeliefConditional(neg_phi, psi, k);
     names_init_ = false;
-#if 0
-    ClearNegativeCacheEntries();
-#endif
   }
 
   bool InconsistentAt(belief_level p, split_level k) const override {
     return s_.setup(p).Inconsistent(k);
   }
 
-  bool EntailsAt(belief_level p,
-                 const SimpleClause& c,
-                 split_level k) const override {
-#if 0
-    Maybe<bool>* r = CacheLookup(p, c, k);
-    if (*r) {
-      return r->val;
-    }
-    *r = Just(s_.setup(p).Entails(c, k));
-    return r->val;
-#else
-    ++queries;
-    const bool r = s_.setup(p).Entails(c, k);
-    //std::cout << __FILE__ << ":" << __LINE__ << ": belief level " << p << ": split level " << k << ": " << c << " = " << std::boolalpha << r << std::endl;
-    return r;
-#endif
+  bool EntailsClauseAt(belief_level p,
+                       const SimpleClause& c,
+                       split_level k) const override {
+    ++n_queries_;
+    return s_.setup(p).Entails(c, k);
   }
 
  private:
   Setups s_;
   mutable StdName::SortedSet names_;
-  mutable bool names_init_;
+  mutable bool names_init_ = false;
+  mutable int n_queries_ = 0;
 };
 
 }  // namespace bats

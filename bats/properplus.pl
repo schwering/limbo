@@ -183,7 +183,7 @@ compile_vars(Names, [V|Vs], T) :-
     with_output_to(atom(VV), write_term(V, [variable_names(Names)])),
     compile_vars(Names, Vs, Ts),
     is_sort(V, Sort),
-    with_output_to(atom(T), format('const Variable ~w = tf_.CreateVariable(~w); ~w', [VV,Sort,Ts])).
+    with_output_to(atom(T), format('const Variable ~w = mutable_tf()->CreateVariable(~w); ~w', [VV,Sort,Ts])).
 
 
 brace_list_h(_, [], '').
@@ -377,7 +377,7 @@ init_standard_names(Stream, [N|Ns], MaxStdName) :-
     length(Ns, I),
     I1 is I + 1,
     sort_name(Sort, N),
-    format(Stream, '    , ~w(tf_.CreateStdName(~w, ~w))~n', [N, I1, Sort]),
+    format(Stream, '    , ~w(mutable_tf()->CreateStdName(~w, ~w))~n', [N, I1, Sort]),
     init_standard_names(Stream, Ns, MaxStdName1),
     MaxStdName is max(I1, MaxStdName1).
 
@@ -529,8 +529,7 @@ compile_all(Class, Input, Header, Body) :-
     format(BodyStream, '~n', []),
     define_predicate_names(BodyStream, Class, PredNames),
     format(BodyStream, '~n', []),
-    format(BodyStream, 'Maybe<Formula::ObjPtr> ~w::RegressOneStep(Term::Factory* tf, const Atom& _a) const {~n', [Class]),
-    format(BodyStream, '  Term::Factory& tf_ = *tf; // alias to reuse compile_lit/3~n', []),
+    format(BodyStream, 'Maybe<Formula::ObjPtr> ~w::RegressOneStep(const Atom& _a) {~n', [Class]),
     define_regression_step(BodyStream, Class, Boxes),
     format(BodyStream, '  return Nothing;~n', []),
     format(BodyStream, '}~n', []),
@@ -562,7 +561,7 @@ compile_all(Class, Input, Header, Body) :-
     format(HeaderStream, '~n', []),
     declare_and_define_max_stdname_function(HeaderStream, MaxStdName),
     declare_and_define_max_pred_function(HeaderStream, MaxPred),
-    format(HeaderStream, '  Maybe<Formula::ObjPtr> RegressOneStep(Term::Factory* tf, const Atom& _a) const override;~n', []),
+    format(HeaderStream, '  Maybe<Formula::ObjPtr> RegressOneStep(const Atom& _a) override;~n', []),
     format(HeaderStream, '};~n', []),
     format(HeaderStream, '~n', []),
     format(HeaderStream, '}  // namespace bats~n', []),

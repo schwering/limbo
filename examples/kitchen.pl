@@ -25,7 +25,7 @@
 :- external(guarantee_consistency/2, p_guarantee_consistency).
 :- external(add_sensing_result/4, p_add_sensing_result).
 :- external(inconsistent/2, p_inconsistent).
-:- external(entails/3, p_entails).
+:- external(entails/2, p_entails).
 
 cmdarg(X) :- argv(all, Xs), member(X, Xs).
 
@@ -55,44 +55,44 @@ measure(Call) :-
 
 :-  measure((
     guarantee_consistency(ctx, 2), % XXX higher k than original
-    entails(ctx, has_type(o1, boxA) v ~has_type(o1, boxA), 1),
-    \+ entails(ctx, has_type(o0, boxA), 1),
-    \+ entails(ctx, exists(X, type, has_type(o0, X)), 1),
-    \+ entails(ctx, exists(X, type, ~has_type(o0, X)), 1),
-    \+ entails(ctx, forall(X, type, has_type(o1, X)), 1),
-    \+ entails(ctx, forall(X, type, ~has_type(o1, X)), 1),
-    \+ entails(ctx, has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC), 2), % XXX higher k than original
-    \+ entails(ctx, has_type(o1, boxA), 2), % XXX higher k than original
-    \+ entails(ctx, has_type(o1, boxB), 2), % XXX higher k than original
-    \+ entails(ctx, has_type(o1, boxC), 2), % XXX higher k than original
+    entails(ctx, know(1, has_type(o1, boxA) v ~has_type(o1, boxA))),
+    \+ entails(ctx, know(1, has_type(o0, boxA))),
+    \+ entails(ctx, know(1, exists(X, type, has_type(o0, X)))),
+    \+ entails(ctx, know(1, exists(X, type, ~has_type(o0, X)))),
+    \+ entails(ctx, know(1, forall(X, type, has_type(o1, X)))),
+    \+ entails(ctx, know(1, forall(X, type, ~has_type(o1, X)))),
+    \+ entails(ctx, know(2, has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC))), % XXX higher k than original
+    \+ entails(ctx, know(2, has_type(o1, boxA))), % XXX higher k than original
+    \+ entails(ctx, know(2, has_type(o1, boxB))), % XXX higher k than original
+    \+ entails(ctx, know(2, has_type(o1, boxC))), % XXX higher k than original
     true)),
 
     measure((
     A1 = o0_has_type_boxA,
     add_sensing_result(ctx, [], A1, true),
-    entails(ctx, A1 : has_type(o0, boxA), 1),
-    entails(ctx, A1 : exists(X, type, has_type(o0, X)), 1),
-    \+ entails(ctx, A1 : exists(X, type, ~has_type(o0, X)), 1),
-    \+ entails(ctx, A1 : forall(X, type, has_type(o1, X)), 1),
-    \+ entails(ctx, A1 : forall(X, type, ~has_type(o1, X)), 1),
-    \+ entails(ctx, A1 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % XXX higher k than original
-    \+ entails(ctx, A1 : has_type(o1, boxA), 2), % XXX higher k than original
-    \+ entails(ctx, A1 : has_type(o1, boxB), 2), % XXX higher k than original
-    \+ entails(ctx, A1 : has_type(o1, boxC), 2), % XXX higher k than original
+    entails(ctx, A1 : know(1, has_type(o0, boxA))),
+    entails(ctx, A1 : know(1, exists(X, type, has_type(o0, X)))),
+    \+ entails(ctx, A1 : know(1, exists(X, type, ~has_type(o0, X)))),
+    \+ entails(ctx, A1 : know(1, forall(X, type, has_type(o1, X)))),
+    \+ entails(ctx, A1 : know(1, forall(X, type, ~has_type(o1, X)))),
+    \+ entails(ctx, A1 : know(2, (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)))), % XXX higher k than original
+    \+ entails(ctx, A1 : know(2, has_type(o1, boxA))), % XXX higher k than original
+    \+ entails(ctx, A1 : know(2, has_type(o1, boxB))), % XXX higher k than original
+    \+ entails(ctx, A1 : know(2, has_type(o1, boxC))), % XXX higher k than original
     true)),
  
     measure((
     A2 = o1_is_box,
     add_sensing_result(ctx, [A1], A2, true),
-    entails(ctx, A1 : A2 : has_type(o0, boxA), 1),
-    entails(ctx, A1 : A2 : exists(X, type, has_type(o0, X)), 1),
-    \+ entails(ctx, A1 : A2 : exists(X, type, ~has_type(o0, X)), 1),
-    \+ entails(ctx, A1 : A2 : forall(X, type, has_type(o1, X)), 1),
-    \+ entails(ctx, A1 : A2 : forall(X, type, ~has_type(o1, X)), 1),
-    entails(ctx, A1 : A2 : (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)), 2), % XXX XXX XXX higher k than original
-    \+ entails(ctx, A1 : A2 : has_type(o1, boxA), 2), % XXX higher k than original
-    \+ entails(ctx, A1 : A2 : has_type(o1, boxB), 2), % XXX higher k than original
-    \+ entails(ctx, A1 : A2 : has_type(o1, boxC), 2), % XXX higher k than original
+    entails(ctx, A1 : A2 : know(1, has_type(o0, boxA))),
+    entails(ctx, A1 : A2 : know(1, exists(X, type, has_type(o0, X)))),
+    \+ entails(ctx, A1 : A2 : know(1, exists(X, type, ~has_type(o0, X)))),
+    \+ entails(ctx, A1 : A2 : know(1, forall(X, type, has_type(o1, X)))),
+    \+ entails(ctx, A1 : A2 : know(1, forall(X, type, ~has_type(o1, X)))),
+    entails(ctx, A1 : A2 : know(2, (has_type(o1, boxA) v has_type(o1, boxB) v has_type(o1, boxC)))), % XXX XXX XXX higher k than original
+    \+ entails(ctx, A1 : A2 : know(2, has_type(o1, boxA))), % XXX higher k than original
+    \+ entails(ctx, A1 : A2 : know(2, has_type(o1, boxB))), % XXX higher k than original
+    \+ entails(ctx, A1 : A2 : know(2, has_type(o1, boxC))), % XXX higher k than original
     true)),
 
     writeln('very good').

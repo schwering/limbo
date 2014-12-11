@@ -4,7 +4,7 @@
 
 sort_name(action, n).
 
-box('SF'(A) <-> p) :- put_sort(A, action).
+box('SF'(A) <-> A = n v p) :- put_sort(A, action).
 
 box(A:p <-> p) :- put_sort(A, action).
 
