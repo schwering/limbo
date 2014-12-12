@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <functional>
 #include <utility>
 #include "./formula.h"
 #include "./compar.h"
@@ -1044,7 +1043,7 @@ struct Formula::Knowledge : public Formula {
 
   ObjPtr Reduce(const Bat& bat,
                 const StdName::SortedSet& kb_and_query_ns) const override {
-    assert(z.empty());
+    assert(z.ground());
     Variable::Set vs;
     CollectFreeVariables(&vs);
     std::vector<ObjPtr> disjs;
@@ -1052,6 +1051,7 @@ struct Formula::Knowledge : public Formula {
       ObjPtr e = ReducedFormula(theta);
       assert(e);
       ObjPtr phi_red = phi->Reduce(bat, kb_and_query_ns);
+      phi_red->PrependActions(z);
       phi_red->GroundInPlace(theta);
       Truth truth;
       std::tie(truth, phi_red) = phi_red->ObjSimplify();
@@ -1197,7 +1197,7 @@ struct Formula::Belief : public Formula {
 
   ObjPtr Reduce(const Bat& bat,
                 const StdName::SortedSet& kb_and_query_ns) const override {
-    assert(z.empty());
+    assert(z.ground());
     Variable::Set vs;
     CollectFreeVariables(&vs);
     std::vector<ObjPtr> disjs;
@@ -1206,6 +1206,8 @@ struct Formula::Belief : public Formula {
       assert(e);
       ObjPtr phi_red = phi->Reduce(bat, kb_and_query_ns);
       ObjPtr psi_red = psi->Reduce(bat, kb_and_query_ns);
+      phi_red->PrependActions(z);
+      psi_red->PrependActions(z);
       phi_red->GroundInPlace(theta);
       psi_red->GroundInPlace(theta);
       Truth phi_truth;
