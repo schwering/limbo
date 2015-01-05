@@ -78,21 +78,13 @@ class Game {
 
   Game(const size_t dimen, const size_t n_mines)
       : dimen_(dimen),
+        n_mines_(n_mines),
         distribution_(0, dimen_ - 1) {
     mines_.resize(dimen_ * dimen_, false);
     picks_.resize(dimen_ * dimen_, false);
     assert(mines_.size() == dimen_ * dimen_);
-    assert(n_mines <= dimen_ * dimen_);
-    for (n_mines_ = 0; n_mines_ < n_mines; ) {
-      Point p;
-      p.x = distribution_(generator_);
-      p.y = distribution_(generator_);
-      if (!mine(p)) {
-        set_mine(p, true);
-        ++n_mines_;
-      }
-    }
-    assert(n_mines == n_mines_);
+    assert(n_mines_ < dimen_ * dimen_);
+    generator_.seed(dimen * n_mines);
   }
 
   size_t dimension() const { return dimen_; }
@@ -113,6 +105,14 @@ class Game {
       }
     }
     return s;
+  }
+
+  Point RandomPoint() {
+    Point p;
+    p.x = distribution_(generator_);
+    p.x = distribution_(generator_);
+    p.y = distribution_(generator_);
+    return p;
   }
 
   Point toPoint(size_t index) const {
@@ -140,18 +140,33 @@ class Game {
     return picks_[dimen_ * p.x + p.y];
   }
 
-  int PickRandom() {
-    Point p;
-    p.x = distribution_(generator_);
-    p.y = distribution_(generator_);
-    return Pick(p);
-  }
-
   int Pick(Point p) {
     assert(!picked(p));
     picks_[dimen_ * p.x + p.y] = true;
     assert(picked(p));
-    return state(p);
+    ++n_picks_;
+
+    frontier_.erase(p);
+    const Game* self = this;
+    std::set<Point> qs = FilterNeighborsOf(
+        p, [self](const Point& q) { return !self->picked(q); });
+    frontier_.insert(qs.begin(), qs.end());
+
+    // Place mines after first pick
+    if (!mines_placed_) {
+      for (size_t n = 0; n < n_mines_; ) {
+        const Point p = RandomPoint();
+        if (!mine(p) && !picked(p)) {
+          set_mine(p, true);
+          ++n;
+        }
+      }
+      mines_placed_ = true;
+    }
+
+    const int s = state(p);
+    hit_mine_ |= s == HIT_MINE;
+    return s;
   }
 
   int PickWithFrontier(Point p) {
@@ -177,22 +192,35 @@ class Game {
     return FilterNeighborsOf(p, [self](const Point& q) { return self->mine(q); }).size();
   }
 
+  size_t n_picks() const { return n_picks_; }
+
+  const std::set<Point>& frontier() const { return frontier_; }
+
+  bool hit_mine() const {
+    return hit_mine_;
+  }
+
   bool all_explored() const {
-    for (size_t x = 0; x < dimen_; ++x) {
-      for (size_t y = 0; y < dimen_; ++y) {
-        if (!picked(Point(x, y)) && !mine(Point(x, y))) {
-          return false;
-        }
-      }
-    }
-    return true;
+    return n_picks() + n_mines_ == dimen_ * dimen_;
+    //for (size_t x = 0; x < dimen_; ++x) {
+    //  for (size_t y = 0; y < dimen_; ++y) {
+    //    if (!picked(Point(x, y)) && !mine(Point(x, y))) {
+    //      return false;
+    //    }
+    //  }
+    //}
+    //return true;
   }
 
  private:
-  std::vector<bool> mines_;
-  std::vector<bool> picks_;
   size_t dimen_;
   size_t n_mines_;
+  size_t n_picks_ = 0;
+  bool hit_mine_ = false;
+  std::vector<bool> mines_;
+  std::vector<bool> picks_;
+  std::set<Point> frontier_;
+  bool mines_placed_ = false;
   std::default_random_engine generator_;
   std::uniform_int_distribution<size_t> distribution_;
 };
@@ -363,66 +391,79 @@ class KnowledgeBasePrinter : public Printer {
 
 class Agent {
  public:
-  virtual Point Explore() = 0;
+  virtual void Explore() = 0;
 };
 
 class HumanAgent : public Agent {
  public:
-  Point Explore() override {
-    Point p;
-    std::cout << "X and Y coordinates: ";
-    std::cin >> p.x >> p.y;
-    return p;
+  explicit HumanAgent(Game* g) : g_(g) {}
+
+  void Explore() override {
+    for (;;) {
+      Point p;
+      std::cout << "X and Y coordinates: ";
+      std::cin >> p.x >> p.y;
+      if (!g_->valid(p) || g_->picked(p)) {
+        std::cout << "Invalid coordinates, repeat" << std::endl;
+        continue;
+      }
+      g_->PickWithFrontier(p);
+      return;
+    }
   }
+
+ private:
+  Game* g_;
 };
 
 class KnowledgeBaseAgent : public Agent {
  public:
   explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) {}
 
-  Point Explore() override {
+  void Explore() override {
+    kb_->Sync();
+
+    // First pick is the center field.
+    if (!have_cluster_) {
+      const Point p = g_->RandomPoint();
+      std::cout << "X and Y coordinates: " << p.x << " " << p.y << " chosen at random" << std::endl;
+      const int s = g_->PickWithFrontier(p);
+      have_cluster_ = s == 0;
+      return;
+    }
+
+    // First look for a field which is known not to be a mine.
     const Setup::split_level MAX_K = 4;
     for (Setup::split_level k = 0; k < MAX_K; ++k) {
-      for (size_t x = 0; x < g_->dimension(); ++x) {
-        for (size_t y = 0; y < g_->dimension(); ++y) {
-          const Point p(x, y);
-          if (!g_->picked(p)) {
-            const Maybe<bool> r = kb_->IsMine(p, k);
-            if (r.succ && !r.val) {
-              std::cout << "X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
-              return p;
-            }
-          }
+      for (const Point p : g_->frontier()) {
+        const Maybe<bool> r = kb_->IsMine(p, k);
+        if (r.succ && !r.val) {
+          std::cout << "X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
+          g_->PickWithFrontier(p);
+          return;
         }
       }
     }
-    for (size_t x = 0; x < g_->dimension(); ++x) {
-      for (size_t y = 0; y < g_->dimension(); ++y) {
-        const Point p(x, y);
-        if (!g_->picked(p)) {
-          const Maybe<bool> r = kb_->IsMine(p, MAX_K);
-          if (!r.succ) {
-            std::cout << "X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess. I should have done some more reasoning." << std::endl;
-            return p;
-          }
-        }
+
+    // Otherwise look for a field which is we don't know anything about.
+    for (const Point p : g_->frontier()) {
+      const Maybe<bool> r = kb_->IsMine(p, MAX_K);
+      if (!r.succ) {
+        std::cout << "X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess. I should have done some more reasoning." << std::endl;
+        g_->PickWithFrontier(p);
+        return;
       }
     }
-    for (size_t x = 0; x < g_->dimension(); ++x) {
-      for (size_t y = 0; y < g_->dimension(); ++y) {
-        const Point p(x, y);
-        if (!g_->picked(p)) {
-          std::cout << "X and Y coordinates: " << p.x << " " << p.y << ", which is just a wild guess. I should have done some more reasoning." << std::endl;
-          return p;
-        }
-      }
-    }
-    return Point(0, 0);
+
+    // That's weird, this case should never occur, because our reasoning should
+    // be correct.
+    assert(false);
   }
 
  private:
   Game* g_;
   KnowledgeBase* kb_;
+  bool have_cluster_ = false;
 };
 
 int main(int argc, char *argv[]) {
@@ -438,27 +479,19 @@ int main(int argc, char *argv[]) {
   Game g(dimen, n_mines);
   KnowledgeBase kb(&g);
   KnowledgeBaseAgent agent(&g, &kb);
-  KnowledgeBasePrinter printer(&kb);
-  printer.Print(std::cout, g);
-  std::cout << std::endl;
-  std::cout << std::endl;
+  //KnowledgeBasePrinter printer(&kb);
+  SimplePrinter printer;
   if (argv[argc - 1] == std::string("play")) {
-    int s;
     do {
-      Point p = agent.Explore();
-      if (!g.valid(p) && g.picked(p)) {
-        std::cout << "Invalid coordinates, repeat" << std::endl;
-        continue;
-      }
-      s = g.PickWithFrontier(p);
+      agent.Explore();
       printer.Print(std::cout, g);
       std::cout << std::endl;
       std::cout << std::endl;
-    } while (s != Game::HIT_MINE && !g.all_explored());
+    } while (!g.hit_mine() && !g.all_explored());
     OmniscientPrinter().Print(std::cout, g);
     std::cout << std::endl;
     std::cout << std::endl;
-    if (s == Game::HIT_MINE) {
+    if (g.hit_mine()) {
       std::cout << "You loose :-(" << std::endl;
     } else {
       std::cout << "You win :-)" << std::endl;
