@@ -25,15 +25,11 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
 	endif()
 endif()
 
-# Recurse into the "src" and "examples" subdirectories. This does not actually
-# cause another cmake executable to run. The same process will walk through
-# the project's entire directory structure.
 add_subdirectory (src)
 add_subdirectory (bats)
-#add_subdirectory (examples)
+add_subdirectory (examples)
 add_subdirectory (tests)
 add_subdirectory (eclipse-clp)
 
-# Enable tests
 enable_testing ()
 
