@@ -71,12 +71,12 @@ std::set<std::set<T>> Subsets(const std::set<T>& s, size_t n) {
 
 }  // namespace util
 
-class Field {
+class Game {
  public:
   static constexpr int UNEXPLORED = -2;
   static constexpr int HIT_MINE = -1;
 
-  Field(const size_t dimen, const size_t n_mines)
+  Game(const size_t dimen, const size_t n_mines)
       : dimen_(dimen),
         distribution_(0, dimen_ - 1) {
     mines_.resize(dimen_ * dimen_, false);
@@ -173,7 +173,7 @@ class Field {
     if (mine(p)) {
       return HIT_MINE;
     }
-    const Field* self = this;
+    const Game* self = this;
     return FilterNeighborsOf(p, [self](const Point& q) { return self->mine(q); }).size();
   }
 
@@ -206,57 +206,59 @@ class Printer {
   static constexpr int RED = 31;
   static constexpr int GREEN = 32;
 
-  void Print(std::ostream& os, const Field& f) {
+  void Print(std::ostream& os, const Game& g) {
     const int width = 3;
     os << std::setw(width) << "";
-    for (size_t x = 0; x < f.dimension(); ++x) {
+    for (size_t x = 0; x < g.dimension(); ++x) {
       os << std::setw(width) << x;
     }
     os << std::endl;
-    for (size_t y = 0; y < f.dimension(); ++y) {
+    for (size_t y = 0; y < g.dimension(); ++y) {
       os << std::setw(width) << y;
-      for (size_t x = 0; x < f.dimension(); ++x) {
-        std::pair<int, std::string> l = label(f, Point(x, y));
+      for (size_t x = 0; x < g.dimension(); ++x) {
+        std::pair<int, std::string> l = label(g, Point(x, y));
         os << "\033[" << l.first << "m" << std::setw(width) << l.second << "\033[0m";
       }
       os << std::endl;
     }
   }
 
-  virtual std::pair<int, std::string> label(const Field&, Point) = 0;
+  virtual std::pair<int, std::string> label(const Game&, Point) = 0;
 };
 
-class OmniscientPrinter : public Printer {
+class KnowledgeBase {
  public:
-  std::pair<int, std::string> label(const Field& f, Point p) {
-    return f.mine(p) ? std::make_pair(RED, "X") : std::make_pair(RESET, "");
+  explicit KnowledgeBase(const Game* g) : g_(g) {
+    processed_.resize(g_->dimension() * g_->dimension(), false);
   }
-};
 
-class SimplePrinter : public Printer {
- public:
-  std::pair<int, std::string> label(const Field& f, Point p) override {
-    switch (f.state(p)) {
-      case Field::UNEXPLORED: return std::make_pair(RESET, "");
-      case Field::HIT_MINE:   return std::make_pair(RED, "X");
-      case 0:                 return std::make_pair(DIM, ".");
-      default: {
-        std::stringstream ss;
-        ss << f.state(p);
-        return std::make_pair(RESET, ss.str());
+  Maybe<bool> IsMine(Point p, Setup::split_level k) {
+    SimpleClause yes_mine({MineLit(true, p)});
+    SimpleClause no_mine({MineLit(false, p)});
+    if (s_.Entails(yes_mine, k)) {
+      assert(g_->mine(p));
+      return Just(true);
+    }
+    if (s_.Entails(no_mine, k)) {
+      assert(!g_->mine(p));
+      return Just(false);
+    }
+    return Nothing;
+  }
+
+  void Sync() {
+    for (size_t index = 0; index < g_->dimension() * g_->dimension(); ++index) {
+      if (!processed_[index]) {
+        processed_[index] = Update(g_->toPoint(index));
       }
     }
   }
-};
 
-class SetupPrinter : public Printer {
- public:
-  SetupPrinter(const Field* f) : f_(f) {
-    processed_.resize(f_->dimension() * f_->dimension(), false);
-  }
+  const Setup& setup() const { return s_; }
 
+ private:
   Literal MineLit(bool is, Point p) {
-    return Literal({}, is, p.x * f_->dimension() + p.y, {});
+    return Literal({}, is, p.x * g_->dimension() + p.y, {});
   }
 
   Clause MineClause(bool sign, const std::set<Point> ns) {
@@ -267,62 +269,18 @@ class SetupPrinter : public Printer {
     return Clause(Ewff::TRUE, c);
   }
 
-  std::pair<int, std::string> label(const Field& f, Point p) override {
-    assert(&f == f_);
-    UpdateKb();
-    switch (f.state(p)) {
-      case Field::UNEXPLORED: {
-        SimpleClause yes_mine({MineLit(true, p)});
-        SimpleClause no_mine({MineLit(false, p)});
-        for (Setup::split_level k = 0; k < 2; ++k) {
-          if (s_.Entails(yes_mine, k)) {
-            assert(f_->mine(p));
-            return std::make_pair(RED, "X");
-          } else if (s_.Entails(no_mine, k)) {
-            assert(!f_->mine(p));
-            return std::make_pair(GREEN, "$");
-          }
-        }
-        return std::make_pair(RESET, "");
-      }
-      case Field::HIT_MINE: {
-        return std::make_pair(RED, "X");
-      }
-      default: {
-        const int m = f.state(p);
-        if (m == 0) {
-          return std::make_pair(DIM, ".");
-        }
-        std::stringstream ss;
-        ss << m;
-        return std::make_pair(RESET, ss.str());
-      }
-    }
-  }
-
-  const Setup& setup() const { return s_; }
-
- private:
-  void UpdateKb() {
-    for (size_t index = 0; index < f_->dimension() * f_->dimension(); ++index) {
-      if (!processed_[index]) {
-        processed_[index] = UpdateKb(f_->toPoint(index));
-      }
-    }
-  }
-
-  bool UpdateKb(Point p) {
-    const int m = f_->state(p);
+  bool Update(Point p) {
+    const int m = g_->state(p);
     switch (m) {
-      case Field::UNEXPLORED: {
+      case Game::UNEXPLORED: {
         return false;
       }
-      case Field::HIT_MINE: {
+      case Game::HIT_MINE: {
         s_.AddClause(Clause(Ewff::TRUE, {MineLit(true, p)}));
         return true;
       }
       default: {
-        std::set<Point> ns = f_->NeighborsOf(p);
+        std::set<Point> ns = g_->NeighborsOf(p);
         const int n = ns.size();
         //std::cerr << "n = " << n << ", m = " << m << std::endl;
         for (const std::set<Point>& ps : util::Subsets(ns, n - m + 1)) {
@@ -337,9 +295,134 @@ class SetupPrinter : public Printer {
     }
   }
 
-  const Field* f_;
+  const Game* g_;
   Setup s_;
   std::vector<bool> processed_;
+};
+
+class OmniscientPrinter : public Printer {
+ public:
+  std::pair<int, std::string> label(const Game& g, Point p) {
+    return g.mine(p) ? std::make_pair(RED, "X") : std::make_pair(RESET, "");
+  }
+};
+
+class SimplePrinter : public Printer {
+ public:
+  std::pair<int, std::string> label(const Game& g, Point p) override {
+    switch (g.state(p)) {
+      case Game::UNEXPLORED: return std::make_pair(RESET, "");
+      case Game::HIT_MINE:   return std::make_pair(RED, "X");
+      case 0:                 return std::make_pair(DIM, ".");
+      default: {
+        std::stringstream ss;
+        ss << g.state(p);
+        return std::make_pair(RESET, ss.str());
+      }
+    }
+  }
+};
+
+class KnowledgeBasePrinter : public Printer {
+ public:
+  explicit KnowledgeBasePrinter(KnowledgeBase* kb) : kb_(kb) {}
+
+  std::pair<int, std::string> label(const Game& g, Point p) override {
+    kb_->Sync();
+    switch (g.state(p)) {
+      case Game::UNEXPLORED: {
+        const Maybe<bool> r = kb_->IsMine(p, 2);
+        if (r.succ) {
+          assert(g.mine(p) == r.val);
+          if (r.val) {
+            return std::make_pair(RED, "X");
+          } else if (!r.val) {
+            return std::make_pair(GREEN, "$");
+          }
+        }
+        return std::make_pair(RESET, "");
+      }
+      case Game::HIT_MINE: {
+        return std::make_pair(RED, "X");
+      }
+      default: {
+        const int m = g.state(p);
+        if (m == 0) {
+          return std::make_pair(DIM, ".");
+        }
+        std::stringstream ss;
+        ss << m;
+        return std::make_pair(RESET, ss.str());
+      }
+    }
+  }
+
+ private:
+  KnowledgeBase* kb_;
+};
+
+class Agent {
+ public:
+  virtual Point Explore() = 0;
+};
+
+class HumanAgent : public Agent {
+ public:
+  Point Explore() override {
+    Point p;
+    std::cout << "X and Y coordinates: ";
+    std::cin >> p.x >> p.y;
+    return p;
+  }
+};
+
+class KnowledgeBaseAgent : public Agent {
+ public:
+  explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) {}
+
+  Point Explore() override {
+    const Setup::split_level MAX_K = 4;
+    for (Setup::split_level k = 0; k < MAX_K; ++k) {
+      for (size_t x = 0; x < g_->dimension(); ++x) {
+        for (size_t y = 0; y < g_->dimension(); ++y) {
+          const Point p(x, y);
+          if (!g_->picked(p)) {
+            const Maybe<bool> r = kb_->IsMine(p, k);
+            if (r.succ && !r.val) {
+              std::cout << "X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
+              return p;
+            }
+          }
+        }
+      }
+    }
+    for (size_t x = 0; x < g_->dimension(); ++x) {
+      for (size_t y = 0; y < g_->dimension(); ++y) {
+        const Point p(x, y);
+        if (!g_->picked(p)) {
+          const Maybe<bool> r = kb_->IsMine(p, MAX_K);
+          if (!r.succ) {
+            std::cout << "X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess. I should have done some more reasoning." << std::endl;
+            return p;
+          }
+        }
+      }
+    }
+    for (size_t x = 0; x < g_->dimension(); ++x) {
+      for (size_t y = 0; y < g_->dimension(); ++y) {
+        const Point p(x, y);
+        if (!g_->picked(p)) {
+          std::cout << "X and Y coordinates: " << p.x << " " << p.y << ", which is just a wild guess. I should have done some more reasoning." << std::endl;
+          return p;
+        }
+      }
+    }
+    return Point(0, 0);
+  }
+
+ private:
+  Game* g_;
+  KnowledgeBase* kb_;
 };
 
 int main(int argc, char *argv[]) {
@@ -352,30 +435,30 @@ int main(int argc, char *argv[]) {
   if (argc >= 3) {
     n_mines = atoi(argv[2]);
   }
-  Field f(dimen, n_mines);
-  SetupPrinter printer(&f);
-  printer.Print(std::cout, f);
+  Game g(dimen, n_mines);
+  KnowledgeBase kb(&g);
+  KnowledgeBaseAgent agent(&g, &kb);
+  KnowledgeBasePrinter printer(&kb);
+  printer.Print(std::cout, g);
   std::cout << std::endl;
   std::cout << std::endl;
   if (argv[argc - 1] == std::string("play")) {
     int s;
     do {
-      Point p;
-      std::cout << "X and Y coordinates: ";
-      std::cin >> p.x >> p.y;
-      if (!f.valid(p) && f.picked(p)) {
+      Point p = agent.Explore();
+      if (!g.valid(p) && g.picked(p)) {
         std::cout << "Invalid coordinates, repeat" << std::endl;
         continue;
       }
-      s = f.PickWithFrontier(p);
-      printer.Print(std::cout, f);
+      s = g.PickWithFrontier(p);
+      printer.Print(std::cout, g);
       std::cout << std::endl;
       std::cout << std::endl;
-    } while (s != Field::HIT_MINE && !f.all_explored());
-    OmniscientPrinter().Print(std::cout, f);
+    } while (s != Game::HIT_MINE && !g.all_explored());
+    OmniscientPrinter().Print(std::cout, g);
     std::cout << std::endl;
     std::cout << std::endl;
-    if (s == Field::HIT_MINE) {
+    if (s == Game::HIT_MINE) {
       std::cout << "You loose :-(" << std::endl;
     } else {
       std::cout << "You win :-)" << std::endl;
