@@ -199,6 +199,13 @@ class Field {
 
 class Printer {
  public:
+  static constexpr int RESET = 0;
+  static constexpr int BRIGHT = 1;
+  static constexpr int DIM = 2;
+  static constexpr int BLACK = 30;
+  static constexpr int RED = 31;
+  static constexpr int GREEN = 32;
+
   void Print(std::ostream& os, const Field& f) {
     const int width = 3;
     os << std::setw(width) << "";
@@ -209,33 +216,34 @@ class Printer {
     for (size_t y = 0; y < f.dimension(); ++y) {
       os << std::setw(width) << y;
       for (size_t x = 0; x < f.dimension(); ++x) {
-        os << std::setw(width) << label(f, Point(x, y));
+        std::pair<int, std::string> l = label(f, Point(x, y));
+        os << "\033[" << l.first << "m" << std::setw(width) << l.second << "\033[0m";
       }
       os << std::endl;
     }
   }
 
-  virtual std::string label(const Field& f, Point p) = 0;
+  virtual std::pair<int, std::string> label(const Field&, Point) = 0;
 };
 
 class OmniscientPrinter : public Printer {
  public:
-  std::string label(const Field& f, Point p) {
-    return f.mine(p) ? "X" : "";
+  std::pair<int, std::string> label(const Field& f, Point p) {
+    return f.mine(p) ? std::make_pair(RED, "X") : std::make_pair(RESET, "");
   }
 };
 
 class SimplePrinter : public Printer {
  public:
-  std::string label(const Field& f, Point p) override {
+  std::pair<int, std::string> label(const Field& f, Point p) override {
     switch (f.state(p)) {
-      case Field::UNEXPLORED: return "";
-      case Field::HIT_MINE:   return "X";
-      case 0:                 return ".";
+      case Field::UNEXPLORED: return std::make_pair(RESET, "");
+      case Field::HIT_MINE:   return std::make_pair(RED, "X");
+      case 0:                 return std::make_pair(DIM, ".");
       default: {
         std::stringstream ss;
         ss << f.state(p);
-        return ss.str();
+        return std::make_pair(RESET, ss.str());
       }
     }
   }
@@ -259,35 +267,35 @@ class SetupPrinter : public Printer {
     return Clause(Ewff::TRUE, c);
   }
 
-  std::string label(const Field& f, Point p) override {
+  std::pair<int, std::string> label(const Field& f, Point p) override {
     assert(&f == f_);
     UpdateKb();
     switch (f.state(p)) {
       case Field::UNEXPLORED: {
         SimpleClause yes_mine({MineLit(true, p)});
         SimpleClause no_mine({MineLit(false, p)});
-        for (Setup::split_level k = 0; k < 3; ++k) {
+        for (Setup::split_level k = 0; k < 2; ++k) {
           if (s_.Entails(yes_mine, k)) {
             assert(f_->mine(p));
-            return "X";
+            return std::make_pair(RED, "X");
           } else if (s_.Entails(no_mine, k)) {
             assert(!f_->mine(p));
-            return "$";
+            return std::make_pair(GREEN, "$");
           }
         }
-        return "";
+        return std::make_pair(RESET, "");
       }
       case Field::HIT_MINE: {
-        return "X";
+        return std::make_pair(RED, "X");
       }
       default: {
         const int m = f.state(p);
         if (m == 0) {
-          return ".";
+          return std::make_pair(DIM, ".");
         }
         std::stringstream ss;
         ss << m;
-        return ss.str();
+        return std::make_pair(RESET, ss.str());
       }
     }
   }
