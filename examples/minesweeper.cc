@@ -10,6 +10,7 @@
 #include <random>
 #include <string>
 #include <sstream>
+#include <tuple>
 #include <vector>
 #include <./formula.h>
 #include <./maybe.h>
@@ -37,6 +38,10 @@ struct Point {
   size_t x;
   size_t y;
 };
+
+std::ostream& operator<<(std::ostream& os, const Point& p) {
+  return os << "(" << p.x << " | " << p.y << ")";
+}
 
 namespace util {
 
@@ -261,7 +266,7 @@ class Game {
     if (mine(p)) {
       return HIT_MINE;
     }
-    size_t adjacent_mines = 0;
+    int adjacent_mines = 0;
     for (const Point q : neighbors_of(p)) {
       if (mine(q)) {
         ++adjacent_mines;
@@ -270,13 +275,40 @@ class Game {
     return adjacent_mines;
   }
 
+  int state_minus_flags(Point p) const {
+    assert(valid(p));
+    if (flagged(p)) {
+      return FLAGGED;
+    }
+    if (!picked(p)) {
+      return UNEXPLORED;
+    }
+    if (mine(p)) {
+      return HIT_MINE;
+    }
+    int adjacent_mines = 0;
+    for (const Point q : neighbors_of(p)) {
+      if (mine(q) && !flagged(q)) {
+        ++adjacent_mines;
+      }
+    }
+    return adjacent_mines;
+  }
+
+  int unpicked_unflagged_neighbors(Point p) const {
+    int n = 0;
+    for (const Point q : neighbors_of(p)) {
+      if (!picked(q) && !flagged(q)) {
+        ++n;
+      }
+    }
+    return n;
+  }
+
   size_t n_picks() const { return n_picks_; }
-
   size_t n_flags() const { return n_flags_; }
-
   bool hit_mine() const { return hit_mine_; }
-
-  bool all_explored() const { return n_picks() + n_mines_ == width_ * height_; }
+  bool all_explored() const { return n_picks() + n_mines_ == n_fields(); }
 
  private:
   const size_t width_;
@@ -296,7 +328,7 @@ class Game {
 
 class KnowledgeBase {
  public:
-  static constexpr Setup::split_level MAX_K = 3;
+  static constexpr Setup::split_level MAX_K = 2;
 
   explicit KnowledgeBase(const Game* g) : g_(g) {
     processed_.resize(g_->n_fields(), false);
@@ -594,6 +626,70 @@ class KnowledgeBaseAgent : public Agent {
       return;
     }
 
+#if 1
+    std::vector<std::tuple<int, int, Point>> ps;
+    ps.reserve(g_->n_fields() - g_->n_picks() - g_->n_flags());
+    for (size_t index = 0; index < g_->n_fields(); ++index) {
+      const Point p(g_->to_point(index));
+      if (!g_->picked(p) && !g_->flagged(p)) {
+        int min_nb_possible_mines = 8;
+        int min_nb_unknowns = 8;
+        for (const Point q : g_->neighbors_of(p)) {
+          if (g_->picked(q) && !g_->flagged(q)) {
+            const int nb_possible_mines = g_->state_minus_flags(q);
+            const int nb_unknowns = g_->unpicked_unflagged_neighbors(q);
+            if (std::tie(nb_possible_mines, nb_unknowns) <
+                std::tie(min_nb_possible_mines, min_nb_unknowns)) {
+              min_nb_possible_mines = nb_possible_mines;
+              min_nb_unknowns = nb_unknowns;
+            }
+          }
+        }
+        ps.push_back(std::make_tuple(min_nb_possible_mines, min_nb_unknowns, p));
+      }
+    }
+    std::sort(ps.begin(), ps.end());
+
+    // First look for a field which is known not to be a mine.
+    for (Setup::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
+      for (const auto tuple : MakeRange(ps.begin(), ps.end())) {
+        const Point p = std::get<2>(tuple);
+        const Maybe<bool> r = kb_->IsMine(p, k);
+        if (r.succ) {
+          if (r.val) {
+            std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
+            g_->Flag(p);
+          } else {
+            std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
+            g_->PickWithFrontier(p);
+          }
+          return;
+        }
+      }
+    }
+
+    // Otherwise look for a non-frontier field which is we don't know anything about.
+    for (const auto tuple : MakeRange(ps.rbegin(), ps.rend())) {
+      const Point p = std::get<2>(tuple);
+      const Maybe<bool> r = kb_->IsMine(p, KnowledgeBase::MAX_K);
+      if (r.succ) {
+        if (r.val) {
+          std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << ", which is a not at the frontier, found at split level " << KnowledgeBase::MAX_K << std::endl;
+          g_->Flag(p);
+        } else {
+          std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is a not at the frontier, found at split level " << KnowledgeBase::MAX_K << std::endl;
+          g_->PickWithFrontier(p);
+        }
+        return;
+      } else {
+        std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a (non-frontier) guess. I should have done some more reasoning." << std::endl;
+        g_->PickWithFrontier(p);
+        return;
+      }
+    }
+
+#else
+
     // First look for a field which is known not to be a mine.
     for (Setup::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
       for (size_t index = 0; index < g_->n_fields(); ++index) {
@@ -648,6 +744,7 @@ class KnowledgeBaseAgent : public Agent {
         }
       }
     }
+#endif
 
 
     // That's weird, this case should never occur, because our reasoning should
