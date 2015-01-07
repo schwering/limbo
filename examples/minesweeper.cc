@@ -91,21 +91,28 @@ class Game {
   static constexpr int FLAGGED = -4;
 
   Game(size_t width, size_t height, size_t n_mines, size_t seed = 0)
-      : width_(width),
-        height_(height),
+      : width_(std::max(width, height)),
+        height_(std::min(width, height)),
         n_mines_(n_mines),
-        x_distribution_(0, width_ - 1),
-        y_distribution_(0, height_ - 1) {
-    mines_.resize(width_ * height_, false);
-    picks_.resize(width_ * height_, false);
-    flags_.resize(width_ * height_, false);
-    frontier_.resize(width_ * height_, false);
-    neighbors_.resize(width_ * height_);
-    assert(mines_.size() == width_ * height_);
-    assert(n_mines_ + 9 <= width_ * height_);
-    generator_.seed(width * height * n_mines + seed);
+        distribution_(0, n_fields() - 1) {
+    mines_.resize(n_fields(), false);
+    picks_.resize(n_fields(), false);
+    flags_.resize(n_fields(), false);
+    frontier_.resize(n_fields(), false);
+    neighbors_.resize(n_fields());
+    assert(mines_.size() == n_fields());
+    assert(n_mines_ + 9 <= n_fields());
+    generator_.seed(n_fields() * n_mines + seed);
+#ifndef NDEBUG
+    for (size_t i = 0 ; i < n_fields(); ++i) {
+      for (size_t j = 0; j < n_fields(); ++j) {
+        assert((i == j) == (to_point(i) == to_point(j)));
+      }
+    }
+#endif
   }
 
+  size_t n_fields() const { return width_ * height_; }
   size_t width() const { return width_; }
   size_t height() const { return height_; }
   size_t n_mines() const { return n_mines_; }
@@ -129,22 +136,17 @@ class Game {
   }
 
   Point RandomPoint() {
-    Point p;
-    p.x = x_distribution_(generator_);
-    p.y = y_distribution_(generator_);
-    return p;
+    return to_point(distribution_(generator_));
   }
 
-  size_t n_fields() const { return width_ * height_; }
-
   Point to_point(size_t index) const {
-    Point p(index / width_, index % height_);
+    Point p(index / height_, index % height_);
     assert(to_index(p) == index);
     return p;
   }
 
   size_t to_index(const Point p) const {
-    return width_ * p.x + p.y;
+    return height_ * p.x + p.y;
   }
 
   bool valid(const Point p) const {
@@ -204,12 +206,14 @@ class Game {
       }
     }
 
+    assert(valid(p));
     assert(!picked(p));
     assert(!flagged(p));
     const size_t index = to_index(p);
     picks_[index] = true;
     frontier_[index] = false;
     for (const Point q : neighbors_of(p)) {
+      assert(valid(q));
       if (!picked(q) && !flagged(q)) {
         frontier_[to_index(q)] = true;
       }
@@ -217,6 +221,7 @@ class Game {
     ++n_picks_;
     assert(picked(p));
 
+    assert(valid(p));
     const int s = state(p);
     hit_mine_ |= s == HIT_MINE;
     return s;
@@ -246,6 +251,7 @@ class Game {
   }
 
   int state(Point p) const {
+    assert(valid(p));
     if (flagged(p)) {
       return FLAGGED;
     }
@@ -285,13 +291,12 @@ class Game {
   std::vector<bool> frontier_;
   mutable std::vector<std::vector<Point>> neighbors_;
   std::default_random_engine generator_;
-  std::uniform_int_distribution<size_t> x_distribution_;
-  std::uniform_int_distribution<size_t> y_distribution_;
+  std::uniform_int_distribution<size_t> distribution_;
 };
 
 class KnowledgeBase {
  public:
-  static constexpr Setup::split_level MAX_K = 5;
+  static constexpr Setup::split_level MAX_K = 3;
 
   explicit KnowledgeBase(const Game* g) : g_(g) {
     processed_.resize(g_->n_fields(), false);
@@ -347,6 +352,7 @@ class KnowledgeBase {
   }
 
   bool Update(Point p) {
+    assert(g_->valid(p));
     const int m = g_->state(p);
     switch (m) {
       case Game::UNEXPLORED: {
@@ -394,7 +400,7 @@ class KnowledgeBase {
   const Game* g_;
   Setup s_;
   std::vector<bool> processed_;
-  size_t n_rem_mines_ = 5;
+  size_t n_rem_mines_ = 4;
   size_t n_rem_fields_ = 10;
   //std::vector<Maybe<bool>> cache_;
 };
@@ -476,14 +482,15 @@ class Printer {
 
 class OmniscientPrinter : public Printer {
  public:
-  Label label(const Game& g, Point p) {
+  Label label(const Game& g, const Point p) {
     return g.mine(p) ? Label(Color::RED, "X") : Label("");
   }
 };
 
 class SimplePrinter : public Printer {
  public:
-  Label label(const Game& g, Point p) override {
+  Label label(const Game& g, const Point p) override {
+    assert(g.valid(p));
     switch (g.state(p)) {
       case Game::UNEXPLORED: return Label("");
       case Game::FLAGGED:    return Label(Color::GREEN, "X");
@@ -502,8 +509,9 @@ class KnowledgeBasePrinter : public Printer {
  public:
   explicit KnowledgeBasePrinter(KnowledgeBase* kb) : kb_(kb) {}
 
-  Label label(const Game& g, Point p) override {
+  Label label(const Game& g, const Point p) override {
     kb_->Sync();
+    assert(g.valid(p));
     switch (g.state(p)) {
       case Game::UNEXPLORED: {
         if (g.frontier(p)) {
@@ -589,7 +597,7 @@ class KnowledgeBaseAgent : public Agent {
     // First look for a field which is known not to be a mine.
     for (Setup::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
       for (size_t index = 0; index < g_->n_fields(); ++index) {
-        if (g_->frontier(index) && !g_->flagged(index)) {
+        if (g_->frontier(index)) {
           const Point p = g_->to_point(index);
           const Maybe<bool> r = kb_->IsMine(p, k);
           if (r.succ) {
