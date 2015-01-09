@@ -10,6 +10,7 @@
 #include <random>
 #include <string>
 #include <sstream>
+#include <thread>
 #include <tuple>
 #include <vector>
 #include <./formula.h>
@@ -101,7 +102,7 @@ class Game {
         n_mines_(n_mines),
         distribution_(0, n_fields() - 1) {
     mines_.resize(n_fields(), false);
-    picks_.resize(n_fields(), false);
+    opens_.resize(n_fields(), false);
     flags_.resize(n_fields(), false);
     frontier_.resize(n_fields(), false);
     neighbors_.resize(n_fields());
@@ -172,13 +173,13 @@ class Game {
     return mine(to_index(p));
   }
 
-  bool picked(const size_t index) const {
-    return picks_[index];
+  bool opened(const size_t index) const {
+    return opens_[index];
   }
 
-  bool picked(const Point p) const {
+  bool opened(const Point p) const {
     assert(valid(p));
-    return picked(to_index(p));
+    return opened(to_index(p));
   }
 
   bool flagged(const size_t index) const {
@@ -199,9 +200,9 @@ class Game {
     return frontier(to_index(p));
   }
 
-  int Pick(const Point p) {
-    // Place mines at first pick
-    if (n_picks() == 0) {
+  int Open(const Point p) {
+    // Place mines at first open
+    if (n_opens() == 0) {
       for (size_t n = 0; n < n_mines_; ) {
         const Point q = RandomPoint();
         if (!mine(q) && !Point::Adjacent(p, q)) {
@@ -212,19 +213,19 @@ class Game {
     }
 
     assert(valid(p));
-    assert(!picked(p));
+    assert(!opened(p));
     assert(!flagged(p));
     const size_t index = to_index(p);
-    picks_[index] = true;
+    opens_[index] = true;
     frontier_[index] = false;
     for (const Point q : neighbors_of(p)) {
       assert(valid(q));
-      if (!picked(q) && !flagged(q)) {
+      if (!opened(q) && !flagged(q)) {
         frontier_[to_index(q)] = true;
       }
     }
-    ++n_picks_;
-    assert(picked(p));
+    ++n_opens_;
+    assert(opened(p));
 
     assert(valid(p));
     const int s = state(p);
@@ -232,12 +233,12 @@ class Game {
     return s;
   }
 
-  int PickWithFrontier(Point p) {
-    int s = Pick(p);
+  int OpenWithFrontier(Point p) {
+    int s = Open(p);
     if (s == 0) {
       for (const Point q : neighbors_of(p)) {
-        if (!picked(q)) {
-          PickWithFrontier(q);
+        if (!opened(q)) {
+          OpenWithFrontier(q);
         }
       }
     }
@@ -260,7 +261,7 @@ class Game {
     if (flagged(p)) {
       return FLAGGED;
     }
-    if (!picked(p)) {
+    if (!opened(p)) {
       return UNEXPLORED;
     }
     if (mine(p)) {
@@ -280,7 +281,7 @@ class Game {
     if (flagged(p)) {
       return FLAGGED;
     }
-    if (!picked(p)) {
+    if (!opened(p)) {
       return UNEXPLORED;
     }
     if (mine(p)) {
@@ -295,30 +296,30 @@ class Game {
     return adjacent_mines;
   }
 
-  int unpicked_unflagged_neighbors(Point p) const {
+  int unopened_unflagged_neighbors(Point p) const {
     int n = 0;
     for (const Point q : neighbors_of(p)) {
-      if (!picked(q) && !flagged(q)) {
+      if (!opened(q) && !flagged(q)) {
         ++n;
       }
     }
     return n;
   }
 
-  size_t n_picks() const { return n_picks_; }
+  size_t n_opens() const { return n_opens_; }
   size_t n_flags() const { return n_flags_; }
   bool hit_mine() const { return hit_mine_; }
-  bool all_explored() const { return n_picks() + n_mines_ == n_fields(); }
+  bool all_explored() const { return n_opens() + n_mines_ == n_fields(); }
 
  private:
   const size_t width_;
   const size_t height_;
   const size_t n_mines_;
-  size_t n_picks_ = 0;
+  size_t n_opens_ = 0;
   size_t n_flags_ = 0;
   bool hit_mine_ = false;
   std::vector<bool> mines_;
-  std::vector<bool> picks_;
+  std::vector<bool> opens_;
   std::vector<bool> flags_;
   std::vector<bool> frontier_;
   mutable std::vector<std::vector<Point>> neighbors_;
@@ -360,7 +361,7 @@ class KnowledgeBase {
       }
     }
     const size_t m = g_->n_mines() - g_->n_flags();
-    const size_t n = g_->n_fields() - g_->n_picks() - g_->n_flags();
+    const size_t n = g_->n_fields() - g_->n_opens() - g_->n_flags();
     if (m < n_rem_mines_ && n < n_rem_fields_) {
       UpdateRemainingMines(m, n);
       n_rem_mines_ = m;
@@ -417,7 +418,7 @@ class KnowledgeBase {
   void UpdateRemainingMines(size_t m, size_t n) {
     std::vector<Point> fields;
     for (size_t index = 0; index < g_->n_fields(); ++index) {
-      if (!g_->picked(index) && !g_->flagged(index)) {
+      if (!g_->opened(index) && !g_->flagged(index)) {
         fields.push_back(g_->to_point(index));
       }
     }
@@ -515,7 +516,18 @@ class Printer {
 class OmniscientPrinter : public Printer {
  public:
   Label label(const Game& g, const Point p) {
-    return g.mine(p) ? Label(Color::RED, "X") : Label("");
+    assert(g.valid(p));
+    switch (g.state(p)) {
+      case Game::UNEXPLORED: return Label(g.mine(p) ? "X" : "");
+      case Game::FLAGGED:    return Label(Color::GREEN, "X");
+      case Game::HIT_MINE:   return Label(Color::RED, "X");
+      case 0:                return Label(".");
+      default: {
+        std::stringstream ss;
+        ss << g.state(p);
+        return Label(ss.str());
+      }
+    }
   }
 };
 
@@ -595,11 +607,11 @@ class HumanAgent : public Agent {
       Point p;
       std::cout << "Exploring X and Y coordinates: ";
       std::cin >> p.x >> p.y;
-      if (!g_->valid(p) || g_->picked(p)) {
+      if (!g_->valid(p) || g_->opened(p)) {
         std::cout << "Invalid coordinates, repeat" << std::endl;
         continue;
       }
-      g_->PickWithFrontier(p);
+      g_->OpenWithFrontier(p);
       return;
     }
   }
@@ -610,50 +622,67 @@ class HumanAgent : public Agent {
 
 class KnowledgeBaseAgent : public Agent {
  public:
-  explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) {}
+  explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) { }
+
+  std::vector<std::tuple<int, int>> Ranks() const {
+    std::vector<std::tuple<int, int>> ranks(g_->n_fields(),
+                                            std::make_tuple(8, 8));
+    for (size_t index = 0; index < g_->n_fields(); ++index) {
+      UpdateRankOf(g_->to_point(index), &ranks[index]);
+    }
+    return ranks;
+  }
+
+  void UpdateRankOf(const Point p, std::tuple<int, int>* rank) const {
+    // A point p is better ranked than q iff p < q.
+    // The rank is composed of the round of p's last change, and minimum number
+    // of mines around one of p's neighbors and the number of unknown fields
+    // around this number.
+    if (!g_->opened(p) && !g_->flagged(p)) {
+      for (const Point q : g_->neighbors_of(p)) {
+        if (g_->opened(q) && !g_->flagged(q)) {
+          const std::tuple<int, int> new_rank =
+              std::make_tuple(g_->state_minus_flags(q),
+                              g_->unopened_unflagged_neighbors(q));
+          if (new_rank < *rank) {
+            *rank = new_rank;
+          }
+        }
+      }
+    }
+  }
 
   void Explore() override {
     kb_->Sync();
 
-    // First pick a random point which is not at the edge of the field.
-    if (g_->n_picks() == 0) {
+    // First open a random point which is not at the edge of the field.
+    if (g_->n_opens() == 0) {
       Point p;
       do {
         p = g_->RandomPoint();
       } while (g_->neighbors_of(p).size() < 8);
       std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " chosen at random" << std::endl;
-      g_->PickWithFrontier(p);
+      g_->OpenWithFrontier(p);
       return;
     }
 
-#if 1
-    std::vector<std::tuple<int, int, Point>> ps;
-    ps.reserve(g_->n_fields() - g_->n_picks() - g_->n_flags());
+    const std::vector<std::tuple<int, int>> ranks = Ranks();
+    std::vector<Point> ps;
     for (size_t index = 0; index < g_->n_fields(); ++index) {
       const Point p(g_->to_point(index));
-      if (!g_->picked(p) && !g_->flagged(p)) {
-        int min_nb_possible_mines = 8;
-        int min_nb_unknowns = 8;
-        for (const Point q : g_->neighbors_of(p)) {
-          if (g_->picked(q) && !g_->flagged(q)) {
-            const int nb_possible_mines = g_->state_minus_flags(q);
-            const int nb_unknowns = g_->unpicked_unflagged_neighbors(q);
-            if (std::tie(nb_possible_mines, nb_unknowns) <
-                std::tie(min_nb_possible_mines, min_nb_unknowns)) {
-              min_nb_possible_mines = nb_possible_mines;
-              min_nb_unknowns = nb_unknowns;
-            }
-          }
-        }
-        ps.push_back(std::make_tuple(min_nb_possible_mines, min_nb_unknowns, p));
+      if (!g_->opened(p) && !g_->flagged(p)) {
+        ps.push_back(p);
       }
     }
-    std::sort(ps.begin(), ps.end());
+    const Game* g = g_;
+    std::sort(ps.begin(), ps.end(), [g, &ranks](const Point p, const Point q) {
+      return ranks[g->to_index(p)] < ranks[g->to_index(q)];
+    });
 
     // First look for a field which is known not to be a mine.
     for (Setup::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
-      for (const auto tuple : MakeRange(ps.begin(), ps.end())) {
-        const Point p = std::get<2>(tuple);
+      for (const Point p : MakeRange(ps.begin(), ps.end())) {
+        const auto& tuple = ranks[g_->to_index(p)];
         const Maybe<bool> r = kb_->IsMine(p, k);
         if (r.succ) {
           if (r.val) {
@@ -661,91 +690,20 @@ class KnowledgeBaseAgent : public Agent {
             g_->Flag(p);
           } else {
             std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
-            g_->PickWithFrontier(p);
+            g_->OpenWithFrontier(p);
           }
           return;
         }
       }
     }
 
-    // Otherwise look for a non-frontier field which is we don't know anything about.
-    for (const auto tuple : MakeRange(ps.rbegin(), ps.rend())) {
-      const Point p = std::get<2>(tuple);
-      const Maybe<bool> r = kb_->IsMine(p, KnowledgeBase::MAX_K);
-      if (r.succ) {
-        if (r.val) {
-          std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << ", which is a not at the frontier, found at split level " << KnowledgeBase::MAX_K << std::endl;
-          g_->Flag(p);
-        } else {
-          std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is a not at the frontier, found at split level " << KnowledgeBase::MAX_K << std::endl;
-          g_->PickWithFrontier(p);
-        }
-        return;
-      } else {
-        std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a (non-frontier) guess. I should have done some more reasoning." << std::endl;
-        g_->PickWithFrontier(p);
-        return;
-      }
+    if (!ps.empty()) {
+      const Point p = *ps.begin();
+      const auto& tuple = ranks[g_->to_index(p)];
+      std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
+      g_->OpenWithFrontier(p);
+      return;
     }
-
-#else
-
-    // First look for a field which is known not to be a mine.
-    for (Setup::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
-      for (size_t index = 0; index < g_->n_fields(); ++index) {
-        if (g_->frontier(index)) {
-          const Point p = g_->to_point(index);
-          const Maybe<bool> r = kb_->IsMine(p, k);
-          if (r.succ) {
-            if (r.val) {
-              std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
-              g_->Flag(p);
-            } else {
-              std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
-              g_->PickWithFrontier(p);
-            }
-            return;
-          }
-        }
-      }
-    }
-
-    // Otherwise look for a non-frontier field which is we don't know anything about.
-    for (size_t index = 0; index < g_->n_fields(); ++index) {
-      if (!g_->frontier(index) && !g_->picked(index) && !g_->flagged(index)) {
-        const Point p = g_->to_point(index);
-        const Maybe<bool> r = kb_->IsMine(p, KnowledgeBase::MAX_K);
-        if (r.succ) {
-          if (r.val) {
-            std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << ", which is a not at the frontier, found at split level " << KnowledgeBase::MAX_K << std::endl;
-            g_->Flag(p);
-          } else {
-            std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is a not at the frontier, found at split level " << KnowledgeBase::MAX_K << std::endl;
-            g_->PickWithFrontier(p);
-          }
-          return;
-        } else {
-          std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a (non-frontier) guess. I should have done some more reasoning." << std::endl;
-          g_->PickWithFrontier(p);
-          return;
-        }
-      }
-    }
-
-    // Otherwise look for a frontier field which is we don't know anything about.
-    for (size_t index = 0; index < g_->n_fields(); ++index) {
-      if (g_->frontier(index)) {
-        const Point p = g_->to_point(index);
-        const Maybe<bool> r = kb_->IsMine(p, KnowledgeBase::MAX_K);
-        if (!r.succ) {
-          std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a (frontier) guess. I should have done some more reasoning." << std::endl;
-          g_->PickWithFrontier(p);
-          return;
-        }
-      }
-    }
-#endif
-
 
     // That's weird, this case should never occur, because our reasoning should
     // be correct.
@@ -797,6 +755,8 @@ int main(int argc, char *argv[]) {
     printer->Print(std::cout, g);
     std::cout << std::endl;
   } while (!g.hit_mine() && !g.all_explored());
+  std::cout << "Final board:" << std::endl;
+  std::cout << std::endl;
   OmniscientPrinter().Print(std::cout, g);
   std::cout << std::endl;
   if (g.hit_mine()) {
