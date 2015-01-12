@@ -18,6 +18,27 @@
 
 using namespace lela;
 
+class Timer {
+ public:
+  Timer() : start_(std::clock()) {}
+
+  void start() {
+    start_ = std::clock() - (end_ != 0 ? end_ - start_ : 0);
+    ++rounds_;
+  }
+  void stop() { end_ = std::clock(); }
+  void reset() { start_ = 0; end_ = 0; rounds_ = 0; }
+
+  double duration() const { return (end_ - start_) / (double) CLOCKS_PER_SEC; }
+  size_t rounds() const { return rounds_; }
+  double avg_duration() const { return duration() / rounds_; }
+
+ private:
+  std::clock_t start_;
+  std::clock_t end_ = 0;
+  size_t rounds_ = 0;
+};
+
 struct Point {
   Point() {}
   Point(size_t x, size_t y) : x(x), y(y) {}
@@ -332,11 +353,13 @@ class KnowledgeBase {
   static constexpr Setup::split_level MAX_K = 2;
 
   explicit KnowledgeBase(const Game* g) : g_(g) {
+    s_.GuaranteeConsistency(MAX_K);
     processed_.resize(g_->n_fields(), false);
     //cache_.resize(g_->n_fields(), Nothing);
   }
 
   Maybe<bool> IsMine(Point p, Setup::split_level k) {
+    t_.start();
     //const size_t index = g_->to_index(p);
     //Maybe<bool>& r = cache_[index];
     //if (!r.succ) {
@@ -351,6 +374,7 @@ class KnowledgeBase {
         r = Just(false);
       }
     //}
+    t_.stop();
     return r;
   }
 
@@ -370,6 +394,8 @@ class KnowledgeBase {
   }
 
   const Setup& setup() const { return s_; }
+  const Timer& timer() const { return t_; }
+  void ResetTimer() { t_.reset(); }
 
  private:
   Literal MineLit(bool is, Point p) {
@@ -392,11 +418,11 @@ class KnowledgeBase {
         return false;
       }
       case Game::FLAGGED: {
-        s_.AddClause(Clause(Ewff::TRUE, {MineLit(true, p)}));
+        s_.AddClauseWithoutConsistencyCheck(Clause(Ewff::TRUE, {MineLit(true, p)}));
         return true;
       }
       case Game::HIT_MINE: {
-        s_.AddClause(Clause(Ewff::TRUE, {MineLit(true, p)}));
+        s_.AddClauseWithoutConsistencyCheck(Clause(Ewff::TRUE, {MineLit(true, p)}));
         return true;
       }
       default: {
@@ -404,12 +430,12 @@ class KnowledgeBase {
         const int n = ns.size();
         //std::cerr << "n = " << n << ", m = " << m << std::endl;
         for (const std::vector<Point>& ps : util::Subsets(ns, n - m + 1)) {
-          s_.AddClause(MineClause(true, ps));
+          s_.AddClauseWithoutConsistencyCheck(MineClause(true, ps));
         }
         for (const std::vector<Point>& ps : util::Subsets(ns, m + 1)) {
-          s_.AddClause(MineClause(false, ps));
+          s_.AddClauseWithoutConsistencyCheck(MineClause(false, ps));
         }
-        s_.AddClause(Clause(Ewff::TRUE, {MineLit(false, p)}));
+        s_.AddClauseWithoutConsistencyCheck(Clause(Ewff::TRUE, {MineLit(false, p)}));
         return true;
       }
     }
@@ -423,18 +449,19 @@ class KnowledgeBase {
       }
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, n - m + 1)) {
-      s_.AddClause(MineClause(true, ps));
+      s_.AddClauseWithoutConsistencyCheck(MineClause(true, ps));
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, m + 1)) {
-      s_.AddClause(MineClause(false, ps));
+      s_.AddClauseWithoutConsistencyCheck(MineClause(false, ps));
     }
   }
 
   const Game* g_;
   Setup s_;
   std::vector<bool> processed_;
-  size_t n_rem_mines_ = 4;
-  size_t n_rem_fields_ = 10;
+  size_t n_rem_mines_ = 11;
+  size_t n_rem_fields_ = 11;
+  Timer t_;
   //std::vector<Maybe<bool>> cache_;
 };
 
@@ -739,7 +766,7 @@ int main(int argc, char *argv[]) {
   if (argc >= 6) {
     print_knowledge = argv[5] == std::string("know");
   }
-  const std::clock_t start = std::clock();
+  Timer t;
   Game g(width, height, n_mines, seed);
   KnowledgeBase kb(&g);
   KnowledgeBaseAgent agent(&g, &kb);
@@ -749,12 +776,20 @@ int main(int argc, char *argv[]) {
   } else {
     printer = new SimplePrinter();
   }
+  t.start();
   do {
+    Timer t;
+    t.start();
     agent.Explore();
+    t.stop();
     std::cout << std::endl;
     printer->Print(std::cout, g);
     std::cout << std::endl;
+    std::cout << "Last move took " << std::fixed << t.duration() << ", queries took " << std::fixed << kb.timer().duration() << " / " << std::setw(4) << kb.timer().rounds() << " = " << std::fixed << kb.timer().avg_duration() << std::endl;
+    std::cout << std::endl;
+    kb.ResetTimer();
   } while (!g.hit_mine() && !g.all_explored());
+  t.stop();
   std::cout << "Final board:" << std::endl;
   std::cout << std::endl;
   OmniscientPrinter().Print(std::cout, g);
@@ -764,8 +799,7 @@ int main(int argc, char *argv[]) {
   } else {
     std::cout << Color::GREEN << "You win :-)";
   }
-  const double duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-  std::cout << "  [width: " << width << ", height: " << height << ", height: " << n_mines << ", seed: " << seed << ", runtime: " << duration << " seconds]" << Color::RESET << std::endl;
+  std::cout << "  [width: " << width << ", height: " << height << ", height: " << n_mines << ", seed: " << seed << ", runtime: " << t.duration() << " seconds]" << Color::RESET << std::endl;
   return 0;
 }
 
