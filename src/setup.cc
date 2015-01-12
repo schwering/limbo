@@ -14,7 +14,7 @@ void Setup::AddClause(const Clause& c) {
     UpdateHPlusFor(c);
   } else {
     AddClauseWithoutConsistencyCheck(c);
-    if (!incons_.empty() && !incons_[incons_.size() - 1]) {
+    if (!incons_.empty()) {
       for (const Assignment theta : c.ewff().Models(hplus_)) {
         for (split_level k = 0; k < incons_.size(); ++k) {
           if (!incons_[k]) {
@@ -29,7 +29,9 @@ void Setup::AddClause(const Clause& c) {
               for (; k < incons_.size(); ++k) {
                 incons_[k] = true;
               }
-              return;
+              if (k == 0) {
+                return;
+              }
             }
           }
         }
