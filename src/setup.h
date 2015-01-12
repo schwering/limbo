@@ -35,6 +35,7 @@ class Setup {
   Setup& operator=(const Setup&) = default;
 
   void AddClause(const Clause& c);
+  void AddClauseWithoutConsistencyCheck(const Clause& c);
   void GuaranteeConsistency(split_level k);
 
   void Progress(const StdName& n);
@@ -69,7 +70,6 @@ class Setup {
     }
   };
 
-  void AddClauseWithoutConsistencyCheck(const Clause& c);
   void UpdateHPlusFor(const StdName::SortedSet& ns);
   void UpdateHPlusFor(const Variable::SortedSet& vs);
   void UpdateHPlusFor(const SimpleClause& c);
