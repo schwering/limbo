@@ -199,7 +199,6 @@ class Bat {
  private:
   friend Formula::Obj::Lit;
 
-  bool Sensed(const Literal& l);
   bool Sensed(Formula::ObjPtr phi,
               const StdName::SortedSet& kb_and_query_ns);
   bool Entails(Formula::ObjPtr phi,
