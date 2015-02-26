@@ -480,9 +480,11 @@ bool Setups::Entails(const SimpleClause& c, split_level k) {
 bool Setups::Entails(const SimpleClause& neg_phi,
                      const SimpleClause& psi,
                      split_level k) {
+  SimpleClause neg_phi_or_psi = neg_phi;
+  neg_phi_or_psi.insert(psi.begin(), psi.end());
   for (Setup& s : ss_) {
     if (!s.Entails(neg_phi, k)) {
-      return s.Entails(psi, k);
+      return s.Entails(neg_phi_or_psi, k);
     }
   }
   return true;
