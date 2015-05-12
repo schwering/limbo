@@ -422,8 +422,7 @@ void Setups::AddBeliefConditional(const Clause& neg_phi,
 
 void Setups::PropagateBeliefs() {
   assert(!ss_.empty());
-  bool one_belief_cond_active = true;
-  for (belief_level p = 0; one_belief_cond_active; ++p) {
+  for (belief_level p = 0; ; ++p) {
     // Add phi => psi to the current setup.
     for (const BeliefConditional& bc : bcs_) {
       if (bc.p == p) {
@@ -436,7 +435,7 @@ void Setups::PropagateBeliefs() {
       }
     }
     // If ~phi holds, keep phi => psi for the next level.
-    one_belief_cond_active = false;
+    bool one_belief_cond_active = false;
     for (BeliefConditional& bc : bcs_) {
       if (bc.p == p) {
         assert(bc.neg_phi.ewff() == Ewff::TRUE);
@@ -447,8 +446,12 @@ void Setups::PropagateBeliefs() {
         }
       }
     }
+    // Remove unused setups at the end.
+    if (!one_belief_cond_active) {
+      ss_.erase(ss_.begin() + p + 1, ss_.end());
+      break;
+    }
   }
-  assert(!one_belief_cond_active);
   assert(ss_.size() <= bcs_.size() + 1);
 }
 
