@@ -13,7 +13,7 @@
 #include <thread>
 #include <tuple>
 #include <vector>
-#include <./formula.h>
+#include <./setup.h>
 #include <./maybe.h>
 
 using namespace lela;
@@ -399,7 +399,7 @@ class KnowledgeBase {
 
  private:
   Literal MineLit(bool is, Point p) {
-    return Literal({}, is, p.x * g_->width() + p.y, {});
+    return Literal(is, p.x * g_->width() + p.y, {});
   }
 
   Clause MineClause(bool sign, const std::vector<Point> ns) {
@@ -802,47 +802,4 @@ int main(int argc, char *argv[]) {
   std::cout << "  [width: " << width << ", height: " << height << ", height: " << n_mines << ", seed: " << seed << ", runtime: " << t.duration() << " seconds]" << Color::RESET << std::endl;
   return 0;
 }
-
-#if 0
-class MwBat : public Bat {
- public:
-  virtual Maybe<Formula::ObjPtr> RegressOneStep(const Atom& a) = 0;
-
-  void GuaranteeConsistency(split_level k) override {
-    s_.GuaranteeConsistency(k);
-  }
-
-  void AddClause(const Clause& c) override {
-    s_.AddClause(c);
-    names_init_ = false;
-  }
-
-  bool InconsistentAt(belief_level p, split_level k) const override {
-    assert(p == 0);
-    return s_.Inconsistent(k);
-  }
-
-  bool EntailsClauseAt(belief_level p,
-                       const SimpleClause& c,
-                       split_level k) const override {
-    assert(p == 0);
-    return s_.Entails(c, k);
-  }
-
-  size_t n_levels() const override { return 1; }
-
-  const StdName::SortedSet& names() const override {
-    if (!names_init_) {
-      names_ = s_.hplus().WithoutPlaceholders();
-      names_init_ = true;
-    }
-    return names_;
-  }
-
- private:
-  Setup s_;
-  mutable StdName::SortedSet names_;
-  mutable bool names_init_ = false;
-};
-#endif
 

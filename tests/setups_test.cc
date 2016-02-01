@@ -2,10 +2,12 @@
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 
 #include <gtest/gtest.h>
-#include <./ecai2014.h>
 #include <./clause.h>
+#include <./setups.h>
 
 using namespace lela;
+
+#if 0
 using namespace bats;
 
 TEST(setup, morri) {
@@ -51,13 +53,14 @@ TEST(setup, morri) {
   EXPECT_TRUE(s5.Entails(SimpleClause({Literal({bat.SL,bat.SR1,bat.LV,bat.SL}, true, bat.L1, {})}), k));
   EXPECT_TRUE(s5.Entails(SimpleClause({Literal({bat.LV}, true, bat.L1, {})}), k));  // the sensing actions in the situation are redundant
 }
+#endif
 
 TEST(setup, example_12) {
   constexpr Setups::split_level k = 1;
   Setups s;
-  const Literal a({}, true, 1, {});
-  const Literal b({}, true, 2, {});
-  const Literal c({}, true, 3, {});
+  const Literal a(true, 1, {});
+  const Literal b(true, 2, {});
+  const Literal c(true, 3, {});
   s.AddBeliefConditional(Clause(Ewff::TRUE, {a.Negative()}), Clause(Ewff::TRUE, {b}), k);
   s.AddBeliefConditional(Clause(Ewff::TRUE, {c.Negative()}), Clause(Ewff::TRUE, {a}), k);
   s.AddBeliefConditional(Clause(Ewff::TRUE, {c.Negative()}), Clause(Ewff::TRUE, {b.Negative()}), k);
@@ -74,8 +77,8 @@ TEST(setup, example_12) {
 
 TEST(setup, test_inconsistency) {
   Setups s;
-  const Literal a({}, true, 1, {});
-  const Literal b({}, true, 2, {});
+  const Literal a(true, 1, {});
+  const Literal b(true, 2, {});
   s.AddBeliefConditional(Clause(Ewff::TRUE, {}), Clause(Ewff::TRUE, {a, b}), 0);
   s.AddBeliefConditional(Clause(Ewff::TRUE, {}), Clause(Ewff::TRUE, {a, b.Flip()}), 0);
   s.AddBeliefConditional(Clause(Ewff::TRUE, {}), Clause(Ewff::TRUE, {a.Flip(), b}), 0);

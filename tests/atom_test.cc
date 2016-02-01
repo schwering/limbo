@@ -10,21 +10,6 @@ inline bool operator<(const Atom& a, const Atom& b) {
   return Atom::Comparator()(a, b);
 }
 
-TEST(atom_test, actions) {
-  Term::Factory f;
-  StdName n1 = f.CreateStdName(1, 1);
-  StdName n2 = f.CreateStdName(2, 1);
-  StdName n3 = f.CreateStdName(3, 1);
-  Variable x1 = f.CreateVariable(1);
-  Variable x2 = f.CreateVariable(1);
-  Variable x3 = f.CreateVariable(1);
-  Atom a({n1, n2, x1}, 123, {n3, x2, x3});
-
-  EXPECT_TRUE(a.pred() == 123);
-  EXPECT_TRUE(a.PrependActions({n1,n2}).z() == (TermSeq{n1,n2,n1,n2,x1}));
-  EXPECT_TRUE(a.PrependActions({n1,n2}).z() != (TermSeq{n2,n1,n1,n2,x1}));
-}
-
 TEST(atom_test, less) {
   Term::Factory f;
   StdName n1 = f.CreateStdName(1, 1);
@@ -33,9 +18,9 @@ TEST(atom_test, less) {
   Variable x1 = f.CreateVariable(1);
   Variable x2 = f.CreateVariable(1);
   Variable x3 = f.CreateVariable(1);
-  Atom a({n1, n2}, 123, {n3, x2, x3});
-  Atom b({n1, n2, x1}, 123, {n3, x2, x3});
-  Atom c({n1, n2, x1}, 123, {n3, x2, n3});
+  Atom a(12, {n1, n2, n3, x2, x3});
+  Atom b(123, {n1, n2, x1, n3, x2, x3});
+  Atom c(123, {n1, n2, x1, n3, x2, n3});
 
   EXPECT_TRUE(a < b);
   EXPECT_FALSE(b < a);
@@ -53,11 +38,11 @@ TEST(atom_test, unification) {
   Variable x1 = f.CreateVariable(1);
   Variable x2 = f.CreateVariable(1);
   Variable x3 = f.CreateVariable(1);
-  Atom a({x1, x2, x3}, 123, {x1, x2, x3});
-  Atom b({n1, n2, n3}, 123, {n1, n2, n3});
-  Atom c({n1, n2, n3}, 41, {n1, n2, n3});
-  Atom d({x2, x1, x2}, 123, {x1, x2, x3});
-  Atom e({x2, x1, n3}, 123, {n1, n2, n3});
+  Atom a(123, {x1, x2, x3, x1, x2, x3});
+  Atom b(123, {n1, n2, n3, n1, n2, n3});
+  Atom c(41,  {n1, n2, n3, n1, n2, n3});
+  Atom d(123, {x2, x1, x2, x1, x2, x3});
+  Atom e(123, {x2, x1, n3, n1, n2, n3});
   { Unifier theta;
     EXPECT_FALSE(Atom::Unify(a, c, &theta)); }
   { Unifier theta;

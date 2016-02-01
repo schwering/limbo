@@ -2,10 +2,12 @@
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 
 #include <gtest/gtest.h>
-#include <./kr2014.h>
 #include <./clause.h>
+#include <./setup.h>
 
 using namespace lela;
+
+#if 0
 using namespace bats;
 
 TEST(setup, gl_static) {
@@ -47,11 +49,12 @@ TEST(setup, gl_dynamic) {
   EXPECT_TRUE(s.Entails({Literal(z, true, bat.d1, {})}, 0));
   EXPECT_TRUE(s.Entails({Literal(z, true, bat.d1, {})}, 1));
 }
+#endif
 
 TEST(setup, eventual_completeness_static) {
   lela::Setup s;
-  const Literal p({}, true, 1, {});
-  const Literal q({}, true, 2, {});
+  const Literal p(true, 1, {});
+  const Literal q(true, 2, {});
   EXPECT_FALSE(s.Entails({p, p.Flip()}, 0));
   EXPECT_TRUE(s.Entails({p, p.Flip()}, 1));
   EXPECT_TRUE(s.Entails({p, p.Flip()}, 2));
@@ -82,8 +85,8 @@ TEST(setup, eventual_completeness_dynamic) {
 TEST(setup, inconsistency) {
   for (int i = -3; i <= 3; ++i) {
     lela::Setup s;
-    const Literal a = Literal({}, true, 1, {});
-    const Literal b = Literal({}, true, 2, {});
+    const Literal a = Literal(true, 1, {});
+    const Literal b = Literal(true, 2, {});
     s.AddClause(Clause(Ewff::TRUE, {a, b}));
     s.AddClause(Clause(Ewff::TRUE, {a, b.Flip()}));
     s.AddClause(Clause(Ewff::TRUE, {a.Flip(), b}));
@@ -116,7 +119,7 @@ TEST(setup, eventual_inconsistency_long) {
       SimpleClause c;
       for (size_t bit = 0; bit < n; ++bit) {
         const bool sign = ((i >> bit) & 1) != 0;
-        const Literal l({}, sign, bit+1, {});
+        const Literal l(sign, bit+1, {});
         c.insert(l);
       }
       s.AddClause(Clause(Ewff::TRUE, c));
@@ -136,13 +139,13 @@ TEST(setup, eventual_consistency_long) {
     // Create a setup over n literals. For each combination of signs, there
     // shall be one clause in the setup. That is, we have 2^n clauses.
     lela::Setup s;
-    const SimpleClause query({Literal({}, true, n+1, {})});
+    const SimpleClause query({Literal(true, n+1, {})});
     for (size_t i = 0; i < (1U << n); ++i) {
       // Create the i-th of 2^n many clauses.
       SimpleClause c;
       for (size_t bit = 0; bit < n; ++bit) {
         const bool sign = ((i >> bit) & 1) != 0;
-        const Literal l({}, sign, bit+1, {});
+        const Literal l(sign, bit+1, {});
         c.insert(l);
       }
       s.AddClause(Clause(Ewff::TRUE, c));
@@ -154,50 +157,5 @@ TEST(setup, eventual_consistency_long) {
       EXPECT_TRUE(s.Entails(query, k));
     }
   }
-}
-
-TEST(setup, progression_short) {
-  Term::Factory tf;
-  lela::Setup s0;
-  const Atom::PredId P = 0;
-  const Atom::PredId Q = 1;
-  const StdName n1 = tf.CreateStdName(0, 0);
-  const StdName n2 = tf.CreateStdName(1, 0);
-  s0.AddClause(Clause(false, Ewff::TRUE, {Literal({}, true, P, {}), Literal({}, true, Q, {})}));
-  {
-    const Variable a = tf.CreateVariable(0);
-    const Maybe<Ewff> e = Ewff::Create({{a, n2}}, {});
-    EXPECT_TRUE(e);
-    s0.AddClause(Clause(true, e.val, {Literal({}, false, P, {}), Literal({a}, true, P, {})}));
-  }
-  {
-    const Variable a = tf.CreateVariable(0);
-    const Maybe<Ewff> e = Ewff::Create({{a, n2}}, {});
-    EXPECT_TRUE(e);
-    s0.AddClause(Clause(true, e.val, {Literal({}, true, P, {}), Literal({a}, false, P, {})}));
-  }
-  {
-    const Variable a = tf.CreateVariable(0);
-    const Maybe<Ewff> e = Ewff::Create({{a, n2}}, {});
-    EXPECT_TRUE(e);
-    s0.AddClause(Clause(true, e.val, {Literal({}, false, Q, {}), Literal({a}, true, Q, {})}));
-  }
-  {
-    const Variable a = tf.CreateVariable(0);
-    const Maybe<Ewff> e = Ewff::Create({{a, n2}}, {});
-    EXPECT_TRUE(e);
-    s0.AddClause(Clause(true, e.val, {Literal({}, true, Q, {}), Literal({a}, false, Q, {})}));
-  }
-
-  lela::Setup s1 = s0;
-  for (int i = 0; i < 10; ++i) {
-    s1.Progress(n1);
-    EXPECT_TRUE(s0.clauses() == s1.clauses());
-  }
-
-  lela::Setup s2 = s0;
-  s2.Progress(n2);
-  EXPECT_FALSE(s0.clauses() == s2.clauses());
-  EXPECT_TRUE(s2.clauses().empty());
 }
 

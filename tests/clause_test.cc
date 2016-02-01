@@ -38,75 +38,69 @@ Literal::Set Rel(const Clause& c, const StdName::SortedSet& hplus, const Literal
 
 TEST(clause, rel)
 {
-  Clause empty(true, Ewff::TRUE, SimpleClause());
-  Clause c1(true,
-            Ewff::Create({{x2,n2}, {x3,n3}, {x2,n1}}, {}).val,
-            SimpleClause({ Literal({x2}, true, P, {n1,x2}),
-                           Literal({x2}, false, P, {n1,x2}) }));
-  Clause c2(false,
-            Ewff::Create({}, {{x5,x6}}).val,
-            SimpleClause({ Literal({x4}, true, P, {x4,x6}),
-                           Literal({x6}, false, Q, {x4,x4}) }));
-  Clause c3(false,
-            Ewff::Create({}, {}).val,
-            SimpleClause({ Literal({x1}, true, P, {x1}),
-                           Literal({x1}, false, Q, {x1,x6}) }));
-  Clause c4(false,
-            Ewff::Create({}, {}).val,
-            SimpleClause({ Literal({x1}, true, P, {x5}),
-                           Literal({x1}, false, Q, {x5,x6}) }));
+  Clause empty(Ewff::TRUE, SimpleClause());
+  Clause c1(Ewff::Create({{x2,n2}, {x3,n3}, {x2,n1}}, {}).val,
+            SimpleClause({ Literal(true, P, {n1,x2}),
+                           Literal(false, P, {n1,x2}) }));
+  Clause c2(Ewff::Create({}, {{x5,x6}}).val,
+            SimpleClause({ Literal(true, P, {x4,x6}),
+                           Literal(false, Q, {x4,x4}) }));
+  Clause c3(Ewff::Create({}, {}).val,
+            SimpleClause({ Literal(true, P, {x1}),
+                           Literal(false, Q, {x1,x6}) }));
+  Clause c4(Ewff::Create({}, {}).val,
+            SimpleClause({ Literal(true, P, {x5}),
+                           Literal(false, Q, {x5,x6}) }));
 
-  EXPECT_EQ(Rel(empty, hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
-  EXPECT_EQ(Rel(empty, hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 0);
-  EXPECT_EQ(Rel(c1, hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 1);
-  EXPECT_EQ(Rel(c1, hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 1);
-  EXPECT_EQ(Rel(c2, hplus, Literal({n2,n4}, false, P, {n1,n4})).size(), 0);
-  EXPECT_EQ(Rel(c2, hplus, Literal({n2,n4}, true, P, {n1,n4})).size(), 0);
-  EXPECT_EQ(Rel(c2, hplus, Literal({n2}, false, P, {n2,n4})).size(), 0);
-  EXPECT_EQ(Rel(c2, hplus, Literal({n2}, true, P, {n2,n4})).size(), 1);
-  EXPECT_EQ(Rel(c3, hplus, Literal({n1}, false, P, {n2})).size(), 0);
-  EXPECT_EQ(Rel(c3, hplus, Literal({n1}, true, P, {n2})).size(), 0);
-  EXPECT_EQ(Rel(c3, hplus, Literal({n1}, true, P, {n1})).size(), 1);
+  EXPECT_EQ(Rel(empty, hplus, Literal(false, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(Rel(empty, hplus, Literal(true, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(Rel(c1, hplus, Literal(false, P, {n1,n4})).size(), 1);
+  EXPECT_EQ(Rel(c1, hplus, Literal(true, P, {n1,n4})).size(), 1);
+  EXPECT_EQ(Rel(c2, hplus, Literal(false, P, {n1,n4})).size(), 0);
+  EXPECT_EQ(Rel(c2, hplus, Literal(true, P, {n1,n4})).size(), 1);
+  EXPECT_EQ(Rel(c2, hplus, Literal(true, P, {n1,n4})).size(), 1);
+  EXPECT_EQ(Rel(c2, hplus, Literal(false, P, {n2,n4})).size(), 0);
+  EXPECT_EQ(Rel(c2, hplus, Literal(true, P, {n2,n4})).size(), 1);
+  EXPECT_EQ(Rel(c3, hplus, Literal(false, P, {n2})).size(), 0);
+  EXPECT_EQ(Rel(c3, hplus, Literal(true, P, {n2})).size(), 1);
+  EXPECT_EQ(Rel(c3, hplus, Literal(true, P, {n1})).size(), 1);
   for (const StdName& n : names) {
-    EXPECT_TRUE(Rel(c3, hplus, Literal({n}, true, P, {n})).size() == 1);
-    EXPECT_TRUE(Rel(c3, hplus, Literal({n}, true, P, {n})) == Literal::Set({Literal({n}, true, Q, {n,x6})}));
+    EXPECT_TRUE(Rel(c3, hplus, Literal(true, P, {n})).size() == 1);
+    EXPECT_TRUE(Rel(c3, hplus, Literal(true, P, {n})) == Literal::Set({Literal(true, Q, {n,x6})}));
   }
   for (const StdName& n : names) {
-    EXPECT_TRUE(Rel(c3, hplus, Literal({n}, false, Q, {n,n})).size() == 1);
-    EXPECT_TRUE(Rel(c3, hplus, Literal({n}, false, Q, {n,n})) == Literal::Set({Literal({n}, false, P, {n})}));
+    EXPECT_TRUE(Rel(c3, hplus, Literal(false, Q, {n,n})).size() == 1);
+    EXPECT_TRUE(Rel(c3, hplus, Literal(false, Q, {n,n})) == Literal::Set({Literal(false, P, {n})}));
   }
-  EXPECT_EQ(Rel(c4, hplus, Literal({n1}, false, P, {n2})).size(), 0);
-  EXPECT_EQ(Rel(c4, hplus, Literal({n1}, true, P, {n2})).size(), 1);
-  EXPECT_EQ(Rel(c4, hplus, Literal({n1}, false, Q, {n2,x3})).size(), 1);
-  EXPECT_EQ(Rel(c4, hplus, Literal({n1}, false, Q, {n2,x6})).size(), 1);
+  EXPECT_EQ(Rel(c4, hplus, Literal(false, P, {n2})).size(), 0);
+  EXPECT_EQ(Rel(c4, hplus, Literal(true, P, {n2})).size(), 1);
+  EXPECT_EQ(Rel(c4, hplus, Literal(false, Q, {n2,x3})).size(), 1);
+  EXPECT_EQ(Rel(c4, hplus, Literal(false, Q, {n2,x6})).size(), 1);
 }
 
 TEST(clause, subsumption)
 {
-  Clause empty(true, Ewff::TRUE, SimpleClause());
-  Clause c1(true,
-            Ewff::Create({{x2,n2}, {x2,n3}, {x2,n1}}, {}).val,
-            {Literal({x2}, true, P, {n1,x2}),
-             Literal({x2}, false, P, {n1,x2})});
-  Clause c2(false,
-            Ewff::Create({}, {{x4,x6}}).val,
-            {Literal({x4}, true, P, {x4,x6}),
-             Literal({x6}, false, Q, {x4,x4})});
-  Clause c3(false,
-            Ewff::Create({}, {{x4,x6}}).val,
-            {Literal({x4}, true, O, {x4,x6}),
-             Literal({x4}, true, P, {x4,x6}),
-             Literal({x6}, false, Q, {x4,x4})});
-  Clause d1(false, Ewff::TRUE,
-            {Literal({n2,n4}, true, P, {n1,n4}),
-             Literal({n2,n4}, false, P, {n1,n4})});
-  Clause d2(false, Ewff::TRUE,
-            {Literal({n4}, true, P, {n4,n6}),
-             Literal({n6}, false, Q, {n4,n4})});
-  Clause d3(false, Ewff::TRUE,
-            {Literal({n4}, true, O, {n4,n6}),
-             Literal({n4}, true, P, {n4,n6}),
-             Literal({n6}, false, Q, {n4,n4})});
+  Clause empty(Ewff::TRUE, SimpleClause());
+  Clause c1(Ewff::Create({{x2,n2}, {x2,n3}, {x2,n1}}, {}).val,
+            {Literal(true, P, {n1,x2}),
+             Literal(false, P, {n1,x2})});
+  Clause c2(Ewff::Create({}, {{x4,x6}}).val,
+            {Literal(true, P, {x4,x6}),
+             Literal(false, Q, {x4,x4})});
+  Clause c3(Ewff::Create({}, {{x4,x6}}).val,
+            {Literal(true, O, {x4,x6}),
+             Literal(true, P, {x4,x6}),
+             Literal(false, Q, {x4,x4})});
+  Clause d1(Ewff::TRUE,
+            {Literal(true, P, {n1,n4}),
+             Literal(false, P, {n1,n4})});
+  Clause d2(Ewff::TRUE,
+            {Literal(true, P, {n4,n6}),
+             Literal(false, Q, {n4,n4})});
+  Clause d3(Ewff::TRUE,
+            {Literal(true, O, {n4,n6}),
+             Literal(true, P, {n4,n6}),
+             Literal(false, Q, {n4,n4})});
 
   EXPECT_TRUE(empty.Subsumes(d1));
   EXPECT_TRUE(empty.Subsumes(d2));
@@ -139,19 +133,19 @@ TEST(clause, tautologous) {
   const Variable y = tf.CreateVariable(0);
   const Atom::PredId P = 0;
   const Atom::PredId Q = 1;
-  Clause empty(true, Ewff::TRUE, SimpleClause());
-  Clause tauto0(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {m}), Literal({}, false, P, {m})});
-  Clause tauto1(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {x})});
-  Clause tauto2(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {y})});
-  Clause tauto3(true, Ewff::Create({{x, m}, {y, n}}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {x})});
-  Clause tauto4(true, Ewff::Create({{x, m}, {y, n}}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {y})});
-  Clause tauto5(true, Ewff::Create({{x, m}, {y, n}}, {{x, y}}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {x})});
-  Clause nontauto0(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {x}), Literal({}, true, P, {y})});
-  Clause nontauto1(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {x}), Literal({}, false, Q, {y})});
-  Clause nontauto2(true, Ewff::Create({}, {}).val, {Literal({}, true, P, {m}), Literal({}, false, P, {n})});
-  Clause nontauto3(true, Ewff::Create({{x, m}, {y, n}}, {{x, y}}).val, {Literal({}, true, P, {m}), Literal({}, false, P, {n})});
-  Clause nontauto4(true, Ewff::Create({{x, m}, {y, n}}, {{x, y}}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {y})});
-  Clause nontauto5(true, Ewff::Create({}, {{x, y}}).val, {Literal({}, true, P, {x}), Literal({}, false, P, {y})});
+  Clause empty(Ewff::TRUE, SimpleClause());
+  Clause tauto0(Ewff::Create({}, {}).val, {Literal(true, P, {m}), Literal(false, P, {m})});
+  Clause tauto1(Ewff::Create({}, {}).val, {Literal(true, P, {x}), Literal(false, P, {x})});
+  Clause tauto2(Ewff::Create({}, {}).val, {Literal(true, P, {x}), Literal(false, P, {y})});
+  Clause tauto3(Ewff::Create({{x, m}, {y, n}}, {}).val, {Literal(true, P, {x}), Literal(false, P, {x})});
+  Clause tauto4(Ewff::Create({{x, m}, {y, n}}, {}).val, {Literal(true, P, {x}), Literal(false, P, {y})});
+  Clause tauto5(Ewff::Create({{x, m}, {y, n}}, {{x, y}}).val, {Literal(true, P, {x}), Literal(false, P, {x})});
+  Clause nontauto0(Ewff::Create({}, {}).val, {Literal(true, P, {x}), Literal(true, P, {y})});
+  Clause nontauto1(Ewff::Create({}, {}).val, {Literal(true, P, {x}), Literal(false, Q, {y})});
+  Clause nontauto2(Ewff::Create({}, {}).val, {Literal(true, P, {m}), Literal(false, P, {n})});
+  Clause nontauto3(Ewff::Create({{x, m}, {y, n}}, {{x, y}}).val, {Literal(true, P, {m}), Literal(false, P, {n})});
+  Clause nontauto4(Ewff::Create({{x, m}, {y, n}}, {{x, y}}).val, {Literal(true, P, {x}), Literal(false, P, {y})});
+  Clause nontauto5(Ewff::Create({}, {{x, y}}).val, {Literal(true, P, {x}), Literal(false, P, {y})});
   EXPECT_FALSE(empty.Tautologous());
   EXPECT_TRUE(tauto0.Tautologous());
   EXPECT_TRUE(tauto1.Tautologous());

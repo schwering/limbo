@@ -184,12 +184,12 @@ TermSeq TermSeq::Substitute(const Unifier& theta) const {
   return ts;
 }
 
-bool TermSeq::Matches(const TermSeq& z, Unifier* theta) const {
-  if (size() != z.size()) {
+bool TermSeq::Matches(const TermSeq& seq, Unifier* theta) const {
+  if (size() != seq.size()) {
     return false;
   }
-  for (auto i = begin(), j = z.begin();
-       i != end() && j != z.end();
+  for (auto i = begin(), j = seq.begin();
+       i != end() && j != seq.end();
        ++i, ++j) {
     const Term& t1 = *i;
     const Term& t2 = *j;
@@ -263,9 +263,9 @@ std::ostream& operator<<(std::ostream& os, const Term& t) {
   return os << c << t.id();
 }
 
-std::ostream& operator<<(std::ostream& os, const TermSeq& z) {
-  for (auto it = z.begin(); it != z.end(); ++it) {
-    if (it != z.begin()) {
+std::ostream& operator<<(std::ostream& os, const TermSeq& seq) {
+  for (auto it = seq.begin(); it != seq.end(); ++it) {
+    if (it != seq.begin()) {
       os << ", ";
     }
     os << *it;

@@ -30,15 +30,11 @@ class SimpleClause : public Literal::Set {
     return std::operator==(*this, c);
   }
 
-  SimpleClause PrependActions(const TermSeq& z) const;
-
   SimpleClause Substitute(const Unifier& theta) const;
   SimpleClause Ground(const Assignment& theta) const;
   std::list<Unifier> Subsumes(const SimpleClause& c) const;
 
   std::list<SimpleClause> Instances(const StdName::SortedSet& hplus) const;
-
-  Atom::Set Sensings() const;
 
   Variable::Set Variables() const;
   void CollectVariables(Variable::SortedSet* vs) const;
@@ -46,7 +42,6 @@ class SimpleClause : public Literal::Set {
 
   bool ground() const;
   bool unit() const { return size() == 1; }
-  bool dynamic() const;
 
  private:
   void SubsumedBy(const const_iterator first, const const_iterator last,
@@ -68,17 +63,13 @@ class Clause {
 
   Clause() = default;
   Clause(const Ewff& e, const SimpleClause& ls)
-      : Clause(false, e, ls) {}
-  Clause(bool box, const Ewff& e, const SimpleClause& ls)
-      : box_(box), e_(e), ls_(ls) { e_.RestrictVariable(ls_.Variables()); }
+      : e_(e), ls_(ls) { e_.RestrictVariable(ls_.Variables()); }
   Clause(const Clause&) = default;
   Clause& operator=(const Clause&) = default;
 
   bool operator==(const Clause& c) const {
-    return ls_ == c.ls_ && box_ == c.box_ && e_ == c.e_;
+    return ls_ == c.ls_ && e_ == c.e_;
   }
-
-  Clause InstantiateBox(const TermSeq& z) const;
 
   void Rel(const StdName::SortedSet& hplus,
            const Literal& goal_lit,
@@ -89,12 +80,10 @@ class Clause {
   static size_t ResolveWrt(const Clause& c1, const Clause& c2, Atom::PredId p,
                            Clause::Set* rs);
 
-  bool box() const { return box_; }
   const Ewff& ewff() const { return e_; }
   const SimpleClause& literals() const { return ls_; }
   bool empty() const { return ls_.empty(); }
   bool unit() const { return ls_.unit(); }
-  bool dynamic() const { return ls_.dynamic(); }
 
   void CollectVariables(Variable::SortedSet* vs) const;
   void CollectNames(StdName::SortedSet* ns) const;
@@ -104,7 +93,6 @@ class Clause {
   static Maybe<Clause> ResolveWrt(const Clause& c1, const Clause& c2,
                                   const Literal& l1, const Literal& l2);
 
-  bool box_;
   Ewff e_;
   SimpleClause ls_;
 };
@@ -125,12 +113,11 @@ struct Clause::Comparator {
   typedef Clause value_type;
 
   bool operator()(const Clause& c, const Clause& d) const {
-    return comp(c.ls_, c.box_, c.e_, d.ls_, d.box_, d.e_);
+    return comp(c.ls_, c.e_, d.ls_, d.e_);
   }
 
  private:
   LexicographicComparator<SimpleClause::Comparator,
-                          LessComparator<bool>,
                           Ewff::Comparator> comp;
 };
 

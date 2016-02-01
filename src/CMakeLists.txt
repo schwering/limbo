@@ -1,4 +1,4 @@
-add_library (LELA SHARED term.cc atom.cc literal.cc ewff.cc clause.cc setup.cc formula.cc)
+add_library (LELA SHARED term.cc atom.cc literal.cc ewff.cc clause.cc setup.cc setups.cc) # formula.cc)
 
 target_link_libraries (LELA ${LIBS})
 

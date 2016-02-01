@@ -8,23 +8,13 @@
 
 namespace lela {
 
-Atom Atom::PrependActions(const TermSeq& z) const {
-  Atom a = *this;
-  a.z_.insert(a.z_.begin(), z.begin(), z.end());
-  return a;
-}
-
 Atom Atom::Substitute(const Unifier& theta) const {
-  const TermSeq z = z_.Substitute(theta);
   const TermSeq args = args_.Substitute(theta);
-  return Atom(z, pred_, args);
+  return Atom(pred_, args);
 }
 
 Atom Atom::Ground(const Assignment& theta) const {
   Atom a = *this;
-  for (Term& t : a.z_) {
-    t = t.Ground(theta);
-  }
   for (Term& t : a.args_) {
     t = t.Ground(theta);
   }
@@ -33,11 +23,7 @@ Atom Atom::Ground(const Assignment& theta) const {
 
 bool Atom::Matches(const Atom& a, Unifier* theta) const {
   if (pred_ != a.pred_ ||
-      z_.size() != a.z_.size() ||
       args_.size() != a.args_.size()) {
-    return false;
-  }
-  if (!z_.Matches(a.z_, theta)) {
     return false;
   }
   if (!args_.Matches(a.args_, theta)) {
@@ -48,11 +34,7 @@ bool Atom::Matches(const Atom& a, Unifier* theta) const {
 
 bool Atom::Unify(const Atom& a, const Atom& b, Unifier* theta) {
   if (a.pred_ != b.pred_ ||
-      a.z_.size() != b.z_.size() ||
       a.args_.size() != b.args_.size()) {
-    return false;
-  }
-  if (!TermSeq::Unify(a.z_, b.z_, theta)) {
     return false;
   }
   if (!TermSeq::Unify(a.args_, b.args_, theta)) {
@@ -69,31 +51,23 @@ Maybe<Unifier> Atom::Unify(const Atom& a, const Atom& b) {
 }
 
 bool Atom::ground() const {
-  return std::all_of(z_.begin(), z_.end(),
-                     [](const Term& t) { return t.ground(); }) &&
-         std::all_of(args_.begin(), args_.end(),
+  return std::all_of(args_.begin(), args_.end(),
                      [](const Term& t) { return t.ground(); });
 }
 
 void Atom::CollectVariables(Variable::Set* vs) const {
-  z_.CollectVariables(vs);
   args_.CollectVariables(vs);
 }
 
 void Atom::CollectVariables(Variable::SortedSet* vs) const {
-  z_.CollectVariables(vs);
   args_.CollectVariables(vs);
 }
 
 void Atom::CollectNames(StdName::SortedSet* ns) const {
-  z_.CollectNames(ns);
   args_.CollectNames(ns);
 }
 
 std::ostream& operator<<(std::ostream& os, const Atom& a) {
-  if (!a.z().empty()) {
-    os << '[' << a.z() << ']';
-  }
   if (a.pred() == Atom::SF) {
     os << "SF";
   } else {

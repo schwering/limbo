@@ -3,35 +3,31 @@
 
 #include "./setup.h"
 #include <cassert>
+#include <deque>
 #include <algorithm>
 #include <numeric>
 
 namespace lela {
 
 void Setup::AddClause(const Clause& c) {
-  if (c.box()) {
-    boxes_.insert(c);
-    UpdateHPlusFor(c);
-  } else {
-    AddClauseWithoutConsistencyCheck(c);
-    if (!incons_.empty()) {
-      for (const Assignment theta : c.ewff().Models(hplus_)) {
-        for (split_level k = 0; k < incons_.size(); ++k) {
-          if (!incons_[k]) {
-            bool negation_entailed = true;
-            for (const Literal l : c.literals().Ground(theta)) {
-              if (!Entails({l.Flip()}, k)) {
-                negation_entailed = false;
-                break;
-              }
+  AddClauseWithoutConsistencyCheck(c);
+  if (!incons_.empty()) {
+    for (const Assignment theta : c.ewff().Models(names_)) {
+      for (split_level k = 0; k < incons_.size(); ++k) {
+        if (!incons_[k]) {
+          bool negation_entailed = true;
+          for (const Literal l : c.literals().Ground(theta)) {
+            if (!Entails({l.Flip()}, k)) {
+              negation_entailed = false;
+              break;
             }
-            if (negation_entailed) {
-              for (; k < incons_.size(); ++k) {
-                incons_[k] = true;
-              }
-              if (k == 0) {
-                return;
-              }
+          }
+          if (negation_entailed) {
+            for (; k < incons_.size(); ++k) {
+              incons_[k] = true;
+            }
+            if (k == 0) {
+              return;
             }
           }
         }
@@ -41,7 +37,6 @@ void Setup::AddClause(const Clause& c) {
 }
 
 void Setup::AddClauseWithoutConsistencyCheck(const Clause& c) {
-  assert(!c.box());
   cs_.insert(c);
   UpdateHPlusFor(c);
 }
@@ -49,24 +44,24 @@ void Setup::AddClauseWithoutConsistencyCheck(const Clause& c) {
 void Setup::UpdateHPlusFor(const Variable::SortedSet& vs) {
   for (const auto& p : vs) {
     const Term::Sort& sort = p.first;
-    StdName::Set& ns = hplus_[sort];
+    StdName::Set& ns = names_[sort];
     const int need_n_placeholders = p.second.size();
     const int have_n_placeholders = ns.n_placeholders();
     for (int i = have_n_placeholders; i < need_n_placeholders; ++i) {
-      hplus_.AddNewPlaceholder(sort);
+      names_.AddNewPlaceholder(sort);
     }
   }
 }
 
 void Setup::UpdateHPlusFor(const SimpleClause& c) {
-  c.CollectNames(&hplus_);
+  c.CollectNames(&names_);
   Variable::SortedSet vs;
   c.CollectVariables(&vs);
   UpdateHPlusFor(vs);
 }
 
 void Setup::UpdateHPlusFor(const Clause& c) {
-  c.CollectNames(&hplus_);
+  c.CollectNames(&names_);
   Variable::SortedSet vs;
   c.CollectVariables(&vs);
   UpdateHPlusFor(vs);
@@ -79,88 +74,14 @@ void Setup::GuaranteeConsistency(split_level k) {
   }
 }
 
-void Setup::GroundBoxes(const TermSeq& z) {
-  for (size_t n = 0; n <= z.size(); ++n) {
-    const TermSeq zz(z.begin(), z.begin() + n);
-    const auto p = grounded_.insert(zz);
-    if (p.second) {
-      for (const Clause& c : boxes_) {
-        AddClauseWithoutConsistencyCheck(c.InstantiateBox(zz));
-      }
-    }
-  }
-}
-
-void Setup::Progress(const StdName& n) {
-  // Resolve static clauses with successor state axioms.
-  GroundBoxes({});
-  size_t n_new_clauses;
-  do {
-    n_new_clauses = 0;
-    for (const Clause& c : cs_) {
-      for (const Clause& d : cs_) {
-        if (d.dynamic()) {
-          for (const Literal& l : c.literals()) {
-            if (!l.dynamic()) {
-              n_new_clauses += Clause::ResolveWrt(c, d, l.pred(), &cs_);
-            }
-          }
-        }
-      }
-    }
-  } while (n_new_clauses > 0);
-  Minimize();
-  // Remove all clauses that refer to pre-[n] situations. Notice that first
-  // action of the clauses may be (and typically is) a variable which needs to
-  // be unified with n.
-  Clause::Set cs;
-  for (const Clause& c : cs_) {
-    assert(!c.box());
-    if (c.Tautologous()) {
-      continue;
-    }
-    Unifier theta;
-    SimpleClause ls;
-    bool succ = true;
-    for (const Literal& l : c.literals()) {
-      const Maybe<Term, TermSeq> tz = l.z().SplitHead();
-      if (!tz || !Term::Unify(tz.val1, n, &theta)) {
-        succ = false;
-        break;
-      }
-      ls.insert(ls.end(), Literal(tz.val2, l.sign(), l.pred(), l.args()));
-    }
-    if (succ) {
-      Maybe<Ewff> e = c.ewff().Substitute(theta);
-      if (e) {
-        ls = ls.Substitute(theta);
-        e.val.RestrictVariable(ls.Variables());
-        cs.insert(cs.end(), Clause(e.val, ls));
-      }
-    }
-  }
-  std::swap(cs_, cs);
-  // Also drop the first action from the memory of grounded sequences.
-  TermSeq::Set grounded;
-  for (const TermSeq& z : grounded_) {
-    Maybe<Term, TermSeq> tz = z.SplitHead();
-    if (tz) {
-      grounded.insert(grounded.end(), tz.val2);
-    }
-  }
-  std::swap(grounded_, grounded);
-}
-
-Atom::Set Setup::FullStaticPel() const {
+Atom::Set Setup::FullPel() const {
   Atom::Set pel;
   for (const Clause& c : cs_) {
-    if (!c.box()) {
-      for (const Assignment theta : c.ewff().Models(hplus_)) {
-        for (const SimpleClause d :
-             c.literals().Ground(theta).Instances(hplus_)) {
-          for (const Literal& l : d) {
-            pel.insert(l);
-          }
+    for (const Assignment theta : c.ewff().Models(names_)) {
+      for (const SimpleClause d :
+           c.literals().Ground(theta).Instances(names_)) {
+        for (const Literal& l : d) {
+          pel.insert(l);
         }
       }
     }
@@ -176,7 +97,7 @@ Literal::Set Setup::Rel(const SimpleClause& c) const {
     const auto p = rel.insert(l);
     if (p.second) {
       for (const Clause& c : cs_) {
-        c.Rel(hplus_, l, &frontier);
+        c.Rel(names_, l, &frontier);
       }
     }
     frontier.pop_front();
@@ -188,21 +109,11 @@ Atom::Set Setup::Pel(const SimpleClause& c) const {
   // Pel is the set of all atoms a such that both a and ~a are relevant to prove
   // some literal in l:
   // Pel(c) = { a | for all a, l such that a in Rel(l), ~a in Rel(l), l in c }
-  // Furthermore we only take literals from the initial situation. The idea is
-  // here that splitting any later literal is redundant because it could also be
-  // achieved from the initial literal through unit propagatoin since successor
-  // state axioms introduce no nondeterminism. However, we add new knowledge
-  // through sensing literals in future situations. Is the limitation to initial
-  // literals still complete?
   const Literal::Set rel = Rel(c);
   Atom::Set pel;
   for (auto it = rel.begin(); it != rel.end(); ++it) {
     const Literal& l = *it;
     if (!l.sign()) {
-      continue;
-    }
-    // This optimization breaks things when we've sensed a disjunction.
-    if (!l.z().empty() && c.find(l) == c.end()) {
       continue;
     }
     for (const Literal& ll : rel.range(!l.sign(), l.pred())) {
@@ -319,11 +230,7 @@ bool Setup::SubsumesWithSplits(Atom::Set pel,
     return true;
   }
   if (k == 0) {
-#if 0
-    pel = c.Sensings();
-#else
     return false;
-#endif
   }
   for (auto it = pel.begin(); it != pel.end(); ) {
     const Atom a = *it;
@@ -359,7 +266,7 @@ bool Setup::Inconsistent(split_level k) {
       return true;
     }
   }
-  const Atom::Set pel = k <= 0 ? Atom::Set() : FullStaticPel();
+  const Atom::Set pel = k <= 0 ? Atom::Set() : FullPel();
   for (; l <= k; ++l) {
     const bool r = SubsumesWithSplits(pel, SimpleClause::EMPTY, l);
     incons_[l] = r;
@@ -379,141 +286,8 @@ bool Setup::Entails(const SimpleClause& c, split_level k) {
     return true;
   }
   UpdateHPlusFor(c);
-  for (const Literal& l : c) {
-    GroundBoxes(l.z());
-  }
   const Atom::Set pel = k <= 0 ? Atom::Set() : Pel(c);
   return SubsumesWithSplits(pel, c, k);
-}
-
-Setups::Setups() {
-  // Need one setup so that AddClause(), GuaranteeConsistency(), and
-  // AddSensingResult() have something to take effect on. Since
-  // PropagateBeliefs() uses copies of the last setups, these effects remain in
-  // force in all setups newly created through AddBeliefConditional().
-  if (ss_.empty()) {
-    ss_.push_back(Setup());
-  }
-}
-
-void Setups::AddClause(const Clause& c) {
-  for (Setup& s : ss_) {
-    s.AddClause(c);
-  }
-}
-
-void Setups::AddBeliefConditional(const Clause& neg_phi,
-                                  const Clause& psi,
-                                  split_level k) {
-  // I'm not sure if and how non-ground belief conditionals should be
-  // implemented. I suppose that in ESB they could lead to infinitely many
-  // plausibility levels.
-  assert(neg_phi.literals().ground());
-  assert(psi.literals().ground());
-  assert(!ss_.empty());
-  Ewff e = Ewff::And(neg_phi.ewff(), psi.ewff());
-  SimpleClause c = neg_phi.literals();
-  c.insert(psi.literals().begin(), psi.literals().end());
-  assert(c.ground());
-  Clause neg_phi_or_psi(e, c);
-  bcs_.push_back(BeliefConditional(neg_phi, neg_phi_or_psi, k));
-  PropagateBeliefs();
-}
-
-void Setups::PropagateBeliefs() {
-  assert(!ss_.empty());
-  for (belief_level p = 0; ; ++p) {
-    // Add phi => psi to the current setup.
-    for (const BeliefConditional& bc : bcs_) {
-      if (bc.p == p) {
-        // Keep a last, clean setup until we have reached the bound of
-        // bcs_.size() + 1 setups.
-        if (p+1 == ss_.size() && p+1 <= bcs_.size()) {
-          ss_.push_back(ss_.back());
-        }
-        ss_[p].AddClause(bc.neg_phi_or_psi);
-      }
-    }
-    // If ~phi holds, keep phi => psi for the next level.
-    bool one_belief_cond_active = false;
-    for (BeliefConditional& bc : bcs_) {
-      if (bc.p == p) {
-        assert(bc.neg_phi.ewff() == Ewff::TRUE);
-        if (ss_[p].Entails(bc.neg_phi.literals(), bc.k)) {
-          ++bc.p;
-        } else {
-          one_belief_cond_active = true;
-        }
-      }
-    }
-    // Remove unused setups at the end.
-    if (!one_belief_cond_active) {
-      ss_.erase(ss_.begin() + p + 1, ss_.end());
-      break;
-    }
-  }
-  assert(ss_.size() <= bcs_.size() + 1);
-}
-
-void Setups::GuaranteeConsistency(split_level k) {
-  assert(!ss_.empty());
-  for (Setup& s : ss_) {
-    s.GuaranteeConsistency(k);
-  }
-}
-
-bool Setups::Inconsistent(split_level k) {
-  for (Setup& s : ss_) {
-    if (!s.Inconsistent(k)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool Setups::Entails(const SimpleClause& c, split_level k) {
-  for (Setup& s : ss_) {
-    if (!s.Inconsistent(k)) {
-      return s.Entails(c, k);
-    }
-  }
-  return true;
-}
-
-bool Setups::Entails(const SimpleClause& neg_phi,
-                     const SimpleClause& psi,
-                     split_level k) {
-  SimpleClause neg_phi_or_psi = neg_phi;
-  neg_phi_or_psi.insert(psi.begin(), psi.end());
-  for (Setup& s : ss_) {
-    if (!s.Entails(neg_phi, k)) {
-      return s.Entails(neg_phi_or_psi, k);
-    }
-  }
-  return true;
-}
-
-std::ostream& operator<<(std::ostream& os, const Setup& s) {
-  os << "Setup:" << std::endl;
-  os << s.clauses() << std::endl;
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const Setups& ss) {
-//  os << "Belief Conditionals:" << std::endl;
-//  for (const Setups::BeliefConditional& bc : ss.bcs_) {
-//    os << "  neg_phi = " << bc.neg_phi << std::endl;
-//    os << "  neg_phi_or_psi = " << bc.neg_phi_or_psi << std::endl;
-//    os << "  p = " << bc.p << std::endl;
-//    os << "  k = " << bc.k << std::endl;
-//  }
-  os << "Belief Setups:" << std::endl;
-  int n = 0;
-  for (const Setup& s : ss.setups()) {
-    os << "Level " << n << ": " << s << std::endl;
-    ++n;
-  }
-  return os;
 }
 
 }  // namespace lela

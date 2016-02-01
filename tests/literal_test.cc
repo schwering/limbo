@@ -22,9 +22,9 @@ TEST(literal_test, less) {
   Variable x1 = f.CreateVariable(1);
   Variable x2 = f.CreateVariable(1);
   Variable x3 = f.CreateVariable(1);
-  Literal a({n1, n2}, true, 123, {n3, x2, x3});
-  Literal b({n1, n2, x1}, false, 123, {n3, x2, x3});
-  Literal c({n1, n2, x1}, false, 123, {n3, x2, n3});
+  Literal a(true, 12, {n1, n2, x1, n3, x2, x3});
+  Literal b(false, 123, {n1, n2, x1, n3, x2, x3});
+  Literal c(false, 123, {n1, n2, x1, n3, x2, n3});
 
   EXPECT_TRUE(a.sign() == true);
   EXPECT_TRUE(b.sign() == false);

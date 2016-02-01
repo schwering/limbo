@@ -9,7 +9,7 @@
 namespace lela {
 
 const SimpleClause SimpleClause::EMPTY({});
-const Clause Clause::EMPTY(false, Ewff::TRUE, {});
+const Clause Clause::EMPTY(Ewff::TRUE, {});
 
 SimpleClause SimpleClause::ResolveWrt(const SimpleClause& c1,
                                       const SimpleClause& c2,
@@ -42,14 +42,6 @@ SimpleClause SimpleClause::ResolveWrt(const SimpleClause& c1,
     r.insert(add.begin(), add.end());
     return r;
   }
-}
-
-SimpleClause SimpleClause::PrependActions(const TermSeq& z) const {
-  SimpleClause c;
-  for (const Literal& l : *this) {
-    c.insert(c.end(), l.PrependActions(z));
-  }
-  return c;
 }
 
 SimpleClause SimpleClause::Substitute(const Unifier& theta) const {
@@ -128,19 +120,6 @@ std::list<SimpleClause> SimpleClause::Instances(
   return instances;
 }
 
-Atom::Set SimpleClause::Sensings() const {
-  Atom::Set sfs;
-  for (const Literal& l : *this) {
-    const TermSeq& z = l.z();
-    for (auto it = z.begin(); it != z.end(); ++it) {
-      const TermSeq zz(z.begin(), it);
-      const Term& t = *it;
-      sfs.insert(Atom(zz, Atom::SF, {t}));
-    }
-  }
-  return sfs;
-}
-
 Variable::Set SimpleClause::Variables() const {
   Variable::Set vs;
   for (const Literal& l : *this) {
@@ -166,45 +145,26 @@ bool SimpleClause::ground() const {
                      [](const Literal& l) { return l.ground(); });
 }
 
-bool SimpleClause::dynamic() const {
-  return std::any_of(begin(), end(),
-                     [](const Literal& l) { return l.dynamic(); });
-}
-
-Clause Clause::InstantiateBox(const TermSeq& z) const {
-  assert(box_);
-  return Clause(false, e_, ls_.PrependActions(z));
-}
-
 Maybe<Clause> Clause::Substitute(const Unifier& theta) const {
   const Maybe<Ewff> e = e_.Substitute(theta);
   if (!e) {
     return Nothing;
   }
   const SimpleClause ls = ls_.Substitute(theta);
-  return Just(Clause(box_, e.val, ls));
+  return Just(Clause(e.val, ls));
 }
 
 void Clause::Rel(const StdName::SortedSet& hplus,
                  const Literal& goal_lit,
                  std::deque<Literal>* rel) const {
-  const size_t max_z = std::accumulate(ls_.begin(), ls_.end(), 0,
-      [](size_t n, const Literal& l) { return std::max(n, l.z().size()); });
   const Clause goal = Clause(Ewff::TRUE, {goal_lit.Flip()});
   // Given a clause l and a clause e->c such that for some l' in c with
   // l = l'.theta for some theta and |= e.theta.theta' for some theta', for all
   // clauses l'' c.theta.theta', its negation ~l'' is relevant to l.
   // Relevance means that splitting ~l'' may help to prove l.
-  // In case c is a box clause, it must be unified as well.
-  // Due to the constrained form of BATs, only l' with maximum action length in
-  // e->c must be considered. Intuitively, in an SSA Box([a]F <-> ...) this is
-  // [a]F, and in Box(SF(a) <-> ...) it is every literal of the fluent.
   for (const Literal& l : ls_.range(goal_lit.sign(), goal_lit.pred())) {
     assert(goal_lit.sign() == l.sign());
     assert(goal_lit.pred() == l.pred());
-    if (l.z().size() < max_z) {
-      continue;
-    }
     Maybe<Clause> c = ResolveWrt(*this, goal, l, *goal.ls_.begin());
     if (!c) {
       continue;
@@ -221,37 +181,21 @@ bool Clause::Subsumes(const Clause& c) const {
   if (ls_.empty()) {
     return true;
   }
-  if (!box_ && c.box_) {
+  if ((!std::includes(c.ls_.begin(), c.ls_.end(),
+                      ls_.begin(), ls_.end(),
+                      Literal::BySignAndPredOnlyComparator())) ||
+      (!std::includes(c.ls_.begin(), c.ls_.end(),
+                      ls_.begin(), ls_.end(),
+                      Literal::BySizeOnlyCompatator()))) {
     return false;
   }
-  if ((box_ && !std::includes(c.ls_.begin(), c.ls_.end(),
-                              ls_.begin(), ls_.end(),
-                              Literal::BySignAndPredOnlyComparator())) ||
-      (!box_ && !std::includes(c.ls_.begin(), c.ls_.end(),
-                               ls_.begin(), ls_.end(),
-                               Literal::BySizeOnlyCompatator()))) {
-    return false;
-  }
-  if (box_) {
-    const Literal& l = *ls_.begin();
-    for (const Literal& ll : c.ls_.range(l.sign(), l.pred())) {
-      assert(l.pred() == ll.pred());
-      assert(l.sign() == ll.sign());
-      const Maybe<TermSeq> z = ll.z().WithoutLast(l.z().size());
-      if (z && InstantiateBox(z.val).Subsumes(c)) {
-        return true;
-      }
+  for (const Unifier& theta : ls_.Subsumes(c.ls_)) {
+    const Maybe<Ewff> e = e_.Substitute(theta);
+    if (e && c.e_.Subsumes(e.val)) {
+      return true;
     }
-    return false;
-  } else {
-    for (const Unifier& theta : ls_.Subsumes(c.ls_)) {
-      const Maybe<Ewff> e = e_.Substitute(theta);
-      if (e && c.e_.Subsumes(e.val)) {
-        return true;
-      }
-    }
-    return false;
   }
+  return false;
 }
 
 bool Clause::Tautologous() const {
@@ -288,39 +232,23 @@ Maybe<Clause> Clause::ResolveWrt(const Clause& c1, const Clause& c2,
   assert(l1.sign() != l2.sign());
   assert(c1.ls_.find(l1) != c1.ls_.end());
   assert(c2.ls_.find(l2) != c2.ls_.end());
-  if (c1.box_) {
-    const Maybe<TermSeq> z = l2.z().WithoutLast(l1.z().size());
-    if (!z) {
-      return Nothing;
-    }
-    const Literal ll1 = l1.PrependActions(z.val);
-    const Clause cc1 = c1.InstantiateBox(z.val);
-    Maybe<Clause> d = ResolveWrt(cc1, c2, ll1, l2);
-    if (d) {
-      d.val.box_ = c2.box_;
-    }
-    return d;
-  } else if (c2.box_) {
-    return ResolveWrt(c2, c1, l2, l1);
-  } else {
-    const Maybe<Unifier> theta = Atom::Unify(l1, l2);
-    if (!theta) {
-      return Nothing;
-    }
-    const Maybe<Ewff> e1 = c1.e_.Substitute(theta.val);
-    if (!e1) {
-      return Nothing;
-    }
-    const Maybe<Ewff> e2 = c2.e_.Substitute(theta.val);
-    if (!e2) {
-      return Nothing;
-    }
-    const SimpleClause ls =
-        SimpleClause::ResolveWrt(c1.ls_, c2.ls_, l1, l2).Substitute(theta.val);
-    Ewff e = Ewff::And(e1.val, e2.val);
-    e.RestrictVariable(ls.Variables());
-    return Just(Clause(false, e, ls));
+  const Maybe<Unifier> theta = Atom::Unify(l1, l2);
+  if (!theta) {
+    return Nothing;
   }
+  const Maybe<Ewff> e1 = c1.e_.Substitute(theta.val);
+  if (!e1) {
+    return Nothing;
+  }
+  const Maybe<Ewff> e2 = c2.e_.Substitute(theta.val);
+  if (!e2) {
+    return Nothing;
+  }
+  const SimpleClause ls =
+      SimpleClause::ResolveWrt(c1.ls_, c2.ls_, l1, l2).Substitute(theta.val);
+  Ewff e = Ewff::And(e1.val, e2.val);
+  e.RestrictVariable(ls.Variables());
+  return Just(Clause(e, ls));
 }
 
 size_t Clause::ResolveWrt(const Clause& c1, const Clause& c2, Atom::PredId p,
@@ -365,13 +293,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleClause& c) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Clause& c) {
-  if (c.box()) {
-    os << "box(";
-  }
   os << c.ewff() << " -> " << c.literals();
-  if (c.box()) {
-    os << ")";
-  }
   return os;
 }
 

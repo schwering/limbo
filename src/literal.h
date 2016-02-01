@@ -19,8 +19,8 @@ class Literal : public Atom {
   class Set;
 
   Literal(bool sign, const Atom& a) : Atom(a), sign_(sign) {}
-  Literal(const TermSeq& z, bool sign, PredId pred, const TermSeq& args)
-      : Atom(z, pred, args), sign_(sign) {}
+  Literal(bool sign, PredId pred, const TermSeq& args)
+      : Atom(pred, args), sign_(sign) {}
   Literal(const Literal&) = default;
   Literal& operator=(const Literal&) = default;
 
@@ -34,10 +34,6 @@ class Literal : public Atom {
   Literal Flip() const { return Literal(!sign(), *this); }
   Literal Positive() const { return Literal(true, *this); }
   Literal Negative() const { return Literal(false, *this); }
-
-  Literal PrependActions(const TermSeq& z) const {
-    return Literal(sign(), Atom::PrependActions(z));
-  }
 
   Literal Substitute(const Unifier& theta) const {
     return Literal(sign(), Atom::Substitute(theta));
@@ -53,45 +49,35 @@ class Literal : public Atom {
   bool sign_;
 };
 
-class SfLiteral : public Literal {
- public:
-  SfLiteral(const TermSeq& z, const Term t, bool r)
-      : Literal(z, r, Atom::SF, {t}) {}
-
-  SfLiteral(const SfLiteral&) = default;
-  SfLiteral& operator=(const SfLiteral&) = default;
-};
-
 struct Literal::Comparator {
   typedef Literal value_type;
 
   bool operator()(const Literal& l1, const Literal& l2) const {
-    return comp(l1.pred(), l1.sign_, l1.z(), l1.args(),
-                l2.pred(), l2.sign_, l2.z(), l2.args());
+    return comp(l1.pred(), l1.sign_, l1.args(),
+                l2.pred(), l2.sign_, l2.args());
   }
 
   Literal LowerBound(const PredId& p) const {
-    return Literal({}, false, p, {});
+    return Literal(false, p, {});
   }
 
   Literal LowerBound(bool sign, const PredId& p) const {
-    return Literal({}, sign, p, {});
+    return Literal(sign, p, {});
   }
 
   Literal UpperBound(const PredId& p) const {
     assert(p + 1 > p);
-    return Literal({}, false, p + 1, {});
+    return Literal(false, p + 1, {});
   }
 
   Literal UpperBound(bool sign, const PredId& p) const {
     assert(p + 1 > p);
-    return Literal({}, !sign, !sign ? p : p + 1, {});
+    return Literal(!sign, !sign ? p : p + 1, {});
   }
 
  private:
   LexicographicComparator<LessComparator<PredId>,
                           LessComparator<bool>,
-                          LessComparator<TermSeq>,
                           LessComparator<TermSeq>> comp;
 };
 
@@ -99,14 +85,13 @@ struct Literal::BySizeOnlyCompatator {
   typedef Literal value_type;
 
   bool operator()(const Literal& l1, const Literal& l2) const {
-    return comp(l1.pred(), l1.sign_, l1.z().size(), l1.args().size(),
-                l2.pred(), l2.sign_, l2.z().size(), l2.args().size());
+    return comp(l1.pred(), l1.sign_, l1.args().size(),
+                l2.pred(), l2.sign_, l2.args().size());
   }
 
  private:
   LexicographicComparator<LessComparator<PredId>,
                           LessComparator<bool>,
-                          LessComparator<size_t>,
                           LessComparator<size_t>> comp;
 };
 

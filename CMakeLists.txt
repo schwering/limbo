@@ -26,10 +26,10 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
 endif()
 
 add_subdirectory (src)
-add_subdirectory (bats)
+#add_subdirectory (bats)
 add_subdirectory (examples)
 add_subdirectory (tests)
-add_subdirectory (eclipse-clp)
+#add_subdirectory (eclipse-clp)
 
 enable_testing ()
 

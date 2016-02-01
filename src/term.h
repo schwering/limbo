@@ -176,7 +176,7 @@ class TermSeq : public std::vector<Term> {
   Maybe<TermSeq, Term> SplitLast() const;
   Maybe<TermSeq> WithoutLast(const size_t n) const;
   TermSeq Substitute(const Unifier& theta) const;
-  bool Matches(const TermSeq& z, Unifier* theta) const;
+  bool Matches(const TermSeq& seq, Unifier* theta) const;
   static bool Unify(const TermSeq& z1, const TermSeq& z2, Unifier* theta);
 
   void CollectVariables(Variable::Set* vs) const;
@@ -187,7 +187,7 @@ class TermSeq : public std::vector<Term> {
 };
 
 std::ostream& operator<<(std::ostream& os, const Term& t);
-std::ostream& operator<<(std::ostream& os, const TermSeq& z);
+std::ostream& operator<<(std::ostream& os, const TermSeq& seq);
 std::ostream& operator<<(std::ostream& os, const Unifier& theta);
 std::ostream& operator<<(std::ostream& os, const Assignment& theta);
 std::ostream& operator<<(std::ostream& os, const StdName::SortedSet& ns);
