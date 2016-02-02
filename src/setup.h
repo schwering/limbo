@@ -33,6 +33,51 @@ class Setup {
   void GuaranteeConsistency(split_level k);
 
   bool Inconsistent(split_level k);
+  bool Models(const Clause& c, split_level k);
+
+  bool Inconsistent(split_level k) const {
+    return const_cast<Setup*>(this)->Inconsistent(k);
+  }
+  bool Models(const Clause& c, split_level k) const {
+    return const_cast<Setup*>(this)->Models(c, k);
+  }
+
+
+ private:
+  typedef std::vector<std::vector<Clause>> BucketMap;
+
+  class BitMap : public std::vector<bool> {
+   public:
+    using std::vector<bool>::vector;
+    reference operator[](size_type pos) {
+      if (pos >= size()) {
+        resize(pos+1, false);
+      }
+      return std::vector<bool>::operator[](pos);
+    }
+    const_reference operator[](size_type pos) const {
+      return pos < size() ? std::vector<bool>::operator[](pos) : false;
+    }
+  };
+
+  BucketMap cs_;
+  BitMap incons_;
+};
+
+#if 0
+class Setup {
+ public:
+  typedef size_t split_level;
+
+  Setup() = default;
+  Setup(const Setup&) = default;
+  Setup& operator=(const Setup&) = default;
+
+  void AddClause(const Clause& c);
+  void AddClauseWithoutConsistencyCheck(const Clause& c);
+  void GuaranteeConsistency(split_level k);
+
+  bool Inconsistent(split_level k);
   bool Entails(const SimpleClause& c, split_level k);
 
   bool Inconsistent(split_level k) const {
@@ -85,6 +130,7 @@ class Setup {
 };
 
 std::ostream& operator<<(std::ostream& os, const Setup& s);
+#endif
 
 }  // namespace lela
 

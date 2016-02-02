@@ -1,13 +1,12 @@
-// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 schwering@kbsg.rwth-aachen.de
+// vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
+// Copyright 2014, 2015, 2016 schwering@kbsg.rwth-aachen.de
 
 #include "./clause.h"
 #include <algorithm>
-#include <numeric>
-#include <tuple>
 
 namespace lela {
 
+#if 0
 const SimpleClause SimpleClause::EMPTY({});
 const Clause Clause::EMPTY(Ewff::TRUE, {});
 
@@ -305,6 +304,7 @@ std::ostream& operator<<(std::ostream& os, const Clause::Set& cs) {
   os << "}" << std::endl;
   return os;
 }
+#endif
 
 }  // namespace lela
 

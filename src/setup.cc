@@ -9,6 +9,7 @@
 
 namespace lela {
 
+#if 0
 void Setup::AddClause(const Clause& c) {
   AddClauseWithoutConsistencyCheck(c);
   if (!incons_.empty()) {
@@ -289,6 +290,7 @@ bool Setup::Entails(const SimpleClause& c, split_level k) {
   const Atom::Set pel = k <= 0 ? Atom::Set() : Pel(c);
   return SubsumesWithSplits(pel, c, k);
 }
+#endif
 
 }  // namespace lela
 

@@ -1,10 +1,11 @@
-// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014, 2015, 2016 schwering@kbsg.rwth-aachen.de
 
 #ifndef SRC_TERM_H_
 #define SRC_TERM_H_
 
 #include <cassert>
+#include <algorithm>
 #include <map>
 #include <set>
 #include <vector>
@@ -51,7 +52,7 @@ class Symbol {
 struct Symbol::Comparator {
   typedef Symbol value_type;
 
-  bool operator()(const value_type& a, const value_type& b) const {
+  bool operator()(value_type a, value_type b) const {
     return comp(a.id_, a.sort_, a.arity_,
                 b.id_, b.sort_, b.arity_);
   }
@@ -66,6 +67,7 @@ class Term {
  public:
   struct Comparator;
   typedef std::vector<Term> Vector;
+  typedef std::map<Term, Term> Substitution;
 
   Term() = default;
   Term(const Term&) = default;
@@ -75,6 +77,11 @@ class Term {
   static Term Create(Symbol symbol, const Vector& args);
 
   bool operator==(Term t) const { return data_ == t.data_; }
+  bool operator!=(Term t) const { return data_ != t.data_; }
+  bool operator<=(Term t) const { return data_ <= t.data_; }
+  bool operator>=(Term t) const { return data_ >= t.data_; }
+  bool operator<(Term t) const { return data_ < t.data_; }
+  bool operator>(Term t) const { return data_ > t.data_; }
 
   Term Substitute(Term pre, Term post) const {
     if (*this == pre) {
@@ -92,7 +99,28 @@ class Term {
     return *this;
   }
 
-  const Symbol& symbol() const { return data_->symbol_; }
+  Term Ground(const Substitution& theta) const {
+    assert(std::all_of(theta.begin(), theta.end(), [](const std::pair<Term, Term>& p) { return p.first.variable() && p.second.name(); }));
+    if (variable()) {
+      const auto it = theta.find(*this);
+      if (it != theta.end()) {
+        return it->second;
+      } else {
+        return *this;
+      }
+    } else if (arity() > 0) {
+      Vector args(data_->args_.size());
+      for (Term arg : data_->args_) {
+        args.push_back(arg.Ground(theta));
+      }
+      if (args != data_->args_) {
+        return Create(data_->symbol_, args);
+      }
+    }
+    return *this;
+  }
+
+  Symbol symbol() const { return data_->symbol_; }
   const Vector& args() const { return data_->args_; }
 
   bool function() const { return data_->symbol_.function(); }
@@ -101,11 +129,21 @@ class Term {
   int arity() const { return data_->symbol_.arity(); }
 
   bool null() const { return !data_; }
+  bool ground() const {
+    return name() ||
+        (function() && std::all_of(data_->args_.begin(), data_->args_.end(),
+                                   [](Term t) { return t.ground(); }));
+  }
+  bool primitive() const {
+    return name() ||
+        (function() && std::all_of(data_->args_.begin(), data_->args_.end(),
+                                   [](Term t) { return t.name(); }));
+  }
 
  private:
   struct Data {
     struct PtrComparator;
-    Data(const Symbol& symbol, const Vector& args) : symbol_(symbol), args_(args) {}
+    Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args) {}
 
     Symbol symbol_;
     Vector args_;
@@ -121,7 +159,7 @@ class Term {
 struct Term::Comparator {
   typedef Term value_type;
 
-  bool operator()(const value_type& a, const value_type& b) const {
+  bool operator()(value_type a, value_type b) const {
     return comp(a.data_, b.data_);
   }
 
@@ -132,7 +170,7 @@ struct Term::Comparator {
 struct Term::Data::PtrComparator {
   typedef Term::Data* value_type;
 
-  bool operator()(const value_type& a, const value_type& b) const {
+  bool operator()(value_type a, value_type b) const {
     return comp(a->symbol_, a->args_,
                 b->symbol_, b->args_);
   }
