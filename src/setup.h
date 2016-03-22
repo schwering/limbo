@@ -42,9 +42,26 @@ class Setup {
     return const_cast<Setup*>(this)->Models(c, k);
   }
 
-
  private:
-  typedef std::vector<std::vector<Clause>> BucketMap;
+  class BucketMap : public std::vector<std::vector<Clause>> {
+   public:
+    using std::vector<std::vector<Clause>>::vector;
+    reference operator[](size_type pos) {
+      if (pos >= size()) {
+        resize(pos+1);
+      }
+      return std::vector<std::vector<Clause>>::operator[](pos);
+    }
+    const_reference operator[](size_type pos) const {
+      if (pos >= size()) {
+        return empty_;
+      }
+      return std::vector<std::vector<Clause>>::operator[](pos);
+    }
+
+   private:
+    std::vector<Clause> empty_;
+  };
 
   class BitMap : public std::vector<bool> {
    public:
