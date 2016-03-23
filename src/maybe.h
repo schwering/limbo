@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 schwering@kbsg.rwth-aachen.de
+// Copyright 2014, 2015, 2016 schwering@kbsg.rwth-aachen.de
 //
 // To handle Maybe<std::unique_ptr<T>> we use std::forward(). Is that correct?
 
@@ -7,7 +7,6 @@
 #define SRC_MAYBE_H_
 
 #include <cassert>
-#include <ostream>
 #include <memory>
 #include <utility>
 
@@ -81,26 +80,6 @@ Maybe<Types...> Just(Types&&... val) {  // NOLINT
 template<typename... Types>
 Maybe<Types...> Perhaps(bool succ, Types&&... val) {  // NOLINT
   return Maybe<Types...>(succ, std::forward<Types>(val)...);  // NOLINT
-}
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const Maybe<T>& m) {
-  if (m) {
-    os << "Just(" << m.val << ")";
-  } else {
-    os << "Nothing";
-  }
-  return os;
-}
-
-template<typename T1, typename T2>
-std::ostream& operator<<(std::ostream& os, const Maybe<T1, T2>& m) {
-  if (m) {
-    os << "Just(" << m.val1 << ", " << m.val2 << ")";
-  } else {
-    os << "Nothing";
-  }
-  return os;
 }
 
 }  // namespace lela

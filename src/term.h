@@ -16,10 +16,13 @@ namespace lela {
 class Symbol {
  public:
   typedef int Id;
-  typedef int Sort;
+  typedef int8_t Sort;
+  typedef int8_t Arity;
   struct Comparator;
 
-  static Symbol CreateFunction(Id id, Sort sort, int arity) {
+  static Sort CreateSort();
+
+  static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
     assert(id > 0);
     id = -1 * (2 * id + 1);
     return Symbol(id, sort, arity);
@@ -31,6 +34,7 @@ class Symbol {
   }
 
   static Symbol CreateVariable(Id id, Sort sort) {
+    assert(id > 0);
     id = -1 * (2 * id);
     return Symbol(id, sort, 0);
   }
@@ -39,14 +43,28 @@ class Symbol {
   bool name() const { return id_ > 0; }
   bool variable() const { return id_ < 0 && ((-id_) % 2) == 0; }
 
-  int arity() const { return arity_; }
+  Id id() const {
+    assert(function() || name() || variable());
+    if (function())       return (-1 * id_ - 1) / 2;
+    else if (name())      return id_;
+    else if (variable())  return (-1 * id_) / 2;
+    else                  return 0;
+  }
+
+  Sort sort() const { return sort_; }
+
+  Arity arity() const { return arity_; }
 
  private:
-  Symbol(Id id, Sort sort, int arity) : id_(id), sort_(sort), arity_(arity) {}
+  Symbol(Id id, Sort sort, Arity arity) : id_(id), sort_(sort), arity_(arity) {
+    assert(sort >= 0);
+    assert(arity >= 0);
+    assert(!function() || !variable() || arity == 0);
+  }
 
   Id id_;
   Sort sort_;
-  int arity_;
+  Arity arity_;
 };
 
 struct Symbol::Comparator {
@@ -68,6 +86,7 @@ class Term {
   struct Comparator;
   typedef std::vector<Term> Vector;
   typedef std::map<Term, Term> Substitution;
+  typedef std::set<Term, Comparator> Set;
 
   Term() = default;
   Term(const Term&) = default;
@@ -126,7 +145,7 @@ class Term {
   bool function() const { return data_->symbol_.function(); }
   bool name() const { return data_->symbol_.name(); }
   bool variable() const { return data_->symbol_.variable(); }
-  int arity() const { return data_->symbol_.arity(); }
+  Symbol::Arity arity() const { return data_->symbol_.arity(); }
 
   bool null() const { return !data_; }
   bool ground() const {
@@ -135,10 +154,16 @@ class Term {
                                    [](Term t) { return t.ground(); }));
   }
   bool primitive() const {
-    return name() ||
-        (function() && std::all_of(data_->args_.begin(), data_->args_.end(),
-                                   [](Term t) { return t.name(); }));
+    return function() && std::all_of(data_->args_.begin(), data_->args_.end(),
+                                     [](Term t) { return t.name(); });
   }
+  bool quasiprimitive() const {
+    return function() && std::all_of(data_->args_.begin(), data_->args_.end(),
+                                     [](Term t) { return t.name() || t.variable(); });
+  }
+
+  template<class UnaryPredicate>
+  void CollectTerms(UnaryPredicate p, Term::Set* ts) const;
 
  private:
   struct Data {
@@ -151,7 +176,7 @@ class Term {
 
   explicit Term(Data* data) : data_(data) {}
 
-  static std::set<Data*, Data::PtrComparator> memory_;
+  static std::vector<std::set<Data*, Data::PtrComparator>> memory_;
 
   Data* data_;
 };
@@ -179,6 +204,16 @@ struct Term::Data::PtrComparator {
   LexicographicComparator<Symbol::Comparator,
                           LexicographicContainerComparator<Vector, Term::Comparator>> comp;
 };
+
+template<class UnaryPredicate>
+void Term::CollectTerms(UnaryPredicate p, Term::Set* ts) const {
+  if (p(*this)) {
+    ts->insert(*this);
+  }
+  for (Term arg : args()) {
+    arg.CollectTerms(p, ts);
+  }
+}
 
 }  // namespace lela
 
