@@ -1,20 +1,12 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
-//
-// FullPel(), Rel(), Pel(), ... depend on names().
-//
-// There are const versions of Inconsistent() and Entails() which just perform a
-// const_cast. Their behavior is not-const for two reasons: Firstly, they update
-// the inconsistency cache, which is hidden from the outside, though. Secondly,
-// they add names to names().
-//
-// Is a setup for a minimal names() inconsistent iff it is inconsistent for any
-// names()?
 
 #ifndef SRC_SETUP_H_
 #define SRC_SETUP_H_
 
-#include <set>
+#include <algorithm>
+#include <forward_list>
+#include <map>
 #include <vector>
 #include "./clause.h"
 
@@ -22,132 +14,88 @@ namespace lela {
 
 class Setup {
  public:
-  typedef size_t split_level;
+  typedef size_t SplitLevel;
 
   Setup() = default;
   Setup(const Setup&) = default;
   Setup& operator=(const Setup&) = default;
 
-  void AddClause(const Clause& c);
-  void AddClauseWithoutConsistencyCheck(const Clause& c);
-  void GuaranteeConsistency(split_level k);
-
-  bool Inconsistent(split_level k);
-  bool Models(const Clause& c, split_level k);
-
-  bool Inconsistent(split_level k) const {
-    return const_cast<Setup*>(this)->Inconsistent(k);
+  void Minimize() {
+    for (auto it = clauses_.begin(); it != clauses_.end(); ++it) {
+      for (auto jt = clauses_.begin(), prev = jt; jt != clauses_.end(); prev = jt++) {
+        if (it != jt && it->Subsumes(*jt)) {
+          assert(std::next(prev) == jt);
+          RemoveClause(prev, *jt);
+        }
+      }
+    }
   }
-  bool Models(const Clause& c, split_level k) const {
-    return const_cast<Setup*>(this)->Models(c, k);
+
+  bool PossiblyInconsistent() const {
+    std::vector<Literal> ls;
+    for (auto kv : mentions_) {
+      ls.clear();
+      Term t = kv.first;
+      for (const Clause& c : kv.second) {
+        for (Literal a : c) {
+          if (t == a.lhs() || t == a.rhs()) {
+            ls.push_back(a);
+          }
+        }
+      }
+      for (auto it = ls.begin(); it != ls.end(); ++it) {
+        for (auto jt = std::next(it); jt != ls.end(); ++jt) {
+          assert(Literal::Complementary(*it, *jt) == Literal::Complementary(*jt, *it));
+          if (Literal::Complementary(*it, *jt)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  bool Implies(const Clause& c) const {
+    for (const Clause& d : clauses_) {
+      if (d.Subsumes(c)) {
+        return true;
+      }
+    }
+    return false;
   }
 
  private:
-  class BucketMap : public std::vector<std::vector<Clause>> {
-   public:
-    using std::vector<std::vector<Clause>>::vector;
-    reference operator[](size_type pos) {
-      if (pos >= size()) {
-        resize(pos+1);
+  typedef std::forward_list<Clause> List;
+  typedef std::forward_list<List::const_reference> RefList;
+
+  void AddClause(const Clause& c) {
+    clauses_.push_front(c);
+    for (Literal a : c) {
+      if (a.lhs().function()) {
+        auto& cs = mentions_[a.lhs()];
+        if (cs.empty() || c == cs.front()) {
+          cs.push_front(clauses_.front());
+        }
       }
-      return std::vector<std::vector<Clause>>::operator[](pos);
     }
-    const_reference operator[](size_type pos) const {
-      if (pos >= size()) {
-        return empty_;
-      }
-      return std::vector<std::vector<Clause>>::operator[](pos);
-    }
-
-   private:
-    std::vector<Clause> empty_;
-  };
-
-  class BitMap : public std::vector<bool> {
-   public:
-    using std::vector<bool>::vector;
-    reference operator[](size_type pos) {
-      if (pos >= size()) {
-        resize(pos+1, false);
-      }
-      return std::vector<bool>::operator[](pos);
-    }
-    const_reference operator[](size_type pos) const {
-      return pos < size() ? std::vector<bool>::operator[](pos) : false;
-    }
-  };
-
-  BucketMap cs_;
-  BitMap incons_;
-};
-
-#if 0
-class Setup {
- public:
-  typedef size_t split_level;
-
-  Setup() = default;
-  Setup(const Setup&) = default;
-  Setup& operator=(const Setup&) = default;
-
-  void AddClause(const Clause& c);
-  void AddClauseWithoutConsistencyCheck(const Clause& c);
-  void GuaranteeConsistency(split_level k);
-
-  bool Inconsistent(split_level k);
-  bool Entails(const SimpleClause& c, split_level k);
-
-  bool Inconsistent(split_level k) const {
-    return const_cast<Setup*>(this)->Inconsistent(k);
-  }
-  bool Entails(const SimpleClause& c, split_level k) const {
-    return const_cast<Setup*>(this)->Entails(c, k);
   }
 
-  const Clause::Set& clauses() const { return cs_; }
-  const StdName::SortedSet& names() const { return names_; }
-
- private:
-  class BitMap : public std::vector<bool> {
-   public:
-    using std::vector<bool>::vector;
-
-    reference operator[](size_type pos) {
-      if (pos >= size()) {
-        resize(pos+1, false);
+  void RemoveClause(List::const_iterator before, List::const_reference c) {
+    for (Literal a : c) {
+      if (a.lhs().function()) {
+        mentions_[a.lhs()].remove_if([c](const Clause& d) { return &c == &d; });
       }
-      return std::vector<bool>::operator[](pos);
+      if (a.rhs().function()) {
+        mentions_[a.rhs()].remove_if([c](const Clause& d) { return &c == &d; });
+      }
     }
+    assert(*std::next(before) == c);
+    clauses_.erase_after(before);
+  }
 
-    const_reference operator[](size_type pos) const {
-      return pos < size() ? std::vector<bool>::operator[](pos) : false;
-    }
-  };
-
-  void UpdateHPlusFor(const StdName::SortedSet& ns);
-  void UpdateHPlusFor(const Variable::SortedSet& vs);
-  void UpdateHPlusFor(const SimpleClause& c);
-  void UpdateHPlusFor(const Clause& c);
-  Atom::Set FullPel() const;
-  Literal::Set Rel(const SimpleClause& c) const;
-  Atom::Set Pel(const SimpleClause& c) const;
-  bool ContainsEmptyClause() const;
-  size_t MinimizeWrt(Clause::Set::iterator c);
-  void Minimize();
-  void PropagateUnits();
-  bool Subsumes(const Clause& c);
-  bool SubsumesWithSplits(Atom::Set pel, const SimpleClause& c, split_level k);
-  bool SplitRelevant(const Atom& a, const Clause& c, split_level k);
-
-  Clause::Set cs_;
-  Clause::Set boxes_;
-  TermSeq::Set grounded_;
-  BitMap incons_;
-  StdName::SortedSet names_;
+  List clauses_;
+  std::map<Term, List> mentions_;
 };
-
-std::ostream& operator<<(std::ostream& os, const Setup& s);
-#endif
 
 }  // namespace lela
 

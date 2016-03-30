@@ -62,7 +62,7 @@ class Literal {
          (a.eq_ && !b.eq_ && a.rhs_.name() && b.rhs_.name() && a.rhs_ != b.rhs_));
   }
 
-  bool Subsumes(Literal b) {
+  bool Subsumes(Literal b) const {
     return Subsumes(*this, b);
   }
 
