@@ -33,9 +33,7 @@ class Literal {
   Literal Flip() const { return Literal(!eq_, lhs_, rhs_); }
   Literal Dual() const { return Literal(eq_, rhs_, lhs_); }
 
-  bool operator==(Literal l) const {
-    return eq_ == l.eq_ && lhs_ == l.lhs_ && rhs_ == l.rhs_;
-  }
+  bool operator==(Literal l) const { return eq_ == l.eq_ && lhs_ == l.lhs_ && rhs_ == l.rhs_; }
 
   // valid() holds for (t = t) and (n1 != n2).
   bool valid() const { return (eq_ && lhs_ == rhs_) || (!eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_); }

@@ -1,3 +1,6 @@
+find_package (Boost REQUIRED)
+include_directories (${Boost_INCLUDE_DIRS})
+
 add_library (LELA SHARED term.cc setup.cc)
 
 target_link_libraries (LELA ${LIBS})

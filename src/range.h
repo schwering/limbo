@@ -4,18 +4,27 @@
 #ifndef SRC_RANGE_H_
 #define SRC_RANGE_H_
 
+#include <iterator>
 #include <utility>
 
 namespace lela {
 
 template<typename T>
 struct Range {
+  typedef T iterator_type;
+
   Range() : first(), last() {}
   Range(T&& first, T&& last) : first(first), last(last) {}  // NOLINT
-  T first;
-  T last;
+
+  bool operator==(const Range<T>& r) const { return first == r.first && last == r.last; }
+  bool operator!=(const Range<T>& r) const { return !(*this == r); }
+
   T begin() const { return first; }
   T end() const { return last; }
+  bool empty() const { return first == last; }
+
+  T first;
+  T last;
 };
 
 struct EmptyRangeType {

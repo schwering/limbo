@@ -25,6 +25,7 @@ class Clause : public std::vector<Literal> {
     erase(std::unique(begin(), end()), end());
   }
 
+  bool unit() const { return empty(); }
   bool valid() const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
 
@@ -38,11 +39,15 @@ class Clause : public std::vector<Literal> {
     return true;
   }
 
-  bool PropagateUnit(Literal a) {
-    const size_t pre = size();
-    std::remove_if(begin(), end(), [a](Literal b) { return Literal::Complementary(a, b); });
-    const size_t post = size();
-    return pre != post;
+  Maybe<Clause> PropagateUnit(Literal a) {
+    Clause c;
+    std::copy_if(begin(), end(), std::back_inserter(c),
+                [a](Literal b) { return !Literal::Complementary(a, b); }); 
+    if (c.size() != size()) {
+      return Just(c);
+    } else {
+      return Nothing;
+    }
   }
 
   bool ground() const { return std::all_of(begin(), end(), [](Literal l) { return l.ground(); }); }
