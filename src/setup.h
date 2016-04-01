@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 schwering@kbsg.rwth-aachen.de
+// Copyright 2014, 2015, 2016 Christoph Schwering
 
 #ifndef SRC_SETUP_H_
 #define SRC_SETUP_H_
@@ -95,6 +95,15 @@ class Setup {
             return true;
           }
         }
+      }
+    }
+    return false;
+  }
+
+  bool Implies(const Clause& c) const {
+    for (Index i : clauses()) {
+      if (clause(i).Subsumes(c)) {
+        return true;
       }
     }
     return false;
@@ -205,68 +214,6 @@ class Setup {
   // active in the parent setup may be inactive in this one.
   IntMap<bool> del_;
 };
-
-#if 0
-
-  bool PossiblyInconsistent() const {
-    std::vector<Literal> ls;
-    for (auto kv : occurs_) {
-      ls.clear();
-      Term t = kv.first;
-      assert(t.function());
-      for (const Clause* c : kv.second) {
-        for (Literal a : *c) {
-          assert(a.rhs().name());
-          if (t == a.lhs()) {
-            ls.push_back(a);
-          }
-        }
-      }
-      for (auto it = ls.begin(); it != ls.end(); ++it) {
-        for (auto jt = std::next(it); jt != ls.end(); ++jt) {
-          assert(Literal::Complementary(*it, *jt) == Literal::Complementary(*jt, *it));
-          if (Literal::Complementary(*it, *jt)) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  bool Implies(const Clause& c) const {
-    for (const Clause& d : cs_) {
-      if (d.Subsumes(c)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  void AddClause(const Clause& c) {
-    assert(c.primitive() && !c.valid());
-    cs_.Push(c);
-    for (Literal a : c) {
-      if (a.lhs().function()) {
-        auto& cs = occurs_[a.lhs()];
-        if (cs.empty() || cs_.top_ref() != cs.top()) {
-          cs.Push(cs_.top_ref());
-        }
-      }
-    }
-  }
-
-  void RemoveClause(ClauseList::ConstIterator before, ClauseList::ConstRef c) {
-    for (Literal a : *c) {
-      if (a.lhs().function()) {
-        occurs_[a.lhs()].Disable(c);
-      }
-      assert(a.rhs().name());
-    }
-    assert(&*std::next(before) == c);
-    cs_.EraseAfter(before);
-  }
-#endif
 
 }  // namespace lela
 

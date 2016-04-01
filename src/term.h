@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014, 2015, 2016 schwering@kbsg.rwth-aachen.de
+// Copyright 2014, 2015, 2016 Christoph Schwering
 
 #ifndef SRC_TERM_H_
 #define SRC_TERM_H_
@@ -164,6 +164,23 @@ class Term {
 
   template<class UnaryPredicate>
   void CollectTerms(UnaryPredicate p, Term::Set* ts) const;
+
+  uint64_t hash() {
+    // 64bit FNV-1a hash
+    const uint64_t magic_prime = 0x00000100000001b3;
+    const uint8_t* b = reinterpret_cast<const uint8_t*>(data_);
+    return 
+        ((((((((((((((((
+          0xcbf29ce484222325
+          ^ b[0]) * magic_prime)
+          ^ b[1]) * magic_prime)
+          ^ b[2]) * magic_prime)
+          ^ b[3]) * magic_prime)
+          ^ b[4]) * magic_prime)
+          ^ b[5]) * magic_prime)
+          ^ b[6]) * magic_prime)
+          ^ b[7]) * magic_prime);
+  }
 
  private:
   struct Data {

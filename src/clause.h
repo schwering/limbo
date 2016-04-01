@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014, 2015, 2016 schwering@kbsg.rwth-aachen.de
+// Copyright 2014, 2015, 2016 Christoph Schwering
 
 #ifndef SRC_CLAUSE_H_
 #define SRC_CLAUSE_H_
@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <set>
 #include <utility>
+#include "./bloom.h"
 #include "./compar.h"
 #include "./literal.h"
 #include "./maybe.h"
@@ -25,6 +26,7 @@ class Clause : public std::vector<Literal> {
     std::remove_if(begin(), end(), [](const Literal a) { return a.invalid(); });
     std::sort(begin(), end(), Literal::Comparator());
     erase(std::unique(begin(), end()), end());
+    InitBloom();
   }
 
   bool unit() const { return empty(); }
@@ -32,6 +34,9 @@ class Clause : public std::vector<Literal> {
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
 
   bool Subsumes(const Clause& c) const {
+    if (!BloomFilter::Subset(bloom_, c.bloom_)) {
+      return false;
+    }
     for (Literal a : *this) {
       const bool subsumed = std::any_of(c.begin(), c.end(), [a](const Literal b) { return a.Subsumes(b); });
       if (!subsumed) {
@@ -75,6 +80,20 @@ class Clause : public std::vector<Literal> {
       a.CollectTerms(p, ts);
     }
   }
+
+ private:
+  void InitBloom() {
+    for (Literal a : *this) {
+      if (a.lhs().function()) {
+        bloom_.Add(a.lhs().hash());
+      }
+      if (a.rhs().function()) {
+        bloom_.Add(a.lhs().hash());
+      }
+    }
+  }
+
+  BloomFilter bloom_;
 };
 
 }  // namespace lela
