@@ -17,10 +17,12 @@ namespace lela {
 
 class Clause : public std::vector<Literal> {
  public:
+  typedef LexicographicContainerComparator<Clause, Literal::Comparator> Comparator;
+
   using std::vector<Literal>::vector;
 
   void Minimize() {
-    std::remove_if(begin(), end(), [](const Literal& a) { return a.invalid(); });
+    std::remove_if(begin(), end(), [](const Literal a) { return a.invalid(); });
     std::sort(begin(), end(), Literal::Comparator());
     erase(std::unique(begin(), end()), end());
   }
@@ -39,7 +41,7 @@ class Clause : public std::vector<Literal> {
     return true;
   }
 
-  Maybe<Clause> PropagateUnit(Literal a) {
+  Maybe<Clause> PropagateUnit(Literal a) const {
     Clause c;
     std::copy_if(begin(), end(), std::back_inserter(c),
                 [a](Literal b) { return !Literal::Complementary(a, b); }); 

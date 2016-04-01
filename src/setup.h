@@ -10,6 +10,7 @@
 #include <vector>
 #include <boost/iterator/filter_iterator.hpp>
 #include "./clause.h"
+#include "./iter.h"
 #include "./range.h"
 
 namespace lela {
@@ -17,174 +18,170 @@ namespace lela {
 class Setup {
  public:
   typedef int Index;
+  typedef std::vector<Clause> ClauseVec;
+  typedef std::vector<Index> IndexVec;
+  typedef std::map<Term, IndexVec> TermMap;
 
-  class IndexIterator : std::iterator<std::input_iterator_tag, Index> {
-   public:
-    static IndexIterator end() { return IndexIterator(-1); }
-
-    explicit IndexIterator(Index max_index) : index_(max_index) {}
-
-    bool operator==(IndexIterator it) const { return index_ == it.index_; }
-    bool operator!=(IndexIterator it) const { return !(*this == it); }
-
-    const Index& operator*() const { assert(index_ >= 0); return index_; }
-
-    IndexIterator& operator++() { --index_; return *this; }
-
-    bool empty() const { return index_ == -1; }
-
-   private:
-    Index index_;
+  struct NextLevel {
+    NextLevel() {}
+    NextLevel(const Setup* owner) : level_(owner) {}
+    const Setup* operator()() { level_ = level_->parent_; return level_; }
+    const Setup* level_;
   };
 
-  template<typename UnaryFunction>
-  class LevelIterator : std::iterator<std::input_iterator_tag, Index> {
-   public:
-    static LevelIterator end() { return LevelIterator(); }
-
-    LevelIterator(UnaryFunction range_generator, const Setup* owner) : range_generator_(range_generator), current_(owner) {
-      operator++();
-    }
-
-    bool operator==(LevelIterator it) const { return current_ == it.current_ && range_ == it.range_; }
-    bool operator!=(LevelIterator it) const { return !(*this == it); }
-
-    Index operator*() const { return *range_.first; }
-
-    LevelIterator& operator++() {
-      if (!range_.empty()) {
-        ++range_.first;
-      } else {
-        while (current_ && (range_ = range_generator_.range(current_)).empty()) {
-          current_ = current_->parent_;
-        }
-      }
-      return *this;
-    }
-
-    bool empty() const { return !current_; }
-
-   private:
-    LevelIterator() : current_(0) {}
-
-    UnaryFunction range_generator_;
-    const Setup* current_;
-    Range<typename UnaryFunction::iterator_type> range_;
-  };
-
-  struct TermOccurrenceRange {
-    typedef std::vector<Index>::const_iterator iterator_type;
-
-    TermOccurrenceRange() {}
-    TermOccurrenceRange(Term t) : term_(t) {}
-
-    Range<iterator_type> range(const Setup* owner) const {
-      assert(owner);
-      auto it = owner->occurs_.find(term_);
-      return MakeRange(it->second.begin(), it->second.end());
-    }
-
-    Term term_;
+  struct Masked {
+    Masked() {}
+    Masked(const Setup* owner) : owner_(owner) {}
+    bool operator()(Index i) const { return owner_->masked(i); }
+    const Setup* owner_;
   };
 
   struct UnitRange {
-    typedef std::vector<Index>::const_iterator iterator_type;
-
-    UnitRange() {}
-
-    Range<iterator_type> range(const Setup* owner) const {
-      return MakeRange(owner->units_.begin(), owner->units_.end());
-    }
+    Range<IndexVec::const_iterator> operator()(const Setup* owner) const { return MakeRange(owner->units_.begin(), owner->units_.end()); }
   };
 
-  template<typename Iter>
-  class UnmaskedIterator : std::iterator<std::input_iterator_tag, Clause> {
-   public:
-    static UnmaskedIterator end() { return UnmaskedIterator(0, Iter::end()); }
-
-    explicit UnmaskedIterator(const Setup* owner, Iter it) : owner_(owner), iter_(it) { Skip(); }
-
-    bool operator==(UnmaskedIterator it) const { return iter_ == it.iter_; }
-    bool operator!=(UnmaskedIterator it) const { return !(*this == it); }
-
-    Index index() const { return *iter_; }
-    const Clause& clause() const { assert(!owner_->Mask(index())); return owner_->clause(index()); }
-
-    const Clause& operator*() const { return clause(); }
-    const Clause* operator->() const { return &clause(); }
-
-    UnmaskedIterator& operator++() {
-      assert(*iter_ >= 0);
-      ++iter_;
-      Skip();
-      return *this;
+  struct TermOccurrenceRangeGen {
+    TermOccurrenceRangeGen(Term t) : term_(t) {}
+    Range<IndexVec::const_iterator> operator()(const Setup* owner) const {
+      auto it = owner->occurs_.find(term_);
+      return MakeRange(it->second.begin(), it->second.end());
     }
+    Term term_;
+  };
 
-    bool empty() const { return iter_.empty(); }
+  struct GetClause {
+    GetClause(const Setup* owner) : owner_(owner) {}
+    const Clause& operator()(Index i) const { return owner_->clause(i); }
+    const Setup* owner_;
+  };
 
-   private:
-    void Skip() {
-      while (iter_ != Iter::end() && owner_->Mask(*iter_)) {
-        assert(*iter_ >= 0);
-        ++iter_;
+  struct GetTerm {
+    Term operator()(const TermMap::value_type& pair) const { return pair.first; }
+  };
+
+  void AddClause(const Clause& c) {
+    assert(!sealed);
+    cs_.push_back(c);
+  }
+
+  void Init() {
+    UpdateIndexes();
+    PropagateUnits();
+    UpdateIndexes();
+    Minimize();
+    UpdateIndexes();
+#ifndef NDEBUG
+    sealed = true;
+#endif
+  }
+
+  bool PossiblyInconsistent() const {
+    std::vector<Literal> ls;
+    for (Term t : terms()) {
+      ls.clear();
+      assert(t.function());
+      for (Index i : clauses_with(t)) {
+        for (Literal a : clause(i)) {
+          assert(a.rhs().name());
+          if (t == a.lhs()) {
+            ls.push_back(a);
+          }
+        }
+      }
+      for (auto it = ls.begin(); it != ls.end(); ++it) {
+        for (auto jt = std::next(it); jt != ls.end(); ++jt) {
+          assert(Literal::Complementary(*it, *jt) == Literal::Complementary(*jt, *it));
+          if (Literal::Complementary(*it, *jt)) {
+            return true;
+          }
+        }
       }
     }
+    return false;
+  }
 
-    const Setup* const owner_;
-    Iter iter_;
-  };
+  Range<TransformIterator<GetTerm, TermMap::const_iterator>> terms() const {
+    return MakeRange(transform_iterator(GetTerm(), occurs_.begin()),
+                     transform_iterator(GetTerm(), occurs_.end()));
+  }
 
-  void Minimize() {
-    auto r = clauses();
-    for (auto it = r.begin(); it != r.end(); ++it) {
-      const Index i = it.index();
-      for (auto jt = r.begin(); jt != r.end(); ++jt) {
-        const Index j = jt.index();
-        if (i != j && clause(i).Subsumes(clause(j))) {
-          Mask(j);
+  Range<FilterIterator<Masked, DecrementingIterator<Index>>> clauses() const {
+    return MakeRange(filter_iterator(Masked(this), decrementing_iterator(to())),
+                     filter_iterator(Masked(this), decrementing_iterator(-1)));
+  }
+
+  Range<FilterIterator<Masked, LevelIterator<Setup, NextLevel, TermOccurrenceRangeGen>>> clauses_with(Term t) const {
+    return MakeRange(filter_iterator(Masked(this), level_iterator(NextLevel(), TermOccurrenceRangeGen(t), this)),
+                     filter_iterator(Masked(this), level_iterator(NextLevel(), TermOccurrenceRangeGen(t), this)));
+  }
+
+  Range<FilterIterator<Masked, LevelIterator<Setup, NextLevel, UnitRange>>> unit_clauses() const {
+    return MakeRange(filter_iterator(Masked(this), level_iterator(NextLevel(), UnitRange(), this)),
+                     filter_iterator(Masked(this), LevelIterator<Setup, NextLevel, UnitRange>()));
+  }
+
+ private:
+  void UpdateIndexes() {
+    assert(!sealed);
+    occurs_.clear();
+    units_.clear();
+    for (Index i = from(); i <= to(); ++i) {
+      for (Literal a : clause(i)) {
+        if (a.lhs().function()) {
+          auto& cs = occurs_[a.lhs()];
+          if (cs.empty() || cs.back() != i) {
+            cs.push_back(i);
+          }
         }
+      }
+      if (clause(i).unit()) {
+        units_.push_back(i);
       }
     }
   }
 
   void PropagateUnits() {
-  }
-
-  Range<UnmaskedIterator<IndexIterator>> clauses() const {
-    return MakeRange(UnmaskedIterator<IndexIterator>(this, IndexIterator(to())),
-                     UnmaskedIterator<IndexIterator>::end());
-  }
-
-  Range<UnmaskedIterator<LevelIterator<TermOccurrenceRange>>> clauses_with(Term t) const {
-    return MakeRange(UnmaskedIterator<LevelIterator<TermOccurrenceRange>>(this, LevelIterator<TermOccurrenceRange>(TermOccurrenceRange(t), this)),
-                     UnmaskedIterator<LevelIterator<TermOccurrenceRange>>::end());
-  }
-
-  Range<UnmaskedIterator<LevelIterator<UnitRange>>> unit_clauses() const {
-    return MakeRange(UnmaskedIterator<LevelIterator<UnitRange>>(this, LevelIterator<UnitRange>(UnitRange(), this)),
-                     UnmaskedIterator<LevelIterator<UnitRange>>::end());
-  }
-
- protected:
-  class BitMap : public std::vector<bool> {
-   public:
-    using std::vector<bool>::vector;
-
-    reference operator[](size_type pos) {
-      if (pos >= size()) {
-        resize(pos + 1, false);
+    assert(!sealed);
+    for (Index i : unit_clauses()) {
+      assert(clause(i).unit());
+      const Literal a = clause(i).front();
+      assert(a.primitive());
+      for (Index j : clauses_with(a.lhs())) {
+        Maybe<Clause> c = clause(j).PropagateUnit(a);
+        if (c) {
+          cs_.push_back(c.val);
+          if (c.val.unit()) {
+            auto r1 = unit_clauses();
+            auto r2 = MakeRange(transform_iterator(GetClause(this), r1.begin()), transform_iterator(GetClause(this), r1.end()));
+            if (std::find(r2.begin(), r2.end(), c.val) == r2.end()) {
+              const Index k = cs_.size() - 1;
+              units_.push_back(k);
+            }
+          }
+        }
       }
-      return std::vector<bool>::operator[](pos);
     }
+  }
 
-    bool operator[](size_type pos) const {
-      return pos < size() ? std::vector<bool>::operator[](pos) : false;
+  void Minimize() {
+    assert(!sealed);
+    for (Index i : clauses()) {
+      if (clause(i).valid()) {
+        Mask(i);
+      } else {
+        for (Index j : clauses()) {
+          if (i != j && clause(i).Subsumes(clause(j))) {
+            Mask(j);
+          }
+        }
+      }
     }
-  };
+  }
 
-  // Mask() masks a clause as inactive, clause() returns a clause; the indexing
-  // is global.
-  bool Mask(Index i) const { assert(0 <= i && i <= to()); return del_[i]; }
+  // Mask() masks a clause as inactive, masked() indicates whether a clause is
+  // inactive, clause() returns a clause; the indexing is global.
+  void Mask(Index i) { assert(0 <= i && i <= to()); del_[i] = true; }
+  bool masked(Index i) const { assert(0 <= i && i <= to()); return del_[i]; }
   const Clause& clause(Index i) const { assert(0 <= i && i <= to()); return i >= from() ? cs_[i] : parent_->clause(i); }
 
   // from() and to() represent the global indeces this setup represents.
@@ -193,39 +190,23 @@ class Setup {
   const Index from_ = parent_ ? 0 : parent_->from_ + parent_->cs_.size() + 1;
 
   Setup* parent_;
+#ifndef NDEBUG
+  bool sealed = false;
+#endif
 
   // cs_ contains all clauses added in this setup, and occurs_ is their index;
   // the indexing in cs_ is (obviously) local.
   // from() and to() 
-  std::vector<Clause> cs_;
-  std::map<Term, std::vector<Index>> occurs_;
-  std::vector<Index> units_;
+  ClauseVec cs_;
+  TermMap occurs_;
+  IndexVec units_;
 
   // del_ masks all deleted clauses; the number is global, because a clause
   // active in the parent setup may be inactive in this one.
-  BitMap del_;
+  IntMap<bool> del_;
 };
 
 #if 0
-  void PropagateUnit() {
-    std::vector<Literal> units;
-    for (const Clause& c : cs_) {
-      if (c.unit()) {
-        units.push_back(c.front());
-      }
-    }
-    std::vector<Literal> removed;
-    for (Literal a : units) {
-      assert(a.primitive());
-      for (auto c : occurs_[a.lhs()]) {
-        c->PropagateUnit(a, std::back_inserter(removed));
-        for (Literal b : removed) {
-          occurs_[b.lhs()].Disable(c);
-        }
-        removed.clear();
-      }
-    }
-  }
 
   bool PossiblyInconsistent() const {
     std::vector<Literal> ls;

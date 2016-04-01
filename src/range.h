@@ -14,6 +14,7 @@ struct Range {
   typedef T iterator_type;
 
   Range() : first(), last() {}
+  Range(T&& first) : first(first) {}  // NOLINT
   Range(T&& first, T&& last) : first(first), last(last) {}  // NOLINT
 
   bool operator==(const Range<T>& r) const { return first == r.first && last == r.last; }
