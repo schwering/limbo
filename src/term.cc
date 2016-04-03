@@ -12,9 +12,10 @@ Term Term::Create(Symbol symbol) {
 }
 
 Term Term::Create(Symbol symbol, const Vector& args) {
+  assert(symbol.arity() == static_cast<Symbol::Arity>(args.size()));
   const size_t mem_index = symbol.sort();
   if (mem_index >= memory_.size()) {
-    memory_.resize(mem_index);
+    memory_.resize(mem_index + 1);
   }
   Data* d = new Data(symbol, args);
   auto p = memory_[mem_index].insert(d);

@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014, 2015, 2016 Christoph Schwering
+// Copyright 2014--2016 Christoph Schwering
 
 #ifndef SRC_SETUP_H_
 #define SRC_SETUP_H_

@@ -27,7 +27,7 @@ endif()
 
 add_subdirectory (src)
 #add_subdirectory (bats)
-add_subdirectory (examples)
+#add_subdirectory (examples)
 add_subdirectory (tests)
 #add_subdirectory (eclipse-clp)
 

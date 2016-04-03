@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014, 2015, 2016 Christoph Schwering
+// Copyright 2014--2016 Christoph Schwering
 
 // To handle Maybe<std::unique_ptr<T>> we use std::forward(). Is that correct?
 

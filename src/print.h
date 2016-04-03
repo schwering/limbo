@@ -1,5 +1,8 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014, 2015, 2016 schwering@kbsg.rwth-aachen.de
+// Copyright 2014--2016 Christoph Schwering
+
+#ifndef SRC_PRINT_H_
+#define SRC_PRINT_H_
 
 #include <ostream>
 #include "clause.h"
@@ -64,7 +67,7 @@ std::ostream& operator<<(std::ostream& os, const Term t) {
 
 std::ostream& operator<<(std::ostream& os, const Literal a) {
   os << a.lhs();
-  if (a.eq()) {
+  if (a.pos()) {
     os << " \u003D ";
   } else {
     os << " \u2260 ";
@@ -87,5 +90,7 @@ std::ostream& operator<<(std::ostream& os, const Clause c) {
   return os;
 }
 
-}
+}  // namespace lela
+
+#endif  // SRC_PRINT_H_
 

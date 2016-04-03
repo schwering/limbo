@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014, 2015, 2016 Christoph Schwering
+// Copyright 2014--2016 Christoph Schwering
 
 #ifndef SRC_TERM_H_
 #define SRC_TERM_H_
@@ -62,9 +62,9 @@ class Symbol {
     assert(!function() || !variable() || arity == 0);
   }
 
-  Id id_;
-  Sort sort_;
-  Arity arity_;
+  const Id id_;
+  const Sort sort_;
+  const Arity arity_;
 };
 
 struct Symbol::Comparator {
@@ -107,7 +107,8 @@ class Term {
       return post;
     }
     if (arity() > 0) {
-      Vector args(data_->args_.size());
+      Vector args;
+      args.reserve(data_->args_.size());
       for (Term arg : data_->args_) {
         args.push_back(arg.Substitute(pre, post));
       }
@@ -128,7 +129,8 @@ class Term {
         return *this;
       }
     } else if (arity() > 0) {
-      Vector args(data_->args_.size());
+      Vector args;
+      args.reserve(data_->args_.size());
       for (Term arg : data_->args_) {
         args.push_back(arg.Ground(theta));
       }
@@ -162,7 +164,7 @@ class Term {
                                      [](Term t) { return t.name() || t.variable(); });
   }
 
-  template<class UnaryPredicate>
+  template<typename UnaryPredicate>
   void CollectTerms(UnaryPredicate p, Term::Set* ts) const;
 
   uint64_t hash() {
@@ -195,7 +197,7 @@ class Term {
 
   static std::vector<std::set<Data*, Data::PtrComparator>> memory_;
 
-  Data* data_;
+  const Data* data_;
 };
 
 struct Term::Comparator {
@@ -206,11 +208,11 @@ struct Term::Comparator {
   }
 
  private:
-  LessComparator<Data*> comp;
+  LessComparator<const Data*> comp;
 };
 
 struct Term::Data::PtrComparator {
-  typedef Term::Data* value_type;
+  typedef const Term::Data* value_type;
 
   bool operator()(value_type a, value_type b) const {
     return comp(a->symbol_, a->args_,
@@ -222,7 +224,7 @@ struct Term::Data::PtrComparator {
                           LexicographicContainerComparator<Vector, Term::Comparator>> comp;
 };
 
-template<class UnaryPredicate>
+template<typename UnaryPredicate>
 void Term::CollectTerms(UnaryPredicate p, Term::Set* ts) const {
   if (p(*this)) {
     ts->insert(*this);
