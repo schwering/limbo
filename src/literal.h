@@ -29,9 +29,10 @@ class Literal {
 
   bool ground() const { return lhs_.ground() && rhs_.ground(); }
   bool primitive() const { return lhs_.primitive() && rhs_.name(); }
+  bool quasiprimitive() const { return lhs_.quasiprimitive() && rhs_.name(); }
 
-  Literal Flip() const { return Literal(!eq_, lhs_, rhs_); }
-  Literal Dual() const { return Literal(eq_, rhs_, lhs_); }
+  Literal flip() const { return Literal(!eq_, lhs_, rhs_); }
+  Literal dual() const { return Literal(eq_, rhs_, lhs_); }
 
   bool operator==(Literal l) const { return eq_ == l.eq_ && lhs_ == l.lhs_ && rhs_ == l.rhs_; }
 

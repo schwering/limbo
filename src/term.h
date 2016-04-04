@@ -10,6 +10,7 @@
 #include <set>
 #include <vector>
 #include "./compar.h"
+#include <iostream>
 
 namespace lela {
 
@@ -167,26 +168,27 @@ class Term {
   template<typename UnaryPredicate>
   void CollectTerms(UnaryPredicate p, Term::Set* ts) const;
 
-  uint64_t hash() {
+  uint64_t hash() const {
     // 64bit FNV-1a hash
     const uint64_t magic_prime = 0x00000100000001b3;
-    const uint8_t* b = reinterpret_cast<const uint8_t*>(data_);
-    return 
+    const uint64_t b = reinterpret_cast<const uint64_t>(data_);
+    assert(sizeof(data_) == sizeof(b));
+    return
         ((((((((((((((((
           0xcbf29ce484222325
-          ^ b[0]) * magic_prime)
-          ^ b[1]) * magic_prime)
-          ^ b[2]) * magic_prime)
-          ^ b[3]) * magic_prime)
-          ^ b[4]) * magic_prime)
-          ^ b[5]) * magic_prime)
-          ^ b[6]) * magic_prime)
-          ^ b[7]) * magic_prime);
+          ^ ((b >>  0) & 0xFF)) * magic_prime)
+          ^ ((b >>  8) & 0xFF)) * magic_prime)
+          ^ ((b >> 16) & 0xFF)) * magic_prime)
+          ^ ((b >> 24) & 0xFF)) * magic_prime)
+          ^ ((b >> 32) & 0xFF)) * magic_prime)
+          ^ ((b >> 40) & 0xFF)) * magic_prime)
+          ^ ((b >> 48) & 0xFF)) * magic_prime)
+          ^ ((b >> 56) & 0xFF)) * magic_prime);
   }
 
  private:
   struct Data {
-    struct PtrComparator;
+    struct DeepComparator;
     Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args) {}
 
     Symbol symbol_;
@@ -195,7 +197,7 @@ class Term {
 
   explicit Term(Data* data) : data_(data) {}
 
-  static std::vector<std::set<Data*, Data::PtrComparator>> memory_;
+  static std::vector<std::set<Data*, Data::DeepComparator>> memory_;
 
   const Data* data_;
 };
@@ -211,7 +213,7 @@ struct Term::Comparator {
   LessComparator<const Data*> comp;
 };
 
-struct Term::Data::PtrComparator {
+struct Term::Data::DeepComparator {
   typedef const Term::Data* value_type;
 
   bool operator()(value_type a, value_type b) const {

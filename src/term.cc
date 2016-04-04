@@ -5,7 +5,7 @@
 
 namespace lela {
 
-std::vector<std::set<Term::Data*, Term::Data::PtrComparator>> Term::memory_;
+std::vector<std::set<Term::Data*, Term::Data::DeepComparator>> Term::memory_;
 
 Term Term::Create(Symbol symbol) {
   return Create(symbol, {});

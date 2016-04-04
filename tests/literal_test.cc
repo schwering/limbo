@@ -1,67 +1,58 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 schwering@kbsg.rwth-aachen.de
+// Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
 #include <./literal.h>
+#include <./print.h>
 
 using namespace lela;
 
-inline bool operator<(const Atom& a, const Atom& b) {
-  return Atom::Comparator()(a, b);
-}
+TEST(literal_test, symbol) {
+  const Symbol::Sort s1 = 1;
+  const Symbol::Sort s2 = 2;
+  const Term n1 = Term::Create(Symbol::CreateName(1, s1));
+  const Term n2 = Term::Create(Symbol::CreateName(2, s1));
+  const Term x1 = Term::Create(Symbol::CreateVariable(1, s1));
+  const Term x2 = Term::Create(Symbol::CreateVariable(2, s1));
+  const Term f1 = Term::Create(Symbol::CreateFunction(1, s1, 1), {n1});
+  const Term f2 = Term::Create(Symbol::CreateFunction(2, s2, 2), {n1,x2});
+  const Term f3 = Term::Create(Symbol::CreateFunction(1, s2, 1), {f1});
+  const Term f4 = Term::Create(Symbol::CreateFunction(2, s2, 2), {n1,f1});
 
-inline bool operator<(const Literal& a, const Literal& b) {
-  return Literal::Comparator()(a, b);
-}
+  EXPECT_TRUE(Literal::Eq(x1,n1).dual() == Literal::Eq(n1,x1));
+  EXPECT_TRUE(Literal::Eq(x1,n1).flip() == Literal::Neq(x1,n1));
+  EXPECT_TRUE(Literal::Eq(x1,n1).flip() == Literal::Neq(x1,n1).flip().flip());
+  EXPECT_TRUE(Literal::Eq(x1,n1) == Literal::Eq(x1,n1).flip().flip());
 
-TEST(literal_test, less) {
-  Term::Factory f;
-  StdName n1 = f.CreateStdName(1, 1);
-  StdName n2 = f.CreateStdName(2, 1);
-  StdName n3 = f.CreateStdName(3, 1);
-  Variable x1 = f.CreateVariable(1);
-  Variable x2 = f.CreateVariable(1);
-  Variable x3 = f.CreateVariable(1);
-  Literal a(true, 12, {n1, n2, x1, n3, x2, x3});
-  Literal b(false, 123, {n1, n2, x1, n3, x2, x3});
-  Literal c(false, 123, {n1, n2, x1, n3, x2, n3});
+  EXPECT_TRUE(!Literal::Eq(x1,n1).ground());
+  EXPECT_TRUE(!Literal::Eq(x1,n1).primitive());
+  EXPECT_TRUE(!Literal::Eq(x1,n1).quasiprimitive());
+  EXPECT_TRUE(!Literal::Eq(x1,n1).flip().quasiprimitive());
+  EXPECT_TRUE(!Literal::Eq(x1,n1).dual().quasiprimitive());
 
-  EXPECT_TRUE(a.sign() == true);
-  EXPECT_TRUE(b.sign() == false);
-  EXPECT_TRUE(c.sign() == false);
+  EXPECT_TRUE(Literal::Eq(f1,n1).ground());
+  EXPECT_TRUE(Literal::Eq(f1,n1).primitive());
+  EXPECT_TRUE(Literal::Eq(f1,n1).quasiprimitive());
+  EXPECT_TRUE(Literal::Eq(f1,n1).flip().quasiprimitive());
+  EXPECT_TRUE(!Literal::Eq(f1,n1).dual().quasiprimitive());
 
-  EXPECT_TRUE(a.Flip().sign() == false);
-  EXPECT_TRUE(b.Flip().sign() == true);
-  EXPECT_TRUE(c.Flip().sign() == true);
+  EXPECT_TRUE(!Literal::Eq(f2,n1).ground());
+  EXPECT_TRUE(!Literal::Eq(f2,n1).primitive());
+  EXPECT_TRUE(Literal::Eq(f2,n1).quasiprimitive());
+  EXPECT_TRUE(Literal::Eq(f2,n1).flip().quasiprimitive());
+  EXPECT_TRUE(Literal::Eq(f2,n1).dual().quasiprimitive());
+  EXPECT_TRUE(Literal::Eq(f2,n1) == Literal::Eq(f2,n1).dual());
 
-  EXPECT_TRUE(a.Positive().sign() == true);
-  EXPECT_TRUE(b.Positive().sign() == true);
-  EXPECT_TRUE(c.Positive().sign() == true);
+  EXPECT_TRUE(Literal::Eq(f3,n1).ground());
+  EXPECT_TRUE(!Literal::Eq(f3,n1).primitive());
+  EXPECT_TRUE(!Literal::Eq(f3,n1).quasiprimitive());
+  EXPECT_TRUE(!Literal::Eq(f3,n1).flip().quasiprimitive());
+  EXPECT_TRUE(!Literal::Eq(f3,n1).dual().quasiprimitive());
 
-  EXPECT_TRUE(a.Negative().sign() == false);
-  EXPECT_TRUE(b.Negative().sign() == false);
-  EXPECT_TRUE(c.Negative().sign() == false);
-
-  EXPECT_FALSE(a.Flip() == a);
-  EXPECT_TRUE(a.Positive() == a);
-  EXPECT_FALSE(a.Negative() == a);
-
-  EXPECT_FALSE(b.Flip() == b);
-  EXPECT_FALSE(b.Positive() == b);
-  EXPECT_TRUE(b.Negative() == b);
-
-  EXPECT_FALSE(c.Flip() == c);
-  EXPECT_FALSE(c.Positive() == c);
-  EXPECT_TRUE(c.Negative() == c);
-
-  EXPECT_TRUE(a.Negative() < a.Positive());
-  EXPECT_TRUE(b.Negative() < b.Positive());
-  EXPECT_TRUE(c.Negative() < c.Positive());
-
-  EXPECT_TRUE(a.sign() != b.sign() || (static_cast<Atom>(a) < static_cast<Atom>(b)) == (a < b));
-  EXPECT_TRUE(a.sign() == b.sign() || (static_cast<Atom>(a) < static_cast<Atom>(b)) == (a < b.Flip()));
-
-  EXPECT_TRUE((static_cast<Atom>(a) == static_cast<Atom>(a.Flip())) && !(a == b));
-  EXPECT_TRUE((static_cast<const Atom&>(a) == static_cast<const Atom&>(a.Flip())) && !(a == b));
+  EXPECT_TRUE(Literal::Eq(f4,n1).ground());
+  EXPECT_TRUE(!Literal::Eq(f4,n1).primitive());
+  EXPECT_TRUE(!Literal::Eq(f4,n1).quasiprimitive());
+  EXPECT_TRUE(!Literal::Eq(f4,n1).flip().quasiprimitive());
+  EXPECT_TRUE(!Literal::Eq(f4,n1).dual().quasiprimitive());
 }
 
