@@ -10,18 +10,16 @@ namespace lela {
 
 #include <vector>
 
-template<typename T>
+template<typename T, T DEFAULT_VALUE>
 class IntMap : public std::vector<T> {
  public:
   typedef typename std::vector<T> parent;
 
   using std::vector<T>::vector;
 
-  IntMap(const T& default_elem) : default_elem_(default_elem) {}
-
   typename parent::reference operator[](typename parent::size_type pos) {
     if (pos >= std::vector<T>::size()) {
-      parent::resize(pos + 1, default_elem_);
+      parent::resize(pos + 1, DEFAULT_VALUE);
     }
     return parent::operator[](pos);
   }
@@ -29,9 +27,6 @@ class IntMap : public std::vector<T> {
   bool operator[](typename parent::size_type pos) const {
     return pos < parent::size() ? parent::operator[](pos) : false;
   }
-
- private:
-  const T default_elem_;
 };
 
 }  // namespace lela

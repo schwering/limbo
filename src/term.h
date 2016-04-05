@@ -165,8 +165,8 @@ class Term {
                                      [](Term t) { return t.name() || t.variable(); });
   }
 
-  template<typename UnaryPredicate>
-  void CollectTerms(UnaryPredicate p, Term::Set* ts) const;
+  template<typename UnaryPredicate, typename UnaryFunction, typename Container>
+  void Collect(UnaryPredicate p, UnaryFunction f, Container* c) const;
 
   uint64_t hash() const {
     // 64bit FNV-1a hash
@@ -226,13 +226,13 @@ struct Term::Data::DeepComparator {
                           LexicographicContainerComparator<Vector, Term::Comparator>> comp;
 };
 
-template<typename UnaryPredicate>
-void Term::CollectTerms(UnaryPredicate p, Term::Set* ts) const {
+template<typename UnaryPredicate, typename UnaryFunction, typename Container>
+void Term::Collect(UnaryPredicate p, UnaryFunction f, Container* c) const {
   if (p(*this)) {
-    ts->insert(*this);
+    c->insert(f(*this));
   }
   for (Term arg : args()) {
-    arg.CollectTerms(p, ts);
+    arg.Collect(p, f, c);
   }
 }
 

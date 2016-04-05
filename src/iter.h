@@ -9,13 +9,18 @@
 #include "./clause.h"
 #include "./intmap.h"
 #include "./range.h"
+#include <iostream>
 
 namespace lela {
 
 template<typename T>
 class DecrementingIterator {
  public:
+  typedef std::ptrdiff_t difference_type;
   typedef T value_type;
+  typedef value_type* pointer;
+  typedef value_type& reference;
+  typedef std::input_iterator_tag iterator_category;
 
   DecrementingIterator() : index_(-1) {}
   explicit DecrementingIterator(T max_index) : index_(max_index) {}
@@ -34,32 +39,41 @@ class DecrementingIterator {
 template<typename Level, typename NextLevelFunction, typename RangeFunction>
 class LevelIterator {
  public:
-  typedef typename std::result_of<RangeFunction(const Level*)>::type::iterator_type iterator_type;
+  typedef std::ptrdiff_t difference_type;
   typedef typename std::result_of<RangeFunction(const Level*)>::type::iterator_type::value_type value_type;
+  typedef value_type* pointer;
+  typedef value_type& reference;
+  typedef std::input_iterator_tag iterator_category;
 
   LevelIterator() : current_(0) {}
-  LevelIterator(NextLevelFunction nlf, RangeFunction rf, const Level* level)
-      : nlf_(nlf), rf_(rf), current_(level) {
-    operator++();
-  }
+  LevelIterator(NextLevelFunction nlf, RangeFunction rf, const Level* level) : nlf_(nlf), rf_(rf), current_(level), range_(rf_(current_)) { Skip(); }
 
-  bool operator==(LevelIterator it) const { return current_ == it.current_ && range_ == it.range_; }
+  bool operator==(LevelIterator it) const { return current_ == it.current_ && (!current_ || range_ == it.range_); }
   bool operator!=(LevelIterator it) const { return !(*this == it); }
 
-  value_type operator*() const { return *range_.first; }
+  value_type operator*() const { assert(!range_.empty()); return *range_.first; }
 
   LevelIterator& operator++() {
-    if (!range_.empty()) {
-      ++range_.first;
-    } else {
-      while (current_ && (range_ = rf_(current_)).empty()) {
-        current_ = nlf_();
-      }
-    }
+    assert(current_ && !range_.empty());
+    ++range_.first;
+    Skip();
     return *this;
   }
 
  private:
+  typedef typename std::result_of<RangeFunction(const Level*)>::type::iterator_type iterator_type;
+
+  void Skip() {
+    while (range_.empty()) {
+      current_ = nlf_(current_);
+      if (!current_) {
+        break;
+      }
+      range_ = rf_(current_);
+    }
+    assert(!current_ || !range_.empty());
+  }
+
   NextLevelFunction nlf_;
   RangeFunction rf_;
   const Level* current_;
@@ -69,36 +83,41 @@ class LevelIterator {
 template<typename UnaryPredicate, typename Iter>
 class FilterIterator {
  public:
+  typedef std::ptrdiff_t difference_type;
   typedef typename Iter::value_type value_type;
+  typedef value_type* pointer;
+  typedef value_type& reference;
+  typedef std::input_iterator_tag iterator_category;
 
-  explicit FilterIterator(UnaryPredicate pred, Iter it) : pred_(pred), iter_(it) {}
+  FilterIterator(UnaryPredicate pred, Iter it, const Iter end = Iter()) : pred_(pred), iter_(it), end_(end) { Skip(); }
 
   bool operator==(FilterIterator it) const { return iter_ == it.iter_; }
   bool operator!=(FilterIterator it) const { return !(*this == it); }
 
-  value_type operator*() const { Skip(); return *iter_; }
+  value_type operator*() const { return *iter_; }
 
-  FilterIterator& operator++() {
-    ++iter_;
-    return *this;
-  }
+  FilterIterator& operator++() { ++iter_; Skip(); return *this; }
 
  private:
-  void Skip() const {
-    while (!pred_(*iter_)) {
-      assert(*iter_ >= 0);
+  void Skip() {
+    while (iter_ != end_ && !pred_(*iter_)) {
       ++iter_;
     }
   }
 
   UnaryPredicate pred_;
   mutable Iter iter_;
+  const Iter end_;
 };
 
 template<typename UnaryFunction, typename Iter>
 class TransformIterator {
  public:
+  typedef std::ptrdiff_t difference_type;
   typedef typename std::result_of<UnaryFunction(typename Iter::value_type)>::type value_type;
+  typedef value_type* pointer;
+  typedef value_type& reference;
+  typedef std::input_iterator_tag iterator_category;
 
   TransformIterator() {}
   TransformIterator(UnaryFunction func, Iter iter) : func_(func), iter_(iter) {}
@@ -107,6 +126,7 @@ class TransformIterator {
   bool operator!=(TransformIterator it) const { return !(*this == it); }
 
   value_type operator*() const { return func_(*iter_); }
+
   TransformIterator& operator++() { ++iter_; return *this; }
 
  private:
@@ -120,8 +140,8 @@ DecrementingIterator<T> decrementing_iterator(T i) {
 }
 
 template<typename UnaryPredicate, typename Iter>
-  FilterIterator<UnaryPredicate, Iter> filter_iterator(UnaryPredicate pred, Iter it) {
-  return FilterIterator<UnaryPredicate, Iter>(pred, it);
+  FilterIterator<UnaryPredicate, Iter> filter_iterator(UnaryPredicate pred, Iter it, const Iter end = Iter()) {
+  return FilterIterator<UnaryPredicate, Iter>(pred, it, end);
 }
 
 template<typename UnaryFunction, typename Iter>

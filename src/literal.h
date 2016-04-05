@@ -73,19 +73,23 @@ class Literal {
     return Literal(eq_, lhs_.Ground(theta), rhs_.Ground(theta));
   }
 
-  template<class UnaryPredicate>
-  void CollectTerms(UnaryPredicate p, Term::Set* ts) const {
-    lhs_.CollectTerms(p, ts);
-    rhs_.CollectTerms(p, ts);
+  template<typename UnaryPredicate, typename UnaryFunction, typename Container>
+  void Collect(UnaryPredicate p, UnaryFunction f, Container* c) const {
+    lhs_.Collect(p, f, c);
+    rhs_.Collect(p, f, c);
   }
 
  private:
   Literal(bool sign, Term lhs, Term rhs)
       : eq_(sign),
-        lhs_(lhs < rhs || (!lhs.name() && rhs.name()) ? lhs : rhs),
-        rhs_(lhs < rhs || (!lhs.name() && rhs.name()) ? rhs : lhs) {
-    assert(!lhs.null());
-    assert(!rhs.null());
+        lhs_(lhs < rhs ? lhs : rhs),
+        rhs_(lhs < rhs ? rhs : lhs) {
+    assert(!lhs_.null());
+    assert(!rhs_.null());
+    if (!lhs_.function() && rhs_.function()) {
+      std::swap(lhs_, rhs_);
+    }
+    assert(!rhs_.function() || lhs_.function());
   }
 
   bool eq_;

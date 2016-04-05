@@ -16,20 +16,26 @@
 
 namespace lela {
 
-class Clause : public std::vector<Literal> {
+class Clause {
  public:
   typedef LexicographicContainerComparator<Clause, Literal::Comparator> Comparator;
+  typedef std::vector<Literal>::const_iterator const_iterator;
 
-  using std::vector<Literal>::vector;
+  Clause() = default;
+  Clause(std::initializer_list<Literal> lits) : lits_(lits) { Minimize(); }
+  Clause(const Clause&) = default;
+  Clause& operator=(const Clause&) = default;
 
-  void Minimize() {
-    std::remove_if(begin(), end(), [](const Literal a) { return a.invalid(); });
-    std::sort(begin(), end(), Literal::Comparator());
-    erase(std::unique(begin(), end()), end());
-    InitBloom();
-  }
+  bool operator==(const Clause& c) const { return bloom_ == c.bloom_ && lits_ == c.lits_; }
+  bool operator!=(const Clause& c) const { return !(*this == c); }
 
-  bool unit() const { return empty(); }
+  const_iterator begin() const { return lits_.begin(); }
+  const_iterator end() const { return lits_.end(); }
+
+  size_t empty() const { return lits_.empty(); }
+  size_t size() const { return lits_.size(); }
+  bool unit() const { return size() == 1; }
+
   bool valid() const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
 
@@ -48,7 +54,7 @@ class Clause : public std::vector<Literal> {
 
   Maybe<Clause> PropagateUnit(Literal a) const {
     Clause c;
-    std::copy_if(begin(), end(), std::back_inserter(c),
+    std::copy_if(begin(), end(), std::back_inserter(c.lits_),
                 [a](Literal b) { return !Literal::Complementary(a, b); }); 
     if (c.size() != size()) {
       return Just(c);
@@ -62,26 +68,40 @@ class Clause : public std::vector<Literal> {
 
   Clause Substitute(Term pre, Term post) const {
     Clause c;
-    std::transform(begin(), end(), c.begin(),
-                   [pre, post](Literal a) { return a.Substitute(pre, post); });
+    c.lits_.reserve(size());
+    std::transform(begin(), end(), std::back_inserter(c.lits_), [pre, post](Literal a) { return a.Substitute(pre, post); });
+    c.Minimize();
     return c;
   }
 
   Clause Ground(const Term::Substitution& theta) const {
     Clause c;
-    std::transform(begin(), end(), c.begin(),
-                   [&theta](Literal a) { return a.Ground(theta); });
+    c.lits_.reserve(size());
+    std::transform(begin(), end(), std::back_inserter(c.lits_), [theta](Literal a) { return a.Ground(theta); });
+    c.Minimize();
     return c;
   }
 
-  template<class UnaryPredicate>
-  void CollectTerms(UnaryPredicate p, Term::Set* ts) const {
+  template<typename UnaryPredicate, typename UnaryFunction, typename Container>
+  void Collect(UnaryPredicate p, UnaryFunction f, Container* c) const {
     for (Literal a : *this) {
-      a.CollectTerms(p, ts);
+      a.Collect(p, f, c);
     }
   }
 
  private:
+  typedef std::vector<Literal>::iterator iterator;
+
+  iterator begin() { return lits_.begin(); }
+  iterator end() { return lits_.end(); }
+
+  void Minimize() {
+    lits_.erase(std::remove_if(begin(), end(), [](const Literal a) { return a.invalid(); }), end());
+    std::sort(begin(), end(), Literal::Comparator());
+    lits_.erase(std::unique(begin(), end()), end());
+    InitBloom();
+  }
+
   void InitBloom() {
     bloom_.Clear();
     for (Literal a : *this) {
@@ -95,6 +115,7 @@ class Clause : public std::vector<Literal> {
   }
 
   BloomFilter bloom_;
+  std::vector<Literal> lits_;
 };
 
 }  // namespace lela
