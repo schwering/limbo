@@ -34,7 +34,8 @@ TEST(literal_test, symbol) {
   EXPECT_TRUE(Literal::Eq(f1,n1).primitive());
   EXPECT_TRUE(Literal::Eq(f1,n1).quasiprimitive());
   EXPECT_TRUE(Literal::Eq(f1,n1).flip().quasiprimitive());
-  EXPECT_TRUE(!Literal::Eq(f1,n1).dual().quasiprimitive());
+  EXPECT_TRUE(Literal::Eq(f1,n1).dual().quasiprimitive());
+  EXPECT_TRUE(Literal::Eq(f1,n1).dual() == Literal::Eq(f1,n1).dual());
 
   EXPECT_TRUE(!Literal::Eq(f2,n1).ground());
   EXPECT_TRUE(!Literal::Eq(f2,n1).primitive());
@@ -48,11 +49,27 @@ TEST(literal_test, symbol) {
   EXPECT_TRUE(!Literal::Eq(f3,n1).quasiprimitive());
   EXPECT_TRUE(!Literal::Eq(f3,n1).flip().quasiprimitive());
   EXPECT_TRUE(!Literal::Eq(f3,n1).dual().quasiprimitive());
+  EXPECT_TRUE(Literal::Eq(f3,n1).dual() == Literal::Eq(f3,n1).dual());
 
   EXPECT_TRUE(Literal::Eq(f4,n1).ground());
   EXPECT_TRUE(!Literal::Eq(f4,n1).primitive());
   EXPECT_TRUE(!Literal::Eq(f4,n1).quasiprimitive());
   EXPECT_TRUE(!Literal::Eq(f4,n1).flip().quasiprimitive());
   EXPECT_TRUE(!Literal::Eq(f4,n1).dual().quasiprimitive());
+  EXPECT_TRUE(Literal::Eq(f4,n1) == Literal::Eq(f4,n1).dual());
+
+  EXPECT_TRUE(Literal::Eq(n1,n1).valid());
+  EXPECT_TRUE(!Literal::Neq(n1,n1).valid());
+  EXPECT_TRUE(Literal::Eq(f1,f1).valid());
+  EXPECT_TRUE(!Literal::Neq(f1,f1).valid());
+  EXPECT_TRUE(!Literal::Neq(f1,n1).valid());
+  EXPECT_TRUE(!Literal::Neq(f1,f2).valid());
+
+  EXPECT_TRUE(!Literal::Eq(n1,n1).invalid());
+  EXPECT_TRUE(Literal::Neq(n1,n1).invalid());
+  EXPECT_TRUE(!Literal::Eq(f1,f1).invalid());
+  EXPECT_TRUE(Literal::Neq(f1,f1).invalid());
+  EXPECT_TRUE(!Literal::Neq(f1,n1).invalid());
+  EXPECT_TRUE(!Literal::Neq(f1,f2).invalid());
 }
 

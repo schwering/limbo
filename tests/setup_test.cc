@@ -1,161 +1,90 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 schwering@kbsg.rwth-aachen.de
+// Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include <./clause.h>
 #include <./setup.h>
+#include <./print.h>
 
 using namespace lela;
 
-#if 0
-using namespace bats;
+template<typename Iter>
+size_t dist(Range<Iter> r) { return std::distance(r.begin(), r.end()); }
 
-TEST(setup, gl_static) {
-  Kr2014 bat;
-  auto s = bat.setup();
-  s.GuaranteeConsistency(3);
-  EXPECT_TRUE(s.Entails({Literal({}, false, bat.d0, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal({}, false, bat.d1, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, true, bat.d0, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, true, bat.d1, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, true, bat.d2, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, false, bat.d2, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, true, bat.d3, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, false, bat.d3, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal({}, true, bat.d2, {}),
-                         Literal({}, true, bat.d3, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({}, false, bat.d2, {}),
-                          Literal({}, false, bat.d3, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal({}, true, bat.d1, {}),
-                         Literal({}, true, bat.d2, {}),
-                         Literal({}, true, bat.d3, {})}, 0));
-}
+TEST(setup_test, symbol) {
+  const Symbol::Sort s1 = 1;
+  //const Symbol::Sort s2 = 2;
+  const Term n = Term::Create(Symbol::CreateName(1, s1));
+  const Term m = Term::Create(Symbol::CreateName(2, s1));
+  const Term a = Term::Create(Symbol::CreateFunction(1, s1, 0), {});
+  //const Term b = Term::Create(Symbol::CreateFunction(2, s1, 0), {});
+  const Term fn = Term::Create(Symbol::CreateFunction(3, s1, 1), {n});
+  const Term fm = Term::Create(Symbol::CreateFunction(3, s1, 1), {m});
+  const Term gn = Term::Create(Symbol::CreateFunction(4, s1, 1), {n});
+  const Term gm = Term::Create(Symbol::CreateFunction(4, s1, 1), {m});
 
-TEST(setup, gl_dynamic) {
-  Kr2014 bat;
-  auto s = bat.setup();
-  s.GuaranteeConsistency(3);
-  EXPECT_TRUE(s.Entails({Literal({bat.forward}, false, bat.d0, {})}, 0));
-  EXPECT_FALSE(s.Entails({Literal({bat.forward}, true, bat.d0, {})}, 0));
-  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({}, bat.forward, true)}));
-  EXPECT_FALSE(s.Entails({Literal({bat.forward}, true, bat.d1, {}),
-                          Literal({bat.forward}, true, bat.d2, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal({bat.forward}, true, bat.d1, {}),
-                         Literal({bat.forward}, true, bat.d2, {})}, 1));
-  s.AddClause(Clause(Ewff::TRUE, {SfLiteral({bat.forward}, bat.sonar, true)}));
-  const TermSeq z = {bat.forward, bat.sonar};
-  EXPECT_TRUE(s.Entails({Literal(z, false, bat.d0, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal(z, false, bat.d0, {})}, 1));
-  EXPECT_TRUE(s.Entails({Literal(z, true, bat.d1, {})}, 0));
-  EXPECT_TRUE(s.Entails({Literal(z, true, bat.d1, {})}, 1));
-}
-#endif
+  {
+    lela::Setup s0;
+    EXPECT_EQ(std::distance(s0.clauses().begin(), s0.clauses().end()), 0);
+    s0.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)}));
+    s0.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)}));
+    s0.Init();
+    EXPECT_EQ(dist(s0.clauses()), 2);
+    EXPECT_EQ(dist(s0.primitive_terms()), 4);
+    EXPECT_EQ(dist(s0.clauses_with(a)), 0);
+    EXPECT_EQ(dist(s0.clauses_with(fn)), 1);
+    EXPECT_EQ(dist(s0.clauses_with(fm)), 1);
+    EXPECT_TRUE(!s0.PossiblyInconsistent());
+    for (auto i : s0.clauses()) {
+      EXPECT_TRUE(s0.Implies(s0.clause(i)));
+    }
+    EXPECT_FALSE(s0.Implies(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
-TEST(setup, eventual_completeness_static) {
-  lela::Setup s;
-  const Literal p(true, 1, {});
-  const Literal q(true, 2, {});
-  EXPECT_FALSE(s.Entails({p, p.Flip()}, 0));
-  EXPECT_TRUE(s.Entails({p, p.Flip()}, 1));
-  EXPECT_TRUE(s.Entails({p, p.Flip()}, 2));
-  EXPECT_FALSE(s.Entails({p, q}, 0));
-  EXPECT_FALSE(s.Entails({p, q}, 1));
-  EXPECT_FALSE(s.Entails({p, q}, 2));
-}
+    lela::Setup s1(&s0);
+    s1.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)}));
+    s1.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)}));
+    s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(fn,n)}));
+    s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(gn,n)}));
+    s1.Init();
+    EXPECT_EQ(dist(s1.clauses()), 4);
+    EXPECT_EQ(dist(s1.primitive_terms()), 4+3);
+    EXPECT_EQ(dist(s1.clauses()), 4);
+    EXPECT_EQ(dist(s1.clauses_with(a)), 2);
+    EXPECT_EQ(dist(s1.clauses_with(fn)), 2);
+    EXPECT_EQ(dist(s1.clauses_with(fm)), 1);
+    EXPECT_TRUE(s1.PossiblyInconsistent());
+    for (auto i : s1.clauses()) {
+      EXPECT_TRUE(s1.Implies(s1.clause(i)));
+    }
+    EXPECT_FALSE(s1.Implies(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
-#if 0
-// This test not hold because PEL only considers static literals.
-// Whether this limitation is actually feasible needs to be investigated.
-TEST(setup, eventual_completeness_dynamic) {
-  Term::Factory tf;
-  const StdName a = tf.CreateStdName(1, 1);
-  const StdName b = tf.CreateStdName(2, 2);
-  lela::Setup s;
-  const Literal p({a}, true, 1, {b});
-  const Literal q({b}, true, 2, {a});
-  EXPECT_FALSE(s.Entails({p, p.Flip()}, 0));
-  EXPECT_TRUE(s.Entails({p, p.Flip()}, 1));
-  EXPECT_TRUE(s.Entails({p, p.Flip()}, 2));
-  EXPECT_FALSE(s.Entails({p, q}, 0));
-  EXPECT_FALSE(s.Entails({p, q}, 1));
-  EXPECT_FALSE(s.Entails({p, q}, 2));
-}
-#endif
+    lela::Setup s2(&s1);
+    s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)}));
+    s2.Init();
+    EXPECT_EQ(dist(s2.clauses()), 5);
+    EXPECT_EQ(dist(s2.primitive_terms()), 4+3); // the constant 'a' isn't counted in this setup because it's the unique-filter catches it (by chance)
+    EXPECT_EQ(dist(s2.clauses_with(a)), 3);
+    EXPECT_EQ(dist(s2.clauses_with(fn)), 2);
+    EXPECT_EQ(dist(s2.clauses_with(fm)), 1);
+    EXPECT_TRUE(s2.PossiblyInconsistent());
+    for (auto i : s2.clauses()) {
+      EXPECT_TRUE(s2.Implies(s2.clause(i)));
+    }
 
-TEST(setup, inconsistency) {
-  for (int i = -3; i <= 3; ++i) {
-    lela::Setup s;
-    const Literal a = Literal(true, 1, {});
-    const Literal b = Literal(true, 2, {});
-    s.AddClause(Clause(Ewff::TRUE, {a, b}));
-    s.AddClause(Clause(Ewff::TRUE, {a, b.Flip()}));
-    s.AddClause(Clause(Ewff::TRUE, {a.Flip(), b}));
-    s.AddClause(Clause(Ewff::TRUE, {a.Flip(), b.Flip()}));
-    EXPECT_FALSE(s.Inconsistent(0));
-    if (i < 0) {
-      for (int k = -i; k >= 0; --k) {
-        EXPECT_EQ(s.Inconsistent(k), (k > 0));
-        EXPECT_EQ(s.Entails(SimpleClause::EMPTY, k), (k > 0));
-        //printf("%sconsistent k=%d\n", (k>0 ? "in" : ""), k);
-      }
-    } else {
-      for (int k = 0; k <= i; ++k) {
-        EXPECT_EQ(s.Inconsistent(k), (k > 0));
-        EXPECT_EQ(s.Entails(SimpleClause::EMPTY, k), (k > 0));
-        //printf("%sconsistent k=%d\n", (k>0 ? "in" : ""), k);
-      }
+    lela::Setup s3(&s2);
+    s3.AddClause(Clause({Literal::Neq(a,m)}));
+    for (auto i : s3.clauses()) {
+      std::cout << s3.clause(i) << std::endl;
     }
-  }
-}
-
-TEST(setup, eventual_inconsistency_long) {
-  constexpr size_t SETUP_SIZE = 6;
-  for (size_t n = 1; n < SETUP_SIZE; ++n) {
-    // Create a setup over n literals. For each combination of signs, there
-    // shall be one clause in the setup. That is, we have 2^n clauses.
-    lela::Setup s;
-    for (size_t i = 0; i < (1U << n); ++i) {
-      // Create the i-th of 2^n many clauses.
-      SimpleClause c;
-      for (size_t bit = 0; bit < n; ++bit) {
-        const bool sign = ((i >> bit) & 1) != 0;
-        const Literal l(sign, bit+1, {});
-        c.insert(l);
-      }
-      s.AddClause(Clause(Ewff::TRUE, c));
+    std::cout << std::endl;
+    s3.Init();
+    for (auto i : s3.clauses()) {
+      std::cout << s3.clause(i) << std::endl;
     }
-    for (size_t k = 0; k < n-1; ++k) {
-      EXPECT_FALSE(s.Inconsistent(k));
-    }
-    for (size_t k = n-1; k <= n+1; ++k) {
-      EXPECT_TRUE(s.Inconsistent(k));
-    }
-  }
-}
-
-TEST(setup, eventual_consistency_long) {
-  constexpr size_t SETUP_SIZE = 6;
-  for (size_t n = 1; n < SETUP_SIZE; ++n) {
-    // Create a setup over n literals. For each combination of signs, there
-    // shall be one clause in the setup. That is, we have 2^n clauses.
-    lela::Setup s;
-    const SimpleClause query({Literal(true, n+1, {})});
-    for (size_t i = 0; i < (1U << n); ++i) {
-      // Create the i-th of 2^n many clauses.
-      SimpleClause c;
-      for (size_t bit = 0; bit < n; ++bit) {
-        const bool sign = ((i >> bit) & 1) != 0;
-        const Literal l(sign, bit+1, {});
-        c.insert(l);
-      }
-      s.AddClause(Clause(Ewff::TRUE, c));
-    }
-    for (size_t k = 0; k < n-1; ++k) {
-      EXPECT_FALSE(s.Entails(query, k));
-    }
-    for (size_t k = n-1; k <= n+1; ++k) {
-      EXPECT_TRUE(s.Entails(query, k));
-    }
+    EXPECT_EQ(dist(s3.clauses()), 5); // again, the unique-filter catches 'a' by chance
+    EXPECT_EQ(dist(s3.primitive_terms()), 4+3);
+    EXPECT_EQ(dist(s3.clauses_with(a)), 3);
+    EXPECT_EQ(dist(s3.clauses_with(fn)), 2);
+    EXPECT_EQ(dist(s3.clauses_with(fm)), 1);
   }
 }
 
