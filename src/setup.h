@@ -20,7 +20,6 @@ class Setup {
  public:
   typedef int Index;
   typedef std::vector<Clause> ClauseVec;
-  typedef std::vector<Index> IndexVec;
   typedef std::multimap<Term, Index> TermMap;
 
   Setup() = default;
@@ -28,66 +27,19 @@ class Setup {
   Setup(const Setup&) = default;
   Setup& operator=(const Setup&) = default;
 
-  struct ParentSetup {
-    const Setup* operator()(const Setup* level) { return level->parent_; }
-  };
-
-  struct EnabledClause {
-    explicit EnabledClause(const Setup* owner) : owner_(owner) {}
-    bool operator()(Index i) const { return !owner_->disabled(i); }
-    const Setup* owner_;
-  };
-
-  struct UniqueTerm {
-    bool operator()(Term t) { const bool b = term_ != t; term_ = t; return b; }
-    Term term_;
-  };
-
-  struct UnitRange {
-    Range<IndexVec::const_iterator> operator()(const Setup* owner) const {
-      assert(owner->units_.begin() != owner->units_.end() || owner->units_.begin() == owner->units_.end());
-      return MakeRange(owner->units_.begin(), owner->units_.end());
-    }
-  };
-
-  struct TermOccurrenceRange {
-    TermOccurrenceRange() {}
-    explicit TermOccurrenceRange(Term t) : term_(t) {}
-    Range<TermMap::const_iterator> operator()(const Setup* owner) const {
-      return owner->term_occurs(term_);
-    }
-    Term term_;
-  };
-
-  struct TermRange {
-    TermRange() {}
-    explicit TermRange(Term t) : term_(t) {}
-    Range<TermMap::const_iterator> operator()(const Setup* owner) const {
-      return MakeRange(owner->occurs_.begin(), owner->occurs_.end());
-    }
-    Term term_;
-  };
-
-  struct GetTerm {
-    Term operator()(const TermMap::value_type& pair) const { return pair.first; }
-  };
-
-  struct GetClause {
-    Index operator()(const TermMap::value_type& pair) const { return pair.second; }
-  };
-
-  void AddClause(const Clause& c) {
+  Index AddClause(const Clause& c) {
     assert(!sealed);
     assert(c.primitive());
     cs_.push_back(c);
+    const Index k = last() - 1;
+    assert(clause(k) == c);
+    return k;
   }
 
   void Init() {
-    UpdateIndexes();
-    PropagateUnits();
-    UpdateIndexes();
+    InitOccurrences();
     Minimize();
-    UpdateIndexes();
+    PropagateUnits();
 #ifndef NDEBUG
     sealed = true;
 #endif
@@ -128,48 +80,268 @@ class Setup {
   }
 
   const Clause& clause(Index i) const {
-    assert(0 <= i && i <= to());
-    return i >= from() ? cs_[i - from()] : parent_->clause(i);
+    assert(0 <= i && i < last());
+    return i >= first() ? cs_[i - first()] : parent_->clause(i);
   }
 
-  Range<FilterIterator<UniqueTerm, TransformIterator<GetTerm, LevelIterator<Setup, ParentSetup, TermRange>>>> primitive_terms() const {
-    return MakeRange(filter_iterator(UniqueTerm(), transform_iterator(GetTerm(), level_iterator(ParentSetup(), TermRange(), this))),
-                     filter_iterator(UniqueTerm(), transform_iterator(GetTerm(), LevelIterator<Setup, ParentSetup, TermRange>())));
+
+  struct Setups {
+    struct setup_iterator {
+      typedef std::ptrdiff_t difference_type;
+      typedef Setup value_type;
+      typedef value_type* pointer;
+      typedef value_type& reference;
+      typedef std::input_iterator_tag iterator_category;
+
+      explicit setup_iterator(const Setup* setup) : setup_(setup) {}
+
+      bool operator==(const setup_iterator& it) const { return setup_ == it.setup_; }
+      bool operator!=(const setup_iterator& it) const { return !(*this == it); }
+
+      const value_type& operator*() const { return *setup_; }
+      const value_type* operator->() const { return setup_; }
+
+      setup_iterator& operator++() { setup_ = setup_->parent(); return *this; }
+
+     private:
+      const Setup* setup_;
+    };
+
+    explicit Setups(const Setup* owner) : owner_(owner) {}
+    setup_iterator begin() const { return setup_iterator(owner_); }
+    setup_iterator end() const { return setup_iterator(0); }
+   private:
+    const Setup* owner_;
+  };
+
+  Setups setups() const { return Setups(this); }
+
+
+  struct Clauses {
+    struct IndexPlusTo {
+      IndexPlusTo() : owner_(0) {}
+      explicit IndexPlusTo(const Setup* owner) : owner_(owner) {}
+      Index operator()() const { return owner_ ? owner_->last() : 0; }
+     private:
+      const Setup* owner_;
+    };
+
+    struct EnabledClause {
+      explicit EnabledClause(const Setup* owner) : owner_(owner) {}
+      bool operator()(Index i) const { return owner_->enabled(i); }
+     private:
+      const Setup* owner_;
+    };
+
+    typedef incr_iterator<IndexPlusTo> every_clause_iterator;
+    typedef filter_iterator<EnabledClause, incr_iterator<IndexPlusTo>> clause_iterator;
+
+    typedef clause_iterator value_type;
+    explicit Clauses(const Setup* owner) : owner_(owner) {}
+
+    clause_iterator begin() const {
+      auto first = every_clause_iterator(IndexPlusTo(0));
+      auto last  = every_clause_iterator(IndexPlusTo(owner_));
+      return clause_iterator(EnabledClause(owner_), first, last);
+    }
+    clause_iterator end() const {
+      auto last = every_clause_iterator(IndexPlusTo(owner_));
+      return clause_iterator(EnabledClause(owner_), last, last);
+    }
+
+   private:
+    const Setup* owner_;
+  };
+
+  Clauses clauses() const {
+    return Clauses(this);
   }
 
-  Range<FilterIterator<EnabledClause, DecrementingIterator<Index>>> clauses() const {
-    return MakeRange(filter_iterator(EnabledClause(this), decrementing_iterator(to())),
-                     filter_iterator(EnabledClause(this), decrementing_iterator(-1)));
+
+  struct UnitClauses {
+    struct UnitClause {
+      explicit UnitClause(const Setup* owner) : owner_(owner) {}
+      bool operator()(Index i) const { return owner_->clause(i).unit(); }
+     private:
+      const Setup* owner_;
+    };
+
+    typedef filter_iterator<UnitClause, Clauses::clause_iterator> unit_clause_iterator;
+    typedef Clauses::clause_iterator value_type;
+
+    explicit UnitClauses(const Setup* owner) : owner_(owner) {}
+
+    unit_clause_iterator begin() const {
+      auto c = owner_->clauses();
+      return unit_clause_iterator(UnitClause(owner_), c.begin(), c.end());
+    }
+    unit_clause_iterator end() const {
+      auto c = owner_->clauses();
+      return unit_clause_iterator(UnitClause(owner_), c.end(), c.end());
+    }
+
+   private:
+    const Setup* owner_;
+  };
+
+  UnitClauses unit_clauses() const {
+    return UnitClauses(this);
   }
 
-  Range<FilterIterator<EnabledClause, TransformIterator<GetClause, LevelIterator<Setup, ParentSetup, TermOccurrenceRange>>>> clauses_with(Term t) const {
-    return MakeRange(filter_iterator(EnabledClause(this), transform_iterator(GetClause(), level_iterator(ParentSetup(), TermOccurrenceRange(t), this))),
-                     filter_iterator(EnabledClause(this), transform_iterator(GetClause(), LevelIterator<Setup, ParentSetup, TermOccurrenceRange>())));
-  }
 
-  Range<FilterIterator<EnabledClause, LevelIterator<Setup, ParentSetup, UnitRange>>> unit_clauses() const {
-    return MakeRange(filter_iterator(EnabledClause(this), level_iterator(ParentSetup(), UnitRange(), this)),
-                     filter_iterator(EnabledClause(this), LevelIterator<Setup, ParentSetup, UnitRange>()));
-  }
+  struct PrimitiveTerms {
+    struct TermPairs {
+      typedef TermMap::const_iterator value_type;
+      explicit TermPairs(const Setup* owner) : owner_(owner) {}
+      TermMap::const_iterator begin() const { assert(owner_); return owner_->occurs_.begin(); }
+      TermMap::const_iterator end()   const { assert(owner_); return owner_->occurs_.end(); }
+     private:
+      const Setup* owner_;
+    };
+
+    struct GetTermPairs {
+      TermPairs operator()(const Setup& setup) const { return TermPairs(&setup); }
+    };
+
+    struct GetTerm {
+      Term operator()(const TermMap::value_type& pair) const { return pair.first; }
+    };
+
+    struct UniqueTerm {
+      bool operator()(Term t) { const bool b = term_ != t; term_ = t; return b; }
+     private:
+      Term term_;
+    };
+
+    typedef Setups::setup_iterator setup_iterator;
+    typedef transform_iterator<GetTermPairs, setup_iterator> term_pairs_iterator;
+    typedef nested_iterator<term_pairs_iterator> every_term_pair_iterator;
+    typedef transform_iterator<GetTerm, every_term_pair_iterator> every_term_iterator;
+    typedef filter_iterator<UniqueTerm, every_term_iterator> term_iterator;
+
+    explicit PrimitiveTerms(const Setup* owner) : owner_(owner) {}
+
+    term_iterator begin() const {
+      auto first = term_pairs_iterator(GetTermPairs(), owner_->setups().begin());
+      auto last  = term_pairs_iterator(GetTermPairs(), owner_->setups().end());
+      auto first_nested = every_term_iterator(GetTerm(), every_term_pair_iterator(first, last));
+      auto last_nested  = every_term_iterator(GetTerm(), every_term_pair_iterator(last, last));
+      return term_iterator(UniqueTerm(), first_nested, last_nested);
+    }
+
+    term_iterator end() const {
+      auto last = term_pairs_iterator(GetTermPairs(), owner_->setups().end());
+      assert(last == last);
+      auto last_nested = every_term_iterator(GetTerm(), every_term_pair_iterator(last, last));
+      assert(last_nested == last_nested);
+      return term_iterator(UniqueTerm(), last_nested, last_nested);
+    }
+
+   private:
+    const Setup* owner_;
+  };
+
+  PrimitiveTerms primitive_terms() const { return PrimitiveTerms(this); }
+
+
+  struct ClausesWith {
+    struct TermPairs {
+      typedef TermMap::const_iterator value_type;
+      TermPairs(const Setup* owner, Term t) : owner_(owner), term_(t) {}
+      TermMap::const_iterator begin() const { assert(owner_); return owner_->occurs_.lower_bound(term_); }
+      TermMap::const_iterator end()   const { assert(owner_); return owner_->occurs_.upper_bound(term_); }
+     private:
+      const Setup* owner_;
+      Term term_;
+    };
+
+    struct GetTermPairs {
+      explicit GetTermPairs(Term t) : term_(t) {}
+      TermPairs operator()(const Setup& setup) const { return TermPairs(&setup, term_); }
+     private:
+      Term term_;
+    };
+
+    struct GetClause {
+      Index operator()(const TermMap::value_type& pair) const { return pair.second; }
+    };
+
+    typedef Clauses::EnabledClause EnabledClause;
+
+    typedef Setups::setup_iterator setup_iterator;
+    typedef transform_iterator<GetTermPairs, setup_iterator> term_pairs_iterator;
+    typedef nested_iterator<term_pairs_iterator> every_term_pair_iterator;
+    typedef transform_iterator<GetClause, every_term_pair_iterator> every_clause_term_occurrence_iterator;
+    typedef filter_iterator<EnabledClause, every_clause_term_occurrence_iterator> clause_term_occurrence_iterator;
+
+    explicit ClausesWith(const Setup* owner, Term term) : owner_(owner), term_(term) {}
+
+    clause_term_occurrence_iterator begin() const {
+      auto first = term_pairs_iterator(GetTermPairs(term_), owner_->setups().begin());
+      auto last  = term_pairs_iterator(GetTermPairs(term_), owner_->setups().end());
+      auto first_filter = every_clause_term_occurrence_iterator(GetClause(), every_term_pair_iterator(first, last));
+      auto last_filter  = every_clause_term_occurrence_iterator(GetClause(), every_term_pair_iterator(last, last));
+      return clause_term_occurrence_iterator(EnabledClause(owner_), first_filter, last_filter);
+    }
+
+    clause_term_occurrence_iterator end() const {
+      auto last = term_pairs_iterator(GetTermPairs(term_), owner_->setups().end());
+      auto last_filter = every_clause_term_occurrence_iterator(GetClause(), every_term_pair_iterator(last, last));
+      return clause_term_occurrence_iterator(EnabledClause(owner_), last_filter, last_filter);
+    }
+
+   private:
+    const Setup* owner_;
+    Term term_;
+  };
+
+  ClausesWith clauses_with(Term term) const { return ClausesWith(this, term); }
 
  private:
-  void UpdateIndexes() {
+  void InitOccurrences() {
     assert(!sealed);
     occurs_.clear();
-    units_.clear();
-    for (Index i = from(); i <= to(); ++i) {
-      if (!disabled(i)) {
-        for (Literal a : clause(i)) {
-          if (a.lhs().function()) {
-            auto r = term_occurs(a.lhs());
-            if (r.empty() || std::prev(r.last)->second != i) {
-              occurs_.insert(r.last, std::make_pair(a.lhs(), i));
-            }
-          }
+    for (Index i = first(); i < last(); ++i) {
+      UpdateOccurrences(i);
+    }
+  }
+
+  void UpdateOccurrences(Index i) {
+    for (const Literal a : clause(i)) {
+      if (a.lhs().function()) {
+        auto r = occurs_.equal_range(a.lhs());
+        if (r.first == r.second || std::prev(r.second)->second != i) {
+          occurs_.insert(r.second, std::make_pair(a.lhs(), i));
         }
-        if (clause(i).unit()) {
-          units_.push_back(i);
+      }
+    }
+  }
+
+  void Minimize() {
+    assert(!sealed);
+    // We only need to remove clauses subsumed by this setup, as the parent is
+    // already assumed to be minimal.
+    for (int i = first(); i < last(); ++i) {
+      if (clause(i).valid()) {
+        Disable(i);
+      } else {
+        RemoveSubsumed(i);
+      }
+    }
+  }
+
+  void RemoveSubsumed(const Index i) {
+    const Clause& c = clause(i);
+    for (Index j : clauses()) {
+      if (i != j && c.Subsumes(clause(j))) {
+          Disable(j);
+#if 0
+        if (clause(j).Subsumes(c)) {
+          Disable(std::max(i,j)); // because that's better for the occurs_ index
+        } else {
+          Disable(j);
         }
+#endif
       }
     }
   }
@@ -182,55 +354,41 @@ class Setup {
       assert(a.primitive());
       for (Index j : clauses_with(a.lhs())) {
         Maybe<Clause> c = clause(j).PropagateUnit(a);
-        if (c) {
-          cs_.push_back(c.val);
-          // need to update occurs_ here!
+        if (c && !Implies(c.val)) {
+          const Index k = AddClause(c.val);
+          UpdateOccurrences(k); // keep occurrence index up to date
+          RemoveSubsumed(k); // keep setup minimal
         }
       }
     }
   }
 
-  void Minimize() {
-    assert(!sealed);
-    for (Index i : clauses()) {
-      if (clause(i).valid()) {
-        Disable(i);
-      } else {
-        for (Index j : clauses()) {
-          if (i != j && clause(j).Subsumes(clause(i))) {
-            Disable(i);
-          }
-        }
-      }
-    }
-  }
+  const Setup* root() const { return parent_ ? parent_->parent() : this; }
+  const Setup* parent() const { return parent_; }
 
-  // Disable() marks a clause as inactive, disabled() indicates whether a clause
-  // is inactive, clause() returns a clause; the indexing is global.
-  void Disable(Index i) { assert(0 <= i && i <= to()); del_[i] = true; }
-  bool disabled(Index i) const { assert(0 <= i && i <= to()); return del_[i]; }
+  // Disable() marks a clause as inactive, disabled() and enabled() indicate
+  // whether a clause is inactive and active, respectivel, clause() returns a
+  // clause; the indexing is global.
+  void Disable(Index i) { assert(0 <= i && i < last()); del_[i] = true; }
+  bool disabled(Index i) const { assert(0 <= i && i < last()); return del_[i]; }
+  bool enabled(Index i) const { return !disabled(i); }
 
-  // from() and to() represent the global indeces this setup represents.
-  Index from() const { return from_; }
-  Index to() const { return from() + cs_.size() - 1; }
-
-  Range<TermMap::const_iterator> term_occurs(Term t) const {
-    // equal_range type sucks
-    return MakeRange(occurs_.lower_bound(t), occurs_.upper_bound(t));
-  }
+  // first() and last() represent the global indices this setup represents;
+  // first() is inclusive and last() is exclusive (usual C++ iterator
+  // terminology).
+  Index first() const { return first_; }
+  Index last()  const { return first_ + cs_.size(); }
 
   const Setup* parent_ = 0;
-  const Index from_ = !parent_ ? 0 : parent_->to() + 1;
+  const Index first_ = !parent_ ? 0 : parent_->last();
 #ifndef NDEBUG
   bool sealed = false;
 #endif
 
-  // cs_ contains all clauses added in this setup, and occurs_ is their index,
-  // and units_ contains the indexes of unit clauses in cs_; the indexing in cs_
-  // and units_ is local.
+  // cs_ contains all clauses added in this setup, and occurs_ is their index;
+  // the indexing in cs_ is local.
   ClauseVec cs_;
   TermMap occurs_;
-  IndexVec units_;
 
   // del_ masks all deleted clauses; the number is global, because a clause
   // active in the parent setup may be inactive in this one.

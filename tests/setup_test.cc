@@ -7,8 +7,8 @@
 
 using namespace lela;
 
-template<typename Iter>
-size_t dist(Range<Iter> r) { return std::distance(r.begin(), r.end()); }
+template<typename T>
+size_t dist(T r) { return std::distance(r.begin(), r.end()); }
 
 TEST(setup_test, symbol) {
   const Symbol::Sort s1 = 1;
@@ -46,7 +46,7 @@ TEST(setup_test, symbol) {
     s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(gn,n)}));
     s1.Init();
     EXPECT_EQ(dist(s1.clauses()), 4);
-    EXPECT_EQ(dist(s1.primitive_terms()), 4+3);
+    EXPECT_EQ(dist(s1.primitive_terms()), 4+5);
     EXPECT_EQ(dist(s1.clauses()), 4);
     EXPECT_EQ(dist(s1.clauses_with(a)), 2);
     EXPECT_EQ(dist(s1.clauses_with(fn)), 2);
@@ -61,7 +61,7 @@ TEST(setup_test, symbol) {
     s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)}));
     s2.Init();
     EXPECT_EQ(dist(s2.clauses()), 5);
-    EXPECT_EQ(dist(s2.primitive_terms()), 4+3); // the constant 'a' isn't counted in this setup because it's the unique-filter catches it (by chance)
+    EXPECT_EQ(dist(s2.primitive_terms()), 4+5);
     EXPECT_EQ(dist(s2.clauses_with(a)), 3);
     EXPECT_EQ(dist(s2.clauses_with(fn)), 2);
     EXPECT_EQ(dist(s2.clauses_with(fm)), 1);
@@ -72,18 +72,14 @@ TEST(setup_test, symbol) {
 
     lela::Setup s3(&s2);
     s3.AddClause(Clause({Literal::Neq(a,m)}));
-    for (auto i : s3.clauses()) {
-      std::cout << s3.clause(i) << std::endl;
-    }
-    std::cout << std::endl;
     s3.Init();
-    for (auto i : s3.clauses()) {
-      std::cout << s3.clause(i) << std::endl;
-    }
+    //for (auto i : s3.clauses()) {
+    //  std::cout << i << "=" << s3.clause(i) << "#" << Setup::Clauses::EnabledClause(&s3)(i) << std::endl;
+    //}
     EXPECT_EQ(dist(s3.clauses()), 5); // again, the unique-filter catches 'a' by chance
-    EXPECT_EQ(dist(s3.primitive_terms()), 4+3);
-    EXPECT_EQ(dist(s3.clauses_with(a)), 3);
-    EXPECT_EQ(dist(s3.clauses_with(fn)), 2);
+    EXPECT_EQ(dist(s3.primitive_terms()), 4+5+5);
+    EXPECT_EQ(dist(s3.clauses_with(a)), 1);
+    EXPECT_EQ(dist(s3.clauses_with(fn)), 1);
     EXPECT_EQ(dist(s3.clauses_with(fm)), 1);
   }
 }

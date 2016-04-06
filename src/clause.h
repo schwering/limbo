@@ -18,7 +18,6 @@ namespace lela {
 
 class Clause {
  public:
-  typedef LexicographicContainerComparator<Clause, Literal::Comparator> Comparator;
   typedef std::vector<Literal>::const_iterator const_iterator;
 
   Clause() = default;

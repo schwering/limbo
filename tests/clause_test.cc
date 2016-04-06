@@ -64,8 +64,7 @@ TEST(clause_test, symbol) {
     Clause c2({Literal::Eq(f1,n1)});
     EXPECT_TRUE(c1.Subsumes(c2));
     EXPECT_TRUE(c2.Subsumes(c1));
-    Clause::Comparator c;
-    EXPECT_TRUE(!c(c1,c2) && !c(c2,c1));
+    EXPECT_TRUE(c1 == c2); // because of minimization, n1 != n1 is removed
   }
 
   {

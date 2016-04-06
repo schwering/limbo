@@ -10,6 +10,8 @@
 #include "maybe.h"
 #include "term.h"
 
+#define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)             
+
 namespace lela {
 
 template<typename T>
