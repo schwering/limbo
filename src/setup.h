@@ -36,6 +36,7 @@
 #include <map>
 #include <vector>
 #include "./clause.h"
+#include "./intmap.h"
 #include "./iter.h"
 
 namespace lela {
@@ -134,6 +135,7 @@ class Setup {
     explicit Setups(const Setup* owner) : owner_(owner) {}
     setup_iterator begin() const { return setup_iterator(owner_); }
     setup_iterator end() const { return setup_iterator(0); }
+
    private:
     const Setup* owner_;
   };
@@ -159,8 +161,8 @@ class Setup {
 
     typedef incr_iterator<IndexPlusTo> every_clause_iterator;
     typedef filter_iterator<EnabledClause, incr_iterator<IndexPlusTo>> clause_iterator;
-
     typedef clause_iterator value_type;
+
     explicit Clauses(const Setup* owner) : owner_(owner) {}
 
     clause_iterator begin() const {
@@ -317,6 +319,14 @@ class Setup {
 
   ClausesWith clauses_with(Term term) const { return ClausesWith(this, term); }
 
+
+  template<typename UnaryPredicate, typename UnaryFunction, typename Container>
+  void Collect(UnaryPredicate p, UnaryFunction f, Container* c) const {
+    for (Index i : clauses()) {
+      clause(i).Collect(p, f, c);
+    }
+  }
+
  private:
   void InitOccurrences() {
     assert(!sealed);
@@ -358,7 +368,7 @@ class Setup {
           Disable(j);
 #if 0
         if (clause(j).Subsumes(c)) {
-          Disable(std::max(i,j)); // because that's better for the occurs_ index
+          Disable(std::max(i, j));  // because that's better for the occurs_ index
         } else {
           Disable(j);
         }
@@ -377,8 +387,8 @@ class Setup {
         Maybe<Clause> c = clause(j).PropagateUnit(a);
         if (c && !Implies(c.val)) {
           const Index k = AddClause(c.val);
-          UpdateOccurrences(k); // keep occurrence index up to date
-          RemoveSubsumed(k); // keep setup minimal
+          UpdateOccurrences(k);  // keep occurrence index up to date
+          RemoveSubsumed(k);  // keep setup minimal
         }
       }
     }

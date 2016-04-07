@@ -10,6 +10,8 @@
 
 #include <algorithm>
 
+namespace lela {
+
 template<class T>
 struct LessComparator {
   typedef T value_type;
@@ -79,6 +81,8 @@ count_while(InputIt first, InputIt last, UnaryPredicate p) {
   }
   return ret;
 }
+
+}  // namespace lela
 
 #endif  // SRC_COMPAR_H_
 

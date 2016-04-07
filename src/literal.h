@@ -16,6 +16,7 @@
 #define SRC_LITERAL_H_
 
 #include <cassert>
+#include <algorithm>
 #include <set>
 #include "./compar.h"
 #include "./term.h"

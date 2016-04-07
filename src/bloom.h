@@ -24,6 +24,10 @@ namespace lela {
 
 class BloomFilter {
  public:
+  BloomFilter() = default;
+  BloomFilter(const BloomFilter&) = default;
+  BloomFilter& operator=(const BloomFilter&) = default;
+
   bool operator==(const BloomFilter& b) const { return mask_ == b.mask_; }
   bool operator!=(const BloomFilter& b) const { return !(*this == b); }
 
@@ -42,8 +46,7 @@ class BloomFilter {
     return ( ((mask_ >> (hash<0>(x) % BITS)) & ONE)
            & ((mask_ >> (hash<1>(x) % BITS)) & ONE)
            & ((mask_ >> (hash<2>(x) % BITS)) & ONE)
-           & ((mask_ >> (hash<3>(x) % BITS)) & ONE)
-           ) != 0;
+           & ((mask_ >> (hash<3>(x) % BITS)) & ONE)) != 0;
   }
 
   static bool Subset(BloomFilter a, BloomFilter b) {
@@ -54,7 +57,7 @@ class BloomFilter {
   template<uint64_t I>
   uint64_t hash(uint64_t x) const { return (x >> (I*8)) & 0xFFFF; }
 
-  static constexpr uint64_t ONE = 1; // use this constant, for 1 is signed
+  static constexpr uint64_t ONE = 1;  // use this constant, for 1 is signed
   static constexpr uint64_t BITS = 64;
   uint64_t mask_ = 0;
 };

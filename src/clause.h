@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <set>
 #include <utility>
+#include <vector>
 #include "./bloom.h"
 #include "./compar.h"
 #include "./literal.h"
@@ -74,7 +75,7 @@ class Clause {
     }
     Clause c;
     std::copy_if(begin(), end(), std::back_inserter(c.lits_),
-                [a](Literal b) { return !Literal::Complementary(a, b); }); 
+                [a](Literal b) { return !Literal::Complementary(a, b); });
     if (c.size() != size()) {
       return Just(c);
     } else {

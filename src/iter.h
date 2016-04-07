@@ -11,23 +11,21 @@
 
 #include <iterator>
 #include <type_traits>
-#include "./clause.h"
-#include "./intmap.h"
 
 namespace lela {
 
-// is basically a lazy list whose end is determined while it grows.
-template<typename ConstantFunction>
+// A lazy list whose end is determined while it grows.
+template<typename NullaryFunction>
 struct incr_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
-  typedef typename std::result_of<ConstantFunction()>::type value_type;
+  typedef typename std::result_of<NullaryFunction()>::type value_type;
   typedef value_type* pointer;
   typedef value_type& reference;
   typedef std::input_iterator_tag iterator_category;
 
   incr_iterator() {}
-  explicit incr_iterator(ConstantFunction offset) : offset_(offset), index_(0) {}
+  explicit incr_iterator(NullaryFunction offset) : offset_(offset), index_(0) {}
 
   bool operator==(incr_iterator it) const { return *(*this) == *it; }
   bool operator!=(incr_iterator it) const { return !(*this == it); }
@@ -37,7 +35,7 @@ struct incr_iterator {
   incr_iterator& operator++() { ++index_; return *this; }
 
  private:
-  ConstantFunction offset_;
+  NullaryFunction offset_;
   value_type index_;
 };
 
@@ -82,10 +80,10 @@ struct nested_iterator {
   void Skip() {
     for (;;) {
       if (cont_first_ == cont_last_) {
-        break; // iterator has ended
+        break;  // iterator has ended
       }
       if (iter_ != (*cont_first_).end()) {
-        break; // found next element
+        break;  // found next element
       }
       ++cont_first_;
       if (cont_first_ != cont_last_) {

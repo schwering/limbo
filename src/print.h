@@ -4,14 +4,13 @@
 #ifndef SRC_PRINT_H_
 #define SRC_PRINT_H_
 
-#include <iostream>
 #include <ostream>
-#include "clause.h"
-#include "literal.h"
-#include "maybe.h"
-#include "term.h"
+#include "./clause.h"
+#include "./literal.h"
+#include "./maybe.h"
+#include "./term.h"
 
-#define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)             
+#define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
 
 namespace lela {
 
