@@ -1,5 +1,15 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
+//
+// Symbols are the non-logical symbols of the language: variables, standard
+// names, and function symbols, which are sorted. Symbols are immutable.
+//
+// Terms can be built from these symbols as usual. Symbols are immutable.
+//
+// The implementation aims to keep terms as lightweight as possible to
+// facilitate extremely fast copying and comparison. Internally, a term is
+// represented by a memory address where its structure is stored. Creating a
+// second term of the same structure yields the same memory address.
 
 #ifndef SRC_TERM_H_
 #define SRC_TERM_H_
@@ -20,8 +30,6 @@ class Symbol {
   typedef int8_t Sort;
   typedef int8_t Arity;
   struct Comparator;
-
-  static Sort CreateSort();
 
   static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
     assert(id > 0);

@@ -1,5 +1,10 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
+//
+// A couple of iterators to immitate Haskell lists with iterators.
+//
+// Maybe boost provides the same iterators and we should move to boost (this set
+// of iterators evolved somewhat).
 
 #ifndef SRC_ITER_H_
 #define SRC_ITER_H_
@@ -8,11 +13,10 @@
 #include <type_traits>
 #include "./clause.h"
 #include "./intmap.h"
-#include "./range.h"
-#include <iostream>
 
 namespace lela {
 
+// is basically a lazy list whose end is determined while it grows.
 template<typename ConstantFunction>
 struct incr_iterator {
  public:
@@ -37,6 +41,7 @@ struct incr_iterator {
   value_type index_;
 };
 
+// Expects an iterator pointing to containers and iterates over their elements.
 template<typename ContIter>
 struct nested_iterator {
  public:
@@ -95,6 +100,7 @@ struct nested_iterator {
   iterator_type iter_;
 };
 
+// Haskell's map function.
 template<typename UnaryFunction, typename Iter>
 struct transform_iterator {
  public:
@@ -119,6 +125,7 @@ struct transform_iterator {
   Iter iter_;
 };
 
+// Haskell's filter function.
 template<typename UnaryPredicate, typename Iter>
 struct filter_iterator {
  public:

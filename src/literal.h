@@ -1,5 +1,16 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
+//
+// A literal is an (in)equality expression of two terms. Literals are immutable.
+//
+// The most important operations are Complementary() and Subsumes() checks,
+// which are only defined for primitive literals.  Note that the operations
+// PropagateUnit() and Subsumes() from the Clause class use hashing to speed
+// them up and therefore depend on their inner workings. In other words: when
+// you modify them, double-check with the Clause class.
+//
+// Due to the memory-wise lightweight representation of terms, copying or
+// comparing literals is very fast.
 
 #ifndef SRC_LITERAL_H_
 #define SRC_LITERAL_H_
@@ -47,6 +58,8 @@ class Literal {
   // (t1 != t2), (t1 = t2)
   // (t = n1), (t = n2) for distinct n1, n2.
   static bool Complementary(Literal a, Literal b) {
+    assert(a.primitive());
+    assert(b.primitive());
     return a.lhs_ == b.lhs_ &&
         ((a.eq_ != b.eq_ && a.rhs_ == b.rhs_) ||
          (a.eq_ && b.eq_ && a.rhs_.name() && b.rhs_.name() && a.rhs_ != b.rhs_));
@@ -56,6 +69,8 @@ class Literal {
   // (t1 = t2), (t1 = t2)
   // (t1 = n1), (t1 != n2) for distinct n1, n2.
   static bool Subsumes(Literal a, Literal b) {
+    assert(a.primitive());
+    assert(b.primitive());
     return a.lhs_ == b.lhs_ &&
         ((a.eq_ == b.eq_ && a.rhs_ == b.rhs_) ||
          (a.eq_ && !b.eq_ && a.rhs_.name() && b.rhs_.name() && a.rhs_ != b.rhs_));

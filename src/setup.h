@@ -1,5 +1,32 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
+//
+// Setups are collections of primitive clauses. Setups are immutable after
+// Init() is called.
+//
+// The typical lifecycle is to create a Setup object, use AddClause() to
+// populate it, then call Init(). From then on, behaviour after another
+// AddClause() is undefined. After calling Init(), the setup is closed under
+// unit propagation and minimized under subsumption.
+//
+// PossiblyInconsistent() performs a sound but incomplete inconsistency check.
+// Implies() checks whether the clause is subsumed by (the unit propagation of)
+// the setup.
+//
+// To facilitate fast copying, every setup is linked to its ancestor. The
+// clauses of the linked setups are referred to by numbering, starting with the
+// root setup. Clauses are deleted by masking them. Consequently, the numbering
+// may not be continuous, and deletion has no effect to the ancestors.
+//
+// Heavy use of iteratores is made to access all clauses, all unit clauses, all
+// clauses mentioning a specific primitive term, and all primitive terms. The
+// former two are realized with an index from primitive terms to the clauses
+// that mention the term. (Note that adding clauses does not invalidate the
+// iterators.)
+//
+// Due to the stratified structure of setups, primitive_terms() usually contains
+// duplicates (precisely when a term occurs in clauses stored in two different
+// Setup objects).
 
 #ifndef SRC_SETUP_H_
 #define SRC_SETUP_H_
@@ -10,9 +37,6 @@
 #include <vector>
 #include "./clause.h"
 #include "./iter.h"
-#include "./range.h"
-#include <iostream>
-#include "print.h"
 
 namespace lela {
 
@@ -153,9 +177,7 @@ class Setup {
     const Setup* owner_;
   };
 
-  Clauses clauses() const {
-    return Clauses(this);
-  }
+  Clauses clauses() const { return Clauses(this); }
 
 
   struct UnitClauses {
@@ -184,9 +206,7 @@ class Setup {
     const Setup* owner_;
   };
 
-  UnitClauses unit_clauses() const {
-    return UnitClauses(this);
-  }
+  UnitClauses unit_clauses() const { return UnitClauses(this); }
 
 
   struct PrimitiveTerms {
@@ -308,6 +328,7 @@ class Setup {
 
   void UpdateOccurrences(Index i) {
     for (const Literal a : clause(i)) {
+      assert(a.primitive());
       if (a.lhs().function()) {
         auto r = occurs_.equal_range(a.lhs());
         if (r.first == r.second || std::prev(r.second)->second != i) {

@@ -1,6 +1,10 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
-
+//
+// A simple Maybe type as in Haskell: it is either Nothing or Just some object.
+// Thanks to moving constructors and all that weird stuff, it's faster than
+// using pairs with a boolean for the same purpose -- let alone much clearer.
+//
 // To handle Maybe<std::unique_ptr<T>> we use std::forward(). Is that correct?
 
 #ifndef SRC_MAYBE_H_

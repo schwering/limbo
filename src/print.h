@@ -4,6 +4,7 @@
 #ifndef SRC_PRINT_H_
 #define SRC_PRINT_H_
 
+#include <iostream>
 #include <ostream>
 #include "clause.h"
 #include "literal.h"

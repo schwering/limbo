@@ -1,5 +1,9 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
+//
+// A couple of comparators to achieve specific behaviour of set and map
+// containers. Currently only few are in use, the previous prototypes made
+// much heavier use of specific sorting.
 
 #ifndef SRC_COMPAR_H_
 #define SRC_COMPAR_H_

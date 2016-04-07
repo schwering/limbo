@@ -1,5 +1,20 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
+//
+// A clause is a set of literals. Clauses are immutable.
+//
+// A clause is stored as vector, which is initially sorted to remove duplicates.
+// Thus, and since clauses are immutable, they represent a sets of literals.
+// Note that copying and comparing clauses is much more expensive than for
+// literals.
+//
+// Perhaps the most important operations are PropagateUnit() and Subsumes(),
+// which are only defined for primitive clauses and literals. Thus all involved
+// literals mention a primitive term on the left-hand side. By definition of
+// Complementary() and Subsumes() in the Literal class, a literal can react with
+// another only if they refer to the same term. By hashing these terms and
+// storing these values in Bloom filters, we can detect that unit propagation or
+// subsumption won't work early.
 
 #ifndef SRC_CLAUSE_H_
 #define SRC_CLAUSE_H_
@@ -12,7 +27,6 @@
 #include "./compar.h"
 #include "./literal.h"
 #include "./maybe.h"
-#include "./range.h"
 
 namespace lela {
 
@@ -52,6 +66,12 @@ class Clause {
   }
 
   Maybe<Clause> PropagateUnit(Literal a) const {
+    assert(primitive());
+    assert(a.primitive());
+    assert(a.lhs().function());
+    if (!bloom_.Contains(a.lhs().hash())) {
+      return Nothing;
+    }
     Clause c;
     std::copy_if(begin(), end(), std::back_inserter(c.lits_),
                 [a](Literal b) { return !Literal::Complementary(a, b); }); 
@@ -104,12 +124,7 @@ class Clause {
   void InitBloom() {
     bloom_.Clear();
     for (Literal a : *this) {
-      if (a.lhs().function()) {
-        bloom_.Add(a.lhs().hash());
-      }
-      if (a.rhs().function()) {
-        bloom_.Add(a.lhs().hash());
-      }
+      bloom_.Add(a.lhs().hash());
     }
   }
 
