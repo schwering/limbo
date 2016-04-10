@@ -31,6 +31,7 @@
 #ifndef SRC_SETUP_H_
 #define SRC_SETUP_H_
 
+#include <cassert>
 #include <algorithm>
 #include <map>
 #include <vector>

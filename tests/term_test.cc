@@ -7,7 +7,7 @@
 
 using namespace lela;
 
-TEST(term_test, symbol) {
+TEST(term_test, term) {
   constexpr Symbol::Sort s1 = 1;
   constexpr Symbol::Sort s2 = 2;
   EXPECT_EQ(s1, s1);
@@ -20,6 +20,8 @@ TEST(term_test, symbol) {
   EXPECT_TRUE(n1 != Term::Create(Symbol::CreateName(2, s1)) && n2 == Term::Create(Symbol::CreateName(2, s1)));
   EXPECT_TRUE(!n1.null() && n1.name() && !n1.variable() && !n1.function());
   EXPECT_TRUE(!n2.null() && n2.name() && !n2.variable() && !n2.function());
+  EXPECT_EQ(n1.symbol().id(), 1);
+  EXPECT_EQ(n2.symbol().id(), 2);
 
   const Term x1 = Term::Create(Symbol::CreateVariable(1, s1));
   const Term x2 = Term::Create(Symbol::CreateVariable(2, s1));
@@ -28,6 +30,8 @@ TEST(term_test, symbol) {
   EXPECT_TRUE(n1 != x1 && n1 != x2 && n2 != x1 && n2 != x2);
   EXPECT_TRUE(x1 == Term::Create(Symbol::CreateVariable(1, s1)) && x2 != Term::Create(Symbol::CreateVariable(1, s1)));
   EXPECT_TRUE(x1 != Term::Create(Symbol::CreateVariable(2, s1)) && x2 == Term::Create(Symbol::CreateVariable(2, s1)));
+  EXPECT_EQ(x1.symbol().id(), 1);
+  EXPECT_EQ(x2.symbol().id(), 2);
 
   const Term f1 = Term::Create(Symbol::CreateFunction(1, s1, 1), {n1});
   const Term f2 = Term::Create(Symbol::CreateFunction(2, s2, 2), {n1,x2});
@@ -43,9 +47,13 @@ TEST(term_test, symbol) {
   EXPECT_TRUE(f5 != f2);
   EXPECT_TRUE(f5 == f4);
   EXPECT_TRUE(f5 == Term::Create(Symbol::CreateFunction(2, s2, 2), {n1,f1}));
+  EXPECT_EQ(f1.symbol().id(), 1);
+  EXPECT_EQ(f2.symbol().id(), 2);
+  EXPECT_EQ(f3.symbol().id(), 1);
+  EXPECT_EQ(f4.symbol().id(), 2);
 
   Term::Set terms;
-  struct IsTrue { bool operator()(Term t) const { return true; } };
+  struct IsTrue { bool operator()(Term) const { return true; } };
   struct IsNameOfSort { IsNameOfSort(Symbol::Sort sort) : sort_(sort) {} bool operator()(Term t) const { return t.name() && t.symbol().sort() == sort_; } Symbol::Sort sort_; };
   struct TermIdentity { Term operator()(Term t) const { return t; } };
   struct TermSort { Symbol::Sort operator()(Term t) const { return t.symbol().sort(); } };

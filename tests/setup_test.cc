@@ -73,17 +73,12 @@ TEST(setup_test, symbol) {
     lela::Setup s3(&s2);
     s3.AddClause(Clause({Literal::Neq(a,m)}));
     s3.Init();
-    //for (auto i : s3.clauses()) {
-    //  std::cout << i << "=" << s3.clause(i) << "*" << Setup::Clauses::EnabledClause(&s3)(i) << std::endl;
-    //}
-    //for (auto t : s3.primitive_terms()) {
-    //  std::cout << t << std::endl;
-    //}
     EXPECT_EQ(dist(s3.clauses()), 5); // again, the unique-filter catches 'a' by chance
     EXPECT_EQ(dist(s3.primitive_terms()), 5);
     EXPECT_EQ(dist(s3.clauses_with(a)), 1);
     EXPECT_EQ(dist(s3.clauses_with(fn)), 1);
     EXPECT_EQ(dist(s3.clauses_with(fm)), 1);
+    EXPECT_TRUE(!s3.PossiblyInconsistent());
   }
 }
 
