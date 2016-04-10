@@ -15,9 +15,9 @@ namespace lela {
 template<typename T, T DEFAULT_VALUE = T()>
 class IntMap : public std::vector<T> {
  public:
-  typedef typename std::vector<T> parent;
+  typedef std::vector<T> parent;
 
-  using parent::vector;
+  using std::vector<T>::vector;
 
   typename parent::reference operator[](typename parent::size_type pos) {
     if (pos >= parent::size()) {
