@@ -32,7 +32,6 @@
 #define SRC_SETUP_H_
 
 #include <algorithm>
-#include <forward_list>
 #include <map>
 #include <vector>
 #include "./clause.h"
@@ -48,12 +47,12 @@ class Setup {
   typedef std::multimap<Term, Index> TermMap;
 
   Setup() = default;
-  explicit Setup(const Setup* parent) : parent_(parent), del_(parent_->del_) {}
+  explicit Setup(const Setup* parent) : parent_(parent), del_(parent_->del_) { assert(parent_->sealed_); }
   Setup(const Setup&) = default;
   Setup& operator=(const Setup&) = default;
 
   Index AddClause(const Clause& c) {
-    assert(!sealed);
+    assert(!sealed_);
     assert(c.primitive());
     cs_.push_back(c);
     const Index k = last() - 1;
@@ -66,7 +65,7 @@ class Setup {
     Minimize();
     PropagateUnits();
 #ifndef NDEBUG
-    sealed = true;
+    sealed_ = true;
 #endif
   }
 
@@ -161,7 +160,6 @@ class Setup {
 
     typedef incr_iterator<IndexPlusTo> every_clause_iterator;
     typedef filter_iterator<EnabledClause, incr_iterator<IndexPlusTo>> clause_iterator;
-    typedef clause_iterator value_type;
 
     explicit Clauses(const Setup* owner) : owner_(owner) {}
 
@@ -191,7 +189,6 @@ class Setup {
     };
 
     typedef filter_iterator<UnitClause, Clauses::clause_iterator> unit_clause_iterator;
-    typedef Clauses::clause_iterator value_type;
 
     explicit UnitClauses(const Setup* owner) : owner_(owner) {}
 
@@ -225,6 +222,13 @@ class Setup {
       TermPairs operator()(const Setup& setup) const { return TermPairs(&setup); }
     };
 
+    struct EnabledClause {
+      explicit EnabledClause(const Setup* owner) : owner_(owner) {}
+      bool operator()(const TermMap::value_type& pair) const { return owner_->enabled(pair.second); }
+     private:
+      const Setup* owner_;
+    };
+
     struct GetTerm {
       Term operator()(const TermMap::value_type& pair) const { return pair.first; }
     };
@@ -238,7 +242,8 @@ class Setup {
     typedef Setups::setup_iterator setup_iterator;
     typedef transform_iterator<GetTermPairs, setup_iterator> term_pairs_iterator;
     typedef nested_iterator<term_pairs_iterator> every_term_pair_iterator;
-    typedef transform_iterator<GetTerm, every_term_pair_iterator> every_term_iterator;
+    typedef filter_iterator<EnabledClause, every_term_pair_iterator> term_pair_iterator;
+    typedef transform_iterator<GetTerm, term_pair_iterator> every_term_iterator;
     typedef filter_iterator<UniqueTerm, every_term_iterator> term_iterator;
 
     explicit PrimitiveTerms(const Setup* owner) : owner_(owner) {}
@@ -246,17 +251,21 @@ class Setup {
     term_iterator begin() const {
       auto first = term_pairs_iterator(GetTermPairs(), owner_->setups().begin());
       auto last  = term_pairs_iterator(GetTermPairs(), owner_->setups().end());
-      auto first_nested = every_term_iterator(GetTerm(), every_term_pair_iterator(first, last));
-      auto last_nested  = every_term_iterator(GetTerm(), every_term_pair_iterator(last, last));
-      return term_iterator(UniqueTerm(), first_nested, last_nested);
+      auto first_pair = every_term_pair_iterator(first, last);
+      auto last_pair  = every_term_pair_iterator(last, last);
+      auto first_filtered_pair = term_pair_iterator(EnabledClause(owner_), first_pair, last_pair);
+      auto last_filtered_pair  = term_pair_iterator(EnabledClause(owner_), last_pair, last_pair);
+      auto first_term = every_term_iterator(GetTerm(), first_filtered_pair);
+      auto last_term  = every_term_iterator(GetTerm(), last_filtered_pair);
+      return term_iterator(UniqueTerm(), first_term, last_term);
     }
 
     term_iterator end() const {
-      auto last = term_pairs_iterator(GetTermPairs(), owner_->setups().end());
-      assert(last == last);
-      auto last_nested = every_term_iterator(GetTerm(), every_term_pair_iterator(last, last));
-      assert(last_nested == last_nested);
-      return term_iterator(UniqueTerm(), last_nested, last_nested);
+      auto last  = term_pairs_iterator(GetTermPairs(), owner_->setups().end());
+      auto last_pair  = every_term_pair_iterator(last, last);
+      auto last_filtered_pair  = term_pair_iterator(EnabledClause(owner_), last_pair, last_pair);
+      auto last_term  = every_term_iterator(GetTerm(), last_filtered_pair);
+      return term_iterator(UniqueTerm(), last_term, last_term);
     }
 
    private:
@@ -329,7 +338,7 @@ class Setup {
 
  private:
   void InitOccurrences() {
-    assert(!sealed);
+    assert(!sealed_);
     occurs_.clear();
     for (Index i = first(); i < last(); ++i) {
       UpdateOccurrences(i);
@@ -349,7 +358,7 @@ class Setup {
   }
 
   void Minimize() {
-    assert(!sealed);
+    assert(!sealed_);
     // We only need to remove clauses subsumed by this setup, as the parent is
     // already assumed to be minimal.
     for (int i = first(); i < last(); ++i) {
@@ -378,7 +387,7 @@ class Setup {
   }
 
   void PropagateUnits() {
-    assert(!sealed);
+    assert(!sealed_);
     for (Index i : unit_clauses()) {
       assert(clause(i).unit());
       const Literal a = *clause(i).begin();
@@ -399,7 +408,8 @@ class Setup {
 
   // Disable() marks a clause as inactive, disabled() and enabled() indicate
   // whether a clause is inactive and active, respectivel, clause() returns a
-  // clause; the indexing is global.
+  // clause; the indexing is global. Note that del_ is copied from the parent
+  // setup.
   void Disable(Index i) { assert(0 <= i && i < last()); del_[i] = true; }
   bool disabled(Index i) const { assert(0 <= i && i < last()); return del_[i]; }
   bool enabled(Index i) const { return !disabled(i); }
@@ -413,7 +423,7 @@ class Setup {
   const Setup* parent_ = 0;
   const Index first_ = !parent_ ? 0 : parent_->last();
 #ifndef NDEBUG
-  bool sealed = false;
+  bool sealed_ = false;
 #endif
 
   // cs_ contains all clauses added in this setup, and occurs_ is their index;
