@@ -89,10 +89,10 @@ class Literal {
     return Literal(eq_, lhs_.Ground(theta), rhs_.Ground(theta));
   }
 
-  template<typename UnaryPredicate, typename UnaryFunction, typename Container>
-  void Collect(UnaryPredicate p, UnaryFunction f, Container* c) const {
-    lhs_.Collect(p, f, c);
-    rhs_.Collect(p, f, c);
+  template<typename UnaryFunction>
+  void Traverse(UnaryFunction f) const {
+    lhs_.Traverse(f);
+    rhs_.Traverse(f);
   }
 
  private:

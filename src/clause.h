@@ -102,10 +102,10 @@ class Clause {
     return c;
   }
 
-  template<typename UnaryPredicate, typename UnaryFunction, typename Container>
-  void Collect(UnaryPredicate p, UnaryFunction f, Container* c) const {
+  template<typename UnaryFunction>
+  void Traverse(UnaryFunction f) const {
     for (Literal a : *this) {
-      a.Collect(p, f, c);
+      a.Traverse(f);
     }
   }
 

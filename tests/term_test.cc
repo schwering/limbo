@@ -53,21 +53,18 @@ TEST(term_test, term) {
   EXPECT_EQ(f4.symbol().id(), 2);
 
   Term::Set terms;
-  struct IsTrue { bool operator()(Term) const { return true; } };
-  struct IsNameOfSort { IsNameOfSort(Symbol::Sort sort) : sort_(sort) {} bool operator()(Term t) const { return t.name() && t.symbol().sort() == sort_; } Symbol::Sort sort_; };
-  struct TermIdentity { Term operator()(Term t) const { return t; } };
-  struct TermSort { Symbol::Sort operator()(Term t) const { return t.symbol().sort(); } };
 
   terms.clear();
-  f4.Collect(IsNameOfSort(s1), TermIdentity(), &terms);
-  EXPECT_TRUE(terms == Term::Set({n1}));
+  f4.Traverse([&terms, s1](const Term t) { if (t.symbol().sort() == s1) { terms.insert(t); } return true; });
+  std::cout << std::endl;
+  EXPECT_TRUE(terms == Term::Set({f1,n1}));
 
   terms.clear();
-  f4.Collect(IsTrue(), TermIdentity(), &terms);
+  f4.Traverse([&terms](const Term t) { terms.insert(t); return true; });
   EXPECT_TRUE(terms == Term::Set({n1,f1,f4}));
 
   std::set<Symbol::Sort> sorts;
-  f4.Collect(IsTrue(), TermSort(), &sorts);
+  f4.Traverse([&sorts](Term t) { sorts.insert(t.symbol().sort()); return true; });
   EXPECT_TRUE(sorts == std::set<Symbol::Sort>({s1,s2}));
 }
 

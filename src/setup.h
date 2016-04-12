@@ -330,10 +330,10 @@ class Setup {
   ClausesWith clauses_with(Term term) const { return ClausesWith(this, term); }
 
 
-  template<typename UnaryPredicate, typename UnaryFunction, typename Container>
-  void Collect(UnaryPredicate p, UnaryFunction f, Container* c) const {
+  template<typename UnaryFunction>
+  void Traverse(UnaryFunction f) const {
     for (Index i : clauses()) {
-      clause(i).Collect(p, f, c);
+      clause(i).Traverse(f);
     }
   }
 
