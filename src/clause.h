@@ -86,20 +86,12 @@ class Clause {
   bool ground() const { return std::all_of(begin(), end(), [](Literal l) { return l.ground(); }); }
   bool primitive() const { return std::all_of(begin(), end(), [](Literal l) { return l.primitive(); }); }
 
-  Clause Substitute(Term pre, Term post) const {
+  template<typename UnaryFunction>
+  Clause Substitute(UnaryFunction theta) const {
     Clause c;
     c.lits_.reserve(size());
-    std::transform(begin(), end(), std::back_inserter(c.lits_), [pre, post](Literal a) { return a.Substitute(pre, post); });
+    std::transform(begin(), end(), std::back_inserter(c.lits_), [theta](Literal a) { return a.Substitute(theta); });
     c.Minimize();
-    return c;
-  }
-
-  Clause Ground(const Term::Substitution& theta) const {
-    Clause c;
-    c.lits_.reserve(size());
-    std::transform(begin(), end(), std::back_inserter(c.lits_), [theta](Literal a) { return a.Ground(theta); });
-    c.Minimize();
-    assert(c.ground());
     return c;
   }
 

@@ -1,5 +1,7 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
+//
+// Substitutes standard names for variables. Corresponds to the gnd() operator.
 
 #ifndef SRC_GROUNDER_H_
 #define SRC_GROUNDER_H_
@@ -11,6 +13,7 @@
 #include <utility>
 #include "./clause.h"
 #include "./iter.h"
+#include "./maybe.h"
 #include "./setup.h"
 
 namespace lela {
@@ -28,10 +31,8 @@ class Grounder {
     SortedNames names = Names(range, plus);
     for (const Clause& c : range) {
       const VariableSet vars = Variables(c);
-      for (VariableMappings mappings(&names, vars); mappings.hasNext(); ++mappings) {
-        auto r = mappings.current_assignment();
-        Term::Substitution theta(r.begin(), r.end());
-        s.AddClause(c.Ground(theta));
+      for (VariableMapping mapping(&names, vars); mapping.has_next(); ++mapping) {
+        s.AddClause(c.Substitute(mapping));
       }
     }
     return s;
@@ -68,12 +69,24 @@ class Grounder {
     return vars;
   }
 
-  class VariableMappings {
+  class VariableMapping {
    public:
     typedef SortedNames::const_iterator name_iterator;
     typedef std::pair<name_iterator, name_iterator> name_range;
+    struct Get {
+      std::pair<Term, Term> operator()(const std::pair<Term, name_range> p) const {
+        const Term& var = p.first;
+        const name_range& r = p.second;
+        assert(r.first != r.second);
+        assert(var.symbol().sort() == r.first->first);
+        assert(var.symbol().sort() == r.first->second.symbol().sort());
+        const Term& name = r.first->second;
+        return std::make_pair(var, name);
+      }
+    };
+    typedef transform_iterator<Get, std::map<Term, name_range>::const_iterator> iterator;
 
-    explicit VariableMappings(const SortedNames* names, const VariableSet& vars) : names_(names) {
+    VariableMapping(const SortedNames* names, const VariableSet& vars) : names_(names) {
       for (const Term var : vars) {
         assert(var.symbol().variable());
         const name_range r = names_->equal_range(var.symbol().sort());
@@ -85,7 +98,18 @@ class Grounder {
       meta_iter_ = assignment_.begin();
     }
 
-    VariableMappings& operator++() {
+    Maybe<Term> operator()(Term v) const {
+      auto it = assignment_.find(v);
+      if (it != assignment_.end()) {
+        auto r = it->second;
+        assert(r.first != r.second);
+        const Term& name = r.first->second;
+        return Just(name);
+      }
+      return Nothing;
+    }
+
+    VariableMapping& operator++() {
       assert(meta_iter_ != assignment_.end());
       for (meta_iter_ = assignment_.begin(); meta_iter_ != assignment_.end(); ++meta_iter_) {
         const Term var = meta_iter_->first;
@@ -105,33 +129,10 @@ class Grounder {
       return *this;
     }
 
-    bool hasNext() const { return meta_iter_ != assignment_.end(); }
+    bool has_next() const { return meta_iter_ != assignment_.end(); }
 
-    struct CurrentAssignment {
-      struct Get {
-        std::pair<Term, Term> operator()(const std::pair<Term, name_range> p) const {
-          const Term& var = p.first;
-          const name_range& r = p.second;
-          assert(r.first != r.second);
-          assert(var.symbol().sort() == r.first->first);
-          assert(var.symbol().sort() == r.first->second.symbol().sort());
-          const Term& name = r.first->second;
-          return std::make_pair(var, name);
-        }
-      };
-
-      typedef transform_iterator<Get, std::map<Term, name_range>::const_iterator> iterator;
-
-      explicit CurrentAssignment(const VariableMappings* owner) : owner_(owner) {}
-
-      iterator begin() const { return iterator(Get(), owner_->assignment_.begin()); }
-      iterator end()   const { return iterator(Get(), owner_->assignment_.end()); }
-
-     private:
-      const VariableMappings* owner_;
-    };
-
-    CurrentAssignment current_assignment() const { return CurrentAssignment(this); }
+    iterator begin() const { return iterator(Get(), assignment_.begin()); }
+    iterator end()   const { return iterator(Get(), assignment_.end()); }
 
    private:
     const SortedNames* names_;

@@ -7,6 +7,15 @@
 
 using namespace lela;
 
+struct EqSubstitute {
+  EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}
+  Maybe<Term> operator()(Term t) const { if (t == pre_) return Just(post_); else return Nothing; }
+
+ private:
+  const Term pre_;
+  const Term post_;
+};
+
 TEST(term_test, term) {
   constexpr Symbol::Sort s1 = 1;
   constexpr Symbol::Sort s2 = 2;
@@ -41,7 +50,7 @@ TEST(term_test, term) {
   EXPECT_TRUE(!f2.null() && !f2.name() && !f2.variable() && f2.function() && !f2.ground() && !f2.primitive() && f2.quasiprimitive());
   EXPECT_TRUE(!f3.null() && !f3.name() && !f3.variable() && f3.function() && f3.ground() && !f3.primitive() && !f3.quasiprimitive());
   EXPECT_TRUE(!f4.null() && !f4.name() && !f4.variable() && f4.function() && f4.ground() && !f4.primitive() && !f4.quasiprimitive());
-  const Term f5 = f2.Substitute(x2, f1);
+  const Term f5 = f2.Substitute(EqSubstitute(x2, f1));
   EXPECT_TRUE(f2 != f4);
   EXPECT_TRUE(!f5.name() && !f5.variable() && f5.function() && f5.ground() && !f4.primitive() && !f4.quasiprimitive());
   EXPECT_TRUE(f5 != f2);

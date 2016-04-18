@@ -81,12 +81,9 @@ class Literal {
     return Subsumes(*this, b);
   }
 
-  Literal Substitute(Term pre, Term post) const {
-    return Literal(eq_, lhs_.Substitute(pre, post), rhs_.Substitute(pre, post));
-  }
-
-  Literal Ground(const Term::Substitution& theta) const {
-    return Literal(eq_, lhs_.Ground(theta), rhs_.Ground(theta));
+  template<typename UnaryFunction>
+  Literal Substitute(UnaryFunction& theta) const {
+    return Literal(eq_, lhs_.Substitute(theta), rhs_.Substitute(theta));
   }
 
   template<typename UnaryFunction>

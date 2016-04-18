@@ -21,6 +21,7 @@
 #include <vector>
 #include <utility>
 #include "./compar.h"
+#include "./maybe.h"
 
 namespace lela {
 
@@ -94,7 +95,6 @@ class Term {
  public:
   struct Comparator;
   typedef std::vector<Term> Vector;
-  typedef std::map<Term, Term> Substitution;
   typedef std::set<Term, Comparator> Set;
 
   Term() = default;
@@ -111,37 +111,16 @@ class Term {
   bool operator<(Term t) const { return data_ < t.data_; }
   bool operator>(Term t) const { return data_ > t.data_; }
 
-  Term Substitute(Term pre, Term post) const {
-    if (*this == pre) {
-      return post;
-    }
-    if (arity() > 0) {
-      Vector args;
-      args.reserve(data_->args_.size());
-      for (Term arg : data_->args_) {
-        args.push_back(arg.Substitute(pre, post));
-      }
-      if (args != data_->args_) {
-        return Create(data_->symbol_, args);
-      }
-    }
-    return *this;
-  }
-
-  Term Ground(const Substitution& theta) const {
-    assert(std::all_of(theta.begin(), theta.end(), [](const std::pair<Term, Term>& p) { return p.first.variable() && p.second.name(); }));
-    if (variable()) {
-      const auto it = theta.find(*this);
-      if (it != theta.end()) {
-        return it->second;
-      } else {
-        return *this;
-      }
+  template<typename UnaryFunction>
+  Term Substitute(UnaryFunction theta) const {
+    Maybe<Term> t = theta(*this);
+    if (t) {
+      return t.val;
     } else if (arity() > 0) {
       Vector args;
       args.reserve(data_->args_.size());
       for (Term arg : data_->args_) {
-        args.push_back(arg.Ground(theta));
+        args.push_back(arg.Substitute(theta));
       }
       if (args != data_->args_) {
         return Create(data_->symbol_, args);

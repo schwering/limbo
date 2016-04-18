@@ -3,9 +3,19 @@
 
 #include <gtest/gtest.h>
 #include <./clause.h>
+#include <./maybe.h>
 #include <./print.h>
 
 using namespace lela;
+
+struct EqSubstitute {
+  EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}
+  Maybe<Term> operator()(Term t) const { if (t == pre_) return Just(post_); else return Nothing; }
+
+ private:
+  const Term pre_;
+  const Term post_;
+};
 
 TEST(clause_test, symbol) {
   const Symbol::Sort s1 = 1;
@@ -83,10 +93,10 @@ TEST(clause_test, symbol) {
   {
     Clause c1({Literal::Eq(f4,n1), Literal::Eq(f2,n1)});
     EXPECT_TRUE(c1.size() == 2);
-    c1 = c1.Substitute(f1,n2);
+    c1 = c1.Substitute(EqSubstitute(f1,n2));
     EXPECT_TRUE(c1.size() == 2);
     EXPECT_TRUE(!c1.ground());
-    c1 = c1.Substitute(x2,n2);
+    c1 = c1.Substitute(EqSubstitute(x2,n2));
     EXPECT_TRUE(c1.size() == 1);
     EXPECT_TRUE(c1.unit());
   }
