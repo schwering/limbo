@@ -99,6 +99,7 @@ class Clause {
     c.lits_.reserve(size());
     std::transform(begin(), end(), std::back_inserter(c.lits_), [theta](Literal a) { return a.Ground(theta); });
     c.Minimize();
+    assert(c.ground());
     return c;
   }
 

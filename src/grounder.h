@@ -4,6 +4,7 @@
 #ifndef SRC_GROUNDER_H_
 #define SRC_GROUNDER_H_
 
+#include <cassert>
 #include <algorithm>
 #include <map>
 #include <vector>
@@ -16,7 +17,7 @@ namespace lela {
 
 class Grounder {
  public:
-  typedef std::vector<Term> VarSet;
+  typedef std::vector<Term> VariableSet;
   typedef std::map<Symbol::Sort, size_t> PlusMap;
 
   Grounder() = delete;
@@ -25,7 +26,14 @@ class Grounder {
   static Setup Ground(const Range& range, const PlusMap& plus) {
     Setup s;
     SortedNames names = Names(range, plus);
-    VarSet vars = Variables(range);
+    for (const Clause& c : range) {
+      const VariableSet vars = Variables(c);
+      for (VariableMappings mappings(&names, vars); mappings.hasNext(); ++mappings) {
+        auto r = mappings.current_assignment();
+        Term::Substitution theta(r.begin(), r.end());
+        s.AddClause(c.Ground(theta));
+      }
+    }
     return s;
   }
 
@@ -52,16 +60,84 @@ class Grounder {
     return names;
   }
 
-  template<typename Range>
-  static VarSet Variables(const Range& range) {
-    VarSet vars;
-    for (const Clause& c : range) {
-      c.Traverse([&vars](Term t) { if (t.variable()) { vars.push_back(t); } return true; });
-    }
+  static VariableSet Variables(const Clause& c) {
+    VariableSet vars;
+    c.Traverse([&vars](Term t) { if (t.variable()) { vars.push_back(t); } return true; });
     std::sort(vars.begin(), vars.end(), Term::Comparator());
     vars.erase(std::unique(vars.begin(), vars.end()), vars.end());
     return vars;
   }
+
+  class VariableMappings {
+   public:
+    typedef SortedNames::const_iterator name_iterator;
+    typedef std::pair<name_iterator, name_iterator> name_range;
+
+    explicit VariableMappings(const SortedNames* names, const VariableSet& vars) : names_(names) {
+      for (const Term var : vars) {
+        assert(var.symbol().variable());
+        const name_range r = names_->equal_range(var.symbol().sort());
+        assert(r.first != r.second);
+        assert(var.symbol().sort() == r.first->first);
+        assert(var.symbol().sort() == r.first->second.symbol().sort());
+        assignment_[var] = r;
+      }
+      meta_iter_ = assignment_.begin();
+    }
+
+    VariableMappings& operator++() {
+      assert(meta_iter_ != assignment_.end());
+      for (meta_iter_ = assignment_.begin(); meta_iter_ != assignment_.end(); ++meta_iter_) {
+        const Term var = meta_iter_->first;
+        name_range& r = meta_iter_->second;
+        assert(var.symbol().variable());
+        assert(r.first != r.second);
+        ++r.first;
+        if (r.first != r.second) {
+          break;
+        } else {
+          r.first = names_->lower_bound(var.symbol().sort());
+          assert(r.first != r.second);
+          assert(var.symbol().sort() == r.first->first);
+          assert(var.symbol().sort() == r.first->second.symbol().sort());
+        }
+      }
+      return *this;
+    }
+
+    bool hasNext() const { return meta_iter_ != assignment_.end(); }
+
+    struct CurrentAssignment {
+      struct Get {
+        std::pair<Term, Term> operator()(const std::pair<Term, name_range> p) const {
+          const Term& var = p.first;
+          const name_range& r = p.second;
+          assert(r.first != r.second);
+          assert(var.symbol().sort() == r.first->first);
+          assert(var.symbol().sort() == r.first->second.symbol().sort());
+          const Term& name = r.first->second;
+          return std::make_pair(var, name);
+        }
+      };
+
+      typedef transform_iterator<Get, std::map<Term, name_range>::const_iterator> iterator;
+
+      explicit CurrentAssignment(const VariableMappings* owner) : owner_(owner) {}
+
+      iterator begin() const { return iterator(Get(), owner_->assignment_.begin()); }
+      iterator end()   const { return iterator(Get(), owner_->assignment_.end()); }
+
+     private:
+      const VariableMappings* owner_;
+    };
+
+    CurrentAssignment current_assignment() const { return CurrentAssignment(this); }
+
+   private:
+    const SortedNames* names_;
+    std::map<Term, name_range> assignment_;
+    std::map<Term, name_range>::iterator meta_iter_;
+  };
 };
 
 }  // namespace lela

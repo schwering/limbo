@@ -145,9 +145,12 @@ class Term {
       }
       if (args != data_->args_) {
         return Create(data_->symbol_, args);
+      } else {
+        return *this;
       }
+    } else {
+      return *this;
     }
-    return *this;
   }
 
   Symbol symbol() const { return data_->symbol_; }
