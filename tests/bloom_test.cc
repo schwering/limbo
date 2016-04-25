@@ -1,23 +1,28 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016--2016 Christoph Schwering
+// Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include <./term.h>
-#include <./print.h>
+#include "./term.h"
+#include "./print.h"
 
 using namespace lela;
 
 TEST(bloom_test, symbol) {
-  const Symbol::Sort s1 = 1;
-  const Symbol::Sort s2 = 2;
-  const Term n1 = Term::Create(Symbol::CreateName(1, s1));
-  const Term n2 = Term::Create(Symbol::CreateName(2, s1));
-  const Term x1 = Term::Create(Symbol::CreateVariable(1, s1));
-  const Term x2 = Term::Create(Symbol::CreateVariable(2, s1));
-  const Term f1 = Term::Create(Symbol::CreateFunction(1, s1, 1), {n1});
-  const Term f2 = Term::Create(Symbol::CreateFunction(2, s2, 2), {n1,x2});
-  const Term f3 = Term::Create(Symbol::CreateFunction(1, s2, 1), {f1});
-  const Term f4 = Term::Create(Symbol::CreateFunction(2, s2, 2), {n1,f1});
+  Symbol::Factory sf;
+  Term::Factory tf;
+  const Symbol::Sort s1 = sf.CreateSort();
+  const Symbol::Sort s2 = sf.CreateSort();
+  const Term n1 = tf.CreateTerm(sf.CreateName(s1));
+  const Term n2 = tf.CreateTerm(sf.CreateName(s1));
+  const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
+  const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));
+  const Symbol f = sf.CreateFunction(s1, 1);
+  const Symbol g = sf.CreateFunction(s2, 1);
+  const Symbol h = sf.CreateFunction(s2, 2);
+  const Term f1 = tf.CreateTerm(f, {n1});
+  const Term f2 = tf.CreateTerm(h, {n1,x2});
+  const Term f3 = tf.CreateTerm(g, {f1});
+  const Term f4 = tf.CreateTerm(h, {n1,f1});
   const std::vector<Term> ts({n1,n2,x1,x2,f1,f2,f3});
 
   BloomFilter bf0;

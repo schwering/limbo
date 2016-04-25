@@ -4,7 +4,7 @@
 // Symbols are the non-logical symbols of the language: variables, standard
 // names, and function symbols, which are sorted. Symbols are immutable.
 //
-// Terms can be built from these symbols as usual. Symbols are immutable.
+// Terms can be built from these symbols as usual. Terms are immutable.
 //
 // The implementation aims to keep terms as lightweight as possible to
 // facilitate extremely fast copying and comparison. Internally, a term is
@@ -32,22 +32,40 @@ class Symbol {
   typedef int8_t Arity;
   struct Comparator;
 
-  static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
-    assert(id > 0);
-    id = -1 * (2 * id + 1);
-    return Symbol(id, sort, arity);
-  }
+  class Factory {
+   public:
+    Factory() = default;
+    Factory(const Factory&) = delete;
+    Factory& operator=(const Factory&) = delete;
 
-  static Symbol CreateName(Id id, Sort sort) {
-    assert(id > 0);
-    return Symbol(id, sort, 0);
-  }
+    Sort   CreateSort()                           { return last_sort_++; }
+    Symbol CreateFunction(Sort sort, Arity arity) { return CreateFunction(++last_function_, sort, arity); }
+    Symbol CreateName(Sort sort)                  { return CreateName(++last_name_, sort); }
+    Symbol CreateVariable(Sort sort)              { return CreateVariable(++last_variable_, sort); }
 
-  static Symbol CreateVariable(Id id, Sort sort) {
-    assert(id > 0);
-    id = -1 * (2 * id);
-    return Symbol(id, sort, 0);
-  }
+    static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
+      assert(id > 0);
+      id = -1 * (2 * id + 1);
+      return Symbol(id, sort, arity);
+    }
+
+    static Symbol CreateName(Id id, Sort sort) {
+      assert(id > 0);
+      return Symbol(id, sort, 0);
+    }
+
+    static Symbol CreateVariable(Id id, Sort sort) {
+      assert(id > 0);
+      id = -1 * (2 * id);
+      return Symbol(id, sort, 0);
+    }
+
+   private:
+    Sort last_sort_ = 0;
+    Id last_function_ = 0;
+    Id last_name_ = 0;
+    Id last_variable_ = 0;
+  };
 
   bool function() const { return id_ < 0 && ((-id_) % 2) != 0; }
   bool name() const { return id_ > 0; }
@@ -97,12 +115,11 @@ class Term {
   typedef std::vector<Term> Vector;
   typedef std::set<Term, Comparator> Set;
 
+  class Factory;
+
   Term() = default;
   Term(const Term&) = default;
   Term& operator=(const Term&) = default;
-
-  static Term Create(Symbol symbol);
-  static Term Create(Symbol symbol, const Vector& args);
 
   bool operator==(Term t) const { return data_ == t.data_; }
   bool operator!=(Term t) const { return data_ != t.data_; }
@@ -112,25 +129,7 @@ class Term {
   bool operator>(Term t) const { return data_ > t.data_; }
 
   template<typename UnaryFunction>
-  Term Substitute(UnaryFunction theta) const {
-    Maybe<Term> t = theta(*this);
-    if (t) {
-      return t.val;
-    } else if (arity() > 0) {
-      Vector args;
-      args.reserve(data_->args_.size());
-      for (Term arg : data_->args_) {
-        args.push_back(arg.Substitute(theta));
-      }
-      if (args != data_->args_) {
-        return Create(data_->symbol_, args);
-      } else {
-        return *this;
-      }
-    } else {
-      return *this;
-    }
-  }
+  Term Substitute(UnaryFunction theta, Factory* tf) const;
 
   Symbol symbol() const { return data_->symbol_; }
   const Vector& args() const { return data_->args_; }
@@ -187,8 +186,6 @@ class Term {
 
   explicit Term(Data* data) : data_(data) {}
 
-  static std::vector<std::set<Data*, Data::DeepComparator>> memory_;
-
   const Data* data_;
 };
 
@@ -215,6 +212,59 @@ struct Term::Data::DeepComparator {
   LexicographicComparator<Symbol::Comparator,
                           LexicographicContainerComparator<Vector, Term::Comparator>> comp;
 };
+
+class Term::Factory {
+ public:
+  Factory() = default;
+  Factory(const Factory&) = delete;
+  Factory& operator=(const Factory&) = delete;
+
+  Term CreateTerm(Symbol symbol) {
+    return CreateTerm(symbol, {});
+  }
+
+  Term CreateTerm(Symbol symbol, const Vector& args) {
+    assert(symbol.arity() == static_cast<Symbol::Arity>(args.size()));
+    const size_t mem_index = symbol.sort();
+    if (mem_index >= memory_.size()) {
+      memory_.resize(mem_index + 1);
+    }
+    Data* d = new Data(symbol, args);
+    auto p = memory_[mem_index].insert(d);
+    if (p.second) {
+      assert(d == *p.first);
+      return Term(d);
+    } else {
+      assert(d != *p.first);
+      delete d;
+      return Term(*p.first);
+    }
+  }
+
+ private:
+  std::vector<std::set<Data*, Data::DeepComparator>> memory_;
+};
+
+template<typename UnaryFunction>
+Term Term::Substitute(UnaryFunction theta, Factory* tf) const {
+  Maybe<Term> t = theta(*this);
+  if (t) {
+    return t.val;
+  } else if (arity() > 0) {
+    Vector args;
+    args.reserve(data_->args_.size());
+    for (Term arg : data_->args_) {
+      args.push_back(arg.Substitute(theta, tf));
+    }
+    if (args != data_->args_) {
+      return tf->CreateTerm(data_->symbol_, args);
+    } else {
+      return *this;
+    }
+  } else {
+    return *this;
+  }
+}
 
 template<typename UnaryFunction>
 void Term::Traverse(UnaryFunction f) const {

@@ -50,7 +50,7 @@ class Literal {
 
   // valid() holds for (t = t) and (n1 != n2).
   bool valid() const { return (eq_ && lhs_ == rhs_) || (!eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_); }
-  //
+
   // invalid() holds for (t != t) and (n1 = n2).
   bool invalid() const { return (!eq_ && lhs_ == rhs_) || (eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_); }
 
@@ -82,8 +82,8 @@ class Literal {
   }
 
   template<typename UnaryFunction>
-  Literal Substitute(UnaryFunction& theta) const {
-    return Literal(eq_, lhs_.Substitute(theta), rhs_.Substitute(theta));
+  Literal Substitute(UnaryFunction& theta, Term::Factory* tf) const {
+    return Literal(eq_, lhs_.Substitute(theta, tf), rhs_.Substitute(theta, tf));
   }
 
   template<typename UnaryFunction>

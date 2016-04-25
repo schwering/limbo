@@ -26,13 +26,13 @@ class Grounder {
   Grounder() = delete;
 
   template<typename Range>
-  static Setup Ground(const Range& range, const PlusMap& plus) {
+  static Setup Ground(const Range& range, const PlusMap& plus, Term::Factory* tf) {
     Setup s;
-    SortedNames names = Names(range, plus);
+    SortedNames names = Names(range, plus, tf);
     for (const Clause& c : range) {
       const VariableSet vars = Variables(c);
       for (VariableMapping mapping(&names, vars); mapping.has_next(); ++mapping) {
-        s.AddClause(c.Substitute(mapping));
+        s.AddClause(c.Substitute(mapping, tf));
       }
     }
     return s;
@@ -41,8 +41,9 @@ class Grounder {
  private:
   typedef std::multimap<Symbol::Sort, Term> SortedNames;
 
+  // The additional names are not registered in the symbol factory.
   template<typename Range>
-  static SortedNames Names(const Range& range, const PlusMap& plus) {
+  static SortedNames Names(const Range& range, const PlusMap& plus, Term::Factory* tf) {
     SortedNames names;
     for (const Clause& c : range) {
       c.Traverse([&names](Term t) { if (t.name()) { names.insert(std::make_pair(t.symbol().sort(), t)); } return true; });
@@ -55,7 +56,7 @@ class Grounder {
       auto max_name = std::max_element(first_name, last_name, [](SortedNames::value_type p1, SortedNames::value_type p2) { return p1.second.symbol().id() < p2.second.symbol().id(); });
       Symbol::Id next_id = max_name != last_name ? max_name->second.symbol().id() + 1 : 1;
       for (Symbol::Id new_id = next_id; new_id < next_id + plus; ++new_id) {
-        names.insert(std::make_pair(sort, Term::Create(Symbol::CreateName(new_id, sort))));
+        names.insert(std::make_pair(sort, tf->CreateTerm(Symbol::Factory::CreateName(new_id, sort))));
       }
     }
     return names;

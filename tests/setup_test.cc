@@ -2,8 +2,8 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include <./setup.h>
-#include <./print.h>
+#include "./setup.h"
+#include "./print.h"
 
 using namespace lela;
 
@@ -11,16 +11,18 @@ template<typename T>
 size_t dist(T r) { return std::distance(r.begin(), r.end()); }
 
 TEST(setup_test, symbol) {
-  const Symbol::Sort s1 = 1;
-  //const Symbol::Sort s2 = 2;
-  const Term n = Term::Create(Symbol::CreateName(1, s1));
-  const Term m = Term::Create(Symbol::CreateName(2, s1));
-  const Term a = Term::Create(Symbol::CreateFunction(1, s1, 0), {});
-  //const Term b = Term::Create(Symbol::CreateFunction(2, s1, 0), {});
-  const Term fn = Term::Create(Symbol::CreateFunction(3, s1, 1), {n});
-  const Term fm = Term::Create(Symbol::CreateFunction(3, s1, 1), {m});
-  const Term gn = Term::Create(Symbol::CreateFunction(4, s1, 1), {n});
-  const Term gm = Term::Create(Symbol::CreateFunction(4, s1, 1), {m});
+  Symbol::Factory sf;
+  Term::Factory tf;
+  const Symbol::Sort s1 = sf.CreateSort();
+  //const Symbol::Sort s2 = sf.CreateSort();
+  const Term n = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
+  const Term m = tf.CreateTerm(Symbol::Factory::CreateName(2, s1));
+  const Term a = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s1, 0), {});
+  //const Term b = tf.CreateTerm(Symbol::Factory::CreateFunction(2, s1, 0), {});
+  const Term fn = tf.CreateTerm(Symbol::Factory::CreateFunction(3, s1, 1), {n});
+  const Term fm = tf.CreateTerm(Symbol::Factory::CreateFunction(3, s1, 1), {m});
+  const Term gn = tf.CreateTerm(Symbol::Factory::CreateFunction(4, s1, 1), {n});
+  const Term gm = tf.CreateTerm(Symbol::Factory::CreateFunction(4, s1, 1), {m});
 
   {
     lela::Setup s0;

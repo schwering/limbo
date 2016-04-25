@@ -2,9 +2,9 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include <./clause.h>
-#include <./maybe.h>
-#include <./print.h>
+#include "./clause.h"
+#include "./maybe.h"
+#include "./print.h"
 
 using namespace lela;
 
@@ -18,16 +18,21 @@ struct EqSubstitute {
 };
 
 TEST(clause_test, symbol) {
-  const Symbol::Sort s1 = 1;
-  const Symbol::Sort s2 = 2;
-  const Term n1 = Term::Create(Symbol::CreateName(1, s1));
-  const Term n2 = Term::Create(Symbol::CreateName(2, s1));
-  const Term x1 = Term::Create(Symbol::CreateVariable(1, s1));
-  const Term x2 = Term::Create(Symbol::CreateVariable(2, s1));
-  const Term f1 = Term::Create(Symbol::CreateFunction(1, s1, 1), {n1});
-  const Term f2 = Term::Create(Symbol::CreateFunction(2, s2, 2), {n1,x2});
-  const Term f3 = Term::Create(Symbol::CreateFunction(1, s2, 1), {f1});
-  const Term f4 = Term::Create(Symbol::CreateFunction(2, s2, 2), {n1,f1});
+  Symbol::Factory sf;
+  Term::Factory tf;
+  const Symbol::Sort s1 = sf.CreateSort();
+  const Symbol::Sort s2 = sf.CreateSort();
+  const Term n1 = tf.CreateTerm(sf.CreateName(s1));
+  const Term n2 = tf.CreateTerm(sf.CreateName(s1));
+  const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
+  const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));
+  const Symbol f = sf.CreateFunction(s1, 1);
+  const Symbol g = sf.CreateFunction(s2, 1);
+  const Symbol h = sf.CreateFunction(s2, 2);
+  const Term f1 = tf.CreateTerm(f, {n1});
+  const Term f2 = tf.CreateTerm(h, {n1,x2});
+  const Term f3 = tf.CreateTerm(g, {f1});
+  const Term f4 = tf.CreateTerm(h, {n1,f1});
 
   EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid());
   EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid());
@@ -93,10 +98,10 @@ TEST(clause_test, symbol) {
   {
     Clause c1({Literal::Eq(f4,n1), Literal::Eq(f2,n1)});
     EXPECT_TRUE(c1.size() == 2);
-    c1 = c1.Substitute(EqSubstitute(f1,n2));
+    c1 = c1.Substitute(EqSubstitute(f1, n2), &tf);
     EXPECT_TRUE(c1.size() == 2);
     EXPECT_TRUE(!c1.ground());
-    c1 = c1.Substitute(EqSubstitute(x2,n2));
+    c1 = c1.Substitute(EqSubstitute(x2, n2), &tf);
     EXPECT_TRUE(c1.size() == 1);
     EXPECT_TRUE(c1.unit());
   }
@@ -104,16 +109,18 @@ TEST(clause_test, symbol) {
 
 TEST(clause_test2, symbol) {
   {
-    const Symbol::Sort s1 = 1;
-    //const Symbol::Sort s2 = 2;
-    const Term n = Term::Create(Symbol::CreateName(1, s1));
-    const Term m = Term::Create(Symbol::CreateName(2, s1));
-    const Term a = Term::Create(Symbol::CreateFunction(1, s1, 0), {});
-    //const Term b = Term::Create(Symbol::CreateFunction(2, s1, 0), {});
-    //const Term fn = Term::Create(Symbol::CreateFunction(3, s1, 1), {n});
-    //const Term fm = Term::Create(Symbol::CreateFunction(3, s1, 1), {m});
-    //const Term gn = Term::Create(Symbol::CreateFunction(4, s1, 1), {n});
-    //const Term gm = Term::Create(Symbol::CreateFunction(4, s1, 1), {m});
+    Symbol::Factory sf;
+    Term::Factory tf;
+    const Symbol::Sort s1 = sf.CreateSort();
+    //const Symbol::Sort s2 = sf.CreateSort();
+    const Term n = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
+    const Term m = tf.CreateTerm(Symbol::Factory::CreateName(2, s1));
+    const Term a = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s1, 0), {});
+    //const Term b = tf.CreateTerm(Symbol::Factory::CreateFunction(2, s1, 0), {});
+    //const Term fn = tf.CreateTerm(Symbol::Factory::CreateFunction(3, s1, 1), {n});
+    //const Term fm = tf.CreateTerm(Symbol::Factory::CreateFunction(3, s1, 1), {m});
+    //const Term gn = tf.CreateTerm(Symbol::Factory::CreateFunction(4, s1, 1), {n});
+    //const Term gm = tf.CreateTerm(Symbol::Factory::CreateFunction(4, s1, 1), {m});
 
     Clause c1({Literal::Eq(a,m), Literal::Eq(a,n)});
     Clause c2({Literal::Neq(a,m)});

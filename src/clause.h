@@ -87,10 +87,10 @@ class Clause {
   bool primitive() const { return std::all_of(begin(), end(), [](Literal l) { return l.primitive(); }); }
 
   template<typename UnaryFunction>
-  Clause Substitute(UnaryFunction theta) const {
+  Clause Substitute(UnaryFunction theta, Term::Factory* tf) const {
     Clause c;
     c.lits_.reserve(size());
-    std::transform(begin(), end(), std::back_inserter(c.lits_), [theta](Literal a) { return a.Substitute(theta); });
+    std::transform(begin(), end(), std::back_inserter(c.lits_), [theta, tf](Literal a) { return a.Substitute(theta, tf); });
     c.Minimize();
     return c;
   }
