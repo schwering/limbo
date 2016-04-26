@@ -31,6 +31,7 @@ struct Maybe<T> {
   Maybe(Maybe&&) = default;
   Maybe& operator=(Maybe&) = default;
   Maybe& operator=(Maybe&&) = default;
+  ~Maybe() = default;
 
   template<typename U> Maybe(const Maybe<U>& m)            : succ(m.succ), val(m.val) {}  // NOLINT
   template<typename U> Maybe(Maybe<U>&& m)                 : succ(m.succ), val(m.val) {}  // NOLINT

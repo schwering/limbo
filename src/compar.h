@@ -72,16 +72,6 @@ struct LexicographicComparator<Compar> {
   Compar comp;
 };
 
-template<class InputIt, class UnaryPredicate>
-typename std::iterator_traits<InputIt>::difference_type
-count_while(InputIt first, InputIt last, UnaryPredicate p) {
-  typename std::iterator_traits<InputIt>::difference_type ret = 0;
-  for (; first != last && p(*first); ++first) {
-    ++ret;
-  }
-  return ret;
-}
-
 }  // namespace lela
 
 #endif  // SRC_COMPAR_H_

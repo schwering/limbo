@@ -37,8 +37,6 @@ class Clause {
 
   Clause() = default;
   Clause(std::initializer_list<Literal> lits) : lits_(lits) { Minimize(); }
-  Clause(const Clause&) = default;
-  Clause& operator=(const Clause&) = default;
 
   bool operator==(const Clause& c) const { return bloom_ == c.bloom_ && lits_ == c.lits_; }
   bool operator!=(const Clause& c) const { return !(*this == c); }
@@ -106,7 +104,7 @@ class Clause {
   typedef std::vector<Literal>::iterator iterator;
 
   iterator begin() { return lits_.begin(); }
-  iterator end() { return lits_.end(); }
+  iterator end()   { return lits_.end(); }
 
   void Minimize() {
     lits_.erase(std::remove_if(begin(), end(), [](const Literal a) { return a.invalid(); }), end());

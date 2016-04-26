@@ -35,6 +35,8 @@ class Literal {
     return Literal(false, lhs, rhs);
   }
 
+  Literal() = delete;
+
   Term lhs() const { return lhs_; }
   bool pos() const { return eq_; }
   Term rhs() const { return rhs_; }

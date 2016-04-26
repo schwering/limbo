@@ -49,8 +49,6 @@ class Setup {
 
   Setup() = default;
   explicit Setup(const Setup* parent) : parent_(parent), del_(parent_->del_) { assert(parent_->sealed_); }
-  Setup(const Setup&) = default;
-  Setup& operator=(const Setup&) = default;
 
   Index AddClause(const Clause& c) {
     assert(!sealed_);
@@ -134,7 +132,7 @@ class Setup {
 
     explicit Setups(const Setup* owner) : owner_(owner) {}
     setup_iterator begin() const { return setup_iterator(owner_); }
-    setup_iterator end() const { return setup_iterator(0); }
+    setup_iterator end() const { return setup_iterator(nullptr); }
 
    private:
     const Setup* owner_;
@@ -145,9 +143,9 @@ class Setup {
 
   struct Clauses {
     struct IndexPlusTo {
-      IndexPlusTo() : owner_(0) {}
+      IndexPlusTo() : owner_(nullptr) {}
       explicit IndexPlusTo(const Setup* owner) : owner_(owner) {}
-      Index operator()() const { return owner_ ? owner_->last() : 0; }
+      Index operator()() const { return owner_ != nullptr ? owner_->last() : 0; }
      private:
       const Setup* owner_;
     };
@@ -373,9 +371,10 @@ class Setup {
 
   void RemoveSubsumed(const Index i) {
     const Clause& c = clause(i);
+#if 0
     for (Index j : clauses()) {
       if (i != j && c.Subsumes(clause(j))) {
-          Disable(j);
+        Disable(j);
 #if 0
         if (clause(j).Subsumes(c)) {
           Disable(std::max(i, j));  // because that's better for the occurs_ index
@@ -385,6 +384,18 @@ class Setup {
 #endif
       }
     }
+#else
+    for (const Literal a : c) {
+      assert(a.primitive());
+      const Term t = a.lhs();
+      assert(t.primitive());
+      for (Index j : clauses_with(t)) {
+        if (i != j && c.Subsumes(clause(j))) {
+          Disable(j);
+        }
+      }
+    }
+#endif
   }
 
   void PropagateUnits() {
@@ -404,7 +415,7 @@ class Setup {
     }
   }
 
-  const Setup* root() const { return parent_ ? parent_->parent() : this; }
+  const Setup* root() const { return parent_ != nullptr ? parent_->parent() : this; }
   const Setup* parent() const { return parent_; }
 
   // Disable() marks a clause as inactive, disabled() and enabled() indicate
@@ -421,8 +432,8 @@ class Setup {
   Index first() const { return first_; }
   Index last()  const { return first_ + cs_.size(); }
 
-  const Setup* parent_ = 0;
-  const Index first_ = !parent_ ? 0 : parent_->last();
+  const Setup* parent_ = nullptr;
+  const Index first_ = parent_ != nullptr ? parent_->last() : 0;
 #ifndef NDEBUG
   bool sealed_ = false;
 #endif

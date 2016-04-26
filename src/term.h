@@ -36,6 +36,7 @@ class Symbol {
    public:
     Factory() = default;
     Factory(const Factory&) = delete;
+    Factory(Factory&&) = delete;
     Factory& operator=(const Factory&) = delete;
 
     Sort   CreateSort()                           { return last_sort_++; }
@@ -118,8 +119,6 @@ class Term {
   class Factory;
 
   Term() = default;
-  Term(const Term&) = default;
-  Term& operator=(const Term&) = default;
 
   bool operator==(Term t) const { return data_ == t.data_; }
   bool operator!=(Term t) const { return data_ != t.data_; }
@@ -139,7 +138,7 @@ class Term {
   bool variable() const { return data_->symbol_.variable(); }
   Symbol::Arity arity() const { return data_->symbol_.arity(); }
 
-  bool null() const { return !data_; }
+  bool null() const { return data_ == nullptr; }
   bool ground() const {
     return name() ||
         (function() && std::all_of(data_->args_.begin(), data_->args_.end(),
@@ -217,6 +216,7 @@ class Term::Factory {
  public:
   Factory() = default;
   Factory(const Factory&) = delete;
+  Factory(Factory&&) = delete;
   Factory& operator=(const Factory&) = delete;
 
   Term CreateTerm(Symbol symbol) {

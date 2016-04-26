@@ -24,10 +24,6 @@ namespace lela {
 
 class BloomFilter {
  public:
-  BloomFilter() = default;
-  BloomFilter(const BloomFilter&) = default;
-  BloomFilter& operator=(const BloomFilter&) = default;
-
   bool operator==(const BloomFilter& b) const { return mask_ == b.mask_; }
   bool operator!=(const BloomFilter& b) const { return !(*this == b); }
 
