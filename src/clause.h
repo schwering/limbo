@@ -81,7 +81,7 @@ class Clause {
     }
   }
 
-  bool ground() const { return std::all_of(begin(), end(), [](Literal l) { return l.ground(); }); }
+  bool ground()    const { return std::all_of(begin(), end(), [](Literal l) { return l.ground(); }); }
   bool primitive() const { return std::all_of(begin(), end(), [](Literal l) { return l.primitive(); }); }
 
   template<typename UnaryFunction>

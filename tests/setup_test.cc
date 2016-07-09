@@ -35,11 +35,14 @@ TEST(setup_test, symbol) {
     EXPECT_EQ(dist(s0.clauses_with(a)), 0);
     EXPECT_EQ(dist(s0.clauses_with(fn)), 1);
     EXPECT_EQ(dist(s0.clauses_with(fm)), 1);
-    EXPECT_TRUE(!s0.PossiblyInconsistent());
+    EXPECT_TRUE(s0.Consistent());
+    EXPECT_TRUE(s0.LocallyConsistent(Clause({Literal::Eq(fm,m)})));
+    //EXPECT_TRUE(s0.LocallyConsistent(Clause({Literal::Neq(fm,m)})));
+    EXPECT_TRUE(!s0.LocallyConsistent(Clause({Literal::Eq(fn,n)})));
     for (auto i : s0.clauses()) {
-      EXPECT_TRUE(s0.Implies(s0.clause(i)));
+      EXPECT_TRUE(s0.Subsumes(s0.clause(i)));
     }
-    EXPECT_FALSE(s0.Implies(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
+    EXPECT_FALSE(s0.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
     lela::Setup s1(&s0);
     s1.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)}));
@@ -53,11 +56,11 @@ TEST(setup_test, symbol) {
     EXPECT_EQ(dist(s1.clauses_with(a)), 2);
     EXPECT_EQ(dist(s1.clauses_with(fn)), 2);
     EXPECT_EQ(dist(s1.clauses_with(fm)), 1);
-    EXPECT_TRUE(s1.PossiblyInconsistent());
+    EXPECT_TRUE(!s1.Consistent());
     for (auto i : s1.clauses()) {
-      EXPECT_TRUE(s1.Implies(s1.clause(i)));
+      EXPECT_TRUE(s1.Subsumes(s1.clause(i)));
     }
-    EXPECT_FALSE(s1.Implies(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
+    EXPECT_FALSE(s1.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
     lela::Setup s2(&s1);
     s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)}));
@@ -67,9 +70,9 @@ TEST(setup_test, symbol) {
     EXPECT_EQ(dist(s2.clauses_with(a)), 3);
     EXPECT_EQ(dist(s2.clauses_with(fn)), 2);
     EXPECT_EQ(dist(s2.clauses_with(fm)), 1);
-    EXPECT_TRUE(s2.PossiblyInconsistent());
+    EXPECT_TRUE(!s2.Consistent());
     for (auto i : s2.clauses()) {
-      EXPECT_TRUE(s2.Implies(s2.clause(i)));
+      EXPECT_TRUE(s2.Subsumes(s2.clause(i)));
     }
 
     lela::Setup s3(&s2);
@@ -80,7 +83,7 @@ TEST(setup_test, symbol) {
     EXPECT_EQ(dist(s3.clauses_with(a)), 1);
     EXPECT_EQ(dist(s3.clauses_with(fn)), 1);
     EXPECT_EQ(dist(s3.clauses_with(fm)), 1);
-    EXPECT_TRUE(!s3.PossiblyInconsistent());
+    EXPECT_TRUE(s3.Consistent());
   }
 }
 

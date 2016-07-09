@@ -9,8 +9,11 @@
 // AddClause() is undefined. After calling Init(), the setup is closed under
 // unit propagation and minimized under subsumption.
 //
-// PossiblyInconsistent() performs a sound but incomplete inconsistency check.
-// Implies() checks whether the clause is subsumed by (the unit propagation of)
+// Consistent() and LocallyConsistent() perform a sound but incomplete
+// consistency checks. The former only investigates clauses that share a
+// literal and the transitive closure thereof.
+//
+// Subsumes() checks whether the clause is subsumed by (the unit propagation of)
 // the setup.
 //
 // To facilitate fast copying, every setup is linked to its ancestor. The
@@ -68,7 +71,7 @@ class Setup {
 #endif
   }
 
-  bool PossiblyInconsistent() const {
+  bool Consistent() const {
     std::vector<Literal> ls;
     for (Term t : primitive_terms()) {
       ls.clear();
@@ -85,21 +88,58 @@ class Setup {
         for (auto jt = std::next(it); jt != ls.end(); ++jt) {
           assert(Literal::Complementary(*it, *jt) == Literal::Complementary(*jt, *it));
           if (Literal::Complementary(*it, *jt)) {
-            return true;
+            return false;
           }
         }
       }
     }
-    return false;
+    return true;
   }
 
-  bool Implies(const Clause& c) const {
+  bool Subsumes(const Clause& c) const {
     for (Index i : clauses()) {
       if (clause(i).Subsumes(c)) {
         return true;
       }
     }
     return false;
+  }
+
+  bool LocallyConsistent(Literal l) const {
+    if (Subsumes(Clause{})) {
+      return false;
+    }
+    if (l.valid()) {
+      return true;
+    }
+    if (l.invalid()) {
+      return false;
+    }
+    assert(l.primitive());
+    const Term t = l.lhs();
+    assert(t.function());
+    std::vector<Literal> ls{l};
+    for (Index i : clauses_with(t)) {
+      for (Literal a : clause(i)) {
+        assert(a.rhs().name());
+        if (t == a.lhs()) {
+          ls.push_back(a);
+        }
+      }
+    }
+    for (auto it = ls.begin(); it != ls.end(); ++it) {
+      for (auto jt = std::next(it); jt != ls.end(); ++jt) {
+        assert(Literal::Complementary(*it, *jt) == Literal::Complementary(*jt, *it));
+        if (Literal::Complementary(*it, *jt)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  bool LocallyConsistent(const Clause& c) const {
+    return std::any_of(c.begin(), c.end(), [this] (Literal l) { return LocallyConsistent(l); });
   }
 
   const Clause& clause(Index i) const {
@@ -406,7 +446,7 @@ class Setup {
       assert(a.primitive());
       for (Index j : clauses_with(a.lhs())) {
         Maybe<Clause> c = clause(j).PropagateUnit(a);
-        if (c && !Implies(c.val)) {
+        if (c && !Subsumes(c.val)) {
           const Index k = AddClause(c.val);
           UpdateOccurrences(k);  // keep occurrence index up to date
           RemoveSubsumed(k);  // keep setup minimal

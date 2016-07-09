@@ -56,6 +56,15 @@ TEST(clause_test, symbol) {
 
   {
     Clause c1({Literal::Eq(f1,n1)});
+    Clause c2({});
+    std::cout << 1 << std::endl;
+    EXPECT_FALSE(c1.Subsumes(c2));
+    std::cout << 2 << std::endl;
+    EXPECT_TRUE(c2.Subsumes(c1));
+  }
+
+  {
+    Clause c1({Literal::Eq(f1,n1)});
     Clause c2({Literal::Neq(f1,n2)});
     EXPECT_TRUE(c1.Subsumes(c2));
     EXPECT_FALSE(c2.Subsumes(c1));
