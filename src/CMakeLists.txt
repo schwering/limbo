@@ -1,7 +1,7 @@
 # find_package (Boost REQUIRED)
 # include_directories (${Boost_INCLUDE_DIRS})
 
-add_library (LELA SHARED bloom.h  clause.h  compar.h  grounder.h  intmap.h  iter.h  literal.h  maybe.h  print.h setup.h  term.h)
+add_library (LELA SHARED bloom.h  clause.h  compar.h  formula.h  grounder.h  intmap.h  iter.h  literal.h  maybe.h  print.h setup.h  term.h)
 
 set_target_properties (LELA PROPERTIES LINKER_LANGUAGE CXX)
 
