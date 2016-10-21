@@ -10,7 +10,7 @@ using namespace lela;
 template<typename T>
 size_t dist(T r) { return std::distance(r.begin(), r.end()); }
 
-TEST(setup_test, symbol) {
+TEST(setup, symbol) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();

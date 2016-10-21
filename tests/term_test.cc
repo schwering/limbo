@@ -16,7 +16,7 @@ struct EqSubstitute {
   const Term post_;
 };
 
-TEST(term_test, term) {
+TEST(term, term) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();

@@ -7,7 +7,7 @@
 
 using namespace lela;
 
-TEST(bloom_test, symbol) {
+TEST(bloom, symbol) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
