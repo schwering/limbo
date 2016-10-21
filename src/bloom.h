@@ -50,11 +50,12 @@ class BloomFilter {
   }
 
  private:
+  static constexpr uint64_t ONE = 1;  // use this constant, for 1 is signed
+  static constexpr uint64_t BITS = 64;
+
   template<uint64_t I>
   uint64_t hash(uint64_t x) const { return (x >> (I*8)) & 0xFFFF; }
 
-  static constexpr uint64_t ONE = 1;  // use this constant, for 1 is signed
-  static constexpr uint64_t BITS = 64;
   uint64_t mask_ = 0;
 };
 

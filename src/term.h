@@ -34,16 +34,6 @@ class Symbol {
 
   class Factory {
    public:
-    Factory() = default;
-    Factory(const Factory&) = delete;
-    Factory(Factory&&) = delete;
-    Factory& operator=(const Factory&) = delete;
-
-    Sort   CreateSort()                           { return last_sort_++; }
-    Symbol CreateFunction(Sort sort, Arity arity) { return CreateFunction(++last_function_, sort, arity); }
-    Symbol CreateName(Sort sort)                  { return CreateName(++last_name_, sort); }
-    Symbol CreateVariable(Sort sort)              { return CreateVariable(++last_variable_, sort); }
-
     static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
       assert(id > 0);
       id = -1 * (2 * id + 1);
@@ -60,6 +50,16 @@ class Symbol {
       id = -1 * (2 * id);
       return Symbol(id, sort, 0);
     }
+
+    Factory() = default;
+    Factory(const Factory&) = delete;
+    Factory(Factory&&) = delete;
+    Factory& operator=(const Factory&) = delete;
+
+    Sort   CreateSort()                           { return last_sort_++; }
+    Symbol CreateFunction(Sort sort, Arity arity) { return CreateFunction(++last_function_, sort, arity); }
+    Symbol CreateName(Sort sort)                  { return CreateName(++last_name_, sort); }
+    Symbol CreateVariable(Sort sort)              { return CreateVariable(++last_variable_, sort); }
 
    private:
     Sort last_sort_ = 0;

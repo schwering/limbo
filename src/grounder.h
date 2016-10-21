@@ -23,8 +23,6 @@ class Grounder {
   typedef std::vector<Term> VariableSet;
   typedef std::map<Symbol::Sort, size_t> PlusMap;
 
-  Grounder() = delete;
-
   template<typename Range>
   static Setup Ground(const Range& range, const PlusMap& plus, Term::Factory* tf) {
     Setup s;
@@ -37,6 +35,8 @@ class Grounder {
     }
     return s;
   }
+
+  Grounder() = delete;
 
  private:
   typedef std::multimap<Symbol::Sort, Term> SortedNames;
