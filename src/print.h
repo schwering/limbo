@@ -6,6 +6,7 @@
 
 #include <ostream>
 #include "./clause.h"
+#include "./formula.h"
 #include "./literal.h"
 #include "./maybe.h"
 #include "./term.h"
@@ -89,6 +90,16 @@ std::ostream& operator<<(std::ostream& os, const Clause c) {
     os << a;
   }
   os << ']';
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Formula phi) {
+  switch (phi.head().type()) {
+    case Formula::kClause: os << phi.head().clause(); break;
+    case Formula::kNot:    os << '~' << phi.arg(); break;
+    case Formula::kOr:     os << '(' << phi.left() << " v " << phi.right() << ')'; break;
+    case Formula::kExists: os << 'E' << phi.head().var() << ' ' << phi.arg(); break;
+  }
   return os;
 }
 
