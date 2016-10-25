@@ -93,13 +93,19 @@ std::ostream& operator<<(std::ostream& os, const Clause c) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Formula phi) {
+std::ostream& operator<<(std::ostream& os, const Formula::Reader& phi) {
   switch (phi.head().type()) {
     case Formula::kClause: os << phi.head().clause(); break;
     case Formula::kNot:    os << '~' << phi.arg(); break;
     case Formula::kOr:     os << '(' << phi.left() << " v " << phi.right() << ')'; break;
     case Formula::kExists: os << 'E' << phi.head().var() << ' ' << phi.arg(); break;
   }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Formula& phi) {
+  Formula::Reader r(phi);
+  os << r;
   return os;
 }
 

@@ -4,17 +4,17 @@
 // A clause is a set of literals. Clauses are immutable.
 //
 // A clause is stored as vector, which is initially sorted to remove duplicates.
-// Thus, and since clauses are immutable, they represent a sets of literals.
-// Note that copying and comparing clauses is much more expensive than for
-// literals.
+// Thus, and since clauses are immutable, they represent sets of literals. Note
+// that copying and comparing clauses is more expensive than for literals.
 //
 // Perhaps the most important operations are PropagateUnit() and Subsumes(),
 // which are only defined for primitive clauses and literals. Thus all involved
 // literals mention a primitive term on the left-hand side. By definition of
 // Complementary() and Subsumes() in the Literal class, a literal can react with
 // another only if they refer to the same term. By hashing these terms and
-// storing these values in Bloom filters, we can detect that unit propagation or
-// subsumption won't work early.
+// storing these values in Bloom filters, we can (hopefully often) detect early
+// that unit propagation or subsumption won't work early (in a sound but
+// incomplete way).
 
 #ifndef SRC_CLAUSE_H_
 #define SRC_CLAUSE_H_
