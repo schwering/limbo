@@ -26,16 +26,16 @@ TEST(formula, formula) {
   Formula c1 = Formula::Clause(cl1);
   Formula c2 = Formula::Clause(cl2);
 
-  EXPECT_EQ(c1.reader().head().type(), Formula::kClause);
-  EXPECT_EQ(c1.reader().head().clause(), cl1);
+  EXPECT_EQ(c1.reader().head().type(), Formula::Element::kClause);
+  EXPECT_EQ(c1.reader().head().clause(), Just(cl1));
   EXPECT_EQ(c1.reader().Build(), c1);
-  EXPECT_EQ(Formula::Not(c1).reader().head().type(), Formula::kNot);
-  EXPECT_EQ(Formula::Not(c1).reader().arg().head().type(), Formula::kClause);
-  EXPECT_EQ(Formula::Not(c1).reader().arg().head().clause(), cl1);
+  EXPECT_EQ(Formula::Not(c1).reader().head().type(), Formula::Element::kNot);
+  EXPECT_EQ(Formula::Not(c1).reader().arg().head().type(), Formula::Element::kClause);
+  EXPECT_EQ(Formula::Not(c1).reader().arg().head().clause(), Just(cl1));
   EXPECT_EQ(Formula::Not(c1).reader().arg().Build(), c1);
 
-  EXPECT_EQ(c2.reader().head().type(), Formula::kClause);
-  EXPECT_EQ(c2.reader().head().clause(), cl2);
+  EXPECT_EQ(c2.reader().head().type(), Formula::Element::kClause);
+  EXPECT_EQ(c2.reader().head().clause(), Just(cl2));
 
   EXPECT_EQ(Formula::Not(Formula::Not(c1)).reader().arg().arg().Build(), c1);
   EXPECT_EQ(Formula::Exists(x2, Formula::Not(c1)).reader().arg().arg().Build(), c1);

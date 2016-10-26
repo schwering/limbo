@@ -14,7 +14,7 @@
 
 namespace lela {
 
-// A lazy list whose end is determined while it grows.
+// Iterates over numbers offset() + 0, offset() + 1, offset() + 2, ...
 template<typename NullaryFunction>
 struct incr_iterator {
  public:

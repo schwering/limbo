@@ -95,6 +95,7 @@ class Clause {
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const {
+    //f(*this);
     for (Literal a : *this) {
       a.Traverse(f);
     }

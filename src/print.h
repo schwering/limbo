@@ -93,19 +93,19 @@ std::ostream& operator<<(std::ostream& os, const Clause c) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Formula::Reader& phi) {
+template<typename UnaryFunction>
+std::ostream& operator<<(std::ostream& os, const Formula::Reader<UnaryFunction>& phi) {
   switch (phi.head().type()) {
-    case Formula::kClause: os << phi.head().clause(); break;
-    case Formula::kNot:    os << '~' << phi.arg(); break;
-    case Formula::kOr:     os << '(' << phi.left() << " v " << phi.right() << ')'; break;
-    case Formula::kExists: os << 'E' << phi.head().var() << ' ' << phi.arg(); break;
+    case Formula::Element::kClause: os << phi.head().clause(); break;
+    case Formula::Element::kNot:    os << '~' << phi.arg(); break;
+    case Formula::Element::kOr:     os << '(' << phi.left() << " v " << phi.right() << ')'; break;
+    case Formula::Element::kExists: os << 'E' << phi.head().var() << ' ' << phi.arg(); break;
   }
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Formula& phi) {
-  Formula::Reader r(phi);
-  os << r;
+  os << phi.reader();
   return os;
 }
 

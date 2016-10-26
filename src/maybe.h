@@ -38,6 +38,12 @@ struct Maybe<T> {
   template<typename U> Maybe& operator=(const Maybe<U>& m) { succ = m.succ; val = m.val; return *this; }  // NOLINT
   template<typename U> Maybe& operator=(Maybe<U>&& m)      { succ = m.succ; val = m.val; return *this; }  // NOLINT
 
+  bool operator==(const Maybe& m) const { return succ == m.succ && (!succ || val == m.val); }
+  bool operator!=(const Maybe& m) const { return !(*this == m); }
+
+  template<typename U> bool operator==(const Maybe<U>& m) const { return succ == m.succ && (!succ || val == m.val); }
+  template<typename U> bool operator!=(const Maybe<U>& m) const { return !(*this == m); }
+
   operator bool() const { return succ; }
 
   bool succ;

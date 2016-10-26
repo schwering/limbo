@@ -49,6 +49,7 @@ class Literal {
   Literal dual() const { return Literal(eq_, rhs_, lhs_); }
 
   bool operator==(Literal l) const { return eq_ == l.eq_ && lhs_ == l.lhs_ && rhs_ == l.rhs_; }
+  bool operator!=(Literal l) const { return !(*this == l); }
 
   // valid() holds for (t = t) and (n1 != n2).
   bool valid() const { return (eq_ && lhs_ == rhs_) || (!eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_); }
@@ -90,6 +91,7 @@ class Literal {
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const {
+    //f(*this);
     lhs_.Traverse(f);
     rhs_.Traverse(f);
   }
