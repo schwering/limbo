@@ -4,16 +4,82 @@
 #ifndef SRC_PRINT_H_
 #define SRC_PRINT_H_
 
+#include <list>
+#include <map>
 #include <ostream>
+#include <utility>
+#include <vector>
 #include "./clause.h"
 #include "./formula.h"
 #include "./literal.h"
+#include "./iter.h"
 #include "./maybe.h"
 #include "./term.h"
 
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
 
 namespace lela {
+
+template<typename T1, typename T2>
+std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p) {
+  os << "(" << p.first << ", " << p.second << ")";
+  return os;
+}
+
+namespace {
+template<typename Iter>
+std::ostream& print_sequence(std::ostream& os, Iter begin, Iter end, const char* pre = "[", const char* post = "]", const char* sep = ", ") { // NOLINT
+  bool first = true;
+  os << pre;
+  for (auto it = begin; it != end; ++it) {
+    if (!first) {
+      os << sep;
+    }
+    os << *begin;
+    first = false;
+  }
+  os << post;
+  return os;
+}
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T> vec) {
+  print_sequence(os, vec.begin(), vec.end(), "[", "]", ", ");
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::list<T> list) {
+  os << '[';
+  print_sequence(os, list.begin(), list.end(), "[", "]", ", ");
+  os << '[';
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::set<T> set) {
+  print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::multiset<T> set) {
+  print_sequence(os, set.begin(), set.end(), "m{", "}m", ", ");
+  return os;
+}
+
+template<typename K, typename T>
+std::ostream& operator<<(std::ostream& os, const std::map<K, T> map) {
+  print_sequence(os, map.begin(), map.end(), "{", "}", ", ");
+  return os;
+}
+
+template<typename K, typename T>
+std::ostream& operator<<(std::ostream& os, const std::multimap<K, T> map) {
+  print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
+  return os;
+}
 
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const Maybe<T>& m) {
@@ -53,16 +119,8 @@ std::ostream& operator<<(std::ostream& os, const Term t) {
   } else {
     os << t.symbol();
     if (t.arity() > 0) {
-      os << '(';
-      bool first = true;
-      for (const Term arg : t.args()) {
-        if (!first) {
-          os << ',';
-        }
-        first = false;
-        os << arg;
-      }
-      os << ')';
+      auto seq = t.args();
+      print_sequence(os, seq.begin(), seq.end(), "(", ")", ",");
     }
   }
   return os;
@@ -79,17 +137,22 @@ std::ostream& operator<<(std::ostream& os, const Literal a) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Clause c) {
-  os << '[';
-  bool first = true;
-  for (const Literal a : c) {
-    if (!first) {
-      os << ", ";
-    }
-    first = false;
-    os << a;
-  }
-  os << ']';
+std::ostream& operator<<(std::ostream& os, const Clause& c) {
+  print_sequence(os, c.begin(), c.end(), "[", "]", ", ");
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Setup& s) {
+  struct Get {
+    explicit Get(const Setup* owner) : owner_(owner) {}
+    Clause operator()(const Setup::Index i) const { return owner_->clause(i); }
+   private:
+    const Setup* owner_;
+  };
+  Setup::Clauses cs = s.clauses();
+  auto begin = transform_iterator<Get, Setup::Clauses::clause_iterator>(Get(&s), cs.begin());
+  auto end = transform_iterator<Get, Setup::Clauses::clause_iterator>(Get(&s), cs.end());
+  print_sequence(os, begin, end, "{ ", "\n}", "\n, ");
   return os;
 }
 

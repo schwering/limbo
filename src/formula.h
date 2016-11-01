@@ -64,22 +64,7 @@ class Formula {
   class Reader {
    public:
     Iter begin() const { return begin_; }
-
-    Iter end() const {
-      if (!end_) {
-        Iter it = begin_;
-        for (int n = 1; n > 0; --n, ++it) {
-          switch (it->type()) {
-            case Element::kClause: n += 0; break;
-            case Element::kNot:    n += 1; break;
-            case Element::kOr:     n += 2; break;
-            case Element::kExists: n += 1; break;
-          }
-        }
-        end_ = Just(it);
-      }
-      return end_.val;
-    }
+    Iter end() const { return end_; }
 
     const Element& head() const { return *begin(); }
 
@@ -102,6 +87,7 @@ class Formula {
 
     template<typename UnaryFunction>
     struct SubstituteElement {
+      SubstituteElement() = default;
       SubstituteElement(UnaryFunction theta, Term::Factory* tf) : theta_(theta), tf_(tf) {}
 
       Element operator()(const Element& e) const {
@@ -119,39 +105,40 @@ class Formula {
     };
 
     template<typename UnaryFunction>
-    Reader<transform_iterator<SubstituteElement<UnaryFunction>, Iter>> Substitute(UnaryFunction theta) {
-      return Reader(transform_iterator<SubstituteElement<UnaryFunction>, Iter>(theta, begin()));
+    Reader<transform_iterator<SubstituteElement<UnaryFunction>, Iter>> Substitute(UnaryFunction theta, Term::Factory* tf) const {
+      typedef transform_iterator<SubstituteElement<UnaryFunction>, Iter> iterator;
+      iterator it = iterator(SubstituteElemen(theta, tf), begin());
+      return Reader<iterator>(it);
     }
 
     template<typename UnaryFunction>
-    struct TraverseElement {
-      TraverseElement(UnaryFunction f) : f_(f) {}
-
-      Element operator()(const Element& e) const {
+    void Traverse(UnaryFunction f) const {
+      for (const Element& e : *this) {
         switch (e.type()) {
-          case Element::kClause: return Element::Clause(e.clause().val.Traverse(f_)); break;
-          case Element::kNot:    return Element::Not(); break;
-          case Element::kOr:     return Element::Or(); break;
-          case Element::kExists: return Element::Exists(e.var().val.Traverse(f_)); break;
+          case Element::kClause: e.clause().val.Traverse(f); break;
+          case Element::kNot:    break;
+          case Element::kOr:     break;
+          case Element::kExists: e.var().val.Traverse(f); break;
         }
       }
-
-     private:
-      UnaryFunction f_;
-    };
-
-    template<typename UnaryFunction>
-    Reader<transform_iterator<TraverseElement<UnaryFunction>, Iter>> Substitute(UnaryFunction theta) {
-      return Reader(transform_iterator<TraverseElement<UnaryFunction>, Iter>(theta, begin()));
     }
 
    private:
     friend class Formula;
 
-    explicit Reader(Iter begin) : begin_(begin) {}
+    explicit Reader(Iter begin) : begin_(begin), end_(begin) {
+      for (int n = 1; n > 0; --n, ++end_) {
+        switch ((*end_).type()) {
+          case Element::kClause: n += 0; break;
+          case Element::kNot:    n += 1; break;
+          case Element::kOr:     n += 2; break;
+          case Element::kExists: n += 1; break;
+        }
+      }
+    }
 
     Iter begin_;
-    mutable Maybe<Iter> end_ = Nothing;
+    Iter end_;
   };
 
   static Formula Clause(const Clause& c) { return Atomic(Element::Clause(c)); }

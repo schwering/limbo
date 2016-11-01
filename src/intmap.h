@@ -52,14 +52,14 @@ class IntMap : public std::vector<T> {
   typename parent::reference operator[](Key pos) {
     typename parent::size_type pos_int = static_cast<typename parent::size_type>(pos);
     if (pos_int >= parent::size()) {
-      parent::resize(pos_int + 1, NULL_VALUE);
+      parent::resize(pos_int + 1, null_);
     }
     return parent::operator[](pos_int);
   }
 
-  bool operator[](typename parent::size_type pos) const {
+  typename parent::const_reference operator[](Key pos) const {
     typename parent::size_type pos_int = static_cast<typename parent::size_type>(pos);
-    return pos_int < parent::size() ? parent::operator[](pos_int) : NULL_VALUE;
+    return pos_int < parent::size() ? parent::operator[](pos_int) : null_;
   }
 
   iterator begin() { return iterator(*this, parent::begin()); }
@@ -88,6 +88,9 @@ class IntMap : public std::vector<T> {
       (*this)[i] = f((*this)[i], m[i]);
     }
   }
+
+ private:
+  T null_ = NULL_VALUE;
 };
 
 }  // namespace lela

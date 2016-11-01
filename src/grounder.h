@@ -16,6 +16,7 @@
 #include "./iter.h"
 #include "./maybe.h"
 #include "./setup.h"
+#include "./print.h"
 
 namespace lela {
 
@@ -23,37 +24,64 @@ class Grounder {
  public:
   typedef std::multimap<Symbol::Sort, Term> SortedNames;
 
-  template<typename ClauseRange, typename T>
-  static SortedNames Names(const ClauseRange& cs, const Formula::Reader<T>& phi, Term::Factory* tf) {
-    SortedNames names = MentionedNames(cs, phi);
-    AddPlusNames(PlusNames(cs, phi), tf, &names);
-    return names;
+  explicit Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
+
+  const std::list<Clause>& kb() const { return kb_; }
+
+  void AddClause(const Clause& c) {
+    AddMentionedNames(MentionedNames(c));
+    AddPlusNames(PlusNames(c));
+    kb_.push_front(c);
   }
 
-  template<typename ClauseRange, typename T>
-  static Setup Ground(const ClauseRange& cs, const SortedNames& names, Term::Factory* tf) {
+  template<typename T>
+  void PrepareFor(const Formula::Reader<T>& phi) {
+    AddMentionedNames(MentionedNames(phi));
+    AddPlusNames(PlusNames(phi));
+  }
+
+  Setup Ground() const {
     Setup s;
-    for (const Clause& c : cs) {
-      const VariableSet vars = MentionedVariables(c);
-      for (VariableMapping mapping(&names, vars); mapping.has_next(); ++mapping) {
-        s.AddClause(c.Substitute(mapping, tf));
+
+    for (auto p : plus_) {
+      std::cout << static_cast<int>(p.first) << " -> " << p.second << " new names" << std::endl;
+    }
+    for (auto p : names_) {
+      std::cout << static_cast<int>(p.first) << ": " << p.second << " " << std::endl;
+    }
+
+    for (const Clause& c : kb_) {
+      if (c.ground()) {
+        if (!c.valid()) {
+          s.AddClause(c);
+        }
+      } else {
+        const VariableSet vars = MentionedVariables(c);
+        for (VariableMapping mapping(&names_, vars); mapping.has_next(); ++mapping) {
+          std::cout << "OK" << std::endl;
+          const Clause ci = c.Substitute(mapping, tf_);
+          if (!ci.valid()) {
+            s.AddClause(ci);
+          }
+        }
       }
     }
     return s;
   }
 
-  Grounder() = delete;
-
  private:
   typedef std::vector<Term> VariableSet;
   typedef IntMap<Symbol::Sort, size_t, 0> PlusMap;
 
-  template<typename ClauseRange, typename T>
-  static SortedNames MentionedNames(const ClauseRange& cs, const Formula::Reader<T>& phi) {
+  static SortedNames MentionedNames(const Clause& c) {
     SortedNames names;
-    for (const Clause& c : cs) {
-      c.Traverse([&names](Term t) { if (t.name()) { names.insert(std::make_pair(t.symbol().sort(), t)); } return true; });
-    }
+    c.Traverse([&names](Term t) { if (t.name()) { names.insert(std::make_pair(t.symbol().sort(), t)); } return true; });
+    return names;
+  }
+
+  template<typename T>
+  static SortedNames MentionedNames(const Formula::Reader<T>& phi) {
+    SortedNames names;
     phi.Traverse([&names](Term t) { if (t.name()) { names.insert(std::make_pair(t.symbol().sort(), t)); } return true; });
     return names;
   }
@@ -66,26 +94,9 @@ class Grounder {
     return vars;
   }
 
-  template<typename ClauseRange, typename T>
-  static PlusMap PlusNames(const ClauseRange& cs, const Formula::Reader<T>& phi) {
-    return PlusMap::Zip(PlusMap(cs), PlusMap(phi), [](size_t p1, size_t p2) { return p1 + p2; });
-  }
-
-  template<typename ClauseRange>
-  static PlusMap PlusNames(const ClauseRange& cs) {
-    PlusMap plus;
-    for (const Clause& c : cs) {
-      for (const auto p : PlusNames(c)) {
-        plus[p.first] = std::max(plus[p.first], p.second);
-      }
-    }
-    return plus;
-  }
-
   static PlusMap PlusNames(const Clause& c) {
     PlusMap plus;
-    const VariableSet vars = MentionedVariables(c);
-    for (const Term var : vars) {
+    for (const Term var : MentionedVariables(c)) {
       ++plus[var.symbol().sort()];
     }
     return plus;
@@ -134,27 +145,11 @@ class Grounder {
     }
   }
 
-  template<typename ClauseRange>
-  static void AddPlusNames(const PlusMap& plus, Term::Factory* tf, SortedNames* names) {
-    for (auto p : plus) {
-      const Symbol::Sort sort = p.first;
-      const size_t plus = p.second;
-      auto first_name = names->lower_bound(sort);
-      auto last_name  = names->upper_bound(sort);
-      auto max_name = std::max_element(first_name, last_name, [](SortedNames::value_type p1, SortedNames::value_type p2) { return p1.second.symbol().id() < p2.second.symbol().id(); });
-      Symbol::Id next_id = max_name != last_name ? max_name->second.symbol().id() + 1 : 1;
-      for (Symbol::Id new_id = next_id; new_id < next_id + static_cast<Symbol::Id>(plus); ++new_id) {
-        // By specifying new_id, we avoid that the additional names are registered in the symbol factory.
-        // Registering these names would be a waste of IDs, but otherwise not too bad.
-        names->insert(std::make_pair(sort, tf->CreateTerm(Symbol::Factory::CreateName(new_id, sort))));
-      }
-    }
-  }
-
   class VariableMapping {
    public:
     typedef SortedNames::const_iterator name_iterator;
     typedef std::pair<name_iterator, name_iterator> name_range;
+#if 0
     struct Get {
       std::pair<Term, Term> operator()(const std::pair<Term, name_range> p) const {
         const Term& var = p.first;
@@ -168,6 +163,7 @@ class Grounder {
       }
     };
     typedef transform_iterator<Get, std::map<Term, name_range>::const_iterator> iterator;
+#endif
 
     VariableMapping(const SortedNames* names, const VariableSet& vars) : names_(names) {
       for (const Term var : vars) {
@@ -216,14 +212,39 @@ class Grounder {
 
     bool has_next() const { return meta_iter_ != assignment_.end(); }
 
+#if 0
     iterator begin() const { return iterator(Get(), assignment_.begin()); }
     iterator end()   const { return iterator(Get(), assignment_.end()); }
+#endif
 
    private:
     const SortedNames* names_;
     std::map<Term, name_range> assignment_;
     std::map<Term, name_range>::iterator meta_iter_;
   };
+
+  void AddMentionedNames(const SortedNames& names) {
+    names_.insert(names.begin(), names.end());
+  }
+
+  void AddPlusNames(const PlusMap& plus) {
+    for (auto p : plus) {
+      const Symbol::Sort sort = p.first;
+      size_t n = p.second;
+      if (plus_[sort] < n) {
+        plus_[sort] = n;
+        while (n-- > 0) {
+          names_.insert(std::make_pair(sort, tf_->CreateTerm(sf_->CreateName(sort))));
+        }
+      }
+    }
+  }
+
+  std::list<Clause> kb_;
+  PlusMap plus_;
+  SortedNames names_;
+  Symbol::Factory* sf_;
+  Term::Factory* tf_;
 };
 
 }  // namespace lela
