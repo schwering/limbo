@@ -13,8 +13,9 @@
 // consistency checks. The former only investigates clauses that share a
 // literal and the transitive closure thereof.
 //
-// Subsumes() checks whether the clause is subsumed by (the unit propagation of)
-// the setup.
+// Subsumes() checks whether the clause is subsumed by any clause in the setup
+// after doing unit propagation; it is hence a sound but incomplete test for
+// entailment.
 //
 // To facilitate fast copying, every setup is linked to its ancestor. The
 // clauses of the linked setups are referred to by numbering, starting with the
@@ -485,7 +486,7 @@ class Setup {
 
   // del_ masks all deleted clauses; the number is global, because a clause
   // active in the parent setup may be inactive in this one.
-  IntMap<bool, false> del_;
+  IntMap<Index, bool, false> del_;
 };
 
 }  // namespace lela

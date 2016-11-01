@@ -6,7 +6,7 @@ include_directories (${GTEST_INCLUDE_DIRS})
 
 enable_testing ()
 
-foreach (test term bloom literal clause setup grounder formula)
+foreach (test term bloom literal clause setup formula grounder)
 	add_executable (${test}_test ${test}_test.cc)
 	target_link_libraries (${test}_test LINK_PUBLIC LELA ${GTEST_BOTH_LIBRARIES} pthread)
 	add_test (NAME ${test}_test COMMAND ${test}_test)

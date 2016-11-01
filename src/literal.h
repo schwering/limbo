@@ -91,7 +91,6 @@ class Literal {
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const {
-    //f(*this);
     lhs_.Traverse(f);
     rhs_.Traverse(f);
   }

@@ -4,7 +4,10 @@
 // Symbols are the non-logical symbols of the language: variables, standard
 // names, and function symbols, which are sorted. Symbols are immutable.
 //
-// Terms can be built from these symbols as usual. Terms are immutable.
+// Sorts can be assumed to be small integers, which makes them suitable to be
+// used as Key in IntMaps. Sorts are immutable.
+//
+// Terms can be built from symbols as usual. Terms are immutable.
 //
 // The implementation aims to keep terms as lightweight as possible to
 // facilitate extremely fast copying and comparison. Internally, a term is

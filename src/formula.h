@@ -168,13 +168,6 @@ class Formula {
   bool operator==(const Formula& phi) const { return es_ == phi.es_; }
   bool operator!=(const Formula& phi) const { return !(*this == phi); }
 
-  struct identity {
-    template<typename T>
-    constexpr auto operator()(T&& x) const noexcept -> decltype(std::forward<T>(x)) {
-      return std::forward<T>(x);
-    }
-  };
-
   Reader<> reader() const { return Reader<>(es_.begin()); }
 
  private:

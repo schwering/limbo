@@ -2,13 +2,14 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
+#include "./formula.h"
 #include "./grounder.h"
 #include "./print.h"
 
 using namespace lela;
 
 template<typename T>
-size_t dist(T r) { return std::distance(r.begin(), r.end()); }
+size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
 TEST(grounder, grounder) {
   Symbol::Factory sf;
@@ -32,22 +33,24 @@ TEST(grounder, grounder) {
   //const Term f4 = tf.CreateTerm(h, {n1,f1});
   const Term f5 = tf.CreateTerm(i, {x1,x3});
 
-  std::map<Symbol::Sort, size_t> plus{{s1,2},{s2,2}};
+  Grounder::PlusMap plus;
+  plus[s1] = 2;
+  plus[s2] = 2;
   std::vector<Clause> kb;
   kb.push_back(Clause({Literal::Eq(c1,x1)}));
   {
     lela::Setup s = Grounder::Ground(kb, plus, &tf);
-    EXPECT_EQ(dist(s.clauses()), 2);
+    EXPECT_EQ(length(s.clauses()), 2);
   }
   kb.push_back(Clause({Literal::Eq(f2,x2)}));
   {
     lela::Setup s = Grounder::Ground(kb, plus, &tf);
-    EXPECT_EQ(dist(s.clauses()), 3 + 3);
+    EXPECT_EQ(length(s.clauses()), 3 + 3);
   }
   kb.push_back(Clause({Literal::Eq(f5,x2)}));
   {
     lela::Setup s = Grounder::Ground(kb, plus, &tf);
-    EXPECT_EQ(dist(s.clauses()), 3 + 3 + 3*3*2);
+    EXPECT_EQ(length(s.clauses()), 3 + 3 + 3*3*2);
   }
 }
 
