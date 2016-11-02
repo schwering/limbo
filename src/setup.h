@@ -57,6 +57,7 @@ class Setup {
   Index AddClause(const Clause& c) {
     assert(!sealed_);
     assert(c.primitive());
+    assert(!c.valid());
     cs_.push_back(c);
     const Index k = last() - 1;
     assert(clause(k) == c);
@@ -402,9 +403,7 @@ class Setup {
     // We only need to remove clauses subsumed by this setup, as the parent is
     // already assumed to be minimal.
     for (int i = first(); i < last(); ++i) {
-      if (clause(i).valid()) {
-        Disable(i);
-      } else {
+      if (!disabled(i)) {
         RemoveSubsumed(i);
       }
     }
@@ -415,8 +414,9 @@ class Setup {
 #if 0
     for (Index j : clauses()) {
       if (i != j && c.Subsumes(clause(j))) {
-        Disable(j);
 #if 0
+        Disable(j);
+#else
         if (clause(j).Subsumes(c)) {
           Disable(std::max(i, j));  // because that's better for the occurs_ index
         } else {
@@ -426,13 +426,22 @@ class Setup {
       }
     }
 #else
-    for (const Literal a : c) {
-      assert(a.primitive());
-      const Term t = a.lhs();
-      assert(t.primitive());
-      for (Index j : clauses_with(t)) {
-        if (i != j && c.Subsumes(clause(j))) {
+    if (c.empty()) {
+      for (Index j : clauses()) {
+        assert(c.Subsumes(clause(j)));
+        if (i != j) {
           Disable(j);
+        }
+      }
+    } else {
+      for (const Literal a : c) {
+        assert(a.primitive());
+        const Term t = a.lhs();
+        assert(t.primitive());
+        for (Index j : clauses_with(t)) {
+          if (i != j && c.Subsumes(clause(j))) {
+            Disable(j);
+          }
         }
       }
     }
