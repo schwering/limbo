@@ -16,7 +16,6 @@
 #include "./iter.h"
 #include "./maybe.h"
 #include "./setup.h"
-#include "./print.h"
 
 namespace lela {
 
@@ -29,6 +28,7 @@ class Grounder {
   const std::list<Clause>& kb() const { return kb_; }
 
   void AddClause(const Clause& c) {
+    assert(c.quasiprimitive());
     AddMentionedNames(MentionedNames(c));
     AddPlusNames(PlusNames(c));
     kb_.push_front(c);
@@ -42,30 +42,24 @@ class Grounder {
 
   Setup Ground() const {
     Setup s;
-
-    for (auto p : plus_) {
-      std::cout << static_cast<int>(p.first) << " -> " << p.second << " new names" << std::endl;
-    }
-    for (auto p : names_) {
-      std::cout << static_cast<int>(p.first) << ": " << p.second << " " << std::endl;
-    }
-
     for (const Clause& c : kb_) {
       if (c.ground()) {
+        assert(c.primitive());
         if (!c.valid()) {
           s.AddClause(c);
         }
       } else {
         const VariableSet vars = MentionedVariables(c);
         for (VariableMapping mapping(&names_, vars); mapping.has_next(); ++mapping) {
-          std::cout << "OK" << std::endl;
           const Clause ci = c.Substitute(mapping, tf_);
+          assert(ci.primitive());
           if (!ci.valid()) {
             s.AddClause(ci);
           }
         }
       }
     }
+    s.Init();
     return s;
   }
 
@@ -74,6 +68,7 @@ class Grounder {
   typedef IntMap<Symbol::Sort, size_t, 0> PlusMap;
 
   static SortedNames MentionedNames(const Clause& c) {
+    assert(c.quasiprimitive());
     SortedNames names;
     c.Traverse([&names](Term t) { if (t.name()) { names.insert(std::make_pair(t.symbol().sort(), t)); } return true; });
     return names;
@@ -94,10 +89,20 @@ class Grounder {
     return vars;
   }
 
-  static PlusMap PlusNames(const Clause& c) {
+  static PlusMap PlusNames(const VariableSet& vars) {
     PlusMap plus;
-    for (const Term var : MentionedVariables(c)) {
+    for (const Term var : vars) {
       ++plus[var.symbol().sort()];
+    }
+    return plus;
+  }
+
+  static PlusMap PlusNames(const Clause& c) {
+    assert(c.quasiprimitive());
+    PlusMap plus = PlusNames(MentionedVariables(c));
+    for (const Literal l : c) {
+      if (l.lhs().symbol().function()) { ++plus[l.lhs().symbol().sort()]; }
+      if (l.rhs().symbol().function()) { ++plus[l.rhs().symbol().sort()]; }
     }
     return plus;
   }
@@ -119,7 +124,7 @@ class Grounder {
   static void PlusNames(const Formula::Reader<T>& phi, PlusMap* cur, PlusMap* max) {
     switch (phi.head().type()) {
       case Formula::Element::kClause:
-        *cur = PlusNames(phi.head().clause().val);
+        *cur = PlusNames(MentionedVariables(phi.head().clause().val));
         *max = *cur;
         break;
       case Formula::Element::kNot:

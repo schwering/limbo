@@ -73,7 +73,19 @@ class Setup {
 #endif
   }
 
+  bool Subsumes(const Clause& c) const {
+    for (Index i : clauses()) {
+      if (clause(i).Subsumes(c)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   bool Consistent() const {
+    if (Subsumes(Clause{})) {
+      return false;
+    }
     std::vector<Literal> ls;
     for (Term t : primitive_terms()) {
       ls.clear();
@@ -96,15 +108,6 @@ class Setup {
       }
     }
     return true;
-  }
-
-  bool Subsumes(const Clause& c) const {
-    for (Index i : clauses()) {
-      if (clause(i).Subsumes(c)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   bool LocallyConsistent(Literal l) const {

@@ -81,8 +81,9 @@ class Clause {
     }
   }
 
-  bool ground()    const { return std::all_of(begin(), end(), [](Literal l) { return l.ground(); }); }
-  bool primitive() const { return std::all_of(begin(), end(), [](Literal l) { return l.primitive(); }); }
+  bool ground()         const { return std::all_of(begin(), end(), [](Literal l) { return l.ground(); }); }
+  bool primitive()      const { return std::all_of(begin(), end(), [](Literal l) { return l.primitive(); }); }
+  bool quasiprimitive() const { return std::all_of(begin(), end(), [](Literal l) { return l.quasiprimitive(); }); }
 
   template<typename UnaryFunction>
   Clause Substitute(UnaryFunction theta, Term::Factory* tf) const {

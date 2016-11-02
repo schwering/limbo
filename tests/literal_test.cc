@@ -32,6 +32,12 @@ TEST(literal, symbol) {
   EXPECT_TRUE(!Literal::Eq(x1,n1).flip().quasiprimitive());
   EXPECT_TRUE(!Literal::Eq(x1,n1).dual().quasiprimitive());
 
+  EXPECT_TRUE(!Literal::Eq(x1,x1).ground());
+  EXPECT_TRUE(!Literal::Eq(x1,x1).primitive());
+  EXPECT_TRUE(!Literal::Eq(x1,x1).quasiprimitive());
+  EXPECT_TRUE(!Literal::Eq(x1,x1).flip().quasiprimitive());
+  EXPECT_TRUE(!Literal::Eq(x1,x1).dual().quasiprimitive());
+
   EXPECT_TRUE(Literal::Eq(f1,n1).ground());
   EXPECT_TRUE(Literal::Eq(f1,n1).primitive());
   EXPECT_TRUE(Literal::Eq(f1,n1).quasiprimitive());
