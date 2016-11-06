@@ -34,10 +34,10 @@ TEST(grounder, grounder) {
   //const Term f4 = tf.CreateTerm(h, {n1,f1});
   //const Term f5 = tf.CreateTerm(i, {x1,x3});
 
-#if 0
-  // We allow only quasi-primitive formulas to be grounded.
-  // (Actually, after Clause::Minimize() some of the following clauses are
-  // quasi-primitive; e.g., [n1/=n1] is reduced to [].)
+#if 0 // Disabled because:
+      // We allow only quasi-primitive formulas to be grounded.
+      // (Actually, after Clause::Minimize() some of the following clauses are
+      // quasi-primitive; e.g., [n1/=n1] is reduced to [].)
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(n1,n1)}));
@@ -142,7 +142,7 @@ TEST(grounder, grounder) {
     g.AddClause(Clause({Literal::Neq(tf.CreateTerm(f, {n1}), x2)}));
     lela::Setup s = g.Ground();
     // Grounding should be [f(n1)/=n1)], [f(n1)/=n2].
-    EXPECT_EQ(length(s.clauses()), 2);
+    EXPECT_EQ(length(s.clauses()), 3);
     EXPECT_TRUE(s.Consistent());
   }
 
@@ -160,8 +160,8 @@ TEST(grounder, grounder) {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(tf.CreateTerm(h, {n1,x2}), x1)}));
     lela::Setup s = g.Ground();
-    // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=1,2,3.
-    EXPECT_EQ(length(s.clauses()), 3*3);
+    // Grounding should be [h(n1,nX)=nY] for X=1,2,3,4 and Y=1,2,3,4.
+    EXPECT_EQ(length(s.clauses()), 4*4);
     EXPECT_TRUE(s.Consistent());
   }
 
