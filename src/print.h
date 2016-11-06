@@ -7,6 +7,7 @@
 #include <list>
 #include <map>
 #include <ostream>
+#include <set>
 #include <utility>
 #include <vector>
 #include "./clause.h"
@@ -26,7 +27,6 @@ std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p) {
   return os;
 }
 
-namespace {
 template<typename Iter>
 std::ostream& print_sequence(std::ostream& os, Iter begin, Iter end, const char* pre = "[", const char* post = "]", const char* sep = ", ") { // NOLINT
   bool first = true;
@@ -35,12 +35,11 @@ std::ostream& print_sequence(std::ostream& os, Iter begin, Iter end, const char*
     if (!first) {
       os << sep;
     }
-    os << *begin;
+    os << *it;
     first = false;
   }
   os << post;
   return os;
-}
 }
 
 template<typename T>
@@ -145,7 +144,7 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
   struct Get {
     explicit Get(const Setup* owner) : owner_(owner) {}
-    Clause operator()(const Setup::Index i) const { return owner_->clause(i); }
+    std::pair<int, Clause> operator()(const Setup::Index i) const { return std::make_pair(i, owner_->clause(i)); }
    private:
     const Setup* owner_;
   };

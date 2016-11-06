@@ -38,6 +38,7 @@
 #include <cassert>
 #include <algorithm>
 #include <map>
+#include <utility>
 #include <vector>
 #include "./clause.h"
 #include "./intmap.h"
@@ -208,7 +209,7 @@ class Setup {
     explicit Clauses(const Setup* owner) : owner_(owner) {}
 
     clause_iterator begin() const {
-      auto first = every_clause_iterator(IndexPlusTo(0));
+      auto first = every_clause_iterator(IndexPlusTo());
       auto last  = every_clause_iterator(IndexPlusTo(owner_));
       return clause_iterator(EnabledClause(owner_), first, last);
     }
@@ -414,7 +415,7 @@ class Setup {
 
   void RemoveSubsumed(const Index i) {
     const Clause& c = clause(i);
-#if 0
+#if 1
     for (Index j : clauses()) {
       if (i != j && c.Subsumes(clause(j))) {
 #if 0

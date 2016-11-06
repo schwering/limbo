@@ -8,7 +8,9 @@
 #ifndef SRC_INTMAP_H_
 #define SRC_INTMAP_H_
 
+#include <algorithm>
 #include <iterator>
+#include <utility>
 #include <vector>
 #include "./iter.h"
 
@@ -22,6 +24,7 @@ class IntMap : public std::vector<T> {
   template<typename Iter>
   struct gen_iterator {
    public:
+    typedef Iter iterator;
     typedef std::ptrdiff_t difference_type;
     typedef std::pair<const Key, typename Iter::value_type> value_type;
     typedef value_type* pointer;
@@ -29,7 +32,10 @@ class IntMap : public std::vector<T> {
     typedef std::input_iterator_tag iterator_category;
 
     gen_iterator() {}
-    explicit gen_iterator(const IntMap<Key, T>& owner, Iter it) : owner(owner), index_(static_cast<Key>(std::distance(owner.parent::begin(), it))), iter_(it) {}
+    explicit gen_iterator(const IntMap<Key, T>& owner, Iter it) : owner(owner), iter_(it) {
+      Iter first = owner.parent::begin();
+      index_ = static_cast<Key>(std::distance(first, it));
+    }
 
     bool operator==(gen_iterator it) const { return index_ == it.index_ && iter_ == it.iter_; }
     bool operator!=(gen_iterator it) const { return !(*this == it); }
@@ -40,8 +46,8 @@ class IntMap : public std::vector<T> {
 
    private:
     const IntMap<Key, T>& owner;
-    Key index_;
     Iter iter_;
+    Key index_;
   };
 
   typedef gen_iterator<typename parent::iterator> iterator;
@@ -62,11 +68,11 @@ class IntMap : public std::vector<T> {
     return pos_int < parent::size() ? parent::operator[](pos_int) : null_;
   }
 
-  iterator begin() { return iterator(*this, parent::begin()); }
-  iterator end()   { return iterator(*this, parent::end()); }
+  iterator begin() { typename iterator::iterator it = parent::begin(); return iterator(*this, it); }
+  iterator end()   { typename iterator::iterator it = parent::end(); return iterator(*this, it); }
 
-  const_iterator cbegin() const { return const_iterator(*this, parent::begin()); }
-  const_iterator cend()   const { return const_iterator(*this, parent::end()); }
+  const_iterator cbegin() const { typename const_iterator::iterator it = parent::cbegin(); return const_iterator(*this, it); }
+  const_iterator cend()   const { typename const_iterator::iterator it = parent::cend(); return const_iterator(*this, it); }
 
   const_iterator begin() const { return cbegin(); }
   const_iterator end()   const { return cend(); }

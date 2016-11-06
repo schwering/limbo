@@ -18,6 +18,7 @@
 #include <cassert>
 #include <algorithm>
 #include <set>
+#include <utility>
 #include "./compar.h"
 #include "./term.h"
 
@@ -85,7 +86,7 @@ class Literal {
   }
 
   template<typename UnaryFunction>
-  Literal Substitute(UnaryFunction& theta, Term::Factory* tf) const {
+  Literal Substitute(UnaryFunction theta, Term::Factory* tf) const {
     return Literal(eq_, lhs_.Substitute(theta, tf), rhs_.Substitute(theta, tf));
   }
 
