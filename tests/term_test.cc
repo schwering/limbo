@@ -67,7 +67,6 @@ TEST(Term, general) {
 
   terms.clear();
   f4.Traverse([&terms, s1](const Term t) { if (t.symbol().sort() == s1) { terms.insert(t); } return true; });
-  std::cout << std::endl;
   EXPECT_TRUE(terms == Term::Set({f1,n1}));
 
   terms.clear();
@@ -83,7 +82,8 @@ TEST(Term, hash) {
   std::vector<Term> terms1;
   std::vector<Term> terms2;
   for (uint64_t i = 0, n = 1; i <= 19; ++i, n *= 10UL) {
-    ASSERT_LE(n, UINT64_MAX);
+    ASSERT_LE(0UL + n, UINT64_MAX);
+    ASSERT_LE(1UL + n, UINT64_MAX);
     terms1.push_back(Term(reinterpret_cast<Term::Data*>(0UL + n)));
     terms2.push_back(Term(reinterpret_cast<Term::Data*>(1UL + n)));
   }

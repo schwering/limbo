@@ -27,26 +27,31 @@ class Grounder {
 
   explicit Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
 
-  const std::list<Clause>& kb() const { return kb_; }
+  const std::list<Clause>& kb() const { return cs_; }
 
   void AddClause(const Clause& c) {
     assert(c.quasiprimitive());
+    if (c.valid()) {
+      return;
+    }
     AddMentionedNames(MentionedNames(c));
     AddPlusNames(PlusNames(c));
     AddSplitTerms(MentionedTerms([](Term t) { return t.quasiprimitive(); }, c));
-    kb_.push_front(c);
+    cs_.push_front(c);
   }
 
   template<typename T>
-  void PrepareFor(const Formula::Reader<T>& phi) {
+  void PrepareFor(size_t k, const Formula::Reader<T>& phi) {
     AddMentionedNames(MentionedNames(phi));
-    AddPlusNames(PlusNames(phi));
-    AddSplitTerms(MentionedTerms([](Term t) { return t.quasiprimitive(); }, phi));
+    AddPlusNames(PlusNames(k, phi));
+    TermSet terms = MentionedTerms([](Term t) { return t.function(); }, phi);
+    Flatten(&terms);
+    AddSplitTerms(terms);
   }
 
   Setup Ground() const {
     Setup s;
-    for (const Clause& c : kb_) {
+    for (const Clause& c : cs_) {
       if (c.ground()) {
         assert(c.primitive());
         if (!c.valid()) {
@@ -67,7 +72,7 @@ class Grounder {
     return s;
   }
 
-  SortedNames SplitNames() const {
+  const SortedNames& SplitNames() const {
     return names_;
   }
 
@@ -141,7 +146,7 @@ class Grounder {
   }
 
   template<typename T>
-  static PlusMap PlusNames(const Formula::Reader<T>& phi) {
+  static PlusMap PlusNames(size_t k, const Formula::Reader<T>& phi) {
     // Roughly, we need to add one name for each quantifier. More precisely,
     // it suffices to check for every sort which is the maximal number of
     // different variables occurring freely in any subformula of phi. We do
@@ -150,6 +155,10 @@ class Grounder {
     PlusMap max;
     PlusMap cur;
     PlusNames(phi, &cur, &max);
+    for (auto p : const_cast<const PlusMap&>(max)) {
+      const Symbol::Sort sort = p.first;
+      max[sort] += k;
+    }
     return max;
   }
 
@@ -280,6 +289,26 @@ class Grounder {
     const TermSet* vars_;
   };
 
+  void Flatten(TermSet* terms) {
+    for (size_t i = 0; i < terms->size(); ++i) {
+      Term old = (*terms)[i];
+      if (!old.quasiprimitive()) {
+        Symbol::Factory* sf = sf_;
+        Term::Factory* tf = tf_;
+        // We could save some instantiations here by substituting the same
+        // variables for the identical terms that occur more than once.
+        Term sub = old.Substitute([terms, old, sf, tf](Term t) {
+          return (t != old && t.function()) ? Just(tf->CreateTerm(sf->CreateVariable(t.symbol().sort()))) : Nothing;
+        }, tf_);
+        assert(sub.quasiprimitive());
+        terms->push_back(sub);
+      }
+    }
+    auto it = std::remove_if(terms->begin(), terms->end(), [](Term t) { return !t.quasiprimitive(); });
+    terms->erase(it, terms->end());
+    MakeSet(terms);
+  }
+
   void AddMentionedNames(const SortedNames& names) {
     names_.insert(names.begin(), names.end());
   }
@@ -302,7 +331,7 @@ class Grounder {
     MakeSet(&splits_);
   }
 
-  std::list<Clause> kb_;
+  std::list<Clause> cs_;
   PlusMap plus_;
   TermSet splits_;
   SortedNames names_;

@@ -163,10 +163,10 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
 template<typename UnaryFunction>
 std::ostream& operator<<(std::ostream& os, const Formula::Reader<UnaryFunction>& phi) {
   switch (phi.head().type()) {
-    case Formula::Element::kClause: os << phi.head().clause(); break;
+    case Formula::Element::kClause: os << phi.head().clause().val; break;
     case Formula::Element::kNot:    os << '~' << phi.arg(); break;
     case Formula::Element::kOr:     os << '(' << phi.left() << " v " << phi.right() << ')'; break;
-    case Formula::Element::kExists: os << 'E' << phi.head().var() << ' ' << phi.arg(); break;
+    case Formula::Element::kExists: os << 'E' << phi.head().var().val << ' ' << phi.arg(); break;
   }
   return os;
 }

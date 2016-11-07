@@ -8,6 +8,9 @@
 
 namespace lela {
 
+template<typename T, typename U>
+size_t length(std::pair<T, U> p) { return std::distance(p.first, p.second); }
+
 template<typename T>
 size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
@@ -176,6 +179,25 @@ TEST(Grounder, general) {
 //    EXPECT_EQ(length(s.clauses()), 2);
 //  }
 
+  {
+    //Formula phi = Formula::Exists(x3, Formula::Clause({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(a, {}))}));
+    Formula phi = Formula::Exists(x3, Formula::Clause({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(f, {tf.CreateTerm(a, {})}))}));
+    Grounder g(&sf, &tf);
+    g.PrepareFor(1, phi.reader());
+    Grounder::TermSet terms = g.SplitTerms();
+    Grounder::SortedNames names = g.SplitNames();
+    std::cout << phi << std::endl;
+    std::cout << names << std::endl;
+    std::cout << terms << std::endl;
+    EXPECT_EQ(names.size(), 2);
+    EXPECT_EQ(length(names.equal_range(n1.symbol().sort())), 1);
+    EXPECT_EQ(length(names.equal_range(a.sort())), 1);
+    EXPECT_EQ(length(names.equal_range(x3.symbol().sort())), 1);
+    Term nX3 = names.find(x3.symbol().sort())->second;
+    Term nSplit = std::next(names.find(a.sort()))->second;
+    EXPECT_EQ(std::set<Term>(terms.begin(), terms.end()),
+              std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(f, {n1}), tf.CreateTerm(f, {nSplit}), tf.CreateTerm(h, {n1, n1})}));
+  }
 
 #if 0
   Grounder::PlusMap plus;
