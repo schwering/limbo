@@ -28,13 +28,8 @@ class Literal {
  public:
   struct Comparator;
 
-  static Literal Eq(Term lhs, Term rhs) {
-    return Literal(true, lhs, rhs);
-  }
-
-  static Literal Neq(Term lhs, Term rhs) {
-    return Literal(false, lhs, rhs);
-  }
+  static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
+  static Literal Neq(Term lhs, Term rhs) { return Literal(false, lhs, rhs); }
 
   Literal() = delete;
 

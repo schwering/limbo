@@ -42,6 +42,11 @@ std::ostream& print_sequence(std::ostream& os, Iter begin, Iter end, const char*
   return os;
 }
 
+template<typename Range>
+std::ostream& print_range(std::ostream& os, Range r, const char* pre = "[", const char* post = "]", const char* sep = ", ") { // NOLINT
+  return print_sequence(os, r.begin(), r.end(), pre, post, sep);
+}
+
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T> vec) {
   print_sequence(os, vec.begin(), vec.end(), "[", "]", ", ");

@@ -24,8 +24,8 @@ namespace lela {
 
 class BloomFilter {
  public:
-  bool operator==(const BloomFilter& b) const { return mask_ == b.mask_; }
-  bool operator!=(const BloomFilter& b) const { return !(*this == b); }
+  bool operator==(BloomFilter b) const { return mask_ == b.mask_; }
+  bool operator!=(BloomFilter b) const { return !(*this == b); }
 
   void Clear() {
     mask_ = 0;
@@ -50,7 +50,7 @@ class BloomFilter {
   }
 
  private:
-  static constexpr uint64_t ONE = 1;  // use this constant, for 1 is signed
+  static constexpr uint64_t ONE = 1;  // use this constant because 1 is signed
   static constexpr uint64_t BITS = 64;
 
   template<uint64_t I>

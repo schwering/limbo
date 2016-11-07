@@ -6,12 +6,12 @@
 #include "./grounder.h"
 #include "./print.h"
 
-using namespace lela;
+namespace lela {
 
 template<typename T>
 size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
-TEST(grounder, grounder) {
+TEST(Grounder, general) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
@@ -199,4 +199,6 @@ TEST(grounder, grounder) {
   }
 #endif
 }
+
+}  // namespace lela
 

@@ -37,12 +37,6 @@ class Symbol {
 
   class Factory {
    public:
-    static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
-      assert(id > 0);
-      id = -1 * (2 * id + 1);
-      return Symbol(id, sort, arity);
-    }
-
     static Symbol CreateName(Id id, Sort sort) {
       assert(id > 0);
       return Symbol(id, sort, 0);
@@ -54,15 +48,21 @@ class Symbol {
       return Symbol(id, sort, 0);
     }
 
+    static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
+      assert(id > 0);
+      id = -1 * (2 * id + 1);
+      return Symbol(id, sort, arity);
+    }
+
     Factory() = default;
     Factory(const Factory&) = delete;
     Factory(Factory&&) = delete;
     Factory& operator=(const Factory&) = delete;
 
     Sort   CreateSort()                           { return last_sort_++; }
-    Symbol CreateFunction(Sort sort, Arity arity) { return CreateFunction(++last_function_, sort, arity); }
     Symbol CreateName(Sort sort)                  { return CreateName(++last_name_, sort); }
     Symbol CreateVariable(Sort sort)              { return CreateVariable(++last_variable_, sort); }
+    Symbol CreateFunction(Sort sort, Arity arity) { return CreateFunction(++last_function_, sort, arity); }
 
    private:
     Sort last_sort_ = 0;
@@ -71,15 +71,15 @@ class Symbol {
     Id last_variable_ = 0;
   };
 
-  bool function() const { return id_ < 0 && ((-id_) % 2) != 0; }
-  bool name() const { return id_ > 0; }
+  bool name()     const { return id_ > 0; }
   bool variable() const { return id_ < 0 && ((-id_) % 2) == 0; }
+  bool function() const { return id_ < 0 && ((-id_) % 2) != 0; }
 
   Id id() const {
     assert(function() || name() || variable());
-    if (function())       return (-1 * id_ - 1) / 2;
-    else if (name())      return id_;
+    if (name())           return id_;
     else if (variable())  return (-1 * id_) / 2;
+    else if (function())  return (-1 * id_ - 1) / 2;
     else                  return 0;
   }
 
@@ -116,7 +116,7 @@ struct Symbol::Comparator {
 class Term {
  public:
   struct Comparator;
-  typedef std::vector<Term> Vector;
+  typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
   typedef std::set<Term, Comparator> Set;
 
   class Factory;
@@ -127,34 +127,24 @@ class Term {
   bool operator!=(Term t) const { return data_ != t.data_; }
   bool operator<=(Term t) const { return data_ <= t.data_; }
   bool operator>=(Term t) const { return data_ >= t.data_; }
-  bool operator<(Term t) const { return data_ < t.data_; }
-  bool operator>(Term t) const { return data_ > t.data_; }
+  bool operator<(Term t)  const { return data_ < t.data_; }
+  bool operator>(Term t)  const { return data_ > t.data_; }
 
   template<typename UnaryFunction>
   Term Substitute(UnaryFunction theta, Factory* tf) const;
 
-  Symbol symbol() const { return data_->symbol_; }
+  Symbol symbol()      const { return data_->symbol_; }
   const Vector& args() const { return data_->args_; }
 
-  bool function() const { return data_->symbol_.function(); }
-  bool name() const { return data_->symbol_.name(); }
-  bool variable() const { return data_->symbol_.variable(); }
+  bool name()           const { return data_->symbol_.name(); }
+  bool variable()       const { return data_->symbol_.variable(); }
+  bool function()       const { return data_->symbol_.function(); }
   Symbol::Arity arity() const { return data_->symbol_.arity(); }
 
-  bool null() const { return data_ == nullptr; }
-  bool ground() const {
-    return name() ||
-        (function() && std::all_of(data_->args_.begin(), data_->args_.end(),
-                                   [](Term t) { return t.ground(); }));
-  }
-  bool primitive() const {
-    return function() && std::all_of(data_->args_.begin(), data_->args_.end(),
-                                     [](Term t) { return t.name(); });
-  }
-  bool quasiprimitive() const {
-    return function() && std::all_of(data_->args_.begin(), data_->args_.end(),
-                                     [](Term t) { return t.name() || t.variable(); });
-  }
+  bool null()           const { return data_ == nullptr; }
+  bool ground()         const { return name() || (function() && all_args([](Term t) { return t.ground(); })); }
+  bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
+  bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
@@ -162,22 +152,25 @@ class Term {
   uint64_t hash() const {
     // 64bit FNV-1a hash
     const uint64_t magic_prime = 0x00000100000001b3;
-    const uint64_t b = reinterpret_cast<const uint64_t>(data_);
-    assert(sizeof(data_) == sizeof(b));
+    const uint8_t* b = reinterpret_cast<const uint8_t*>(&data_);
     return
         ((((((((((((((((
           0xcbf29ce484222325
-          ^ ((b >>  0) & 0xFF)) * magic_prime)
-          ^ ((b >>  8) & 0xFF)) * magic_prime)
-          ^ ((b >> 16) & 0xFF)) * magic_prime)
-          ^ ((b >> 24) & 0xFF)) * magic_prime)
-          ^ ((b >> 32) & 0xFF)) * magic_prime)
-          ^ ((b >> 40) & 0xFF)) * magic_prime)
-          ^ ((b >> 48) & 0xFF)) * magic_prime)
-          ^ ((b >> 56) & 0xFF)) * magic_prime);
+          ^ ((b[0]) & 0xFF)) * magic_prime)
+          ^ ((b[1]) & 0xFF)) * magic_prime)
+          ^ ((b[2]) & 0xFF)) * magic_prime)
+          ^ ((b[3]) & 0xFF)) * magic_prime)
+          ^ ((b[4]) & 0xFF)) * magic_prime)
+          ^ ((b[5]) & 0xFF)) * magic_prime)
+          ^ ((b[6]) & 0xFF)) * magic_prime)
+          ^ ((b[7]) & 0xFF)) * magic_prime);
   }
 
  private:
+#ifdef FRIEND_TEST
+  FRIEND_TEST(Term, hash);
+#endif
+
   struct Data {
     struct DeepComparator;
     Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args) {}
@@ -187,6 +180,9 @@ class Term {
   };
 
   explicit Term(Data* data) : data_(data) {}
+
+  template<typename UnaryPredicate>
+  bool all_args(UnaryPredicate p) const { return std::all_of(data_->args_.begin(), data_->args_.end(), p); }
 
   const Data* data_;
 };

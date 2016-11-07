@@ -5,9 +5,9 @@
 #include "./term.h"
 #include "./print.h"
 
-using namespace lela;
+namespace lela {
 
-TEST(bloom, symbol) {
+TEST(Bloom, general) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
@@ -61,4 +61,6 @@ TEST(bloom, symbol) {
   EXPECT_TRUE(BloomFilter::Subset(bf0, bf1));
   EXPECT_FALSE(BloomFilter::Subset(bf1, bf0));
 }
+
+}  // namespace lela
 

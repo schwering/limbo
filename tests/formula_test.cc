@@ -5,9 +5,9 @@
 #include "./formula.h"
 #include "./print.h"
 
-using namespace lela;
+namespace lela {
 
-TEST(formula, formula) {
+TEST(Formula, general) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
@@ -53,4 +53,6 @@ TEST(formula, formula) {
   EXPECT_EQ(Formula::Not(Formula::Or(Formula::Or(Formula::Not(c1), Formula::Not(c2)), Formula::Exists(x2, c2))).reader().arg().Build(), Formula::Or(Formula::Or(Formula::Not(c1), Formula::Not(c2)), Formula::Exists(x2, c2)));
   EXPECT_EQ(Formula::Not(Formula::Or(Formula::Or(Formula::Not(c1), Formula::Not(c2)), Formula::Exists(x2, c2))).reader().Build(), Formula::Not(Formula::Or(Formula::Or(Formula::Not(c1), Formula::Not(c2)), Formula::Exists(x2, c2))));
 }
+
+}  // namespace lela
 

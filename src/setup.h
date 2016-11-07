@@ -177,8 +177,9 @@ class Setup {
     };
 
     explicit Setups(const Setup* owner) : owner_(owner) {}
+
     setup_iterator begin() const { return setup_iterator(owner_); }
-    setup_iterator end() const { return setup_iterator(nullptr); }
+    setup_iterator end()   const { return setup_iterator(nullptr); }
 
    private:
     const Setup* owner_;
@@ -415,7 +416,7 @@ class Setup {
 
   void RemoveSubsumed(const Index i) {
     const Clause& c = clause(i);
-#if 1
+#if 0
     for (Index j : clauses()) {
       if (i != j && c.Subsumes(clause(j))) {
 #if 0

@@ -10,20 +10,20 @@
 #include <algorithm>
 #include <list>
 #include <map>
-#include <vector>
 #include <utility>
+#include <vector>
 #include "./clause.h"
 #include "./formula.h"
 #include "./iter.h"
 #include "./maybe.h"
 #include "./setup.h"
-#include "./print.h"
 
 namespace lela {
 
 class Grounder {
  public:
   typedef std::multimap<Symbol::Sort, Term> SortedNames;
+  typedef std::vector<Term> TermSet;
 
   explicit Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
 
@@ -54,7 +54,7 @@ class Grounder {
         }
       } else {
         const TermSet vars = MentionedTerms([](Term t) { return t.variable(); }, c);
-        for (Assignments::Assignment mapping : Assignments(&names_, &vars)) {
+        for (const Assignments::Assignment& mapping : Assignments(&names_, &vars)) {
           const Clause ci = c.Substitute(mapping, tf_);
           assert(ci.primitive());
           if (!ci.valid()) {
@@ -67,9 +67,34 @@ class Grounder {
     return s;
   }
 
+  SortedNames SplitNames() const {
+    return names_;
+  }
+
+  TermSet SplitTerms() const {
+    TermSet terms;
+    for (Term t : splits_) {
+      assert(t.quasiprimitive());
+      TermSet vars = MentionedTerms([](Term t) { return t.variable(); }, t);
+      for (const Assignments::Assignment& mapping : Assignments(&names_, &vars)) {
+        Term tt = t.Substitute(mapping, tf_);
+        assert(tt.primitive());
+        if (!std::binary_search(terms.begin(), terms.end(), tt)) {
+          terms.push_back(tt);
+        }
+      }
+      MakeSet(&terms);
+    }
+    return terms;
+  }
+
  private:
-  typedef std::vector<Term> TermSet;
   typedef IntMap<Symbol::Sort, size_t, 0> PlusMap;
+
+  static void MakeSet(TermSet* terms) {
+    std::sort(terms->begin(), terms->end(), Term::Comparator());
+    terms->erase(std::unique(terms->begin(), terms->end()), terms->end());
+  }
 
   template<typename T>
   static SortedNames MentionedNames(const T& obj) {
@@ -82,8 +107,7 @@ class Grounder {
   static TermSet MentionedTerms(const UnaryPredicate p, const T& obj) {
     TermSet terms;
     obj.Traverse([p, &terms](Term t) { if (p(t)) { terms.push_back(t); } return true; });
-    std::sort(terms.begin(), terms.end(), Term::Comparator());
-    terms.erase(std::unique(terms.begin(), terms.end()), terms.end());
+    MakeSet(&terms);
     return terms;
   }
 
@@ -177,8 +201,8 @@ class Grounder {
         }
       }
 
-      bool operator==(Assignment a) const { return map_ == a.map_; }
-      bool operator!=(Assignment a) const { return !(*this == a); }
+      bool operator==(const Assignment& a) const { return map_ == a.map_; }
+      bool operator!=(const Assignment& a) const { return !(*this == a); }
 
       name_range& operator[](Term t) { return map_[t]; }
 
@@ -212,8 +236,8 @@ class Grounder {
         meta_iter_ = assignment_.end();
       }
 
-      bool operator==(assignment_iterator it) const { return names_ == it.names_ && (names_ == nullptr || (assignment_ == it.assignment_ && *meta_iter_ == *it.meta_iter_)); }
-      bool operator!=(assignment_iterator it) const { return !(*this == it); }
+      bool operator==(const assignment_iterator& it) const { return names_ == it.names_ && (names_ == nullptr || (assignment_ == it.assignment_ && *meta_iter_ == *it.meta_iter_)); }
+      bool operator!=(const assignment_iterator& it) const { return !(*this == it); }
 
       const Assignment& operator*() const { return assignment_; }
 
@@ -274,14 +298,13 @@ class Grounder {
   }
 
   void AddSplitTerms(const TermSet& terms) {
-    terms_.insert(terms_.end(), terms.begin(), terms.end());
-    std::sort(terms_.begin(), terms_.end(), Term::Comparator());
-    terms_.erase(std::unique(terms_.begin(), terms_.end()), terms_.end());
+    splits_.insert(splits_.end(), terms.begin(), terms.end());
+    MakeSet(&splits_);
   }
 
   std::list<Clause> kb_;
   PlusMap plus_;
-  TermSet terms_;
+  TermSet splits_;
   SortedNames names_;
   Symbol::Factory* sf_;
   Term::Factory* tf_;

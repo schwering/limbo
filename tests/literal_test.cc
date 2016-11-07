@@ -5,9 +5,9 @@
 #include "./literal.h"
 #include "./print.h"
 
-using namespace lela;
+namespace lela {
 
-TEST(literal, symbol) {
+TEST(Literal, general) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
@@ -80,4 +80,6 @@ TEST(literal, symbol) {
   EXPECT_TRUE(!Literal::Neq(f1,n1).invalid());
   EXPECT_TRUE(!Literal::Neq(f1,f2).invalid());
 }
+
+}  // namespace lela
 

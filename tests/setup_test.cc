@@ -1,16 +1,18 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
 
+#include <array>
+#include <vector>
 #include <gtest/gtest.h>
 #include "./setup.h"
 #include "./print.h"
 
-using namespace lela;
+namespace lela {
 
 template<typename T>
 size_t dist(T r) { return std::distance(r.begin(), r.end()); }
 
-TEST(setup, symbol) {
+TEST(Setup, general) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
@@ -51,7 +53,11 @@ TEST(setup, symbol) {
     s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(gn,n)}));
     s1.Init();
     EXPECT_EQ(dist(s1.clauses()), 4);
-    EXPECT_EQ(dist(s1.primitive_terms()), 4+1);
+    //std::cout << s0 << std::endl;
+    //std::cout << s1 << std::endl;
+    //print_range(std::cout, s0.primitive_terms()) << std::endl;
+    //print_range(std::cout, s1.primitive_terms()) << std::endl;
+    EXPECT_EQ(dist(s1.primitive_terms()), 4+1);  // different behaviour in Setup::Minimize(), this changes
     EXPECT_EQ(dist(s1.clauses()), 4);
     EXPECT_EQ(dist(s1.clauses_with(a)), 2);
     EXPECT_EQ(dist(s1.clauses_with(fn)), 2);
@@ -65,8 +71,14 @@ TEST(setup, symbol) {
     lela::Setup s2(&s1);
     s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)}));
     s2.Init();
+    //std::cout << s0 << std::endl;
+    //std::cout << s1 << std::endl;
+    //std::cout << s2 << std::endl;
+    //print_range(std::cout, s0.primitive_terms()) << std::endl;
+    //print_range(std::cout, s1.primitive_terms()) << std::endl;
+    //print_range(std::cout, s2.primitive_terms()) << std::endl;
     EXPECT_EQ(dist(s2.clauses()), 5);
-    EXPECT_EQ(dist(s2.primitive_terms()), 4+1);
+    EXPECT_EQ(dist(s2.primitive_terms()), 4+1+0);  // for different behaviour in Setup::Minimize(), this changes
     EXPECT_EQ(dist(s2.clauses_with(a)), 3);
     EXPECT_EQ(dist(s2.clauses_with(fn)), 2);
     EXPECT_EQ(dist(s2.clauses_with(fm)), 1);
@@ -86,4 +98,6 @@ TEST(setup, symbol) {
     EXPECT_TRUE(s3.Consistent());
   }
 }
+
+}  // namespace lela
 

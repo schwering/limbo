@@ -32,7 +32,7 @@ class IntMap : public std::vector<T> {
     typedef std::input_iterator_tag iterator_category;
 
     gen_iterator() {}
-    explicit gen_iterator(const IntMap<Key, T>& owner, Iter it) : owner(owner), iter_(it) {
+    explicit gen_iterator(const IntMap<Key, T>& owner, Iter it) : iter_(it) {
       Iter first = owner.parent::begin();
       index_ = static_cast<Key>(std::distance(first, it));
     }
@@ -45,7 +45,6 @@ class IntMap : public std::vector<T> {
     gen_iterator& operator++() { ++index_; ++iter_; return *this; }
 
    private:
-    const IntMap<Key, T>& owner;
     Iter iter_;
     Key index_;
   };

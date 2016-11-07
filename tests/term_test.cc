@@ -5,7 +5,7 @@
 #include "./term.h"
 #include "./print.h"
 
-using namespace lela;
+namespace lela {
 
 struct EqSubstitute {
   EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}
@@ -16,7 +16,7 @@ struct EqSubstitute {
   const Term post_;
 };
 
-TEST(term, term) {
+TEST(Term, general) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
@@ -78,4 +78,25 @@ TEST(term, term) {
   f4.Traverse([&sorts](Term t) { sorts.insert(t.symbol().sort()); return true; });
   EXPECT_TRUE(sorts == std::set<Symbol::Sort>({s1,s2}));
 }
+
+TEST(Term, hash) {
+  std::vector<Term> terms1;
+  std::vector<Term> terms2;
+  for (uint64_t i = 0, n = 1; i <= 19; ++i, n *= 10UL) {
+    ASSERT_LE(n, UINT64_MAX);
+    terms1.push_back(Term(reinterpret_cast<Term::Data*>(0UL + n)));
+    terms2.push_back(Term(reinterpret_cast<Term::Data*>(1UL + n)));
+  }
+  for (Term t1 : terms1) {
+    Term copy = t1;
+    EXPECT_EQ(t1.data_, copy.data_);
+    EXPECT_EQ(t1.hash(), copy.hash());
+    for (Term t2 : terms2) {
+      EXPECT_NE(t1.data_, t2.data_);
+      EXPECT_NE(t1.hash(), t2.hash());
+    }
+  }
+}
+
+}  // namespace lela
 

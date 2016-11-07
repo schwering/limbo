@@ -44,11 +44,11 @@ class Clause {
   const_iterator begin() const { return lits_.begin(); }
   const_iterator end() const { return lits_.end(); }
 
-  size_t empty() const { return lits_.empty(); }
+  bool empty() const { return lits_.empty(); }
   size_t size() const { return lits_.size(); }
   bool unit() const { return size() == 1; }
 
-  bool valid() const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
+  bool valid()   const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
 
   bool Subsumes(const Clause& c) const {
