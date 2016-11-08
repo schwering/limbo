@@ -38,6 +38,7 @@ TEST(Bloom, general) {
     bf1.Add(t.hash());
     EXPECT_TRUE(bf1.Contains(t.hash()));
     EXPECT_TRUE(BloomFilter::Subset(bf0, bf1));
+    std::cout << std::hex << bf1.mask_ << std::endl;
   }
 
   for (Term t : ts) {
@@ -48,11 +49,13 @@ TEST(Bloom, general) {
     EXPECT_TRUE(BloomFilter::Subset(bf0, bf0));
     EXPECT_FALSE(bf0.Contains(t.hash()));
     bf0.Add(t.hash());
+    std::cout << std::hex << bf0.mask_ << std::endl;
     EXPECT_TRUE(bf0.Contains(t.hash()));
     EXPECT_TRUE(BloomFilter::Subset(bf0, bf0));
   }
 
   bf0.Add(f4.hash());
+  std::cout << std::hex << bf0.mask_ << std::endl;
   EXPECT_TRUE(bf0.Contains(f4.hash()));
   EXPECT_FALSE(bf1.Contains(f4.hash()));
   EXPECT_FALSE(BloomFilter::Subset(bf0, bf1));
@@ -60,6 +63,19 @@ TEST(Bloom, general) {
   bf0.Clear();
   EXPECT_TRUE(BloomFilter::Subset(bf0, bf1));
   EXPECT_FALSE(BloomFilter::Subset(bf1, bf0));
+
+  {
+    uint64_t x = 0xFF03FF02FF01FF00;
+    EXPECT_EQ(BloomFilter::hash<0>(x), 0xFF00);
+    EXPECT_EQ(BloomFilter::hash<1>(x), 0xFF01);
+    EXPECT_EQ(BloomFilter::hash<2>(x), 0xFF02);
+    EXPECT_EQ(BloomFilter::hash<3>(x), 0xFF03);
+    std::cout << std::hex << x << std::endl;
+    std::cout << std::hex << BloomFilter::hash<0>(x) << std::endl;
+    std::cout << std::hex << BloomFilter::hash<1>(x) << std::endl;
+    std::cout << std::hex << BloomFilter::hash<2>(x) << std::endl;
+    std::cout << std::hex << BloomFilter::hash<3>(x) << std::endl;
+  }
 }
 
 }  // namespace lela

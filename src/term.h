@@ -152,18 +152,19 @@ class Term {
   uint64_t hash() const {
     // 64bit FNV-1a hash
     const uint64_t magic_prime = 0x00000100000001b3;
-    const uint8_t* b = reinterpret_cast<const uint8_t*>(&data_);
+    const uint64_t b = reinterpret_cast<const uint64_t>(data_);
+    assert(sizeof(data_) == sizeof(b));
     return
         ((((((((((((((((
           0xcbf29ce484222325
-          ^ ((b[0]) & 0xFF)) * magic_prime)
-          ^ ((b[1]) & 0xFF)) * magic_prime)
-          ^ ((b[2]) & 0xFF)) * magic_prime)
-          ^ ((b[3]) & 0xFF)) * magic_prime)
-          ^ ((b[4]) & 0xFF)) * magic_prime)
-          ^ ((b[5]) & 0xFF)) * magic_prime)
-          ^ ((b[6]) & 0xFF)) * magic_prime)
-          ^ ((b[7]) & 0xFF)) * magic_prime);
+          ^ ((b >>  0) & 0xFF)) * magic_prime)
+          ^ ((b >>  8) & 0xFF)) * magic_prime)
+          ^ ((b >> 16) & 0xFF)) * magic_prime)
+          ^ ((b >> 24) & 0xFF)) * magic_prime)
+          ^ ((b >> 32) & 0xFF)) * magic_prime)
+          ^ ((b >> 40) & 0xFF)) * magic_prime)
+          ^ ((b >> 48) & 0xFF)) * magic_prime)
+          ^ ((b >> 56) & 0xFF)) * magic_prime);
   }
 
  private:

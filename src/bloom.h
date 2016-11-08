@@ -50,11 +50,15 @@ class BloomFilter {
   }
 
  private:
+#ifdef FRIEND_TEST
+  FRIEND_TEST(Bloom, general);
+#endif
+
   static constexpr uint64_t ONE = 1;  // use this constant because 1 is signed
   static constexpr uint64_t BITS = 64;
 
   template<uint64_t I>
-  uint64_t hash(uint64_t x) const { return (x >> (I*8)) & 0xFFFF; }
+  static uint64_t hash(uint64_t x) { return (x >> (I*16)) & 0xFFFF; }
 
   uint64_t mask_ = 0;
 };
