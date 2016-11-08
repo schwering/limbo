@@ -186,17 +186,19 @@ TEST(Grounder, general) {
     g.PrepareFor(1, phi.reader());
     Grounder::TermSet terms = g.SplitTerms();
     Grounder::SortedNames names = g.SplitNames();
-    std::cout << phi << std::endl;
-    std::cout << names << std::endl;
-    std::cout << terms << std::endl;
-    EXPECT_EQ(names.size(), 2);
-    EXPECT_EQ(length(names.equal_range(n1.symbol().sort())), 1);
-    EXPECT_EQ(length(names.equal_range(a.sort())), 1);
+    //std::cout << phi << std::endl;
+    //std::cout << names << std::endl;
+    //std::cout << terms << std::endl;
+    EXPECT_EQ(names.size(), 3);
+    EXPECT_EQ(length(names.equal_range(n1.symbol().sort())), 2);
     EXPECT_EQ(length(names.equal_range(x3.symbol().sort())), 1);
-    Term nX3 = names.find(x3.symbol().sort())->second;
+    EXPECT_EQ(length(names.equal_range(a.sort())), 2);
+    EXPECT_EQ(length(names.equal_range(f.sort())), 2);
+    EXPECT_EQ(length(names.equal_range(h.sort())), 1);
+    Term nx3 = names.find(x3.symbol().sort())->second;
     Term nSplit = std::next(names.find(a.sort()))->second;
     EXPECT_EQ(std::set<Term>(terms.begin(), terms.end()),
-              std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(f, {n1}), tf.CreateTerm(f, {nSplit}), tf.CreateTerm(h, {n1, n1})}));
+              std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(f, {n1}), tf.CreateTerm(f, {nSplit}), tf.CreateTerm(h, {n1, nx3})}));
   }
 
 #if 0

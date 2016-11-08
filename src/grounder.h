@@ -43,9 +43,10 @@ class Grounder {
   template<typename T>
   void PrepareFor(size_t k, const Formula::Reader<T>& phi) {
     AddMentionedNames(MentionedNames(phi));
-    AddPlusNames(PlusNames(k, phi));
+    AddPlusNames(PlusNames(phi));
     TermSet terms = MentionedTerms([](Term t) { return t.function(); }, phi);
     Flatten(&terms);
+    AddPlusNames(PlusSplitNames(k, terms));
     AddSplitTerms(terms);
   }
 
@@ -95,102 +96,6 @@ class Grounder {
 
  private:
   typedef IntMap<Symbol::Sort, size_t, 0> PlusMap;
-
-  static void MakeSet(TermSet* terms) {
-    std::sort(terms->begin(), terms->end(), Term::Comparator());
-    terms->erase(std::unique(terms->begin(), terms->end()), terms->end());
-  }
-
-  template<typename T>
-  static SortedNames MentionedNames(const T& obj) {
-    SortedNames names;
-    obj.Traverse([&names](Term t) { if (t.name()) { names.insert(std::make_pair(t.symbol().sort(), t)); } return true; });
-    return names;
-  }
-
-  template<typename UnaryPredicate, typename T>
-  static TermSet MentionedTerms(const UnaryPredicate p, const T& obj) {
-    TermSet terms;
-    obj.Traverse([p, &terms](Term t) { if (p(t)) { terms.push_back(t); } return true; });
-    MakeSet(&terms);
-    return terms;
-  }
-
-  static PlusMap PlusNames(const TermSet& vars) {
-    PlusMap plus;
-    for (const Term var : vars) {
-      ++plus[var.symbol().sort()];
-    }
-    return plus;
-  }
-
-  static PlusMap PlusNames(const Clause& c) {
-    assert(c.quasiprimitive());
-    PlusMap plus = PlusNames(MentionedTerms([](Term t) { return t.variable(); }, c));
-    // The following fixes Lemma 8 in the LBF paper. The problem is that
-    // for KB = {[c = x]}, unit propagation should yield the empty clause;
-    // but this requires that x is grounded by more than one name. It suffices
-    // to ground variables by p+1 names, where p is the maximum number of
-    // variables in any clause.
-    // PlusNames() computes p for a given clause; it is hence p+1 where p
-    // is the number of variables in that clause. To avoid unnecessary
-    // grounding, we leave p=0 in case there are no variables.
-    for (auto p : const_cast<const PlusMap&>(plus)) {
-      const Symbol::Sort sort = p.first;
-      const size_t n = p.second;
-      if (n > 0) {
-        ++plus[sort];
-      }
-    }
-    return plus;
-  }
-
-  template<typename T>
-  static PlusMap PlusNames(size_t k, const Formula::Reader<T>& phi) {
-    // Roughly, we need to add one name for each quantifier. More precisely,
-    // it suffices to check for every sort which is the maximal number of
-    // different variables occurring freely in any subformula of phi. We do
-    // so from the inside to the outside, determining the number of free
-    // variables of any sort in cur, and the maximum in max.
-    PlusMap max;
-    PlusMap cur;
-    PlusNames(phi, &cur, &max);
-    for (auto p : const_cast<const PlusMap&>(max)) {
-      const Symbol::Sort sort = p.first;
-      max[sort] += k;
-    }
-    return max;
-  }
-
-  template<typename T>
-  static void PlusNames(const Formula::Reader<T>& phi, PlusMap* cur, PlusMap* max) {
-    switch (phi.head().type()) {
-      case Formula::Element::kClause:
-        *cur = PlusNames(MentionedTerms([](Term t) { return t.variable(); }, phi.head().clause().val));
-        *max = *cur;
-        break;
-      case Formula::Element::kNot:
-        PlusNames(phi.arg(), cur, max);
-        break;
-      case Formula::Element::kOr: {
-        PlusMap lcur, lmax;
-        PlusMap rcur, rmax;
-        PlusNames(phi.left(), &lcur, &lmax);
-        PlusNames(phi.right(), &rcur, &rmax);
-        *cur = PlusMap::Zip(lcur, rcur, [](size_t lp, size_t rp) { return lp + rp; });
-        *max = PlusMap::Zip(lmax, rmax, [](size_t lp, size_t rp) { return std::max(lp, rp); });
-        *max = PlusMap::Zip(*max, *cur, [](size_t mp, size_t cp) { return std::max(mp, cp); });
-        break;
-      }
-      case Formula::Element::kExists:
-        PlusNames(phi.arg(), cur, max);
-        Symbol::Sort sort = phi.head().var().val.symbol().sort();
-        if ((*cur)[sort] > 0) {
-          --(*cur)[sort];
-        }
-        break;
-    }
-  }
 
   struct Assignments {
     typedef SortedNames::const_iterator name_iterator;
@@ -289,6 +194,108 @@ class Grounder {
     const TermSet* vars_;
   };
 
+  static void MakeSet(TermSet* terms) {
+    std::sort(terms->begin(), terms->end(), Term::Comparator());
+    terms->erase(std::unique(terms->begin(), terms->end()), terms->end());
+  }
+
+  template<typename T>
+  static SortedNames MentionedNames(const T& obj) {
+    SortedNames names;
+    obj.Traverse([&names](Term t) { if (t.name()) { names.insert(std::make_pair(t.symbol().sort(), t)); } return true; });
+    return names;
+  }
+
+  template<typename UnaryPredicate, typename T>
+  static TermSet MentionedTerms(const UnaryPredicate p, const T& obj) {
+    TermSet terms;
+    obj.Traverse([p, &terms](Term t) { if (p(t)) { terms.push_back(t); } return true; });
+    MakeSet(&terms);
+    return terms;
+  }
+
+  static PlusMap PlusNames(const TermSet& vars) {
+    PlusMap plus;
+    for (const Term var : vars) {
+      ++plus[var.symbol().sort()];
+    }
+    return plus;
+  }
+
+  static PlusMap PlusNames(const Clause& c) {
+    assert(c.quasiprimitive());
+    PlusMap plus = PlusNames(MentionedTerms([](Term t) { return t.variable(); }, c));
+    // The following fixes Lemma 8 in the LBF paper. The problem is that
+    // for KB = {[c = x]}, unit propagation should yield the empty clause;
+    // but this requires that x is grounded by more than one name. It suffices
+    // to ground variables by p+1 names, where p is the maximum number of
+    // variables in any clause.
+    // PlusNames() computes p for a given clause; it is hence p+1 where p
+    // is the number of variables in that clause. To avoid unnecessary
+    // grounding, we leave p=0 in case there are no variables.
+    for (auto p : const_cast<const PlusMap&>(plus)) {
+      const Symbol::Sort sort = p.first;
+      const size_t n = p.second;
+      if (n > 0) {
+        ++plus[sort];
+      }
+    }
+    return plus;
+  }
+
+  template<typename T>
+  static PlusMap PlusNames(const Formula::Reader<T>& phi) {
+    // Roughly, we need to add one name for each quantifier. More precisely,
+    // it suffices to check for every sort which is the maximal number of
+    // different variables occurring freely in any subformula of phi. We do
+    // so from the inside to the outside, determining the number of free
+    // variables of any sort in cur, and the maximum in max.
+    PlusMap max;
+    PlusMap cur;
+    PlusNames(phi, &cur, &max);
+    return max;
+  }
+
+  template<typename T>
+  static void PlusNames(const Formula::Reader<T>& phi, PlusMap* cur, PlusMap* max) {
+    switch (phi.head().type()) {
+      case Formula::Element::kClause:
+        *cur = PlusNames(MentionedTerms([](Term t) { return t.variable(); }, phi.head().clause().val));
+        *max = *cur;
+        break;
+      case Formula::Element::kNot:
+        PlusNames(phi.arg(), cur, max);
+        break;
+      case Formula::Element::kOr: {
+        PlusMap lcur, lmax;
+        PlusMap rcur, rmax;
+        PlusNames(phi.left(), &lcur, &lmax);
+        PlusNames(phi.right(), &rcur, &rmax);
+        *cur = PlusMap::Zip(lcur, rcur, [](size_t lp, size_t rp) { return lp + rp; });
+        *max = PlusMap::Zip(lmax, rmax, [](size_t lp, size_t rp) { return std::max(lp, rp); });
+        *max = PlusMap::Zip(*max, *cur, [](size_t mp, size_t cp) { return std::max(mp, cp); });
+        break;
+      }
+      case Formula::Element::kExists:
+        PlusNames(phi.arg(), cur, max);
+        Symbol::Sort sort = phi.head().var().val.symbol().sort();
+        if ((*cur)[sort] > 0) {
+          --(*cur)[sort];
+        }
+        break;
+    }
+  }
+
+  PlusMap PlusSplitNames(size_t k, const TermSet& terms) {
+    PlusMap plus;
+    for (Term t : terms) {
+      if (plus[t.symbol().sort()] < k) {
+        plus[t.symbol().sort()] = k;
+      }
+    }
+    return plus;
+  }
+
   void Flatten(TermSet* terms) {
     for (size_t i = 0; i < terms->size(); ++i) {
       Term old = (*terms)[i];
@@ -329,6 +336,8 @@ class Grounder {
   void AddSplitTerms(const TermSet& terms) {
     splits_.insert(splits_.end(), terms.begin(), terms.end());
     MakeSet(&splits_);
+    for (Term t : terms) {
+    }
   }
 
   std::list<Clause> cs_;
