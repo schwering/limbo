@@ -4,9 +4,11 @@
 #include <gtest/gtest.h>
 #include "./formula.h"
 #include "./grounder.h"
-#include "./print.h"
+#include "./pretty.h"
 
 namespace lela {
+
+using namespace output;
 
 template<typename T, typename U>
 size_t length(std::pair<T, U> p) { return std::distance(p.first, p.second); }

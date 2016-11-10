@@ -1,7 +1,9 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
 //
-// A simple Bloom filter for small sets (intended for clauses).
+// A Bloom filter allows for complete check whether an element is in a set.
+// That is, it may yield false positives. This implementation is designed for
+// small sets and specifically intended for clauses.
 //
 // Let m = 64 the size of the bitmask.
 // Let k be the number of hash functions.

@@ -1,7 +1,8 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
 //
-// Substitutes standard names for variables. Corresponds to the gnd() operator.
+// A Grounder determines how many standard names need to be substituted for
+// variables in a proper+ knowledge base and in queries.
 
 #ifndef SRC_GROUNDER_H_
 #define SRC_GROUNDER_H_
@@ -46,8 +47,8 @@ class Grounder {
     AddPlusNames(PlusNames(phi));
     TermSet terms = MentionedTerms([](Term t) { return t.function(); }, phi);
     Flatten(&terms);
-    AddPlusNames(PlusSplitNames(k, terms));
     AddSplitTerms(terms);
+    AddPlusNames(PlusSplitNames(k, terms));
   }
 
   Setup Ground() const {
@@ -336,8 +337,6 @@ class Grounder {
   void AddSplitTerms(const TermSet& terms) {
     splits_.insert(splits_.end(), terms.begin(), terms.end());
     MakeSet(&splits_);
-    for (Term t : terms) {
-    }
   }
 
   std::list<Clause> cs_;

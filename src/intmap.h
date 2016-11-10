@@ -94,7 +94,7 @@ class IntMap : public std::vector<T> {
     }
   }
 
- private:
+ protected:
   T null_ = NULL_VALUE;
 };
 

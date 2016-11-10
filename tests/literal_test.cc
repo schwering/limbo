@@ -3,9 +3,11 @@
 
 #include <gtest/gtest.h>
 #include "./literal.h"
-#include "./print.h"
+#include "./pretty.h"
 
 namespace lela {
+
+using namespace output;
 
 TEST(Literal, general) {
   Symbol::Factory sf;

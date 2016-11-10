@@ -5,9 +5,11 @@
 #include <vector>
 #include <gtest/gtest.h>
 #include "./setup.h"
-#include "./print.h"
+#include "./pretty.h"
 
 namespace lela {
+
+using namespace output;
 
 template<typename T>
 size_t dist(T r) { return std::distance(r.begin(), r.end()); }

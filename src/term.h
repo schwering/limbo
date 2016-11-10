@@ -94,6 +94,7 @@ class Symbol {
     assert(!function() || !variable() || arity == 0);
   }
 
+ private:
   const Id id_;
   const Sort sort_;
   const Arity arity_;

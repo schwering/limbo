@@ -4,9 +4,11 @@
 #include <gtest/gtest.h>
 #include "./clause.h"
 #include "./maybe.h"
-#include "./print.h"
+#include "./pretty.h"
 
 namespace lela {
+
+using namespace output;
 
 struct EqSubstitute {
   EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}

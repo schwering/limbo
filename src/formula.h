@@ -47,7 +47,7 @@ class Formula {
     bool operator!=(const Element& e) const { return !(*this == e); }
 
     Type type() const { return type_; }
-    Maybe<lela::Clause> clause() const { return clause_; }
+    const Maybe<lela::Clause>& clause() const { return clause_; }
     Maybe<Term> var() const { return var_; }
 
    private:
@@ -148,9 +148,6 @@ class Formula {
 
   template<typename Iter>
   explicit Formula(const Reader<Iter>& r) : es_(r.begin(), r.end()) {}
-  Formula(const Formula&) = default;
-  Formula& operator=(const Formula&) = default;
-  ~Formula() = default;
 
   bool operator==(const Formula& phi) const { return es_ == phi.es_; }
   bool operator!=(const Formula& phi) const { return !(*this == phi); }
