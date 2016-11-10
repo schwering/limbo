@@ -33,22 +33,18 @@ std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p) {
 }
 
 template<typename Iter>
-std::ostream& print_sequence(std::ostream& os, Iter begin, Iter end, const char* pre = "[", const char* post = "]", const char* sep = ", ") { // NOLINT
-  bool first = true;
-  os << pre;
-  for (auto it = begin; it != end; ++it) {
-    if (!first) {
-      os << sep;
-    }
-    os << *it;
-    first = false;
-  }
-  os << post;
-  return os;
-}
+std::ostream& print_sequence(std::ostream& os,
+                             Iter begin,
+                             Iter end,
+                             const char* pre = "[",
+                             const char* post = "]",
+                             const char* sep = ", ");
 
 template<typename Range>
-std::ostream& print_range(std::ostream& os, Range r, const char* pre = "[", const char* post = "]", const char* sep = ", ") { // NOLINT
+std::ostream& print_range(std::ostream& os, Range r,
+                          const char* pre = "[",
+                          const char* post = "]",
+                          const char* sep = ", ") {
   return print_sequence(os, r.begin(), r.end(), pre, post, sep);
 }
 
@@ -148,7 +144,7 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
   struct Get {
     explicit Get(const Setup* owner) : owner_(owner) {}
-    std::pair<int, Clause> operator()(const Setup::Index i) const { return std::make_pair(i, owner_->clause(i)); }
+    Clause operator()(const Setup::Index i) const { return owner_->clause(i); }
    private:
     const Setup* owner_;
   };
@@ -166,19 +162,19 @@ std::ostream& operator<<(std::ostream& os, const Formula::Reader<UnaryFunction>&
       os << phi.head().clause().val;
       break;
     case Formula::Element::kNot:
-      if (phi.arg().head().type() == Formula::Element::kOr &&
-          phi.arg().left().head().type() == Formula::Element::kNot &&
-          phi.arg().right().head().type() == Formula::Element::kNot) {
-        os << '(' << phi.arg().left().arg() << ' ' << "\u2227" << ' ' << phi.arg().right().arg() << ')';
-      } else if (phi.arg().head().type() == Formula::Element::kClause) {
-        const Clause& c = phi.arg().head().clause().val;
-        print_sequence(os, c.begin(), c.end(), "[", "]", " \u2227 ");
-      } else if (phi.arg().head().type() == Formula::Element::kExists &&
-                 phi.arg().arg().head().type() == Formula::Element::kNot) {
-        os << "\u2200" << phi.arg().head().var().val << phi.arg().arg().arg();
-      } else {
+      //if (phi.arg().head().type() == Formula::Element::kOr &&
+      //    phi.arg().left().head().type() == Formula::Element::kNot &&
+      //    phi.arg().right().head().type() == Formula::Element::kNot) {
+      //  os << '(' << phi.arg().left().arg() << ' ' << "\u2227" << ' ' << phi.arg().right().arg() << ')';
+      //} else if (phi.arg().head().type() == Formula::Element::kClause) {
+      //  const Clause& c = phi.arg().head().clause().val;
+      //  print_sequence(os, c.begin(), c.end(), "[", "]", " \u2227 ");
+      //} else if (phi.arg().head().type() == Formula::Element::kExists &&
+      //           phi.arg().arg().head().type() == Formula::Element::kNot) {
+      //  os << "\u2200" << phi.arg().head().var().val << phi.arg().arg().arg();
+      //} else {
         os << "\u00AC" << phi.arg();
-      }
+      //}
       break;
     case Formula::Element::kOr:
       os << '(' << phi.left() << ' ' << "\u2228" << ' ' << phi.right() << ')';
@@ -195,67 +191,87 @@ std::ostream& operator<<(std::ostream& os, const Formula& phi) {
   return os;
 }
 
+template<typename Iter>
+std::ostream& print_sequence(std::ostream& os,
+                             Iter begin,
+                             Iter end,
+                             const char* pre,
+                             const char* post,
+                             const char* sep) {
+  bool first = true;
+  os << pre;
+  for (auto it = begin; it != end; ++it) {
+    if (!first) {
+      os << sep;
+    }
+    os << *it;
+    first = false;
+  }
+  os << post;
+  return os;
+}
 }  // namespace output
 
 
 namespace input {
 
-class Context {
+class HiSymbol;
+class HiTerm;
+class Context;
+
+class HiTerm : public Term {
  public:
-  class Term;
-  class Formula;
-
-  class Symbol : public lela::Symbol {
-   public:
-    Symbol(Context* ctx, lela::Symbol s) : lela::Symbol(s), ctx_(ctx) {}
-
-    template<typename... Args>
-    Term operator()(Args... args) const { return Term(ctx_->tf()->CreateTerm(*this, lela::Term::Vector({args...}))); }
-
-   private:
-    Context* const ctx_;
-  };
-
-  class Term : public lela::Term {
-   public:
-    explicit Term(lela::Term t) : lela::Term(t) {}
-  };
-
-  class Formula : public lela::Formula {
-   public:
-    Formula(lela::Literal l) : Formula(lela::Clause({l})) {}
-    Formula(const lela::Clause& c) : Formula(lela::Formula::Clause(c)) {}
-    Formula(const lela::Formula& phi) : lela::Formula(phi) {}
-  };
-
-  Symbol::Sort NewSort() { return sf()->CreateSort(); }
-  Term NewName(Symbol::Sort sort) { return Term(tf()->CreateTerm(Symbol(this, sf()->CreateName(sort)))); }
-  Term NewVar(Symbol::Sort sort) { return Term(tf()->CreateTerm(Symbol(this, sf()->CreateVariable(sort)))); }
-  Symbol NewFun(Symbol::Sort sort, Symbol::Arity arity) { return Symbol(this, sf()->CreateFunction(sort, arity)); }
-
- private:
-  lela::Symbol::Factory* sf() { return &sf_; }
-  lela::Term::Factory* tf() { return &tf_; }
-
-  lela::Symbol::Factory sf_;
-  lela::Term::Factory tf_;
+  explicit HiTerm(Term t) : Term(t) {}
 };
 
-inline Context::Formula operator==(Context::Term t1, Context::Term t2) { return Context::Formula(Literal::Eq(t1, t2)); }
-inline Context::Formula operator!=(Context::Term t1, Context::Term t2) { return Context::Formula(Literal::Neq(t1, t2)); }
+class HiSymbol : public Symbol {
+ public:
+  HiSymbol(Term::Factory* tf, Symbol s) : Symbol(s), tf_(tf) {}
 
-inline Context::Formula operator~(const Context::Formula& phi) { return lela::Formula::Not(phi); }
-inline Context::Formula operator!(const Context::Formula& phi) { return ~phi; }
-inline Context::Formula operator||(const Context::Formula& phi, const Context::Formula& psi) { return lela::Formula::Or(phi, psi); }
-inline Context::Formula operator&&(const Context::Formula& phi, const Context::Formula& psi) { return ~(~phi || ~psi); }
+  template<typename... Args>
+  HiTerm operator()(Args... args) const { return HiTerm(tf_->CreateTerm(*this, Term::Vector({args...}))); }
 
-inline Context::Formula operator>>(const Context::Formula& phi, const Context::Formula& psi) { return (~phi || psi); }
-inline Context::Formula operator<<(const Context::Formula& phi, const Context::Formula& psi) { return (phi || ~psi); }
+ private:
+  Term::Factory* const tf_;
+};
 
-inline Context::Formula operator==(const Context::Formula& phi, const Context::Formula& psi) { return (phi >> psi) && (phi << psi); }
+class HiFormula : public Formula {
+ public:
+  HiFormula(Literal l) : HiFormula(Clause({l})) {}
+  HiFormula(const lela::Clause& c) : HiFormula(Formula::Clause(c)) {}
+  HiFormula(const Formula& phi) : Formula(phi) {}
+};
 
-inline Context::Formula Ex(Term x, const Context::Formula& phi) { return lela::Formula::Exists(x, phi); }
-inline Context::Formula Fa(Term x, const Context::Formula& phi) { return ~Ex(x, ~phi); }
+class Context {
+ public:
+  Symbol::Sort NewSort() { return sf()->CreateSort(); }
+  HiTerm NewName(Symbol::Sort sort) { return HiTerm(tf()->CreateTerm(sf()->CreateName(sort))); }
+  HiTerm NewVar(Symbol::Sort sort) { return HiTerm(tf()->CreateTerm(sf()->CreateVariable(sort))); }
+  HiSymbol NewFun(Symbol::Sort sort, Symbol::Arity arity) { return HiSymbol(tf(), sf()->CreateFunction(sort, arity)); }
+
+ private:
+  Symbol::Factory* sf() { return &sf_; }
+  Term::Factory* tf() { return &tf_; }
+
+  Symbol::Factory sf_;
+  Term::Factory tf_;
+};
+
+inline HiFormula operator==(HiTerm t1, HiTerm t2) { return HiFormula(Literal::Eq(t1, t2)); }
+inline HiFormula operator!=(HiTerm t1, HiTerm t2) { return HiFormula(Literal::Neq(t1, t2)); }
+
+inline HiFormula operator~(const HiFormula& phi) { return Formula::Not(phi); }
+inline HiFormula operator!(const HiFormula& phi) { return ~phi; }
+inline HiFormula operator||(const HiFormula& phi, const HiFormula& psi) { return Formula::Or(phi, psi); }
+inline HiFormula operator&&(const HiFormula& phi, const HiFormula& psi) { return ~(~phi || ~psi); }
+
+inline HiFormula operator>>(const HiFormula& phi, const HiFormula& psi) { return (~phi || psi); }
+inline HiFormula operator<<(const HiFormula& phi, const HiFormula& psi) { return (phi || ~psi); }
+
+inline HiFormula operator==(const HiFormula& phi, const HiFormula& psi) { return (phi >> psi) && (phi << psi); }
+
+inline HiFormula Ex(HiTerm x, const HiFormula& phi) { return Formula::Exists(x, phi); }
+inline HiFormula Fa(HiTerm x, const HiFormula& phi) { return ~Ex(x, ~phi); }
 
 }  // namespace input
 

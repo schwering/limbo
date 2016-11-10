@@ -70,8 +70,8 @@ class IntMap : public std::vector<T> {
   iterator begin() { typename iterator::iterator it = parent::begin(); return iterator(*this, it); }
   iterator end()   { typename iterator::iterator it = parent::end(); return iterator(*this, it); }
 
-  const_iterator cbegin() const { typename const_iterator::iterator it = parent::cbegin(); return const_iterator(*this, it); }
-  const_iterator cend()   const { typename const_iterator::iterator it = parent::cend(); return const_iterator(*this, it); }
+  const_iterator cbegin() const { return const_iterator(*this, parent::cbegin()); }
+  const_iterator cend()   const { return const_iterator(*this, parent::cend()); }
 
   const_iterator begin() const { return cbegin(); }
   const_iterator end()   const { return cend(); }

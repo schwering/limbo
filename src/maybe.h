@@ -50,30 +50,6 @@ struct Maybe<T> {
   T val;
 };
 
-template<typename T1, typename T2>
-struct Maybe<T1, T2> {
-  Maybe()                                                                           : succ(false) {}  // NOLINT
-  explicit Maybe(T1&& val1, T2&& val2)                                              : succ(true), val1(val1), val2(val2) {}  // NOLINT
-  template<typename U1, typename U2> explicit Maybe(const U1& val1, const U2& val2) : succ(true), val1(val1), val2(val2) {}  // NOLINT
-  Maybe(bool succ, T1&& val1, T2&& val2)                                            : succ(succ), val1(val1), val2(val2) {}  // NOLINT
-
-  Maybe(const Maybe&) = default;
-  Maybe(Maybe&&) = default;
-  Maybe& operator=(Maybe&) = default;
-  Maybe& operator=(Maybe&&) = default;
-
-  template<typename U1, typename U2> Maybe(const Maybe<U1, U2>& m)       : succ(m.succ), val1(m.val1), val2(m.val2) {}  // NOLINT
-  template<typename U1, typename U2> Maybe(Maybe<U1, U2>&& m)            : succ(m.succ), val1(m.val1), val2(m.val2) {}  // NOLINT
-  template<typename U1, typename U2> Maybe& operator=(Maybe<U1, U2>& m)  { succ = m.succ; val1 = m.val1; val2 = m.val2; return *this; }  // NOLINT
-  template<typename U1, typename U2> Maybe& operator=(Maybe<U1, U2>&& m) { succ = m.succ; val1 = m.val1; val2 = m.val2; return *this; }  // NOLINT
-
-  operator bool() const { return succ; }
-
-  bool succ;
-  T1 val1;
-  T2 val2;
-};
-
 struct NothingType {
   template<typename... Types>
   operator Maybe<Types...>() const {

@@ -23,18 +23,22 @@ TEST(Input, general) {
   {
     Formula phi = Ex(x, John() == x);
     std::cout << phi << std::endl;
+    std::cout << phi.reader().NF() << std::endl;
   }
   {
     Formula phi = Fa(x, John() == x);
     std::cout << phi << std::endl;
+    std::cout << phi.reader().NF() << std::endl;
   }
   {
     Formula phi = Fa(x, IsParentOf(Mother(x), x) == True && IsParentOf(Father(x), x) == True);
     std::cout << phi << std::endl;
+    std::cout << phi.reader().NF() << std::endl;
   }
   {
     Formula phi = Fa(x, IsParentOf(x, y) == True && IsParentOf(Father(x), x) == True);
     std::cout << phi << std::endl;
+    std::cout << phi.reader().NF() << std::endl;
   }
 }
 

@@ -37,22 +37,26 @@ class Clause {
 
   Clause() = default;
   Clause(std::initializer_list<Literal> lits) : lits_(lits) { Minimize(); }
+  template<typename Iter>
+  Clause(Iter begin, Iter end) : lits_(begin, end) { Minimize(); }
 
   bool operator==(const Clause& c) const { return bloom_ == c.bloom_ && lits_ == c.lits_; }
   bool operator!=(const Clause& c) const { return !(*this == c); }
 
-  const_iterator begin() const { return lits_.begin(); }
-  const_iterator end() const { return lits_.end(); }
+  const_iterator cbegin() const { return lits_.begin(); }
+  const_iterator cend()   const { return lits_.end(); }
 
-  bool empty() const { return lits_.empty(); }
-  size_t size() const { return lits_.size(); }
-  bool unit() const { return size() == 1; }
+  const_iterator begin() const { return cbegin(); }
+  const_iterator end()   const { return cend(); }
+
+  bool   empty() const { return lits_.empty(); }
+  bool   unit()  const { return size() == 1; }
+  size_t size()  const { return lits_.size(); }
 
   bool valid()   const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
 
-  bool Subsumes(const Clause& c) const {
-    if (!BloomFilter::Subset(bloom_, c.bloom_)) {
+  bool Subsumes(const Clause& c) const { if (!BloomFilter::Subset(bloom_, c.bloom_)) {
       return false;
     }
     for (Literal a : *this) {
@@ -89,7 +93,8 @@ class Clause {
   Clause Substitute(UnaryFunction theta, Term::Factory* tf) const {
     Clause c;
     c.lits_.reserve(size());
-    std::transform(begin(), end(), std::back_inserter(c.lits_), [theta, tf](Literal a) { return a.Substitute(theta, tf); });
+    std::transform(begin(), end(), std::back_inserter(c.lits_),
+                   [theta, tf](Literal a) { return a.Substitute(theta, tf); });
     c.Minimize();
     return c;
   }

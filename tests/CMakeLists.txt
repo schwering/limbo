@@ -7,12 +7,10 @@ include_directories (${GTEST_INCLUDE_DIRS})
 enable_testing ()
 
 foreach (test term bloom literal clause setup formula grounder input)
-	add_executable (${test}_test ${test}_test.cc)
-	target_link_libraries (${test}_test LINK_PUBLIC LELA ${GTEST_BOTH_LIBRARIES} pthread)
-	add_test (NAME ${test}_test COMMAND ${test}_test)
+	add_executable (${test} ${test}.cc)
+	target_link_libraries (${test} LINK_PUBLIC LELA ${GTEST_BOTH_LIBRARIES} pthread)
+	add_test (NAME ${test} COMMAND ${test})
 endforeach()
 
 #target_link_libraries (setup_test LINK_PUBLIC BATS)
-#target_link_libraries (setup_test LINK_PUBLIC BATS)
-#target_link_libraries (formula_test LINK_PUBLIC BATS)
 

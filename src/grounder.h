@@ -151,7 +151,11 @@ class Grounder {
         meta_iter_ = assignment_.end();
       }
 
-      bool operator==(const assignment_iterator& it) const { return names_ == it.names_ && (names_ == nullptr || (assignment_ == it.assignment_ && *meta_iter_ == *it.meta_iter_)); }
+      bool operator==(const assignment_iterator& it) const {
+        return names_ == it.names_ &&
+              (names_ == nullptr || (assignment_ == it.assignment_ &&
+                                     *meta_iter_ == *it.meta_iter_));
+      }
       bool operator!=(const assignment_iterator& it) const { return !(*this == it); }
 
       const Assignment& operator*() const { return assignment_; }
@@ -203,14 +207,23 @@ class Grounder {
   template<typename T>
   static SortedNames MentionedNames(const T& obj) {
     SortedNames names;
-    obj.Traverse([&names](Term t) { if (t.name()) { names.insert(std::make_pair(t.symbol().sort(), t)); } return true; });
+    obj.Traverse([&names](Term t) {
+      if (t.name()) {
+        names.insert(std::make_pair(t.symbol().sort(), t));
+      }
+      return true;
+    });
     return names;
   }
 
   template<typename UnaryPredicate, typename T>
   static TermSet MentionedTerms(const UnaryPredicate p, const T& obj) {
     TermSet terms;
-    obj.Traverse([p, &terms](Term t) { if (p(t)) { terms.push_back(t); } return true; });
+    obj.Traverse([p, &terms](Term t) {
+      if (p(t)) {
+        terms.push_back(t);
+      } return true;
+    });
     MakeSet(&terms);
     return terms;
   }

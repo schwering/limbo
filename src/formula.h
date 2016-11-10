@@ -11,7 +11,9 @@
 // Elements are immutable.
 //
 // Readers are glorified range objects; their behaviour is only defined while
-// the owning Formula is alive.
+// the owning Formula is alive. NF() implements a normal form similar to
+// negation normal form which however preserves clauses (and it turns
+// clauses that are not explicitly represented as such into ones).
 //
 // Internally it's stored in Polish notation as a list of Element objects.
 // Element would be a union if C++ would allow non-trivial types in unions.
@@ -85,6 +87,69 @@ class Formula {
 
     Formula Build() const { return Formula(*this); }
 
+    Formula NF() const {
+      switch (head().type()) {
+        case Element::kClause: {
+          return Formula(*this);
+        }
+        case Element::kOr: {
+          Formula phi = left().NF();
+          Formula psi = right().NF();
+          auto phi_q = phi.reader().quantifiers();
+          auto psi_q = psi.reader().quantifiers();
+          Reader phi_r = Reader(phi_q.end());
+          Reader psi_r = Reader(psi_q.end());
+          if (phi_r.head().type() == Element::kClause && (phi_q.even() || phi_r.head().clause().val.unit()) &&
+              psi_r.head().type() == Element::kClause && (psi_q.even() || psi_r.head().clause().val.unit())) {
+            std::list<Element> phi_p(phi_q.begin(), phi_q.end());
+            std::list<Element> psi_p(psi_q.begin(), psi_q.end());
+            lela::Clause phi_c = phi_r.head().clause().val;
+            lela::Clause psi_c = psi_r.head().clause().val;
+            if (!phi_q.even()) {
+              assert(phi_c.unit());
+              phi_p.push_back(Element::Not());
+              phi_c = lela::Clause({phi_c.cbegin()->flip()});
+            }
+            if (!psi_q.even()) {
+              assert(psi_c.unit());
+              psi_p.push_back(Element::Not());
+              psi_c = lela::Clause({psi_c.cbegin()->flip()});
+            }
+            auto ls = join(phi_c.cbegin(), phi_c.cend(), psi_c.cbegin(), psi_c.cend());
+            const lela::Clause c(ls.begin(), ls.end());
+            Formula r;
+            r.es_.push_front(Element::Clause(c));
+            r.es_.splice(r.es_.begin(), psi_p);
+            r.es_.splice(r.es_.begin(), phi_p);
+            return r;
+          } else {
+            return Or(phi, psi);
+          }
+        }
+        case Element::kExists: {
+          return Exists(head().var().val, arg().NF());
+        }
+        case Element::kNot: {
+          switch (arg().head().type()) {
+            case Element::kClause: {
+              const lela::Clause c = arg().head().clause().val;
+              if (c.unit()) {
+                return Clause(lela::Clause({c.begin()->flip()}));
+              } else {
+                return Clause(c);
+              }
+            }
+            case Element::kOr:
+              return Not(arg().NF());
+            case Element::kNot:
+              return arg().arg().NF();
+            case Element::kExists:
+              return Not(Exists(arg().head().var().val, arg().arg().NF()));
+          }
+        }
+      }
+    }
+
     template<typename UnaryFunction>
     struct SubstituteElement {
       SubstituteElement() = default;
@@ -105,7 +170,8 @@ class Formula {
     };
 
     template<typename UnaryFunction>
-    Reader<transform_iterator<SubstituteElement<UnaryFunction>, Iter>> Substitute(UnaryFunction theta, Term::Factory* tf) const {
+    Reader<transform_iterator<SubstituteElement<UnaryFunction>, Iter>>
+    Substitute(UnaryFunction theta, Term::Factory* tf) const {
       typedef transform_iterator<SubstituteElement<UnaryFunction>, Iter> iterator;
       iterator it = iterator(SubstituteElemen(theta, tf), begin());
       return Reader<iterator>(it);
@@ -121,6 +187,28 @@ class Formula {
           case Element::kExists: e.var().val.Traverse(f); break;
         }
       }
+    }
+
+    struct QuantifierPrefix {
+      QuantifierPrefix(Iter begin, Iter end) : begin_(begin), end_(end) {}
+
+      Iter begin() const { return begin_; }
+      Iter end()   const { return end_; }
+
+      bool even() const {
+        return std::count_if(begin(), end(), [](const Element& e) { return e.type() == Element::kNot; }) % 2 == 0;
+      }
+
+     private:
+      Iter begin_;
+      Iter end_;
+    };
+
+    QuantifierPrefix quantifiers() const {
+      auto last = std::find_if_not(begin(), end(), [](const Element& e) {
+        return e.type() == Element::kNot || e.type() == Element::kExists;
+      });
+      return QuantifierPrefix(begin(), last);
     }
 
    private:
@@ -141,7 +229,7 @@ class Formula {
     Iter end_;
   };
 
-  static Formula Clause(const Clause& c) { return Atomic(Element::Clause(c)); }
+  static Formula Clause(const lela::Clause& c) { return Atomic(Element::Clause(c)); }
   static Formula Not(const Formula& phi) { return Unary(Element::Not(), phi); }
   static Formula Or(const Formula& phi, const Formula& psi) { return Binary(Element::Or(), phi, psi); }
   static Formula Exists(Term var, const Formula& phi) { return Unary(Element::Exists(var), phi); }
@@ -170,9 +258,9 @@ class Formula {
 
   static Formula Binary(Element op, Formula s, Formula r) {
     assert(op.type() == Element::kOr);
-    s.es_.splice(s.es_.end(), r.es_);
-    s.es_.push_front(op);
-    return s;
+    r.es_.splice(r.es_.begin(), s.es_);
+    r.es_.push_front(op);
+    return r;
   }
 
   Formula() = default;
