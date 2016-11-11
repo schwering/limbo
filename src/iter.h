@@ -46,8 +46,8 @@ struct nested_iterator {
   typedef std::ptrdiff_t difference_type;
   typedef typename ContIter::value_type::value_type iterator_type;
   typedef typename iterator_type::value_type value_type;
-  typedef value_type* pointer;
-  typedef value_type& reference;
+  typedef typename iterator_type::pointer pointer;
+  typedef typename iterator_type::reference reference;
   typedef std::input_iterator_tag iterator_category;
 
   nested_iterator() = default;
@@ -65,7 +65,7 @@ struct nested_iterator {
   }
   bool operator!=(nested_iterator it) const { return !(*this == it); }
 
-  value_type operator*() const {
+  reference operator*() const {
     assert(cont_first_ != cont_last_);
     assert((*cont_first_).begin() != (*cont_first_).end());
     return *iter_;
@@ -163,8 +163,8 @@ struct joined {
   struct iter {
     typedef std::ptrdiff_t difference_type;
     typedef typename Iter1::value_type value_type;
-    typedef value_type* pointer;
-    typedef value_type& reference;
+    typedef typename Iter1::pointer pointer;
+    typedef typename Iter1::reference reference;
     typedef std::input_iterator_tag iterator_category;
 
     iter() = default;
@@ -173,7 +173,7 @@ struct joined {
     bool operator==(const iter& it) const { return it1_ == it.it1_ && it2_ == it.it2_; }
     bool operator!=(const iter& it) const { return !(*this == it); }
 
-    value_type operator*() const { return it1_ != end1_ ? *it1_ : *it2_; }
+    reference operator*() const { return it1_ != end1_ ? *it1_ : *it2_; }
 
     iter& operator++() {
       if (it1_ != end1_)  ++it1_;

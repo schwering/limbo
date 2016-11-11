@@ -500,7 +500,7 @@ class Setup {
 
   // del_ masks all deleted clauses; the number is global, because a clause
   // active in the parent setup may be inactive in this one.
-  IntMap<Index, bool, false> del_;
+  IntMap<Index, bool> del_;
 };
 
 }  // namespace lela

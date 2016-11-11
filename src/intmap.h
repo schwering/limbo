@@ -3,7 +3,9 @@
 //
 // A map from positive integers to some other type. The key integers are assumed
 // to be small and sparse, as their size corresponds to the size of the
-// underlying array.
+// underlying array. Unset values are implicitly set to a null value, which by
+// default is T(), which amounts to 0 for integers and false for bools; the
+// value can be changed by set_null_value().
 
 #ifndef SRC_INTMAP_H_
 #define SRC_INTMAP_H_
@@ -16,7 +18,7 @@
 
 namespace lela {
 
-template<typename Key, typename T, T NULL_VALUE = T()>
+template<typename Key, typename T>
 class IntMap : public std::vector<T> {
  public:
   typedef std::vector<T> parent;
@@ -26,21 +28,20 @@ class IntMap : public std::vector<T> {
    public:
     typedef Iter iterator;
     typedef std::ptrdiff_t difference_type;
-    typedef std::pair<const Key, typename Iter::value_type> value_type;
+    typedef std::pair<const Key, typename Iter::pointer> value_type;
     typedef value_type* pointer;
     typedef value_type& reference;
     typedef std::input_iterator_tag iterator_category;
 
     gen_iterator() {}
-    explicit gen_iterator(const IntMap<Key, T>& owner, Iter it) : iter_(it) {
-      Iter first = owner.parent::begin();
-      index_ = static_cast<Key>(std::distance(first, it));
+    explicit gen_iterator(Iter begin, Iter offset) : iter_(offset) {
+      index_ = static_cast<Key>(std::distance(begin, offset));
     }
 
     bool operator==(gen_iterator it) const { return index_ == it.index_ && iter_ == it.iter_; }
     bool operator!=(gen_iterator it) const { return !(*this == it); }
 
-    value_type operator*() const { return std::make_pair(index_, *iter_); }
+    value_type operator*() const { return std::make_pair(index_, &*iter_); }
 
     gen_iterator& operator++() { ++index_; ++iter_; return *this; }
 
@@ -53,6 +54,8 @@ class IntMap : public std::vector<T> {
   typedef gen_iterator<typename parent::const_iterator> const_iterator;
 
   using std::vector<T>::vector;
+
+  void set_null_value(const T& null) { null_ = null; }
 
   typename parent::reference operator[](Key pos) {
     typename parent::size_type pos_int = static_cast<typename parent::size_type>(pos);
@@ -67,14 +70,33 @@ class IntMap : public std::vector<T> {
     return pos_int < parent::size() ? parent::operator[](pos_int) : null_;
   }
 
-  iterator begin() { typename iterator::iterator it = parent::begin(); return iterator(*this, it); }
-  iterator end()   { typename iterator::iterator it = parent::end(); return iterator(*this, it); }
+  iterator begin() { return iterator(parent::begin(), parent::begin()); }
+  iterator end()   { return iterator(parent::end(), parent::end()); }
 
-  const_iterator cbegin() const { return const_iterator(*this, parent::cbegin()); }
-  const_iterator cend()   const { return const_iterator(*this, parent::cend()); }
+  const_iterator cbegin() const { return const_iterator(parent::cbegin(), parent::cbegin()); }
+  const_iterator cend()   const { return const_iterator(parent::cend(), parent::cend()); }
 
   const_iterator begin() const { return cbegin(); }
   const_iterator end()   const { return cend(); }
+
+  struct Keys {
+    struct Value {
+      explicit Value(Key k) : k_(k) {}
+      Key operator()() const { return k_; }
+     private:
+      Key k_;
+    };
+
+    explicit Keys(const IntMap* owner) : owner_(owner) {}
+
+    incr_iterator<Value> begin() const { return incr_iterator<Value>(Value(0)); }
+    incr_iterator<Value> end() const { return incr_iterator<Value>(Value(owner_->size())); }
+
+   private:
+    const IntMap* owner_;
+  };
+
+  Keys keys() const { return Keys(this); }
 
   template<typename BinaryFunction>
   static IntMap Zip(const IntMap& m1, const IntMap& m2, BinaryFunction f) {
@@ -95,7 +117,7 @@ class IntMap : public std::vector<T> {
   }
 
  protected:
-  T null_ = NULL_VALUE;
+  T null_ = T();
 };
 
 }  // namespace lela

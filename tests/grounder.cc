@@ -26,10 +26,10 @@ TEST(Grounder, general) {
   const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
   const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));
   const Term x3 = tf.CreateTerm(sf.CreateVariable(s2));
-  const Term x4 = tf.CreateTerm(sf.CreateVariable(s2));
+  //const Term x4 = tf.CreateTerm(sf.CreateVariable(s2));
   const Symbol a = sf.CreateFunction(s1, 0);
   const Symbol f = sf.CreateFunction(s1, 1);
-  const Symbol g = sf.CreateFunction(s2, 1);
+  //const Symbol g = sf.CreateFunction(s2, 1);
   const Symbol h = sf.CreateFunction(s2, 2);
   //const Symbol i = sf.CreateFunction(s2, 2);
   //const Term c1 = tf.CreateTerm(a, {});
@@ -191,14 +191,14 @@ TEST(Grounder, general) {
     //std::cout << phi << std::endl;
     //std::cout << names << std::endl;
     //std::cout << terms << std::endl;
-    EXPECT_EQ(names.size(), 3);
-    EXPECT_EQ(length(names.equal_range(n1.symbol().sort())), 2);
-    EXPECT_EQ(length(names.equal_range(x3.symbol().sort())), 1);
-    EXPECT_EQ(length(names.equal_range(a.sort())), 2);
-    EXPECT_EQ(length(names.equal_range(f.sort())), 2);
-    EXPECT_EQ(length(names.equal_range(h.sort())), 1);
-    Term nx3 = names.find(x3.symbol().sort())->second;
-    Term nSplit = std::next(names.find(a.sort()))->second;
+    EXPECT_EQ(names.size(), 2);
+    EXPECT_EQ(names[n1.symbol().sort()].size(), 2);
+    EXPECT_EQ(names[x3.symbol().sort()].size(), 1);
+    EXPECT_EQ(names[a.sort()].size(), 2);
+    EXPECT_EQ(names[f.sort()].size(), 2);
+    EXPECT_EQ(names[h.sort()].size(), 1);
+    Term nx3 = *names[x3.symbol().sort()].begin();
+    Term nSplit = *std::next(names[a.sort()].begin());
     EXPECT_EQ(std::set<Term>(terms.begin(), terms.end()),
               std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(f, {n1}), tf.CreateTerm(f, {nSplit}), tf.CreateTerm(h, {n1, nx3})}));
   }

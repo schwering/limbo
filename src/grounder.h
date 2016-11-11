@@ -23,8 +23,8 @@ namespace lela {
 
 class Grounder {
  public:
-  typedef std::multimap<Symbol::Sort, Term> SortedNames;
   typedef std::vector<Term> TermSet;
+  typedef IntMap<Symbol::Sort, TermSet> SortedNames;
 
   explicit Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
 
@@ -96,19 +96,36 @@ class Grounder {
   }
 
  private:
-  typedef IntMap<Symbol::Sort, size_t, 0> PlusMap;
+  typedef IntMap<Symbol::Sort, size_t> PlusMap;
 
   struct Assignments {
-    typedef SortedNames::const_iterator name_iterator;
-    typedef std::pair<name_iterator, name_iterator> name_range;
+    struct NameRange {
+      NameRange() = default;
+      explicit NameRange(const TermSet* names) : names_(names) { Reset(); }
+
+      bool operator==(const NameRange r) const { return names_ == r.names_ && begin_ == r.begin_; }
+      bool operator!=(const NameRange r) const { return !(*this == r); }
+
+      TermSet::const_iterator begin() const { return begin_; }
+      TermSet::const_iterator end()   const { return names_->end(); }
+
+      bool empty() const { return begin_ == names_->end(); }
+
+      void Reset() { begin_ = names_->begin(); }
+      void Next() { ++begin_; }
+
+     private:
+      const TermSet* names_;
+      TermSet::const_iterator begin_;
+    };
 
     struct Assignment {
       Maybe<Term> operator()(Term v) const {
         auto it = map_.find(v);
         if (it != map_.end()) {
           auto r = it->second;
-          assert(r.first != r.second);
-          const Term& name = r.first->second;
+          assert(!r.empty());
+          const Term name = *r.begin();
           assert(name.name());
           return Just(name);
         } else {
@@ -119,18 +136,18 @@ class Grounder {
       bool operator==(const Assignment& a) const { return map_ == a.map_; }
       bool operator!=(const Assignment& a) const { return !(*this == a); }
 
-      name_range& operator[](Term t) { return map_[t]; }
+      NameRange& operator[](Term t) { return map_[t]; }
 
-      std::map<Term, name_range>::iterator begin() { return map_.begin(); }
-      std::map<Term, name_range>::iterator end() { return map_.end(); }
+      std::map<Term, NameRange>::iterator begin() { return map_.begin(); }
+      std::map<Term, NameRange>::iterator end() { return map_.end(); }
 
      private:
-      std::map<Term, name_range> map_;
+      std::map<Term, NameRange> map_;
     };
 
     struct assignment_iterator {
       typedef std::ptrdiff_t difference_type;
-      typedef Assignment value_type;
+      typedef const Assignment value_type;
       typedef value_type* pointer;
       typedef value_type& reference;
       typedef std::input_iterator_tag iterator_category;
@@ -142,11 +159,10 @@ class Grounder {
       assignment_iterator(const SortedNames* names, const TermSet& vars) : names_(names) {
         for (const Term var : vars) {
           assert(var.symbol().variable());
-          const name_range r = names_->equal_range(var.symbol().sort());
-          assert(r.first != r.second);
-          assert(var.symbol().sort() == r.first->first);
-          assert(var.symbol().sort() == r.first->second.symbol().sort());
+          NameRange r(&((*names_)[var.symbol().sort()]));
           assignment_[var] = r;
+          assert(!r.empty());
+          assert(var.symbol().sort() == r.begin()->symbol().sort());
         }
         meta_iter_ = assignment_.end();
       }
@@ -158,22 +174,21 @@ class Grounder {
       }
       bool operator!=(const assignment_iterator& it) const { return !(*this == it); }
 
-      const Assignment& operator*() const { return assignment_; }
+      reference operator*() const { return assignment_; }
 
       assignment_iterator& operator++() {
         for (meta_iter_ = assignment_.begin(); meta_iter_ != assignment_.end(); ++meta_iter_) {
           const Term var = meta_iter_->first;
-          name_range& r = meta_iter_->second;
+          NameRange& r = meta_iter_->second;
           assert(var.symbol().variable());
-          assert(r.first != r.second);
-          ++r.first;
-          if (r.first != r.second) {
+          assert(!r.empty());
+          r.Next();
+          if (!r.empty()) {
             break;
           } else {
-            r.first = names_->lower_bound(var.symbol().sort());
-            assert(r.first != r.second);
-            assert(var.symbol().sort() == r.first->first);
-            assert(var.symbol().sort() == r.first->second.symbol().sort());
+            r.Reset();
+            assert(!r.empty());
+            assert(var.symbol().sort() == r.begin()->symbol().sort());
           }
         }
         if (meta_iter_ == assignment_.end()) {
@@ -186,7 +201,7 @@ class Grounder {
      private:
       const SortedNames* names_ = nullptr;
       Assignment assignment_;
-      std::map<Term, name_range>::iterator meta_iter_;
+      std::map<Term, NameRange>::iterator meta_iter_;
     };
 
     Assignments(const SortedNames* names, const TermSet* vars) : names_(names), vars_(vars) {}
@@ -209,10 +224,13 @@ class Grounder {
     SortedNames names;
     obj.Traverse([&names](Term t) {
       if (t.name()) {
-        names.insert(std::make_pair(t.symbol().sort(), t));
+        names[t.symbol().sort()].push_back(t);
       }
       return true;
     });
+    for (const Symbol::Sort sort : names.keys()) {
+      MakeSet(&names[sort]);
+    }
     return names;
   }
 
@@ -247,10 +265,8 @@ class Grounder {
     // PlusNames() computes p for a given clause; it is hence p+1 where p
     // is the number of variables in that clause. To avoid unnecessary
     // grounding, we leave p=0 in case there are no variables.
-    for (auto p : const_cast<const PlusMap&>(plus)) {
-      const Symbol::Sort sort = p.first;
-      const size_t n = p.second;
-      if (n > 0) {
+    for (const Symbol::Sort sort : plus.keys()) {
+      if (plus[sort] > 0) {
         ++plus[sort];
       }
     }
@@ -331,17 +347,20 @@ class Grounder {
   }
 
   void AddMentionedNames(const SortedNames& names) {
-    names_.insert(names.begin(), names.end());
+    for (const Symbol::Sort sort : names.keys()) {
+      names_[sort].insert(names_[sort].end(), names[sort].begin(), names[sort].end());
+      MakeSet(&names_[sort]);
+    }
   }
 
   void AddPlusNames(const PlusMap& plus) {
-    for (auto p : plus) {
-      const Symbol::Sort sort = p.first;
-      size_t n = p.second;
+    for (const Symbol::Sort sort : plus.keys()) {
+      size_t n = plus[sort];
       if (plus_[sort] < n) {
         plus_[sort] = n;
         while (n-- > 0) {
-          names_.insert(std::make_pair(sort, tf_->CreateTerm(sf_->CreateName(sort))));
+          names_[sort].push_back(tf_->CreateTerm(sf_->CreateName(sort)));
+          // no MakeSet needed because the newly added names are newly created
         }
       }
     }
@@ -356,8 +375,8 @@ class Grounder {
   PlusMap plus_;
   TermSet splits_;
   SortedNames names_;
-  Symbol::Factory* sf_;
-  Term::Factory* tf_;
+  Symbol::Factory* const sf_;
+  Term::Factory* const tf_;
 };
 
 }  // namespace lela

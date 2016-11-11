@@ -10,7 +10,9 @@ using namespace input;
 using namespace output;
 
 TEST(Input, general) {
-  Context ctx;
+  Symbol::Factory sf;
+  Term::Factory tf;
+  Context ctx(&sf, &tf);
   auto Bool = ctx.NewSort();
   auto True = ctx.NewName(Bool);
   auto HUMAN = ctx.NewSort();

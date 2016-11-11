@@ -244,17 +244,19 @@ class HiFormula : public Formula {
 
 class Context {
  public:
+  Context(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
+
   Symbol::Sort NewSort() { return sf()->CreateSort(); }
   HiTerm NewName(Symbol::Sort sort) { return HiTerm(tf()->CreateTerm(sf()->CreateName(sort))); }
   HiTerm NewVar(Symbol::Sort sort) { return HiTerm(tf()->CreateTerm(sf()->CreateVariable(sort))); }
   HiSymbol NewFun(Symbol::Sort sort, Symbol::Arity arity) { return HiSymbol(tf(), sf()->CreateFunction(sort, arity)); }
 
  private:
-  Symbol::Factory* sf() { return &sf_; }
-  Term::Factory* tf() { return &tf_; }
+  Symbol::Factory* sf() { return sf_; }
+  Term::Factory* tf() { return tf_; }
 
-  Symbol::Factory sf_;
-  Term::Factory tf_;
+  Symbol::Factory* const sf_;
+  Term::Factory* const tf_;
 };
 
 inline HiFormula operator==(HiTerm t1, HiTerm t2) { return HiFormula(Literal::Eq(t1, t2)); }
