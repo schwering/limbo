@@ -256,7 +256,6 @@ class Setup {
 
   struct PrimitiveTerms {
     struct TermPairs {
-      typedef TermMap::const_iterator value_type;
       explicit TermPairs(const Setup* owner) : owner_(owner) {}
       TermMap::const_iterator begin() const { assert(owner_); return owner_->occurs_.begin(); }
       TermMap::const_iterator end()   const { assert(owner_); return owner_->occurs_.end(); }
@@ -323,7 +322,6 @@ class Setup {
 
   struct ClausesWith {
     struct TermPairs {
-      typedef TermMap::const_iterator value_type;
       TermPairs(const Setup* owner, Term t) : owner_(owner), term_(t) {}
       TermMap::const_iterator begin() const { assert(owner_); return owner_->occurs_.lower_bound(term_); }
       TermMap::const_iterator end()   const { assert(owner_); return owner_->occurs_.upper_bound(term_); }

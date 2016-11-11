@@ -44,7 +44,10 @@ template<typename ContIter>
 struct nested_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
-  typedef typename ContIter::value_type::value_type iterator_type;
+  typedef typename ContIter::value_type container_type;
+  //typedef typename container_type::const_iterator iterator_type;
+  //typedef typename std::result_of<decltype(&container_type::begin)(container_type)>::type iterator_type;
+  typedef decltype(std::declval<container_type>().begin()) iterator_type;
   typedef typename iterator_type::value_type value_type;
   typedef typename iterator_type::pointer pointer;
   typedef typename iterator_type::reference reference;

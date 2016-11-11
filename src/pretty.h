@@ -26,6 +26,23 @@ namespace lela {
 
 namespace output {
 
+typedef std::map<Symbol, std::string, Symbol::Comparator> SymbolMap;
+
+inline SymbolMap* symbol_map() {
+  static SymbolMap map;
+  return &map;
+}
+
+inline void RegisterSymbol(Symbol s, const std::string& n) {
+  (*symbol_map())[s] = n;
+}
+
+inline Maybe<std::string> LookupSymbol(Symbol s) {
+  auto it = symbol_map()->find(s);
+  if (it != symbol_map()->end()) return Just(it->second);
+  else                           return Nothing;
+}
+
 template<typename T1, typename T2>
 std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p) {
   os << "(" << p.first << ", " << p.second << ")";
@@ -107,14 +124,19 @@ std::ostream& operator<<(std::ostream& os, const Maybe<T1, T2>& m) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Symbol s) {
-  if (s.function()) {
-    os << 'f';
-  } else if (s.name()) {
-    os << '#';
-  } else if (s.variable()) {
-    os << 'x';
+  Maybe<std::string> n = LookupSymbol(s);
+  if (n) {
+    os << n.val;
+  } else {
+    if (s.function()) {
+      os << 'f';
+    } else if (s.name()) {
+      os << '#';
+    } else if (s.variable()) {
+      os << 'x';
+    }
+    os << s.id();
   }
-  os << s.id();
   return os;
 }
 
