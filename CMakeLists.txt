@@ -6,24 +6,45 @@ project (LELA)
 
 #set (CMAKE_BUILD_TYPE Release)
 set (CMAKE_BUILD_TYPE Debug)
-#set (CMAKE_C_FLAGS "-std=gnu99")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
-if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
-	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic")
-	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 endif()
 
-if (CMAKE_BUILD_TYPE MATCHES Debug)
-	if (CMAKE_COMPILER_IS_GNUCXX)
-		# defining also
-		#  -D_GLIBCXX_CONCEPT_CHECKS
-		# leads to compiler errors when using things like
-		#   std::vector<std::unique_ptr<int>> asdf;
-		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC")
-	endif()
+if (CMAKE_CXX_COMPILER_ID MATCHES "(Clang|GNU)")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
 endif()
+
+# Debug configuration
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+        #if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+                set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+        #endif()
+
+        #if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_FLAGS MATCHES "-stdlib=libc\\+\\+")
+                set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_LIBCPP_DEBUG")
+        #endif()
+
+        #if (CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_FLAGS MATCHES "-stdlib=libstdc\\+\\+")
+                # defining also
+                #  -D_GLIBCXX_CONCEPT_CHECKS
+                # leads to compiler errors when using things like
+                #   std::vector<std::unique_ptr<int>> asdf;
+                set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC")
+        #endif()
+endif()
+
+# Release configuration
+if (CMAKE_BUILD_TYPE MATCHES Release)
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
+endif()
+
+MESSAGE(${CMAKE_CXX_COMPILER})
+MESSAGE(${CMAKE_CXX_COMPILER_ID})
+MESSAGE(${CMAKE_CXX_FLAGS})
 
 add_subdirectory (src)
 #add_subdirectory (bats)

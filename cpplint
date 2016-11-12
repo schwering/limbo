@@ -4,5 +4,5 @@ then
     chmod +x cpplint.py
 fi
 
-./cpplint.py --filter=-readability/streams --linelength=200  src/bloom.h  src/clause.h  src/compar.h  src/formula.h  src/grounder.h  src/intmap.h  src/iter.h  src/literal.h  src/maybe.h  src/print.h  src/setup.h  src/term.h
+./cpplint.py --filter=-readability/streams --linelength=120 src/*.h
 

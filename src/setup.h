@@ -75,6 +75,7 @@ class Setup {
   }
 
   bool Subsumes(const Clause& c) const {
+    assert(!c.valid());
     for (Index i : clauses()) {
       if (clause(i).Subsumes(c)) {
         return true;
@@ -111,25 +112,25 @@ class Setup {
     return true;
   }
 
-  bool LocallyConsistent(Literal l) const {
+  bool LocallyConsistent(Literal a) const {
     if (Subsumes(Clause{})) {
       return false;
     }
-    if (l.valid()) {
+    if (a.valid()) {
       return true;
     }
-    if (l.invalid()) {
+    if (a.invalid()) {
       return false;
     }
-    assert(l.primitive());
-    const Term t = l.lhs();
+    assert(a.primitive());
+    const Term t = a.lhs();
     assert(t.function());
-    std::vector<Literal> ls{l};
+    std::vector<Literal> ls{a};
     for (Index i : clauses_with(t)) {
-      for (Literal a : clause(i)) {
-        assert(a.rhs().name());
-        if (t == a.lhs()) {
-          ls.push_back(a);
+      for (Literal b : clause(i)) {
+        assert(b.rhs().name());
+        if (t == b.lhs()) {
+          ls.push_back(b);
         }
       }
     }
@@ -145,7 +146,7 @@ class Setup {
   }
 
   bool LocallyConsistent(const Clause& c) const {
-    return std::any_of(c.begin(), c.end(), [this] (Literal l) { return LocallyConsistent(l); });
+    return std::any_of(c.begin(), c.end(), [this](Literal a) { return LocallyConsistent(a); });
   }
 
   const Clause& clause(Index i) const {

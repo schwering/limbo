@@ -187,7 +187,7 @@ TEST(Grounder, general) {
     Grounder g(&sf, &tf);
     g.PrepareFor(1, phi.reader());
     Grounder::TermSet terms = g.SplitTerms();
-    Grounder::SortedNames names = g.SplitNames();
+    Grounder::SortedTermSet names = g.Names();
     //std::cout << phi << std::endl;
     //std::cout << names << std::endl;
     //std::cout << terms << std::endl;
@@ -198,7 +198,9 @@ TEST(Grounder, general) {
     EXPECT_EQ(names[f.sort()].size(), 2);
     EXPECT_EQ(names[h.sort()].size(), 1);
     Term nx3 = *names[x3.symbol().sort()].begin();
-    Term nSplit = *std::next(names[a.sort()].begin());
+    Term nSplit =  names[a.sort()][ names[a.sort()][0] == n1 ? 1 : 0 ];
+    EXPECT_NE(nx3, n1);
+    EXPECT_NE(nSplit, n1);
     EXPECT_EQ(std::set<Term>(terms.begin(), terms.end()),
               std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(f, {n1}), tf.CreateTerm(f, {nSplit}), tf.CreateTerm(h, {n1, nx3})}));
   }

@@ -26,6 +26,7 @@
 #include <vector>
 #include "./bloom.h"
 #include "./compar.h"
+#include "./iter.h"
 #include "./literal.h"
 #include "./maybe.h"
 
@@ -43,11 +44,8 @@ class Clause {
   bool operator==(const Clause& c) const { return bloom_ == c.bloom_ && lits_ == c.lits_; }
   bool operator!=(const Clause& c) const { return !(*this == c); }
 
-  const_iterator cbegin() const { return lits_.begin(); }
-  const_iterator cend()   const { return lits_.end(); }
-
-  const_iterator begin() const { return cbegin(); }
-  const_iterator end()   const { return cend(); }
+  const_iterator begin() const { return lits_.begin(); }
+  const_iterator end()   const { return lits_.end(); }
 
   bool   empty() const { return lits_.empty(); }
   bool   unit()  const { return size() == 1; }
@@ -56,7 +54,8 @@ class Clause {
   bool valid()   const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
 
-  bool Subsumes(const Clause& c) const { if (!BloomFilter::Subset(bloom_, c.bloom_)) {
+  bool Subsumes(const Clause& c) const {
+    if (!BloomFilter::Subset(bloom_, c.bloom_)) {
       return false;
     }
     for (Literal a : *this) {
@@ -75,9 +74,8 @@ class Clause {
     if (!bloom_.Contains(a.lhs().hash())) {
       return Nothing;
     }
-    Clause c;
-    std::copy_if(begin(), end(), std::back_inserter(c.lits_),
-                [a](Literal b) { return !Literal::Complementary(a, b); });
+    auto r = filter_range([a](Literal b) { return !Literal::Complementary(a, b); }, begin(), end());
+    Clause c(r.begin(), r.end());
     if (c.size() != size()) {
       return Just(c);
     } else {
@@ -85,18 +83,14 @@ class Clause {
     }
   }
 
-  bool ground()         const { return std::all_of(begin(), end(), [](Literal l) { return l.ground(); }); }
-  bool primitive()      const { return std::all_of(begin(), end(), [](Literal l) { return l.primitive(); }); }
-  bool quasiprimitive() const { return std::all_of(begin(), end(), [](Literal l) { return l.quasiprimitive(); }); }
+  bool ground()         const { return std::all_of(begin(), end(), [](Literal a) { return a.ground(); }); }
+  bool primitive()      const { return std::all_of(begin(), end(), [](Literal a) { return a.primitive(); }); }
+  bool quasiprimitive() const { return std::all_of(begin(), end(), [](Literal a) { return a.quasiprimitive(); }); }
 
   template<typename UnaryFunction>
   Clause Substitute(UnaryFunction theta, Term::Factory* tf) const {
-    Clause c;
-    c.lits_.reserve(size());
-    std::transform(begin(), end(), std::back_inserter(c.lits_),
-                   [theta, tf](Literal a) { return a.Substitute(theta, tf); });
-    c.Minimize();
-    return c;
+    auto r = transform_range([theta, tf](Literal a) { return a.Substitute(theta, tf); }, begin(), end());
+    return Clause(r.begin(), r.end());
   }
 
   template<typename UnaryFunction>
@@ -109,13 +103,10 @@ class Clause {
  private:
   typedef std::vector<Literal>::iterator iterator;
 
-  iterator begin() { return lits_.begin(); }
-  iterator end()   { return lits_.end(); }
-
   void Minimize() {
-    lits_.erase(std::remove_if(begin(), end(), [](const Literal a) { return a.invalid(); }), end());
-    std::sort(begin(), end(), Literal::Comparator());
-    lits_.erase(std::unique(begin(), end()), end());
+    lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.invalid(); }), end());
+    std::sort(lits_.begin(), lits_.end(), Literal::Comparator());
+    lits_.erase(std::unique(lits_.begin(), lits_.end()), end());
     InitBloom();
   }
 

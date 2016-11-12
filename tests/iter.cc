@@ -48,6 +48,16 @@ TEST(Iter, transform_iterator) {
   }
 }
 
+TEST(Iter, transform_range) {
+  {
+    struct Func { int operator()(int x) const { return 2*x; } };
+    typedef std::vector<int> vec;
+    vec xs{1,2,3};
+    auto r = transform_range(Func(), xs.begin(), xs.end());
+    EXPECT_EQ(std::vector<int>(r.begin(), r.end()), std::vector<int>({2,4,6}));
+  }
+}
+
 TEST(Iter, filter_iterator) {
   {
     struct Pred { int operator()(int x) const { return x % 2 == 0; } };
@@ -68,12 +78,29 @@ TEST(Iter, filter_iterator) {
   }
 }
 
-TEST(Iter, joined) {
+TEST(Iter, filter_range) {
+  {
+    struct Pred { int operator()(int x) const { return x % 2 == 0; } };
+    typedef std::vector<int> vec;
+    vec xs{1,2,3,4,5,6,7};
+    vec ys{2,3,4,6};
+    {
+      auto r = filter_range(Pred(), xs.begin(), xs.end());
+      EXPECT_EQ(std::vector<int>(r.begin(), r.end()), std::vector<int>({2,4,6}));
+    }
+    {
+      auto r = filter_range(Pred(), ys.begin(), ys.end());
+      EXPECT_EQ(std::vector<int>(r.begin(), r.end()), std::vector<int>({2,4,6}));
+    }
+  }
+}
+
+TEST(Iter, join_ranges) {
   {
     typedef std::vector<int> vec;
     vec xs{1,2,3,4,5};
     vec ys{6,7,8,9};
-    auto j = join(xs.begin(), xs.end(), ys.begin(), ys.end());
+    auto j = join_ranges(xs.begin(), xs.end(), ys.begin(), ys.end());
     EXPECT_EQ(std::vector<int>(j.begin(), j.end()), std::vector<int>({1,2,3,4,5,6,7,8,9}));
   }
 }

@@ -4,7 +4,7 @@
 // A literal is an (in)equality expression of two terms. Literals are immutable.
 //
 // The most important operations are Complementary() and Subsumes() checks,
-// which are only defined for primitive literals.  Note that the operations
+// which are only defined for primitive literals. Note that the operations
 // PropagateUnit() and Subsumes() from the Clause class use hashing to speed
 // them up and therefore depend on their inner workings. In other words: when
 // you modify them, double-check with the Clause class.
@@ -40,12 +40,13 @@ class Literal {
   bool ground()         const { return lhs_.ground() && rhs_.ground(); }
   bool primitive()      const { return lhs_.primitive() && rhs_.name(); }
   bool quasiprimitive() const { return lhs_.quasiprimitive() && (rhs_.name() || rhs_.variable()); }
+  bool idiotic()        const { return (lhs_.name() || lhs_.variable()) && (rhs_.name() || rhs_.variable()); }
 
   Literal flip() const { return Literal(!eq_, lhs_, rhs_); }
   Literal dual() const { return Literal(eq_, rhs_, lhs_); }
 
-  bool operator==(Literal l) const { return eq_ == l.eq_ && lhs_ == l.lhs_ && rhs_ == l.rhs_; }
-  bool operator!=(Literal l) const { return !(*this == l); }
+  bool operator==(Literal a) const { return eq_ == a.eq_ && lhs_ == a.lhs_ && rhs_ == a.rhs_; }
+  bool operator!=(Literal a) const { return !(*this == a); }
 
   // valid() holds for (t = t) and (n1 != n2).
   bool valid() const { return (eq_ && lhs_ == rhs_) || (!eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_); }

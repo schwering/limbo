@@ -35,7 +35,8 @@ TEST(Setup, general) {
     s0.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)}));
     s0.Init();
     EXPECT_EQ(dist(s0.clauses()), 2);
-    EXPECT_EQ(dist(s0.primitive_terms()), 4);
+    auto pts = s0.primitive_terms();
+    EXPECT_EQ(std::set<Term>(pts.begin(), pts.end()).size(), 4);
     EXPECT_EQ(dist(s0.clauses_with(a)), 0);
     EXPECT_EQ(dist(s0.clauses_with(fn)), 1);
     EXPECT_EQ(dist(s0.clauses_with(fm)), 1);
@@ -48,56 +49,65 @@ TEST(Setup, general) {
     }
     EXPECT_FALSE(s0.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
-    lela::Setup s1(&s0);
-    s1.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)}));
-    s1.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)}));
-    s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(fn,n)}));
-    s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(gn,n)}));
-    s1.Init();
-    EXPECT_EQ(dist(s1.clauses()), 4);
-    //std::cout << s0 << std::endl;
-    //std::cout << s1 << std::endl;
-    //print_range(std::cout, s0.primitive_terms()) << std::endl;
-    //print_range(std::cout, s1.primitive_terms()) << std::endl;
-    EXPECT_EQ(dist(s1.primitive_terms()), 4+1);  // different behaviour in Setup::Minimize(), this changes
-    EXPECT_EQ(dist(s1.clauses()), 4);
-    EXPECT_EQ(dist(s1.clauses_with(a)), 2);
-    EXPECT_EQ(dist(s1.clauses_with(fn)), 2);
-    EXPECT_EQ(dist(s1.clauses_with(fm)), 1);
-    EXPECT_TRUE(!s1.Consistent());
-    for (auto i : s1.clauses()) {
-      EXPECT_TRUE(s1.Subsumes(s1.clause(i)));
-    }
-    EXPECT_FALSE(s1.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
+    {
+      lela::Setup s1(&s0);
+      s1.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)}));
+      s1.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)}));
+      s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(fn,n)}));
+      s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(gn,n)}));
+      s1.Init();
+      EXPECT_EQ(dist(s1.clauses()), 4);
+      //std::cout << s0 << std::endl;
+      //std::cout << s1 << std::endl;
+      //print_range(std::cout, s0.primitive_terms()) << std::endl;
+      //print_range(std::cout, s1.primitive_terms()) << std::endl;
+      auto pts = s1.primitive_terms();
+      EXPECT_EQ(std::set<Term>(pts.begin(), pts.end()).size(), 4+1);
+      EXPECT_EQ(dist(s1.clauses()), 4);
+      EXPECT_EQ(dist(s1.clauses_with(a)), 2);
+      EXPECT_EQ(dist(s1.clauses_with(fn)), 2);
+      EXPECT_EQ(dist(s1.clauses_with(fm)), 1);
+      EXPECT_TRUE(!s1.Consistent());
+      for (auto i : s1.clauses()) {
+        EXPECT_TRUE(s1.Subsumes(s1.clause(i)));
+      }
+      EXPECT_FALSE(s1.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
-    lela::Setup s2(&s1);
-    s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)}));
-    s2.Init();
-    //std::cout << s0 << std::endl;
-    //std::cout << s1 << std::endl;
-    //std::cout << s2 << std::endl;
-    //print_range(std::cout, s0.primitive_terms()) << std::endl;
-    //print_range(std::cout, s1.primitive_terms()) << std::endl;
-    //print_range(std::cout, s2.primitive_terms()) << std::endl;
-    EXPECT_EQ(dist(s2.clauses()), 5);
-    EXPECT_EQ(dist(s2.primitive_terms()), 4+1+0);  // for different behaviour in Setup::Minimize(), this changes
-    EXPECT_EQ(dist(s2.clauses_with(a)), 3);
-    EXPECT_EQ(dist(s2.clauses_with(fn)), 2);
-    EXPECT_EQ(dist(s2.clauses_with(fm)), 1);
-    EXPECT_TRUE(!s2.Consistent());
-    for (auto i : s2.clauses()) {
-      EXPECT_TRUE(s2.Subsumes(s2.clause(i)));
-    }
+      {
+        lela::Setup s2(&s1);
+        s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)}));
+        s2.Init();
+        //std::cout << s0 << std::endl;
+        //std::cout << s1 << std::endl;
+        //std::cout << s2 << std::endl;
+        //print_range(std::cout, s0.primitive_terms()) << std::endl;
+        //print_range(std::cout, s1.primitive_terms()) << std::endl;
+        //print_range(std::cout, s2.primitive_terms()) << std::endl;
+        EXPECT_EQ(dist(s2.clauses()), 5);
+        auto pts = s2.primitive_terms();
+        EXPECT_EQ(std::set<Term>(pts.begin(), pts.end()).size(), 4+1+0);
+        EXPECT_EQ(dist(s2.clauses_with(a)), 3);
+        EXPECT_EQ(dist(s2.clauses_with(fn)), 2);
+        EXPECT_EQ(dist(s2.clauses_with(fm)), 1);
+        EXPECT_TRUE(!s2.Consistent());
+        for (auto i : s2.clauses()) {
+          EXPECT_TRUE(s2.Subsumes(s2.clause(i)));
+        }
 
-    lela::Setup s3(&s2);
-    s3.AddClause(Clause({Literal::Neq(a,m)}));
-    s3.Init();
-    EXPECT_EQ(dist(s3.clauses()), 5); // again, the unique-filter catches 'a' by chance
-    EXPECT_EQ(dist(s3.primitive_terms()), 5);
-    EXPECT_EQ(dist(s3.clauses_with(a)), 1);
-    EXPECT_EQ(dist(s3.clauses_with(fn)), 1);
-    EXPECT_EQ(dist(s3.clauses_with(fm)), 1);
-    EXPECT_TRUE(s3.Consistent());
+        {
+          lela::Setup s3(&s2);
+          s3.AddClause(Clause({Literal::Neq(a,m)}));
+          s3.Init();
+          EXPECT_EQ(dist(s3.clauses()), 5); // again, the unique-filter catches 'a' by chance
+          auto pts = s3.primitive_terms();
+          EXPECT_EQ(std::set<Term>(pts.begin(), pts.end()).size(), 4+1+0);
+          EXPECT_EQ(dist(s3.clauses_with(a)), 1);
+          EXPECT_EQ(dist(s3.clauses_with(fn)), 1);
+          EXPECT_EQ(dist(s3.clauses_with(fm)), 1);
+          EXPECT_TRUE(s3.Consistent());
+        }
+      }
+    }
   }
 }
 

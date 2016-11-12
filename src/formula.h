@@ -108,14 +108,14 @@ class Formula {
             if (!phi_q.even()) {
               assert(phi_c.unit());
               phi_p.push_back(Element::Not());
-              phi_c = lela::Clause({phi_c.cbegin()->flip()});
+              phi_c = lela::Clause({phi_c.begin()->flip()});
             }
             if (!psi_q.even()) {
               assert(psi_c.unit());
               psi_p.push_back(Element::Not());
-              psi_c = lela::Clause({psi_c.cbegin()->flip()});
+              psi_c = lela::Clause({psi_c.begin()->flip()});
             }
-            auto ls = join(phi_c.cbegin(), phi_c.cend(), psi_c.cbegin(), psi_c.cend());
+            auto ls = join_ranges(phi_c.begin(), phi_c.end(), psi_c.begin(), psi_c.end());
             const lela::Clause c(ls.begin(), ls.end());
             Formula r;
             r.es_.push_front(Element::Clause(c));
@@ -173,7 +173,7 @@ class Formula {
     Reader<transform_iterator<SubstituteElement<UnaryFunction>, Iter>>
     Substitute(UnaryFunction theta, Term::Factory* tf) const {
       typedef transform_iterator<SubstituteElement<UnaryFunction>, Iter> iterator;
-      iterator it = iterator(SubstituteElemen(theta, tf), begin());
+      iterator it = iterator(SubstituteElement<UnaryFunction>(theta, tf), begin());
       return Reader<iterator>(it);
     }
 

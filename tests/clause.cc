@@ -30,11 +30,11 @@ TEST(Clause, general) {
     //const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
     const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));
     const Symbol f = sf.CreateFunction(s1, 1);
-    //const Symbol g = sf.CreateFunction(s2, 1);
+    const Symbol g = sf.CreateFunction(s2, 1);
     const Symbol h = sf.CreateFunction(s2, 2);
     const Term f1 = tf.CreateTerm(f, {n1});
     const Term f2 = tf.CreateTerm(h, {n1,x2});
-    //const Term f3 = tf.CreateTerm(g, {f1});
+    const Term f3 = tf.CreateTerm(g, {n1});
     const Term f4 = tf.CreateTerm(h, {n1,f1});
 
     EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid());
@@ -100,10 +100,33 @@ TEST(Clause, general) {
       c2 = c1.PropagateUnit(Literal::Neq(f1,n1));
       EXPECT_TRUE(c2 && c2.val.empty());
       EXPECT_TRUE(c2.val.Subsumes(c1));
+      EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
       c2 = c1.PropagateUnit(Literal::Eq(f1,n2));
       EXPECT_TRUE(c2 && c2.val.empty());
       EXPECT_TRUE(c2.val.Subsumes(c1));
+      EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
       c2 = c1.PropagateUnit(Literal::Eq(f1,n1));
+      EXPECT_FALSE(c2);
+    }
+
+    {
+      Clause c1({Literal::Eq(f1,n1), Literal::Neq(f3,n1)});
+      Maybe<Clause> c2;
+      c2 = c1.PropagateUnit(Literal::Neq(f1,n1));
+      EXPECT_TRUE(c2);
+      EXPECT_TRUE(c2.val.Subsumes(c1));
+      EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
+      c2 = c1.PropagateUnit(Literal::Eq(f1,n2));
+      EXPECT_TRUE(c2);
+      EXPECT_TRUE(c2.val.Subsumes(c1));
+      EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
+      c2 = c1.PropagateUnit(Literal::Eq(f1,n1));
+      EXPECT_FALSE(c2);
+      c2 = c1.PropagateUnit(Literal::Eq(f3,n1));
+      EXPECT_TRUE(c2);
+      EXPECT_TRUE(c2.val.Subsumes(c1));
+      EXPECT_EQ(c2.val, Clause{Literal::Eq(f1,n1)});
+      c2 = c1.PropagateUnit(Literal::Eq(f3,n2));
       EXPECT_FALSE(c2);
     }
 

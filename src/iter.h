@@ -45,8 +45,6 @@ struct nested_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
   typedef typename ContIter::value_type container_type;
-  //typedef typename container_type::const_iterator iterator_type;
-  //typedef typename std::result_of<decltype(&container_type::begin)(container_type)>::type iterator_type;
   typedef decltype(std::declval<container_type>().begin()) iterator_type;
   typedef typename iterator_type::value_type value_type;
   typedef typename iterator_type::pointer pointer;
@@ -128,6 +126,26 @@ struct transform_iterator {
   Iter iter_;
 };
 
+template<typename UnaryFunction, typename Iter>
+struct transformed_range {
+ public:
+  typedef transform_iterator<UnaryFunction, Iter> iterator;
+
+  transformed_range(UnaryFunction func, Iter begin, Iter end) : begin_(func, begin), end_(func, end) {}
+
+  iterator begin() const { return begin_; }
+  iterator end()   const { return end_; }
+
+ private:
+  iterator begin_;
+  iterator end_;
+};
+
+template<typename UnaryFunction, typename Iter>
+transformed_range<UnaryFunction, Iter> transform_range(UnaryFunction func, Iter begin, Iter end) {
+  return transformed_range<UnaryFunction, Iter>(func, begin, end);
+}
+
 // Haskell's filter function.
 template<typename UnaryPredicate, typename Iter>
 struct filter_iterator {
@@ -160,25 +178,45 @@ struct filter_iterator {
   const Iter end_;
 };
 
-template<typename Iter1, typename Iter2>
-struct joined {
+template<typename UnaryPredicate, typename Iter>
+struct filtered_range {
  public:
-  struct iter {
+  typedef filter_iterator<UnaryPredicate, Iter> iterator;
+
+  filtered_range(UnaryPredicate pred, Iter begin, Iter end) : begin_(pred, begin, end), end_(pred, end, end) {}
+
+  iterator begin() const { return begin_; }
+  iterator end()   const { return end_; }
+
+ private:
+  iterator begin_;
+  iterator end_;
+};
+
+template<typename UnaryPredicate, typename Iter>
+filtered_range<UnaryPredicate, Iter> filter_range(UnaryPredicate pred, Iter begin, Iter end) {
+  return filtered_range<UnaryPredicate, Iter>(pred, begin, end);
+}
+
+template<typename Iter1, typename Iter2>
+struct joined_ranges {
+ public:
+  struct iterator {
     typedef std::ptrdiff_t difference_type;
     typedef typename Iter1::value_type value_type;
     typedef typename Iter1::pointer pointer;
     typedef typename Iter1::reference reference;
     typedef std::input_iterator_tag iterator_category;
 
-    iter() = default;
-    iter(Iter1 it1, Iter1 end1, Iter2 it2) : it1_(it1), end1_(end1), it2_(it2) {}
+    iterator() = default;
+    iterator(Iter1 it1, Iter1 end1, Iter2 it2) : it1_(it1), end1_(end1), it2_(it2) {}
 
-    bool operator==(const iter& it) const { return it1_ == it.it1_ && it2_ == it.it2_; }
-    bool operator!=(const iter& it) const { return !(*this == it); }
+    bool operator==(const iterator& it) const { return it1_ == it.it1_ && it2_ == it.it2_; }
+    bool operator!=(const iterator& it) const { return !(*this == it); }
 
     reference operator*() const { return it1_ != end1_ ? *it1_ : *it2_; }
 
-    iter& operator++() {
+    iterator& operator++() {
       if (it1_ != end1_)  ++it1_;
       else                ++it2_;
       return *this;
@@ -190,11 +228,11 @@ struct joined {
     Iter2 it2_;
   };
 
-  joined(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2)
+  joined_ranges(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2)
       : begin1_(begin1), end1_(end1), begin2_(begin2), end2_(end2) {}
 
-  iter begin() const { return iter(begin1_, end1_, begin2_); }
-  iter end() const { return iter(end1_, end1_, end2_); }
+  iterator begin() const { return iterator(begin1_, end1_, begin2_); }
+  iterator end()   const { return iterator(end1_, end1_, end2_); }
 
  private:
   Iter1 begin1_;
@@ -204,8 +242,8 @@ struct joined {
 };
 
 template<typename Iter1, typename Iter2>
-inline joined<Iter1, Iter2> join(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2) {
-  return joined<Iter1, Iter2>(begin1, end1, begin2, end2);
+inline joined_ranges<Iter1, Iter2> join_ranges(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2) {
+  return joined_ranges<Iter1, Iter2>(begin1, end1, begin2, end2);
 }
 
 }  // namespace lela

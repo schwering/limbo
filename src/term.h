@@ -24,6 +24,7 @@
 #include <vector>
 #include <utility>
 #include "./compar.h"
+#include "./intmap.h"
 #include "./maybe.h"
 
 namespace lela {
@@ -120,6 +121,7 @@ class Term {
   typedef std::set<Term, Comparator> Set;
 
   class Factory;
+  struct SingleSubstitution;
 
   Term() = default;
 
@@ -136,6 +138,7 @@ class Term {
   Symbol symbol()      const { return data_->symbol_; }
   const Vector& args() const { return data_->args_; }
 
+  Symbol::Sort sort()   const { return data_->symbol_.sort(); }
   bool name()           const { return data_->symbol_.name(); }
   bool variable()       const { return data_->symbol_.variable(); }
   bool function()       const { return data_->symbol_.function(); }
@@ -219,18 +222,23 @@ class Term::Factory {
   Factory(Factory&&) = delete;
   Factory& operator=(const Factory&) = delete;
 
+  ~Factory() {
+    for (const std::set<Data*, Data::DeepComparator>& set : memory_.values()) {
+      for (Data* data : set) {
+        delete data;
+      }
+    }
+  }
+
   Term CreateTerm(Symbol symbol) {
     return CreateTerm(symbol, {});
   }
 
   Term CreateTerm(Symbol symbol, const Vector& args) {
     assert(symbol.arity() == static_cast<Symbol::Arity>(args.size()));
-    const size_t mem_index = symbol.sort();
-    if (mem_index >= memory_.size()) {
-      memory_.resize(mem_index + 1);
-    }
     Data* d = new Data(symbol, args);
-    auto p = memory_[mem_index].insert(d);
+    std::set<Data*, Data::DeepComparator>* s = &memory_[symbol.sort()];
+    auto p = s->insert(d);
     if (p.second) {
       assert(d == *p.first);
       return Term(d);
@@ -242,7 +250,20 @@ class Term::Factory {
   }
 
  private:
-  std::vector<std::set<Data*, Data::DeepComparator>> memory_;
+  IntMap<Symbol::Sort, std::set<Data*, Data::DeepComparator>> memory_;
+};
+
+struct Term::SingleSubstitution {
+  SingleSubstitution(Term old, Term rev) : old_(old), rev_(rev) {}
+
+  Maybe<Term> operator()(const Term t) const {
+    if (t == old_) return Just(rev_);
+    else           return Nothing;
+  }
+
+ private:
+  const Term old_;
+  const Term rev_;
 };
 
 template<typename UnaryFunction>

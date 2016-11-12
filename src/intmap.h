@@ -98,6 +98,31 @@ class IntMap : public std::vector<T> {
 
   Keys keys() const { return Keys(this); }
 
+  struct Values {
+    explicit Values(IntMap* owner) : owner_(owner) {}
+
+    typename parent::iterator begin() const { return owner_->parent::begin(); }
+    typename parent::iterator end() const { return owner_->parent::end(); }
+
+   private:
+    IntMap* owner_;
+  };
+
+  Values values() { return Values(this); }
+
+  struct ConstValues {
+    explicit ConstValues(const IntMap* owner) : owner_(owner) {}
+
+    typename parent::const_iterator begin() const { return owner_->parent::begin(); }
+    typename parent::const_iterator end() const { return owner_->parent::end(); }
+
+   private:
+    const IntMap* owner_;
+  };
+
+  ConstValues cvalues() const { return ConstValues(this); }
+  ConstValues values() const { return cvalues(); }
+
   template<typename BinaryFunction>
   static IntMap Zip(const IntMap& m1, const IntMap& m2, BinaryFunction f) {
     IntMap m;
