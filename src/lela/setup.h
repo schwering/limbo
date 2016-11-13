@@ -43,8 +43,8 @@
 #include <vector>
 
 #include <lela/clause.h>
-#include <lela/intmap.h>
-#include <lela/iter.h>
+#include <lela/internal/intmap.h>
+#include <lela/internal/iter.h>
 
 namespace lela {
 

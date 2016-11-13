@@ -21,12 +21,12 @@ tests/bloom
 tests/clause
 tests/formula
 tests/grounder
-tests/input
 tests/intmap
 tests/iter
 tests/kb
 tests/literal
 tests/Makefile
 tests/setup
+tests/syntax
 tests/term
 

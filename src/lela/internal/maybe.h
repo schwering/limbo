@@ -7,8 +7,8 @@
 //
 // To handle Maybe<std::unique_ptr<T>> we use std::forward(). Is that correct?
 
-#ifndef LELA_MAYBE_H_
-#define LELA_MAYBE_H_
+#ifndef LELA_INTERNAL_MAYBE_H_
+#define LELA_INTERNAL_MAYBE_H_
 
 #include <cassert>
 
@@ -74,5 +74,5 @@ Maybe<Types...> Perhaps(bool succ, Types&&... val) {  // NOLINT
 }  // namespace internal
 }  // namespace lela
 
-#endif  // LELA_MAYBE_H_
+#endif  // LELA_INTERNAL_MAYBE_H_
 

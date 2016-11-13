@@ -21,8 +21,8 @@
 #include <set>
 #include <utility>
 
-#include <lela/compar.h>
 #include <lela/term.h>
+#include <lela/internal/compar.h>
 
 namespace lela {
 

@@ -6,8 +6,8 @@
 // Maybe boost provides the same iterators and we should move to boost (this set
 // of iterators evolved somewhat).
 
-#ifndef LELA_ITER_H_
-#define LELA_ITER_H_
+#ifndef LELA_INTERNAL_ITER_H_
+#define LELA_INTERNAL_ITER_H_
 
 #include <iterator>
 #include <type_traits>
@@ -250,5 +250,5 @@ inline joined_ranges<Iter1, Iter2> join_ranges(Iter1 begin1, Iter1 end1, Iter2 b
 }  // namespace internal
 }  // namespace lela
 
-#endif  // LELA_ITER_H_
+#endif  // LELA_INTERNAL_ITER_H_
 

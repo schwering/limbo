@@ -4,12 +4,13 @@
 #include <gtest/gtest.h>
 
 #include <lela/term.h>
-#include <lela/pretty.h>
+#include <lela/internal/bloom.h>
+#include <lela/format/output.h>
 
 namespace lela {
 namespace internal {
 
-using namespace lela::output;
+using namespace lela::format;
 
 TEST(BloomFilterTest, Subset_Contains) {
   Symbol::Factory sf;

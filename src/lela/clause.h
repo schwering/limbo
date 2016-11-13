@@ -26,11 +26,11 @@
 #include <utility>
 #include <vector>
 
-#include <lela/bloom.h>
-#include <lela/compar.h>
-#include <lela/iter.h>
 #include <lela/literal.h>
-#include <lela/maybe.h>
+#include <lela/internal/bloom.h>
+#include <lela/internal/compar.h>
+#include <lela/internal/iter.h>
+#include <lela/internal/maybe.h>
 
 namespace lela {
 

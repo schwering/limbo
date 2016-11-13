@@ -5,11 +5,11 @@
 
 #include <lela/formula.h>
 #include <lela/grounder.h>
-#include <lela/pretty.h>
+#include <lela/format/output.h>
 
 namespace lela {
 
-using namespace output;
+using namespace lela::format;
 
 template<typename T, typename U>
 size_t length(std::pair<T, U> p) { return std::distance(p.first, p.second); }

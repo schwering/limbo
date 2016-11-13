@@ -26,9 +26,9 @@
 #include <list>
 
 #include <lela/clause.h>
-#include <lela/iter.h>
-#include <lela/maybe.h>
 #include <lela/setup.h>
+#include <lela/internal/iter.h>
+#include <lela/internal/maybe.h>
 
 namespace lela {
 

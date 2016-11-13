@@ -17,8 +17,8 @@
 // We take the byte pairs 1,2 and 3,4 and 5,6 and 7,8 and consider the 16bit
 // number formed by each of them as a single hash.
 
-#ifndef LELA_BLOOM_H_
-#define LELA_BLOOM_H_
+#ifndef LELA_INTERNAL_BLOOM_H_
+#define LELA_INTERNAL_BLOOM_H_
 
 #include <cstdint>
 
@@ -73,5 +73,5 @@ class BloomFilter {
 }  // namespace internal
 }  // namespace lela
 
-#endif  // LELA_BLOOM_H_
+#endif  // LELA_INTERNAL_BLOOM_H_
 

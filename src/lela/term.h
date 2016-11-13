@@ -25,9 +25,9 @@
 #include <vector>
 #include <utility>
 
-#include <lela/compar.h>
-#include <lela/intmap.h>
-#include <lela/maybe.h>
+#include <lela/internal/compar.h>
+#include <lela/internal/intmap.h>
+#include <lela/internal/maybe.h>
 
 namespace lela {
 

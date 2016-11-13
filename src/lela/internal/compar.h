@@ -5,8 +5,8 @@
 // containers. Currently only few are in use, the previous prototypes made
 // much heavier use of specific sorting.
 
-#ifndef LELA_COMPAR_H_
-#define LELA_COMPAR_H_
+#ifndef LELA_INTERNAL_COMPAR_H_
+#define LELA_INTERNAL_COMPAR_H_
 
 #include <algorithm>
 
@@ -76,5 +76,5 @@ struct LexicographicComparator<Compar> {
 }  // namespace internal
 }  // namespace lela
 
-#endif  // LELA_COMPAR_H_
+#endif  // LELA_INTERNAL_COMPAR_H_
 

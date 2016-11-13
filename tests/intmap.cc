@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/intmap.h>
+#include <lela/internal/intmap.h>
 
 namespace lela {
 namespace internal {

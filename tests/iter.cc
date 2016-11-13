@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/iter.h>
+#include <lela/internal/iter.h>
 
 namespace lela {
 namespace internal {

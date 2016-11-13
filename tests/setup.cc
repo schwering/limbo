@@ -7,11 +7,11 @@
 #include <gtest/gtest.h>
 
 #include <lela/setup.h>
-#include <lela/pretty.h>
+#include <lela/format/output.h>
 
 namespace lela {
 
-using namespace output;
+using namespace lela::format;
 
 template<typename T>
 size_t dist(T r) { return std::distance(r.begin(), r.end()); }

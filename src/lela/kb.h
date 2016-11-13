@@ -28,11 +28,13 @@ class KB {
 
   void AddClause(const Clause& c) { grounder_.AddClause(c); }
 
+  const Grounder& grounder() const { return grounder_; }
+
   Symbol::Factory* sf() { return &sf_; }
   Term::Factory* tf() { return &tf_; }
 
   template<typename T>
-  bool Entails(int k, const Formula::Reader<T>& phi) {
+  bool Entails(int k, const Formula::Reader<T>& phi, bool consistent = false) {
     grounder_.PrepareFor(k, phi);
     Setup s = grounder_.Ground();
     TermSet split_terms = grounder_.SplitTerms();
@@ -41,10 +43,6 @@ class KB {
   }
 
  private:
-#ifdef FRIEND_TEST
-  FRIEND_TEST(KBTest, Entails);
-#endif
-
   typedef Grounder::SortedTermSet SortedTermSet;
   typedef Grounder::TermSet TermSet;
 

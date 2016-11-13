@@ -4,11 +4,11 @@
 #include <gtest/gtest.h>
 
 #include <lela/formula.h>
-#include <lela/pretty.h>
+#include <lela/format/output.h>
 
 namespace lela {
 
-using namespace output;
+using namespace lela::format;
 
 TEST(FormulaTest, reader) {
   Symbol::Factory sf;

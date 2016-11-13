@@ -4,12 +4,12 @@
 #include <gtest/gtest.h>
 
 #include <lela/clause.h>
-#include <lela/maybe.h>
-#include <lela/pretty.h>
+#include <lela/internal/maybe.h>
+#include <lela/format/output.h>
 
 namespace lela {
 
-using namespace output;
+using namespace lela::format;
 
 struct EqSubstitute {
   EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}

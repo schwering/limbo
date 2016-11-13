@@ -1,14 +1,14 @@
 # CMakeLists files in this project can
-# refer to the root source directory of the project as ${LELA_SOURCE_DIR} and
-# to the root binary directory of the project as ${LELA_BINARY_DIR}.
+# refer to the root source directory of the project as ${lela_SOURCE_DIR} and
+# to the root binary directory of the project as ${lela_BINARY_DIR}.
 cmake_minimum_required (VERSION 2.8.11)
-project (LELA)
+project (lela)
 
 
 #set (CMAKE_BUILD_TYPE Release)
 set (CMAKE_BUILD_TYPE Debug)
 
-#set (CMAKE_VERBOSE_MAKEFILE ON)
+set (CMAKE_VERBOSE_MAKEFILE ON)
 
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
