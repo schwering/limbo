@@ -7,5 +7,5 @@ add_executable (Minesweeper minesweeper.cc)
 # kr2014 and ecai2014.
 #target_link_libraries (Example-KR2014 LINK_PUBLIC LELA BATS)
 #target_link_libraries (Example-ECAI2014 LINK_PUBLIC LELA BAT-ecai2014)
-target_link_libraries (Minesweeper LINK_PUBLIC LELA)
+target_link_libraries (Minesweeper LINK_PUBLIC lela)
 

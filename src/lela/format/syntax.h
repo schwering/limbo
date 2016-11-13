@@ -18,6 +18,7 @@ namespace format {
 
 class HiTerm : public Term {
  public:
+  HiTerm() = default;
   explicit HiTerm(Term t) : Term(t) {}
 };
 

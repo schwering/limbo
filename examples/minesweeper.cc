@@ -1,9 +1,10 @@
 // vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 
-#include <algorithm>
 #include <cassert>
 #include <ctime>
+
+#include <algorithm>
 #include <iostream>
 #include <iomanip>
 #include <map>
@@ -13,10 +14,16 @@
 #include <thread>
 #include <tuple>
 #include <vector>
-#include <./setup.h>
-#include <./maybe.h>
+
+#include <lela/kb.h>
+#include <lela/setup.h>
+#include <lela/format/output.h>
+#include <lela/format/syntax.h>
+#include <lela/internal/maybe.h>
+#include <lela/internal/iter.h>
 
 using namespace lela;
+using namespace lela::format;
 
 class Timer {
  public:
@@ -350,30 +357,51 @@ class Game {
 
 class KnowledgeBase {
  public:
-  static constexpr Setup::split_level MAX_K = 2;
+  static constexpr KB::split_level MAX_K = 2;
 
-  explicit KnowledgeBase(const Game* g) : g_(g) {
-    s_.GuaranteeConsistency(MAX_K);
+  explicit KnowledgeBase(const Game* g)
+      : g_(g),
+        ctx_(kb_.sf(), kb_.tf()),
+        Bool(ctx_.NewSort()),
+        XPos(ctx_.NewSort()),
+        YPos(ctx_.NewSort()),
+        T(ctx_.NewName(Bool)),
+        Mine(ctx_.NewFun(Bool, 2)) {
+    RegisterSort(Bool, "");
+    RegisterSort(XPos, "");
+    RegisterSort(YPos, "");
+    RegisterSymbol(T.symbol(), "T");
+    RegisterSymbol(Mine, "Mine");
+    X.resize(g_->width());
+    for (size_t i = 0; i < g_->width(); ++i) {
+      X[i] = ctx_.NewName(XPos);
+      std::stringstream ss;
+      ss << "#X" << i;
+      RegisterSymbol(X[i].symbol(), ss.str());
+    }
+    Y.resize(g_->height());
+    for (size_t i = 0; i < g_->height(); ++i) {
+      Y[i] = ctx_.NewName(YPos);
+      std::stringstream ss;
+      ss << "#Y" << i;
+      RegisterSymbol(Y[i].symbol(), ss.str());
+    }
+    //kb_.GuaranteeConsistency(MAX_K);
     processed_.resize(g_->n_fields(), false);
-    //cache_.resize(g_->n_fields(), Nothing);
   }
 
-  Maybe<bool> IsMine(Point p, Setup::split_level k) {
+  lela::internal::Maybe<bool> IsMine(Point p, KB::split_level k) {
     t_.start();
-    //const size_t index = g_->to_index(p);
-    //Maybe<bool>& r = cache_[index];
-    //if (!r.succ) {
-      Maybe<bool> r = Nothing;
-      SimpleClause yes_mine({MineLit(true, p)});
-      SimpleClause no_mine({MineLit(false, p)});
-      if (s_.Entails(yes_mine, k)) {
-        assert(g_->mine(p));
-        r = Just(true);
-      } else if (s_.Entails(no_mine, k)) {
-        assert(!g_->mine(p));
-        r = Just(false);
-      }
-    //}
+    lela::internal::Maybe<bool> r = lela::internal::Nothing;
+    Formula yes_mine = Formula::Clause(Clause{MineLit(true, p)});
+    Formula no_mine = Formula::Clause(Clause{MineLit(false, p)});
+    if (kb_.Entails(k, yes_mine.reader())) {
+      assert(g_->mine(p));
+      r = lela::internal::Just(true);
+    } else if (kb_.Entails(k, no_mine.reader())) {
+      assert(!g_->mine(p));
+      r = lela::internal::Just(false);
+    }
     t_.stop();
     return r;
   }
@@ -393,21 +421,19 @@ class KnowledgeBase {
     }
   }
 
-  const Setup& setup() const { return s_; }
   const Timer& timer() const { return t_; }
   void ResetTimer() { t_.reset(); }
 
  private:
-  Literal MineLit(bool is, Point p) {
-    return Literal(is, p.x * g_->width() + p.y, {});
+  Literal MineLit(bool is, Point p) const {
+    //return Literal(is, p.x * g_->width() + p.y, {});
+    Term t = Mine(X[p.x], Y[p.y]);
+    return is ? Literal::Eq(t, T) : Literal::Neq(t, T);
   }
 
-  Clause MineClause(bool sign, const std::vector<Point> ns) {
-    SimpleClause c;
-    for (const Point p : ns) {
-      c.insert(MineLit(sign, p));
-    }
-    return Clause(Ewff::TRUE, c);
+  Clause MineClause(bool sign, const std::vector<Point> ns) const {
+    auto r = lela::internal::transform_range([this, sign](Point p) { return MineLit(sign, p); }, ns.begin(), ns.end());
+    return Clause(r.begin(), r.end());
   }
 
   bool Update(Point p) {
@@ -418,24 +444,23 @@ class KnowledgeBase {
         return false;
       }
       case Game::FLAGGED: {
-        s_.AddClauseWithoutConsistencyCheck(Clause(Ewff::TRUE, {MineLit(true, p)}));
+        kb_.AddClause(Clause{MineLit(true, p)});
         return true;
       }
       case Game::HIT_MINE: {
-        s_.AddClauseWithoutConsistencyCheck(Clause(Ewff::TRUE, {MineLit(true, p)}));
+        kb_.AddClause(Clause{MineLit(true, p)});
         return true;
       }
       default: {
         const std::vector<Point>& ns = g_->neighbors_of(p);
         const int n = ns.size();
-        //std::cerr << "n = " << n << ", m = " << m << std::endl;
         for (const std::vector<Point>& ps : util::Subsets(ns, n - m + 1)) {
-          s_.AddClauseWithoutConsistencyCheck(MineClause(true, ps));
+          kb_.AddClause(MineClause(true, ps));
         }
         for (const std::vector<Point>& ps : util::Subsets(ns, m + 1)) {
-          s_.AddClauseWithoutConsistencyCheck(MineClause(false, ps));
+          kb_.AddClause(MineClause(false, ps));
         }
-        s_.AddClauseWithoutConsistencyCheck(Clause(Ewff::TRUE, {MineLit(false, p)}));
+        kb_.AddClause(Clause{MineLit(false, p)});
         return true;
       }
     }
@@ -449,20 +474,29 @@ class KnowledgeBase {
       }
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, n - m + 1)) {
-      s_.AddClauseWithoutConsistencyCheck(MineClause(true, ps));
+      kb_.AddClause(MineClause(true, ps));
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, m + 1)) {
-      s_.AddClauseWithoutConsistencyCheck(MineClause(false, ps));
+      kb_.AddClause(MineClause(false, ps));
     }
   }
 
   const Game* g_;
-  Setup s_;
+  KB kb_;
+  Context ctx_;
+
+  Symbol::Sort Bool;
+  Symbol::Sort XPos;
+  Symbol::Sort YPos;
+  HiTerm T;               // name for positive truth value
+  std::vector<HiTerm> X;  // names for X positions
+  std::vector<HiTerm> Y;  // names for Y positions
+  HiSymbol Mine;
+
   std::vector<bool> processed_;
   size_t n_rem_mines_ = 11;
   size_t n_rem_fields_ = 11;
   Timer t_;
-  //std::vector<Maybe<bool>> cache_;
 };
 
 class Color {
@@ -586,7 +620,7 @@ class KnowledgeBasePrinter : public Printer {
     switch (g.state(p)) {
       case Game::UNEXPLORED: {
         if (g.frontier(p)) {
-          const Maybe<bool> r = kb_->IsMine(p, KnowledgeBase::MAX_K);
+          const lela::internal::Maybe<bool> r = kb_->IsMine(p, KnowledgeBase::MAX_K);
           if (r.succ) {
             assert(g.mine(p) == r.val);
             if (r.val) {
@@ -707,10 +741,10 @@ class KnowledgeBaseAgent : public Agent {
     });
 
     // First look for a field which is known not to be a mine.
-    for (Setup::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
-      for (const Point p : MakeRange(ps.begin(), ps.end())) {
+    for (KB::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
+      for (const Point p : ps) {
         const auto& tuple = ranks[g_->to_index(p)];
-        const Maybe<bool> r = kb_->IsMine(p, k);
+        const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
         if (r.succ) {
           if (r.val) {
             std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
@@ -744,7 +778,6 @@ class KnowledgeBaseAgent : public Agent {
 };
 
 int main(int argc, char *argv[]) {
-
   size_t width = 9;
   size_t height = 9;
   size_t n_mines = 10;

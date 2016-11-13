@@ -21,6 +21,8 @@ namespace lela {
 
 class KB {
  public:
+  typedef unsigned int split_level;
+
   KB() : grounder_(&sf_, &tf_) {}
   KB(const KB&) = delete;
   KB(const KB&&) = delete;
