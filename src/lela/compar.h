@@ -5,12 +5,13 @@
 // containers. Currently only few are in use, the previous prototypes made
 // much heavier use of specific sorting.
 
-#ifndef SRC_COMPAR_H_
-#define SRC_COMPAR_H_
+#ifndef LELA_COMPAR_H_
+#define LELA_COMPAR_H_
 
 #include <algorithm>
 
 namespace lela {
+namespace internal {
 
 template<class T>
 struct LessComparator {
@@ -72,7 +73,8 @@ struct LexicographicComparator<Compar> {
   Compar comp;
 };
 
+}  // namespace internal
 }  // namespace lela
 
-#endif  // SRC_COMPAR_H_
+#endif  // LELA_COMPAR_H_
 

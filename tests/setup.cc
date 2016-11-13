@@ -3,9 +3,11 @@
 
 #include <array>
 #include <vector>
+
 #include <gtest/gtest.h>
-#include "./setup.h"
-#include "./pretty.h"
+
+#include <lela/setup.h>
+#include <lela/pretty.h>
 
 namespace lela {
 
@@ -14,7 +16,7 @@ using namespace output;
 template<typename T>
 size_t dist(T r) { return std::distance(r.begin(), r.end()); }
 
-TEST(Setup, general) {
+TEST(SetupTest, Subsumes_Consistent_clauses) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();

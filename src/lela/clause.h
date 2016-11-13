@@ -16,19 +16,21 @@
 // that unit propagation or subsumption won't work early (in a sound but
 // incomplete way).
 
-#ifndef SRC_CLAUSE_H_
-#define SRC_CLAUSE_H_
+#ifndef LELA_CLAUSE_H_
+#define LELA_CLAUSE_H_
 
 #include <cassert>
+
 #include <algorithm>
 #include <set>
 #include <utility>
 #include <vector>
-#include "./bloom.h"
-#include "./compar.h"
-#include "./iter.h"
-#include "./literal.h"
-#include "./maybe.h"
+
+#include <lela/bloom.h>
+#include <lela/compar.h>
+#include <lela/iter.h>
+#include <lela/literal.h>
+#include <lela/maybe.h>
 
 namespace lela {
 
@@ -55,7 +57,7 @@ class Clause {
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
 
   bool Subsumes(const Clause& c) const {
-    if (!BloomFilter::Subset(bloom_, c.bloom_)) {
+    if (!bloom_.SubsetOf(c.bloom_)) {
       return false;
     }
     for (Literal a : *this) {
@@ -67,19 +69,19 @@ class Clause {
     return true;
   }
 
-  Maybe<Clause> PropagateUnit(Literal a) const {
+  internal::Maybe<Clause> PropagateUnit(Literal a) const {
     assert(primitive());
     assert(a.primitive());
     assert(a.lhs().function());
     if (!bloom_.Contains(a.lhs().hash())) {
-      return Nothing;
+      return internal::Nothing;
     }
-    auto r = filter_range([a](Literal b) { return !Literal::Complementary(a, b); }, begin(), end());
+    auto r = internal::filter_range([a](Literal b) { return !Literal::Complementary(a, b); }, begin(), end());
     Clause c(r.begin(), r.end());
     if (c.size() != size()) {
-      return Just(c);
+      return internal::Just(c);
     } else {
-      return Nothing;
+      return internal::Nothing;
     }
   }
 
@@ -89,7 +91,7 @@ class Clause {
 
   template<typename UnaryFunction>
   Clause Substitute(UnaryFunction theta, Term::Factory* tf) const {
-    auto r = transform_range([theta, tf](Literal a) { return a.Substitute(theta, tf); }, begin(), end());
+    auto r = internal::transform_range([theta, tf](Literal a) { return a.Substitute(theta, tf); }, begin(), end());
     return Clause(r.begin(), r.end());
   }
 
@@ -117,11 +119,11 @@ class Clause {
     }
   }
 
-  BloomFilter bloom_;
+  internal::BloomFilter bloom_;
   std::vector<Literal> lits_;
 };
 
 }  // namespace lela
 
-#endif  // SRC_CLAUSE_H_
+#endif  // LELA_CLAUSE_H_
 

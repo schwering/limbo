@@ -4,8 +4,8 @@
 // Two namespaces, input and output, provide some procedures to pretty-print
 // and to create formulas and related structures.
 
-#ifndef SRC_PRETTY_H_
-#define SRC_PRETTY_H_
+#ifndef LELA_PRETTY_H_
+#define LELA_PRETTY_H_
 
 #include <algorithm>
 #include <list>
@@ -15,17 +15,17 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "./clause.h"
-#include "./formula.h"
-#include "./literal.h"
-#include "./iter.h"
-#include "./maybe.h"
-#include "./term.h"
+
+#include <lela/clause.h>
+#include <lela/formula.h>
+#include <lela/literal.h>
+#include <lela/iter.h>
+#include <lela/maybe.h>
+#include <lela/term.h>
 
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
 
 namespace lela {
-
 namespace output {
 
 typedef std::map<Symbol::Sort, std::string> SortMap;
@@ -49,16 +49,16 @@ inline void RegisterSymbol(Symbol s, const std::string& n) {
   (*symbol_map())[s] = n;
 }
 
-inline Maybe<std::string> LookupSort(Symbol::Sort s) {
+inline internal::Maybe<std::string> LookupSort(Symbol::Sort s) {
   auto it = sort_map()->find(s);
-  if (it != sort_map()->end()) return Just(it->second);
-  else                         return Nothing;
+  if (it != sort_map()->end()) return internal::Just(it->second);
+  else                         return internal::Nothing;
 }
 
-inline Maybe<std::string> LookupSymbol(Symbol s) {
+inline internal::Maybe<std::string> LookupSymbol(Symbol s) {
   auto it = symbol_map()->find(s);
-  if (it != symbol_map()->end()) return Just(it->second);
-  else                           return Nothing;
+  if (it != symbol_map()->end()) return internal::Just(it->second);
+  else                           return internal::Nothing;
 }
 
 template<typename T1, typename T2>
@@ -122,28 +122,28 @@ std::ostream& operator<<(std::ostream& os, const std::multimap<K, T> map) {
 }
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const Maybe<T>& m) {
+std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
   if (m) {
-    os << "Just(" << m.val << ")";
+    os << "internal::Just(" << m.val << ")";
   } else {
-    os << "Nothing";
+    os << "internal::Nothing";
   }
   return os;
 }
 
 template<typename T1, typename T2>
-std::ostream& operator<<(std::ostream& os, const Maybe<T1, T2>& m) {
+std::ostream& operator<<(std::ostream& os, const internal::Maybe<T1, T2>& m) {
   if (m) {
-    os << "Just(" << m.val1 << ", " << m.val2 << ")";
+    os << "internal::Just(" << m.val1 << ", " << m.val2 << ")";
   } else {
-    os << "Nothing";
+    os << "internal::Nothing";
   }
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Symbol s) {
-  Maybe<std::string> sort_name = LookupSort(s.sort());
-  Maybe<std::string> symbol_name = LookupSymbol(s);
+  internal::Maybe<std::string> sort_name = LookupSort(s.sort());
+  internal::Maybe<std::string> symbol_name = LookupSymbol(s);
   if (sort_name) {
     os << sort_name.val << (sort_name.val.length() > 0 ? "." : "");
   } else {
@@ -181,8 +181,8 @@ struct PrintSymbolComparator {
   typedef Symbol value_type;
 
   bool operator()(Symbol s1, Symbol s2) const {
-    Maybe<std::string> n1 = LookupSymbol(s1);
-    Maybe<std::string> n2 = LookupSymbol(s2);
+    internal::Maybe<std::string> n1 = LookupSymbol(s1);
+    internal::Maybe<std::string> n2 = LookupSymbol(s2);
     return n1 && n2  ? n1.val < n2.val :
            n1 && !n2 ? true :
            !n1 && n2 ? false :
@@ -199,9 +199,10 @@ struct PrintTermComparator {
 };
 
 inline bool PrintTermComparator::operator()(Term t1, Term t2) const {
-  LexicographicComparator<PrintSymbolComparator,
-                          LessComparator<Symbol::Arity>,
-                          LexicographicContainerComparator<Term::Vector, PrintTermComparator>> comp;
+  internal::LexicographicComparator<
+      PrintSymbolComparator,
+      internal::LessComparator<Symbol::Arity>,
+      internal::LexicographicContainerComparator<Term::Vector, PrintTermComparator>> comp;
   return comp(t1.symbol(), t1.arity(), t1.args(),
               t2.symbol(), t2.arity(), t2.args());
 }
@@ -214,9 +215,10 @@ struct PrintLiteralComparator {
                 l2.lhs(), l2.rhs(), l2.pos());
   }
 
-  LexicographicComparator<PrintTermComparator,
-                          PrintTermComparator,
-                          LessComparator<bool>> comp;
+  internal::LexicographicComparator<
+      PrintTermComparator,
+      PrintTermComparator,
+      internal::LessComparator<bool>> comp;
 };
 
 struct PrintClauseComparator {
@@ -226,7 +228,7 @@ struct PrintClauseComparator {
     return comp(c1, c2);
   }
 
-  LexicographicContainerComparator<Clause, PrintLiteralComparator> comp;
+  internal::LexicographicContainerComparator<Clause, PrintLiteralComparator> comp;
 };
 
 std::ostream& operator<<(std::ostream& os, const Literal a) {
@@ -261,13 +263,13 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
       return comp(vec1.size(), vec1, vec2.size(), vec2);
     }
 
-    LexicographicComparator<LessComparator<size_t>,
-                            LexicographicContainerComparator<std::vector<Literal>, PrintLiteralComparator>> comp;
+    internal::LexicographicComparator<
+        internal::LessComparator<size_t>,
+        internal::LexicographicContainerComparator<std::vector<Literal>, PrintLiteralComparator>> comp;
   };
   Setup::Clauses cs = s.clauses();
-  auto begin = transform_iterator<Get, Setup::Clauses::clause_iterator>(Get(&s), cs.begin());
-  auto end = transform_iterator<Get, Setup::Clauses::clause_iterator>(Get(&s), cs.end());
-  std::vector<std::vector<Literal>> vec(begin, end);
+  auto r = internal::transform_range(Get(&s), cs.begin(), cs.end());
+  std::vector<std::vector<Literal>> vec(r.begin(), r.end());
   std::sort(vec.begin(), vec.end(), Comp());
   print_range(os, vec, "{ ", "\n}", "\n, ");
   return os;
@@ -332,6 +334,7 @@ std::ostream& print_sequence(std::ostream& os,
   os << post;
   return os;
 }
+
 }  // namespace output
 
 
@@ -399,8 +402,7 @@ inline HiFormula Ex(HiTerm x, const HiFormula& phi) { return Formula::Exists(x, 
 inline HiFormula Fa(HiTerm x, const HiFormula& phi) { return ~Ex(x, ~phi); }
 
 }  // namespace input
-
 }  // namespace lela
 
-#endif  // SRC_PRETTY_H_
+#endif  // LELA_PRETTY_H_
 

@@ -4,5 +4,5 @@ then
     chmod +x cpplint.py
 fi
 
-./cpplint.py --filter=-readability/streams --linelength=120 src/*.h
+./cpplint.py --root=src --filter=-readability/streams --linelength=120 src/lela/*.h
 

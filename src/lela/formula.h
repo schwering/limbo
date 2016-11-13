@@ -18,15 +18,17 @@
 // Internally it's stored in Polish notation as a list of Element objects.
 // Element would be a union if C++ would allow non-trivial types in unions.
 
-#ifndef SRC_FORMULA_H_
-#define SRC_FORMULA_H_
+#ifndef LELA_FORMULA_H_
+#define LELA_FORMULA_H_
 
 #include <cassert>
+
 #include <list>
-#include "./clause.h"
-#include "./iter.h"
-#include "./maybe.h"
-#include "./setup.h"
+
+#include <lela/clause.h>
+#include <lela/iter.h>
+#include <lela/maybe.h>
+#include <lela/setup.h>
 
 namespace lela {
 
@@ -49,17 +51,17 @@ class Formula {
     bool operator!=(const Element& e) const { return !(*this == e); }
 
     Type type() const { return type_; }
-    const Maybe<lela::Clause>& clause() const { return clause_; }
-    Maybe<Term> var() const { return var_; }
+    const internal::Maybe<lela::Clause>& clause() const { return clause_; }
+    internal::Maybe<Term> var() const { return var_; }
 
    private:
     explicit Element(Type type) : type_(type) {}
-    Element(Type type, Term var) : type_(type), var_(Just(var)) {}
-    Element(Type type, const lela::Clause& c) : type_(type), clause_(Just(c)) {}
+    Element(Type type, Term var) : type_(type), var_(internal::Just(var)) {}
+    Element(Type type, const lela::Clause& c) : type_(type), clause_(internal::Just(c)) {}
 
     Type type_;
-    Maybe<lela::Clause> clause_ = Nothing;
-    Maybe<Term> var_ = Nothing;
+    internal::Maybe<lela::Clause> clause_ = internal::Nothing;
+    internal::Maybe<Term> var_ = internal::Nothing;
   };
 
   template<typename Iter = std::list<Element>::const_iterator>
@@ -115,7 +117,7 @@ class Formula {
               psi_p.push_back(Element::Not());
               psi_c = lela::Clause({psi_c.begin()->flip()});
             }
-            auto ls = join_ranges(phi_c.begin(), phi_c.end(), psi_c.begin(), psi_c.end());
+            auto ls = internal::join_ranges(phi_c.begin(), phi_c.end(), psi_c.begin(), psi_c.end());
             const lela::Clause c(ls.begin(), ls.end());
             Formula r;
             r.es_.push_front(Element::Clause(c));
@@ -170,9 +172,9 @@ class Formula {
     };
 
     template<typename UnaryFunction>
-    Reader<transform_iterator<SubstituteElement<UnaryFunction>, Iter>>
+    Reader<internal::transform_iterator<SubstituteElement<UnaryFunction>, Iter>>
     Substitute(UnaryFunction theta, Term::Factory* tf) const {
-      typedef transform_iterator<SubstituteElement<UnaryFunction>, Iter> iterator;
+      typedef internal::transform_iterator<SubstituteElement<UnaryFunction>, Iter> iterator;
       iterator it = iterator(SubstituteElement<UnaryFunction>(theta, tf), begin());
       return Reader<iterator>(it);
     }
@@ -270,5 +272,5 @@ class Formula {
 
 }  // namespace lela
 
-#endif  // SRC_FORMULA_H_
+#endif  // LELA_FORMULA_H_
 

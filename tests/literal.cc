@@ -2,14 +2,15 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include "./literal.h"
-#include "./pretty.h"
+
+#include <lela/literal.h>
+#include <lela/pretty.h>
 
 namespace lela {
 
 using namespace output;
 
-TEST(Literal, general) {
+TEST(LiteralTest, general) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();

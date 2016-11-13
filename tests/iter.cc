@@ -2,11 +2,13 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include "./iter.h"
+
+#include <lela/iter.h>
 
 namespace lela {
+namespace internal {
 
-TEST(Iter, incr_iterator) {
+TEST(IterTest, incr_iterator) {
   {
     struct Int {
       Int(int n) : n_(n) {}
@@ -21,7 +23,7 @@ TEST(Iter, incr_iterator) {
   }
 }
 
-TEST(Iter, nested_iterator) {
+TEST(IterTest, nested_iterator) {
   {
     typedef std::vector<int> vec;
     typedef std::vector<vec> vecvec;
@@ -36,7 +38,7 @@ TEST(Iter, nested_iterator) {
   }
 }
 
-TEST(Iter, transform_iterator) {
+TEST(IterTest, transform_iterator) {
   {
     struct Func { int operator()(int x) const { return 2*x; } };
     typedef std::vector<int> vec;
@@ -48,7 +50,7 @@ TEST(Iter, transform_iterator) {
   }
 }
 
-TEST(Iter, transform_range) {
+TEST(IterTest, transform_range) {
   {
     struct Func { int operator()(int x) const { return 2*x; } };
     typedef std::vector<int> vec;
@@ -58,7 +60,7 @@ TEST(Iter, transform_range) {
   }
 }
 
-TEST(Iter, filter_iterator) {
+TEST(IterTest, filter_iterator) {
   {
     struct Pred { int operator()(int x) const { return x % 2 == 0; } };
     typedef std::vector<int> vec;
@@ -78,7 +80,7 @@ TEST(Iter, filter_iterator) {
   }
 }
 
-TEST(Iter, filter_range) {
+TEST(IterTest, filter_range) {
   {
     struct Pred { int operator()(int x) const { return x % 2 == 0; } };
     typedef std::vector<int> vec;
@@ -95,7 +97,7 @@ TEST(Iter, filter_range) {
   }
 }
 
-TEST(Iter, join_ranges) {
+TEST(IterTest, join_ranges) {
   {
     typedef std::vector<int> vec;
     vec xs{1,2,3,4,5};
@@ -105,5 +107,6 @@ TEST(Iter, join_ranges) {
   }
 }
 
+}  // namespace internal
 }  // namespace lela
 

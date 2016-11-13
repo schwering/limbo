@@ -2,10 +2,9 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include "./kb.h"
-#include "./pretty.h"
 
-using namespace lela::output;
+#include <lela/kb.h>
+#include <lela/pretty.h>
 
 namespace lela {
 
@@ -22,7 +21,7 @@ inline void RegisterSymbol(Term t, const std::string& n) {
 template<typename T>
 size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
-TEST(KB, general) {
+TEST(KBTest, Entails) {
   KB kb;
   Context ctx(kb.sf(), kb.tf());
   auto Bool = ctx.NewSort();                RegisterSort(Bool, "");
@@ -39,7 +38,7 @@ TEST(KB, general) {
   {
     kb.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
     kb.AddClause(Clause{ Mother(Jesus) == Mary });
-    std::cout << kb.g_.Ground() << std::endl;
+    std::cout << kb.grounder_.Ground() << std::endl;
     Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
     std::cout << phi << std::endl;
     EXPECT_TRUE(kb.Entails(0, phi.reader()));

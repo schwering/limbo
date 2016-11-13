@@ -2,8 +2,9 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include "./term.h"
-#include "./pretty.h"
+
+#include <lela/term.h>
+#include <lela/pretty.h>
 
 namespace lela {
 
@@ -11,14 +12,14 @@ using namespace output;
 
 struct EqSubstitute {
   EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}
-  Maybe<Term> operator()(Term t) const { if (t == pre_) return Just(post_); else return Nothing; }
+  internal::Maybe<Term> operator()(Term t) const { if (t == pre_) return internal::Just(post_); else return internal::Nothing; }
 
  private:
   const Term pre_;
   const Term post_;
 };
 
-TEST(Term, general) {
+TEST(TermTest, general) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
@@ -80,7 +81,7 @@ TEST(Term, general) {
   EXPECT_TRUE(sorts == std::set<Symbol::Sort>({s1,s2}));
 }
 
-TEST(Term, hash) {
+TEST(TermTest, hash) {
   std::vector<Term> terms1;
   std::vector<Term> terms2;
   for (uint64_t i = 0, n = 1; i <= 19; ++i, n *= 10UL) {

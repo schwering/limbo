@@ -2,7 +2,8 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include "./pretty.h"
+
+#include <lela/pretty.h>
 
 namespace lela {
 
@@ -15,7 +16,7 @@ inline void RegisterSymbol(Term t, const std::string& n) {
   RegisterSymbol(t.symbol(), n);
 }
 
-TEST(Input, general) {
+TEST(InputTest, general) {
   Symbol::Factory sf;
   Term::Factory tf;
   Context ctx(&sf, &tf);

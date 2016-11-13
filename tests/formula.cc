@@ -2,14 +2,15 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include "./formula.h"
-#include "./pretty.h"
+
+#include <lela/formula.h>
+#include <lela/pretty.h>
 
 namespace lela {
 
 using namespace output;
 
-TEST(Formula, general) {
+TEST(FormulaTest, reader) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
@@ -29,15 +30,15 @@ TEST(Formula, general) {
   Formula c2 = Formula::Clause(cl2);
 
   EXPECT_EQ(c1.reader().head().type(), Formula::Element::kClause);
-  EXPECT_EQ(c1.reader().head().clause(), Just(cl1));
+  EXPECT_EQ(c1.reader().head().clause(), internal::Just(cl1));
   EXPECT_EQ(c1.reader().Build(), c1);
   EXPECT_EQ(Formula::Not(c1).reader().head().type(), Formula::Element::kNot);
   EXPECT_EQ(Formula::Not(c1).reader().arg().head().type(), Formula::Element::kClause);
-  EXPECT_EQ(Formula::Not(c1).reader().arg().head().clause(), Just(cl1));
+  EXPECT_EQ(Formula::Not(c1).reader().arg().head().clause(), internal::Just(cl1));
   EXPECT_EQ(Formula::Not(c1).reader().arg().Build(), c1);
 
   EXPECT_EQ(c2.reader().head().type(), Formula::Element::kClause);
-  EXPECT_EQ(c2.reader().head().clause(), Just(cl2));
+  EXPECT_EQ(c2.reader().head().clause(), internal::Just(cl2));
 
   EXPECT_EQ(Formula::Not(Formula::Not(c1)).reader().arg().arg().Build(), c1);
   EXPECT_EQ(Formula::Exists(x2, Formula::Not(c1)).reader().arg().arg().Build(), c1);
@@ -56,7 +57,7 @@ TEST(Formula, general) {
   EXPECT_EQ(Formula::Not(Formula::Or(Formula::Or(Formula::Not(c1), Formula::Not(c2)), Formula::Exists(x2, c2))).reader().Build(), Formula::Not(Formula::Or(Formula::Or(Formula::Not(c1), Formula::Not(c2)), Formula::Exists(x2, c2))));
 }
 
-TEST(Formula, substitution) {
+TEST(FormulaTest, substitution) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();

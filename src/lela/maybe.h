@@ -7,14 +7,16 @@
 //
 // To handle Maybe<std::unique_ptr<T>> we use std::forward(). Is that correct?
 
-#ifndef SRC_MAYBE_H_
-#define SRC_MAYBE_H_
+#ifndef LELA_MAYBE_H_
+#define LELA_MAYBE_H_
 
 #include <cassert>
+
 #include <memory>
 #include <utility>
 
 namespace lela {
+namespace internal {
 
 template<typename... Types>
 struct Maybe {
@@ -69,7 +71,8 @@ Maybe<Types...> Perhaps(bool succ, Types&&... val) {  // NOLINT
   return Maybe<Types...>(succ, std::forward<Types>(val)...);  // NOLINT
 }
 
+}  // namespace internal
 }  // namespace lela
 
-#endif  // SRC_MAYBE_H_
+#endif  // LELA_MAYBE_H_
 

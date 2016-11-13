@@ -14,18 +14,20 @@
 // represented by a memory address where its structure is stored. Creating a
 // second term of the same structure yields the same memory address.
 
-#ifndef SRC_TERM_H_
-#define SRC_TERM_H_
+#ifndef LELA_TERM_H_
+#define LELA_TERM_H_
 
 #include <cassert>
+
 #include <algorithm>
 #include <map>
 #include <set>
 #include <vector>
 #include <utility>
-#include "./compar.h"
-#include "./intmap.h"
-#include "./maybe.h"
+
+#include <lela/compar.h>
+#include <lela/intmap.h>
+#include <lela/maybe.h>
 
 namespace lela {
 
@@ -109,9 +111,9 @@ struct Symbol::Comparator {
   }
 
  private:
-  LexicographicComparator<LessComparator<Id>,
-                          LessComparator<Sort>,
-                          LessComparator<int>> comp;
+  internal::LexicographicComparator<internal::LessComparator<Id>,
+                                    internal::LessComparator<Sort>,
+                                    internal::LessComparator<int>> comp;
 };
 
 class Term {
@@ -172,7 +174,7 @@ class Term {
 
  private:
 #ifdef FRIEND_TEST
-  FRIEND_TEST(Term, hash);
+  FRIEND_TEST(TermTest, hash);
 #endif
 
   struct Data {
@@ -199,7 +201,7 @@ struct Term::Comparator {
   }
 
  private:
-  LessComparator<const Data*> comp;
+  internal::LessComparator<const Data*> comp;
 };
 
 struct Term::Data::DeepComparator {
@@ -211,8 +213,8 @@ struct Term::Data::DeepComparator {
   }
 
  private:
-  LexicographicComparator<Symbol::Comparator,
-                          LexicographicContainerComparator<Vector, Term::Comparator>> comp;
+  internal::LexicographicComparator<Symbol::Comparator,
+                                    internal::LexicographicContainerComparator<Vector, Term::Comparator>> comp;
 };
 
 class Term::Factory {
@@ -250,15 +252,15 @@ class Term::Factory {
   }
 
  private:
-  IntMap<Symbol::Sort, std::set<Data*, Data::DeepComparator>> memory_;
+  internal::IntMap<Symbol::Sort, std::set<Data*, Data::DeepComparator>> memory_;
 };
 
 struct Term::SingleSubstitution {
   SingleSubstitution(Term old, Term rev) : old_(old), rev_(rev) {}
 
-  Maybe<Term> operator()(const Term t) const {
-    if (t == old_) return Just(rev_);
-    else           return Nothing;
+  internal::Maybe<Term> operator()(const Term t) const {
+    if (t == old_) return internal::Just(rev_);
+    else           return internal::Nothing;
   }
 
  private:
@@ -268,7 +270,7 @@ struct Term::SingleSubstitution {
 
 template<typename UnaryFunction>
 Term Term::Substitute(UnaryFunction theta, Factory* tf) const {
-  Maybe<Term> t = theta(*this);
+  internal::Maybe<Term> t = theta(*this);
   if (t) {
     return t.val;
   } else if (arity() > 0) {
@@ -298,5 +300,5 @@ void Term::Traverse(UnaryFunction f) const {
 
 }  // namespace lela
 
-#endif  // SRC_TERM_H_
+#endif  // LELA_TERM_H_
 

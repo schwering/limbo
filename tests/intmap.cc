@@ -2,14 +2,16 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include "./intmap.h"
+
+#include <lela/intmap.h>
 
 namespace lela {
+namespace internal {
 
 template<typename T>
 size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
-TEST(IntMap, general) {
+TEST(IntMapTest, general) {
   IntMap<int, std::string> map;
   map[0] = "zero";
   map[2] = "two";
@@ -48,5 +50,6 @@ TEST(IntMap, general) {
   EXPECT_EQ(map[4], "four");
 }
 
+}  // namespace internal
 }  // namespace lela
 

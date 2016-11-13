@@ -4,20 +4,22 @@
 // A Grounder determines how many standard names need to be substituted for
 // variables in a proper+ knowledge base and in queries.
 
-#ifndef SRC_GROUNDER_H_
-#define SRC_GROUNDER_H_
+#ifndef LELA_GROUNDER_H_
+#define LELA_GROUNDER_H_
 
 #include <cassert>
+
 #include <algorithm>
 #include <list>
 #include <map>
 #include <utility>
 #include <vector>
-#include "./clause.h"
-#include "./formula.h"
-#include "./iter.h"
-#include "./maybe.h"
-#include "./setup.h"
+
+#include <lela/clause.h>
+#include <lela/formula.h>
+#include <lela/iter.h>
+#include <lela/maybe.h>
+#include <lela/setup.h>
 
 namespace lela {
 
@@ -41,9 +43,9 @@ class Grounder {
     }
   };
 
-  class SortedTermSet : public IntMap<Symbol::Sort, TermSet> {
+  class SortedTermSet : public internal::IntMap<Symbol::Sort, TermSet> {
    public:
-    using IntMap<Symbol::Sort, TermSet>::IntMap;
+    using internal::IntMap<Symbol::Sort, TermSet>::IntMap;
 
     void Add(Term t) {
       (*this)[t.sort()].Add(t);
@@ -69,6 +71,9 @@ class Grounder {
   };
 
   explicit Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
+  Grounder(const Grounder&) = delete;
+  Grounder(const Grounder&&) = delete;
+  Grounder& operator=(const Grounder) = delete;
 
   const std::list<Clause>& kb() const { return cs_; }
 
@@ -136,7 +141,7 @@ class Grounder {
   }
 
  private:
-  typedef IntMap<Symbol::Sort, size_t> PlusMap;
+  typedef internal::IntMap<Symbol::Sort, size_t> PlusMap;
 
   struct Assignments {
     struct NameRange {
@@ -160,16 +165,16 @@ class Grounder {
     };
 
     struct Assignment {
-      Maybe<Term> operator()(Term v) const {
+      internal::Maybe<Term> operator()(Term v) const {
         auto it = map_.find(v);
         if (it != map_.end()) {
           auto r = it->second;
           assert(!r.empty());
           const Term name = *r.begin();
           assert(name.name());
-          return Just(name);
+          return internal::Just(name);
         } else {
-          return Nothing;
+          return internal::Nothing;
         }
       }
 
@@ -218,9 +223,8 @@ class Grounder {
 
       assignment_iterator& operator++() {
         for (meta_iter_ = assignment_.begin(); meta_iter_ != assignment_.end(); ++meta_iter_) {
-          const Term var = meta_iter_->first;
           NameRange& r = meta_iter_->second;
-          assert(var.symbol().variable());
+          assert(meta_iter_->first.symbol().variable());
           assert(!r.empty());
           r.Next();
           if (!r.empty()) {
@@ -228,7 +232,7 @@ class Grounder {
           } else {
             r.Reset();
             assert(!r.empty());
-            assert(var.sort() == r.begin()->sort());
+            assert(meta_iter_->first.sort() == r.begin()->sort());
           }
         }
         if (meta_iter_ == assignment_.end()) {
@@ -355,7 +359,9 @@ class Grounder {
         // We could save some instantiations here by substituting the same
         // variables for the identical terms that occur more than once.
         Term sub = old.Substitute([terms, old, sf, tf](Term t) {
-          return (t != old && t.function()) ? Just(tf->CreateTerm(sf->CreateVariable(t.sort()))) : Nothing;
+          return (t != old && t.function())
+              ? internal::Just(tf->CreateTerm(sf->CreateVariable(t.sort())))
+              : internal::Nothing;
         }, tf_);
         assert(sub.quasiprimitive());
         terms->Add(sub);
@@ -399,5 +405,5 @@ class Grounder {
 
 }  // namespace lela
 
-#endif  // SRC_GROUNDER_H_
+#endif  // LELA_GROUNDER_H_
 

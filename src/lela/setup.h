@@ -32,17 +32,19 @@
 // duplicates (precisely when a term occurs in clauses stored in two different
 // Setup objects).
 
-#ifndef SRC_SETUP_H_
-#define SRC_SETUP_H_
+#ifndef LELA_SETUP_H_
+#define LELA_SETUP_H_
 
 #include <cassert>
+
 #include <algorithm>
 #include <map>
 #include <utility>
 #include <vector>
-#include "./clause.h"
-#include "./intmap.h"
-#include "./iter.h"
+
+#include <lela/clause.h>
+#include <lela/intmap.h>
+#include <lela/iter.h>
 
 namespace lela {
 
@@ -205,8 +207,8 @@ class Setup {
       const Setup* owner_;
     };
 
-    typedef incr_iterator<IndexPlusTo> every_clause_iterator;
-    typedef filter_iterator<EnabledClause, incr_iterator<IndexPlusTo>> clause_iterator;
+    typedef internal::incr_iterator<IndexPlusTo> every_clause_iterator;
+    typedef internal::filter_iterator<EnabledClause, every_clause_iterator> clause_iterator;
 
     explicit Clauses(const Setup* owner) : owner_(owner) {}
 
@@ -235,7 +237,7 @@ class Setup {
       const Setup* owner_;
     };
 
-    typedef filter_iterator<UnitClause, Clauses::clause_iterator> unit_clause_iterator;
+    typedef internal::filter_iterator<UnitClause, Clauses::clause_iterator> unit_clause_iterator;
 
     explicit UnitClauses(const Setup* owner) : owner_(owner) {}
 
@@ -286,11 +288,11 @@ class Setup {
     };
 
     typedef Setups::setup_iterator setup_iterator;
-    typedef transform_iterator<GetTermPairs, setup_iterator> term_pairs_iterator;
-    typedef nested_iterator<term_pairs_iterator> every_term_pair_iterator;
-    typedef filter_iterator<EnabledClause, every_term_pair_iterator> term_pair_iterator;
-    typedef transform_iterator<GetTerm, term_pair_iterator> every_term_iterator;
-    typedef filter_iterator<UniqueTerm, every_term_iterator> term_iterator;
+    typedef internal::transform_iterator<GetTermPairs, setup_iterator> term_pairs_iterator;
+    typedef internal::nested_iterator<term_pairs_iterator> every_term_pair_iterator;
+    typedef internal::filter_iterator<EnabledClause, every_term_pair_iterator> term_pair_iterator;
+    typedef internal::transform_iterator<GetTerm, term_pair_iterator> every_term_iterator;
+    typedef internal::filter_iterator<UniqueTerm, every_term_iterator> term_iterator;
 
     explicit PrimitiveTerms(const Setup* owner) : owner_(owner) {}
 
@@ -345,25 +347,25 @@ class Setup {
     typedef Clauses::EnabledClause EnabledClause;
 
     typedef Setups::setup_iterator setup_iterator;
-    typedef transform_iterator<GetTermPairs, setup_iterator> term_pairs_iterator;
-    typedef nested_iterator<term_pairs_iterator> every_term_pair_iterator;
-    typedef transform_iterator<GetClause, every_term_pair_iterator> every_clause_term_occurrence_iterator;
-    typedef filter_iterator<EnabledClause, every_clause_term_occurrence_iterator> clause_term_occurrence_iterator;
+    typedef internal::transform_iterator<GetTermPairs, setup_iterator> term_pairs_iterator;
+    typedef internal::nested_iterator<term_pairs_iterator> every_term_pair_iterator;
+    typedef internal::transform_iterator<GetClause, every_term_pair_iterator> every_clause_with_term_iterator;
+    typedef internal::filter_iterator<EnabledClause, every_clause_with_term_iterator> clause_with_term_iterator;
 
-    explicit ClausesWith(const Setup* owner, Term term) : owner_(owner), term_(term) {}
+    ClausesWith(const Setup* owner, Term term) : owner_(owner), term_(term) {}
 
-    clause_term_occurrence_iterator begin() const {
+    clause_with_term_iterator begin() const {
       auto first = term_pairs_iterator(GetTermPairs(term_), owner_->setups().begin());
       auto last  = term_pairs_iterator(GetTermPairs(term_), owner_->setups().end());
-      auto first_filter = every_clause_term_occurrence_iterator(GetClause(), every_term_pair_iterator(first, last));
-      auto last_filter  = every_clause_term_occurrence_iterator(GetClause(), every_term_pair_iterator(last, last));
-      return clause_term_occurrence_iterator(EnabledClause(owner_), first_filter, last_filter);
+      auto first_filter = every_clause_with_term_iterator(GetClause(), every_term_pair_iterator(first, last));
+      auto last_filter  = every_clause_with_term_iterator(GetClause(), every_term_pair_iterator(last, last));
+      return clause_with_term_iterator(EnabledClause(owner_), first_filter, last_filter);
     }
 
-    clause_term_occurrence_iterator end() const {
+    clause_with_term_iterator end() const {
       auto last = term_pairs_iterator(GetTermPairs(term_), owner_->setups().end());
-      auto last_filter = every_clause_term_occurrence_iterator(GetClause(), every_term_pair_iterator(last, last));
-      return clause_term_occurrence_iterator(EnabledClause(owner_), last_filter, last_filter);
+      auto last_filter = every_clause_with_term_iterator(GetClause(), every_term_pair_iterator(last, last));
+      return clause_with_term_iterator(EnabledClause(owner_), last_filter, last_filter);
     }
 
    private:
@@ -459,7 +461,7 @@ class Setup {
       const Literal a = *clause(i).begin();
       assert(a.primitive());
       for (Index j : clauses_with(a.lhs())) {
-        Maybe<Clause> c = clause(j).PropagateUnit(a);
+        internal::Maybe<Clause> c = clause(j).PropagateUnit(a);
         if (c && !Subsumes(c.val)) {
           const Index k = AddClause(c.val);
           UpdateOccurrences(k);  // keep occurrence index up to date
@@ -499,10 +501,10 @@ class Setup {
 
   // del_ masks all deleted clauses; the number is global, because a clause
   // active in the parent setup may be inactive in this one.
-  IntMap<Index, bool> del_;
+  internal::IntMap<Index, bool> del_;
 };
 
 }  // namespace lela
 
-#endif  // SRC_SETUP_H_
+#endif  // LELA_SETUP_H_
 

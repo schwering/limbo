@@ -7,16 +7,18 @@
 // default is T(), which amounts to 0 for integers and false for bools; the
 // value can be changed by set_null_value().
 
-#ifndef SRC_INTMAP_H_
-#define SRC_INTMAP_H_
+#ifndef LELA_INTMAP_H_
+#define LELA_INTMAP_H_
 
 #include <algorithm>
 #include <iterator>
 #include <utility>
 #include <vector>
-#include "./iter.h"
+
+#include <lela/iter.h>
 
 namespace lela {
+namespace internal {
 
 template<typename Key, typename T>
 class IntMap : public std::vector<T> {
@@ -145,7 +147,8 @@ class IntMap : public std::vector<T> {
   T null_ = T();
 };
 
+}  // namespace internal
 }  // namespace lela
 
-#endif  // SRC_INTMAP_H_
+#endif  // LELA_INTMAP_H_
 

@@ -6,13 +6,14 @@
 // Maybe boost provides the same iterators and we should move to boost (this set
 // of iterators evolved somewhat).
 
-#ifndef SRC_ITER_H_
-#define SRC_ITER_H_
+#ifndef LELA_ITER_H_
+#define LELA_ITER_H_
 
 #include <iterator>
 #include <type_traits>
 
 namespace lela {
+namespace internal {
 
 // Iterates over numbers offset() + 0, offset() + 1, offset() + 2, ...
 template<typename NullaryFunction>
@@ -246,7 +247,8 @@ inline joined_ranges<Iter1, Iter2> join_ranges(Iter1 begin1, Iter1 end1, Iter2 b
   return joined_ranges<Iter1, Iter2>(begin1, end1, begin2, end2);
 }
 
+}  // namespace internal
 }  // namespace lela
 
-#endif  // SRC_ITER_H_
+#endif  // LELA_ITER_H_
 

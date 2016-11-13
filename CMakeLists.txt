@@ -4,8 +4,11 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (LELA)
 
+
 #set (CMAKE_BUILD_TYPE Release)
 set (CMAKE_BUILD_TYPE Debug)
+
+#set (CMAKE_VERBOSE_MAKEFILE ON)
 
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
@@ -41,10 +44,6 @@ endif()
 if (CMAKE_BUILD_TYPE MATCHES Release)
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
 endif()
-
-MESSAGE(${CMAKE_CXX_COMPILER})
-MESSAGE(${CMAKE_CXX_COMPILER_ID})
-MESSAGE(${CMAKE_CXX_FLAGS})
 
 add_subdirectory (src)
 #add_subdirectory (bats)

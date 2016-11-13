@@ -17,12 +17,13 @@
 // We take the byte pairs 1,2 and 3,4 and 5,6 and 7,8 and consider the 16bit
 // number formed by each of them as a single hash.
 
-#ifndef SRC_BLOOM_H_
-#define SRC_BLOOM_H_
+#ifndef LELA_BLOOM_H_
+#define LELA_BLOOM_H_
 
 #include <cstdint>
 
 namespace lela {
+namespace internal {
 
 class BloomFilter {
  public:
@@ -47,13 +48,17 @@ class BloomFilter {
            & ((mask_ >> (hash<3>(x) % BITS)) & ONE)) != 0;
   }
 
+  bool SubsetOf(BloomFilter b) const {
+    return Subset(*this, b);
+  }
+
   static bool Subset(BloomFilter a, BloomFilter b) {
     return ~((~a.mask_) | b.mask_) == 0;
   }
 
  private:
 #ifdef FRIEND_TEST
-  FRIEND_TEST(Bloom, general);
+  FRIEND_TEST(BloomFilterTest, hash);
 #endif
 
   static constexpr uint64_t ONE = 1;  // use this constant because 1 is signed
@@ -65,7 +70,8 @@ class BloomFilter {
   uint64_t mask_ = 0;
 };
 
+}  // namespace internal
 }  // namespace lela
 
-#endif  // SRC_BLOOM_H_
+#endif  // LELA_BLOOM_H_
 

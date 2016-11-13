@@ -2,9 +2,10 @@
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
-#include "./formula.h"
-#include "./grounder.h"
-#include "./pretty.h"
+
+#include <lela/formula.h>
+#include <lela/grounder.h>
+#include <lela/pretty.h>
 
 namespace lela {
 
@@ -16,7 +17,7 @@ size_t length(std::pair<T, U> p) { return std::distance(p.first, p.second); }
 template<typename T>
 size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
-TEST(Grounder, general) {
+TEST(GrounderTest, Ground_SplitTerms_Names) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();

@@ -12,15 +12,17 @@
 // Due to the memory-wise lightweight representation of terms, copying or
 // comparing literals is very fast.
 
-#ifndef SRC_LITERAL_H_
-#define SRC_LITERAL_H_
+#ifndef LELA_LITERAL_H_
+#define LELA_LITERAL_H_
 
 #include <cassert>
+
 #include <algorithm>
 #include <set>
 #include <utility>
-#include "./compar.h"
-#include "./term.h"
+
+#include <lela/compar.h>
+#include <lela/term.h>
 
 namespace lela {
 
@@ -119,12 +121,12 @@ struct Literal::Comparator {
   }
 
  private:
-  LexicographicComparator<Term::Comparator,
-                          Term::Comparator,
-                          LessComparator<bool>> comp;
+  internal::LexicographicComparator<Term::Comparator,
+                                    Term::Comparator,
+                                    internal::LessComparator<bool>> comp;
 };
 
 }  // namespace lela
 
-#endif  // SRC_LITERAL_H_
+#endif  // LELA_LITERAL_H_
 

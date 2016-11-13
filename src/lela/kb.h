@@ -1,38 +1,48 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
 //
-// A Grounder determines how many standard names need to be substituted for
-// variables in a proper+ knowledge base and in queries.
+// KB implements limited belief implications. Splitting is done at a
+// deterministic point, namely after reducing the outermost logical
+// operators with conjunctive meaning (negated disjunction, double
+// negation, negated existential). This is opposed to the original
+// semantics where splitting can be done at any point during the
+// reduction.
 
-#ifndef SRC_KB_H_
-#define SRC_KB_H_
+#ifndef LELA_KB_H_
+#define LELA_KB_H_
 
 #include <cassert>
-#include "./grounder.h"
-#include "./setup.h"
-#include "./term.h"
+
+#include <lela/grounder.h>
+#include <lela/setup.h>
+#include <lela/term.h>
 
 namespace lela {
 
 class KB {
  public:
-  void AddClause(const Clause& c) { g_.AddClause(c); }
+  KB() : grounder_(&sf_, &tf_) {}
+  KB(const KB&) = delete;
+  KB(const KB&&) = delete;
+  KB& operator=(const KB&) = delete;
+
+  void AddClause(const Clause& c) { grounder_.AddClause(c); }
 
   Symbol::Factory* sf() { return &sf_; }
   Term::Factory* tf() { return &tf_; }
 
   template<typename T>
   bool Entails(int k, const Formula::Reader<T>& phi) {
-    g_.PrepareFor(k, phi);
-    Setup s = g_.Ground();
-    TermSet split_terms = g_.SplitTerms();
-    SortedTermSet names = g_.Names();
+    grounder_.PrepareFor(k, phi);
+    Setup s = grounder_.Ground();
+    TermSet split_terms = grounder_.SplitTerms();
+    SortedTermSet names = grounder_.Names();
     return ReduceConjunctions(s, split_terms, names, k, phi);
   }
 
  private:
 #ifdef FRIEND_TEST
-  FRIEND_TEST(KB, general);
+  FRIEND_TEST(KBTest, Entails);
 #endif
 
   typedef Grounder::SortedTermSet SortedTermSet;
@@ -171,10 +181,10 @@ class KB {
 
   Symbol::Factory sf_;
   Term::Factory tf_;
-  Grounder g_ = Grounder(&sf_, &tf_);
+  Grounder grounder_;
 };
 
 }  // namespace lela
 
-#endif  // SRC_KB_H_
+#endif  // LELA_KB_H_
 
