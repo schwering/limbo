@@ -11,27 +11,24 @@ namespace lela {
 
 using namespace lela::format;
 
-template<typename T, typename U>
-size_t length(std::pair<T, U> p) { return std::distance(p.first, p.second); }
-
 template<typename T>
 size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
 TEST(GrounderTest, Ground_SplitTerms_Names) {
   Symbol::Factory sf;
   Term::Factory tf;
-  const Symbol::Sort s1 = sf.CreateSort();
-  const Symbol::Sort s2 = sf.CreateSort();
-  const Term n1 = tf.CreateTerm(sf.CreateName(s1));
-  //const Term n2 = tf.CreateTerm(sf.CreateName(s1));
-  const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
-  const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));
-  const Term x3 = tf.CreateTerm(sf.CreateVariable(s2));
-  //const Term x4 = tf.CreateTerm(sf.CreateVariable(s2));
-  const Symbol a = sf.CreateFunction(s1, 0);
-  const Symbol f = sf.CreateFunction(s1, 1);
-  //const Symbol g = sf.CreateFunction(s2, 1);
-  const Symbol h = sf.CreateFunction(s2, 2);
+  const Symbol::Sort s1 = sf.CreateSort();                  RegisterSort(s1, "");
+  const Symbol::Sort s2 = sf.CreateSort();                  RegisterSort(s2, "");
+  const Term n1 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n1.symbol(), "n1");
+  const Term n2 = tf.CreateTerm(sf.CreateName(s2));         RegisterSymbol(n2.symbol(), "n2");
+  const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));     RegisterSymbol(x1.symbol(), "x1");
+  const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));     RegisterSymbol(x2.symbol(), "x2");
+  const Term x3 = tf.CreateTerm(sf.CreateVariable(s2));     RegisterSymbol(x3.symbol(), "x3");
+  //const Term x4 = tf.CreateTerm(sf.CreateVariable(s2));     RegisterSymbol(x4, "x4");
+  const Symbol a = sf.CreateFunction(s1, 0);                RegisterSymbol(a, "a");
+  const Symbol f = sf.CreateFunction(s1, 1);                RegisterSymbol(f, "f");
+  //const Symbol g = sf.CreateFunction(s2, 1);                RegisterSymbol(g, "g");
+  const Symbol h = sf.CreateFunction(s2, 2);                RegisterSymbol(h, "h");
   //const Symbol i = sf.CreateFunction(s2, 2);
   //const Term c1 = tf.CreateTerm(a, {});
   //const Term f1 = tf.CreateTerm(f, {n1});
@@ -174,10 +171,10 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 //  {
 //    Grounder g(&sf, &tf);
 //    g.AddClause(Clause({Literal::Neq(c1, x1)}));
-//    g.PrepareFor(Formula::Exists(x1, Formula::Clause({Literal::Eq(x1, x1)})).reader());
-//    g.PrepareFor(Formula::Exists(x2, Formula::Clause({Literal::Eq(x2, x2)})).reader());
-//    g.PrepareFor(Formula::Exists(x3, Formula::Clause({Literal::Eq(x3, x3)})).reader());
-//    g.PrepareFor(Formula::Exists(x4, Formula::Clause({Literal::Eq(x4, x4)})).reader());
+//    g.PrepareForQuery(Formula::Exists(x1, Formula::Clause({Literal::Eq(x1, x1)})).reader());
+//    g.PrepareForQuery(Formula::Exists(x2, Formula::Clause({Literal::Eq(x2, x2)})).reader());
+//    g.PrepareForQuery(Formula::Exists(x3, Formula::Clause({Literal::Eq(x3, x3)})).reader());
+//    g.PrepareForQuery(Formula::Exists(x4, Formula::Clause({Literal::Eq(x4, x4)})).reader());
 //    lela::Setup s = g.Ground();
 //    EXPECT_EQ(length(s.clauses()), 2);
 //  }
@@ -186,7 +183,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     //Formula phi = Formula::Exists(x3, Formula::Clause({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(a, {}))}));
     Formula phi = Formula::Exists(x3, Formula::Clause({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(f, {tf.CreateTerm(a, {})}))}));
     Grounder g(&sf, &tf);
-    g.PrepareFor(1, phi.reader());
+    g.PrepareForQuery(1, phi.reader());
     Grounder::TermSet terms = g.SplitTerms();
     Grounder::SortedTermSet names = g.Names();
     //std::cout << phi << std::endl;
@@ -206,27 +203,105 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
               std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(f, {n1}), tf.CreateTerm(f, {nSplit}), tf.CreateTerm(h, {n1, nx3})}));
   }
 
-#if 0
-  Grounder::PlusMap plus;
-  plus[s1] = 2;
-  plus[s2] = 2;
-  std::vector<Clause> kb;
-  kb.push_back(Clause({Literal::Eq(c1, x1)}));
   {
-    lela::Setup s = Grounder::Ground(kb, plus, &tf);
-    EXPECT_EQ(length(s.clauses()), 2);
+    Clause c{Literal::Eq(tf.CreateTerm(h, {n1,n2}), n2)}; 
+    Clause d{Literal::Eq(tf.CreateTerm(h, {x1,n2}), n2)}; 
+    Clause e{Literal::Eq(tf.CreateTerm(f, {x1}), n1)}; 
+    Formula phi = Formula::Exists(x3, Formula::Clause({Literal::Eq(tf.CreateTerm(h, {n1,x3}), x3)}));
+    Grounder g(&sf, &tf);
+    const class Setup* last;
+    {
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 0);
+      const class Setup* s = &g.Ground();
+      EXPECT_EQ(length(s->clauses()), 0);
+      EXPECT_EQ(g.setups_.size(), 1);
+      last = s;
+    }
+    {
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 0);
+      const class Setup* s = &g.Ground();
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 0);
+      EXPECT_EQ(length(s->clauses()), 0);
+      EXPECT_EQ(g.setups_.size(), 1);
+      EXPECT_EQ(s, last);
+      last = s;
+    }
+    g.AddClause(c);  // adds new name, re-ground everything
+    {
+      EXPECT_TRUE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 1);
+      EXPECT_EQ(g.processed_clauses_.size(), 0);
+      const class Setup* s = &g.Ground();
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 1);
+      EXPECT_EQ(length(s->clauses()), 1);
+      EXPECT_EQ(g.setups_.size(), 1);
+      last = s;
+    }
+    g.PrepareForQuery(0, phi.reader());  // adds new plus name, re-ground everything
+    {
+      EXPECT_TRUE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 1);
+      const class Setup* s = &g.Ground();
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 1);
+      //EXPECT_NE(last, s);
+      EXPECT_EQ(length(s->clauses()), 1);
+      EXPECT_EQ(g.setups_.size(), 1);
+      last = s;
+    }
+    g.AddClause(d);  // adds two new plus names (one for x, one for the Lemma 8 fix), re-ground everything
+    {
+      EXPECT_TRUE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 1);
+      EXPECT_EQ(g.processed_clauses_.size(), 1);
+      const class Setup* s = &g.Ground();
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 2);
+      //EXPECT_NE(last, s);
+      EXPECT_EQ(length(s->clauses()), 3);
+      EXPECT_EQ(g.setups_.size(), 1);
+      last = s;
+    }
+    g.PrepareForQuery(1, phi.reader());  // adds no new plus name, 
+    {
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 2);
+      const class Setup* s = &g.Ground();
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 2);
+      EXPECT_EQ(last, s);
+      EXPECT_EQ(length(s->clauses()), 3);
+      EXPECT_EQ(g.setups_.size(), 1);
+      last = s;
+    }
+    g.AddClause(e);  // adds no new names
+    {
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 1);
+      EXPECT_EQ(g.processed_clauses_.size(), 2);
+      const class Setup* s = &g.Ground();
+      EXPECT_FALSE(g.names_changed_);
+      EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
+      EXPECT_EQ(g.processed_clauses_.size(), 3);
+      EXPECT_NE(last, s);
+      EXPECT_EQ(length(s->clauses()), 3+3);
+      EXPECT_EQ(g.setups_.size(), 2);
+      last = s;
+    }
   }
-  kb.push_back(Clause({Literal::Eq(f2, x2)}));
-  {
-    lela::Setup s = Grounder::Ground(kb, plus, &tf);
-    EXPECT_EQ(length(s.clauses()), 3 + 3);
-  }
-  kb.push_back(Clause({Literal::Eq(f5, x2)}));
-  {
-    lela::Setup s = Grounder::Ground(kb, plus, &tf);
-    EXPECT_EQ(length(s.clauses()), 3 + 3 + 3*3*2);
-  }
-#endif
 }
 
 }  // namespace lela

@@ -3,6 +3,18 @@
 //
 // A Grounder determines how many standard names need to be substituted for
 // variables in a proper+ knowledge base and in queries.
+//
+// AddClause() and PrepareForQuery() determine the names and split terms that
+// need to be considered when proving whether the added clauses entail a
+// query.
+//
+// The Ground() method aims to avoid unnecessary regrounding of all clauses.
+// To this end, we distinguish internally between processed and unprocessed
+// clauses. A call to Ground() only grounds the unprocessed clauses and adds
+// them to a new Setup, which inherits the other clauses from the previous
+// result of Ground(). The unprocessed clauses include those which were added
+// with AddClause(). In case new names have been added due to AddClause() or
+// PrepareForQuery(), the unprocessed clauses include all added clauses.
 
 #ifndef LELA_GROUNDER_H_
 #define LELA_GROUNDER_H_
@@ -29,17 +41,22 @@ class Grounder {
    public:
     using std::vector<Term>::vector;
 
-    void Add(Term t) {
+    size_t Add(Term t) {
       push_back(t);
+      return 1;
     }
 
-    void Add(const TermSet& terms) {
+    size_t Add(const TermSet& terms) {
       insert(end(), terms.begin(), terms.end());
+      return terms.size();
     }
 
-    void MakeSet() {
+    size_t MakeSet() {
       std::sort(begin(), end(), Term::Comparator());
-      erase(std::unique(begin(), end()), end());
+      auto it = std::unique(begin(), end());
+      size_t n = std::distance(it, end());
+      erase(it, end());
+      return n;
     }
   };
 
@@ -47,26 +64,32 @@ class Grounder {
    public:
     using internal::IntMap<Symbol::Sort, TermSet>::IntMap;
 
-    void Add(Term t) {
-      (*this)[t.sort()].Add(t);
+    size_t Add(Term t) {
+      return (*this)[t.sort()].Add(t);
     }
 
-    void Add(const TermSet& terms) {
+    size_t Add(const TermSet& terms) {
+      size_t n = 0;
       for (Term t : terms) {
-        Add(t);
+        n += Add(t);
       }
+      return n;
     }
 
-    void Add(const SortedTermSet& terms) {
+    size_t Add(const SortedTermSet& terms) {
+      size_t n = 0;
       for (const Symbol::Sort sort : terms.keys()) {
-        (*this)[sort].Add(terms[sort]);
+        n += (*this)[sort].Add(terms[sort]);
       }
+      return n;
     }
 
-    void MakeSet() {
+    size_t MakeSet() {
+      size_t n = 0;
       for (const Symbol::Sort sort : keys()) {
-        (*this)[sort].MakeSet();
+        n += (*this)[sort].MakeSet();
       }
+      return n;
     }
   };
 
@@ -75,50 +98,78 @@ class Grounder {
   Grounder(const Grounder&&) = delete;
   Grounder& operator=(const Grounder) = delete;
 
-  const std::list<Clause>& kb() const { return cs_; }
+  typedef std::list<Clause>::const_iterator clause_iterator;
+  typedef internal::joined_ranges<clause_iterator, clause_iterator> clause_range;
+
+  clause_range clauses() const {
+    return internal::join_ranges(processed_clauses_.cbegin(), processed_clauses_.cend(),
+                                 unprocessed_clauses_.cbegin(), unprocessed_clauses_.cend());
+  }
 
   void AddClause(const Clause& c) {
     assert(std::all_of(c.begin(), c.end(), [](Literal a) { return a.quasiprimitive() || a.idiotic(); }));
     if (c.valid()) {
       return;
     }
-    AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, c));
-    AddPlusNames(PlusNames(c));
+    names_changed_ |= AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, c));
+    names_changed_ |= AddPlusNames(PlusNames(c));
     AddSplitTerms(MentionedTerms<TermSet>([](Term t) { return t.quasiprimitive(); }, c));
-    cs_.push_front(c);
+    unprocessed_clauses_.push_front(c);
   }
 
   template<typename T>
-  void PrepareFor(size_t k, const Formula::Reader<T>& phi) {
-    AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, phi));
-    AddPlusNames(PlusNames(phi));
+  void PrepareForQuery(size_t k, const Formula::Reader<T>& phi) {
     TermSet terms = MentionedTerms<TermSet>([](Term t) { return t.function(); }, phi);
     Flatten(&terms);
+    names_changed_ |= AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, phi));
+    names_changed_ |= AddPlusNames(PlusNames(phi));
+    names_changed_ |= AddPlusNames(PlusSplitNames(k, terms));
     AddSplitTerms(terms);
-    AddPlusNames(PlusSplitNames(k, terms));
   }
 
-  Setup Ground() const {
-    Setup s;
-    for (const Clause& c : cs_) {
-      if (c.ground()) {
-        assert(c.primitive());
-        if (!c.valid()) {
-          s.AddClause(c);
-        }
+  const Setup& Ground() const { return const_cast<Grounder*>(this)->Ground(); }
+
+  const Setup& Ground() {
+    if (names_changed_) {
+      // Re-ground all clauses, i.e., all clauses are considered unprocessed and all old setups are forgotten.
+      unprocessed_clauses_.splice(unprocessed_clauses_.begin(), processed_clauses_);
+      setups_.clear();
+      assert(processed_clauses_.empty());
+      assert(setups_.empty());
+    }
+    if (!unprocessed_clauses_.empty() || setups_.empty()) {
+      // Ground the unprocessed clauses in a new setup, which inherits from the last setup for efficiency.
+      Setup* parent = !setups_.empty() ? &setups_.front() : nullptr;
+      if (!parent) {
+        setups_.push_front(Setup());
       } else {
-        const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, c);
-        for (const Assignments::Assignment& mapping : Assignments(&names_, &vars)) {
-          const Clause ci = c.Substitute(mapping, tf_);
-          if (!ci.valid()) {
-            assert(ci.primitive());
-            s.AddClause(ci);
+        setups_.push_front(Setup(parent));
+      }
+      Setup* s = &setups_.front();
+      assert(s != parent);
+      for (const Clause& c : unprocessed_clauses_) {
+        if (c.ground()) {
+          assert(c.primitive());
+          if (!c.valid()) {
+            s->AddClause(c);
+          }
+        } else {
+          const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, c);
+          for (const Assignments::Assignment& mapping : Assignments(&names_, &vars)) {
+            const Clause ci = c.Substitute(mapping, tf_);
+            if (!ci.valid()) {
+              assert(ci.primitive());
+              s->AddClause(ci);
+            }
           }
         }
       }
+      s->Init();
+      processed_clauses_.splice(processed_clauses_.begin(), unprocessed_clauses_);
+      names_changed_ = false;
     }
-    s.Init();
-    return s;
+    assert(!setups_.empty());
+    return setups_.front();
   }
 
   const SortedTermSet& Names() const {
@@ -141,6 +192,10 @@ class Grounder {
   }
 
  private:
+#ifdef FRIEND_TEST
+  FRIEND_TEST(GrounderTest, Ground_SplitTerms_Names);
+#endif
+
   typedef internal::IntMap<Symbol::Sort, size_t> PlusMap;
 
   struct Assignments {
@@ -344,7 +399,7 @@ class Grounder {
     PlusMap plus;
     for (Term t : terms) {
       if (plus[t.sort()] < k) {
-        plus[t.sort()] = k;
+        plus[t.sort()] = k;  // XXX This is bad for a singleton boolean sort
       }
     }
     return plus;
@@ -372,35 +427,45 @@ class Grounder {
     terms->MakeSet();
   }
 
-  void AddMentionedNames(const SortedTermSet& names) {
-    names_.Add(names);
-    names_.MakeSet();
+  bool AddMentionedNames(const SortedTermSet& names) {
+    size_t added = names_.Add(names);
+    size_t remed = names_.MakeSet();
+    assert(added >= remed);
+    return added > remed;
   }
 
-  void AddPlusNames(const PlusMap& plus) {
+  bool AddPlusNames(const PlusMap& plus) {
+    size_t added = 0;
     for (const Symbol::Sort sort : plus.keys()) {
       size_t n = plus[sort];
       if (plus_[sort] < n) {
         plus_[sort] = n;
         while (n-- > 0) {
-          names_[sort].Add(tf_->CreateTerm(sf_->CreateName(sort)));
+          added += names_[sort].Add(tf_->CreateTerm(sf_->CreateName(sort)));
         }
       }
     }
-    names_.MakeSet();
+    size_t remed = names_.MakeSet();
+    assert(added >= remed);
+    return added > remed;
   }
 
-  void AddSplitTerms(const TermSet& terms) {
-    splits_.Add(terms);
-    splits_.MakeSet();
+  bool AddSplitTerms(const TermSet& terms) {
+    size_t added = splits_.Add(terms);
+    size_t remed = splits_.MakeSet();
+    assert(added >= remed);
+    return added > remed;
   }
 
-  std::list<Clause> cs_;
+  Symbol::Factory* const sf_;
+  Term::Factory* const tf_;
   PlusMap plus_;
   TermSet splits_;
   SortedTermSet names_;
-  Symbol::Factory* const sf_;
-  Term::Factory* const tf_;
+  bool names_changed_ = false;
+  std::list<Clause> processed_clauses_;
+  std::list<Clause> unprocessed_clauses_;
+  std::list<Setup> setups_;
 };
 
 }  // namespace lela

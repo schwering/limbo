@@ -259,8 +259,7 @@ struct Term::SingleSubstitution {
   SingleSubstitution(Term old, Term rev) : old_(old), rev_(rev) {}
 
   internal::Maybe<Term> operator()(const Term t) const {
-    if (t == old_) return internal::Just(rev_);
-    else           return internal::Nothing;
+    return t == old_ ? internal::Just(rev_) : internal::Nothing;
   }
 
  private:

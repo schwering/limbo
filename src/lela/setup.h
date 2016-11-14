@@ -489,7 +489,7 @@ class Setup {
   Index last()  const { return first_ + cs_.size(); }
 
   const Setup* parent_ = nullptr;
-  const Index first_ = parent_ != nullptr ? parent_->last() : 0;
+  Index first_ = parent_ != nullptr ? parent_->last() : 0;
 #ifndef NDEBUG
   bool sealed_ = false;
 #endif

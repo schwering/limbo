@@ -16,7 +16,6 @@
 #include <vector>
 
 #include <lela/kb.h>
-#include <lela/setup.h>
 #include <lela/format/output.h>
 #include <lela/format/syntax.h>
 #include <lela/internal/maybe.h>
@@ -554,6 +553,8 @@ class Printer {
     std::string text;
   };
 
+  virtual ~Printer() = default;
+
   void Print(std::ostream& os, const Game& g) {
     const int width = 3;
     os << std::setw(width) << "";
@@ -833,6 +834,7 @@ int main(int argc, char *argv[]) {
     std::cout << Color::GREEN << "You win :-)";
   }
   std::cout << "  [width: " << width << ", height: " << height << ", height: " << n_mines << ", seed: " << seed << ", runtime: " << t.duration() << " seconds]" << Color::RESET << std::endl;
+  delete printer;
   return 0;
 }
 

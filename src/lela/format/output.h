@@ -131,16 +131,6 @@ std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
   return os;
 }
 
-template<typename T1, typename T2>
-std::ostream& operator<<(std::ostream& os, const internal::Maybe<T1, T2>& m) {
-  if (m) {
-    os << "internal::Just(" << m.val1 << ", " << m.val2 << ")";
-  } else {
-    os << "internal::Nothing";
-  }
-  return os;
-}
-
 std::ostream& operator<<(std::ostream& os, const Symbol s) {
   internal::Maybe<std::string> sort_name = LookupSort(s.sort());
   internal::Maybe<std::string> symbol_name = LookupSymbol(s);

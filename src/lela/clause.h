@@ -78,11 +78,7 @@ class Clause {
     }
     auto r = internal::filter_range([a](Literal b) { return !Literal::Complementary(a, b); }, begin(), end());
     Clause c(r.begin(), r.end());
-    if (c.size() != size()) {
-      return internal::Just(c);
-    } else {
-      return internal::Nothing;
-    }
+    return c.size() != size() ? internal::Just(c) : internal::Nothing;
   }
 
   bool ground()         const { return std::all_of(begin(), end(), [](Literal a) { return a.ground(); }); }

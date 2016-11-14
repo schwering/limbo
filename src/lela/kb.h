@@ -37,8 +37,8 @@ class KB {
 
   template<typename T>
   bool Entails(int k, const Formula::Reader<T>& phi, bool consistent = false) {
-    grounder_.PrepareFor(k, phi);
-    Setup s = grounder_.Ground();
+    grounder_.PrepareForQuery(k, phi);
+    const Setup& s = grounder_.Ground();
     TermSet split_terms = grounder_.SplitTerms();
     SortedTermSet names = grounder_.Names();
     return ReduceConjunctions(s, split_terms, names, k, phi);

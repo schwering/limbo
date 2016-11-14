@@ -18,12 +18,8 @@
 namespace lela {
 namespace internal {
 
-template<typename... Types>
-struct Maybe {
-};
-
 template<typename T>
-struct Maybe<T> {
+struct Maybe {
   Maybe()                                           : succ(false) {}
   explicit Maybe(T&& val)                           : succ(true), val(std::forward<T>(val)) {}  // NOLINT
   template<typename U> explicit Maybe(const U& val) : succ(true), val(val) {}
@@ -53,22 +49,17 @@ struct Maybe<T> {
 };
 
 struct NothingType {
-  template<typename... Types>
-  operator Maybe<Types...>() const {
-    return Maybe<Types...>();
+  template<typename T>
+  operator Maybe<T>() const {
+    return Maybe<T>();
   }
 };
 
 constexpr NothingType Nothing = NothingType();
 
-template<typename... Types>
-Maybe<Types...> Just(Types&&... val) {  // NOLINT
-  return Maybe<Types...>(std::forward<Types>(val)...);  // NOLINT
-}
-
-template<typename... Types>
-Maybe<Types...> Perhaps(bool succ, Types&&... val) {  // NOLINT
-  return Maybe<Types...>(succ, std::forward<Types>(val)...);  // NOLINT
+template<typename T>
+Maybe<typename std::remove_cv<typename std::remove_reference<T>::type>::type> Just(T&& val) {  // NOLINT
+  return Maybe<T>(std::forward<T>(val));  // NOLINT
 }
 
 }  // namespace internal
