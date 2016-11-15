@@ -192,10 +192,10 @@ class Setup {
 
 
   struct Clauses {
-    struct IndexPlusTo {
-      IndexPlusTo() : owner_(nullptr) {}
-      explicit IndexPlusTo(const Setup* owner) : owner_(owner) {}
-      Index operator()() const { return owner_ != nullptr ? owner_->last() : 0; }
+    struct AddOffset {
+      AddOffset() : owner_(nullptr) {}
+      explicit AddOffset(const Setup* owner) : owner_(owner) {}
+      Index operator()(Index i) const { return i + (owner_ == nullptr ? 0 : owner_->last()); }
      private:
       const Setup* owner_;
     };
@@ -207,19 +207,19 @@ class Setup {
       const Setup* owner_;
     };
 
-    typedef internal::incr_iterator<IndexPlusTo> every_clause_iterator;
-    typedef internal::filter_iterator<EnabledClause, every_clause_iterator> clause_iterator;
+    typedef internal::int_iterator<Index, AddOffset> every_clause_iterator;
+    typedef internal::filter_iterator<every_clause_iterator, EnabledClause> clause_iterator;
 
     explicit Clauses(const Setup* owner) : owner_(owner) {}
 
     clause_iterator begin() const {
-      auto first = every_clause_iterator(IndexPlusTo());
-      auto last  = every_clause_iterator(IndexPlusTo(owner_));
-      return clause_iterator(EnabledClause(owner_), first, last);
+      auto first = every_clause_iterator(0);
+      auto last  = every_clause_iterator(0, AddOffset(owner_));
+      return clause_iterator(first, last, EnabledClause(owner_));
     }
     clause_iterator end() const {
-      auto last = every_clause_iterator(IndexPlusTo(owner_));
-      return clause_iterator(EnabledClause(owner_), last, last);
+      auto last = every_clause_iterator(0, AddOffset(owner_));
+      return clause_iterator(last, last, EnabledClause(owner_));
     }
 
    private:
@@ -237,17 +237,17 @@ class Setup {
       const Setup* owner_;
     };
 
-    typedef internal::filter_iterator<UnitClause, Clauses::clause_iterator> unit_clause_iterator;
+    typedef internal::filter_iterator<Clauses::clause_iterator, UnitClause> unit_clause_iterator;
 
     explicit UnitClauses(const Setup* owner) : owner_(owner) {}
 
     unit_clause_iterator begin() const {
       auto c = owner_->clauses();
-      return unit_clause_iterator(UnitClause(owner_), c.begin(), c.end());
+      return unit_clause_iterator(c.begin(), c.end(), UnitClause(owner_));
     }
     unit_clause_iterator end() const {
       auto c = owner_->clauses();
-      return unit_clause_iterator(UnitClause(owner_), c.end(), c.end());
+      return unit_clause_iterator(c.end(), c.end(), UnitClause(owner_));
     }
 
    private:
@@ -288,32 +288,32 @@ class Setup {
     };
 
     typedef Setups::setup_iterator setup_iterator;
-    typedef internal::transform_iterator<GetTermPairs, setup_iterator> term_pairs_iterator;
+    typedef internal::transform_iterator<setup_iterator, GetTermPairs> term_pairs_iterator;
     typedef internal::nested_iterator<term_pairs_iterator> every_term_pair_iterator;
-    typedef internal::filter_iterator<EnabledClause, every_term_pair_iterator> term_pair_iterator;
-    typedef internal::transform_iterator<GetTerm, term_pair_iterator> every_term_iterator;
-    typedef internal::filter_iterator<UniqueTerm, every_term_iterator> term_iterator;
+    typedef internal::filter_iterator<every_term_pair_iterator, EnabledClause> term_pair_iterator;
+    typedef internal::transform_iterator<term_pair_iterator, GetTerm> every_term_iterator;
+    typedef internal::filter_iterator<every_term_iterator, UniqueTerm> term_iterator;
 
     explicit PrimitiveTerms(const Setup* owner) : owner_(owner) {}
 
     term_iterator begin() const {
-      auto first = term_pairs_iterator(GetTermPairs(), owner_->setups().begin());
-      auto last  = term_pairs_iterator(GetTermPairs(), owner_->setups().end());
+      auto first = term_pairs_iterator(owner_->setups().begin(), GetTermPairs());
+      auto last  = term_pairs_iterator(owner_->setups().end(), GetTermPairs());
       auto first_pair = every_term_pair_iterator(first, last);
       auto last_pair  = every_term_pair_iterator(last, last);
-      auto first_filtered_pair = term_pair_iterator(EnabledClause(owner_), first_pair, last_pair);
-      auto last_filtered_pair  = term_pair_iterator(EnabledClause(owner_), last_pair, last_pair);
-      auto first_term = every_term_iterator(GetTerm(), first_filtered_pair);
-      auto last_term  = every_term_iterator(GetTerm(), last_filtered_pair);
-      return term_iterator(UniqueTerm(), first_term, last_term);
+      auto first_filtered_pair = term_pair_iterator(first_pair, last_pair, EnabledClause(owner_));
+      auto last_filtered_pair  = term_pair_iterator(last_pair, last_pair, EnabledClause(owner_));
+      auto first_term = every_term_iterator(first_filtered_pair, GetTerm());
+      auto last_term  = every_term_iterator(last_filtered_pair, GetTerm());
+      return term_iterator(first_term, last_term, UniqueTerm());
     }
 
     term_iterator end() const {
-      auto last  = term_pairs_iterator(GetTermPairs(), owner_->setups().end());
+      auto last  = term_pairs_iterator(owner_->setups().end(), GetTermPairs());
       auto last_pair  = every_term_pair_iterator(last, last);
-      auto last_filtered_pair  = term_pair_iterator(EnabledClause(owner_), last_pair, last_pair);
-      auto last_term  = every_term_iterator(GetTerm(), last_filtered_pair);
-      return term_iterator(UniqueTerm(), last_term, last_term);
+      auto last_filtered_pair  = term_pair_iterator(last_pair, last_pair, EnabledClause(owner_));
+      auto last_term  = every_term_iterator(last_filtered_pair, GetTerm());
+      return term_iterator(last_term, last_term, UniqueTerm());
     }
 
    private:
@@ -347,25 +347,25 @@ class Setup {
     typedef Clauses::EnabledClause EnabledClause;
 
     typedef Setups::setup_iterator setup_iterator;
-    typedef internal::transform_iterator<GetTermPairs, setup_iterator> term_pairs_iterator;
+    typedef internal::transform_iterator<setup_iterator, GetTermPairs> term_pairs_iterator;
     typedef internal::nested_iterator<term_pairs_iterator> every_term_pair_iterator;
-    typedef internal::transform_iterator<GetClause, every_term_pair_iterator> every_clause_with_term_iterator;
-    typedef internal::filter_iterator<EnabledClause, every_clause_with_term_iterator> clause_with_term_iterator;
+    typedef internal::transform_iterator<every_term_pair_iterator, GetClause> every_clause_with_term_iterator;
+    typedef internal::filter_iterator<every_clause_with_term_iterator, EnabledClause> clause_with_term_iterator;
 
     ClausesWith(const Setup* owner, Term term) : owner_(owner), term_(term) {}
 
     clause_with_term_iterator begin() const {
-      auto first = term_pairs_iterator(GetTermPairs(term_), owner_->setups().begin());
-      auto last  = term_pairs_iterator(GetTermPairs(term_), owner_->setups().end());
-      auto first_filter = every_clause_with_term_iterator(GetClause(), every_term_pair_iterator(first, last));
-      auto last_filter  = every_clause_with_term_iterator(GetClause(), every_term_pair_iterator(last, last));
-      return clause_with_term_iterator(EnabledClause(owner_), first_filter, last_filter);
+      auto first = term_pairs_iterator(owner_->setups().begin(), GetTermPairs(term_));
+      auto last  = term_pairs_iterator(owner_->setups().end(), GetTermPairs(term_));
+      auto first_filter = every_clause_with_term_iterator(every_term_pair_iterator(first, last), GetClause());
+      auto last_filter  = every_clause_with_term_iterator(every_term_pair_iterator(last, last), GetClause());
+      return clause_with_term_iterator(first_filter, last_filter, EnabledClause(owner_));
     }
 
     clause_with_term_iterator end() const {
-      auto last = term_pairs_iterator(GetTermPairs(term_), owner_->setups().end());
-      auto last_filter = every_clause_with_term_iterator(GetClause(), every_term_pair_iterator(last, last));
-      return clause_with_term_iterator(EnabledClause(owner_), last_filter, last_filter);
+      auto last = term_pairs_iterator(owner_->setups().end(), GetTermPairs(term_));
+      auto last_filter = every_clause_with_term_iterator(every_term_pair_iterator(last, last), GetClause());
+      return clause_with_term_iterator(last_filter, last_filter, EnabledClause(owner_));
     }
 
    private:
@@ -417,10 +417,10 @@ class Setup {
 
   void RemoveSubsumed(const Index i) {
     const Clause& c = clause(i);
-#if 0
+#if 1
     for (Index j : clauses()) {
       if (i != j && c.Subsumes(clause(j))) {
-#if 0
+#if 1
         Disable(j);
 #else
         if (clause(j).Subsumes(c)) {

@@ -34,19 +34,15 @@ struct Int {
   int n_;
 };
 
-TEST(IterTest, incr_iterator) {
+TEST(IterTest, int_iterator) {
   {
-    struct Offset {
-      Offset(Int offset) : offset_(offset) {}
-      Int operator()() const { return offset_; }
-     private:
-      Int offset_;
+    struct PlusOne {
+      Int operator()(Int i) const { return i + 1; }
     };
-
-    typedef incr_iterator<Offset> iterator;
-    iterator begin = iterator(Offset(5));
-    iterator end = iterator(Offset(10));
-    EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({5,6,7,8,9}));
+    typedef int_iterator<Int, PlusOne> iterator;
+    iterator begin = iterator(5);
+    iterator end = iterator(10);
+    EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({6,7,8,9,10}));
     for (auto it = begin; it != end; ++it) {
       EXPECT_EQ((*it).val(), it->val());
     }
@@ -82,9 +78,9 @@ TEST(IterTest, transform_iterator) {
     struct Func { Int operator()(Int x) const { return x*2; } };
     typedef std::vector<Int> vec;
     vec xs{1,2,3};
-    typedef transform_iterator<Func, vec::iterator> iterator;
-    iterator begin = iterator(Func(), xs.begin());
-    iterator end = iterator(Func(), xs.end());
+    typedef transform_iterator<vec::iterator, Func> iterator;
+    iterator begin = iterator(xs.begin());
+    iterator end = iterator(xs.end());
     EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({2,4,6}));
     for (auto it = begin; it != end; ++it) {
       EXPECT_EQ((*it).val(), it->val());
@@ -100,7 +96,7 @@ TEST(IterTest, transform_range) {
     struct Func { int operator()(int x) const { return 2*x; } };
     typedef std::vector<int> vec;
     vec xs{1,2,3};
-    auto r = transform_range(Func(), xs.begin(), xs.end());
+    auto r = transform_range(xs.begin(), xs.end(), Func());
     EXPECT_EQ(std::vector<int>(r.begin(), r.end()), std::vector<int>({2,4,6}));
   }
 }
@@ -111,10 +107,10 @@ TEST(IterTest, filter_iterator) {
     typedef std::vector<Int> vec;
     vec xs{1,2,3,4,5,6,7};
     vec ys{2,3,4,6};
-    typedef filter_iterator<Pred, vec::iterator> iterator;
+    typedef filter_iterator<vec::iterator, Pred> iterator;
     {
-      iterator begin = iterator(Pred(), xs.begin(), xs.end());
-      iterator end = iterator(Pred(), xs.end(), xs.end());
+      iterator begin = iterator(xs.begin(), xs.end());
+      iterator end = iterator(xs.end(), xs.end());
       EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({2,4,6}));
       for (auto it = begin; it != end; ++it) {
         EXPECT_EQ((*it).val(), it->val());
@@ -124,8 +120,8 @@ TEST(IterTest, filter_iterator) {
       }
     }
     {
-      iterator begin = iterator(Pred(), ys.begin(), ys.end());
-      iterator end = iterator(Pred(), ys.end(), ys.end());
+      iterator begin = iterator(ys.begin(), ys.end());
+      iterator end = iterator(ys.end(), ys.end());
       EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({2,4,6}));
       for (auto it = begin; it != end; ++it) {
         EXPECT_EQ((*it).val(), it->val());
@@ -144,11 +140,11 @@ TEST(IterTest, filter_range) {
     vec xs{1,2,3,4,5,6,7};
     vec ys{2,3,4,6};
     {
-      auto r = filter_range(Pred(), xs.begin(), xs.end());
+      auto r = filter_range(xs.begin(), xs.end(), Pred());
       EXPECT_EQ(std::vector<int>(r.begin(), r.end()), std::vector<int>({2,4,6}));
     }
     {
-      auto r = filter_range(Pred(), ys.begin(), ys.end());
+      auto r = filter_range(ys.begin(), ys.end(), Pred());
       EXPECT_EQ(std::vector<int>(r.begin(), r.end()), std::vector<int>({2,4,6}));
     }
   }

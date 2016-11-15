@@ -11,6 +11,7 @@
 
 #include <iterator>
 #include <type_traits>
+#include <utility>
 
 namespace lela {
 namespace internal {
@@ -18,12 +19,11 @@ namespace internal {
 // Wrapper for operator*() and operator++(int).
 template<typename Iter>
 struct iterator_proxy {
- public:
   typedef typename Iter::value_type value_type;
   typedef typename Iter::reference reference;
   typedef typename Iter::pointer pointer;
 
-  iterator_proxy(reference v) : v_(v) {}
+  explicit iterator_proxy(reference v) : v_(v) {}
   reference operator*() const { return v_; }
   pointer operator->() const { return &v_; }
 
@@ -31,38 +31,45 @@ struct iterator_proxy {
   mutable value_type v_;
 };
 
-// Iterates over numbers offset() + 0, offset() + 1, offset() + 2, ...
-template<typename NullaryFunction>
-struct incr_iterator {
- public:
+struct Identity {
+  template<typename T>
+  constexpr auto operator()(T&& x) const noexcept -> decltype(std::forward<T>(x)) {
+    return std::forward<T>(x);
+  }
+};
+
+// Encapsulates an integer type.
+template<typename T, typename UnaryFunction = Identity>
+struct int_iterator {
   typedef std::ptrdiff_t difference_type;
-  typedef typename std::result_of<NullaryFunction()>::type value_type;
+  typedef T value_type;
   typedef const value_type* pointer;
   typedef value_type reference;
   typedef std::input_iterator_tag iterator_category;
-  typedef iterator_proxy<incr_iterator> proxy;
+  typedef iterator_proxy<int_iterator> proxy;
 
-  incr_iterator() = default;
-  explicit incr_iterator(NullaryFunction offset) : offset_(offset), index_(0) {}
+  int_iterator() = default;
+  explicit int_iterator(value_type index, UnaryFunction func = UnaryFunction()) : index_(index), func_(func) {}
 
-  bool operator==(incr_iterator it) const { return *(*this) == *it; }
-  bool operator!=(incr_iterator it) const { return !(*this == it); }
+  bool operator==(int_iterator it) const { return *(*this) == *it; }
+  bool operator!=(int_iterator it) const { return !(*this == it); }
 
-  reference operator*() const { assert(index_ >= 0); return offset_() + index_; }
-  incr_iterator& operator++() { ++index_; return *this; }
+  reference operator*() const { return func_(index_); }
+  int_iterator& operator++() { ++index_; return *this; }
+  int_iterator& operator--() { --index_; return *this; }
 
   proxy operator->() const { return proxy(operator*()); }
   proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
+  proxy operator--(int) { proxy p(operator*()); operator--(); return p; }
 
  private:
-  NullaryFunction offset_;
   value_type index_;
+  UnaryFunction func_;
 };
 
 // Expects an iterator pointing to containers and iterates over their elements.
 template<typename ContIter>
 struct nested_iterator {
- public:
   typedef std::ptrdiff_t difference_type;
   typedef typename ContIter::value_type container_type;
   typedef decltype(std::declval<container_type>().begin()) iterator_type;
@@ -126,9 +133,8 @@ struct nested_iterator {
 };
 
 // Haskell's map function.
-template<typename UnaryFunction, typename Iter>
+template<typename Iter, typename UnaryFunction>
 struct transform_iterator {
- public:
   typedef std::ptrdiff_t difference_type;
   typedef typename std::result_of<UnaryFunction(typename Iter::value_type)>::type value_type;
   typedef const value_type* pointer;
@@ -137,7 +143,7 @@ struct transform_iterator {
   typedef iterator_proxy<transform_iterator> proxy;
 
   transform_iterator() = default;
-  transform_iterator(UnaryFunction func, Iter iter) : func_(func), iter_(iter) {}
+  explicit transform_iterator(Iter iter, UnaryFunction func = UnaryFunction()) : iter_(iter), func_(func) {}
 
   bool operator==(transform_iterator it) const { return iter_ == it.iter_; }
   bool operator!=(transform_iterator it) const { return !(*this == it); }
@@ -149,16 +155,16 @@ struct transform_iterator {
   proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
 
  private:
-  UnaryFunction func_;
   Iter iter_;
+  UnaryFunction func_;
 };
 
-template<typename UnaryFunction, typename Iter>
+template<typename Iter, typename UnaryFunction>
 struct transformed_range {
- public:
-  typedef transform_iterator<UnaryFunction, Iter> iterator;
+  typedef transform_iterator<Iter, UnaryFunction> iterator;
 
-  transformed_range(UnaryFunction func, Iter begin, Iter end) : begin_(func, begin), end_(func, end) {}
+  transformed_range(Iter begin, Iter end, UnaryFunction func = UnaryFunction())
+      : begin_(begin, func), end_(end, func) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -168,15 +174,16 @@ struct transformed_range {
   iterator end_;
 };
 
-template<typename UnaryFunction, typename Iter>
-inline transformed_range<UnaryFunction, Iter> transform_range(UnaryFunction func, Iter begin, Iter end) {
-  return transformed_range<UnaryFunction, Iter>(func, begin, end);
+template<typename Iter, typename UnaryFunction>
+inline transformed_range<Iter, UnaryFunction> transform_range(Iter begin,
+                                                              Iter end,
+                                                              UnaryFunction func = UnaryFunction()) {
+  return transformed_range<Iter, UnaryFunction>(begin, end, func);
 }
 
 // Haskell's filter function.
-template<typename UnaryPredicate, typename Iter>
+template<typename Iter, typename UnaryPredicate>
 struct filter_iterator {
- public:
   typedef std::ptrdiff_t difference_type;
   typedef typename Iter::value_type value_type;
   typedef typename Iter::pointer pointer;
@@ -185,7 +192,8 @@ struct filter_iterator {
   typedef iterator_proxy<filter_iterator> proxy;
 
   filter_iterator() = default;
-  filter_iterator(UnaryPredicate pred, Iter it, const Iter end) : pred_(pred), iter_(it), end_(end) { Skip(); }
+  filter_iterator(Iter it, const Iter end, UnaryPredicate pred = UnaryPredicate())
+      : iter_(it), end_(end), pred_(pred) { Skip(); }
 
   bool operator==(filter_iterator it) const { return iter_ == it.iter_; }
   bool operator!=(filter_iterator it) const { return !(*this == it); }
@@ -203,17 +211,17 @@ struct filter_iterator {
     }
   }
 
-  UnaryPredicate pred_;
   Iter iter_;
   const Iter end_;
+  UnaryPredicate pred_;
 };
 
-template<typename UnaryPredicate, typename Iter>
+template<typename Iter, typename UnaryPredicate>
 struct filtered_range {
- public:
-  typedef filter_iterator<UnaryPredicate, Iter> iterator;
+  typedef filter_iterator<Iter, UnaryPredicate> iterator;
 
-  filtered_range(UnaryPredicate pred, Iter begin, Iter end) : begin_(pred, begin, end), end_(pred, end, end) {}
+  filtered_range(Iter begin, Iter end, UnaryPredicate pred = UnaryPredicate())
+      : begin_(begin, end, pred), end_(end, end, pred) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -223,14 +231,13 @@ struct filtered_range {
   iterator end_;
 };
 
-template<typename UnaryPredicate, typename Iter>
-inline filtered_range<UnaryPredicate, Iter> filter_range(UnaryPredicate pred, Iter begin, Iter end) {
-  return filtered_range<UnaryPredicate, Iter>(pred, begin, end);
+template<typename Iter, typename UnaryPredicate>
+inline filtered_range<Iter, UnaryPredicate> filter_range(Iter begin, Iter end, UnaryPredicate pred = UnaryPredicate()) {
+  return filtered_range<Iter, UnaryPredicate>(begin, end, pred);
 }
 
 template<typename Iter1, typename Iter2>
 struct joined_ranges {
- public:
   struct iterator {
     typedef std::ptrdiff_t difference_type;
     typedef typename Iter1::value_type value_type;

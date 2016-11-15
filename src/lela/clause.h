@@ -76,7 +76,7 @@ class Clause {
     if (!bloom_.Contains(a.lhs().hash())) {
       return internal::Nothing;
     }
-    auto r = internal::filter_range([a](Literal b) { return !Literal::Complementary(a, b); }, begin(), end());
+    auto r = internal::filter_range(begin(), end(), [a](Literal b) { return !Literal::Complementary(a, b); });
     Clause c(r.begin(), r.end());
     return c.size() != size() ? internal::Just(c) : internal::Nothing;
   }
@@ -87,7 +87,7 @@ class Clause {
 
   template<typename UnaryFunction>
   Clause Substitute(UnaryFunction theta, Term::Factory* tf) const {
-    auto r = internal::transform_range([theta, tf](Literal a) { return a.Substitute(theta, tf); }, begin(), end());
+    auto r = internal::transform_range(begin(), end(), [theta, tf](Literal a) { return a.Substitute(theta, tf); });
     return Clause(r.begin(), r.end());
   }
 

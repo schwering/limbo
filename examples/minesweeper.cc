@@ -431,7 +431,7 @@ class KnowledgeBase {
   }
 
   Clause MineClause(bool sign, const std::vector<Point> ns) const {
-    auto r = lela::internal::transform_range([this, sign](Point p) { return MineLit(sign, p); }, ns.begin(), ns.end());
+    auto r = lela::internal::transform_range(ns.begin(), ns.end(), [this, sign](Point p) { return MineLit(sign, p); });
     return Clause(r.begin(), r.end());
   }
 
@@ -686,6 +686,7 @@ class KnowledgeBaseAgent : public Agent {
  public:
   explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) { }
 
+#if 0
   std::vector<std::tuple<int, int>> Ranks() const {
     std::vector<std::tuple<int, int>> ranks(g_->n_fields(),
                                             std::make_tuple(8, 8));
@@ -694,6 +695,7 @@ class KnowledgeBaseAgent : public Agent {
     }
     return ranks;
   }
+#endif
 
   void UpdateRankOf(const Point p, std::tuple<int, int>* rank) const {
     // A point p is better ranked than q iff p < q.
@@ -728,7 +730,9 @@ class KnowledgeBaseAgent : public Agent {
       return;
     }
 
+#if 0
     const std::vector<std::tuple<int, int>> ranks = Ranks();
+#endif
     std::vector<Point> ps;
     for (size_t index = 0; index < g_->n_fields(); ++index) {
       const Point p(g_->to_point(index));
@@ -736,22 +740,32 @@ class KnowledgeBaseAgent : public Agent {
         ps.push_back(p);
       }
     }
+#if 0
     const Game* g = g_;
     std::sort(ps.begin(), ps.end(), [g, &ranks](const Point p, const Point q) {
       return ranks[g->to_index(p)] < ranks[g->to_index(q)];
     });
+#endif
 
     // First look for a field which is known not to be a mine.
     for (KB::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
       for (const Point p : ps) {
+#if 0
         const auto& tuple = ranks[g_->to_index(p)];
+#endif
         const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
         if (r.succ) {
           if (r.val) {
+#if 0
             std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
+#endif
+            std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
             g_->Flag(p);
           } else {
+#if 0
             std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
+#endif
+            std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
             g_->OpenWithFrontier(p);
           }
           return;
@@ -761,8 +775,11 @@ class KnowledgeBaseAgent : public Agent {
 
     if (!ps.empty()) {
       const Point p = *ps.begin();
+#if 0
       const auto& tuple = ranks[g_->to_index(p)];
       std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
+#endif
+      std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << std::endl;
       g_->OpenWithFrontier(p);
       return;
     }

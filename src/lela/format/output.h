@@ -258,7 +258,7 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
         internal::LexicographicContainerComparator<std::vector<Literal>, PrintLiteralComparator>> comp;
   };
   Setup::Clauses cs = s.clauses();
-  auto r = internal::transform_range(Get(&s), cs.begin(), cs.end());
+  auto r = internal::transform_range(cs.begin(), cs.end(), Get(&s));
   std::vector<std::vector<Literal>> vec(r.begin(), r.end());
   std::sort(vec.begin(), vec.end(), Comp());
   print_range(os, vec, "{ ", "\n}", "\n, ");

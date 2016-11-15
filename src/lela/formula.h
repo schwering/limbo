@@ -172,10 +172,10 @@ class Formula {
     };
 
     template<typename UnaryFunction>
-    Reader<internal::transform_iterator<SubstituteElement<UnaryFunction>, Iter>>
+    Reader<internal::transform_iterator<Iter, SubstituteElement<UnaryFunction>>>
     Substitute(UnaryFunction theta, Term::Factory* tf) const {
-      typedef internal::transform_iterator<SubstituteElement<UnaryFunction>, Iter> iterator;
-      iterator it = iterator(SubstituteElement<UnaryFunction>(theta, tf), begin());
+      typedef internal::transform_iterator<Iter, SubstituteElement<UnaryFunction>> iterator;
+      iterator it = iterator(begin(), SubstituteElement<UnaryFunction>(theta, tf));
       return Reader<iterator>(it);
     }
 

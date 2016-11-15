@@ -82,17 +82,12 @@ class IntMap : public std::vector<T> {
   const_iterator end()   const { return cend(); }
 
   struct Keys {
-    struct Value {
-      explicit Value(Key k) : k_(k) {}
-      Key operator()() const { return k_; }
-     private:
-      Key k_;
-    };
+    typedef internal::int_iterator<Key> iterator;
 
     explicit Keys(const IntMap* owner) : owner_(owner) {}
 
-    incr_iterator<Value> begin() const { return incr_iterator<Value>(Value(0)); }
-    incr_iterator<Value> end() const { return incr_iterator<Value>(Value(owner_->size())); }
+    iterator begin() const { return iterator(0); }
+    iterator end()   const { return iterator(static_cast<Key>(owner_->size())); }
 
    private:
     const IntMap* owner_;
