@@ -425,7 +425,6 @@ class KnowledgeBase {
 
  private:
   Literal MineLit(bool is, Point p) const {
-    //return Literal(is, p.x * g_->width() + p.y, {});
     Term t = Mine(X[p.x], Y[p.y]);
     return is ? Literal::Eq(t, T) : Literal::Neq(t, T);
   }
@@ -686,36 +685,6 @@ class KnowledgeBaseAgent : public Agent {
  public:
   explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) { }
 
-#if 0
-  std::vector<std::tuple<int, int>> Ranks() const {
-    std::vector<std::tuple<int, int>> ranks(g_->n_fields(),
-                                            std::make_tuple(8, 8));
-    for (size_t index = 0; index < g_->n_fields(); ++index) {
-      UpdateRankOf(g_->to_point(index), &ranks[index]);
-    }
-    return ranks;
-  }
-#endif
-
-  void UpdateRankOf(const Point p, std::tuple<int, int>* rank) const {
-    // A point p is better ranked than q iff p < q.
-    // The rank is composed of the round of p's last change, and minimum number
-    // of mines around one of p's neighbors and the number of unknown fields
-    // around this number.
-    if (!g_->opened(p) && !g_->flagged(p)) {
-      for (const Point q : g_->neighbors_of(p)) {
-        if (g_->opened(q) && !g_->flagged(q)) {
-          const std::tuple<int, int> new_rank =
-              std::make_tuple(g_->state_minus_flags(q),
-                              g_->unopened_unflagged_neighbors(q));
-          if (new_rank < *rank) {
-            *rank = new_rank;
-          }
-        }
-      }
-    }
-  }
-
   void Explore() override {
     kb_->Sync();
 
@@ -730,9 +699,6 @@ class KnowledgeBaseAgent : public Agent {
       return;
     }
 
-#if 0
-    const std::vector<std::tuple<int, int>> ranks = Ranks();
-#endif
     std::vector<Point> ps;
     for (size_t index = 0; index < g_->n_fields(); ++index) {
       const Point p(g_->to_point(index));
@@ -740,31 +706,16 @@ class KnowledgeBaseAgent : public Agent {
         ps.push_back(p);
       }
     }
-#if 0
-    const Game* g = g_;
-    std::sort(ps.begin(), ps.end(), [g, &ranks](const Point p, const Point q) {
-      return ranks[g->to_index(p)] < ranks[g->to_index(q)];
-    });
-#endif
 
     // First look for a field which is known not to be a mine.
     for (KB::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
       for (const Point p : ps) {
-#if 0
-        const auto& tuple = ranks[g_->to_index(p)];
-#endif
         const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
         if (r.succ) {
           if (r.val) {
-#if 0
-            std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
-#endif
             std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
             g_->Flag(p);
           } else {
-#if 0
-            std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
-#endif
             std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
             g_->OpenWithFrontier(p);
           }
@@ -775,10 +726,6 @@ class KnowledgeBaseAgent : public Agent {
 
     if (!ps.empty()) {
       const Point p = *ps.begin();
-#if 0
-      const auto& tuple = ranks[g_->to_index(p)];
-      std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << " (" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << ")" << std::endl;
-#endif
       std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << std::endl;
       g_->OpenWithFrontier(p);
       return;

@@ -45,7 +45,7 @@ struct int_iterator {
   typedef T value_type;
   typedef const value_type* pointer;
   typedef value_type reference;
-  typedef std::input_iterator_tag iterator_category;
+  typedef std::bidirectional_iterator_tag iterator_category;
   typedef iterator_proxy<int_iterator> proxy;
 
   int_iterator() = default;
