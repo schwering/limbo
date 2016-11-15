@@ -15,15 +15,32 @@
 namespace lela {
 namespace internal {
 
+// Wrapper for operator*() and operator++(int).
+template<typename Iter>
+struct iterator_proxy {
+ public:
+  typedef typename Iter::value_type value_type;
+  typedef typename Iter::reference reference;
+  typedef typename Iter::pointer pointer;
+
+  iterator_proxy(reference v) : v_(v) {}
+  reference operator*() const { return v_; }
+  pointer operator->() const { return &v_; }
+
+ private:
+  mutable value_type v_;
+};
+
 // Iterates over numbers offset() + 0, offset() + 1, offset() + 2, ...
 template<typename NullaryFunction>
 struct incr_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
   typedef typename std::result_of<NullaryFunction()>::type value_type;
-  typedef value_type* pointer;
-  typedef value_type& reference;
+  typedef const value_type* pointer;
+  typedef value_type reference;
   typedef std::input_iterator_tag iterator_category;
+  typedef iterator_proxy<incr_iterator> proxy;
 
   incr_iterator() = default;
   explicit incr_iterator(NullaryFunction offset) : offset_(offset), index_(0) {}
@@ -31,9 +48,11 @@ struct incr_iterator {
   bool operator==(incr_iterator it) const { return *(*this) == *it; }
   bool operator!=(incr_iterator it) const { return !(*this == it); }
 
-  value_type operator*() const { assert(index_ >= 0); return offset_() + index_; }
-
+  reference operator*() const { assert(index_ >= 0); return offset_() + index_; }
   incr_iterator& operator++() { ++index_; return *this; }
+
+  proxy operator->() const { return proxy(operator*()); }
+  proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
 
  private:
   NullaryFunction offset_;
@@ -51,6 +70,7 @@ struct nested_iterator {
   typedef typename iterator_type::pointer pointer;
   typedef typename iterator_type::reference reference;
   typedef std::input_iterator_tag iterator_category;
+  typedef iterator_proxy<nested_iterator> proxy;
 
   nested_iterator() = default;
   explicit nested_iterator(ContIter cont_first, ContIter cont_last)
@@ -80,6 +100,9 @@ struct nested_iterator {
     return *this;
   }
 
+  pointer operator->() const { return iter_.operator->(); }
+  proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
+
  private:
   void Skip() {
     for (;;) {
@@ -108,9 +131,10 @@ struct transform_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
   typedef typename std::result_of<UnaryFunction(typename Iter::value_type)>::type value_type;
-  typedef value_type* pointer;
-  typedef value_type& reference;
+  typedef const value_type* pointer;
+  typedef value_type reference;
   typedef std::input_iterator_tag iterator_category;
+  typedef iterator_proxy<transform_iterator> proxy;
 
   transform_iterator() = default;
   transform_iterator(UnaryFunction func, Iter iter) : func_(func), iter_(iter) {}
@@ -118,9 +142,11 @@ struct transform_iterator {
   bool operator==(transform_iterator it) const { return iter_ == it.iter_; }
   bool operator!=(transform_iterator it) const { return !(*this == it); }
 
-  value_type operator*() const { return func_(*iter_); }
-
+  reference operator*() const { return func_(*iter_); }
   transform_iterator& operator++() { ++iter_; return *this; }
+
+  proxy operator->() const { return proxy(operator*()); }
+  proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
 
  private:
   UnaryFunction func_;
@@ -143,7 +169,7 @@ struct transformed_range {
 };
 
 template<typename UnaryFunction, typename Iter>
-transformed_range<UnaryFunction, Iter> transform_range(UnaryFunction func, Iter begin, Iter end) {
+inline transformed_range<UnaryFunction, Iter> transform_range(UnaryFunction func, Iter begin, Iter end) {
   return transformed_range<UnaryFunction, Iter>(func, begin, end);
 }
 
@@ -153,9 +179,10 @@ struct filter_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
   typedef typename Iter::value_type value_type;
-  typedef value_type* pointer;
-  typedef value_type& reference;
+  typedef typename Iter::pointer pointer;
+  typedef typename Iter::reference reference;
   typedef std::input_iterator_tag iterator_category;
+  typedef iterator_proxy<filter_iterator> proxy;
 
   filter_iterator() = default;
   filter_iterator(UnaryPredicate pred, Iter it, const Iter end) : pred_(pred), iter_(it), end_(end) { Skip(); }
@@ -163,9 +190,11 @@ struct filter_iterator {
   bool operator==(filter_iterator it) const { return iter_ == it.iter_; }
   bool operator!=(filter_iterator it) const { return !(*this == it); }
 
-  value_type operator*() const { return *iter_; }
-
+  reference operator*() const { return *iter_; }
   filter_iterator& operator++() { ++iter_; Skip(); return *this; }
+
+  pointer operator->() const { return iter_.operator->(); }
+  proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
 
  private:
   void Skip() {
@@ -175,7 +204,7 @@ struct filter_iterator {
   }
 
   UnaryPredicate pred_;
-  mutable Iter iter_;
+  Iter iter_;
   const Iter end_;
 };
 
@@ -195,7 +224,7 @@ struct filtered_range {
 };
 
 template<typename UnaryPredicate, typename Iter>
-filtered_range<UnaryPredicate, Iter> filter_range(UnaryPredicate pred, Iter begin, Iter end) {
+inline filtered_range<UnaryPredicate, Iter> filter_range(UnaryPredicate pred, Iter begin, Iter end) {
   return filtered_range<UnaryPredicate, Iter>(pred, begin, end);
 }
 
@@ -208,6 +237,7 @@ struct joined_ranges {
     typedef typename Iter1::pointer pointer;
     typedef typename Iter1::reference reference;
     typedef std::input_iterator_tag iterator_category;
+    typedef iterator_proxy<Iter1> proxy;
 
     iterator() = default;
     iterator(Iter1 it1, Iter1 end1, Iter2 it2) : it1_(it1), end1_(end1), it2_(it2) {}
@@ -216,12 +246,14 @@ struct joined_ranges {
     bool operator!=(const iterator& it) const { return !(*this == it); }
 
     reference operator*() const { return it1_ != end1_ ? *it1_ : *it2_; }
-
     iterator& operator++() {
       if (it1_ != end1_)  ++it1_;
       else                ++it2_;
       return *this;
     }
+
+    pointer operator->() const { return it1_ != end1_ ? it1_.operator->() : it2_.operator->(); }
+    proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
 
    private:
     Iter1 it1_;

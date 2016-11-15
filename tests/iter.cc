@@ -8,24 +8,57 @@
 namespace lela {
 namespace internal {
 
+struct Int {
+  Int(int n) : n_(n) {}
+
+  Int operator-() const { return Int(-n_); }
+  Int operator+(Int i) const { return Int(n_ + i.n_); }
+  Int operator+(int i) const { return Int(n_ + i); }
+  Int operator-(Int i) const { return Int(n_ - i.n_); }
+  Int operator-(int i) const { return Int(n_ - i); }
+  Int operator*(Int i) const { return Int(n_ * i.n_); }
+  Int operator*(int i) const { return Int(n_ * i); }
+  Int operator/(Int i) const { return Int(n_ / i.n_); }
+  Int operator/(int i) const { return Int(n_ / i); }
+  Int operator%(Int i) const { return Int(n_ % i.n_); }
+  Int operator%(int i) const { return Int(n_ % i); }
+
+  Int& operator++() { ++n_; return *this; }
+  Int& operator--() { --n_; return *this; }
+  bool operator==(Int i) const { return n_ == i.n_; }
+  bool operator!=(Int i) const { return !(*this == i); }
+
+  int val() const { return n_; }
+
+ private:
+  int n_;
+};
+
 TEST(IterTest, incr_iterator) {
   {
-    struct Int {
-      Int(int n) : n_(n) {}
-      int operator()() const { return n_; }
+    struct Offset {
+      Offset(Int offset) : offset_(offset) {}
+      Int operator()() const { return offset_; }
      private:
-      int n_;
+      Int offset_;
     };
-    typedef incr_iterator<Int> iterator;
-    iterator begin = iterator(5);
-    iterator end = iterator(10);
-    EXPECT_EQ(std::vector<int>(begin, end), std::vector<int>({5,6,7,8,9}));
+
+    typedef incr_iterator<Offset> iterator;
+    iterator begin = iterator(Offset(5));
+    iterator end = iterator(Offset(10));
+    EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({5,6,7,8,9}));
+    for (auto it = begin; it != end; ++it) {
+      EXPECT_EQ((*it).val(), it->val());
+    }
+    for (auto it = begin, jt = begin; it != end; ++it) {
+      EXPECT_EQ(*it, *jt++);
+    }
   }
 }
 
 TEST(IterTest, nested_iterator) {
   {
-    typedef std::vector<int> vec;
+    typedef std::vector<Int> vec;
     typedef std::vector<vec> vecvec;
     vec xs{1,2,3};
     vec ys{4,5,6};
@@ -34,19 +67,31 @@ TEST(IterTest, nested_iterator) {
     typedef nested_iterator<vecvec::iterator> iterator;
     iterator begin = iterator(all.begin(), all.end());
     iterator end = iterator(all.end(), all.end());
-    EXPECT_EQ(std::vector<int>(begin, end), std::vector<int>({1,2,3,4,5,6,7,8,9}));
+    EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({1,2,3,4,5,6,7,8,9}));
+    for (auto it = begin; it != end; ++it) {
+      EXPECT_EQ((*it).val(), it->val());
+    }
+    for (auto it = begin, jt = begin; it != end; ++it) {
+      EXPECT_EQ(*it, *jt++);
+    }
   }
 }
 
 TEST(IterTest, transform_iterator) {
   {
-    struct Func { int operator()(int x) const { return 2*x; } };
-    typedef std::vector<int> vec;
+    struct Func { Int operator()(Int x) const { return x*2; } };
+    typedef std::vector<Int> vec;
     vec xs{1,2,3};
     typedef transform_iterator<Func, vec::iterator> iterator;
     iterator begin = iterator(Func(), xs.begin());
     iterator end = iterator(Func(), xs.end());
-    EXPECT_EQ(std::vector<int>(begin, end), std::vector<int>({2,4,6}));
+    EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({2,4,6}));
+    for (auto it = begin; it != end; ++it) {
+      EXPECT_EQ((*it).val(), it->val());
+    }
+    for (auto it = begin, jt = begin; it != end; ++it) {
+      EXPECT_EQ(*it, *jt++);
+    }
   }
 }
 
@@ -62,20 +107,32 @@ TEST(IterTest, transform_range) {
 
 TEST(IterTest, filter_iterator) {
   {
-    struct Pred { int operator()(int x) const { return x % 2 == 0; } };
-    typedef std::vector<int> vec;
+    struct Pred { bool operator()(Int x) const { return x % 2 == 0; } };
+    typedef std::vector<Int> vec;
     vec xs{1,2,3,4,5,6,7};
     vec ys{2,3,4,6};
     typedef filter_iterator<Pred, vec::iterator> iterator;
     {
       iterator begin = iterator(Pred(), xs.begin(), xs.end());
       iterator end = iterator(Pred(), xs.end(), xs.end());
-      EXPECT_EQ(std::vector<int>(begin, end), std::vector<int>({2,4,6}));
+      EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({2,4,6}));
+      for (auto it = begin; it != end; ++it) {
+        EXPECT_EQ((*it).val(), it->val());
+      }
+      for (auto it = begin, jt = begin; it != end; ++it) {
+        EXPECT_EQ(*it, *jt++);
+      }
     }
     {
       iterator begin = iterator(Pred(), ys.begin(), ys.end());
       iterator end = iterator(Pred(), ys.end(), ys.end());
-      EXPECT_EQ(std::vector<int>(begin, end), std::vector<int>({2,4,6}));
+      EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({2,4,6}));
+      for (auto it = begin; it != end; ++it) {
+        EXPECT_EQ((*it).val(), it->val());
+      }
+      for (auto it = begin, jt = begin; it != end; ++it) {
+        EXPECT_EQ(*it, *jt++);
+      }
     }
   }
 }
