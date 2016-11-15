@@ -61,6 +61,9 @@ class Setup {
     assert(!sealed_);
     assert(c.primitive());
     assert(!c.valid());
+    if (parent() != nullptr && parent()->Subsumes(c)) {
+      return -1;
+    }
     cs_.push_back(c);
     const Index k = last() - 1;
     assert(clause(k) == c);
@@ -153,7 +156,7 @@ class Setup {
 
   const Clause& clause(Index i) const {
     assert(0 <= i && i < last());
-    return i >= first() ? cs_[i - first()] : parent_->clause(i);
+    return i >= first() ? cs_[i - first()] : parent()->clause(i);
   }
 
 
@@ -407,7 +410,7 @@ class Setup {
   void Minimize() {
     assert(!sealed_);
     // We only need to remove clauses subsumed by this setup, as the parent is
-    // already assumed to be minimal.
+    // already assumed to be minimal and does not subsume the new clauses.
     for (int i = first(); i < last(); ++i) {
       if (!disabled(i)) {
         RemoveSubsumed(i);
@@ -464,6 +467,7 @@ class Setup {
         internal::Maybe<Clause> c = clause(j).PropagateUnit(a);
         if (c && !Subsumes(c.val)) {
           const Index k = AddClause(c.val);
+          assert(k >= 0);
           UpdateOccurrences(k);  // keep occurrence index up to date
           RemoveSubsumed(k);  // keep setup minimal
         }
