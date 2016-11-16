@@ -186,7 +186,7 @@ class Formula {
           case Element::kClause: e.clause().val.Traverse(f); break;
           case Element::kNot:    break;
           case Element::kOr:     break;
-          case Element::kExists: e.var().val.Traverse(f); break;
+          case Element::kExists: /*e.var().val.Traverse(f);*/ break;
         }
       }
     }

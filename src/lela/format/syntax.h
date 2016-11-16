@@ -22,11 +22,6 @@ class HiTerm : public Term {
   explicit HiTerm(Term t) : Term(t) {}
 };
 
-class HiLiteral : public Literal {
- public:
-  explicit HiLiteral(Literal t) : Literal(t) {}
-};
-
 class HiSymbol : public Symbol {
  public:
   HiSymbol(Term::Factory* tf, Symbol s) : Symbol(s), tf_(tf) {}
@@ -36,6 +31,13 @@ class HiSymbol : public Symbol {
 
  private:
   Term::Factory* const tf_;
+};
+
+class HiFormula;
+
+class HiLiteral : public Literal {
+ public:
+  explicit HiLiteral(Literal t) : Literal(t) {}
 };
 
 class HiFormula : public Formula {

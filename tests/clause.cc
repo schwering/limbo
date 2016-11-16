@@ -1,4 +1,4 @@
-// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
@@ -79,9 +79,7 @@ TEST(ClauseTest, Subsumes) {
   {
     Clause c1({Literal::Eq(f1,n1)});
     Clause c2({});
-    std::cout << 1 << std::endl;
     EXPECT_FALSE(c1.Subsumes(c2));
-    std::cout << 2 << std::endl;
     EXPECT_TRUE(c2.Subsumes(c1));
   }
 
@@ -180,6 +178,20 @@ TEST(ClauseTest, Subsumes2) {
   Clause c2({Literal::Neq(a,m)});
   EXPECT_FALSE(c1.Subsumes(c2));
   EXPECT_FALSE(c2.Subsumes(c1));
+}
+
+TEST(ClauseTest, Subsumes3) {
+  Symbol::Factory sf;
+  Term::Factory tf;
+  const Symbol::Sort Bool = sf.CreateSort();
+  const Term T = tf.CreateTerm(sf.CreateName(Bool));
+  const Term F = tf.CreateTerm(sf.CreateName(Bool));
+  const Term P = tf.CreateTerm(sf.CreateFunction(Bool, 0));
+
+  EXPECT_TRUE(Clause{Literal::Eq(P,T)}.Subsumes(Clause{Literal::Eq(P,T)}));
+  EXPECT_TRUE(Clause{Literal::Eq(P,F)}.Subsumes(Clause{Literal::Neq(P,T)}));
+  EXPECT_FALSE(Clause{Literal::Neq(P,T)}.Subsumes(Clause{Literal::Eq(P,F)}));
+  EXPECT_TRUE(Clause{Literal::Neq(P,T)}.Subsumes(Clause{Literal::Neq(P,T)}));
 }
 
 }  // namespace lela

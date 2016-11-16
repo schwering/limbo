@@ -42,7 +42,6 @@ class Literal {
   bool ground()         const { return lhs_.ground() && rhs_.ground(); }
   bool primitive()      const { return lhs_.primitive() && rhs_.name(); }
   bool quasiprimitive() const { return lhs_.quasiprimitive() && (rhs_.name() || rhs_.variable()); }
-  bool idiotic()        const { return (lhs_.name() || lhs_.variable()) && (rhs_.name() || rhs_.variable()); }
 
   Literal flip() const { return Literal(!eq_, lhs_, rhs_); }
   Literal dual() const { return Literal(eq_, rhs_, lhs_); }

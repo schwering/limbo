@@ -1,4 +1,4 @@
-// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 schwering@kbsg.rwth-aachen.de
 
 #include <cassert>
@@ -365,11 +365,13 @@ class KnowledgeBase {
         XPos(ctx_.NewSort()),
         YPos(ctx_.NewSort()),
         T(ctx_.NewName(Bool)),
+        F(ctx_.NewName(Bool)),
         Mine(ctx_.NewFun(Bool, 2)) {
     RegisterSort(Bool, "");
     RegisterSort(XPos, "");
     RegisterSort(YPos, "");
     RegisterSymbol(T.symbol(), "T");
+    RegisterSymbol(F.symbol(), "F");
     RegisterSymbol(Mine, "Mine");
     X.resize(g_->width());
     for (size_t i = 0; i < g_->width(); ++i) {
@@ -388,6 +390,8 @@ class KnowledgeBase {
     //kb_.GuaranteeConsistency(MAX_K);
     processed_.resize(g_->n_fields(), false);
   }
+
+  const lela::Setup& setup() { return kb_.setup(); }
 
   lela::internal::Maybe<bool> IsMine(Point p, KB::split_level k) {
     t_.start();
@@ -426,7 +430,7 @@ class KnowledgeBase {
  private:
   Literal MineLit(bool is, Point p) const {
     Term t = Mine(X[p.x], Y[p.y]);
-    return is ? Literal::Eq(t, T) : Literal::Neq(t, T);
+    return is ? Literal::Eq(t, T) : Literal::Eq(t, F);
   }
 
   Clause MineClause(bool sign, const std::vector<Point> ns) const {
@@ -487,6 +491,7 @@ class KnowledgeBase {
   Symbol::Sort XPos;
   Symbol::Sort YPos;
   HiTerm T;               // name for positive truth value
+  HiTerm F;               // name for positive truth value
   std::vector<HiTerm> X;  // names for X positions
   std::vector<HiTerm> Y;  // names for Y positions
   HiSymbol Mine;
@@ -790,6 +795,21 @@ int main(int argc, char *argv[]) {
   t.stop();
   std::cout << "Final board:" << std::endl;
   std::cout << std::endl;
+  //std::cout << kb.setup() << std::endl;
+  //int m = 0;
+  //int n = 0;
+  //for (Setup::Index j : kb.setup().clauses()) {
+  //  for (Setup::Index i : kb.setup().clauses()) {
+  //    if (i != j && kb.setup().clause(i).Subsumes(kb.setup().clause(j))) {
+  //      std::cout << kb.setup().clause(j) << " subsumed by " << kb.setup().clause(i) << std::endl;
+  //      ++n;
+  //      break;
+  //    }
+  //  }
+  //  ++m;
+  //}
+  //std::cout << n << "/" << m << " clauses in setup are subsumed" << std::endl;
+  //std::cout << std::endl;
   OmniscientPrinter().Print(std::cout, g);
   std::cout << std::endl;
   if (g.hit_mine()) {

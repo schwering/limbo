@@ -44,6 +44,8 @@ class KB {
     return ReduceConjunctions(s, split_terms, names, k, phi);
   }
 
+  const Setup& setup() const { return grounder_.Ground(); }
+
  private:
   typedef Grounder::SortedTermSet SortedTermSet;
   typedef Grounder::TermSet TermSet;

@@ -31,4 +31,5 @@ tests/Makefile
 tests/setup
 tests/syntax
 tests/term
+examples/Minesweeper
 

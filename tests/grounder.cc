@@ -1,4 +1,4 @@
-// vim:filetype=cpp:textwidth=80:shiftwidth=2:softtabstop=2:expandtab
+// vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
 
 #include <gtest/gtest.h>
@@ -196,7 +196,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     EXPECT_EQ(names[f.sort()].size(), 2);
     EXPECT_EQ(names[h.sort()].size(), 1);
     Term nx3 = *names[x3.symbol().sort()].begin();
-    Term nSplit =  names[a.sort()][ names[a.sort()][0] == n1 ? 1 : 0 ];
+    Term nSplit = names[a.sort()][ names[a.sort()][0] == n1 ? 1 : 0 ];
     EXPECT_NE(nx3, n1);
     EXPECT_NE(nSplit, n1);
     EXPECT_EQ(std::set<Term>(terms.begin(), terms.end()),
@@ -301,6 +301,126 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
       EXPECT_EQ(g.setups_.size(), 2);
       last = s;
     }
+  }
+}
+
+TEST(GrounderTest, Ground_SplitNames) {
+  Symbol::Factory sf;
+  Term::Factory tf;
+  const Symbol::Sort Bool = sf.CreateSort();
+  const Symbol::Sort Human = sf.CreateSort();
+  const Symbol::Sort Animal = sf.CreateSort();
+  //
+  const Term T          = tf.CreateTerm(sf.CreateName(Bool));
+  const Term F          = tf.CreateTerm(sf.CreateName(Bool));
+  //
+  const Symbol IsHuman  = sf.CreateFunction(Bool, 1);
+  const Term x          = tf.CreateTerm(sf.CreateVariable(Human));
+  const Term xIsHuman   = tf.CreateTerm(IsHuman, {x});
+  //
+  const Symbol IsAnimal = sf.CreateFunction(Bool, 1);
+  const Term a          = tf.CreateTerm(sf.CreateFunction(Animal, 0));
+  const Term aIsAnimal  = tf.CreateTerm(IsAnimal, {a});
+  //
+  Formula phi = Formula::Exists(x, Formula::Clause(Clause({ Literal::Eq(xIsHuman, T), Literal::Eq(aIsAnimal, F) })));
+  {
+    Grounder g(&sf, &tf);
+    g.PrepareForQuery(0, phi.reader());
+    Grounder::SortedTermSet names = g.Names();
+    EXPECT_EQ(names[Bool].size(), 2+0);
+    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Animal].size(), 0+0);
+    Grounder::TermSet terms = g.SplitTerms();
+    EXPECT_EQ(terms.size(), 0);
+  }
+  {
+    Grounder g(&sf, &tf);
+    g.PrepareForQuery(1, phi.reader());
+    Grounder::SortedTermSet names = g.Names();
+    EXPECT_EQ(names[Bool].size(), 2+0);
+    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Animal].size(), 0+1);
+    Grounder::TermSet terms = g.SplitTerms();
+    EXPECT_NE(terms.size(), 0);
+  }
+  {
+    Grounder g(&sf, &tf);
+    g.PrepareForQuery(2, phi.reader());
+    Grounder::SortedTermSet names = g.Names();
+    EXPECT_EQ(names[Bool].size(), 2+0);
+    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Animal].size(), 0+2);
+    Grounder::TermSet terms = g.SplitTerms();
+    EXPECT_NE(terms.size(), 0);
+  }
+  {
+    Grounder g(&sf, &tf);
+    g.PrepareForQuery(3, phi.reader());
+    Grounder::SortedTermSet names = g.Names();
+    EXPECT_EQ(names[Bool].size(), 2+0);
+    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Animal].size(), 0+3);
+    Grounder::TermSet terms = g.SplitTerms();
+    EXPECT_NE(terms.size(), 0);
+  }
+}
+
+TEST(GrounderTest, Ground_SplitNames_iterated) {
+  Symbol::Factory sf;
+  Term::Factory tf;
+  const Symbol::Sort Bool = sf.CreateSort();
+  const Symbol::Sort Human = sf.CreateSort();
+  const Symbol::Sort Animal = sf.CreateSort();
+  //
+  const Term T          = tf.CreateTerm(sf.CreateName(Bool));
+  const Term F          = tf.CreateTerm(sf.CreateName(Bool));
+  //
+  const Symbol IsHuman  = sf.CreateFunction(Bool, 1);
+  const Term x          = tf.CreateTerm(sf.CreateVariable(Human));
+  const Term xIsHuman   = tf.CreateTerm(IsHuman, {x});
+  //
+  const Symbol IsAnimal = sf.CreateFunction(Bool, 1);
+  const Term a          = tf.CreateTerm(sf.CreateFunction(Animal, 0));
+  const Term aIsAnimal  = tf.CreateTerm(IsAnimal, {a});
+  //
+  Formula phi = Formula::Exists(x, Formula::Clause(Clause({ Literal::Eq(xIsHuman, T), Literal::Eq(aIsAnimal, F) })));
+  // same as previous test except that we re-use the grounder
+  Grounder g(&sf, &tf);
+  {
+    g.PrepareForQuery(0, phi.reader());
+    Grounder::SortedTermSet names = g.Names();
+    EXPECT_EQ(names[Bool].size(), 2+0);
+    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Animal].size(), 0+0);
+    Grounder::TermSet terms = g.SplitTerms();
+    EXPECT_EQ(terms.size(), 0);
+  }
+  {
+    g.PrepareForQuery(1, phi.reader());
+    Grounder::SortedTermSet names = g.Names();
+    EXPECT_EQ(names[Bool].size(), 2+0);
+    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Animal].size(), 0+1);
+    Grounder::TermSet terms = g.SplitTerms();
+    EXPECT_NE(terms.size(), 0);
+  }
+  {
+    g.PrepareForQuery(2, phi.reader());
+    Grounder::SortedTermSet names = g.Names();
+    EXPECT_EQ(names[Bool].size(), 2+0);
+    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Animal].size(), 0+2);
+    Grounder::TermSet terms = g.SplitTerms();
+    EXPECT_NE(terms.size(), 0);
+  }
+  {
+    g.PrepareForQuery(3, phi.reader());
+    Grounder::SortedTermSet names = g.Names();
+    EXPECT_EQ(names[Bool].size(), 2+0);
+    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Animal].size(), 0+3);
+    Grounder::TermSet terms = g.SplitTerms();
+    EXPECT_NE(terms.size(), 0);
   }
 }
 

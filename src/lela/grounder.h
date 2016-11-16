@@ -107,7 +107,8 @@ class Grounder {
   }
 
   void AddClause(const Clause& c) {
-    assert(std::all_of(c.begin(), c.end(), [](Literal a) { return a.quasiprimitive() || a.idiotic(); }));
+    assert(std::all_of(c.begin(), c.end(),
+                       [](Literal a) { return a.quasiprimitive() || !(a.lhs().function() && a.rhs().function()); }));
     if (c.valid()) {
       return;
     }
@@ -119,12 +120,10 @@ class Grounder {
 
   template<typename T>
   void PrepareForQuery(size_t k, const Formula::Reader<T>& phi) {
-    TermSet terms = MentionedTerms<TermSet>([](Term t) { return t.function(); }, phi);
-    Flatten(&terms);
     names_changed_ |= AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, phi));
     names_changed_ |= AddPlusNames(PlusNames(phi));
-    names_changed_ |= AddPlusNames(PlusSplitNames(k, terms));
-    AddSplitTerms(terms);
+    names_changed_ |= AddPlusNames(PlusSplitNames(k, phi));
+    AddSplitTerms(SplitTerms(k, phi));
   }
 
   const Setup& Ground() const { return const_cast<Grounder*>(this)->Ground(); }
@@ -334,7 +333,8 @@ class Grounder {
   }
 
   static PlusMap PlusNames(const Clause& c) {
-    assert(std::all_of(c.begin(), c.end(), [](Literal a) { return a.quasiprimitive() || a.idiotic(); }));
+    assert(std::all_of(c.begin(), c.end(),
+                       [](Literal a) { return a.quasiprimitive() || !(a.lhs().function() && a.rhs().function()); }));
     PlusMap plus = PlusNames(MentionedTerms<TermSet>([](Term t) { return t.variable(); }, c));
     // The following fixes Lemma 8 in the LBF paper. The problem is that
     // for KB = {[c = x]}, unit propagation should yield the empty clause;
@@ -395,14 +395,16 @@ class Grounder {
     }
   }
 
-  PlusMap PlusSplitNames(size_t k, const TermSet& terms) {
-    PlusMap plus;
-    for (Term t : terms) {
-      if (plus[t.sort()] < k) {
-        plus[t.sort()] = k;  // XXX This is bad for a singleton boolean sort
-      }
+  template<typename T>
+  TermSet SplitTerms(size_t k, const Formula::Reader<T>& phi) {
+    if (k == 0) {
+      // Grounding the split terms could fail in case k == 0 because there
+      // might be no split names.
+      return TermSet();
     }
-    return plus;
+    TermSet terms = MentionedTerms<TermSet>([](Term t) { return t.function(); }, phi);
+    Flatten(&terms);
+    return terms;
   }
 
   void Flatten(TermSet* terms) {
@@ -427,6 +429,39 @@ class Grounder {
     terms->MakeSet();
   }
 
+  template<typename T>
+  static PlusMap PlusSplitNames(size_t k, const Formula::Reader<T>& phi) {
+    // When a term t only occurs in the form of literals (t = n), (t = x), or
+    // their duals and negations, then splitting does not necessitate an
+    // additional name. However, when t is an argument of another term or when
+    // it occurs in literals of the form (t = t') or its dual or negation, then
+    // we might need a name for every split. For instance, (c != c) shall come
+    // out false at any split level. It is false at split level 0 and 1. At
+    // split level >= 2 we need to make sure that we split over at least 2
+    // names to find that (c != c) is false.
+    PlusMap plus;
+    phi.Traverse([&plus, k](Literal a) {
+      auto f = [&plus, k](Term t) {
+        if (t.function()) {
+          plus[t.sort()] = k;
+        }
+        return true;
+      };
+      if (a.lhs().function() && a.rhs().function()) {
+        f(a.lhs());
+        f(a.rhs());
+      }
+      for (Term t : a.lhs().args()) {
+        t.Traverse(f);
+      }
+      for (Term t : a.rhs().args()) {
+        t.Traverse(f);
+      }
+      return true;
+    });
+    return plus;
+  }
+
   bool AddMentionedNames(const SortedTermSet& names) {
     size_t added = names_.Add(names);
     size_t remed = names_.MakeSet();
@@ -437,9 +472,11 @@ class Grounder {
   bool AddPlusNames(const PlusMap& plus) {
     size_t added = 0;
     for (const Symbol::Sort sort : plus.keys()) {
+      size_t m = plus_[sort];
       size_t n = plus[sort];
-      if (plus_[sort] < n) {
+      if (n > m) {
         plus_[sort] = n;
+        n -= m;
         while (n-- > 0) {
           added += names_[sort].Add(tf_->CreateTerm(sf_->CreateName(sort)));
         }
