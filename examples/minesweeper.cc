@@ -400,9 +400,11 @@ class KnowledgeBase {
     Formula no_mine = Formula::Clause(Clause{MineLit(false, p)});
     if (kb_.Entails(k, yes_mine.reader())) {
       assert(g_->mine(p));
+      //std::cout << kb_.setup() << " entails " << yes_mine << " at level " << k << std::endl;
       r = lela::internal::Just(true);
     } else if (kb_.Entails(k, no_mine.reader())) {
       assert(!g_->mine(p));
+      //std::cout << kb_.setup() << " entails " << no_mine << " at level " << k << std::endl;
       r = lela::internal::Just(false);
     }
     t_.stop();
@@ -711,11 +713,13 @@ class KnowledgeBaseAgent : public Agent {
         ps.push_back(p);
       }
     }
+    //std::cout << ps << std::endl;
 
     // First look for a field which is known not to be a mine.
     for (KB::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
       for (const Point p : ps) {
         const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
+        //std::cout << p << "  " << k << "  " << r << std::endl;
         if (r.succ) {
           if (r.val) {
             std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;

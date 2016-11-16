@@ -84,13 +84,13 @@ std::ostream& print_range(std::ostream& os, const Range& r,
 }
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T> vec) {
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
   print_sequence(os, vec.begin(), vec.end(), "[", "]", ", ");
   return os;
 }
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::list<T> list) {
+std::ostream& operator<<(std::ostream& os, const std::list<T>& list) {
   os << '[';
   print_sequence(os, list.begin(), list.end(), "[", "]", ", ");
   os << '[';
@@ -98,25 +98,25 @@ std::ostream& operator<<(std::ostream& os, const std::list<T> list) {
 }
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::set<T> set) {
+std::ostream& operator<<(std::ostream& os, const std::set<T>& set) {
   print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
   return os;
 }
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::multiset<T> set) {
+std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set) {
   print_sequence(os, set.begin(), set.end(), "m{", "}m", ", ");
   return os;
 }
 
 template<typename K, typename T>
-std::ostream& operator<<(std::ostream& os, const std::map<K, T> map) {
+std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map) {
   print_sequence(os, map.begin(), map.end(), "{", "}", ", ");
   return os;
 }
 
 template<typename K, typename T>
-std::ostream& operator<<(std::ostream& os, const std::multimap<K, T> map) {
+std::ostream& operator<<(std::ostream& os, const std::multimap<K, T>& map) {
   print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
   return os;
 }
@@ -124,9 +124,9 @@ std::ostream& operator<<(std::ostream& os, const std::multimap<K, T> map) {
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
   if (m) {
-    os << "internal::Just(" << m.val << ")";
+    os << "Just(" << m.val << ")";
   } else {
-    os << "internal::Nothing";
+    os << "Nothing";
   }
   return os;
 }
@@ -227,6 +227,13 @@ std::ostream& operator<<(std::ostream& os, const Literal a) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Clause& c) {
+  std::vector<Literal> vec(c.begin(), c.end());
+  std::sort(vec.begin(), vec.end(), PrintLiteralComparator());
+  print_range(os, vec, "[", "]", " \u2228 ");
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const std::vector<Literal>& c) {
   std::vector<Literal> vec(c.begin(), c.end());
   std::sort(vec.begin(), vec.end(), PrintLiteralComparator());
   print_range(os, vec, "[", "]", " \u2228 ");
