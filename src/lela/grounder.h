@@ -176,18 +176,28 @@ class Grounder {
   }
 
   TermSet SplitTerms() const {
-    TermSet terms;
-    for (Term t : splits_) {
-      assert(t.quasiprimitive());
-      const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, t);
-      for (const Assignments::Assignment& mapping : Assignments(&names_, &vars)) {
-        Term tt = t.Substitute(mapping, tf_);
-        assert(tt.primitive());
-        terms.Add(tt);
+    return GroundTerms(splits_);
+  }
+
+  template<typename T>
+  TermSet RelevantSplitTerms(size_t k, const Formula::Reader<T>& phi) {
+    PrepareForQuery(k, phi);
+    const Setup& s = Ground();
+    TermSet splits = GroundTerms(SplitTerms(k, phi));
+    TermSet new_splits;
+    internal::IntMap<Setup::Index, bool> marked;
+    marked.set_null_value(false);
+    for (size_t i = 0; i < splits.size(); ++i) {
+      const Term t = splits[i];
+      for (Setup::Index i : s.clauses_with(t)) {
+        if (!marked[i]) {
+          splits.Add(MentionedTerms<TermSet>([](Term t) { return t.function(); }, s.clause(i)));
+          marked[i] = true;
+        }
       }
-      terms.MakeSet();
     }
-    return terms;
+    splits.MakeSet();
+    return splits;
   }
 
  private:
@@ -427,6 +437,21 @@ class Grounder {
     auto it = std::remove_if(terms->begin(), terms->end(), [](Term t) { return !t.quasiprimitive(); });
     terms->erase(it, terms->end());
     terms->MakeSet();
+  }
+
+  TermSet GroundTerms(const TermSet& terms) const {
+    TermSet grounded_terms;
+    for (Term t : terms) {
+      assert(t.quasiprimitive());
+      const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, t);
+      for (const Assignments::Assignment& mapping : Assignments(&names_, &vars)) {
+        Term tt = t.Substitute(mapping, tf_);
+        assert(tt.primitive());
+        grounded_terms.Add(tt);
+      }
+      grounded_terms.MakeSet();
+    }
+    return grounded_terms;
   }
 
   template<typename T>

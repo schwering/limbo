@@ -52,8 +52,16 @@ class BloomFilter {
     return Subset(*this, b);
   }
 
+  bool DisjointWith(BloomFilter b) const {
+    return Disjoint(*this, b);
+  }
+
   static bool Subset(BloomFilter a, BloomFilter b) {
     return ~((~a.mask_) | b.mask_) == 0;
+  }
+
+  static bool Disjoint(BloomFilter a, BloomFilter b) {
+    return (a.mask_ & b.mask_) == 0;
   }
 
  private:

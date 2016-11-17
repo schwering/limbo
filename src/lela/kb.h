@@ -39,7 +39,7 @@ class KB {
   bool Entails(int k, const Formula::Reader<T>& phi, bool consistent = false) {
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
-    TermSet split_terms = grounder_.SplitTerms();
+    TermSet split_terms = k > 0 ? grounder_.RelevantSplitTerms(k, phi) : TermSet();
     SortedTermSet names = grounder_.Names();
     return ReduceConjunctions(s, split_terms, names, k, phi);
   }
@@ -92,8 +92,10 @@ class KB {
             break;
         }
       }
-      default:
+      default: {
+        if (k != 0) std::cout << "Split " << k << " " << split_terms.size() << std::endl;
         return Split(s, split_terms, names, k, phi);
+      }
     }
   }
 
