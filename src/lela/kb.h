@@ -93,7 +93,6 @@ class KB {
         }
       }
       default: {
-        if (k != 0) std::cout << "Split " << k << " " << split_terms.size() << std::endl;
         return Split(s, split_terms, names, k, phi);
       }
     }

@@ -163,7 +163,7 @@ class Setup {
   struct Setups {
     struct setup_iterator {
       typedef std::ptrdiff_t difference_type;
-      typedef Setup value_type;
+      typedef const Setup value_type;
       typedef value_type* pointer;
       typedef value_type& reference;
       typedef std::input_iterator_tag iterator_category;
@@ -173,10 +173,11 @@ class Setup {
       bool operator==(const setup_iterator& it) const { return setup_ == it.setup_; }
       bool operator!=(const setup_iterator& it) const { return !(*this == it); }
 
-      const value_type& operator*() const { return *setup_; }
-      const value_type* operator->() const { return setup_; }
+      reference operator*() const { return *setup_; }
+      pointer operator->() const { return setup_; }
 
       setup_iterator& operator++() { setup_ = setup_->parent(); return *this; }
+      setup_iterator operator++(int) { auto it = setup_iterator(setup_); operator++(); return it; }
 
      private:
       const Setup* setup_;
@@ -420,10 +421,10 @@ class Setup {
 
   void RemoveSubsumed(const Index i) {
     const Clause& c = clause(i);
-#if 1
+#if 0
     for (Index j : clauses()) {
       if (i != j && c.Subsumes(clause(j))) {
-#if 1
+#if 0
         Disable(j);
 #else
         if (clause(j).Subsumes(c)) {

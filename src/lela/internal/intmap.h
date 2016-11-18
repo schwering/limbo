@@ -25,36 +25,6 @@ class IntMap : public std::vector<T> {
  public:
   typedef std::vector<T> parent;
 
-  template<typename Iter>
-  struct gen_iterator {
-   public:
-    typedef Iter iterator;
-    typedef std::ptrdiff_t difference_type;
-    typedef std::pair<const Key, typename Iter::pointer> value_type;
-    typedef value_type* pointer;
-    typedef value_type& reference;
-    typedef std::input_iterator_tag iterator_category;
-
-    gen_iterator() {}
-    explicit gen_iterator(Iter begin, Iter offset) : iter_(offset) {
-      index_ = static_cast<Key>(std::distance(begin, offset));
-    }
-
-    bool operator==(gen_iterator it) const { return index_ == it.index_ && iter_ == it.iter_; }
-    bool operator!=(gen_iterator it) const { return !(*this == it); }
-
-    value_type operator*() const { return std::make_pair(index_, &*iter_); }
-
-    gen_iterator& operator++() { ++index_; ++iter_; return *this; }
-
-   private:
-    Iter iter_;
-    Key index_;
-  };
-
-  typedef gen_iterator<typename parent::iterator> iterator;
-  typedef gen_iterator<typename parent::const_iterator> const_iterator;
-
   using std::vector<T>::vector;
 
   void set_null_value(const T& null) { null_ = null; }
@@ -71,15 +41,6 @@ class IntMap : public std::vector<T> {
     typename parent::size_type pos_int = static_cast<typename parent::size_type>(pos);
     return pos_int < parent::size() ? parent::operator[](pos_int) : null_;
   }
-
-  iterator begin() { return iterator(parent::begin(), parent::begin()); }
-  iterator end()   { return iterator(parent::end(), parent::end()); }
-
-  const_iterator cbegin() const { return const_iterator(parent::cbegin(), parent::cbegin()); }
-  const_iterator cend()   const { return const_iterator(parent::cend(), parent::cend()); }
-
-  const_iterator begin() const { return cbegin(); }
-  const_iterator end()   const { return cend(); }
 
   struct Keys {
     typedef internal::int_iterator<Key> iterator;

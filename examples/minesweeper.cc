@@ -387,7 +387,6 @@ class KnowledgeBase {
       ss << "#Y" << i;
       RegisterSymbol(Y[i].symbol(), ss.str());
     }
-    //kb_.GuaranteeConsistency(MAX_K);
     processed_.resize(g_->n_fields(), false);
   }
 
@@ -400,11 +399,9 @@ class KnowledgeBase {
     Formula no_mine = Formula::Clause(Clause{MineLit(false, p)});
     if (kb_.Entails(k, yes_mine.reader())) {
       assert(g_->mine(p));
-      //std::cout << kb_.setup() << " entails " << yes_mine << " at level " << k << std::endl;
       r = lela::internal::Just(true);
     } else if (kb_.Entails(k, no_mine.reader())) {
       assert(!g_->mine(p));
-      //std::cout << kb_.setup() << " entails " << no_mine << " at level " << k << std::endl;
       r = lela::internal::Just(false);
     }
     t_.stop();
@@ -713,13 +710,11 @@ class KnowledgeBaseAgent : public Agent {
         ps.push_back(p);
       }
     }
-    //std::cout << ps << std::endl;
 
     // First look for a field which is known not to be a mine.
     for (KB::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
       for (const Point p : ps) {
         const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
-        //std::cout << p << "  " << k << "  " << r << std::endl;
         if (r.succ) {
           if (r.val) {
             std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
@@ -789,16 +784,26 @@ int main(int argc, char *argv[]) {
     t.start();
     agent.Explore();
     t.stop();
-    std::cout << std::endl;
-    printer->Print(std::cout, g);
-    std::cout << std::endl;
+    //std::cout << std::endl;
+    //printer->Print(std::cout, g);
+    //std::cout << std::endl;
     std::cout << "Last move took " << std::fixed << t.duration() << ", queries took " << std::fixed << kb.timer().duration() << " / " << std::setw(4) << kb.timer().rounds() << " = " << std::fixed << kb.timer().avg_duration() << std::endl;
-    std::cout << std::endl;
+    //std::cout << std::endl;
     kb.ResetTimer();
   } while (!g.hit_mine() && !g.all_explored());
   t.stop();
-  std::cout << "Final board:" << std::endl;
-  std::cout << std::endl;
+  //std::cout << "Final board:" << std::endl;
+  //std::cout << std::endl;
+  //OmniscientPrinter().Print(std::cout, g);
+  //std::cout << std::endl;
+  if (g.hit_mine()) {
+    std::cout << Color::RED << "You loose :-(";
+  } else {
+    std::cout << Color::GREEN << "You win :-)";
+  }
+  std::cout << "  [width: " << width << ", height: " << height << ", height: " << n_mines << ", seed: " << seed << ", runtime: " << t.duration() << " seconds]" << Color::RESET << std::endl;
+  delete printer;
+
   //std::cout << kb.setup() << std::endl;
   //int m = 0;
   //int n = 0;
@@ -814,15 +819,6 @@ int main(int argc, char *argv[]) {
   //}
   //std::cout << n << "/" << m << " clauses in setup are subsumed" << std::endl;
   //std::cout << std::endl;
-  OmniscientPrinter().Print(std::cout, g);
-  std::cout << std::endl;
-  if (g.hit_mine()) {
-    std::cout << Color::RED << "You loose :-(";
-  } else {
-    std::cout << Color::GREEN << "You win :-)";
-  }
-  std::cout << "  [width: " << width << ", height: " << height << ", height: " << n_mines << ", seed: " << seed << ", runtime: " << t.duration() << " seconds]" << Color::RESET << std::endl;
-  delete printer;
   return 0;
 }
 
