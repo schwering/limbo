@@ -20,10 +20,10 @@ namespace internal {
 
 template<typename T>
 struct Maybe {
-  Maybe()                                           : succ(false) {}
-  explicit Maybe(T&& val)                           : succ(true), val(std::forward<T>(val)) {}  // NOLINT
-  template<typename U> explicit Maybe(const U& val) : succ(true), val(val) {}
-  Maybe(bool succ, T&& val)                         : succ(succ), val(std::forward<T>(val)) {}  // NOLINT
+  Maybe()                                           : yes(false) {}
+  explicit Maybe(T&& val)                           : yes(true), val(std::forward<T>(val)) {}  // NOLINT
+  template<typename U> explicit Maybe(const U& val) : yes(true), val(val) {}
+  Maybe(bool yes, T&& val)                          : yes(yes), val(std::forward<T>(val)) {}  // NOLINT
 
   Maybe(const Maybe&) = default;
   Maybe(Maybe&&) = default;
@@ -31,20 +31,20 @@ struct Maybe {
   Maybe& operator=(Maybe&&) = default;
   ~Maybe() = default;
 
-  template<typename U> Maybe(const Maybe<U>& m)            : succ(m.succ), val(m.val) {}  // NOLINT
-  template<typename U> Maybe(Maybe<U>&& m)                 : succ(m.succ), val(m.val) {}  // NOLINT
-  template<typename U> Maybe& operator=(const Maybe<U>& m) { succ = m.succ; val = m.val; return *this; }  // NOLINT
-  template<typename U> Maybe& operator=(Maybe<U>&& m)      { succ = m.succ; val = m.val; return *this; }  // NOLINT
+  template<typename U> Maybe(const Maybe<U>& m)            : yes(m.yes), val(m.val) {}  // NOLINT
+  template<typename U> Maybe(Maybe<U>&& m)                 : yes(m.yes), val(m.val) {}  // NOLINT
+  template<typename U> Maybe& operator=(const Maybe<U>& m) { yes = m.yes; val = m.val; return *this; }  // NOLINT
+  template<typename U> Maybe& operator=(Maybe<U>&& m)      { yes = m.yes; val = m.val; return *this; }  // NOLINT
 
-  bool operator==(const Maybe& m) const { return succ == m.succ && (!succ || val == m.val); }
+  bool operator==(const Maybe& m) const { return yes == m.yes && (!yes || val == m.val); }
   bool operator!=(const Maybe& m) const { return !(*this == m); }
 
-  template<typename U> bool operator==(const Maybe<U>& m) const { return succ == m.succ && (!succ || val == m.val); }
+  template<typename U> bool operator==(const Maybe<U>& m) const { return yes == m.yes && (!yes || val == m.val); }
   template<typename U> bool operator!=(const Maybe<U>& m) const { return !(*this == m); }
 
-  operator bool() const { return succ; }
+  explicit operator bool() const { return yes; }
 
-  bool succ;
+  bool yes;
   T val;
 };
 

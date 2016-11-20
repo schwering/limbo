@@ -15,7 +15,7 @@
 #include <tuple>
 #include <vector>
 
-#include <lela/kb.h>
+#include <lela/solver.h>
 #include <lela/format/output.h>
 #include <lela/format/syntax.h>
 #include <lela/internal/maybe.h>
@@ -356,11 +356,11 @@ class Game {
 
 class KnowledgeBase {
  public:
-  static constexpr KB::split_level MAX_K = 2;
+  static constexpr Solver::split_level MAX_K = 2;
 
   explicit KnowledgeBase(const Game* g)
       : g_(g),
-        ctx_(kb_.sf(), kb_.tf()),
+        ctx_(solver_.sf(), solver_.tf()),
         Bool(ctx_.NewSort()),
         XPos(ctx_.NewSort()),
         YPos(ctx_.NewSort()),
@@ -390,17 +390,17 @@ class KnowledgeBase {
     processed_.resize(g_->n_fields(), false);
   }
 
-  const lela::Setup& setup() { return kb_.setup(); }
+  const lela::Setup& setup() { return solver_.setup(); }
 
-  lela::internal::Maybe<bool> IsMine(Point p, KB::split_level k) {
+  lela::internal::Maybe<bool> IsMine(Point p, Solver::split_level k) {
     t_.start();
     lela::internal::Maybe<bool> r = lela::internal::Nothing;
     Formula yes_mine = Formula::Clause(Clause{MineLit(true, p)});
     Formula no_mine = Formula::Clause(Clause{MineLit(false, p)});
-    if (kb_.Entails(k, yes_mine.reader())) {
+    if (solver_.Entails(k, yes_mine.reader())) {
       assert(g_->mine(p));
       r = lela::internal::Just(true);
-    } else if (kb_.Entails(k, no_mine.reader())) {
+    } else if (solver_.Entails(k, no_mine.reader())) {
       assert(!g_->mine(p));
       r = lela::internal::Just(false);
     }
@@ -445,23 +445,23 @@ class KnowledgeBase {
         return false;
       }
       case Game::FLAGGED: {
-        kb_.AddClause(Clause{MineLit(true, p)});
+        solver_.AddClause(Clause{MineLit(true, p)});
         return true;
       }
       case Game::HIT_MINE: {
-        kb_.AddClause(Clause{MineLit(true, p)});
+        solver_.AddClause(Clause{MineLit(true, p)});
         return true;
       }
       default: {
         const std::vector<Point>& ns = g_->neighbors_of(p);
         const int n = ns.size();
         for (const std::vector<Point>& ps : util::Subsets(ns, n - m + 1)) {
-          kb_.AddClause(MineClause(true, ps));
+          solver_.AddClause(MineClause(true, ps));
         }
         for (const std::vector<Point>& ps : util::Subsets(ns, m + 1)) {
-          kb_.AddClause(MineClause(false, ps));
+          solver_.AddClause(MineClause(false, ps));
         }
-        kb_.AddClause(Clause{MineLit(false, p)});
+        solver_.AddClause(Clause{MineLit(false, p)});
         return true;
       }
     }
@@ -475,15 +475,15 @@ class KnowledgeBase {
       }
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, n - m + 1)) {
-      kb_.AddClause(MineClause(true, ps));
+      solver_.AddClause(MineClause(true, ps));
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, m + 1)) {
-      kb_.AddClause(MineClause(false, ps));
+      solver_.AddClause(MineClause(false, ps));
     }
   }
 
   const Game* g_;
-  KB kb_;
+  Solver solver_;
   Context ctx_;
 
   Symbol::Sort Bool;
@@ -625,7 +625,7 @@ class KnowledgeBasePrinter : public Printer {
       case Game::UNEXPLORED: {
         if (g.frontier(p)) {
           const lela::internal::Maybe<bool> r = kb_->IsMine(p, KnowledgeBase::MAX_K);
-          if (r.succ) {
+          if (r.yes) {
             assert(g.mine(p) == r.val);
             if (r.val) {
               return Label(Color::RED | Color::BLINK, "X");
@@ -703,6 +703,9 @@ class KnowledgeBaseAgent : public Agent {
       return;
     }
 
+    // Determine candidate nodes. Note that non-frontier nodes may be relevant,
+    // because the whole frontier may be a candidate for a mine but it is not
+    // known which of them is one.
     std::vector<Point> ps;
     for (size_t index = 0; index < g_->n_fields(); ++index) {
       const Point p(g_->to_point(index));
@@ -712,10 +715,13 @@ class KnowledgeBaseAgent : public Agent {
     }
 
     // First look for a field which is known not to be a mine.
-    for (KB::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
+    for (Solver::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
       for (const Point p : ps) {
         const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
-        if (r.succ) {
+        if (r.yes) {
+          if (!g_->frontier(p)) {
+            std::cout << "NON-FRONTIER " << p << std::endl;
+          }
           if (r.val) {
             std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
             g_->Flag(p);
@@ -728,8 +734,9 @@ class KnowledgeBaseAgent : public Agent {
       }
     }
 
+    // Didn't find any reliable action, so we need to guess.
     if (!ps.empty()) {
-      const Point p = *ps.begin();
+      const Point p = ps.front();
       std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << std::endl;
       g_->OpenWithFrontier(p);
       return;
@@ -784,18 +791,18 @@ int main(int argc, char *argv[]) {
     t.start();
     agent.Explore();
     t.stop();
-    //std::cout << std::endl;
-    //printer->Print(std::cout, g);
-    //std::cout << std::endl;
+    std::cout << std::endl;
+    printer->Print(std::cout, g);
+    std::cout << std::endl;
     std::cout << "Last move took " << std::fixed << t.duration() << ", queries took " << std::fixed << kb.timer().duration() << " / " << std::setw(4) << kb.timer().rounds() << " = " << std::fixed << kb.timer().avg_duration() << std::endl;
     //std::cout << std::endl;
     kb.ResetTimer();
   } while (!g.hit_mine() && !g.all_explored());
   t.stop();
-  //std::cout << "Final board:" << std::endl;
-  //std::cout << std::endl;
-  //OmniscientPrinter().Print(std::cout, g);
-  //std::cout << std::endl;
+  std::cout << "Final board:" << std::endl;
+  std::cout << std::endl;
+  OmniscientPrinter().Print(std::cout, g);
+  std::cout << std::endl;
   if (g.hit_mine()) {
     std::cout << Color::RED << "You loose :-(";
   } else {

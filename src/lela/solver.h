@@ -1,15 +1,14 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
 //
-// KB implements limited belief implications. Splitting is done at a
-// deterministic point, namely after reducing the outermost logical
-// operators with conjunctive meaning (negated disjunction, double
-// negation, negated existential). This is opposed to the original
-// semantics where splitting can be done at any point during the
-// reduction.
+// Solver implements limited belief implications. Splitting is done at a
+// deterministic point, namely after reducing the outermost logical operators
+// with conjunctive meaning (negated disjunction, double negation, negated
+// existential). This is opposed to the original semantics where splitting can
+// be done at any point during the reduction.
 
-#ifndef LELA_KB_H_
-#define LELA_KB_H_
+#ifndef LELA_SOLVER_H_
+#define LELA_SOLVER_H_
 
 #include <cassert>
 
@@ -19,14 +18,14 @@
 
 namespace lela {
 
-class KB {
+class Solver {
  public:
   typedef unsigned int split_level;
 
-  KB() : grounder_(&sf_, &tf_) {}
-  KB(const KB&) = delete;
-  KB(const KB&&) = delete;
-  KB& operator=(const KB&) = delete;
+  Solver() : grounder_(&sf_, &tf_) {}
+  Solver(const Solver&) = delete;
+  Solver(const Solver&&) = delete;
+  Solver& operator=(const Solver&) = delete;
 
   void AddClause(const Clause& c) { grounder_.AddClause(c); }
 
@@ -107,20 +106,22 @@ class KB {
     if (s.Subsumes(Clause{})) {
       return true;
     }
-    if (k == 0 || split_terms.empty()) {
+    if (k > 0) {
+      assert(!split_terms.empty());
+      return std::any_of(split_terms.begin(), split_terms.end(), [this, &s, &split_terms, &names, k, &phi](Term t) {
+        const TermSet& ns = names[t.sort()];
+        assert(!ns.empty());
+        return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &phi, t](Term n) {
+          Setup ss(&s);
+          ss.AddClause(Clause{Literal::Eq(t, n)});
+          ss.Init();
+          Formula psi = phi.Substitute(Term::SingleSubstitution(t, n), tf()).Build();
+          return Split(ss, split_terms, names, k-1, psi.reader());
+        });
+      });
+    } else {
       return Reduce(s, names, phi);
     }
-    return std::any_of(split_terms.begin(), split_terms.end(), [this, &s, &split_terms, &names, k, &phi](Term t) {
-      const TermSet& ns = names[t.sort()];
-      assert(!ns.empty());
-      return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &phi, t](Term n) {
-        Setup ss(&s);
-        ss.AddClause(Clause{Literal::Eq(t, n)});
-        ss.Init();
-        Formula psi = phi.Substitute(Term::SingleSubstitution(t, n), tf()).Build();
-        return Split(ss, split_terms, names, k-1, psi.reader());
-      });
-    });
   }
 
   template<typename T>
@@ -189,5 +190,5 @@ class KB {
 
 }  // namespace lela
 
-#endif  // LELA_KB_H_
+#endif  // LELA_SOLVER_H_
 

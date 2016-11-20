@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/kb.h>
+#include <lela/solver.h>
 #include <lela/format/syntax.h>
 #include <lela/format/output.h>
 
@@ -20,9 +20,9 @@ inline void RegisterSymbol(Term t, const std::string& n) {
 template<typename T>
 size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
-TEST(KBTest, Entails) {
-  KB kb;
-  Context ctx(kb.sf(), kb.tf());
+TEST(SolverTest, Entails) {
+  Solver solver;
+  Context ctx(solver.sf(), solver.tf());
   auto Bool = ctx.NewSort();                RegisterSort(Bool, "");
   auto True = ctx.NewName(Bool);            REGISTER_SYMBOL(True);
   auto Human = ctx.NewSort();               RegisterSort(Human, "");
@@ -35,21 +35,21 @@ TEST(KBTest, Entails) {
   auto x = ctx.NewVar(Human);               REGISTER_SYMBOL(x);
   auto y = ctx.NewVar(Human);               REGISTER_SYMBOL(y);
   {
-    kb.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
-    kb.AddClause(Clause{ Mother(Jesus) == Mary });
-    std::cout << kb.grounder().Ground() << std::endl;
+    solver.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
+    solver.AddClause(Clause{ Mother(Jesus) == Mary });
+    std::cout << solver.grounder().Ground() << std::endl;
     Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
     std::cout << phi << std::endl;
-    EXPECT_TRUE(kb.Entails(0, phi.reader()));
-    EXPECT_TRUE(kb.Entails(1, phi.reader()));
-    EXPECT_TRUE(kb.Entails(0, phi.reader()));
-    EXPECT_TRUE(kb.Entails(1, phi.reader()));
+    EXPECT_TRUE(solver.Entails(0, phi.reader()));
+    EXPECT_TRUE(solver.Entails(1, phi.reader()));
+    EXPECT_TRUE(solver.Entails(0, phi.reader()));
+    EXPECT_TRUE(solver.Entails(1, phi.reader()));
   }
 }
 
-TEST(KBTest, Entails2) {
-  KB kb;
-  Context ctx(kb.sf(), kb.tf());
+TEST(SolverTest, Entails2) {
+  Solver solver;
+  Context ctx(solver.sf(), solver.tf());
   auto Bool = ctx.NewSort();                RegisterSort(Bool, "");
   auto True = ctx.NewName(Bool);            REGISTER_SYMBOL(True);
   auto Human = ctx.NewSort();               RegisterSort(Human, "");
@@ -63,21 +63,21 @@ TEST(KBTest, Entails2) {
   auto x = ctx.NewVar(Human);               REGISTER_SYMBOL(x);
   auto y = ctx.NewVar(Human);               REGISTER_SYMBOL(y);
   {
-    kb.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
-    kb.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God });
-    std::cout << kb.grounder().Ground() << std::endl;
+    solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
+    solver.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God });
+    std::cout << solver.grounder().Ground() << std::endl;
     Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
     std::cout << phi << std::endl;
-    EXPECT_FALSE(kb.Entails(0, phi.reader()));
-    EXPECT_TRUE(kb.Entails(1, phi.reader()));
-    EXPECT_FALSE(kb.Entails(0, phi.reader()));
-    EXPECT_TRUE(kb.Entails(1, phi.reader()));
+    EXPECT_FALSE(solver.Entails(0, phi.reader()));
+    EXPECT_TRUE(solver.Entails(1, phi.reader()));
+    EXPECT_FALSE(solver.Entails(0, phi.reader()));
+    EXPECT_TRUE(solver.Entails(1, phi.reader()));
   }
 }
 
-TEST(KBTest, Entails3) {
-  KB kb;
-  Context ctx(kb.sf(), kb.tf());
+TEST(SolverTest, Entails3) {
+  Solver solver;
+  Context ctx(solver.sf(), solver.tf());
   auto Bool = ctx.NewSort();                RegisterSort(Bool, "");
   auto True = ctx.NewName(Bool);            REGISTER_SYMBOL(True);
   auto Human = ctx.NewSort();               RegisterSort(Human, "");
@@ -92,13 +92,13 @@ TEST(KBTest, Entails3) {
   auto x = ctx.NewVar(Human);               REGISTER_SYMBOL(x);
   auto y = ctx.NewVar(Human);               REGISTER_SYMBOL(y);
   {
-    kb.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
-    kb.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God, Father(Jesus) == HolyGhost });
-    std::cout << kb.grounder().Ground() << std::endl;
+    solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
+    solver.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God, Father(Jesus) == HolyGhost });
+    std::cout << solver.grounder().Ground() << std::endl;
     Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
     std::cout << phi << std::endl;
-    EXPECT_FALSE(kb.Entails(0, phi.reader()));
-    EXPECT_TRUE(kb.Entails(1, phi.reader()));
+    EXPECT_FALSE(solver.Entails(0, phi.reader()));
+    EXPECT_TRUE(solver.Entails(1, phi.reader()));
   }
 }
 
