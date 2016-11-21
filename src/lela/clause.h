@@ -119,9 +119,9 @@ class Clause {
   typedef std::vector<Literal>::iterator iterator;
 
   void Minimize() {
-    lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.invalid(); }), end());
+    lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.invalid(); }), lits_.end());
     std::sort(lits_.begin(), lits_.end(), Literal::Comparator());
-    lits_.erase(std::unique(lits_.begin(), lits_.end()), end());
+    lits_.erase(std::unique(lits_.begin(), lits_.end()), lits_.end());
     InitBloom();
   }
 
