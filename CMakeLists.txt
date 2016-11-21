@@ -17,11 +17,11 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-endif()
+endif ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "(Clang|GNU)")
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
-endif()
+endif ()
 
 # Debug configuration
 if (CMAKE_BUILD_TYPE MATCHES Debug)
@@ -32,18 +32,20 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     # leads to compiler errors when using things like
     #   std::vector<std::unique_ptr<int>> asdf;
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC")
-endif()
+endif ()
 
 # Release configuration
 if (CMAKE_BUILD_TYPE MATCHES Release)
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
-endif()
+endif ()
 
 add_subdirectory (src)
-#add_subdirectory (bats)
-add_subdirectory (tests)
-add_subdirectory (examples)
-#add_subdirectory (eclipse-clp)
 
+#add_subdirectory (eclipse-clp)
+#add_subdirectory (bats)
+
+add_subdirectory (tests)
 enable_testing ()
+
+add_subdirectory (examples)
 

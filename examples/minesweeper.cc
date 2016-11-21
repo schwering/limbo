@@ -63,6 +63,12 @@ struct Point {
     return xd <= 1 && yd <= 1;
   }
 
+  static double Distance(Point p, Point q) {
+    double x = p.x - q.x;
+    double y = p.y - q.y;
+    return ::sqrt(x*x + y*y);
+  }
+
   size_t x;
   size_t y;
 };
@@ -687,7 +693,7 @@ class HumanAgent : public Agent {
 
 class KnowledgeBaseAgent : public Agent {
  public:
-  explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) { }
+  explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) {}
 
   void Explore() override {
     kb_->Sync();
@@ -703,25 +709,15 @@ class KnowledgeBaseAgent : public Agent {
       return;
     }
 
-    // Determine candidate nodes. Note that non-frontier nodes may be relevant,
-    // because the whole frontier may be a candidate for a mine but it is not
-    // known which of them is one.
-    std::vector<Point> ps;
-    for (size_t index = 0; index < g_->n_fields(); ++index) {
-      const Point p(g_->to_point(index));
-      if (!g_->opened(p) && !g_->flagged(p)) {
-        ps.push_back(p);
-      }
-    }
-
     // First look for a field which is known not to be a mine.
     for (Solver::split_level k = 0; k <= KnowledgeBase::MAX_K; ++k) {
-      for (const Point p : ps) {
+      for (size_t index = 0; index < g_->n_fields(); ++index) {
+        const Point p = g_->to_point(index);
+        if (g_->opened(p) || g_->flagged(p)) {
+          continue;
+        }
         const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
         if (r.yes) {
-          if (!g_->frontier(p)) {
-            std::cout << "NON-FRONTIER " << p << std::endl;
-          }
           if (r.val) {
             std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
             g_->Flag(p);
@@ -735,8 +731,11 @@ class KnowledgeBaseAgent : public Agent {
     }
 
     // Didn't find any reliable action, so we need to guess.
-    if (!ps.empty()) {
-      const Point p = ps.front();
+    for (size_t index = 0; index < g_->n_fields(); ++index) {
+      const Point p = g_->to_point(index);
+      if (g_->opened(p) || g_->flagged(p)) {
+        continue;
+      }
       std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << std::endl;
       g_->OpenWithFrontier(p);
       return;

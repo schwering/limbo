@@ -10,7 +10,7 @@ foreach (test iter intmap term bloom literal clause setup formula syntax grounde
 	add_executable (${test} ${test}.cc)
 	target_link_libraries (${test} LINK_PUBLIC lela ${GTEST_BOTH_LIBRARIES} pthread)
 	add_test (NAME ${test} COMMAND ${test})
-endforeach()
+endforeach ()
 
 #target_link_libraries (setup_test LINK_PUBLIC BATS)
 
