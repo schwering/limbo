@@ -129,9 +129,7 @@ class Solver {
           Setup ss(&s);
           ss.AddClause(Clause{Literal::Eq(t, n)});
           ss.Init();
-          Formula psi = phi.Substitute(Term::SingleSubstitution(t, n), tf()).Build(); // XXX TODO needs to be handled
-          // differently because we there may be future occurrences of t after dealing with subsequent quantifiers
-          return Split(ss, split_terms, names, k-1, psi.reader());
+          return Split(ss, split_terms, names, k-1, phi);
         });
       });
     } else {
@@ -145,13 +143,13 @@ class Solver {
                    const Formula::Reader<T>& phi) {
     switch (phi.head().type()) {
       case Formula::Element::kClause: {
-        const Clause& c = phi.head().clause().val;
+        const Clause c = ResolveDeterminedTerms(s, phi.head().clause().val);
         return c.valid() || s.Subsumes(c);
       }
       case Formula::Element::kNot: {
         switch (phi.arg().head().type()) {
           case Formula::Element::kClause: {
-            const Clause c = phi.arg().head().clause().val;
+            const Clause c = ResolveDeterminedTerms(s, phi.arg().head().clause().val);
             return std::all_of(c.begin(), c.end(), [&s](Literal a) {
               a = a.flip();
               return a.valid() || s.Subsumes(Clause{a});
@@ -291,7 +289,7 @@ class Solver {
       case Formula::Element::kNot: {
         switch (phi.arg().head().type()) {
           case Formula::Element::kClause: {
-            const Clause c = phi.arg().head().clause().val;
+            const Clause c = ResolveDeterminedTerms(s, phi.arg().head().clause().val);
             return !s.Subsumes(c);
           }
           case Formula::Element::kOr: {
@@ -330,6 +328,43 @@ class Solver {
         });
       }
     }
+  }
+
+  Clause ResolveDeterminedTerms(const Setup& s, Clause c) {
+    // In the original semantics [KR 2016], when a split sets (t = n), we also
+    // substitute n for t in the query to deal with nested terms. But the
+    // Solver splits at a deterministic point before reducing the query similar
+    // to [ECAI 2016]. Hence t may occur later in the query after quantifiers
+    // are reduced. Substituting n for t at splitting time is hence not
+    // sufficient.
+    // For that reason, we defer that substitution until the query is reduced
+    // to a clause for which subsumption is to be checked. Then we check for
+    // any nested term t in that clause whether its denotation is defined by
+    // a unit clause (t = n) in the setup, in which case we substitute n for t
+    // in the clause.
+    // Note that the unit clause does not need to come from a split. Hence we
+    // may even save some trivial splits, e.g., from [f(n) = n], [g(n) = n]
+    // we infer without split that [f(g(n)) = n].
+    assert(c.ground());
+    bool changed;
+    do {
+      changed = false;
+      c = c.Substitute([&s, &changed](const Term t) -> internal::Maybe<Term> {
+        if (!t.primitive()) {
+          for (Setup::Index i : s.clauses()) {
+            if (s.clause(i).unit()) {
+              Literal a = *s.clause(i).begin();
+              if (a.pos() && a.lhs() == t) {
+                changed = true;
+                return internal::Just(a.rhs());
+              }
+            }
+          }
+        }
+        return internal::Nothing;
+      }, &tf_);
+    } while (changed);
+    return c;
   }
 
   Symbol::Factory sf_;

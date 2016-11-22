@@ -430,13 +430,11 @@ class Grounder {
     for (size_t i = 0; i < terms->size(); ++i) {
       Term old = (*terms)[i];
       if (!old.quasiprimitive()) {
-        Symbol::Factory* sf = sf_;
-        Term::Factory* tf = tf_;
         // We could save some instantiations here by substituting the same
         // variables for the identical terms that occur more than once.
-        Term sub = old.Substitute([terms, old, sf, tf](Term t) {
+        Term sub = old.Substitute([this, terms, old](Term t) {
           return (t != old && t.function())
-              ? internal::Just(tf->CreateTerm(sf->CreateVariable(t.sort())))
+              ? internal::Just(tf_->CreateTerm(sf_->CreateVariable(t.sort())))
               : internal::Nothing;
         }, tf_);
         assert(sub.quasiprimitive());
