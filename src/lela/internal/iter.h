@@ -10,6 +10,7 @@
 #define LELA_INTERNAL_ITER_H_
 
 #include <iterator>
+#include <set>
 #include <type_traits>
 #include <utility>
 
@@ -69,7 +70,7 @@ struct int_iterator {
 
 // Expects an iterator pointing to containers and iterates over their elements.
 template<typename ContIter>
-struct nested_iterator {
+struct flatten_iterator {
   typedef std::ptrdiff_t difference_type;
   typedef typename ContIter::value_type container_type;
   typedef decltype(std::declval<container_type>().begin()) iterator_type;
@@ -77,10 +78,10 @@ struct nested_iterator {
   typedef typename iterator_type::pointer pointer;
   typedef typename iterator_type::reference reference;
   typedef std::input_iterator_tag iterator_category;
-  typedef iterator_proxy<nested_iterator> proxy;
+  typedef iterator_proxy<flatten_iterator> proxy;
 
-  nested_iterator() = default;
-  explicit nested_iterator(ContIter cont_first, ContIter cont_last)
+  flatten_iterator() = default;
+  explicit flatten_iterator(ContIter cont_first, ContIter cont_last)
       : cont_first_(cont_first),
         cont_last_(cont_last) {
     if (cont_first_ != cont_last_) {
@@ -89,10 +90,10 @@ struct nested_iterator {
     Skip();
   }
 
-  bool operator==(nested_iterator it) const {
+  bool operator==(flatten_iterator it) const {
     return cont_first_ == it.cont_first_ && (cont_first_ == cont_last_ || iter_ == it.iter_);
   }
-  bool operator!=(nested_iterator it) const { return !(*this == it); }
+  bool operator!=(flatten_iterator it) const { return !(*this == it); }
 
   reference operator*() const {
     assert(cont_first_ != cont_last_);
@@ -100,7 +101,7 @@ struct nested_iterator {
     return *iter_;
   }
 
-  nested_iterator& operator++() {
+  flatten_iterator& operator++() {
     assert(cont_first_ != cont_last_ && iter_ != (*cont_first_).end());
     ++iter_;
     Skip();
@@ -131,6 +132,25 @@ struct nested_iterator {
   const ContIter cont_last_;
   iterator_type iter_;
 };
+
+template<typename ContIter>
+struct flatten_range {
+  typedef flatten_iterator<ContIter> iterator;
+
+  flatten_range(ContIter begin, ContIter end) : begin_(begin, end), end_(end, end) {}
+
+  iterator begin() const { return begin_; }
+  iterator end()   const { return end_; }
+
+ private:
+  iterator begin_;
+  iterator end_;
+};
+
+template<typename ContIter>
+inline flatten_range<ContIter> nest_range(ContIter begin, ContIter end) {
+  return flatten_range<ContIter>(begin, end);
+}
 
 // Haskell's map function.
 template<typename Iter, typename UnaryFunction>
@@ -235,6 +255,22 @@ template<typename Iter, typename UnaryPredicate>
 inline filtered_range<Iter, UnaryPredicate> filter_range(Iter begin, Iter end, UnaryPredicate pred = UnaryPredicate()) {
   return filtered_range<Iter, UnaryPredicate>(begin, end, pred);
 }
+
+template<typename T>
+struct unique_filter {
+  bool operator()(const T& x) const {
+    auto it = seen_.upper_bound(x);
+    if (it == seen_.end()) {
+      seen_.insert(it, x);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+ private:
+  mutable std::set<T> seen_;
+};
 
 template<typename Iter1, typename Iter2>
 struct joined_ranges {

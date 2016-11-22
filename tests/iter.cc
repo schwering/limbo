@@ -52,7 +52,7 @@ TEST(IterTest, int_iterator) {
   }
 }
 
-TEST(IterTest, nested_iterator) {
+TEST(IterTest, flatten_iterator) {
   {
     typedef std::vector<Int> vec;
     typedef std::vector<vec> vecvec;
@@ -60,7 +60,7 @@ TEST(IterTest, nested_iterator) {
     vec ys{4,5,6};
     vec zs{7,8,9};
     vecvec all{xs,ys,zs};
-    typedef nested_iterator<vecvec::iterator> iterator;
+    typedef flatten_iterator<vecvec::iterator> iterator;
     iterator begin = iterator(all.begin(), all.end());
     iterator end = iterator(all.end(), all.end());
     EXPECT_EQ(std::vector<Int>(begin, end), std::vector<Int>({1,2,3,4,5,6,7,8,9}));

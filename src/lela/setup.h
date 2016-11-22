@@ -293,7 +293,7 @@ class Setup {
 
     typedef Setups::setup_iterator setup_iterator;
     typedef internal::transform_iterator<setup_iterator, GetTermPairs> term_pairs_iterator;
-    typedef internal::nested_iterator<term_pairs_iterator> every_term_pair_iterator;
+    typedef internal::flatten_iterator<term_pairs_iterator> every_term_pair_iterator;
     typedef internal::filter_iterator<every_term_pair_iterator, EnabledClause> term_pair_iterator;
     typedef internal::transform_iterator<term_pair_iterator, GetTerm> every_term_iterator;
     typedef internal::filter_iterator<every_term_iterator, UniqueTerm> term_iterator;
@@ -352,7 +352,7 @@ class Setup {
 
     typedef Setups::setup_iterator setup_iterator;
     typedef internal::transform_iterator<setup_iterator, GetTermPairs> term_pairs_iterator;
-    typedef internal::nested_iterator<term_pairs_iterator> every_term_pair_iterator;
+    typedef internal::flatten_iterator<term_pairs_iterator> every_term_pair_iterator;
     typedef internal::transform_iterator<every_term_pair_iterator, GetClause> every_clause_with_term_iterator;
     typedef internal::filter_iterator<every_clause_with_term_iterator, EnabledClause> clause_with_term_iterator;
 

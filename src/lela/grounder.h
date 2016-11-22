@@ -93,6 +93,145 @@ class Grounder {
     }
   };
 
+  struct Assignments {
+    struct TermRange {
+      TermRange() = default;
+      explicit TermRange(const TermSet* terms) : terms_(terms) { Reset(); }
+
+      bool operator==(const TermRange r) const { return terms_ == r.terms_ && begin_ == r.begin_; }
+      bool operator!=(const TermRange r) const { return !(*this == r); }
+
+      TermSet::const_iterator begin() const { return begin_; }
+      TermSet::const_iterator end()   const { return terms_->end(); }
+
+      bool empty() const { return begin_ == terms_->end(); }
+
+      void Reset() { begin_ = terms_->begin(); }
+      void Next() { ++begin_; }
+
+     private:
+      const TermSet* terms_;
+      TermSet::const_iterator begin_;
+    };
+
+    struct Assignment {
+      internal::Maybe<Term> operator()(Term x) const {
+        auto it = map_.find(x);
+        if (it != map_.end()) {
+          auto r = it->second;
+          assert(!r.empty());
+          const Term t = *r.begin();
+          return internal::Just(t);
+        } else {
+          return internal::Nothing;
+        }
+      }
+
+      bool operator==(const Assignment& a) const { return map_ == a.map_; }
+      bool operator!=(const Assignment& a) const { return !(*this == a); }
+
+      TermRange& operator[](Term t) { return map_[t]; }
+
+      std::map<Term, TermRange>::iterator begin() { return map_.begin(); }
+      std::map<Term, TermRange>::iterator end() { return map_.end(); }
+
+     private:
+      std::map<Term, TermRange> map_;
+    };
+
+    struct assignment_iterator {
+      typedef std::ptrdiff_t difference_type;
+      typedef const Assignment value_type;
+      typedef value_type* pointer;
+      typedef value_type& reference;
+      typedef std::input_iterator_tag iterator_category;
+
+      // These iterators are really heavy-weight, especially comparison is
+      // unusually expensive. To abbreviate the usual comparison with end(),
+      // we hence reset the substitutes_ pointer to nullptr once the end is reached.
+      assignment_iterator() {}
+      assignment_iterator(const TermSet& vars, const SortedTermSet* substitutes) : substitutes_(substitutes) {
+        for (const Term var : vars) {
+          assert(var.symbol().variable());
+          TermRange r(&((*substitutes_)[var.sort()]));
+          assignment_[var] = r;
+          assert(!r.empty());
+          assert(var.sort() == r.begin()->sort());
+        }
+        meta_iter_ = assignment_.end();
+      }
+
+      bool operator==(const assignment_iterator& it) const {
+        return substitutes_ == it.substitutes_ &&
+              (substitutes_ == nullptr || (assignment_ == it.assignment_ &&
+                                           *meta_iter_ == *it.meta_iter_));
+      }
+      bool operator!=(const assignment_iterator& it) const { return !(*this == it); }
+
+      reference operator*() const { return assignment_; }
+
+      assignment_iterator& operator++() {
+        for (meta_iter_ = assignment_.begin(); meta_iter_ != assignment_.end(); ++meta_iter_) {
+          TermRange& r = meta_iter_->second;
+          assert(meta_iter_->first.symbol().variable());
+          assert(!r.empty());
+          r.Next();
+          if (!r.empty()) {
+            break;
+          } else {
+            r.Reset();
+            assert(!r.empty());
+            assert(meta_iter_->first.sort() == r.begin()->sort());
+          }
+        }
+        if (meta_iter_ == assignment_.end()) {
+          substitutes_ = nullptr;
+          assert(*this == assignment_iterator());
+        }
+        return *this;
+      }
+
+     private:
+      const SortedTermSet* substitutes_ = nullptr;
+      Assignment assignment_;
+      std::map<Term, TermRange>::iterator meta_iter_;
+    };
+
+    Assignments(const TermSet& vars, const SortedTermSet* substitutes) : vars_(vars), substitutes_(substitutes) {}
+
+    assignment_iterator begin() const { return assignment_iterator(vars_, substitutes_); }
+    assignment_iterator end() const { return assignment_iterator(); }
+
+   private:
+    const TermSet vars_;
+    const SortedTermSet* substitutes_;
+  };
+
+  template<typename T>
+  struct Groundings {
+    struct SubstituteTerm {
+      SubstituteTerm() = default;
+      SubstituteTerm(T orig, Term::Factory* tf) : orig_(orig), tf_(tf) {}
+      T operator()(const Assignments::Assignment& assignment) const { return orig_.Substitute(assignment, tf_); }
+     private:
+      T orig_;
+      Term::Factory* tf_;
+    };
+
+    typedef internal::transform_iterator<Assignments::assignment_iterator, SubstituteTerm> iterator;
+
+    Groundings(const T& orig, const SortedTermSet* substitutes, Term::Factory* tf)
+        : assignments_(MentionedTerms<TermSet>([](Term term) { return term.variable(); }, orig), substitutes),
+          substitute_(orig, tf) {}
+
+    iterator begin() const { return iterator(assignments_.begin(), substitute_); }
+    iterator end()   const { return iterator(assignments_.end(), substitute_); }
+
+   private:
+    Assignments assignments_;
+    SubstituteTerm substitute_;
+  };
+
   explicit Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
   Grounder(const Grounder&) = delete;
   Grounder(const Grounder&&) = delete;
@@ -154,7 +293,7 @@ class Grounder {
           }
         } else {
           const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, c);
-          for (const Assignments::Assignment& mapping : Assignments(&names_, &vars)) {
+          for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
             const Clause ci = c.Substitute(mapping, tf_);
             if (!ci.valid()) {
               assert(ci.primitive());
@@ -175,9 +314,60 @@ class Grounder {
     return names_;
   }
 
-  TermSet SplitTerms() const {
-    return GroundTerms(splits_);
+  template<typename Iter>
+  struct GroundedTerms {
+    typedef typename Iter::value_type value_type;
+    struct MakeGrounding {
+      MakeGrounding() = default;
+      MakeGrounding(const SortedTermSet* substitutes, Term::Factory* tf) : substitutes_(substitutes), tf_(tf) {}
+      Groundings<value_type> operator()(const value_type& obj) const {
+        return Groundings<value_type>(obj, substitutes_, tf_);
+      }
+     private:
+      const SortedTermSet* substitutes_;
+      Term::Factory* tf_;
+    };
+    typedef internal::transform_iterator<Iter, MakeGrounding> grounding_iterator;
+    typedef internal::flatten_iterator<grounding_iterator> ground_iterator;
+    //typedef internal::filter_iterator<ground_iterator, internal::unique_filter<value_type>> unique_ground_iterator;
+    typedef ground_iterator unique_ground_iterator;
+
+    GroundedTerms(Iter begin, Iter end, const SortedTermSet* substitutes, Term::Factory* tf)
+        : ground_(substitutes, tf),
+#if 0
+          begin_(unique_ground_iterator(ground_iterator(grounding_iterator(begin, ground_),
+                                                        grounding_iterator(begin, ground_)),
+                                        ground_iterator(grounding_iterator(end,   ground_),
+                                                        grounding_iterator(end,   ground_)),
+                                        internal::unique_filter<value_type>())),
+          end_(  unique_ground_iterator(ground_iterator(grounding_iterator(end,   ground_),
+                                                        grounding_iterator(end,   ground_)),
+                                        ground_iterator(grounding_iterator(end,   ground_),
+                                                        grounding_iterator(end,   ground_)),
+                                        internal::unique_filter<value_type>())) {}
+#else
+          begin_(ground_iterator(grounding_iterator(begin, ground_),
+                                 grounding_iterator(begin, ground_))),
+          end_(  ground_iterator(grounding_iterator(end,   ground_),
+                                 grounding_iterator(end,   ground_))) {}
+#endif
+
+    unique_ground_iterator begin() const { return begin_; }
+    unique_ground_iterator end()   const { return end_; }
+
+   private:
+    MakeGrounding ground_;
+    unique_ground_iterator begin_;
+    unique_ground_iterator end_;
+  };
+
+  GroundedTerms<TermSet::const_iterator> SplitTerms() const {
+    return GroundedTerms<TermSet::const_iterator>(splits_.begin(), splits_.end(), &names_, tf_);
   }
+
+  //TermSet SplitTerms() const {
+  //  return GroundTerms(splits_);
+  //}
 
   template<typename T>
   TermSet RelevantSplitTerms(size_t k, const Formula::Reader<T>& phi) {
@@ -206,121 +396,6 @@ class Grounder {
 #endif
 
   typedef internal::IntMap<Symbol::Sort, size_t> PlusMap;
-
-  struct Assignments {
-    struct NameRange {
-      NameRange() = default;
-      explicit NameRange(const TermSet* names) : names_(names) { Reset(); }
-
-      bool operator==(const NameRange r) const { return names_ == r.names_ && begin_ == r.begin_; }
-      bool operator!=(const NameRange r) const { return !(*this == r); }
-
-      TermSet::const_iterator begin() const { return begin_; }
-      TermSet::const_iterator end()   const { return names_->end(); }
-
-      bool empty() const { return begin_ == names_->end(); }
-
-      void Reset() { begin_ = names_->begin(); }
-      void Next() { ++begin_; }
-
-     private:
-      const TermSet* names_;
-      TermSet::const_iterator begin_;
-    };
-
-    struct Assignment {
-      internal::Maybe<Term> operator()(Term v) const {
-        auto it = map_.find(v);
-        if (it != map_.end()) {
-          auto r = it->second;
-          assert(!r.empty());
-          const Term name = *r.begin();
-          assert(name.name());
-          return internal::Just(name);
-        } else {
-          return internal::Nothing;
-        }
-      }
-
-      bool operator==(const Assignment& a) const { return map_ == a.map_; }
-      bool operator!=(const Assignment& a) const { return !(*this == a); }
-
-      NameRange& operator[](Term t) { return map_[t]; }
-
-      std::map<Term, NameRange>::iterator begin() { return map_.begin(); }
-      std::map<Term, NameRange>::iterator end() { return map_.end(); }
-
-     private:
-      std::map<Term, NameRange> map_;
-    };
-
-    struct assignment_iterator {
-      typedef std::ptrdiff_t difference_type;
-      typedef const Assignment value_type;
-      typedef value_type* pointer;
-      typedef value_type& reference;
-      typedef std::input_iterator_tag iterator_category;
-
-      // These iterators are really heavy-weight, especially comparison is
-      // unusually expensive. To abbreviate the usual comparison with end(),
-      // we hence reset the names_ pointer to nullptr once the end is reached.
-      assignment_iterator() {}
-      assignment_iterator(const SortedTermSet* names, const TermSet& vars) : names_(names) {
-        for (const Term var : vars) {
-          assert(var.symbol().variable());
-          NameRange r(&((*names_)[var.sort()]));
-          assignment_[var] = r;
-          assert(!r.empty());
-          assert(var.sort() == r.begin()->sort());
-        }
-        meta_iter_ = assignment_.end();
-      }
-
-      bool operator==(const assignment_iterator& it) const {
-        return names_ == it.names_ &&
-              (names_ == nullptr || (assignment_ == it.assignment_ &&
-                                     *meta_iter_ == *it.meta_iter_));
-      }
-      bool operator!=(const assignment_iterator& it) const { return !(*this == it); }
-
-      reference operator*() const { return assignment_; }
-
-      assignment_iterator& operator++() {
-        for (meta_iter_ = assignment_.begin(); meta_iter_ != assignment_.end(); ++meta_iter_) {
-          NameRange& r = meta_iter_->second;
-          assert(meta_iter_->first.symbol().variable());
-          assert(!r.empty());
-          r.Next();
-          if (!r.empty()) {
-            break;
-          } else {
-            r.Reset();
-            assert(!r.empty());
-            assert(meta_iter_->first.sort() == r.begin()->sort());
-          }
-        }
-        if (meta_iter_ == assignment_.end()) {
-          names_ = nullptr;
-          assert(*this == assignment_iterator());
-        }
-        return *this;
-      }
-
-     private:
-      const SortedTermSet* names_ = nullptr;
-      Assignment assignment_;
-      std::map<Term, NameRange>::iterator meta_iter_;
-    };
-
-    Assignments(const SortedTermSet* names, const TermSet* vars) : names_(names), vars_(vars) {}
-
-    assignment_iterator begin() const { return assignment_iterator(names_, *vars_); }
-    assignment_iterator end() const { return assignment_iterator(); }
-
-   private:
-    const SortedTermSet* names_;
-    const TermSet* vars_;
-  };
 
   template<typename R, typename T, typename UnaryPredicate>
   static R MentionedTerms(const UnaryPredicate p, const T& obj) {
@@ -444,7 +519,7 @@ class Grounder {
     for (Term t : terms) {
       assert(t.quasiprimitive());
       const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, t);
-      for (const Assignments::Assignment& mapping : Assignments(&names_, &vars)) {
+      for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
         Term tt = t.Substitute(mapping, tf_);
         assert(tt.primitive());
         grounded_terms.Add(tt);
