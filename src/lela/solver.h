@@ -12,6 +12,8 @@
 
 #include <cassert>
 
+#include <list>
+
 #include <lela/grounder.h>
 #include <lela/setup.h>
 #include <lela/term.h>
@@ -52,12 +54,13 @@ class Solver {
     const Setup& s = grounder_.Ground();
     std::list<TermSet> assign_terms = k == 0 ? std::list<TermSet>() : grounder_.AssignTerms();
     SortedTermSet names = grounder_.Names();
-    return ReduceDisjunctions(s, assign_terms, names, k, phi, assume_consistent);
+    return ReduceDisjunctions(s, assign_terms, names, k, phi);
   }
 
  private:
 #ifdef FRIEND_TEST
   FRIEND_TEST(SolverTest, EntailsSound);
+  FRIEND_TEST(SolverTest, EntailsComplete);
 #endif
 
   typedef Grounder::SortedTermSet SortedTermSet;
@@ -207,12 +210,12 @@ class Solver {
         const Clause c = phi.head().clause().val;
         return std::any_of(c.begin(), c.end(), [this, &s, &assign_terms, &names, k](Literal a) {
           Formula psi = Formula::Clause(Clause{a});
-          return a.valid() || ReduceDisjunctions(s, assign_terms, names, k, psi.reader());
+          return a.valid() || Assign(s, assign_terms, names, k, psi.reader());
         });
       }
       case Formula::Element::kOr: {
-        Formula::Reader<T> left = phi.left().Build();
-        Formula::Reader<T> right = phi.right().Build();
+        Formula::Reader<T> left = phi.left();
+        Formula::Reader<T> right = phi.right();
         return ReduceDisjunctions(s, assign_terms, names, k, left) ||
                ReduceDisjunctions(s, assign_terms, names, k, right);
       }
@@ -220,8 +223,8 @@ class Solver {
         const Term x = phi.head().var().val;
         const TermSet& ns = names[x.sort()];
         return std::any_of(ns.begin(), ns.end(), [this, &s, &assign_terms, &names, k, &phi, x](const Term n) {
-          Formula::Reader<T> psi = phi.Substitute(Term::SingleSubstitution(x, n), tf());
-          return ReduceDisjunctions(s, assign_terms, names, k, psi);
+          Formula psi = phi.arg().Substitute(Term::SingleSubstitution(x, n), tf()).Build();
+          return ReduceDisjunctions(s, assign_terms, names, k, psi.reader());
         });
       }
       case Formula::Element::kNot: {
@@ -229,11 +232,8 @@ class Solver {
           case Formula::Element::kNot:
             return ReduceDisjunctions(s, assign_terms, names, k, phi.arg().arg());
           default:
-            break;
+            return Assign(s, assign_terms, names, k, phi);
         }
-      }
-      default: {
-        return Assign(s, assign_terms, names, k, phi);
       }
     }
   }
@@ -249,7 +249,8 @@ class Solver {
     }
     if (k > 0) {
       assert(!assign_terms.empty());
-      return std::any_of(assign_terms.begin(), assign_terms.end(), [this, &s, &assign_terms, &names, k, &phi](TermSet ts) {
+      return std::any_of(assign_terms.begin(), assign_terms.end(),
+                         [this, &s, &assign_terms, &names, k, &phi](TermSet ts) {
         assert(!ts.empty());
         assert(std::all_of(ts.begin(), ts.end(), [&ts](Term t) { return t.sort() == ts.front().sort(); }));
         const TermSet& ns = names[ts.front().sort()];
@@ -263,10 +264,7 @@ class Solver {
             }
           }
           ss.Init();
-          Formula psi = phi;
-          //= phi.Substitute(Term::SingleSubstitution(t, n), tf()).Build(); // XXX TODO needs to be handled
-          //differently because we assign many values (stupid explanation)
-          return Assign(ss, assign_terms, names, k-1, psi.reader());
+          return Assign(ss, assign_terms, names, k-1, phi);
         });
       });
     } else {
@@ -282,7 +280,7 @@ class Solver {
       case Formula::Element::kClause: {
         const Clause c = phi.head().clause().val;
         return std::any_of(c.begin(), c.end(), [this, &s, &names](Literal a) {
-          Formula psi = Formula::Clause(Clause{a});
+          Formula psi = Formula::Not(Formula::Clause(Clause{a.flip()}));
           return a.valid() || ReduceComplete(s, names, psi.reader());
         });
       }

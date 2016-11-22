@@ -337,7 +337,8 @@ class Grounder {
     obj.Traverse([p, &terms](Term t) {
       if (p(t)) {
         terms.Add(t);
-      } return true;
+      }
+      return true;
     });
     terms.MakeSet();
     return terms;
@@ -466,12 +467,11 @@ class Grounder {
     for (Term t : terms) {
       assert(t.quasiprimitive());
       const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, t);
-      assert(!vars.empty());
       SortedTermSet terms = names_;
       terms.Add(vars);
       for (const Assignments::Assignment& mapping : Assignments(vars, &terms)) {
         Term tt = t.Substitute(mapping, tf_);
-        assert(tt.primitive());
+        assert(tt.quasiprimitive());
         grounded_terms.Add(tt);
       }
       grounded_terms.MakeSet();

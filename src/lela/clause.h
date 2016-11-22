@@ -100,7 +100,7 @@ class Clause {
   };
 
   template<typename UnaryFunction>
-  typename std::enable_if<std::is_convertible<typename arg<UnaryFunction>::type,Term>::value>::type
+  typename std::enable_if<std::is_convertible<typename arg<UnaryFunction>::type, Term>::value>::type
   Traverse(UnaryFunction f) const {
     for (Literal a : *this) {
       a.Traverse(f);
@@ -108,7 +108,7 @@ class Clause {
   }
 
   template<typename UnaryFunction>
-  typename std::enable_if<std::is_convertible<typename arg<UnaryFunction>::type,Literal>::value>::type
+  typename std::enable_if<std::is_convertible<typename arg<UnaryFunction>::type, Literal>::value>::type
   Traverse(UnaryFunction f) const {
     for (Literal a : *this) {
       f(a);

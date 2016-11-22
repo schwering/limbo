@@ -104,5 +104,36 @@ TEST(SolverTest, EntailsSound) {
   }
 }
 
+TEST(SolverTest, EntailsComplete) {
+  {
+    Solver solver;
+    Context ctx(solver.sf(), solver.tf());
+    auto Bool = ctx.NewSort();                RegisterSort(Bool, "");
+    auto True = ctx.NewName(Bool);            REGISTER_SYMBOL(True);
+    auto Human = ctx.NewSort();               RegisterSort(Human, "");
+    auto Jesus = ctx.NewName(Human);          REGISTER_SYMBOL(Jesus);
+    auto Mary = ctx.NewName(Human);           REGISTER_SYMBOL(Mary);
+    auto Joe = ctx.NewName(Human);            REGISTER_SYMBOL(Joe);
+    auto Father = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Father);
+    auto Mother = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Mother);
+    auto IsParentOf = ctx.NewFun(Bool, 2);    REGISTER_SYMBOL(IsParentOf);
+    auto x = ctx.NewVar(Human);               REGISTER_SYMBOL(x);
+    auto y = ctx.NewVar(Human);               REGISTER_SYMBOL(y);
+    std::cout << x << " " << x.symbol().id() << std::endl;
+    std::cout << y << " " << y.symbol().id() << std::endl;
+    {
+      solver.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
+      solver.AddClause(Clause{ Mother(Jesus) == Mary });
+      std::cout << solver.grounder_.Ground() << std::endl;
+      Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
+      std::cout << phi << std::endl;
+      EXPECT_TRUE(solver.EntailsComplete(0, phi.reader()));
+      EXPECT_TRUE(solver.EntailsComplete(1, phi.reader()));
+      EXPECT_TRUE(solver.EntailsComplete(0, phi.reader()));
+      EXPECT_TRUE(solver.EntailsComplete(1, phi.reader()));
+    }
+  }
+}
+
 }  // namespace lela
 
