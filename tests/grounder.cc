@@ -20,7 +20,8 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   const Symbol::Sort s1 = sf.CreateSort();                  RegisterSort(s1, "");
   const Symbol::Sort s2 = sf.CreateSort();                  RegisterSort(s2, "");
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n1.symbol(), "n1");
-  const Term n2 = tf.CreateTerm(sf.CreateName(s2));         RegisterSymbol(n2.symbol(), "n2");
+  const Term n2 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n2.symbol(), "n2");
+  const Term n3 = tf.CreateTerm(sf.CreateName(s2));         RegisterSymbol(n3.symbol(), "n3");
   const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));     RegisterSymbol(x1.symbol(), "x1");
   const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));     RegisterSymbol(x2.symbol(), "x2");
   const Term x3 = tf.CreateTerm(sf.CreateVariable(s2));     RegisterSymbol(x3.symbol(), "x3");
@@ -83,7 +84,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(n1, x1)}));
     lela::Setup s = g.Ground();
-    // Grounding should be [n1=n1], [n2=n1]. The first clause is valid and
+    // Grounding should be [n1=n1], [n3=n1]. The first clause is valid and
     // hence skipped. The second is invalid and hence boiled down to [].
     EXPECT_EQ(length(s.clauses()), 1);
     EXPECT_FALSE(s.Consistent());
@@ -93,7 +94,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(n1, x1)}));
     lela::Setup s = g.Ground();
-    // Grounding should be [n1/=n1], [n2/=n1]. The second clause is valid and
+    // Grounding should be [n1/=n1], [n3/=n1]. The second clause is valid and
     // hence skipped. The first is invalid and hence boiled down to [].
     EXPECT_EQ(length(s.clauses()), 1);
     EXPECT_FALSE(s.Consistent());
@@ -103,7 +104,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(x1, x2)}));
     lela::Setup s = g.Ground();
-    // Grounding should be [n1=n1], [n2=2], [n1=n2], [n2=n1]. The former two
+    // Grounding should be [n1=n1], [n3=2], [n1=n3], [n3=n1]. The former two
     // clauses are valid and hence skipped. The latter ones are invalid and
     // hence boiled down to [].
     EXPECT_EQ(length(s.clauses()), 1);
@@ -134,7 +135,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(f, {n1}), x1)}));
     lela::Setup s = g.Ground();
-    // Grounding should be [f(n1)=n1)], [f(n1)=n2]. The clauses unify and
+    // Grounding should be [f(n1)=n1)], [f(n1)=n3]. The clauses unify and
     // yield [].
     EXPECT_EQ(length(s.clauses()), 1);
     EXPECT_FALSE(s.Consistent());
@@ -144,7 +145,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(tf.CreateTerm(f, {n1}), x2)}));
     lela::Setup s = g.Ground();
-    // Grounding should be [f(n1)/=n1)], [f(n1)/=n2].
+    // Grounding should be [f(n1)/=n1)], [f(n1)/=n3].
     EXPECT_EQ(length(s.clauses()), 3);
     EXPECT_TRUE(s.Consistent());
   }
@@ -204,8 +205,8 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   }
 
   {
-    Clause c{Literal::Eq(tf.CreateTerm(h, {n1,n2}), n2)}; 
-    Clause d{Literal::Eq(tf.CreateTerm(h, {x1,n2}), n2)}; 
+    Clause c{Literal::Eq(tf.CreateTerm(h, {n1,n3}), n3)}; 
+    Clause d{Literal::Eq(tf.CreateTerm(h, {x1,n3}), n3)}; 
     Clause e{Literal::Eq(tf.CreateTerm(f, {x1}), n1)}; 
     Formula phi = Formula::Exists(x3, Formula::Clause({Literal::Eq(tf.CreateTerm(h, {n1,x3}), x3)}));
     Grounder g(&sf, &tf);
@@ -301,6 +302,72 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
       EXPECT_EQ(g.setups_.size(), 2);
       last = s;
     }
+  }
+}
+
+TEST(GrounderTest, Assignments) {
+  Symbol::Factory sf;
+  Term::Factory tf;
+  const Symbol::Sort s1 = sf.CreateSort();                  RegisterSort(s1, "");
+  const Symbol::Sort s2 = sf.CreateSort();                  RegisterSort(s2, "");
+  const Term n1 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n1.symbol(), "n1");
+  const Term n2 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n2.symbol(), "n2");
+  const Term n3 = tf.CreateTerm(sf.CreateName(s2));         RegisterSymbol(n3.symbol(), "n3");
+  const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));     RegisterSymbol(x1.symbol(), "x1");
+  const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));     RegisterSymbol(x2.symbol(), "x2");
+  const Term x3 = tf.CreateTerm(sf.CreateVariable(s2));     RegisterSymbol(x3.symbol(), "x3");
+  //const Term x4 = tf.CreateTerm(sf.CreateVariable(s2));     RegisterSymbol(x4, "x4");
+  //const Symbol a = sf.CreateFunction(s1, 0);                RegisterSymbol(a, "a");
+  const Symbol f = sf.CreateFunction(s1, 1);                RegisterSymbol(f, "f");
+  //const Symbol g = sf.CreateFunction(s2, 1);                RegisterSymbol(g, "g");
+  //const Symbol h = sf.CreateFunction(s2, 2);                RegisterSymbol(h, "h");
+  {
+    Grounder::SortedTermSet ts;
+    ts.Add(n1);
+    Grounder::Assignments as({}, &ts);
+    EXPECT_EQ(length(as), 1);
+    Term fx1 = tf.CreateTerm(f, {x1});
+    Term fn1 = tf.CreateTerm(f, {n1});
+    Grounder::Assignments::Assignment a = *as.begin();
+    EXPECT_EQ(fx1.Substitute(a, &tf), fx1);
+    EXPECT_NE(fx1.Substitute(a, &tf), fn1);
+  }
+  {
+    Grounder::SortedTermSet ts;
+    ts.Add(n1);
+    Grounder::Assignments as({x1}, &ts);
+    EXPECT_EQ(length(as), 1);
+    Term fx1 = tf.CreateTerm(f, {x1});
+    Term fn1 = tf.CreateTerm(f, {n1});
+    Grounder::Assignments::Assignment a = *as.begin();
+    EXPECT_NE(fx1.Substitute(a, &tf), fx1);
+    EXPECT_EQ(fx1.Substitute(a, &tf), fn1);
+  }
+  {
+    Grounder::SortedTermSet ts;
+    ts.Add(n1);
+    ts.Add(n2);
+    Grounder::Assignments as({x1}, &ts);
+    EXPECT_EQ(length(as), 2);
+    Term fx1 = tf.CreateTerm(f, {x1});
+    Term fn1 = tf.CreateTerm(f, {n1});
+    Term fn2 = tf.CreateTerm(f, {n2});
+    Grounder::Assignments::Assignment a = *as.begin();
+    EXPECT_NE(fx1.Substitute(a, &tf), fx1);
+    EXPECT_EQ(fx1.Substitute(a, &tf), fn1);
+    EXPECT_NE(fx1.Substitute(a, &tf), fn2);
+    Grounder::Assignments::Assignment b = *std::next(as.begin());
+    EXPECT_NE(fx1.Substitute(b, &tf), fx1);
+    EXPECT_NE(fx1.Substitute(b, &tf), fn1);
+    EXPECT_EQ(fx1.Substitute(b, &tf), fn2);
+  }
+  {
+    Grounder::SortedTermSet ts;
+    ts.Add(n1);
+    ts.Add(n2);
+    ts.Add(n3);
+    Grounder::Assignments as({x1,x2,x3}, &ts);
+    EXPECT_EQ(length(as), 4);
   }
 }
 

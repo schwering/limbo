@@ -50,10 +50,7 @@ class Solver {
   bool EntailsComplete(int k, const Formula::Reader<T>& phi, bool assume_consistent = true) {
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
-    TermSet assign_terms =
-      k == 0            ? TermSet() :
-      assume_consistent ? grounder_.RelevantSplitTerms(k, phi) :
-                          grounder_.SplitTerms();
+    std::list<TermSet> assign_terms = k == 0 ? std::list<TermSet>() : grounder_.AssignTerms();
     SortedTermSet names = grounder_.Names();
     return ReduceDisjunctions(s, assign_terms, names, k, phi, assume_consistent);
   }
@@ -132,7 +129,8 @@ class Solver {
           Setup ss(&s);
           ss.AddClause(Clause{Literal::Eq(t, n)});
           ss.Init();
-          Formula psi = phi.Substitute(Term::SingleSubstitution(t, n), tf()).Build();
+          Formula psi = phi.Substitute(Term::SingleSubstitution(t, n), tf()).Build(); // XXX TODO needs to be handled
+          // differently because we there may be future occurrences of t after dealing with subsequent quantifiers
           return Split(ss, split_terms, names, k-1, psi.reader());
         });
       });
@@ -199,7 +197,7 @@ class Solver {
 
   template<typename T>
   bool ReduceDisjunctions(const Setup& s,
-                          const TermSet& assign_terms,
+                          const std::list<TermSet>& assign_terms,
                           const SortedTermSet& names,
                           int k,
                           const Formula::Reader<T>& phi) {
@@ -244,7 +242,7 @@ class Solver {
 
   template<typename T>
   bool Assign(const Setup& s,
-              const TermSet& assign_terms,
+              const std::list<TermSet>& assign_terms,
               const SortedTermSet& names,
               int k,
               const Formula::Reader<T>& phi) {
@@ -253,18 +251,23 @@ class Solver {
     }
     if (k > 0) {
       assert(!assign_terms.empty());
-      return std::any_of(assign_terms.begin(), assign_terms.end(), [this, &s, &assign_terms, &names, k, &phi](Term t) {
-        const TermSet& ns = names[t.sort()];
+      return std::any_of(assign_terms.begin(), assign_terms.end(), [this, &s, &assign_terms, &names, k, &phi](TermSet ts) {
+        assert(!ts.empty());
+        assert(std::all_of(ts.begin(), ts.end(), [&ts](Term t) { return t.sort() == ts.front().sort(); }));
+        const TermSet& ns = names[ts.front().sort()];
         assert(!ns.empty());
-        return std::all_of(ns.begin(), ns.end(), [this, &s, &assign_terms, &names, k, &phi, t](Term n) {
+        return std::all_of(ns.begin(), ns.end(), [this, &s, &assign_terms, &names, k, &phi, &ts](Term n) {
           Setup ss(&s);
-          if (t.ground()) {
-            ss.AddClause(Clause{Literal::Eq(t, n)});
-          } else {
-            //ss.AddClause(); // XXX TODO
+          for (Term t : ts) {
+            Clause c{Literal::Eq(t, n)};
+            if (!ss.Subsumes(c)) {
+              ss.AddClause(c);
+            }
           }
           ss.Init();
-          Formula psi = phi.Substitute(Term::SingleSubstitution(t, n), tf()).Build();
+          Formula psi = phi;
+          //= phi.Substitute(Term::SingleSubstitution(t, n), tf()).Build(); // XXX TODO needs to be handled
+          //differently because we assign many values (stupid explanation)
           return Assign(ss, assign_terms, names, k-1, psi.reader());
         });
       });

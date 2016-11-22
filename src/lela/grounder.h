@@ -93,6 +93,128 @@ class Grounder {
     }
   };
 
+  explicit Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
+  Grounder(const Grounder&) = delete;
+  Grounder(const Grounder&&) = delete;
+  Grounder& operator=(const Grounder) = delete;
+
+  typedef std::list<Clause>::const_iterator clause_iterator;
+  typedef internal::joined_ranges<clause_iterator, clause_iterator> clause_range;
+
+  clause_range clauses() const {
+    return internal::join_ranges(processed_clauses_.cbegin(), processed_clauses_.cend(),
+                                 unprocessed_clauses_.cbegin(), unprocessed_clauses_.cend());
+  }
+
+  void AddClause(const Clause& c) {
+    assert(std::all_of(c.begin(), c.end(),
+                       [](Literal a) { return a.quasiprimitive() || !(a.lhs().function() && a.rhs().function()); }));
+    if (c.valid()) {
+      return;
+    }
+    names_changed_ |= AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, c));
+    names_changed_ |= AddPlusNames(PlusNames(c));
+    AddSplitTerms(MentionedTerms<TermSet>([](Term t) { return t.quasiprimitive(); }, c));
+    unprocessed_clauses_.push_front(c);
+  }
+
+  template<typename T>
+  void PrepareForQuery(size_t k, const Formula::Reader<T>& phi) {
+    names_changed_ |= AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, phi));
+    names_changed_ |= AddPlusNames(PlusNames(phi));
+    names_changed_ |= AddPlusNames(PlusSplitNames(k, phi));
+    AddSplitTerms(SplitTerms(k, phi));
+  }
+
+  const Setup& Ground() const { return const_cast<Grounder*>(this)->Ground(); }
+
+  const Setup& Ground() {
+    if (names_changed_) {
+      // Re-ground all clauses, i.e., all clauses are considered unprocessed and all old setups are forgotten.
+      unprocessed_clauses_.splice(unprocessed_clauses_.begin(), processed_clauses_);
+      setups_.clear();
+      assert(processed_clauses_.empty());
+      assert(setups_.empty());
+    }
+    if (!unprocessed_clauses_.empty() || setups_.empty()) {
+      // Ground the unprocessed clauses in a new setup, which inherits from the last setup for efficiency.
+      Setup* parent = !setups_.empty() ? &setups_.front() : nullptr;
+      if (!parent) {
+        setups_.push_front(Setup());
+      } else {
+        setups_.push_front(Setup(parent));
+      }
+      Setup* s = &setups_.front();
+      assert(s != parent);
+      for (const Clause& c : unprocessed_clauses_) {
+        if (c.ground()) {
+          assert(c.primitive());
+          if (!c.valid()) {
+            s->AddClause(c);
+          }
+        } else {
+          const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, c);
+          for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
+            const Clause ci = c.Substitute(mapping, tf_);
+            if (!ci.valid()) {
+              assert(ci.primitive());
+              s->AddClause(ci);
+            }
+          }
+        }
+      }
+      s->Init();
+      processed_clauses_.splice(processed_clauses_.begin(), unprocessed_clauses_);
+      names_changed_ = false;
+    }
+    assert(!setups_.empty());
+    return setups_.front();
+  }
+
+  const SortedTermSet& Names() const {
+    return names_;
+  }
+
+  TermSet SplitTerms() const {
+    return GroundTerms(splits_);
+  }
+
+  template<typename T>
+  TermSet RelevantSplitTerms(size_t k, const Formula::Reader<T>& phi) {
+    PrepareForQuery(k, phi);
+    const Setup& s = Ground();
+    TermSet splits = GroundTerms(SplitTerms(k, phi));
+    TermSet new_splits;
+    internal::IntMap<Setup::Index, bool> marked;
+    marked.set_null_value(false);
+    for (size_t i = 0; i < splits.size(); ++i) {
+      const Term t = splits[i];
+      for (Setup::Index i : s.clauses_with(t)) {
+        if (!marked[i]) {
+          splits.Add(MentionedTerms<TermSet>([](Term t) { return t.function(); }, s.clause(i)));
+          marked[i] = true;
+        }
+      }
+    }
+    splits.MakeSet();
+    return splits;
+  }
+
+  std::list<TermSet> AssignTerms() const {
+    TermSet ts = PartiallyGroundTerms(splits_);
+    auto r = internal::transform_range(ts.begin(), ts.end(), [this](Term t) {
+      const TermSet singleton{t};
+      return t.ground() ? singleton : GroundTerms(singleton);
+    });
+    return std::list<TermSet>(r.begin(), r.end());
+  }
+
+ private:
+#ifdef FRIEND_TEST
+  FRIEND_TEST(GrounderTest, Ground_SplitTerms_Names);
+  FRIEND_TEST(GrounderTest, Assignments);
+#endif
+
   struct Assignments {
     struct TermRange {
       TermRange() = default;
@@ -206,194 +328,6 @@ class Grounder {
     const TermSet vars_;
     const SortedTermSet* substitutes_;
   };
-
-  template<typename T>
-  struct Groundings {
-    struct SubstituteTerm {
-      SubstituteTerm() = default;
-      SubstituteTerm(T orig, Term::Factory* tf) : orig_(orig), tf_(tf) {}
-      T operator()(const Assignments::Assignment& assignment) const { return orig_.Substitute(assignment, tf_); }
-     private:
-      T orig_;
-      Term::Factory* tf_;
-    };
-
-    typedef internal::transform_iterator<Assignments::assignment_iterator, SubstituteTerm> iterator;
-
-    Groundings(const T& orig, const SortedTermSet* substitutes, Term::Factory* tf)
-        : assignments_(MentionedTerms<TermSet>([](Term term) { return term.variable(); }, orig), substitutes),
-          substitute_(orig, tf) {}
-
-    iterator begin() const { return iterator(assignments_.begin(), substitute_); }
-    iterator end()   const { return iterator(assignments_.end(), substitute_); }
-
-   private:
-    Assignments assignments_;
-    SubstituteTerm substitute_;
-  };
-
-  explicit Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
-  Grounder(const Grounder&) = delete;
-  Grounder(const Grounder&&) = delete;
-  Grounder& operator=(const Grounder) = delete;
-
-  typedef std::list<Clause>::const_iterator clause_iterator;
-  typedef internal::joined_ranges<clause_iterator, clause_iterator> clause_range;
-
-  clause_range clauses() const {
-    return internal::join_ranges(processed_clauses_.cbegin(), processed_clauses_.cend(),
-                                 unprocessed_clauses_.cbegin(), unprocessed_clauses_.cend());
-  }
-
-  void AddClause(const Clause& c) {
-    assert(std::all_of(c.begin(), c.end(),
-                       [](Literal a) { return a.quasiprimitive() || !(a.lhs().function() && a.rhs().function()); }));
-    if (c.valid()) {
-      return;
-    }
-    names_changed_ |= AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, c));
-    names_changed_ |= AddPlusNames(PlusNames(c));
-    AddSplitTerms(MentionedTerms<TermSet>([](Term t) { return t.quasiprimitive(); }, c));
-    unprocessed_clauses_.push_front(c);
-  }
-
-  template<typename T>
-  void PrepareForQuery(size_t k, const Formula::Reader<T>& phi) {
-    names_changed_ |= AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, phi));
-    names_changed_ |= AddPlusNames(PlusNames(phi));
-    names_changed_ |= AddPlusNames(PlusSplitNames(k, phi));
-    AddSplitTerms(SplitTerms(k, phi));
-  }
-
-  const Setup& Ground() const { return const_cast<Grounder*>(this)->Ground(); }
-
-  const Setup& Ground() {
-    if (names_changed_) {
-      // Re-ground all clauses, i.e., all clauses are considered unprocessed and all old setups are forgotten.
-      unprocessed_clauses_.splice(unprocessed_clauses_.begin(), processed_clauses_);
-      setups_.clear();
-      assert(processed_clauses_.empty());
-      assert(setups_.empty());
-    }
-    if (!unprocessed_clauses_.empty() || setups_.empty()) {
-      // Ground the unprocessed clauses in a new setup, which inherits from the last setup for efficiency.
-      Setup* parent = !setups_.empty() ? &setups_.front() : nullptr;
-      if (!parent) {
-        setups_.push_front(Setup());
-      } else {
-        setups_.push_front(Setup(parent));
-      }
-      Setup* s = &setups_.front();
-      assert(s != parent);
-      for (const Clause& c : unprocessed_clauses_) {
-        if (c.ground()) {
-          assert(c.primitive());
-          if (!c.valid()) {
-            s->AddClause(c);
-          }
-        } else {
-          const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, c);
-          for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
-            const Clause ci = c.Substitute(mapping, tf_);
-            if (!ci.valid()) {
-              assert(ci.primitive());
-              s->AddClause(ci);
-            }
-          }
-        }
-      }
-      s->Init();
-      processed_clauses_.splice(processed_clauses_.begin(), unprocessed_clauses_);
-      names_changed_ = false;
-    }
-    assert(!setups_.empty());
-    return setups_.front();
-  }
-
-  const SortedTermSet& Names() const {
-    return names_;
-  }
-
-  template<typename Iter>
-  struct GroundedTerms {
-    typedef typename Iter::value_type value_type;
-    struct MakeGrounding {
-      MakeGrounding() = default;
-      MakeGrounding(const SortedTermSet* substitutes, Term::Factory* tf) : substitutes_(substitutes), tf_(tf) {}
-      Groundings<value_type> operator()(const value_type& obj) const {
-        return Groundings<value_type>(obj, substitutes_, tf_);
-      }
-     private:
-      const SortedTermSet* substitutes_;
-      Term::Factory* tf_;
-    };
-    typedef internal::transform_iterator<Iter, MakeGrounding> grounding_iterator;
-    typedef internal::flatten_iterator<grounding_iterator> ground_iterator;
-    //typedef internal::filter_iterator<ground_iterator, internal::unique_filter<value_type>> unique_ground_iterator;
-    typedef ground_iterator unique_ground_iterator;
-
-    GroundedTerms(Iter begin, Iter end, const SortedTermSet* substitutes, Term::Factory* tf)
-        : ground_(substitutes, tf),
-#if 0
-          begin_(unique_ground_iterator(ground_iterator(grounding_iterator(begin, ground_),
-                                                        grounding_iterator(begin, ground_)),
-                                        ground_iterator(grounding_iterator(end,   ground_),
-                                                        grounding_iterator(end,   ground_)),
-                                        internal::unique_filter<value_type>())),
-          end_(  unique_ground_iterator(ground_iterator(grounding_iterator(end,   ground_),
-                                                        grounding_iterator(end,   ground_)),
-                                        ground_iterator(grounding_iterator(end,   ground_),
-                                                        grounding_iterator(end,   ground_)),
-                                        internal::unique_filter<value_type>())) {}
-#else
-          begin_(ground_iterator(grounding_iterator(begin, ground_),
-                                 grounding_iterator(begin, ground_))),
-          end_(  ground_iterator(grounding_iterator(end,   ground_),
-                                 grounding_iterator(end,   ground_))) {}
-#endif
-
-    unique_ground_iterator begin() const { return begin_; }
-    unique_ground_iterator end()   const { return end_; }
-
-   private:
-    MakeGrounding ground_;
-    unique_ground_iterator begin_;
-    unique_ground_iterator end_;
-  };
-
-  GroundedTerms<TermSet::const_iterator> SplitTerms() const {
-    return GroundedTerms<TermSet::const_iterator>(splits_.begin(), splits_.end(), &names_, tf_);
-  }
-
-  //TermSet SplitTerms() const {
-  //  return GroundTerms(splits_);
-  //}
-
-  template<typename T>
-  TermSet RelevantSplitTerms(size_t k, const Formula::Reader<T>& phi) {
-    PrepareForQuery(k, phi);
-    const Setup& s = Ground();
-    TermSet splits = GroundTerms(SplitTerms(k, phi));
-    TermSet new_splits;
-    internal::IntMap<Setup::Index, bool> marked;
-    marked.set_null_value(false);
-    for (size_t i = 0; i < splits.size(); ++i) {
-      const Term t = splits[i];
-      for (Setup::Index i : s.clauses_with(t)) {
-        if (!marked[i]) {
-          splits.Add(MentionedTerms<TermSet>([](Term t) { return t.function(); }, s.clause(i)));
-          marked[i] = true;
-        }
-      }
-    }
-    splits.MakeSet();
-    return splits;
-  }
-
- private:
-#ifdef FRIEND_TEST
-  FRIEND_TEST(GrounderTest, Ground_SplitTerms_Names);
-#endif
 
   typedef internal::IntMap<Symbol::Sort, size_t> PlusMap;
 
@@ -520,6 +454,24 @@ class Grounder {
       assert(t.quasiprimitive());
       const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, t);
       for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
+        Term tt = t.Substitute(mapping, tf_);
+        assert(tt.primitive());
+        grounded_terms.Add(tt);
+      }
+      grounded_terms.MakeSet();
+    }
+    return grounded_terms;
+  }
+
+  TermSet PartiallyGroundTerms(const TermSet& terms) const {
+    TermSet grounded_terms;
+    for (Term t : terms) {
+      assert(t.quasiprimitive());
+      const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, t);
+      assert(!vars.empty());
+      SortedTermSet terms = names_;
+      terms.Add(vars);
+      for (const Assignments::Assignment& mapping : Assignments(vars, &terms)) {
         Term tt = t.Substitute(mapping, tf_);
         assert(tt.primitive());
         grounded_terms.Add(tt);
