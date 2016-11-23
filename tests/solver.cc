@@ -38,9 +38,7 @@ TEST(SolverTest, EntailsSound) {
     {
       solver.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Mother(Jesus) == Mary });
-      std::cout << solver.grounder_.Ground() << std::endl;
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      std::cout << phi << std::endl;
       EXPECT_TRUE(solver.EntailsSound(0, phi.reader()));
       EXPECT_TRUE(solver.EntailsSound(1, phi.reader()));
       EXPECT_TRUE(solver.EntailsSound(0, phi.reader()));
@@ -66,9 +64,7 @@ TEST(SolverTest, EntailsSound) {
     {
       solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God });
-      std::cout << solver.grounder_.Ground() << std::endl;
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      std::cout << phi << std::endl;
       EXPECT_FALSE(solver.EntailsSound(0, phi.reader()));
       EXPECT_TRUE(solver.EntailsSound(1, phi.reader()));
       EXPECT_FALSE(solver.EntailsSound(0, phi.reader()));
@@ -95,9 +91,7 @@ TEST(SolverTest, EntailsSound) {
     {
       solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God, Father(Jesus) == HolyGhost });
-      std::cout << solver.grounder_.Ground() << std::endl;
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      std::cout << phi << std::endl;
       EXPECT_FALSE(solver.EntailsSound(0, phi.reader()));
       EXPECT_TRUE(solver.EntailsSound(1, phi.reader()));
     }
@@ -119,20 +113,81 @@ TEST(SolverTest, EntailsComplete) {
     auto IsParentOf = ctx.NewFun(Bool, 2);    REGISTER_SYMBOL(IsParentOf);
     auto x = ctx.NewVar(Human);               REGISTER_SYMBOL(x);
     auto y = ctx.NewVar(Human);               REGISTER_SYMBOL(y);
-    std::cout << x << " " << x.symbol().id() << std::endl;
-    std::cout << y << " " << y.symbol().id() << std::endl;
     {
       solver.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Mother(Jesus) == Mary });
-      std::cout << solver.grounder_.Ground() << std::endl;
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      std::cout << phi << std::endl;
       EXPECT_TRUE(solver.EntailsComplete(0, phi.reader()));
       EXPECT_TRUE(solver.EntailsComplete(1, phi.reader()));
       EXPECT_TRUE(solver.EntailsComplete(0, phi.reader()));
       EXPECT_TRUE(solver.EntailsComplete(1, phi.reader()));
     }
   }
+}
+
+TEST(SolverTest, KR2016) {
+  Solver solver;
+  Context ctx(solver.sf(), solver.tf());
+  auto Human = ctx.NewSort();             RegisterSort(Human, "");
+  auto sue = ctx.NewName(Human);          REGISTER_SYMBOL(sue);
+  auto jane = ctx.NewName(Human);         REGISTER_SYMBOL(jane);
+  auto mary = ctx.NewName(Human);         REGISTER_SYMBOL(mary);
+  auto george = ctx.NewName(Human);       REGISTER_SYMBOL(george);
+  auto father = ctx.NewFun(Human, 1);     REGISTER_SYMBOL(father);
+  auto bestFriend = ctx.NewFun(Human, 1); REGISTER_SYMBOL(bestFriend);
+  solver.AddClause({ bestFriend(mary) == sue, bestFriend(mary) == jane });
+  solver.AddClause({ father(sue) == george });
+  solver.AddClause({ father(jane) == george });
+  EXPECT_FALSE(solver.EntailsSound(0, Formula::Clause(Clause{father(bestFriend(mary)) == george}).reader()));
+  EXPECT_TRUE(solver.EntailsSound(1, Formula::Clause(Clause{father(bestFriend(mary)) == george}).reader()));
+}
+
+TEST(SolverTest, ECAI2016Sound) {
+  Solver solver;
+  Context ctx(solver.sf(), solver.tf());
+  auto Bool = ctx.NewSort();              RegisterSort(Bool, "");
+  auto Food = ctx.NewSort();              RegisterSort(Food, "");
+  auto T = ctx.NewName(Bool);             REGISTER_SYMBOL(T);
+  auto F = ctx.NewName(Bool);             REGISTER_SYMBOL(F);
+  auto Aussie = ctx.NewFun(Bool, 0)();    REGISTER_SYMBOL(Aussie);
+  auto Italian = ctx.NewFun(Bool, 0)();   REGISTER_SYMBOL(Italian);
+  auto Eats = ctx.NewFun(Bool, 1);        REGISTER_SYMBOL(Eats);
+  auto Meat = ctx.NewFun(Bool, 1);        REGISTER_SYMBOL(Meat);
+  auto Veggie = ctx.NewFun(Bool, 0)();    REGISTER_SYMBOL(Veggie);
+  auto roo = ctx.NewName(Food);           REGISTER_SYMBOL(roo);
+  auto x = ctx.NewVar(Food);              REGISTER_SYMBOL(x);
+  solver.AddClause({ Meat(roo) == T });
+  solver.AddClause({ Meat(x) == F, Eats(x) == F, Veggie == F });
+  solver.AddClause({ Aussie == F, Italian == F });
+  solver.AddClause({ Aussie == T, Italian == T });
+  solver.AddClause({ Aussie == F, Eats(roo) == T });
+  solver.AddClause({ Italian == T, Veggie == T });
+  EXPECT_FALSE(solver.EntailsSound(0, Formula::Clause(Clause{Aussie == F}).reader()));
+  EXPECT_TRUE(solver.EntailsSound(1, Formula::Clause(Clause{Aussie == F}).reader()));
+}
+
+TEST(SolverTest, ECAI2016Complete) {
+  Solver solver;
+  Context ctx(solver.sf(), solver.tf());
+  auto Bool = ctx.NewSort();              RegisterSort(Bool, "");
+  auto Food = ctx.NewSort();              RegisterSort(Food, "");
+  auto T = ctx.NewName(Bool);             REGISTER_SYMBOL(T);
+  auto F = ctx.NewName(Bool);             REGISTER_SYMBOL(F);
+  auto Aussie = ctx.NewFun(Bool, 0)();    REGISTER_SYMBOL(Aussie);
+  auto Italian = ctx.NewFun(Bool, 0)();   REGISTER_SYMBOL(Italian);
+  auto Eats = ctx.NewFun(Bool, 1);        REGISTER_SYMBOL(Eats);
+  auto Meat = ctx.NewFun(Bool, 1);        REGISTER_SYMBOL(Meat);
+  auto Veggie = ctx.NewFun(Bool, 0)();    REGISTER_SYMBOL(Veggie);
+  auto roo = ctx.NewName(Food);           REGISTER_SYMBOL(roo);
+  auto x = ctx.NewVar(Food);              REGISTER_SYMBOL(x);
+  solver.AddClause({ Meat(roo) == T });
+  solver.AddClause({ Meat(x) == F, Eats(x) == F, Veggie == F });
+  solver.AddClause({ Aussie == F, Italian == F });
+  solver.AddClause({ Aussie == T, Italian == T });
+  solver.AddClause({ Aussie == F, Eats(roo) == T });
+  solver.AddClause({ Italian == T, Veggie == T });
+  EXPECT_TRUE(solver.EntailsComplete(0, Formula::Clause(Clause{Italian == F}).reader()));
+  EXPECT_FALSE(solver.EntailsComplete(1, Formula::Clause(Clause{Italian == F}).reader()));
 }
 
 }  // namespace lela

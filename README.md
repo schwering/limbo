@@ -1,8 +1,6 @@
-LELA (Limited Epistemic Logic in Action, the acronym is tentative :-)) is a C++
+LELA (Limited Epistemic Logic in Action; the acronym is tentative :-)) is a C++
 library that aims to implement the first-order reasoning services described in
-the papers [1,2] and perhaps also [3,4] linked below.
-(An earlier implementation of [3] can be found in the
-[master](//github.com/schwering/lela/tree/master) branch.
+the papers [1,2] and perhaps also [3,4].
 
 1. Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief
    with Function Symbols. KR 2016.

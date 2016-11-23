@@ -98,7 +98,7 @@ class Grounder {
     }
   };
 
-  explicit Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
+  Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
   Grounder(const Grounder&) = delete;
   Grounder(const Grounder&&) = delete;
   Grounder& operator=(const Grounder) = delete;

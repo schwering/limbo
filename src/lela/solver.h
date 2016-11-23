@@ -64,15 +64,16 @@ class Solver {
   bool EntailsComplete(int k, const Formula::Reader<T>& phi, bool assume_consistent = true) {
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
-    std::list<LiteralSet> assign_terms = k == 0 ? std::list<LiteralSet>() : grounder_.AssignLiterals();
+    std::list<LiteralSet> assign_lits = k == 0 ? std::list<LiteralSet>() : grounder_.AssignLiterals();
     SortedTermSet names = grounder_.Names();
-    return ReduceDisjunctions(s, assign_terms, names, k, phi);
+    return ReduceDisjunctions(s, assign_lits, names, k, phi);
   }
 
  private:
 #ifdef FRIEND_TEST
   FRIEND_TEST(SolverTest, EntailsSound);
   FRIEND_TEST(SolverTest, EntailsComplete);
+  FRIEND_TEST(SolverTest, KR2016);
 #endif
 
   typedef Grounder::TermSet TermSet;
@@ -154,9 +155,7 @@ class Solver {
   }
 
   template<typename T>
-  bool ReduceSound(const Setup& s,
-                   const SortedTermSet& names,
-                   const Formula::Reader<T>& phi) {
+  bool ReduceSound(const Setup& s, const SortedTermSet& names, const Formula::Reader<T>& phi) {
     switch (phi.head().type()) {
       case Formula::Element::kClause: {
         const Clause c = ResolveDeterminedTerms(s, phi.head().clause().val);
@@ -211,7 +210,7 @@ class Solver {
 
   template<typename T>
   bool ReduceDisjunctions(const Setup& s,
-                          const std::list<LiteralSet>& assign_terms,
+                          const std::list<LiteralSet>& assign_lits,
                           const SortedTermSet& names,
                           int k,
                           const Formula::Reader<T>& phi) {
@@ -221,31 +220,31 @@ class Solver {
     switch (phi.head().type()) {
       case Formula::Element::kClause: {
         const Clause c = phi.head().clause().val;
-        return std::any_of(c.begin(), c.end(), [this, &s, &assign_terms, &names, k](Literal a) {
+        return std::any_of(c.begin(), c.end(), [this, &s, &assign_lits, &names, k](Literal a) {
           Formula psi = Formula::Clause(Clause{a});
-          return a.valid() || Assign(s, assign_terms, names, k, psi.reader());
+          return a.valid() || Assign(s, assign_lits, names, k, psi.reader());
         });
       }
       case Formula::Element::kOr: {
         Formula::Reader<T> left = phi.left();
         Formula::Reader<T> right = phi.right();
-        return ReduceDisjunctions(s, assign_terms, names, k, left) ||
-               ReduceDisjunctions(s, assign_terms, names, k, right);
+        return ReduceDisjunctions(s, assign_lits, names, k, left) ||
+               ReduceDisjunctions(s, assign_lits, names, k, right);
       }
       case Formula::Element::kExists: {
         const Term x = phi.head().var().val;
         const TermSet& ns = names[x.sort()];
-        return std::any_of(ns.begin(), ns.end(), [this, &s, &assign_terms, &names, k, &phi, x](const Term n) {
+        return std::any_of(ns.begin(), ns.end(), [this, &s, &assign_lits, &names, k, &phi, x](const Term n) {
           Formula psi = phi.arg().Substitute(Term::SingleSubstitution(x, n), tf()).Build();
-          return ReduceDisjunctions(s, assign_terms, names, k, psi.reader());
+          return ReduceDisjunctions(s, assign_lits, names, k, psi.reader());
         });
       }
       case Formula::Element::kNot: {
         switch (phi.arg().head().type()) {
           case Formula::Element::kNot:
-            return ReduceDisjunctions(s, assign_terms, names, k, phi.arg().arg());
+            return ReduceDisjunctions(s, assign_lits, names, k, phi.arg().arg());
           default:
-            return Assign(s, assign_terms, names, k, phi);
+            return Assign(s, assign_lits, names, k, phi);
         }
       }
     }
@@ -253,17 +252,14 @@ class Solver {
 
   template<typename T>
   bool Assign(const Setup& s,
-              const std::list<LiteralSet>& assign_terms,
+              const std::list<LiteralSet>& assign_lits,
               const SortedTermSet& names,
               int k,
               const Formula::Reader<T>& phi) {
-    if (!s.Consistent()) {
-      return true;
-    }
     if (k > 0) {
-      assert(!assign_terms.empty());
-      return std::all_of(assign_terms.begin(), assign_terms.end(),
-                         [this, &s, &assign_terms, &names, k, &phi](LiteralSet lits) {
+      assert(!assign_lits.empty());
+      return std::all_of(assign_lits.begin(), assign_lits.end(),
+                         [this, &s, &assign_lits, &names, k, &phi](LiteralSet lits) {
         assert(!lits.empty());
         Setup ss(&s);
         for (Literal a : lits) {
@@ -273,17 +269,15 @@ class Solver {
           }
         }
         ss.Init();
-        return Assign(ss, assign_terms, names, k-1, phi);
+        return Assign(ss, assign_lits, names, k-1, phi);
       });
     } else {
-      return ReduceComplete(s, names, phi);
+      return !s.Consistent() || ReduceComplete(s, names, phi);
     }
   }
 
   template<typename T>
-  bool ReduceComplete(const Setup& s,
-              const SortedTermSet& names,
-              const Formula::Reader<T>& phi) {
+  bool ReduceComplete(const Setup& s, const SortedTermSet& names, const Formula::Reader<T>& phi) {
     switch (phi.head().type()) {
       case Formula::Element::kClause: {
         const Clause c = phi.head().clause().val;
@@ -296,7 +290,7 @@ class Solver {
         switch (phi.arg().head().type()) {
           case Formula::Element::kClause: {
             const Clause c = ResolveDeterminedTerms(s, phi.arg().head().clause().val);
-            return !s.Subsumes(c);
+            return !(c.valid() || s.Subsumes(c));
           }
           case Formula::Element::kOr: {
             Formula left = Formula::Not(phi.arg().left().Build());
@@ -342,7 +336,7 @@ class Solver {
     do {
       changed = false;
       c = c.Substitute([&s, &changed](const Term t) -> internal::Maybe<Term> {
-        if (!t.primitive()) {
+        if (t.primitive()) {
           for (Setup::Index i : s.clauses()) {
             if (s.clause(i).unit()) {
               Literal a = *s.clause(i).begin();
