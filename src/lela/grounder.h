@@ -38,7 +38,7 @@ namespace lela {
 class Grounder {
  public:
   template<typename T, typename Comparator = typename T::Comparator>
-  class SimpleSet : public std::vector<T> {
+  class SortedVector : public std::vector<T> {
    public:
     typedef std::vector<T> parent;
     using std::vector<T>::vector;
@@ -48,7 +48,7 @@ class Grounder {
       return 1;
     }
 
-    size_t Add(const SimpleSet& add) {
+    size_t Add(const SortedVector& add) {
       parent::insert(parent::end(), add.begin(), add.end());
       return add.size();
     }
@@ -62,8 +62,8 @@ class Grounder {
     }
   };
 
-  typedef SimpleSet<Term> TermSet;
-  typedef SimpleSet<Literal> LiteralSet;
+  typedef SortedVector<Term> TermSet;
+  typedef SortedVector<Literal> LiteralSet;
 
   class SortedTermSet : public internal::IntMap<Symbol::Sort, TermSet> {
    public:
@@ -499,8 +499,8 @@ class Grounder {
   }
 
   template<typename T>
-  SimpleSet<T> Ground(const SimpleSet<T>& ungrounded) const {
-    SimpleSet<T> grounded;
+  SortedVector<T> Ground(const SortedVector<T>& ungrounded) const {
+    SortedVector<T> grounded;
     for (T u : ungrounded) {
       assert(u.quasiprimitive());
       const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, u);
@@ -515,8 +515,8 @@ class Grounder {
   }
 
   template<typename T>
-  SimpleSet<T> PartiallyGround(const SimpleSet<T>& ungrounded) const {
-    SimpleSet<T> grounded;
+  SortedVector<T> PartiallyGround(const SortedVector<T>& ungrounded) const {
+    SortedVector<T> grounded;
     for (T u : ungrounded) {
       assert(u.quasiprimitive());
       const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, u);

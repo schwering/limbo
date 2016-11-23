@@ -22,8 +22,8 @@
 #include <algorithm>
 #include <map>
 #include <set>
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include <lela/internal/compar.h>
 #include <lela/internal/intmap.h>
