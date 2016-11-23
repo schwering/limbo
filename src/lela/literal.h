@@ -49,11 +49,19 @@ class Literal {
   bool operator==(Literal a) const { return eq_ == a.eq_ && lhs_ == a.lhs_ && rhs_ == a.rhs_; }
   bool operator!=(Literal a) const { return !(*this == a); }
 
-  // valid() holds for (t = t) and (n1 != n2).
-  bool valid() const { return (eq_ && lhs_ == rhs_) || (!eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_); }
+  // valid() holds for (t = t) and (n1 != n2) and (t1 != t2) if t1, t2 have different sorts.
+  bool valid() const {
+    return (eq_ && lhs_ == rhs_) ||
+           (!eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_) ||
+           (!eq_ && lhs_.sort() != rhs_.sort());
+  }
 
-  // invalid() holds for (t != t) and (n1 = n2).
-  bool invalid() const { return (!eq_ && lhs_ == rhs_) || (eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_); }
+  // invalid() holds for (t != t) and (n1 = n2) and (t1 = t2) if t1, t2 have different sorts.
+  bool invalid() const {
+    return (!eq_ && lhs_ == rhs_) ||
+           (eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_) ||
+           (eq_ && lhs_.sort() != rhs_.sort());
+  }
 
   // Complementary(a, b) holds when a, b match one of the following:
   // (t1 = t2), (t1 != t2)

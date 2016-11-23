@@ -28,7 +28,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   //const Term x4 = tf.CreateTerm(sf.CreateVariable(s2));     RegisterSymbol(x4, "x4");
   const Symbol a = sf.CreateFunction(s1, 0);                RegisterSymbol(a, "a");
   const Symbol f = sf.CreateFunction(s1, 1);                RegisterSymbol(f, "f");
-  //const Symbol g = sf.CreateFunction(s2, 1);                RegisterSymbol(g, "g");
+  const Symbol g = sf.CreateFunction(s2, 1);                RegisterSymbol(g, "g");
   const Symbol h = sf.CreateFunction(s2, 2);                RegisterSymbol(h, "h");
   //const Symbol i = sf.CreateFunction(s2, 2);
   //const Term c1 = tf.CreateTerm(a, {});
@@ -152,9 +152,9 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 
   {
     Grounder g(&sf, &tf);
-    g.AddClause(Clause({Literal::Eq(tf.CreateTerm(h, {n1,x2}), x1)}));
+    g.AddClause(Clause({Literal::Eq(tf.CreateTerm(h, {n1,x2}), x3)}));
     lela::Setup s = g.Ground();
-    // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=1,2,3. The clauses
+    // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=4,5. The clauses
     // unify and yield [].
     EXPECT_EQ(length(s.clauses()), 1);
     EXPECT_FALSE(s.Consistent());
@@ -162,10 +162,10 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 
   {
     Grounder g(&sf, &tf);
-    g.AddClause(Clause({Literal::Neq(tf.CreateTerm(h, {n1,x2}), x1)}));
+    g.AddClause(Clause({Literal::Neq(tf.CreateTerm(h, {n1,x2}), x3)}));
     lela::Setup s = g.Ground();
-    // Grounding should be [h(n1,nX)=nY] for X=1,2,3,4 and Y=1,2,3,4.
-    EXPECT_EQ(length(s.clauses()), 4*4);
+    // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=4,5.
+    EXPECT_EQ(length(s.clauses()), 3*2);
     EXPECT_TRUE(s.Consistent());
   }
 
@@ -182,26 +182,29 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 
   {
     //Formula phi = Formula::Exists(x3, Formula::Clause({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(a, {}))}));
-    Formula phi = Formula::Exists(x3, Formula::Clause({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(f, {tf.CreateTerm(a, {})}))}));
-    Grounder g(&sf, &tf);
-    g.PrepareForQuery(1, phi.reader());
-    Grounder::TermSet terms = g.SplitTerms();
-    Grounder::SortedTermSet names = g.Names();
+    Formula phi = Formula::Exists(x3, Formula::Clause({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(g, {tf.CreateTerm(a, {})}))}));
+    Grounder gg(&sf, &tf);
+    gg.PrepareForQuery(1, phi.reader());
+    Grounder::TermSet terms = gg.SplitTerms();
+    Grounder::SortedTermSet names = gg.Names();
     //std::cout << phi << std::endl;
     //std::cout << names << std::endl;
     //std::cout << terms << std::endl;
+    EXPECT_NE(x3.sort(), n1.sort());
+    EXPECT_NE(x3.sort(), a.sort());
     EXPECT_EQ(names.size(), 2);
     EXPECT_EQ(names[n1.symbol().sort()].size(), 2);
     EXPECT_EQ(names[x3.symbol().sort()].size(), 1);
     EXPECT_EQ(names[a.sort()].size(), 2);
-    EXPECT_EQ(names[f.sort()].size(), 2);
+    EXPECT_EQ(names[g.sort()].size(), 1);
     EXPECT_EQ(names[h.sort()].size(), 1);
-    Term nx3 = *names[x3.symbol().sort()].begin();
+    Term nx3 = names[x3.sort()][0];
     Term nSplit = names[a.sort()][ names[a.sort()][0] == n1 ? 1 : 0 ];
     EXPECT_NE(nx3, n1);
     EXPECT_NE(nSplit, n1);
+    EXPECT_NE(nSplit, nx3);
     EXPECT_EQ(std::set<Term>(terms.begin(), terms.end()),
-              std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(f, {n1}), tf.CreateTerm(f, {nSplit}), tf.CreateTerm(h, {n1, nx3})}));
+              std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(g, {n1}), tf.CreateTerm(g, {nSplit}), tf.CreateTerm(h, {n1, nx3})}));
   }
 
   {

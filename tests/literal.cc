@@ -72,13 +72,15 @@ TEST(LiteralTest, general) {
   EXPECT_TRUE(Literal::Eq(n1,n1).valid());
   EXPECT_TRUE(!Literal::Neq(n1,n1).valid());
   EXPECT_TRUE(Literal::Eq(f1,f1).valid());
+  EXPECT_TRUE(!Literal::Eq(f1,f2).valid());
   EXPECT_TRUE(!Literal::Neq(f1,f1).valid());
   EXPECT_TRUE(!Literal::Neq(f1,n1).valid());
-  EXPECT_TRUE(!Literal::Neq(f1,f2).valid());
+  EXPECT_TRUE(Literal::Neq(f1,f2).valid());
 
   EXPECT_TRUE(!Literal::Eq(n1,n1).invalid());
   EXPECT_TRUE(Literal::Neq(n1,n1).invalid());
   EXPECT_TRUE(!Literal::Eq(f1,f1).invalid());
+  EXPECT_TRUE(Literal::Eq(f1,f2).invalid());
   EXPECT_TRUE(Literal::Neq(f1,f1).invalid());
   EXPECT_TRUE(!Literal::Neq(f1,n1).invalid());
   EXPECT_TRUE(!Literal::Neq(f1,f2).invalid());

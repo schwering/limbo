@@ -6,6 +6,18 @@
 // with conjunctive meaning (negated disjunction, double negation, negated
 // existential). This is opposed to the original semantics where splitting can
 // be done at any point during the reduction.
+//
+// In the original semantics, when a split sets (t = n), we also substitute n
+// for t in the query to deal with nested terms. But since we often split before
+// reducing quantifiers, t might occur later in the query only after quantifiers
+// are reduced. Substituting n for t at splitting time is hence not sufficient.
+// For that reason, we defer that substitution until the query is reduced to a
+// clause for which subsumption is to be checked. Then we check for any nested
+// term t in that clause whether its denotation is defined by a unit clause
+// (t = n) in the setup, in which case we substitute n for t in the clause.
+// Note that the unit clause does not need to come from a split. Hence we
+// may even save some trivial splits, e.g., from [f(n) = n], [g(n) = n]
+// we infer without split that [f(g(n)) = n].
 
 #ifndef LELA_SOLVER_H_
 #define LELA_SOLVER_H_
@@ -52,7 +64,7 @@ class Solver {
   bool EntailsComplete(int k, const Formula::Reader<T>& phi, bool assume_consistent = true) {
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
-    std::list<TermSet> assign_terms = k == 0 ? std::list<TermSet>() : grounder_.AssignTerms();
+    std::list<LiteralSet> assign_terms = k == 0 ? std::list<LiteralSet>() : grounder_.AssignLiterals();
     SortedTermSet names = grounder_.Names();
     return ReduceDisjunctions(s, assign_terms, names, k, phi);
   }
@@ -63,8 +75,9 @@ class Solver {
   FRIEND_TEST(SolverTest, EntailsComplete);
 #endif
 
-  typedef Grounder::SortedTermSet SortedTermSet;
   typedef Grounder::TermSet TermSet;
+  typedef Grounder::LiteralSet LiteralSet;
+  typedef Grounder::SortedTermSet SortedTermSet;
 
   template<typename T>
   bool ReduceConjunctions(const Setup& s,
@@ -198,7 +211,7 @@ class Solver {
 
   template<typename T>
   bool ReduceDisjunctions(const Setup& s,
-                          const std::list<TermSet>& assign_terms,
+                          const std::list<LiteralSet>& assign_terms,
                           const SortedTermSet& names,
                           int k,
                           const Formula::Reader<T>& phi) {
@@ -240,7 +253,7 @@ class Solver {
 
   template<typename T>
   bool Assign(const Setup& s,
-              const std::list<TermSet>& assign_terms,
+              const std::list<LiteralSet>& assign_terms,
               const SortedTermSet& names,
               int k,
               const Formula::Reader<T>& phi) {
@@ -249,23 +262,18 @@ class Solver {
     }
     if (k > 0) {
       assert(!assign_terms.empty());
-      return std::any_of(assign_terms.begin(), assign_terms.end(),
-                         [this, &s, &assign_terms, &names, k, &phi](TermSet ts) {
-        assert(!ts.empty());
-        assert(std::all_of(ts.begin(), ts.end(), [&ts](Term t) { return t.sort() == ts.front().sort(); }));
-        const TermSet& ns = names[ts.front().sort()];
-        assert(!ns.empty());
-        return std::all_of(ns.begin(), ns.end(), [this, &s, &assign_terms, &names, k, &phi, &ts](Term n) {
-          Setup ss(&s);
-          for (Term t : ts) {
-            Clause c{Literal::Eq(t, n)};
-            if (!ss.Subsumes(c)) {
-              ss.AddClause(c);
-            }
+      return std::all_of(assign_terms.begin(), assign_terms.end(),
+                         [this, &s, &assign_terms, &names, k, &phi](LiteralSet lits) {
+        assert(!lits.empty());
+        Setup ss(&s);
+        for (Literal a : lits) {
+          Clause c{a};
+          if (!ss.Subsumes(c)) {
+            ss.AddClause(c);
           }
-          ss.Init();
-          return Assign(ss, assign_terms, names, k-1, phi);
-        });
+        }
+        ss.Init();
+        return Assign(ss, assign_terms, names, k-1, phi);
       });
     } else {
       return ReduceComplete(s, names, phi);
@@ -329,20 +337,6 @@ class Solver {
   }
 
   Clause ResolveDeterminedTerms(const Setup& s, Clause c) {
-    // In the original semantics [KR 2016], when a split sets (t = n), we also
-    // substitute n for t in the query to deal with nested terms. But the
-    // Solver splits at a deterministic point before reducing the query similar
-    // to [ECAI 2016]. Hence t may occur later in the query after quantifiers
-    // are reduced. Substituting n for t at splitting time is hence not
-    // sufficient.
-    // For that reason, we defer that substitution until the query is reduced
-    // to a clause for which subsumption is to be checked. Then we check for
-    // any nested term t in that clause whether its denotation is defined by
-    // a unit clause (t = n) in the setup, in which case we substitute n for t
-    // in the clause.
-    // Note that the unit clause does not need to come from a split. Hence we
-    // may even save some trivial splits, e.g., from [f(n) = n], [g(n) = n]
-    // we infer without split that [f(g(n)) = n].
     assert(c.ground());
     bool changed;
     do {

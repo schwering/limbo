@@ -42,7 +42,7 @@ TEST(ClauseTest, valid_invalid) {
   EXPECT_TRUE(Clause({Literal::Eq(f1,f1)}).valid());
   EXPECT_TRUE(!Clause({Literal::Neq(f1,f1)}).valid());
   EXPECT_TRUE(!Clause({Literal::Neq(f1,n1)}).valid());
-  EXPECT_TRUE(!Clause({Literal::Neq(f1,f2)}).valid());
+  EXPECT_TRUE(Clause({Literal::Neq(f1,f2)}).valid());
   EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).valid());
   EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).valid());
   EXPECT_TRUE(!Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).valid());
@@ -66,8 +66,10 @@ TEST(ClauseTest, Subsumes) {
   const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));
+  const Term n3 = tf.CreateTerm(sf.CreateName(s2));
   //const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
   const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));
+  //const Term x3 = tf.CreateTerm(sf.CreateVariable(s2));
   const Symbol f = sf.CreateFunction(s1, 1);
   const Symbol g = sf.CreateFunction(s2, 1);
   const Symbol h = sf.CreateFunction(s2, 2);
@@ -148,7 +150,7 @@ TEST(ClauseTest, Subsumes) {
   }
 
   {
-    Clause c1({Literal::Eq(f4,n1), Literal::Eq(f2,n1)});
+    Clause c1({Literal::Eq(f4,n3), Literal::Eq(f2,n3)});
     EXPECT_TRUE(c1.size() == 2);
     c1 = c1.Substitute(EqSubstitute(f1, n2), &tf);
     EXPECT_TRUE(c1.size() == 2);

@@ -37,28 +37,33 @@ namespace lela {
 
 class Grounder {
  public:
-  class TermSet : public std::vector<Term> {
+  template<typename T, typename Comparator = typename T::Comparator>
+  class SimpleSet : public std::vector<T> {
    public:
-    using std::vector<Term>::vector;
+    typedef std::vector<T> parent;
+    using std::vector<T>::vector;
 
-    size_t Add(Term t) {
-      push_back(t);
+    size_t Add(T add) {
+      parent::push_back(add);
       return 1;
     }
 
-    size_t Add(const TermSet& terms) {
-      insert(end(), terms.begin(), terms.end());
-      return terms.size();
+    size_t Add(const SimpleSet& add) {
+      parent::insert(parent::end(), add.begin(), add.end());
+      return add.size();
     }
 
     size_t MakeSet() {
-      std::sort(begin(), end(), Term::Comparator());
-      auto it = std::unique(begin(), end());
-      size_t n = std::distance(it, end());
-      erase(it, end());
+      std::sort(parent::begin(), parent::end(), Comparator());
+      auto it = std::unique(parent::begin(), parent::end());
+      size_t n = std::distance(it, parent::end());
+      parent::erase(it, parent::end());
       return n;
     }
   };
+
+  typedef SimpleSet<Term> TermSet;
+  typedef SimpleSet<Literal> LiteralSet;
 
   class SortedTermSet : public internal::IntMap<Symbol::Sort, TermSet> {
    public:
@@ -112,18 +117,20 @@ class Grounder {
     if (c.valid()) {
       return;
     }
-    names_changed_ |= AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, c));
+    names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, c));
     names_changed_ |= AddPlusNames(PlusNames(c));
-    AddSplitTerms(MentionedTerms<TermSet>([](Term t) { return t.quasiprimitive(); }, c));
+    AddSplitTerms(Mentioned<Term, TermSet>([](Term t) { return t.quasiprimitive(); }, c));
+    AddAssignLiterals(Mentioned<Literal, LiteralSet>([](Literal a) { return a.quasiprimitive(); }, c));
     unprocessed_clauses_.push_front(c);
   }
 
   template<typename T>
   void PrepareForQuery(size_t k, const Formula::Reader<T>& phi) {
-    names_changed_ |= AddMentionedNames(MentionedTerms<SortedTermSet>([](Term t) { return t.name(); }, phi));
+    names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, phi));
     names_changed_ |= AddPlusNames(PlusNames(phi));
     names_changed_ |= AddPlusNames(PlusSplitNames(k, phi));
     AddSplitTerms(SplitTerms(k, phi));
+    AddAssignLiterals(AssignLiterals(k, phi));
   }
 
   const Setup& Ground() const { return const_cast<Grounder*>(this)->Ground(); }
@@ -153,7 +160,7 @@ class Grounder {
             s->AddClause(c);
           }
         } else {
-          const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, c);
+          const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, c);
           for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
             const Clause ci = c.Substitute(mapping, tf_);
             if (!ci.valid()) {
@@ -176,14 +183,14 @@ class Grounder {
   }
 
   TermSet SplitTerms() const {
-    return GroundTerms(splits_);
+    return Ground(splits_);
   }
 
   template<typename T>
   TermSet RelevantSplitTerms(size_t k, const Formula::Reader<T>& phi) {
     PrepareForQuery(k, phi);
     const Setup& s = Ground();
-    TermSet splits = GroundTerms(SplitTerms(k, phi));
+    TermSet splits = Ground(SplitTerms(k, phi));
     TermSet new_splits;
     internal::IntMap<Setup::Index, bool> marked;
     marked.set_null_value(false);
@@ -191,7 +198,7 @@ class Grounder {
       const Term t = splits[i];
       for (Setup::Index i : s.clauses_with(t)) {
         if (!marked[i]) {
-          splits.Add(MentionedTerms<TermSet>([](Term t) { return t.function(); }, s.clause(i)));
+          splits.Add(Mentioned<Term, TermSet>([](Term t) { return t.function(); }, s.clause(i)));
           marked[i] = true;
         }
       }
@@ -200,13 +207,13 @@ class Grounder {
     return splits;
   }
 
-  std::list<TermSet> AssignTerms() const {
-    TermSet ts = PartiallyGroundTerms(splits_);
-    auto r = internal::transform_range(ts.begin(), ts.end(), [this](Term t) {
-      const TermSet singleton{t};
-      return t.ground() ? singleton : GroundTerms(singleton);
+  std::list<LiteralSet> AssignLiterals() const {
+    LiteralSet lits = PartiallyGround(assigns_);
+    auto r = internal::transform_range(lits.begin(), lits.end(), [this](Literal a) {
+      const LiteralSet singleton{a};
+      return a.ground() ? singleton : Ground(singleton);
     });
-    return std::list<TermSet>(r.begin(), r.end());
+    return std::list<LiteralSet>(r.begin(), r.end());
   }
 
  private:
@@ -331,17 +338,17 @@ class Grounder {
 
   typedef internal::IntMap<Symbol::Sort, size_t> PlusMap;
 
-  template<typename R, typename T, typename UnaryPredicate>
-  static R MentionedTerms(const UnaryPredicate p, const T& obj) {
-    R terms;
-    obj.Traverse([p, &terms](Term t) {
+  template<typename Needle, typename Collection, typename Haystack, typename UnaryPredicate>
+  static Collection Mentioned(const UnaryPredicate p, const Haystack& obj) {
+    Collection needles;
+    obj.Traverse([p, &needles](const Needle& t) {
       if (p(t)) {
-        terms.Add(t);
+        needles.Add(t);
       }
       return true;
     });
-    terms.MakeSet();
-    return terms;
+    needles.MakeSet();
+    return needles;
   }
 
   static PlusMap PlusNames(const TermSet& vars) {
@@ -355,7 +362,7 @@ class Grounder {
   static PlusMap PlusNames(const Clause& c) {
     assert(std::all_of(c.begin(), c.end(),
                        [](Literal a) { return a.quasiprimitive() || !(a.lhs().function() && a.rhs().function()); }));
-    PlusMap plus = PlusNames(MentionedTerms<TermSet>([](Term t) { return t.variable(); }, c));
+    PlusMap plus = PlusNames(Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, c));
     // The following fixes Lemma 8 in the LBF paper. The problem is that
     // for KB = {[c = x]}, unit propagation should yield the empty clause;
     // but this requires that x is grounded by more than one name. It suffices
@@ -389,7 +396,7 @@ class Grounder {
   static void PlusNames(const Formula::Reader<T>& phi, PlusMap* cur, PlusMap* max) {
     switch (phi.head().type()) {
       case Formula::Element::kClause:
-        *cur = PlusNames(MentionedTerms<TermSet>([](Term t) { return t.variable(); }, phi.head().clause().val));
+        *cur = PlusNames(Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, phi.head().clause().val));
         *max = *cur;
         break;
       case Formula::Element::kNot:
@@ -418,28 +425,50 @@ class Grounder {
   template<typename T>
   TermSet SplitTerms(size_t k, const Formula::Reader<T>& phi) {
     if (k == 0) {
-      // Grounding the split terms could fail in case k == 0 because there
-      // might be no split names.
       return TermSet();
     }
-    TermSet terms = MentionedTerms<TermSet>([](Term t) { return t.function(); }, phi);
+    TermSet terms = Mentioned<Term, TermSet>([](Term t) { return t.function(); }, phi);
     Flatten(&terms);
     return terms;
   }
 
+  template<typename T>
+  LiteralSet AssignLiterals(size_t k, const Formula::Reader<T>& phi) {
+    if (k == 0) {
+      return LiteralSet();
+    }
+    LiteralSet lits = Mentioned<Literal, LiteralSet>([](Literal a) {
+      return a.lhs().function() || a.rhs().function();
+    }, phi);
+    Flatten(&lits);
+    return lits;
+  }
+
+  template<typename UnaryPredicate, typename BinaryPredicate>
+  void Flatten(Term t, UnaryPredicate outer_p, BinaryPredicate inner_p) {
+    if (!t.quasiprimitive()) {
+      Term::Vector args = t.args();
+      for (size_t i = 0; i < args.size(); ++i) {
+        if (args[i].function()) {
+          Term x = tf_->CreateTerm(sf_->CreateVariable(args[i].sort()));
+          inner_p(args[i], x);
+          for (size_t j = i; j < args.size(); ++j) {
+            if (args[j] == args[i]) {
+              args[j] = x;
+            }
+          }
+        }
+      }
+      outer_p(tf_->CreateTerm(t.symbol(), args));
+    }
+  }
+
   void Flatten(TermSet* terms) {
     for (size_t i = 0; i < terms->size(); ++i) {
-      Term old = (*terms)[i];
-      if (!old.quasiprimitive()) {
-        // We could save some instantiations here by substituting the same
-        // variables for the identical terms that occur more than once.
-        Term sub = old.Substitute([this, terms, old](Term t) {
-          return (t != old && t.function())
-              ? internal::Just(tf_->CreateTerm(sf_->CreateVariable(t.sort())))
-              : internal::Nothing;
-        }, tf_);
-        assert(sub.quasiprimitive());
-        terms->Add(sub);
+      Term t = (*terms)[i];
+      if (!t.quasiprimitive()) {
+        auto p = [terms](Term tt, Term = Term()) { terms->Add(tt); };
+        Flatten(t, p, p);
       }
     }
     auto it = std::remove_if(terms->begin(), terms->end(), [](Term t) { return !t.quasiprimitive(); });
@@ -447,36 +476,60 @@ class Grounder {
     terms->MakeSet();
   }
 
-  TermSet GroundTerms(const TermSet& terms) const {
-    TermSet grounded_terms;
-    for (Term t : terms) {
-      assert(t.quasiprimitive());
-      const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, t);
-      for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
-        Term tt = t.Substitute(mapping, tf_);
-        assert(tt.primitive());
-        grounded_terms.Add(tt);
+  void Flatten(LiteralSet* lits) {
+    for (size_t i = 0; i < lits->size(); ++i) {
+      Literal a = (*lits)[i];
+      if (a.rhs().function()) {
+        Term x = tf_->CreateTerm(sf_->CreateVariable(a.rhs().sort()));
+        lits->Add(Literal::Eq(a.rhs(), x));
+        lits->Add(Literal::Eq(a.lhs(), x));
+      } else if (!a.lhs().quasiprimitive()) {
+        auto outer_p = [lits, a](Term new_lhs) {
+          lits->Add(a.pos() ? Literal::Eq(new_lhs, a.rhs()) : Literal::Neq(new_lhs, a.rhs()));
+        };
+        auto inner_p = [lits](Term arg, Term x) {
+          lits->Add(Literal::Eq(arg, x));
+        };
+        Flatten(a.lhs(), outer_p, inner_p);
       }
-      grounded_terms.MakeSet();
     }
-    return grounded_terms;
+    auto it = std::remove_if(lits->begin(), lits->end(), [](Literal a) { return !a.quasiprimitive(); });
+    lits->erase(it, lits->end());
+    lits->MakeSet();
   }
 
-  TermSet PartiallyGroundTerms(const TermSet& terms) const {
-    TermSet grounded_terms;
-    for (Term t : terms) {
-      assert(t.quasiprimitive());
-      const TermSet vars = MentionedTerms<TermSet>([](Term t) { return t.variable(); }, t);
+  template<typename T>
+  SimpleSet<T> Ground(const SimpleSet<T>& ungrounded) const {
+    SimpleSet<T> grounded;
+    for (T u : ungrounded) {
+      assert(u.quasiprimitive());
+      const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, u);
+      for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
+        T g = u.Substitute(mapping, tf_);
+        assert(g.primitive());
+        grounded.Add(g);
+      }
+      grounded.MakeSet();
+    }
+    return grounded;
+  }
+
+  template<typename T>
+  SimpleSet<T> PartiallyGround(const SimpleSet<T>& ungrounded) const {
+    SimpleSet<T> grounded;
+    for (T u : ungrounded) {
+      assert(u.quasiprimitive());
+      const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, u);
       SortedTermSet terms = names_;
       terms.Add(vars);
-      for (const Assignments::Assignment& mapping : Assignments(vars, &terms)) {
-        Term tt = t.Substitute(mapping, tf_);
-        assert(tt.quasiprimitive());
-        grounded_terms.Add(tt);
+      for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
+        T g = u.Substitute(mapping, tf_);
+        assert(g.primitive());
+        grounded.Add(g);
       }
-      grounded_terms.MakeSet();
+      grounded.MakeSet();
     }
-    return grounded_terms;
+    return grounded;
   }
 
   template<typename T>
@@ -544,10 +597,21 @@ class Grounder {
     return added > remed;
   }
 
+  bool AddAssignLiterals(const LiteralSet& lits) {
+    size_t added = 0;
+    for (Literal a : lits) {
+      added += assigns_.Add(a.pos() ? a : a.flip());
+    }
+    size_t remed = assigns_.MakeSet();
+    assert(added >= remed);
+    return added > remed;
+  }
+
   Symbol::Factory* const sf_;
   Term::Factory* const tf_;
   PlusMap plus_;
   TermSet splits_;
+  LiteralSet assigns_;
   SortedTermSet names_;
   bool names_changed_ = false;
   std::list<Clause> processed_clauses_;
