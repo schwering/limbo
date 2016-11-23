@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 schwering@kbsg.rwth-aachen.de
+// Copyright 2014--2016 Christoph Schwering
 
 #include <cassert>
 #include <ctime>
