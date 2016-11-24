@@ -34,14 +34,14 @@ class BloomFilter {
     mask_ = 0;
   }
 
-  void Add(uint64_t x) {
+  void Add(std::uint64_t x) {
     mask_ |= (ONE << (hash<0>(x) % BITS))
           |  (ONE << (hash<1>(x) % BITS))
           |  (ONE << (hash<2>(x) % BITS))
           |  (ONE << (hash<3>(x) % BITS));
   }
 
-  bool Contains(uint64_t x) const {
+  bool Contains(std::uint64_t x) const {
     return ( ((mask_ >> (hash<0>(x) % BITS)) & ONE)
            & ((mask_ >> (hash<1>(x) % BITS)) & ONE)
            & ((mask_ >> (hash<2>(x) % BITS)) & ONE)
@@ -69,13 +69,13 @@ class BloomFilter {
   FRIEND_TEST(BloomFilterTest, hash);
 #endif
 
-  static constexpr uint64_t ONE = 1;  // use this constant because 1 is signed
-  static constexpr uint64_t BITS = 64;
+  static constexpr std::uint64_t ONE = 1;  // use this constant because 1 is signed
+  static constexpr std::uint64_t BITS = 64;
 
-  template<uint64_t I>
-  static uint64_t hash(uint64_t x) { return (x >> (I*16)) & 0xFFFF; }
+  template<std::uint64_t I>
+  static std::uint64_t hash(std::uint64_t x) { return (x >> (I*16)) & 0xFFFF; }
 
-  uint64_t mask_ = 0;
+  std::uint64_t mask_ = 0;
 };
 
 }  // namespace internal

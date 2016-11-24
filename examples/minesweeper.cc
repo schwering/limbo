@@ -794,7 +794,6 @@ int main(int argc, char *argv[]) {
     printer->Print(std::cout, g);
     std::cout << std::endl;
     std::cout << "Last move took " << std::fixed << t.duration() << ", queries took " << std::fixed << kb.timer().duration() << " / " << std::setw(4) << kb.timer().rounds() << " = " << std::fixed << kb.timer().avg_duration() << std::endl;
-    //std::cout << std::endl;
     kb.ResetTimer();
   } while (!g.hit_mine() && !g.all_explored());
   t.stop();

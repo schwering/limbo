@@ -34,8 +34,8 @@ namespace lela {
 class Symbol {
  public:
   typedef int Id;
-  typedef int8_t Sort;
-  typedef int8_t Arity;
+  typedef std::int8_t Sort;
+  typedef std::int8_t Arity;
   struct Comparator;
 
   class Factory {
@@ -151,17 +151,14 @@ class Term {
   bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
   bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
 
-  template<typename UnaryFunction>
-  void Traverse(UnaryFunction f) const;
-
-  uint64_t hash() const {
+  std::uint64_t hash() const {
     // 64bit FNV-1a hash
-    const uint64_t magic_prime = 0x00000100000001b3;
-    const uint64_t b = reinterpret_cast<const uint64_t>(data_);
-    assert(sizeof(data_) == sizeof(b));
+    constexpr std::uint64_t offset_basis = 0xcbf29ce484222325;
+    constexpr std::uint64_t magic_prime = 0x00000100000001b3;
+    const std::uint64_t b = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(data_));
     return
         ((((((((((((((((
-          0xcbf29ce484222325
+          offset_basis
           ^ ((b >>  0) & 0xFF)) * magic_prime)
           ^ ((b >>  8) & 0xFF)) * magic_prime)
           ^ ((b >> 16) & 0xFF)) * magic_prime)
@@ -171,6 +168,9 @@ class Term {
           ^ ((b >> 48) & 0xFF)) * magic_prime)
           ^ ((b >> 56) & 0xFF)) * magic_prime);
   }
+
+  template<typename UnaryFunction>
+  void Traverse(UnaryFunction f) const;
 
  private:
 #ifdef FRIEND_TEST
