@@ -20,7 +20,7 @@ inline void RegisterSymbol(Term t, const std::string& n) {
 template<typename T>
 size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
-TEST(SolverTest, EntailsSound) {
+TEST(SolverTest, Entails) {
   {
     Solver solver;
     Context ctx(solver.sf(), solver.tf());
@@ -39,10 +39,10 @@ TEST(SolverTest, EntailsSound) {
       solver.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Mother(Jesus) == Mary });
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      EXPECT_TRUE(solver.EntailsSound(0, phi.reader()));
-      EXPECT_TRUE(solver.EntailsSound(1, phi.reader()));
-      EXPECT_TRUE(solver.EntailsSound(0, phi.reader()));
-      EXPECT_TRUE(solver.EntailsSound(1, phi.reader()));
+      EXPECT_TRUE(solver.Entails(0, phi.reader()));
+      EXPECT_TRUE(solver.Entails(1, phi.reader()));
+      EXPECT_TRUE(solver.Entails(0, phi.reader()));
+      EXPECT_TRUE(solver.Entails(1, phi.reader()));
     }
   }
 
@@ -65,10 +65,10 @@ TEST(SolverTest, EntailsSound) {
       solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God });
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      EXPECT_FALSE(solver.EntailsSound(0, phi.reader()));
-      EXPECT_TRUE(solver.EntailsSound(1, phi.reader()));
-      EXPECT_FALSE(solver.EntailsSound(0, phi.reader()));
-      EXPECT_TRUE(solver.EntailsSound(1, phi.reader()));
+      EXPECT_FALSE(solver.Entails(0, phi.reader()));
+      EXPECT_TRUE(solver.Entails(1, phi.reader()));
+      EXPECT_FALSE(solver.Entails(0, phi.reader()));
+      EXPECT_TRUE(solver.Entails(1, phi.reader()));
     }
   }
 
@@ -92,13 +92,13 @@ TEST(SolverTest, EntailsSound) {
       solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God, Father(Jesus) == HolyGhost });
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      EXPECT_FALSE(solver.EntailsSound(0, phi.reader()));
-      EXPECT_TRUE(solver.EntailsSound(1, phi.reader()));
+      EXPECT_FALSE(solver.Entails(0, phi.reader()));
+      EXPECT_TRUE(solver.Entails(1, phi.reader()));
     }
   }
 }
 
-TEST(SolverTest, EntailsComplete) {
+TEST(SolverTest, Consistent) {
   {
     Solver solver;
     Context ctx(solver.sf(), solver.tf());
@@ -138,8 +138,8 @@ TEST(SolverTest, KR2016) {
   solver.AddClause({ bestFriend(mary) == sue, bestFriend(mary) == jane });
   solver.AddClause({ father(sue) == george });
   solver.AddClause({ father(jane) == george });
-  EXPECT_FALSE(solver.EntailsSound(0, Formula::Clause(Clause{father(bestFriend(mary)) == george}).reader()));
-  EXPECT_TRUE(solver.EntailsSound(1, Formula::Clause(Clause{father(bestFriend(mary)) == george}).reader()));
+  EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{father(bestFriend(mary)) == george}).reader()));
+  EXPECT_TRUE(solver.Entails(1, Formula::Clause(Clause{father(bestFriend(mary)) == george}).reader()));
 }
 
 TEST(SolverTest, ECAI2016Sound) {
@@ -162,8 +162,8 @@ TEST(SolverTest, ECAI2016Sound) {
   solver.AddClause({ Aussie == T, Italian == T });
   solver.AddClause({ Aussie == F, Eats(roo) == T });
   solver.AddClause({ Italian == T, Veggie == T });
-  EXPECT_FALSE(solver.EntailsSound(0, Formula::Clause(Clause{Aussie == F}).reader()));
-  EXPECT_TRUE(solver.EntailsSound(1, Formula::Clause(Clause{Aussie == F}).reader()));
+  EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{Aussie == F}).reader()));
+  EXPECT_TRUE(solver.Entails(1, Formula::Clause(Clause{Aussie == F}).reader()));
 }
 
 TEST(SolverTest, ECAI2016Complete) {
@@ -188,6 +188,8 @@ TEST(SolverTest, ECAI2016Complete) {
   solver.AddClause({ Italian == T, Veggie == T });
   EXPECT_TRUE(solver.EntailsComplete(0, Formula::Clause(Clause{Italian == F}).reader()));
   EXPECT_FALSE(solver.EntailsComplete(1, Formula::Clause(Clause{Italian == F}).reader()));
+  EXPECT_FALSE(solver.Consistent(0, Formula::Clause(Clause{Italian == T}).reader()));
+  EXPECT_TRUE(solver.Consistent(1, Formula::Clause(Clause{Italian == T}).reader()));
 }
 
 }  // namespace lela

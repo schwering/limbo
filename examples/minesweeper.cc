@@ -403,10 +403,10 @@ class KnowledgeBase {
     lela::internal::Maybe<bool> r = lela::internal::Nothing;
     Formula yes_mine = Formula::Clause(Clause{MineLit(true, p)});
     Formula no_mine = Formula::Clause(Clause{MineLit(false, p)});
-    if (solver_.EntailsSound(k, yes_mine.reader())) {
+    if (solver_.Entails(k, yes_mine.reader())) {
       assert(g_->mine(p));
       r = lela::internal::Just(true);
-    } else if (solver_.EntailsSound(k, no_mine.reader())) {
+    } else if (solver_.Entails(k, no_mine.reader())) {
       assert(!g_->mine(p));
       r = lela::internal::Just(false);
     }

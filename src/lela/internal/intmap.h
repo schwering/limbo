@@ -38,8 +38,7 @@ class IntMap : public std::vector<T> {
   }
 
   typename parent::const_reference operator[](Key pos) const {
-    typename parent::size_type pos_int = static_cast<typename parent::size_type>(pos);
-    return pos_int < parent::size() ? parent::operator[](pos_int) : null_;
+    return const_cast<IntMap*>(this)->operator[](pos);
   }
 
   struct Keys {
