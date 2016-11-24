@@ -31,7 +31,7 @@ For the theoretical background, see the papers linked below, especially [1,2].
 
 For examples of usage, check the [solver unit test](tests/solver.cc), which
 includes examples from [1,2], or the [minesweeper
-agent](examples/minesweeper.cc).
+agent](examples/minesweeper/mw.cc).
 
 ## Status
 

@@ -31,7 +31,7 @@ tests/setup
 tests/solver
 tests/syntax
 tests/term
-examples/minesweeper
+examples/minesweeper/mw
 
 callgrind.*
 

@@ -36,7 +36,7 @@ endif ()
 
 # Release configuration
 if (CMAKE_BUILD_TYPE MATCHES Release)
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif ()
 
 add_subdirectory (src)

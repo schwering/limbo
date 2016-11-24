@@ -4,13 +4,14 @@ find_package (Threads)
 find_package (GTest REQUIRED)
 include_directories (${GTEST_INCLUDE_DIRS})
 
-enable_testing ()
-
-foreach (test iter intmap term bloom literal clause setup formula syntax grounder solver)
-	add_executable (${test} ${test}.cc)
-	target_link_libraries (${test} LINK_PUBLIC lela ${GTEST_BOTH_LIBRARIES} pthread)
-	add_test (NAME ${test} COMMAND ${test})
-endforeach ()
+if (GTest_FOUND)
+    enable_testing ()
+    foreach (test iter intmap term bloom literal clause setup formula syntax grounder solver)
+            add_executable (${test} ${test}.cc)
+            target_link_libraries (${test} LINK_PUBLIC lela ${GTEST_BOTH_LIBRARIES} pthread)
+            add_test (NAME ${test} COMMAND ${test})
+    endforeach ()
+endif ()
 
 #target_link_libraries (setup_test LINK_PUBLIC BATS)
 
