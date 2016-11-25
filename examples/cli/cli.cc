@@ -1,5 +1,7 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
+//
+// Implements a simple language to specify entailment problems.
 
 #include <cassert>
 
@@ -14,6 +16,11 @@
 #include <lela/solver.h>
 #include <lela/format/output.h>
 #include <lela/format/syntax.h>
+
+#define S(x)          #x
+#define S_(x)         S(x)
+#define S__LINE__     S_(__LINE__)
+#define MSG(msg)      (std::string(__FUNCTION__) +":"+ S__LINE__ +": " + msg)
 
 using namespace lela;
 using namespace lela::format;
@@ -179,8 +186,11 @@ class Lexer {
     proxy operator->() const { return proxy(operator*()); }
     proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
 
+    Iter char_iter() const { return it_; }
+
    private:
     std::pair<Iter, Iter> NextWord() const {
+      // max-munch lexer
       assert(it_ != end_);
       Iter it;
       for (it = it_; it != end_ && IsWhitespace(*it); ++it) {
@@ -306,23 +316,21 @@ class Parser {
     Result() = default;
     explicit Result(const T& val) : ok(true), val(val) {}
     explicit Result(T&& val) : ok(true), val(std::forward<T>(val)) {}  // NOLINT
-    Result(const std::string& msg, iterator begin, iterator end) : ok(false), msg(msg), begin_(begin), end_(end) {}
+    Result(const std::string& msg, Iter begin, Iter end) : ok(false), msg(msg), begin_(begin), end_(end) {}
+    Result(const Result&) = default;
+    Result& operator=(const Result&) = default;
 
     explicit operator bool() const { return ok; }
 
-    iterator begin() const { return begin_; }
-    iterator end()   const { return end_; }
+    Iter begin() const { return begin_; }
+    Iter end()   const { return end_; }
 
-    std::string str() {
+    std::string str() const {
       std::stringstream ss;
       if (ok) {
         ss << "Success(" << val << ")";
       } else {
-        ss << "Failure(" << msg << ",";
-        for (const Token& token : *this) {
-          ss << ' ' << token;
-        }
-        ss << ')';
+        ss << "Failure(" << msg << ", \"" << std::string(begin(), end()) << "\")";
       }
       return ss.str();
     }
@@ -330,10 +338,20 @@ class Parser {
     bool ok;
     T val;
     std::string msg;
-    iterator begin_;
-    iterator end_;
+
+   private:
+    template<typename U>
+    friend std::ostream& operator<<(std::ostream& os, const Result<U>& r);
+
+    Iter begin_;
+    Iter end_;
   };
 
+  Parser(Iter begin, Iter end) : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()) {}
+
+  Result<bool> Parse() { return start(); }
+
+ private:
   template<typename T>
   Result<T> Success(const T& result) {
     return Result<T>(result);
@@ -341,31 +359,25 @@ class Parser {
 
   template<typename T>
   Result<T> Failure(const std::string& msg) const {
-    return Result<T>(msg, begin_, end_);
+    return Result<T>(msg, begin_.char_iter(), end_.char_iter());
   }
 
   template<typename T, typename U>
   static Result<T> Failure(const std::string& msg, const Result<U>& r) {
-    std::string msg2 = msg + "\n" + r.msg;
-    return Result<T>(msg2, r.begin_, r.end_);
+    return Result<T>(msg + " [because] " + r.msg, r.begin(), r.end());
   }
 
-  Parser(Iter begin, Iter end) : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()) {}
-
-  bool Parse() { return start(); }
-
- private:
   // declaration --> sort <sort-id> ;
   //              |  var <id> => <sort-id> ;
   //              |  name <id> => <sort-id> ;
   //              |  fun <id> / <arity> => <sort-id> ;
-  bool declaration() {
+  Result<bool> declaration() {
     if (Is(Symbol(0), Lex::kSort) &&
         Is(Symbol(1), Lex::kIdentifier, [this](const std::string& s) { return !e_.IsRegistered(s); }) &&
         Is(Symbol(2), Lex::kEOL)) {
       e_.RegisterSort(Symbol(1).val.str());
       Advance(2);
-      return true;
+      return Success<bool>(true);
     }
     if (Is(Symbol(0), Lex::kVar) &&
         Is(Symbol(1), Lex::kIdentifier, [this](const std::string& s) { return !e_.IsRegistered(s); }) &&
@@ -374,7 +386,7 @@ class Parser {
         Is(Symbol(4), Lex::kEOL)) {
       e_.RegisterVar(Symbol(1).val.str(), Symbol(3).val.str());
       Advance(4);
-      return true;
+      return Success<bool>(true);
     }
     if (Is(Symbol(0), Lex::kName) &&
         Is(Symbol(1), Lex::kIdentifier, [this](const std::string& s) { return !e_.IsRegistered(s); }) &&
@@ -383,7 +395,7 @@ class Parser {
         Is(Symbol(4), Lex::kEOL)) {
       e_.RegisterName(Symbol(1).val.str(), Symbol(3).val.str());
       Advance(4);
-      return true;
+      return Success<bool>(true);
     }
     if (Is(Symbol(0), Lex::kFun) &&
         Is(Symbol(1), Lex::kIdentifier, [this](const std::string& s) { return !e_.IsRegistered(s); }) &&
@@ -394,16 +406,16 @@ class Parser {
         Is(Symbol(6), Lex::kEOL)) {
       e_.RegisterFun(Symbol(1).val.str(), std::stoi(Symbol(3).val.str()), Symbol(5).val.str());
       Advance(6);
-      return true;
+      return Success<bool>(true);
     }
-    return false;
+    return Failure<bool>(MSG("No declaration found"));
   }
 
   // declarations --> declarations*
-  bool declarations() {
+  Result<bool> declarations() {
     while (declaration()) {
     }
-    return true;
+    return Success<bool>(true);
   }
 
   // term --> x
@@ -427,37 +439,37 @@ class Parser {
       Term::Vector args;
       if (s.arity() > 0 || Is(Symbol(0), Lex::kLeftParen)) {
         if (!Is(Symbol(0), Lex::kLeftParen)) {
-          return Failure<Term>("Expected left parenthesis");
+          return Failure<Term>(MSG("Expected left parenthesis"));
         }
         Advance(0);
         for (Symbol::Arity i = 0; i < s.arity(); ++i) {
           if (i > 0) {
             if (!Is(Symbol(0), Lex::kComma)) {
-              return Failure<Term>("Expected comma");
+              return Failure<Term>(MSG("Expected comma"));
             }
             Advance(0);
           }
           Result<Term> t = term();
           if (!t) {
-            return Failure<Term>("Expected argument term", t);
+            return Failure<Term>(MSG("Expected argument term"), t);
           }
           args.push_back(t.val);
         }
         if (!Is(Symbol(0), Lex::kRightParen)) {
-          return Failure<Term>("Expected right parenthesis");
+          return Failure<Term>(MSG("Expected right parenthesis"));
         }
         Advance(0);
       }
       return Success(e_.solver().tf()->CreateTerm(s, args));
     }
-    return Failure<Term>("Expected a term");
+    return Failure<Term>(MSG("Expected a term"));
   }
 
   // literal --> term [ '==' | '!=' ] term
   Result<Clause> literal() {
     Result<Term> lhs = term();
     if (!lhs) {
-      return Failure<Clause>("Expected a lhs term", lhs);
+      return Failure<Clause>(MSG("Expected a lhs term"), lhs);
     }
     bool pos;
     if (Is(Symbol(0), Lex::kEqual) ||
@@ -465,11 +477,11 @@ class Parser {
       pos = Is(Symbol(0), Lex::kEqual);
       Advance(0);
     } else {
-      return Failure<Clause>("Expected equality or inequality");
+      return Failure<Clause>(MSG("Expected equality or inequality"));
     }
     Result<Term> rhs = term();
     if (!rhs) {
-      return Failure<Clause>("Expected rhs term", rhs);
+      return Failure<Clause>(MSG("Expected rhs term"), rhs);
     }
     Literal a = pos ? Literal::Eq(lhs.val, rhs.val) : Literal::Neq(lhs.val, rhs.val);
     return Success<Clause>(Clause{a});
@@ -504,14 +516,14 @@ class Parser {
   }
 
   // start --> declarations
-  bool start() {
-    bool b;
-    b = declarations();
-    if (!b) {
-      return false;
+  Result<bool> start() {
+    Result<bool> r;
+    r = declarations();
+    if (!r) {
+      return Failure<bool>(MSG("Declarations failed"), r);
     }
     std::cout << literal().str() << std::endl;
-    return true;
+    return r;
   }
 
   bool Is(const internal::Maybe<Token>& symbol, TokenId id) const {
@@ -545,6 +557,11 @@ class Parser {
   Entailment e_;
 };
 
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const Parser<std::string::const_iterator>::Result<T>& r) {
+  return os << r.str();
+}
+
 int main() {
   std::string s = "sort BOOL;"\
                   "var x -> BOOL;"\
@@ -555,7 +572,7 @@ int main() {
                   "function dummy / 0 -> HUMAN;"\
                   "function fatherOf / 3 -> HUMAN;"\
                   "function fatherOf2/3 -> HUMAN;"\
-                  "y == fatherOf(dummy(), dummy,x)";
+                  "y == fatherOf(dummy(), dummy,x,z)";
   typedef Lexer<std::string::const_iterator> StrLexer;
   typedef Parser<std::string::const_iterator> StrParser;
   StrLexer lexer(s.begin(), s.end());
@@ -569,7 +586,7 @@ int main() {
   std::cout << std::endl;
 
   StrParser parser(s.begin(), s.end());
-  parser.Parse();
+  std::cout << parser.Parse() << std::endl;
   std::cout << std::endl;
   return 0;
 }
