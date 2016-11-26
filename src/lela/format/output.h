@@ -62,10 +62,7 @@ inline internal::Maybe<std::string> LookupSymbol(Symbol s) {
 }
 
 template<typename T1, typename T2>
-std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p) {
-  os << "(" << p.first << ", " << p.second << ")";
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p);
 
 template<typename Iter>
 std::ostream& print_sequence(std::ostream& os,
@@ -79,57 +76,28 @@ template<typename Range>
 std::ostream& print_range(std::ostream& os, const Range& r,
                           const char* pre = "[",
                           const char* post = "]",
-                          const char* sep = ", ") {
-  return print_sequence(os, r.begin(), r.end(), pre, post, sep);
-}
+                          const char* sep = ", ");
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
-  print_sequence(os, vec.begin(), vec.end(), "[", "]", ", ");
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec);
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::list<T>& list) {
-  os << '[';
-  print_sequence(os, list.begin(), list.end(), "[", "]", ", ");
-  os << '[';
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const std::list<T>& list);
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::set<T>& set) {
-  print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const std::set<T>& set);
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set) {
-  print_sequence(os, set.begin(), set.end(), "m{", "}m", ", ");
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set);
 
 template<typename K, typename T>
-std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map) {
-  print_sequence(os, map.begin(), map.end(), "{", "}", ", ");
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map);
 
 template<typename K, typename T>
-std::ostream& operator<<(std::ostream& os, const std::multimap<K, T>& map) {
-  print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const std::multimap<K, T>& map);
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
-  if (m) {
-    os << "Just(" << m.val << ")";
-  } else {
-    os << "Nothing";
-  }
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m);
 
 std::ostream& operator<<(std::ostream& os, const Symbol s) {
   internal::Maybe<std::string> sort_name = LookupSort(s.sort());
@@ -329,6 +297,68 @@ std::ostream& print_sequence(std::ostream& os,
     first = false;
   }
   os << post;
+  return os;
+}
+
+template<typename T1, typename T2>
+std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p) {
+  os << "(" << p.first << ", " << p.second << ")";
+  return os;
+}
+
+template<typename Range>
+std::ostream& print_range(std::ostream& os, const Range& r,
+                          const char* pre,
+                          const char* post,
+                          const char* sep) {
+  return print_sequence(os, r.begin(), r.end(), pre, post, sep);
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
+  print_sequence(os, vec.begin(), vec.end(), "[", "]", ", ");
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::list<T>& list) {
+  os << '[';
+  print_sequence(os, list.begin(), list.end(), "[", "]", ", ");
+  os << '[';
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::set<T>& set) {
+  print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set) {
+  print_sequence(os, set.begin(), set.end(), "m{", "}m", ", ");
+  return os;
+}
+
+template<typename K, typename T>
+std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map) {
+  print_sequence(os, map.begin(), map.end(), "{", "}", ", ");
+  return os;
+}
+
+template<typename K, typename T>
+std::ostream& operator<<(std::ostream& os, const std::multimap<K, T>& map) {
+  print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
+  if (m) {
+    os << "Just(" << m.val << ")";
+  } else {
+    os << "Nothing";
+  }
   return os;
 }
 

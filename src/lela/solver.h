@@ -266,10 +266,10 @@ class Solver {
         }
       }
       case Formula::Element::kOr: {
-        Formula left = Formula::Not(phi.left().Build());
-        Formula right = Formula::Not(phi.right().Build());
-        return Reduce(s, names, left.reader()) ||
-               Reduce(s, names, right.reader());
+        Formula::Reader<T> left = phi.left();
+        Formula::Reader<T> right = phi.right();
+        return Reduce(s, names, left) ||
+               Reduce(s, names, right);
       }
       case Formula::Element::kExists: {
         const Term x = phi.head().var().val;

@@ -38,6 +38,14 @@ class Formula {
    public:
     enum Type { kClause, kNot, kOr, kExists };
 
+    // XXX The implicit operator= sometimes (in cli) takes a non-const reference. Why?!
+    Element& operator=(const Element& e) {
+      type_ = e.type_;
+      clause_ = e.clause_;
+      var_ = e.var_;
+      return *this;
+    }
+
     static Element Clause(const lela::Clause& c) { return Element(kClause, c); }
     static Element Not() { return Element(kNot); }
     static Element Or() { return Element(kOr); }
@@ -230,6 +238,10 @@ class Formula {
     Iter begin_;
     Iter end_;
   };
+
+  Formula(Formula&&) = default;
+  Formula(const Formula&) = default;
+  Formula& operator=(const Formula&) = default;
 
   static Formula Clause(const lela::Clause& c) { return Atomic(Element::Clause(c)); }
   static Formula Not(const Formula& phi) { return Unary(Element::Not(), phi); }
