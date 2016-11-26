@@ -1,3 +1,3 @@
-add_subdirectory (cli)
+add_subdirectory (textinterface)
 add_subdirectory (minesweeper)
 

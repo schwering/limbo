@@ -1,0 +1,60 @@
+<html>
+    <head>
+        <style type="text/css">
+        body { font-family: serif; font-size: 140%; }
+        textarea { font-size: 140%; }
+        </style>
+        <script src="cli.js"></script>
+    </head>
+    <body>
+        <form>
+        <textarea id="text" cols="80" rows="15">
+Sort BOOL;
+Sort HUMAN;
+Var x -> HUMAN;
+Variable y -> HUMAN;
+Name F -> BOOL;
+Name T -> BOOL;
+Name Jesus -> HUMAN;
+Name Mary -> HUMAN;
+Name Joe -> HUMAN;
+Name HolyGhost -> HUMAN;
+Name God -> HUMAN;
+Function dummy / 0 -> HUMAN;
+Function fatherOf / 1 -> HUMAN;
+Function motherOf/1 -> HUMAN;
+KB (Mary == motherOf(Jesus));
+KB (x != Mary || x == motherOf(Jesus));
+KB (HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
+Let phi := HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
+Let psi := HolyGhost == fatherOf(Jesus) && God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
+Let xi := Ex x (x == fatherOf(Jesus));
+Entails (0, phi);
+Entails (0, psi);
+Entails (0, xi);
+Entails (1, xi);
+        </textarea>
+        <br />
+        <input value="Run" type="button" id="parse_button" onclick="parse()" />
+        </form>
+        <script>
+        function parse() {
+            var text = document.getElementById('text').value;
+            Module.ccall('lela_parse', 'void', ['string'], [text]);
+        }
+
+        function announceEntailment(k, phi, yes) {
+            alert("Entails("+ k +", "+ phi +") = "+ yes);
+        }
+
+        function announceConsistency(k, phi, yes) {
+            alert("Consistent("+ k +", "+ phi +") = "+ yes);
+        }
+
+        function announceResult(success, msg) {
+            alert("Success = "+ success +", msg = "+ msg);
+        }
+        </script>
+    </body>
+</html>
+
