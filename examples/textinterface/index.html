@@ -1,18 +1,78 @@
-<html>
-    <head>
-        <style type="text/css">
-        body { font-family: serif; font-size: 140%; }
-        textarea { font-size: 140%; }
-        </style>
-        <script src="cli.js"></script>
-    </head>
-    <body>
-        <form>
-        <textarea id="text" cols="80" rows="15">
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"> 
+    <title>Limited reasoner demo</title>
+
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <style type="text/css">
+        body { font-family: 'Open Sans', sans-serif; font-size: 140%; }
+
+        h1       { font-size: 220%; }
+        h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
+
+        #parse-text { background-color: #eeeeee; font-size: 140%; border: 2px solid black; width: 90%; height: 70%; }
+        #parse-button { background-color: black; color: #eee; font-family: inherit; font-weight: bold; font-size: 100%; margin-top: 2ex; margin-left: 25%; min-width: 25%; padding-top: 3ex; padding-bottom: 3ex; }
+        #parse-button {
+            background:
+                linear-gradient(27deg, #151515 5px, transparent 5px) 0 5px,
+                linear-gradient(207deg, #151515 5px, transparent 5px) 10px 0px,
+                linear-gradient(27deg, #222 5px, transparent 5px) 0px 10px,
+                linear-gradient(207deg, #222 5px, transparent 5px) 10px 5px,
+                linear-gradient(90deg, #1b1b1b 10px, transparent 10px),
+                linear-gradient(#1d1d1d 25%, #1a1a1a 25%, #1a1a1a 50%, transparent 50%, transparent 75%, #242424 75%, #242424);
+            background-color: #131313;
+            background-size: 20px 20px;
+        }
+
+        .consistency-result { font-family: monospace; font-weight: bold; }
+        .entailment-result { font-family: monospace; font-weight: bold; }
+        .overall-result { font-family: monospace; font-weight: bold; }
+
+        .success { color: green; }
+        .failure { color: red; }
+
+        #output, #debug-output { width: 90%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; }
+        #output, #debug-output { background: repeating-linear-gradient( 45deg, #e0e0e0, #e0e0e0 10px, #eeeeee 10px, #eeeeee 20px); }
+
+        #output { font-family: monospace; font-size: 140%; }
+        #debug-output { font-family: monospace; font-size: 110%; }
+
+        .code { font-family: monospace; font-weight: bold; }
+        .metavariable { font-family: monospace; font-weight: bold; color: green; }
+    </style>
+
+    <script src="lela.js"></script>
+</head>
+
+<body onload="initPage()">
+
+<h1>Limited Reasoner Demo</h1>
+
+<p>
+This is demo of a limited reasoner for <b>decidable reasoning in first-order knowledge bases</b>.
+</p>
+
+<p>
+<b>Quick start:</b> have a look at the "Problem Description", hit the "Click Me!" button, and check the output under "Reasoning Results".
+</p>
+
+<h2>Problem Description</h2>
+
+<p>
+An example problem description is preset.
+If you like, change it; for help on the syntax, see <a href="#syntax">below</a>.
+When you're done, click the button to run the reasoner.
+</p>
+
+<form>
+<textarea id="parse-text" cols="80" rows="20">
 Sort BOOL;
 Sort HUMAN;
+
 Var x -> HUMAN;
 Variable y -> HUMAN;
+
 Name F -> BOOL;
 Name T -> BOOL;
 Name Jesus -> HUMAN;
@@ -20,41 +80,269 @@ Name Mary -> HUMAN;
 Name Joe -> HUMAN;
 Name HolyGhost -> HUMAN;
 Name God -> HUMAN;
-Function dummy / 0 -> HUMAN;
-Function fatherOf / 1 -> HUMAN;
+
+Function fatherOf/1 -> HUMAN;
 Function motherOf/1 -> HUMAN;
+
 KB (Mary == motherOf(Jesus));
 KB (x != Mary || x == motherOf(Jesus));
 KB (HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
-Let phi := HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
-Let psi := HolyGhost == fatherOf(Jesus) && God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
-Let xi := Ex x (x == fatherOf(Jesus));
-Entails (0, phi);
-Entails (0, psi);
-Entails (0, xi);
-Entails (1, xi);
-        </textarea>
-        <br />
-        <input value="Run" type="button" id="parse_button" onclick="parse()" />
-        </form>
-        <script>
-        function parse() {
-            var text = document.getElementById('text').value;
-            Module.ccall('lela_parse', 'void', ['string'], [text]);
-        }
 
-        function announceEntailment(k, phi, yes) {
-            alert("Entails("+ k +", "+ phi +") = "+ yes);
-        }
+Let alpha := HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
+Let beta := Ex x (x == fatherOf(Jesus));
+Let gamma := HolyGhost == fatherOf(Jesus);
+Let delta := HolyGhost == fatherOf(Jesus) && God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
+Let epsilon := motherOf(Jesus) == fatherOf(Jesus);
 
-        function announceConsistency(k, phi, yes) {
-            alert("Consistent("+ k +", "+ phi +") = "+ yes);
-        }
+Entails (0, alpha);
 
-        function announceResult(success, msg) {
-            alert("Success = "+ success +", msg = "+ msg);
+Entails (0, beta);
+Entails (1, beta);
+
+Consistent (0, gamma);
+Consistent (1, gamma);
+
+Entails (0, delta);
+
+Entails    (0, epsilon);
+Consistent (0, epsilon);
+Entails    (1, epsilon);
+Consistent (1, epsilon);
+
+Entails    (0, !epsilon);
+Consistent (0, !epsilon);
+Entails    (0, !epsilon);
+Consistent (1, !epsilon);</textarea>
+
+<br />
+
+<input value="Click me!" type="button" id="parse-button" onclick="parse()" />
+</form>
+
+<script>
+function clearDiv(id) {
+    var output = document.getElementById(id);
+    while (output.firstChild) {
+        output.removeChild(output.firstChild);
+    }
+}
+
+function parse() {
+    clearDiv('output');
+    clearDiv('debug-output');
+    var text = document.getElementById('parse-text').value;
+    var t0 = performance.now();
+    Module.ccall('lela_parse', 'void', ['string'], [text]);
+    var t1 = performance.now();
+    console.log("Parsing and reasoning took "+ Math.round(t1 - t0) +" milliseconds");
+    document.getElementById('output').scrollIntoView(false);
+}
+
+function resultClass(r) {
+    return r ? 'success' : 'failure';
+}
+
+function resultLabel(r) {
+    return r ? 'Success' : 'Failure';
+}
+
+function announceEntailment(k, phi, success) {
+    //alert("Entails ("+ k +", "+ phi +") = "+ success);
+    var li = document.createElement('li');
+    li.innerHTML = 'Entails &nbsp; &nbsp;('+ k +', '+ phi +') &nbsp;&rarr;&nbsp; '+ resultLabel(success);
+    li.className = 'entailment-result '+ resultClass(success);
+    document.getElementById('output').appendChild(li);
+}
+
+function announceConsistency(k, phi, success) {
+    //alert("Consistent ("+ k +", "+ phi +") = "+ success);
+    var li = document.createElement('li');
+    li.innerHTML = 'Consistent ('+ k +', '+ phi +') &nbsp;&rarr;&nbsp; '+ resultLabel(success);
+    li.className = 'consistency-result '+ resultClass(success);
+    document.getElementById('output').appendChild(li);
+}
+
+function announceResult(success, msg) {
+    //alert("Success = "+ success +", msg = "+ msg);
+    var li = document.createElement('li');
+    li.innerHTML = 'Parser end result: '+ resultLabel(success) +' ('+ msg +')';
+    li.className = 'overall-result '+ resultClass(success);
+    document.getElementById('output').appendChild(li);
+}
+
+function redirectConsole() {
+    if (typeof console  != "undefined") {
+        if (typeof console.log != 'undefined') {
+            console.olog = console.log;
+        } else {
+            console.olog = function() {};
         }
-        </script>
-    </body>
+    }
+    console.log = function(message) {
+        console.olog(message);
+        var debug_output = document.getElementById('debug-output');
+        var li = document.createElement('li');
+        li.innerHTML = message;
+        debug_output.appendChild(li);
+    };
+    console.error = console.debug = console.info = console.log;
+}
+
+function initPage() {
+    redirectConsole();
+    var text = document.getElementById('parse-text');
+    text.focus();
+    //text.setSelectionRange(0, text.value.length);
+}
+
+function toggleDisplay(id) {
+    var e = document.getElementById(id);
+    if (e != null) {
+        if (e.style.display != "none") {
+            e.style.display = "none";
+        } else {
+            e.style.display = "block";
+        }
+    }
+}
+</script>
+
+
+
+<h2>Reasoning Results</h2>
+
+<p>
+Click the button above to let the reasoner do its work. It should report the results of the queries below.
+Note that the reasoner brings the query formulas into a normal form (similar to negation normal form), so the printed formulas below may differ syntactically from your queries.
+</p>
+
+<ul id="output">
+</ul>
+
+<p><a href="javascript:toggleDisplay('debug-div');">Click here</a> to display/hide debug output.</p>
+
+
+<div id="debug-div" style="display: none;">
+<h3>Debug Output</h3>
+
+<p>The Javascript console output is displayed below.</p>
+
+<ul id="debug-output">
+</ul>
+</div>
+
+
+
+<h2>About the Reasoner</h2>
+
+<p>
+The logical language features functions and equality, first-order quantification, standard names, and sorts.
+(Predicates are not built-in but can be simulated with no overhead using boolean functions.)
+Knowledge bases are restricted to be in clausal form with only universally quantified variables &ndash; these KBs are called proper<sup>+</sup>.
+(Existentially quantified variables in the knowledge base can be simulated with functions.)
+Queries are not subject to any syntactic restriction.
+</p>
+
+<p>
+Decision procedures for sound entailment [KR-2016] and sound consistency [ECAI-2016] are implemented.
+Future work are the conditional beliefs [ECAI-2016] (should be easy), actions [KR-2014] [ (as a preprocessing step), and introspection [IJCAI-2013].
+</p>
+
+<p>
+The reasoner is written in C++.
+The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
+This demo is compiled by <a href="http://emscripten.org">emscripten</a>, which compiles C++ to Javascript.
+The performance of the Javascript is about 10&times; slower than the native performance (on my computer, anyway).
+(Which is funny, it should be only about 2&times; slower according to the times reported at the emscripten website.)
+</p>
+
+<p>
+Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.edu.au</a>.
+</p>
+
+
+
+<h2 id="syntax">Problem Specification Language</h2>
+
+<p>A problem description consists of four segments:</p>
+<ol>
+    <li> declarations of sorts, variables, (standard) names, and functions; </li>
+    <li> the knowledge definition; </li>
+    <li> optional abbreviations for formulas; </li>
+    <li> entailment and/or consistency queries. </li>
+</ol>
+<p>
+The syntax of these segments is as follows, where <span class="code">this font</span> is a word the problem description language, and <span class="metavariable">this font</span> represents a meta-variable in such a word.
+</p>
+
+<p>
+All sorts, variables, names, and function symbols must be declared before they are used.
+A declaration of a sort is of the form <span class="code">Sort <span class="metavariable">id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the sort.
+A declaration of a variable is of the form <span class="code">Var <span class="metavariable">id</span> -&gt; <span class="metavariable">sort-id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the variable and <span class="metavariable">sort-id</span> is the identifier of a previously declared sort.
+A declaration of a (standard) name is of the form <span class="code">Name <span class="metavariable">id</span> -&gt; <span class="metavariable">sort-id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the name and <span class="metavariable">sort-id</span> is the identifier of a previously declared sort.
+A declaration of a function symbol is of the form <span class="code">Fun <span class="metavariable">id</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort-id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the function symbol, <span class="metavariable">arity</span> &ge; 0 is its arity, and <span class="metavariable">sort-id</span> is the identifier of a previously declared sort.
+An identifier must start with a lower- or upper-case letter and may be followed by further letters, digits, or underscore symbols.
+Identifiers must all be distinct; for example, an identifier used for a sort cannot be used for a function symbol.
+</p>
+
+<p>
+The knowledge base consists of a sequence of clauses, each of which is written as <span class="code">KB (<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>);</span>, where <span class="metavariable">literal<sub>i</sub></span> denotes a literal.
+The sequence of literals may also be empty, that is, <span class="code">KB ();</span> or there may be just one literal, that is, <span class="code">KB (<span class="metavariable">literal<sub>1</sub></span>);</span>.
+Every <span class="metavariable">literal<sub>i</sub></span> is of the form <span class="metavariable"><span class="metavariable">t<sub>1</sub></span> == <span class="metavariable">t<sub>2</sub></span></span> or <span class="metavariable"><span class="metavariable">t<sub>1</sub></span> != <span class="metavariable">t<sub>2</sub></span></span>, where <span class="metavariable">t<sub>i</sub></span> is a term.
+A term is either the identifier of a previously declared variable, a (standard) name, or a function symbol <span class="metavariable">f</span> applied to other terms <span class="metavariable">t'<sub>i</sub></span>, written <span class="code"><span class="metavariable">f</span>(<span class="metavariable">t'<sub>k</sub></span>, <span class="metavariable">...</span>, <span class="metavariable">t'<sub>k</sub></span>)</span>.
+When <span class="metavariable">f</span> is a constant symbol (that is, has arity 0), the brackets may be omitted.
+Variables in the KB are implicitly universally quantified.
+</p>
+
+<p>
+For convenience, abbreviations for formulas can be defined.
+The syntax for that is <span class="code">Let <span class="metavariable">id</span> := <span class="metavariable">formula</span>;</span>, where <span class="metavariable">id</span> is the identifier by which the formula can later be referred.
+The set of formulas includes all literals as defined above,
+negation <span class="code">! <span class="metavariable">formula</span></span>, 
+conjunction <span class="code"><span class="metavariable">formula<sub>1</sub></span> &amp;&amp; <span class="metavariable">formula<sub>2</sub></span></span>,
+disjunction <span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span>,
+universal <span class="code">Fa <span class="metavariable">x</span> <span class="metavariable">formula</span></span>,
+existential <span class="code">Ex <span class="metavariable">x</span> <span class="metavariable">formula</span></span>,
+where <span class="metavariable">x</span> is the identifier of some previously declared variable.
+Expressions can be put in brackets, <span class="code">(<span class="metavariable">formula</span>)</span>.
+Conjunction binds stronger than disjunctions.
+The scope of unary operators, that is, negation and quantifiers, is minimal; use brackets to increase the scope.
+Finally, <span class="metavariable">formula</span> may also be a previously defined identifier of a formula abbreviation.
+</p>
+
+<p>
+Finally, queries are of the form 
+<span class="code">Entails (<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span> or
+<span class="code">Consistent (<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span>, where <span class="metavariable">k</span> &ge; 0 is a natural number that denotes the reasoning effort and <span class="metavariable">formula</span> is a formula as defined above.
+Both entailment and consistency queries are sound but incomplete with respect to classical logic.
+The reasoning effort is measured in case splits (a split means to select a term <span class="code">f(n<sub>1</sub>,...,n<sub>l</sub>)</span> and consider all possible denotations of that term) in entailment queries, and as term assignments (an assignment means to select a term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix their denotation) in consistency queries.
+</p>
+
+<p>
+The lexer and parser are hand-written (recursive descent) just for this demo and hardly tested.
+So they're probably not very fast, and, more importantly, very buggy.
+So let's just hope it works &#9786;.
+</p>
+
+<h2>References</h2>
+<ul>
+    <li>
+        Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief with Function Symbols. KR 2016.
+        <a href="https://kbsg.rwth-aachen.de/sites/kbsg/files/LakemeyerLevesque2016.pdf">PDF</a></li>
+    <li>
+        Schwering and Lakemeyer. Decidable Reasoning in a First-Order Logic of Limited Conditional Belief. ECAI 2016.
+        <a href="https://kbsg.rwth-aachen.de/sites/kbsg/files/SchweringLakemeyer2016.pdf">PDF</a>
+    </li>
+    <li>
+        Lakemeyer and Levesque. Decidable Reasoning in a Fragment of the Epistemic Situation Calculus. KR 2014.
+        <a href="https://pdfs.semanticscholar.org/8ac9/a2955895cd391ec2b62d8210ee8206979f4a.pdf">PDF</a>
+    </li>
+    <li>
+        Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals. IJCAI 2013.
+        <a href="https://pdfs.semanticscholar.org/387c/951016c68aaf8ce36bb87e5ea4d1ef42405d.pdf">PDF</a>
+    </li>
+</ul>
+
+</body>
 </html>
 

@@ -479,7 +479,9 @@ class Parser {
     if (!r) {
       return Failure<bool>(MSG("Error in queries"), r);
     }
-    return !Symbol(0) ? Success<bool>(true) : Failure<bool>(MSG("Unparsed input"));
+    std::stringstream ss;
+    ss << Symbol(0) << " " << Symbol(1) << " " << Symbol(2);
+    return !Symbol(0) ? Success<bool>(true) : Failure<bool>(MSG("Unparsed input "+ ss.str()));
   }
 
   bool Is(const lela::internal::Maybe<Token>& symbol, Token::Id id) const {
@@ -491,17 +493,17 @@ class Parser {
     return symbol && symbol.val.id() == id && p(symbol.val.str());
   }
 
-  lela::internal::Maybe<Token> Symbol(int N = 0) const {
+  lela::internal::Maybe<Token> Symbol(int n = 0) const {
     auto it = begin_;
-    for (int i = 0; i < N && it != end_; ++i) {
+    for (int i = 0; i < n && it != end_; ++i) {
       assert(begin_ != end_);
       ++it;
     }
     return it != end_ ? lela::internal::Just(*it) : lela::internal::Nothing;
   }
 
-  void Advance(int N = 0) {
-    for (int i = 0; i <= N; ++i) {
+  void Advance(int n = 0) {
+    for (int i = 0; i <= n; ++i) {
       assert(begin_ != end_);
       ++begin_;
     }

@@ -18,8 +18,8 @@
 
 class Token {
  public:
-  enum Id { kSort, kVar, kName, kFun, kKB, kLet, kEntails, kConsistent, kColon, kComma, kSemicolon, kEqual, kInequal,
-    kNot, kOr, kAnd, kForall, kExists, kAssign, kArrow, kSlash, kLeftParen, kRightParen, kUint, kIdentifier, kError };
+  enum Id { kError, kSort, kVar, kName, kFun, kKB, kLet, kEntails, kConsistent, kColon, kComma, kSemicolon, kEqual, kInequal,
+    kNot, kOr, kAnd, kForall, kExists, kAssign, kArrow, kSlash, kLeftParen, kRightParen, kUint, kIdentifier };
 
   Token() : id_(kError) {}
   explicit Token(Id id) : id_(id) {}
@@ -50,7 +50,9 @@ class Lexer {
     typedef lela::internal::iterator_proxy<iterator> proxy;
 
     iterator() = default;
-    iterator(const LexemeVector* lexemes, Iter it, Iter end) : lexemes_(lexemes), it_(it), end_(end) {}
+    iterator(const LexemeVector* lexemes, Iter it, Iter end) : lexemes_(lexemes), it_(it), end_(end) {
+      SkipWhitespace();
+    }
     iterator(const iterator&) = default;
     iterator& operator=(const iterator&) = default;
 
@@ -65,6 +67,7 @@ class Lexer {
 
     iterator& operator++() {
       it_ = NextWord().second;
+      SkipWhitespace();
       return *this;
     }
 
@@ -74,16 +77,20 @@ class Lexer {
     Iter char_iter() const { return it_; }
 
    private:
+    void SkipWhitespace() {
+      for (; it_ != end_ && IsWhitespace(*it_); ++it_) {
+      }
+    }
+
     std::pair<Iter, Iter> NextWord() const {
       // max-munch lexer
       assert(it_ != end_);
-      Iter it;
-      for (it = it_; it != end_ && IsWhitespace(*it); ++it) {
-      }
+      Iter it = it_;
       Iter jt;
       for (jt = it; jt != end_; ++jt) {
-        if (LexemeMatch(it, std::next(jt)).first == kMismatch)
+        if (LexemeMatch(it, std::next(jt)).first == kMismatch) {
           break;
+        }
       }
       assert(it != jt);
       return std::make_pair(it, jt);
