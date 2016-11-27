@@ -7,11 +7,13 @@
     <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
     <style type="text/css">
         body { font-family: 'Open Sans', sans-serif; font-size: 140%; }
+        p { text-align: justify; }
 
         h1       { font-size: 220%; }
         h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
 
-        #parse-text { background-color: #eeeeee; font-size: 140%; border: 2px solid black; width: 90%; height: 70%; }
+        #parse-text { background-color: #eeeeee; font-family: monospace; font-size: 140%; border: 2px solid black; width: 95%; height: 70%; }
+        #parse-text { background: repeating-linear-gradient( -45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
         #parse-button { background-color: black; color: #eee; font-family: inherit; font-weight: bold; font-size: 100%; margin-top: 2ex; margin-left: 25%; min-width: 25%; padding-top: 3ex; padding-bottom: 3ex; }
         #parse-button {
             background:
@@ -25,18 +27,34 @@
             background-size: 20px 20px;
         }
 
-        .consistency-result { font-family: monospace; font-weight: bold; }
-        .entailment-result { font-family: monospace; font-weight: bold; }
-        .overall-result { font-family: monospace; font-weight: bold; }
-
-        .success { color: green; }
-        .failure { color: red; }
-
-        #output, #debug-output { width: 90%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; }
-        #output, #debug-output { background: repeating-linear-gradient( 45deg, #e0e0e0, #e0e0e0 10px, #eeeeee 10px, #eeeeee 20px); }
+        #output, #debug-output { width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; }
+        #output, #debug-output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
 
         #output { font-family: monospace; font-size: 140%; }
         #debug-output { font-family: monospace; font-size: 110%; }
+
+        .announcement { font-family: font-family: monospace; font-weight: bold; white-space: pre-wrap; }
+        .announcement div { display: inline-block; }
+
+        .announcement .split-level,
+        .announcement .formula { color: black; font-weight: normal; }
+
+        .announcement .split-level::after,
+        .announcement .split-level::before,
+        .announcement .formula::after,
+        .announcement .formula::before { font-weight: bold; }
+
+        .announcement.success *::after, .announcement.success *::before, .announcement.success.overall * { color: green; }
+        .announcement.failure *::after, .announcement.failure *::before, .announcement.failure.overall * { color: red; }
+
+        .announcement.entailment  .split-level::before { content: "Entails    (" }
+        .announcement.consistency .split-level::before { content: "Consistent (" }
+
+        .announcement .split-level::after { content: ", " }
+        .announcement .result::before { content: ")  \2192  " }
+
+        .announcement.success .result::after { content: "success" }
+        .announcement.failure .result::after { content: "failure" }
 
         .code { font-family: monospace; font-weight: bold; }
         .metavariable { font-family: monospace; font-weight: bold; color: green; }
@@ -67,52 +85,54 @@ When you're done, click the button to run the reasoner.
 
 <form>
 <textarea id="parse-text" cols="80" rows="20">
+Sort ENTITY;
 Sort BOOL;
-Sort HUMAN;
 
-Var x -> HUMAN;
-Variable y -> HUMAN;
+Variable x -> ENTITY;
+Variable y -> ENTITY;
 
-Name F -> BOOL;
-Name T -> BOOL;
-Name Jesus -> HUMAN;
-Name Mary -> HUMAN;
-Name Joe -> HUMAN;
-Name HolyGhost -> HUMAN;
-Name God -> HUMAN;
+Name Jesus -> ENTITY;
+Name Mary -> ENTITY;
+Name Joe -> ENTITY;
+Name HolyGhost -> ENTITY;
+Name God -> ENTITY;
+Name True -> BOOL;
 
-Function fatherOf/1 -> HUMAN;
-Function motherOf/1 -> HUMAN;
+Function fatherOf/1 -> ENTITY;
+Function motherOf/1 -> ENTITY;
+Function is_mortal/1 -> BOOL;
 
 KB (Mary == motherOf(Jesus));
-KB (x != Mary || x == motherOf(Jesus));
 KB (HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
+KB (is_mortal(Mary) == True);
+KB (is_mortal(Joe) == True);
+KB (fatherOf(Jesus) != x || x == Joe || is_mortal(x) != True);
 
-Let alpha := HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
-Let beta := Ex x (x == fatherOf(Jesus));
-Let gamma := HolyGhost == fatherOf(Jesus);
-Let delta := HolyGhost == fatherOf(Jesus) && God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
-Let epsilon := motherOf(Jesus) == fatherOf(Jesus);
+Entails (0, HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
 
-Entails (0, alpha);
+Let phi := Ex x (x == fatherOf(Jesus));
+Entails (0, phi);
+Entails (1, phi);
 
-Entails (0, beta);
-Entails (1, beta);
+Let phi := HolyGhost == fatherOf(Jesus);
+Consistent (0, phi);
+Consistent (1, phi);
 
-Consistent (0, gamma);
-Consistent (1, gamma);
+Entails (0, HolyGhost == fatherOf(Jesus) &amp;&amp; God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
 
-Entails (0, delta);
+Let phi := motherOf(Jesus) == fatherOf(Jesus);
+Entails    (0, phi);
+Consistent (0, phi);
+Entails    (0, !phi);
+Consistent (0, !phi);
+Consistent (1, !phi);
 
-Entails    (0, epsilon);
-Consistent (0, epsilon);
-Entails    (1, epsilon);
-Consistent (1, epsilon);
+Entails (0, is_mortal(motherOf(Jesus)) == True);
 
-Entails    (0, !epsilon);
-Consistent (0, !epsilon);
-Entails    (0, !epsilon);
-Consistent (1, !epsilon);</textarea>
+Let phi := is_mortal(fatherOf(Jesus)) == True;
+Consistent (1, phi);
+Consistent (1, !phi);
+</textarea>
 
 <br />
 
@@ -135,7 +155,12 @@ function parse() {
     Module.ccall('lela_parse', 'void', ['string'], [text]);
     var t1 = performance.now();
     console.log("Parsing and reasoning took "+ Math.round(t1 - t0) +" milliseconds");
-    document.getElementById('output').scrollIntoView(false);
+    var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+    if (isFirefox) {
+        document.getElementById('output').scrollIntoView({block: "end", behavior: "smooth"});
+    } else {
+        document.getElementById('output').scrollIntoView(false);
+    }
 }
 
 function resultClass(r) {
@@ -149,24 +174,24 @@ function resultLabel(r) {
 function announceEntailment(k, phi, success) {
     //alert("Entails ("+ k +", "+ phi +") = "+ success);
     var li = document.createElement('li');
-    li.innerHTML = 'Entails &nbsp; &nbsp;('+ k +', '+ phi +') &nbsp;&rarr;&nbsp; '+ resultLabel(success);
-    li.className = 'entailment-result '+ resultClass(success);
+    li.className = 'announcement entailment '+ resultClass(success);
+    li.innerHTML = '<div class="split-level">'+ k +'</div><div class="formula">'+ phi +'</div><div class="result"></div>';
     document.getElementById('output').appendChild(li);
 }
 
 function announceConsistency(k, phi, success) {
     //alert("Consistent ("+ k +", "+ phi +") = "+ success);
     var li = document.createElement('li');
-    li.innerHTML = 'Consistent ('+ k +', '+ phi +') &nbsp;&rarr;&nbsp; '+ resultLabel(success);
-    li.className = 'consistency-result '+ resultClass(success);
+    li.className = 'announcement consistency '+ resultClass(success);
+    li.innerHTML = '<div class="split-level">'+ k +'</div><div class="formula">'+ phi +'</div><div class="result"></div>';
     document.getElementById('output').appendChild(li);
 }
 
 function announceResult(success, msg) {
     //alert("Success = "+ success +", msg = "+ msg);
     var li = document.createElement('li');
-    li.innerHTML = 'Parser end result: '+ resultLabel(success) +' ('+ msg +')';
-    li.className = 'overall-result '+ resultClass(success);
+    li.className = 'announcement overall '+ resultClass(success);
+    li.innerHTML = '<div class="parser-result">Parser end result: '+ resultLabel(success) +' ('+ msg +')</div>';
     document.getElementById('output').appendChild(li);
 }
 
@@ -181,9 +206,18 @@ function redirectConsole() {
     console.log = function(message) {
         console.olog(message);
         var debug_output = document.getElementById('debug-output');
-        var li = document.createElement('li');
-        li.innerHTML = message;
-        debug_output.appendChild(li);
+        if (message.length == 0) {
+            return;
+        }
+        var c = message.charCodeAt(0);
+        if ((65 <= c && c <= 90) || (97 <= c && c <= 122) || debug_output.lastChild == null) {
+            var li = document.createElement('li');
+            li.innerHTML = message;
+            debug_output.appendChild(li);
+        } else {
+            var li = debug_output.lastChild;
+            li.innerHTML += '<br />' + message;
+        }
     };
     console.error = console.debug = console.info = console.log;
 }
@@ -262,9 +296,9 @@ Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.
 
 
 
-<h2 id="syntax">Problem Specification Language</h2>
+<h2 id="syntax">Problem Description Language</h2>
 
-<p>A problem description consists of four segments:</p>
+<p>A problem description consists of four parts:</p>
 <ol>
     <li> declarations of sorts, variables, (standard) names, and functions; </li>
     <li> the knowledge definition; </li>
@@ -272,24 +306,24 @@ Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.
     <li> entailment and/or consistency queries. </li>
 </ol>
 <p>
-The syntax of these segments is as follows, where <span class="code">this font</span> is a word the problem description language, and <span class="metavariable">this font</span> represents a meta-variable in such a word.
+The syntax of these segments is as follows, where <span class="code">this font</span> is a word the problem description language, and <span class="metavariable">this font</span> represents a meta-variable.
 </p>
 
 <p>
 All sorts, variables, names, and function symbols must be declared before they are used.
 A declaration of a sort is of the form <span class="code">Sort <span class="metavariable">id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the sort.
-A declaration of a variable is of the form <span class="code">Var <span class="metavariable">id</span> -&gt; <span class="metavariable">sort-id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the variable and <span class="metavariable">sort-id</span> is the identifier of a previously declared sort.
+A declaration of a variable is of the form <span class="code">Variable <span class="metavariable">id</span> -&gt; <span class="metavariable">sort-id</span>;</span> or <span class="code">Var <span class="metavariable">id</span> -&gt; <span class="metavariable">sort-id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the variable and <span class="metavariable">sort-id</span> is the identifier of a previously declared sort.
 A declaration of a (standard) name is of the form <span class="code">Name <span class="metavariable">id</span> -&gt; <span class="metavariable">sort-id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the name and <span class="metavariable">sort-id</span> is the identifier of a previously declared sort.
-A declaration of a function symbol is of the form <span class="code">Fun <span class="metavariable">id</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort-id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the function symbol, <span class="metavariable">arity</span> &ge; 0 is its arity, and <span class="metavariable">sort-id</span> is the identifier of a previously declared sort.
+A declaration of a function symbol is of the form <span class="code">Function <span class="metavariable">id</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort-id</span>;</span> or <span class="code">Fun <span class="metavariable">id</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort-id</span>;</span>, where <span class="metavariable">id</span> is the identifier of the function symbol, <span class="metavariable">arity</span> &ge; 0 is its arity, and <span class="metavariable">sort-id</span> is the identifier of a previously declared sort.
 An identifier must start with a lower- or upper-case letter and may be followed by further letters, digits, or underscore symbols.
-Identifiers must all be distinct; for example, an identifier used for a sort cannot be used for a function symbol.
+No identifier may be used twice to denote a variable, name, or function.
 </p>
 
 <p>
-The knowledge base consists of a sequence of clauses, each of which is written as <span class="code">KB (<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>);</span>, where <span class="metavariable">literal<sub>i</sub></span> denotes a literal.
-The sequence of literals may also be empty, that is, <span class="code">KB ();</span> or there may be just one literal, that is, <span class="code">KB (<span class="metavariable">literal<sub>1</sub></span>);</span>.
+The knowledge base consists of a sequence of clauses, each of which is written as <span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>);</span>, where <span class="metavariable">literal<sub>i</sub></span> denotes a literal.
+The sequence of literals may also be empty, that is, <span class="code">KB&nbsp;();</span> or there may be just one literal, that is, <span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span>);</span>.
 Every <span class="metavariable">literal<sub>i</sub></span> is of the form <span class="metavariable"><span class="metavariable">t<sub>1</sub></span> == <span class="metavariable">t<sub>2</sub></span></span> or <span class="metavariable"><span class="metavariable">t<sub>1</sub></span> != <span class="metavariable">t<sub>2</sub></span></span>, where <span class="metavariable">t<sub>i</sub></span> is a term.
-A term is either the identifier of a previously declared variable, a (standard) name, or a function symbol <span class="metavariable">f</span> applied to other terms <span class="metavariable">t'<sub>i</sub></span>, written <span class="code"><span class="metavariable">f</span>(<span class="metavariable">t'<sub>k</sub></span>, <span class="metavariable">...</span>, <span class="metavariable">t'<sub>k</sub></span>)</span>.
+A term is either the identifier of a previously declared variable, a (standard) name, or a function symbol <span class="metavariable">f</span> applied to other terms <span class="metavariable">t'<sub>i</sub></span>, written <span class="code"><span class="metavariable">f</span>(<span class="metavariable">t'<sub>1</sub></span>, <span class="metavariable">...</span>, <span class="metavariable">t'<sub>k</sub></span>)</span>.
 When <span class="metavariable">f</span> is a constant symbol (that is, has arity 0), the brackets may be omitted.
 Variables in the KB are implicitly universally quantified.
 </p>
@@ -297,31 +331,30 @@ Variables in the KB are implicitly universally quantified.
 <p>
 For convenience, abbreviations for formulas can be defined.
 The syntax for that is <span class="code">Let <span class="metavariable">id</span> := <span class="metavariable">formula</span>;</span>, where <span class="metavariable">id</span> is the identifier by which the formula can later be referred.
-The set of formulas includes all literals as defined above,
-negation <span class="code">! <span class="metavariable">formula</span></span>, 
-conjunction <span class="code"><span class="metavariable">formula<sub>1</sub></span> &amp;&amp; <span class="metavariable">formula<sub>2</sub></span></span>,
-disjunction <span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span>,
-universal <span class="code">Fa <span class="metavariable">x</span> <span class="metavariable">formula</span></span>,
-existential <span class="code">Ex <span class="metavariable">x</span> <span class="metavariable">formula</span></span>,
+The set of formulas includes
+literals as defined above,
+negations <span class="code">!<span class="metavariable">formula</span></span>, 
+conjunctions <span class="code"><span class="metavariable">formula<sub>1</sub></span> &amp;&amp; <span class="metavariable">formula<sub>2</sub></span></span>,
+disjunctions <span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span>,
+universal quantifiers <span class="code">Fa <span class="metavariable">x</span> <span class="metavariable">formula</span></span>, and
+existential quantifiers <span class="code">Ex <span class="metavariable">x</span> <span class="metavariable">formula</span></span>,
 where <span class="metavariable">x</span> is the identifier of some previously declared variable.
-Expressions can be put in brackets, <span class="code">(<span class="metavariable">formula</span>)</span>.
-Conjunction binds stronger than disjunctions.
-The scope of unary operators, that is, negation and quantifiers, is minimal; use brackets to increase the scope.
+Formulas can be put in brackets, <span class="code">(<span class="metavariable">formula</span>)</span>.
+Conjunction binds stronger than disjunctions, and the scope of negation and quantifiers is minimal; use brackets to increase the scope.
 Finally, <span class="metavariable">formula</span> may also be a previously defined identifier of a formula abbreviation.
 </p>
 
 <p>
 Finally, queries are of the form 
-<span class="code">Entails (<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span> or
-<span class="code">Consistent (<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span>, where <span class="metavariable">k</span> &ge; 0 is a natural number that denotes the reasoning effort and <span class="metavariable">formula</span> is a formula as defined above.
+<span class="code">Entails&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span> or
+<span class="code">Consistent&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span>, where <span class="metavariable">k</span> &ge; 0 is a natural number that denotes the reasoning effort and <span class="metavariable">formula</span> is a formula as defined above.
 Both entailment and consistency queries are sound but incomplete with respect to classical logic.
 The reasoning effort is measured in case splits (a split means to select a term <span class="code">f(n<sub>1</sub>,...,n<sub>l</sub>)</span> and consider all possible denotations of that term) in entailment queries, and as term assignments (an assignment means to select a term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix their denotation) in consistency queries.
 </p>
 
 <p>
-The lexer and parser are hand-written (recursive descent) just for this demo and hardly tested.
-So they're probably not very fast, and, more importantly, very buggy.
-So let's just hope it works &#9786;.
+The lexer and parser are hand-written (recursive descent) for this demo and hardly tested.
+Let's just hope it works &#9786;.
 </p>
 
 <h2>References</h2>

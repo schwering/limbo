@@ -118,15 +118,15 @@ class Parser {
       return Unapplicable<bool>(MSG("No declaration"));
     }
     if (Is(Symbol(0), Token::kSort) &&
-        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegistered(s); }) &&
+        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredSort(s); }) &&
         Is(Symbol(2), Token::kSemicolon)) {
       kb_.RegisterSort(Symbol(1).val.str());
       Advance(2);
       return Success<bool>(true);
     }
     if (Is(Symbol(0), Token::kVar) &&
-        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegistered(s); }) &&
-        Is(Symbol(2), Token::kArrow) &&
+        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredTerm(s); }) &&
+        Is(Symbol(2), Token::kRArrow) &&
         Is(Symbol(3), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredSort(s); }) &&
         Is(Symbol(4), Token::kSemicolon)) {
       kb_.RegisterVar(Symbol(1).val.str(), Symbol(3).val.str());
@@ -134,8 +134,8 @@ class Parser {
       return Success<bool>(true);
     }
     if (Is(Symbol(0), Token::kName) &&
-        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegistered(s); }) &&
-        Is(Symbol(2), Token::kArrow) &&
+        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredTerm(s); }) &&
+        Is(Symbol(2), Token::kRArrow) &&
         Is(Symbol(3), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredSort(s); }) &&
         Is(Symbol(4), Token::kSemicolon)) {
       kb_.RegisterName(Symbol(1).val.str(), Symbol(3).val.str());
@@ -143,10 +143,10 @@ class Parser {
       return Success<bool>(true);
     }
     if (Is(Symbol(0), Token::kFun) &&
-        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegistered(s); }) &&
+        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredTerm(s); }) &&
         Is(Symbol(2), Token::kSlash) &&
         Is(Symbol(3), Token::kUint) &&
-        Is(Symbol(4), Token::kArrow) &&
+        Is(Symbol(4), Token::kRArrow) &&
         Is(Symbol(5), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredSort(s); }) &&
         Is(Symbol(6), Token::kSemicolon)) {
       kb_.RegisterFun(Symbol(1).val.str(), std::stoi(Symbol(3).val.str()), Symbol(5).val.str());
@@ -265,7 +265,7 @@ class Parser {
       ss << c;
       return Failure<bool>(MSG("KB clause "+ ss.str() +" must only contain ewff/quasiprimitive literals"));
     }
-    kb_.solver().AddClause(c);
+    kb_.AddClause(c);
     return Success<bool>(true);
   }
 
@@ -376,7 +376,7 @@ class Parser {
       return Unapplicable<bool>(MSG("Expected abbreviation operator 'let'"));
     }
     Advance(0);
-    if (!Is(Symbol(0), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegistered(s); })) {
+    if (!Is(Symbol(0), Token::kIdentifier)) {
       return Failure<bool>(MSG("Expected fresh identifier"));
     }
     const std::string id = Symbol(0).val.str();
@@ -463,22 +463,26 @@ class Parser {
   // start --> declarations kb_clauses
   Result<bool> start() {
     Result<bool> r;
-    r = declarations();
-    if (!r) {
-      return Failure<bool>(MSG("Error in declarations"), r);
-    }
-    r = kb_clauses();
-    if (!r) {
-      return Failure<bool>(MSG("Error in kb_clauses"), r);
-    }
-    r = abbreviations();
-    if (!r) {
-      return Failure<bool>(MSG("Error in abbreviations"), r);
-    }
-    r = queries();
-    if (!r) {
-      return Failure<bool>(MSG("Error in queries"), r);
-    }
+    iterator last;
+    do {
+      last = begin_;
+      r = declarations();
+      if (!r) {
+        return Failure<bool>(MSG("Error in declarations"), r);
+      }
+      r = kb_clauses();
+      if (!r) {
+        return Failure<bool>(MSG("Error in kb_clauses"), r);
+      }
+      r = abbreviations();
+      if (!r) {
+        return Failure<bool>(MSG("Error in abbreviations"), r);
+      }
+      r = queries();
+      if (!r) {
+        return Failure<bool>(MSG("Error in queries"), r);
+      }
+    } while (begin_ != last);
     std::stringstream ss;
     ss << Symbol(0) << " " << Symbol(1) << " " << Symbol(2);
     return !Symbol(0) ? Success<bool>(true) : Failure<bool>(MSG("Unparsed input "+ ss.str()));

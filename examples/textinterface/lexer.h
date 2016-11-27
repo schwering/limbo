@@ -18,8 +18,9 @@
 
 class Token {
  public:
-  enum Id { kError, kSort, kVar, kName, kFun, kKB, kLet, kEntails, kConsistent, kColon, kComma, kSemicolon, kEqual, kInequal,
-    kNot, kOr, kAnd, kForall, kExists, kAssign, kArrow, kSlash, kLeftParen, kRightParen, kUint, kIdentifier };
+  enum Id { kError, kSort, kVar, kName, kFun, kKB, kLet, kEntails, kConsistent, kColon, kComma, kSemicolon, kEqual,
+    kInequal, kNot, kOr, kAnd, kForall, kExists, kAssign, kRArrow, kLRArrow, kSlash, kSlashAst, kAstSlash,
+    kLeftParen, kRightParen, kUint, kIdentifier };
 
   Token() : id_(kError) {}
   explicit Token(Id id) : id_(id) {}
@@ -83,12 +84,14 @@ class Lexer {
     }
 
     std::pair<Iter, Iter> NextWord() const {
-      // max-munch lexer
+      // Max-munch lexer
       assert(it_ != end_);
       Iter it = it_;
       Iter jt;
+      std::pair<Match, Token::Id> m;
       for (jt = it; jt != end_; ++jt) {
-        if (LexemeMatch(it, std::next(jt)).first == kMismatch) {
+        m = LexemeMatch(it, std::next(jt));
+        if (m.first == kMismatch) {
           break;
         }
       }
@@ -134,8 +137,11 @@ class Lexer {
     lexemes_.push_back(std::make_pair(Token::kForall,     [](Iter begin, Iter end) { return IsPrefix(begin, end, "fa"); }));
     lexemes_.push_back(std::make_pair(Token::kExists,     [](Iter begin, Iter end) { return IsPrefix(begin, end, "ex"); }));
     lexemes_.push_back(std::make_pair(Token::kAssign,     [](Iter begin, Iter end) { return IsPrefix(begin, end, ":="); }));
-    lexemes_.push_back(std::make_pair(Token::kArrow,      [](Iter begin, Iter end) { return IsPrefix(begin, end, "->"); }));
+    lexemes_.push_back(std::make_pair(Token::kRArrow,     [](Iter begin, Iter end) { return IsPrefix(begin, end, "->"); }));
+    lexemes_.push_back(std::make_pair(Token::kLRArrow,    [](Iter begin, Iter end) { return IsPrefix(begin, end, "<->"); }));
     lexemes_.push_back(std::make_pair(Token::kSlash,      [](Iter begin, Iter end) { return IsPrefix(begin, end, "/"); }));
+    lexemes_.push_back(std::make_pair(Token::kSlashAst,   [](Iter begin, Iter end) { return IsPrefix(begin, end, "/*"); }));
+    lexemes_.push_back(std::make_pair(Token::kAstSlash,   [](Iter begin, Iter end) { return IsPrefix(begin, end, "*/"); }));
     lexemes_.push_back(std::make_pair(Token::kLeftParen,  [](Iter begin, Iter end) { return IsPrefix(begin, end, "("); }));
     lexemes_.push_back(std::make_pair(Token::kRightParen, [](Iter begin, Iter end) { return IsPrefix(begin, end, ")"); }));
     lexemes_.push_back(std::make_pair(Token::kUint,       [](Iter begin, Iter end) { return begin == end ? kPrefixMatch : (*begin != '0' || std::next(begin) == end) && std::all_of(begin, end, [](char c) { return IsDigit(c); }) ? kFullMatch : kMismatch; }));
@@ -186,11 +192,14 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kAnd:        return os << "kAnd";
     case Token::kForall:     return os << "kForall";
     case Token::kExists:     return os << "kExists";
-    case Token::kArrow:      return os << "kArrow";
+    case Token::kRArrow:     return os << "kRArrow";
+    case Token::kLRArrow:    return os << "kLRArrow";
     case Token::kAssign:     return os << "kAssign";
     case Token::kSlash:      return os << "kSlash";
-    case Token::kLeftParen:  return os << "(";
-    case Token::kRightParen: return os << ")";
+    case Token::kSlashAst:   return os << "kSlashAst";
+    case Token::kAstSlash:   return os << "kAstSlash";
+    case Token::kLeftParen:  return os << "kLeftParen";
+    case Token::kRightParen: return os << "kRightParen";
     case Token::kUint:       return os << "kUint";
     case Token::kIdentifier: return os << "kIdentifier";
     case Token::kError:      return os << "kError";
