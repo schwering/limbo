@@ -32,7 +32,7 @@ tests/solver
 tests/syntax
 tests/term
 examples/minesweeper/mw
-examples/minesweeper/mw.js*
+examples/minesweeper/lela.js*
 examples/textinterface/ti
 examples/textinterface/lela.js*
 

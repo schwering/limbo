@@ -3,8 +3,8 @@
 //
 // Max-munch lexer for our text interface.
 
-#ifndef EXAMPLES_CLI_LEXER_H_
-#define EXAMPLES_CLI_LEXER_H_
+#ifndef EXAMPLES_TEXTINTERFACE_LEXER_H_
+#define EXAMPLES_TEXTINTERFACE_LEXER_H_
 
 #include <cassert>
 
@@ -211,5 +211,5 @@ std::ostream& operator<<(std::ostream& os, const Token& t) {
   return os << "Token(" << t.id() << "," << t.str() << ")";
 }
 
-#endif // EXAMPLES_LEXER_H_
+#endif // EXAMPLES_TEXTINTERFACE_LEXER_H_
 

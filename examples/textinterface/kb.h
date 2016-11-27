@@ -4,8 +4,8 @@
 // The KB is the context object during parsing where symbols are registered and
 // formulas are evaluated.
 
-#ifndef EXAMPLES_CLI_KB_H_
-#define EXAMPLES_CLI_KB_H_
+#ifndef EXAMPLES_TEXTINTERFACE_KB_H_
+#define EXAMPLES_TEXTINTERFACE_KB_H_
 
 #include <map>
 #include <iostream>
@@ -156,5 +156,5 @@ struct KB {
   lela::Solver  solver_;
 };
 
-#endif  // EXAMPLES_CLI_KB_H_
+#endif  // EXAMPLES_TEXTINTERFACE_KB_H_
 

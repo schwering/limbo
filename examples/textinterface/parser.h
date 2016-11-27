@@ -4,8 +4,8 @@
 // Recursive descent parser for our text interface. The grammar for formulas is
 // aims to reduce brackets and implement operator precedence.
 
-#ifndef EXAMPLES_CLI_PARSER_H_
-#define EXAMPLES_CLI_PARSER_H_
+#ifndef EXAMPLES_TEXTINTERFACE_PARSER_H_
+#define EXAMPLES_TEXTINTERFACE_PARSER_H_
 
 #include <cassert>
 
@@ -528,5 +528,5 @@ std::ostream& operator<<(std::ostream& os, const Parser<std::string::const_itera
   return os << r.to_string();
 }
 
-#endif  // EXAMPLES_CLI_PARSER_H_
+#endif  // EXAMPLES_TEXTINTERFACE_PARSER_H_
 

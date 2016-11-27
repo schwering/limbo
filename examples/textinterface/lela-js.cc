@@ -1,7 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2016 Christoph Schwering
-//
-// Implements a simple language to specify entailment problems.
 
 #include <algorithm>
 #include <iostream>
