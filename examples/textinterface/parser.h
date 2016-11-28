@@ -71,7 +71,9 @@ class Parser {
 
    private:
     template<typename U>
-    friend std::ostream& operator<<(std::ostream& os, const Result<U>& r);
+    friend std::ostream& operator<<(std::ostream& os, const Result<U>& r) {
+      return os << r.to_string();
+    }
 
     Iter begin_;
     Iter end_;
@@ -522,11 +524,6 @@ class Parser {
                                                          kb_.solver().tf()->CreateTerm(kb_.solver().sf()->CreateName(0)));
   const lela::Formula DUMMY_FORMULA_ = lela::Formula::Clause(lela::Clause{});
 };
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const Parser<std::string::const_iterator>::Result<T>& r) {
-  return os << r.to_string();
-}
 
 #endif  // EXAMPLES_TEXTINTERFACE_PARSER_H_
 

@@ -64,10 +64,10 @@ inline internal::Maybe<std::string> LookupSymbol(Symbol s) {
 template<typename T1, typename T2>
 std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p);
 
-template<typename Iter>
+template<typename InputIt>
 std::ostream& print_sequence(std::ostream& os,
-                             Iter begin,
-                             Iter end,
+                             InputIt begin,
+                             InputIt end,
                              const char* pre = "[",
                              const char* post = "]",
                              const char* sep = ", ");
@@ -280,10 +280,10 @@ std::ostream& operator<<(std::ostream& os, const Formula& phi) {
   return os;
 }
 
-template<typename Iter>
+template<typename InputIt>
 std::ostream& print_sequence(std::ostream& os,
-                             Iter begin,
-                             Iter end,
+                             InputIt begin,
+                             InputIt end,
                              const char* pre,
                              const char* post,
                              const char* sep) {

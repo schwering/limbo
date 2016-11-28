@@ -40,8 +40,8 @@ class Clause {
 
   Clause() = default;
   Clause(std::initializer_list<Literal> lits) : lits_(lits) { Minimize(); }
-  template<typename Iter>
-  Clause(Iter begin, Iter end) : lits_(begin, end) { Minimize(); }
+  template<typename InputIt>
+  Clause(InputIt begin, InputIt end) : lits_(begin, end) { Minimize(); }
 
   bool operator==(const Clause& c) const { return bloom_ == c.bloom_ && lits_ == c.lits_; }
   bool operator!=(const Clause& c) const { return !(*this == c); }

@@ -54,7 +54,7 @@ This is demo of a limited reasoner for <b>decidable reasoning in first-order kno
 </p>
 
 <p>
-Also have a look at the <a href="../ti/" target="_blank">the other demo: text interface</a>.
+Also have a look at the <a href="../textinterface/" target="_blank">the other demo: text interface</a>.
 </p>
 
 <h2>Game Configuration</h2>
@@ -65,8 +65,9 @@ Also have a look at the <a href="../ti/" target="_blank">the other demo: text in
 <div class="label">Width:</div> <input type="number" id="width" min="0" value="8" class="number"><br />
 <div class="label">Height:</div> <input type="number" id="height" min="0" value="8" class="number"><br />
 <div class="label">Mines:</div> <input type="number" id="n_mines" min="0" value="10" class="number"><br />
-<div class="label">Seed:</div> <input type="number" id="seed" min="0" value="0" class="number"><br />
+<div style="height: 1ex;"></div>
 <div class="label">Max. splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
+<div class="label">Seed:</div> <input type="number" id="seed" min="0" value="0" class="number"><br />
 <input id="play-button" type="button" value="Click me!" onclick="play()" />
 </form>
 
@@ -85,6 +86,9 @@ function clearDiv(id) {
     }
 }
 
+
+var t0 = null;
+
 function play() {
     clearDiv('output');
 
@@ -99,17 +103,21 @@ function play() {
     var max_k = document.getElementById('max_k').value;
     if (max_k == null) n_mines = 0;
 
+    t0 = performance.now();
     Module.ccall('lela_init', 'void', ['number', 'number', 'number', 'numer', 'numer'], [width, height, n_mines, seed, max_k]);
-    play_turn();
+    playTurn();
 }
 
-function play_turn() {
+function playTurn() {
     setTimeout(function() {
         var game_over = Module.ccall('lela_play_turn', 'number', [], []);
-        scrollDown();
-        if (!game_over)
-            play_turn();
-    }, 5);
+        if (!game_over) {
+            playTurn();
+        } else {
+            var t1 = performance.now();
+            console.log("Playing and printing took "+ Math.round(t1 - t0) +" milliseconds");
+        }
+    }, 10);
 }
 
 function scrollDown() {
@@ -135,8 +143,7 @@ function printLine(str) {
 }
 
 function initPage() {
-    //var text = document.getElementById('seed');
-    //text.focus();
+    document.getElementById('play-button').focus();
 }
 </script>
 
@@ -167,8 +174,7 @@ Future work are the conditional beliefs [ECAI-2016] (should be easy), actions [K
 The reasoner is written in C++.
 The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
 This demo is compiled by <a href="http://emscripten.org">emscripten</a>, which compiles C++ to Javascript.
-The performance of the Javascript is about 10&times; slower than the native performance (on my computer, anyway).
-(Which is funny, it should be only about 2&times; slower according to the times reported at the emscripten website.)
+On my computer, the Javascript is about 3&times; to 5&times; slower than the native binary.
 </p>
 
 <p>
@@ -179,19 +185,41 @@ Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.
 
 <h2>About Minesweeper</h2>
 
-<p>Among the <code>width</code> &times; <code>height</code> cells on the field, <code>n_mines</code> cells contain mines. The goal of the agent is to identify these mines. Every turn, the agent can select a cell and explore it, in which case it learns how many of the adjacent cells contain a mine, or flag it as mine. The game is won when all non-mine fields are explored and all mine cells are flagged. The game is lost when the agent explores a mine cell.</p>
+<p>
+Among the <code>width</code> &times; <code>height</code> cells on the field, <code>n_mines</code> cells contain mines. The goal of the agent is to identify these mines.
+</p>
+
+<p>
+On every turn, the player selects a cell and either explores it or flags it as mine.
+Exploring a cell tells the agent how many adjacent cells (0 &le; N &le; 8) contain mines.
+(When N = 0, the adjacent cells are explored immediately.)
+Flagging a cell does not tell the agent anything, it's more of a mental note not to explore the cell.
+Explored fields are visualized as their number <code>N</code> or by a <code>.</code> symbol when N = 0; flagged cells are marked by a <code style="color: green;">X</code> symbol.
+</p>
+
+<p>
+The game is won when all non-mine fields are explored and all mine cells are flagged. The game is lost when the agent explores a mine cell.
+</p>
 
 
 
 <h2>About the Agent</h2>
 
-<p>The agent is a simple C++ program that loops over all cells and uses the reasoner to find out which cells are known to contain a/no mine.</p>
+<p>
+The agent is a simple C++ program that loops over all cells and uses the reasoner to find out which cells are known to contain a/no mine.
+</p>
 
-<p>For every cell <code>(x,y)</code>, we use a proposition <code>IsMine(x,y)</code>. When a cell is explored, the agent receives the information how many adjacent cells contain a mine. To reflect this new information, the agent adds clauses of <code>IsMine(x,y)</code>. For instance, when the agent learns that one of the eight adjacent cell contains a mine, it adds <code>IsMine(x-1,y) &or; IsMine(x-1,y+1) &or; IsMine(x,y+1) &or; IsMine(x+1,y+1) &or; IsMine(x+1,y) &or; IsMine(x+1,y-1) &or; IsMine(x,y-1) &or; IsMine(x-1,y-1)</code> to say that at least one of the neighbors contains a mine, and a few similar clauses to say that at least seven adjacent cells contain <i>no</i> mine.</p>
+<p>
+For every cell <code>(x,y)</code>, we use a proposition <code>IsMine(x,y)</code>. When a cell is explored, the agent receives the information how many adjacent cells contain a mine. To reflect this new information, the agent adds clauses of <code>IsMine(x,y)</code>. For instance, when the agent learns that one of the eight adjacent cell contains a mine, it adds <code>IsMine(x-1,y) &or; IsMine(x-1,y+1) &or; IsMine(x,y+1) &or; IsMine(x+1,y+1) &or; IsMine(x+1,y) &or; IsMine(x+1,y-1) &or; IsMine(x,y-1) &or; IsMine(x-1,y-1)</code> to say that at least one of the neighbors contains a mine, and a few similar clauses to say that at least seven adjacent cells contain <i>no</i> mine.
+</p>
 
-<p>On every turn, the agent checks for every cell whether it is known to contain a mine or known to contain no mine. This process is repeated for increasing slit level, until a cell which is known to be a mine or known to be safe is found: first for split level 0, then for 1, ..., until the maximum specified split level. If no cell is found, the agent guesses one randomly.</p>
+<p>
+On every turn, the agent checks for every cell whether it is known to contain a mine or known to contain no mine. This process is repeated for increasing slit level, until a cell which is known to be a mine or known to be safe is found: first for split level 0, then for 1, ..., until the maximum specified split level. If no cell is found, the agent guesses one randomly.
+</p>
 
-<p>Note the agent's actions are not represented in the knowledge base -- it's just hard-coded in C++. Extending the knowledge base to a basic action theory that also represents the agent's actions would be the next step.</p>
+<p>
+Note the agent's actions are not represented in the knowledge base &ndash; it's just hard-coded in C++. Extending the knowledge base to a basic action theory that also represents the agent's actions would be the next step.
+</p>
 
 
 

@@ -72,11 +72,11 @@ class Formula {
     internal::Maybe<Term> var_ = internal::Nothing;
   };
 
-  template<typename Iter = std::list<Element>::const_iterator>
+  template<typename ForwardIt = std::list<Element>::const_iterator>
   class Reader {
    public:
-    Iter begin() const { return begin_; }
-    Iter end() const { return end_; }
+    ForwardIt begin() const { return begin_; }
+    ForwardIt end() const { return end_; }
 
     const Element& head() const { return *begin(); }
 
@@ -180,9 +180,9 @@ class Formula {
     };
 
     template<typename UnaryFunction>
-    Reader<internal::transform_iterator<Iter, SubstituteElement<UnaryFunction>>>
+    Reader<internal::transform_iterator<ForwardIt, SubstituteElement<UnaryFunction>>>
     Substitute(UnaryFunction theta, Term::Factory* tf) const {
-      typedef internal::transform_iterator<Iter, SubstituteElement<UnaryFunction>> iterator;
+      typedef internal::transform_iterator<ForwardIt, SubstituteElement<UnaryFunction>> iterator;
       iterator it = iterator(begin(), SubstituteElement<UnaryFunction>(theta, tf));
       return Reader<iterator>(it);
     }
@@ -200,18 +200,18 @@ class Formula {
     }
 
     struct QuantifierPrefix {
-      QuantifierPrefix(Iter begin, Iter end) : begin_(begin), end_(end) {}
+      QuantifierPrefix(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {}
 
-      Iter begin() const { return begin_; }
-      Iter end()   const { return end_; }
+      ForwardIt begin() const { return begin_; }
+      ForwardIt end()   const { return end_; }
 
       bool even() const {
         return std::count_if(begin(), end(), [](const Element& e) { return e.type() == Element::kNot; }) % 2 == 0;
       }
 
      private:
-      Iter begin_;
-      Iter end_;
+      ForwardIt begin_;
+      ForwardIt end_;
     };
 
     QuantifierPrefix quantifiers() const {
@@ -224,7 +224,7 @@ class Formula {
    private:
     friend class Formula;
 
-    explicit Reader(Iter begin) : begin_(begin), end_(begin) {
+    explicit Reader(ForwardIt begin) : begin_(begin), end_(begin) {
       for (int n = 1; n > 0; --n, ++end_) {
         switch ((*end_).type()) {
           case Element::kClause: n += 0; break;
@@ -235,8 +235,8 @@ class Formula {
       }
     }
 
-    Iter begin_;
-    Iter end_;
+    ForwardIt begin_;
+    ForwardIt end_;
   };
 
   Formula(Formula&&) = default;
@@ -248,8 +248,8 @@ class Formula {
   static Formula Or(const Formula& phi, const Formula& psi) { return Binary(Element::Or(), phi, psi); }
   static Formula Exists(Term var, const Formula& phi) { return Unary(Element::Exists(var), phi); }
 
-  template<typename Iter>
-  explicit Formula(const Reader<Iter>& r) : es_(r.begin(), r.end()) {}
+  template<typename ForwardIt>
+  explicit Formula(const Reader<ForwardIt>& r) : es_(r.begin(), r.end()) {}
 
   bool operator==(const Formula& phi) const { return es_ == phi.es_; }
   bool operator!=(const Formula& phi) const { return !(*this == phi); }

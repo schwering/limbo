@@ -18,11 +18,11 @@ namespace lela {
 namespace internal {
 
 // Wrapper for operator*() and operator++(int).
-template<typename Iter>
+template<typename InputIt>
 struct iterator_proxy {
-  typedef typename Iter::value_type value_type;
-  typedef typename Iter::reference reference;
-  typedef typename Iter::pointer pointer;
+  typedef typename InputIt::value_type value_type;
+  typedef typename InputIt::reference reference;
+  typedef typename InputIt::pointer pointer;
 
   explicit iterator_proxy(reference v) : v_(v) {}
   reference operator*() const { return v_; }
@@ -69,10 +69,10 @@ struct int_iterator {
 };
 
 // Expects an iterator pointing to containers and iterates over their elements.
-template<typename ContIter>
+template<typename ContainerIt>
 struct flatten_iterator {
   typedef std::ptrdiff_t difference_type;
-  typedef typename ContIter::value_type container_type;
+  typedef typename ContainerIt::value_type container_type;
   typedef decltype(std::declval<container_type>().begin()) iterator_type;
   typedef typename iterator_type::value_type value_type;
   typedef typename iterator_type::pointer pointer;
@@ -81,7 +81,7 @@ struct flatten_iterator {
   typedef iterator_proxy<flatten_iterator> proxy;
 
   flatten_iterator() = default;
-  explicit flatten_iterator(ContIter cont_first, ContIter cont_last)
+  explicit flatten_iterator(ContainerIt cont_first, ContainerIt cont_last)
       : cont_first_(cont_first),
         cont_last_(cont_last) {
     if (cont_first_ != cont_last_) {
@@ -128,16 +128,16 @@ struct flatten_iterator {
     assert(cont_first_ == cont_last_ || iter_ != (*cont_first_).end());
   }
 
-  ContIter cont_first_;
-  const ContIter cont_last_;
+  ContainerIt cont_first_;
+  const ContainerIt cont_last_;
   iterator_type iter_;
 };
 
-template<typename ContIter>
+template<typename ContainerIt>
 struct flatten_range {
-  typedef flatten_iterator<ContIter> iterator;
+  typedef flatten_iterator<ContainerIt> iterator;
 
-  flatten_range(ContIter begin, ContIter end) : begin_(begin, end), end_(end, end) {}
+  flatten_range(ContainerIt begin, ContainerIt end) : begin_(begin, end), end_(end, end) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -147,43 +147,57 @@ struct flatten_range {
   iterator end_;
 };
 
-template<typename ContIter>
-inline flatten_range<ContIter> nest_range(ContIter begin, ContIter end) {
-  return flatten_range<ContIter>(begin, end);
+template<typename ContainerIt>
+inline flatten_range<ContainerIt> nest_range(ContainerIt begin, ContainerIt end) {
+  return flatten_range<ContainerIt>(begin, end);
 }
 
 // Haskell's map function.
-template<typename Iter, typename UnaryFunction>
+template<typename InputIt, typename UnaryFunction>
 struct transform_iterator {
-  typedef std::ptrdiff_t difference_type;
-  typedef typename std::result_of<UnaryFunction(typename Iter::value_type)>::type value_type;
+  typedef typename InputIt::difference_type difference_type;
+  typedef typename std::result_of<UnaryFunction(typename InputIt::value_type)>::type value_type;
   typedef const value_type* pointer;
   typedef value_type reference;
-  typedef std::input_iterator_tag iterator_category;
+  typedef typename InputIt::iterator_category iterator_category;
   typedef iterator_proxy<transform_iterator> proxy;
 
   transform_iterator() = default;
-  explicit transform_iterator(Iter iter, UnaryFunction func = UnaryFunction()) : iter_(iter), func_(func) {}
+  explicit transform_iterator(InputIt iter, UnaryFunction func = UnaryFunction()) : iter_(iter), func_(func) {}
 
   bool operator==(transform_iterator it) const { return iter_ == it.iter_; }
   bool operator!=(transform_iterator it) const { return !(*this == it); }
 
   reference operator*() const { return func_(*iter_); }
   transform_iterator& operator++() { ++iter_; return *this; }
+  transform_iterator& operator--() { --iter_; return *this; }
 
   proxy operator->() const { return proxy(operator*()); }
   proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
+  proxy operator--(int) { proxy p(operator*()); operator--(); return p; }
+
+  transform_iterator& operator+=(difference_type n) { iter_ += n; }
+  transform_iterator& operator-=(difference_type n) { iter_ -= n; }
+  friend transform_iterator operator+(transform_iterator it, difference_type n) { it += n; return it; }
+  friend transform_iterator operator+(difference_type n, transform_iterator it) { it += n; return it; }
+  friend transform_iterator operator-(transform_iterator it, difference_type n) { it -= n; return it; }
+  friend difference_type operator-(transform_iterator a, transform_iterator b) { return a.iter_ - b.iter_; }
+  reference operator[](difference_type n) const { return *(*this + n); }
+  bool operator<(transform_iterator it) const { return it - *this < 0; }
+  bool operator>(transform_iterator it) const { return *this < it; }
+  bool operator<=(transform_iterator it) const { return !(*this > it); }
+  bool operator>=(transform_iterator it) const { return !(*this < it); }
 
  private:
-  Iter iter_;
+  InputIt iter_;
   UnaryFunction func_;
 };
 
-template<typename Iter, typename UnaryFunction>
+template<typename InputIt, typename UnaryFunction>
 struct transformed_range {
-  typedef transform_iterator<Iter, UnaryFunction> iterator;
+  typedef transform_iterator<InputIt, UnaryFunction> iterator;
 
-  transformed_range(Iter begin, Iter end, UnaryFunction func = UnaryFunction())
+  transformed_range(InputIt begin, InputIt end, UnaryFunction func = UnaryFunction())
       : begin_(begin, func), end_(end, func) {}
 
   iterator begin() const { return begin_; }
@@ -194,25 +208,27 @@ struct transformed_range {
   iterator end_;
 };
 
-template<typename Iter, typename UnaryFunction>
-inline transformed_range<Iter, UnaryFunction> transform_range(Iter begin,
-                                                              Iter end,
-                                                              UnaryFunction func = UnaryFunction()) {
-  return transformed_range<Iter, UnaryFunction>(begin, end, func);
+template<typename InputIt, typename UnaryFunction>
+inline transformed_range<InputIt, UnaryFunction> transform_range(InputIt begin,
+                                                                 InputIt end,
+                                                                 UnaryFunction func = UnaryFunction()) {
+  return transformed_range<InputIt, UnaryFunction>(begin, end, func);
 }
 
 // Haskell's filter function.
-template<typename Iter, typename UnaryPredicate>
+template<typename InputIt, typename UnaryPredicate>
 struct filter_iterator {
   typedef std::ptrdiff_t difference_type;
-  typedef typename Iter::value_type value_type;
-  typedef typename Iter::pointer pointer;
-  typedef typename Iter::reference reference;
-  typedef std::input_iterator_tag iterator_category;
+  typedef typename InputIt::value_type value_type;
+  typedef typename InputIt::pointer pointer;
+  typedef typename InputIt::reference reference;
+  typedef typename std::conditional<
+      std::is_convertible<typename InputIt::iterator_category, std::forward_iterator_tag>::value,
+      std::forward_iterator_tag, std::input_iterator_tag>::type iterator_category;
   typedef iterator_proxy<filter_iterator> proxy;
 
   filter_iterator() = default;
-  filter_iterator(Iter it, const Iter end, UnaryPredicate pred = UnaryPredicate())
+  filter_iterator(InputIt it, const InputIt end, UnaryPredicate pred = UnaryPredicate())
       : iter_(it), end_(end), pred_(pred) { Skip(); }
 
   bool operator==(filter_iterator it) const { return iter_ == it.iter_; }
@@ -231,16 +247,16 @@ struct filter_iterator {
     }
   }
 
-  Iter iter_;
-  const Iter end_;
+  InputIt iter_;
+  const InputIt end_;
   UnaryPredicate pred_;
 };
 
-template<typename Iter, typename UnaryPredicate>
+template<typename InputIt, typename UnaryPredicate>
 struct filtered_range {
-  typedef filter_iterator<Iter, UnaryPredicate> iterator;
+  typedef filter_iterator<InputIt, UnaryPredicate> iterator;
 
-  filtered_range(Iter begin, Iter end, UnaryPredicate pred = UnaryPredicate())
+  filtered_range(InputIt begin, InputIt end, UnaryPredicate pred = UnaryPredicate())
       : begin_(begin, end, pred), end_(end, end, pred) {}
 
   iterator begin() const { return begin_; }
@@ -251,9 +267,11 @@ struct filtered_range {
   iterator end_;
 };
 
-template<typename Iter, typename UnaryPredicate>
-inline filtered_range<Iter, UnaryPredicate> filter_range(Iter begin, Iter end, UnaryPredicate pred = UnaryPredicate()) {
-  return filtered_range<Iter, UnaryPredicate>(begin, end, pred);
+template<typename InputIt, typename UnaryPredicate>
+inline filtered_range<InputIt, UnaryPredicate> filter_range(InputIt begin,
+                                                            InputIt end,
+                                                            UnaryPredicate pred = UnaryPredicate()) {
+  return filtered_range<InputIt, UnaryPredicate>(begin, end, pred);
 }
 
 template<typename T>
@@ -272,18 +290,21 @@ struct unique_filter {
   mutable std::set<T> seen_;
 };
 
-template<typename Iter1, typename Iter2>
+template<typename InputIt1, typename InputIt2>
 struct joined_ranges {
   struct iterator {
     typedef std::ptrdiff_t difference_type;
-    typedef typename Iter1::value_type value_type;
-    typedef typename Iter1::pointer pointer;
-    typedef typename Iter1::reference reference;
-    typedef std::input_iterator_tag iterator_category;
-    typedef iterator_proxy<Iter1> proxy;
+    typedef typename InputIt1::value_type value_type;
+    typedef typename InputIt1::pointer pointer;
+    typedef typename InputIt1::reference reference;
+    typedef typename std::conditional<
+        std::is_convertible<typename InputIt1::iterator_category, std::forward_iterator_tag>::value &&
+        std::is_convertible<typename InputIt2::iterator_category, std::forward_iterator_tag>::value,
+        std::forward_iterator_tag, std::input_iterator_tag>::type iterator_category;
+    typedef iterator_proxy<InputIt1> proxy;
 
     iterator() = default;
-    iterator(Iter1 it1, Iter1 end1, Iter2 it2) : it1_(it1), end1_(end1), it2_(it2) {}
+    iterator(InputIt1 it1, InputIt1 end1, InputIt2 it2) : it1_(it1), end1_(end1), it2_(it2) {}
 
     bool operator==(const iterator& it) const { return it1_ == it.it1_ && it2_ == it.it2_; }
     bool operator!=(const iterator& it) const { return !(*this == it); }
@@ -299,27 +320,27 @@ struct joined_ranges {
     proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
 
    private:
-    Iter1 it1_;
-    Iter1 end1_;
-    Iter2 it2_;
+    InputIt1 it1_;
+    InputIt1 end1_;
+    InputIt2 it2_;
   };
 
-  joined_ranges(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2)
+  joined_ranges(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2)
       : begin1_(begin1), end1_(end1), begin2_(begin2), end2_(end2) {}
 
   iterator begin() const { return iterator(begin1_, end1_, begin2_); }
   iterator end()   const { return iterator(end1_, end1_, end2_); }
 
  private:
-  Iter1 begin1_;
-  Iter1 end1_;
-  Iter2 begin2_;
-  Iter2 end2_;
+  InputIt1 begin1_;
+  InputIt1 end1_;
+  InputIt2 begin2_;
+  InputIt2 end2_;
 };
 
-template<typename Iter1, typename Iter2>
-inline joined_ranges<Iter1, Iter2> join_ranges(Iter1 begin1, Iter1 end1, Iter2 begin2, Iter2 end2) {
-  return joined_ranges<Iter1, Iter2>(begin1, end1, begin2, end2);
+template<typename InputIt1, typename InputIt2>
+inline joined_ranges<InputIt1, InputIt2> join_ranges(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2) {
+  return joined_ranges<InputIt1, InputIt2>(begin1, end1, begin2, end2);
 }
 
 }  // namespace internal

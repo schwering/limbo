@@ -76,7 +76,7 @@ This is demo of a limited reasoner for <b>decidable reasoning in first-order kno
 </p>
 
 <p>
-Also have a look at the <a href="../mw/" target="_blank">the other demo: minesweeper</a>.
+Also have a look at the <a href="../minesweeper/" target="_blank">the other demo: minesweeper</a>.
 </p>
 
 <h2>Problem Description</h2>
@@ -159,12 +159,7 @@ function parse() {
     Module.ccall('lela_parse', 'void', ['string'], [text]);
     var t1 = performance.now();
     console.log("Parsing and reasoning took "+ Math.round(t1 - t0) +" milliseconds");
-    var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-    if (isFirefox) {
-        document.getElementById('output').scrollIntoView({block: "end", behavior: "smooth"});
-    } else {
-        document.getElementById('output').scrollIntoView(false);
-    }
+    scrollDown();
 }
 
 function resultClass(r) {
@@ -197,6 +192,15 @@ function announceResult(success, msg) {
     li.className = 'announcement overall '+ resultClass(success);
     li.innerHTML = '<div class="parser-result">Parser end result: '+ resultLabel(success) +' ('+ msg +')</div>';
     document.getElementById('output').appendChild(li);
+}
+
+function scrollDown() {
+    var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+    if (isFirefox) {
+        document.getElementById('output').scrollIntoView({block: "end", behavior: "smooth"});
+    } else {
+        document.getElementById('output').scrollIntoView(false);
+    }
 }
 
 function redirectConsole() {
@@ -290,8 +294,7 @@ Future work are the conditional beliefs [ECAI-2016] (should be easy), actions [K
 The reasoner is written in C++.
 The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
 This demo is compiled by <a href="http://emscripten.org">emscripten</a>, which compiles C++ to Javascript.
-The performance of the Javascript is about 10&times; slower than the native performance (on my computer, anyway).
-(Which is funny, it should be only about 2&times; slower according to the times reported at the emscripten website.)
+On my computer, the Javascript is about 3&times; to 5&times; slower than the native binary.
 </p>
 
 <p>
