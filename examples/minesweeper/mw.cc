@@ -1,5 +1,7 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
+//
+// Command line application that plays minesweeper.
 
 #include <cassert>
 

@@ -31,10 +31,10 @@ struct Announcer {
   virtual void AnnounceConsistency(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) = 0;
 };
 
-template<typename Iter>
+template<typename ForwardIt>
 class Parser {
  public:
-  typedef Lexer<Iter> Lex;
+  typedef Lexer<ForwardIt> Lex;
   typedef typename Lex::iterator iterator;
 
   // Encapsulates a parsing result, either a Success, an Unapplicable, or a Failure.
@@ -42,15 +42,15 @@ class Parser {
   struct Result {
     Result() = default;
     explicit Result(const T& val) : ok(true), val(val) {}
-    Result(bool unapplicable, const std::string& msg, Iter begin, Iter end, const T& val = T())
+    Result(bool unapplicable, const std::string& msg, ForwardIt begin, ForwardIt end, const T& val = T())
         : ok(false), val(val), unapplicable(unapplicable), msg(msg), begin_(begin), end_(end) {}
     Result(const Result&) = default;
     Result& operator=(const Result&) = default;
 
     explicit operator bool() const { return ok; }
 
-    Iter begin() const { return begin_; }
-    Iter end()   const { return end_; }
+    ForwardIt begin() const { return begin_; }
+    ForwardIt end()   const { return end_; }
 
     std::string to_string() const {
       std::stringstream ss;
@@ -75,11 +75,11 @@ class Parser {
       return os << r.to_string();
     }
 
-    Iter begin_;
-    Iter end_;
+    ForwardIt begin_;
+    ForwardIt end_;
   };
 
-  Parser(Iter begin, Iter end, Announcer* announcer)
+  Parser(ForwardIt begin, ForwardIt end, Announcer* announcer)
       : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()), announcer_(announcer) {}
 
   Result<bool> Parse() { return start(); }

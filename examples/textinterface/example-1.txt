@@ -1,0 +1,48 @@
+Sort ENTITY;
+Sort BOOL;
+
+Variable x -> ENTITY;
+Variable y -> ENTITY;
+
+Name Jesus -> ENTITY;
+Name Mary -> ENTITY;
+Name Joe -> ENTITY;
+Name HolyGhost -> ENTITY;
+Name God -> ENTITY;
+Name True -> BOOL;
+
+Function fatherOf/1 -> ENTITY;
+Function motherOf/1 -> ENTITY;
+Function is_mortal/1 -> BOOL;
+
+KB (Mary == motherOf(Jesus));
+KB (HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
+KB (is_mortal(Mary) == True);
+KB (is_mortal(Joe) == True);
+KB (fatherOf(Jesus) != x || x == Joe || is_mortal(x) != True);
+
+Entails (0, HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
+
+Let phi := Ex x (x == fatherOf(Jesus));
+Entails (0, phi);
+Entails (1, phi);
+
+Let phi := HolyGhost == fatherOf(Jesus);
+Consistent (0, phi);
+Consistent (1, phi);
+
+Entails (0, HolyGhost == fatherOf(Jesus) && God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
+
+Let phi := motherOf(Jesus) == fatherOf(Jesus);
+Entails    (0, phi);
+Consistent (0, phi);
+Entails    (0, !phi);
+Consistent (0, !phi);
+Consistent (1, !phi);
+
+Entails (0, is_mortal(motherOf(Jesus)) == True);
+
+Let phi := is_mortal(fatherOf(Jesus)) == True;
+Consistent (1, phi);
+Consistent (1, !phi);
+
