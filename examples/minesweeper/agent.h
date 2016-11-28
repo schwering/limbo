@@ -11,18 +11,19 @@
 
 class Agent {
  public:
+  virtual ~Agent() {}
   virtual void Explore() = 0;
 };
 
 class HumanAgent : public Agent {
  public:
-  explicit HumanAgent(Game* g) : g_(g) {}
+  explicit HumanAgent(Game* g, std::ostream* os, std::istream* is) : g_(g), os_(os), is_(is) {}
 
   void Explore() override {
     for (;;) {
       Point p;
-      std::cout << "Exploring X and Y coordinates: ";
-      std::cin >> p.x >> p.y;
+      *os_ << "Exploring X and Y coordinates: ";
+      *is_ >> p.x >> p.y;
       if (!g_->valid(p) || g_->opened(p)) {
         std::cout << "Invalid coordinates, repeat" << std::endl;
         continue;
@@ -34,11 +35,13 @@ class HumanAgent : public Agent {
 
  private:
   Game* g_;
+  std::ostream* os_;
+  std::istream* is_;
 };
 
 class KnowledgeBaseAgent : public Agent {
  public:
-  explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) {}
+  explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb, std::ostream* os) : g_(g), kb_(kb), os_(os) {}
 
   void Explore() override {
     kb_->Sync();
@@ -49,7 +52,7 @@ class KnowledgeBaseAgent : public Agent {
       do {
         p = g_->RandomPoint();
       } while (g_->neighbors_of(p).size() < 8);
-      std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " chosen at random" << std::endl;
+      *os_ << "Exploring X and Y coordinates: " << p.x << " " << p.y << " chosen at random" << std::endl;
       g_->OpenWithFrontier(p);
       return;
     }
@@ -64,10 +67,10 @@ class KnowledgeBaseAgent : public Agent {
         const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
         if (r.yes) {
           if (r.val) {
-            std::cout << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
+            *os_ << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
             g_->Flag(p);
           } else {
-            std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
+            *os_ << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
             g_->OpenWithFrontier(p);
           }
           return;
@@ -81,7 +84,7 @@ class KnowledgeBaseAgent : public Agent {
       if (g_->opened(p) || g_->flagged(p)) {
         continue;
       }
-      std::cout << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << std::endl;
+      *os_ << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << std::endl;
       g_->OpenWithFrontier(p);
       return;
     }
@@ -95,6 +98,7 @@ class KnowledgeBaseAgent : public Agent {
  private:
   Game* g_;
   KnowledgeBase* kb_;
+  std::ostream* os_;
 };
 
 #endif  // EXAMPLES_MINESWEEPER_AGENT_H_

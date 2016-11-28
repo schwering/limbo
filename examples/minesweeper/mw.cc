@@ -9,9 +9,43 @@
 #include "agent.h"
 #include "game.h"
 #include "kb.h"
-#include "play.h"
 #include "printer.h"
 #include "timer.h"
+
+inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, int max_k,
+                 const Colors& colors, std::ostream* os) {
+  Timer t;
+  Game g(width, height, n_mines, seed);
+  KnowledgeBase kb(&g, max_k);
+  KnowledgeBaseAgent agent(&g, &kb, os);
+  SimplePrinter printer(&colors, os);
+  OmniscientPrinter final_printer(&colors, os);
+  t.start();
+  do {
+    Timer t;
+    t.start();
+    agent.Explore();
+    t.stop();
+    *os << std::endl;
+    printer.Print(g);
+    *os << std::endl;
+    *os << "Last move took " << std::fixed << t.duration() << ", queries took " << std::fixed << kb.timer().duration() << " / " << std::setw(4) << kb.timer().rounds() << " = " << std::fixed << kb.timer().avg_duration() << std::endl;
+    kb.ResetTimer();
+  } while (!g.hit_mine() && !g.all_explored());
+  t.stop();
+  *os << "Final board:" << std::endl;
+  *os << std::endl;
+  final_printer.Print(g);
+  *os << std::endl;
+  const bool win = !g.hit_mine();
+  if (win) {
+    *os << colors.green() << "You win :-)";
+  } else {
+    *os << colors.red() << "You loose :-(";
+  }
+  *os << "  [width: " << g.width() << ", height: " << g.height() << ", height: " << g.n_mines() << ", seed: " << g.seed() << ", runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
+  return win;
+}
 
 int main(int argc, char *argv[]) {
   size_t width = 8;
@@ -40,7 +74,7 @@ int main(int argc, char *argv[]) {
     print_knowledge = argv[6] == std::string("know");
   }
 
-  Play(width, height, n_mines, seed, max_k, TerminalColors());
+  Play(width, height, n_mines, seed, max_k, TerminalColors(), &std::cout);
   return 0;
 }
 

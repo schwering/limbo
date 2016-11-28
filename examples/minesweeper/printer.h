@@ -64,23 +64,23 @@ class Printer {
     std::string text;
   };
 
-  explicit Printer(const Colors* colors) : colors_(colors) {}
+  Printer(const Colors* colors, std::ostream* os) : colors_(colors), os_(os) {}
   virtual ~Printer() = default;
 
-  void Print(std::ostream& os, const Game& g) {
+  void Print(const Game& g) {
     const int width = 3;
-    os << std::setw(width) << "";
+    *os_ << std::setw(width) << "";
     for (size_t x = 0; x < g.width(); ++x) {
-      os << colors_->dim() << std::setw(width) << x << colors_->reset();
+      *os_ << colors_->dim() << std::setw(width) << x << colors_->reset();
     }
-    os << std::endl;
+    *os_ << std::endl;
     for (size_t y = 0; y < g.height(); ++y) {
-      os << colors_->dim() << std::setw(width) << y << colors_->reset();
+      *os_ << colors_->dim() << std::setw(width) << y << colors_->reset();
       for (size_t x = 0; x < g.width(); ++x) {
         Label l = label(g, Point(x, y));
-        os << l.color << std::setw(width) << l.text << colors_->reset();
+        *os_ << l.color << std::setw(width) << l.text << colors_->reset();
       }
-      os << std::endl;
+      *os_ << std::endl;
     }
   }
 
@@ -88,11 +88,12 @@ class Printer {
 
  protected:
   const Colors* colors_;
+  std::ostream* os_;
 };
 
 class OmniscientPrinter : public Printer {
  public:
-  explicit OmniscientPrinter(const Colors* colors) : Printer(colors) {}
+  using Printer::Printer;
 
   Label label(const Game& g, const Point p) {
     assert(g.valid(p));
@@ -112,7 +113,7 @@ class OmniscientPrinter : public Printer {
 
 class SimplePrinter : public Printer {
  public:
-  explicit SimplePrinter(const Colors* colors) : Printer(colors) {}
+  using Printer::Printer;
 
   Label label(const Game& g, const Point p) override {
     assert(g.valid(p));
@@ -132,7 +133,8 @@ class SimplePrinter : public Printer {
 
 class KnowledgeBasePrinter : public Printer {
  public:
-  explicit KnowledgeBasePrinter(const Colors* colors, KnowledgeBase* kb) : Printer(colors), kb_(kb) {}
+  explicit KnowledgeBasePrinter(const Colors* colors, std::ostream* os, KnowledgeBase* kb)
+      : Printer(colors, os), kb_(kb) {}
 
   Label label(const Game& g, const Point p) override {
     kb_->Sync();

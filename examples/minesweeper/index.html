@@ -59,16 +59,25 @@ Also have a look at the <a href="../ti/" target="_blank">the other demo: text in
 
 <h2>Game Configuration</h2>
 
+<p>Standard configurations: <a href="javascript:setConfig(8,8,10);">small</a>, <a href="javascript:setConfig(16,16,40);">medium</a>, <a href="javascript:setConfig(16,32,99);">large</a>, <a href="javascript:setConfig(32,64,320);">huge</a> </p>
+
 <form>
-<div class="label">Width:</div> <input type="text" id="width" value="8" class="number"><br />
-<div class="label">Height:</div> <input type="text" id="height" value="8" class="number"><br />
-<div class="label">Mines:</div> <input type="text" id="n_mines" value="10" class="number"><br />
-<div class="label">Seed:</div> <input type="text" id="seed" value="1" class="number"><br />
-<div class="label">Max. splits:</div> <input type="number" id="max_k" min="0" max="5" value="2" class="number"><br />
+<div class="label">Width:</div> <input type="number" id="width" min="0" value="8" class="number"><br />
+<div class="label">Height:</div> <input type="number" id="height" min="0" value="8" class="number"><br />
+<div class="label">Mines:</div> <input type="number" id="n_mines" min="0" value="10" class="number"><br />
+<div class="label">Seed:</div> <input type="number" id="seed" min="0" value="0" class="number"><br />
+<div class="label">Max. splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
 <input id="play-button" type="button" value="Click me!" onclick="play()" />
 </form>
 
 <script>
+function setConfig(width, height, n_mines) {
+    console.log('test');
+    document.getElementById('width').value = width;
+    document.getElementById('height').value = height;
+    document.getElementById('n_mines').value = n_mines;
+}
+
 function clearDiv(id) {
     var div = document.getElementById(id);
     while (div.firstChild) {
@@ -90,41 +99,44 @@ function play() {
     var max_k = document.getElementById('max_k').value;
     if (max_k == null) n_mines = 0;
 
-    Module.ccall('lela_play', 'void', ['number', 'number', 'number', 'numer', 'numer'], [width, height, n_mines, seed, max_k]);
+    Module.ccall('lela_init', 'void', ['number', 'number', 'number', 'numer', 'numer'], [width, height, n_mines, seed, max_k]);
+    play_turn();
+}
 
+function play_turn() {
+    setTimeout(function() {
+        var game_over = Module.ccall('lela_play_turn', 'number', [], []);
+        scrollDown();
+        if (!game_over)
+            play_turn();
+    }, 5);
+}
+
+function scrollDown() {
     var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-    if (isFirefox) {
+    if (false && isFirefox) {
         document.getElementById('output').scrollIntoView({block: "end", behavior: "smooth"});
     } else {
         document.getElementById('output').scrollIntoView(false);
     }
 }
 
-function redirectConsole() {
-    if (typeof console  != "undefined") {
-        if (typeof console.log != 'undefined') {
-            console.olog = console.log;
-        } else {
-            console.olog = function() {};
-        }
-    }
-    console.log = function(message) {
-        console.olog(message);
+function printLine(str) {
+    setTimeout(function() {
         var output = document.getElementById('output');
-        if (message.length == 0) {
+        if (str.length == 0) {
             return;
         }
         var div = document.createElement('div');
-        div.innerHTML = message;
+        div.innerHTML = str;
         output.appendChild(div);
-    };
-    console.error = console.debug = console.info = console.log;
+        scrollDown();
+    }, 10);
 }
 
 function initPage() {
-    redirectConsole();
-    var text = document.getElementById('seed');
-    text.focus();
+    //var text = document.getElementById('seed');
+    //text.focus();
 }
 </script>
 
@@ -165,21 +177,21 @@ Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.
 
 
 
-<h2>The Game</h2>
+<h2>About Minesweeper</h2>
 
 <p>Among the <code>width</code> &times; <code>height</code> cells on the field, <code>n_mines</code> cells contain mines. The goal of the agent is to identify these mines. Every turn, the agent can select a cell and explore it, in which case it learns how many of the adjacent cells contain a mine, or flag it as mine. The game is won when all non-mine fields are explored and all mine cells are flagged. The game is lost when the agent explores a mine cell.</p>
 
 
 
-<h2>The Agent</h2>
+<h2>About the Agent</h2>
 
 <p>The agent is a simple C++ program that loops over all cells and uses the reasoner to find out which cells are known to contain a/no mine.</p>
 
-<p>For every cell <code>(x|y)</code>, we have use a proposition <code>IsMine(x,y)</code>. Whenever a cell is explored, the agent learns how many adjacent cells contain a mine. Clauses of <code>IsMine(x,y)</code> literals are then added to the knowledge base to represent this new knowledge.</p>
+<p>For every cell <code>(x,y)</code>, we use a proposition <code>IsMine(x,y)</code>. When a cell is explored, the agent receives the information how many adjacent cells contain a mine. To reflect this new information, the agent adds clauses of <code>IsMine(x,y)</code>. For instance, when the agent learns that one of the eight adjacent cell contains a mine, it adds <code>IsMine(x-1,y) &or; IsMine(x-1,y+1) &or; IsMine(x,y+1) &or; IsMine(x+1,y+1) &or; IsMine(x+1,y) &or; IsMine(x+1,y-1) &or; IsMine(x,y-1) &or; IsMine(x-1,y-1)</code> to say that at least one of the neighbors contains a mine, and a few similar clauses to say that at least seven adjacent cells contain <i>no</i> mine.</p>
 
-<p>Every turn, the agent checks for every cell whether it is known to contain a mine or known to contain no mine. This process is repeated for increasing slit level, until a cell which is known to be a mine or known to be safe is found: first for split level 0, then for 1, ..., until the maximum specified split level. If no cell is found, the agent guesses one randomly.</p>
+<p>On every turn, the agent checks for every cell whether it is known to contain a mine or known to contain no mine. This process is repeated for increasing slit level, until a cell which is known to be a mine or known to be safe is found: first for split level 0, then for 1, ..., until the maximum specified split level. If no cell is found, the agent guesses one randomly.</p>
 
-<p>Please note the agent's actions are not represented in the knowledge base. The agent's behaviour is encoded in the C++ program. A next step would be to represent the agent with situation calculus-style actions in the knowledge base, I guess.</p>
+<p>Note the agent's actions are not represented in the knowledge base -- it's just hard-coded in C++. Extending the knowledge base to a basic action theory that also represents the agent's actions would be the next step.</p>
 
 
 
