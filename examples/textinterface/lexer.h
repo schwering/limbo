@@ -119,9 +119,9 @@ class Lexer {
 
   Lexer(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {
     lexemes_.push_back(std::make_pair(Token::kSort,       [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "sort"); }));
-    lexemes_.push_back(std::make_pair(Token::kVar,        [](ForwardIt begin, ForwardIt end) { return std::max( IsPrefix(begin, end, "var"), IsPrefix(begin, end, "variable") ); }));
-    lexemes_.push_back(std::make_pair(Token::kName,       [](ForwardIt begin, ForwardIt end) { return std::max( IsPrefix(begin, end, "name"), IsPrefix(begin, end, "stdname") ); }));
-    lexemes_.push_back(std::make_pair(Token::kFun,        [](ForwardIt begin, ForwardIt end) { return std::max( IsPrefix(begin, end, "fun"), IsPrefix(begin, end, "function") ); }));
+    lexemes_.push_back(std::make_pair(Token::kVar,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"var" "variable"}); }));
+    lexemes_.push_back(std::make_pair(Token::kName,       [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"name", "stdname"}); }));
+    lexemes_.push_back(std::make_pair(Token::kFun,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"fun", "function"}); }));
     lexemes_.push_back(std::make_pair(Token::kKB,         [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "kb"); }));
     lexemes_.push_back(std::make_pair(Token::kLet,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "let"); }));
     lexemes_.push_back(std::make_pair(Token::kEntails,    [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "entails"); }));
@@ -129,11 +129,11 @@ class Lexer {
     lexemes_.push_back(std::make_pair(Token::kColon,      [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ":"); }));
     lexemes_.push_back(std::make_pair(Token::kSemicolon,  [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ";"); }));
     lexemes_.push_back(std::make_pair(Token::kComma,      [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ","); }));
-    lexemes_.push_back(std::make_pair(Token::kEqual,      [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "=="); }));
-    lexemes_.push_back(std::make_pair(Token::kInequal,    [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "!="); }));
-    lexemes_.push_back(std::make_pair(Token::kNot,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "!"); }));
-    lexemes_.push_back(std::make_pair(Token::kOr,         [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "||"); }));
-    lexemes_.push_back(std::make_pair(Token::kAnd,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "&&"); }));
+    lexemes_.push_back(std::make_pair(Token::kEqual,      [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"==", "="}); }));
+    lexemes_.push_back(std::make_pair(Token::kInequal,    [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"!=", "/="}); }));
+    lexemes_.push_back(std::make_pair(Token::kNot,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"!", "~"}); }));
+    lexemes_.push_back(std::make_pair(Token::kOr,         [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"||", "|", "v"}); }));
+    lexemes_.push_back(std::make_pair(Token::kAnd,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"&&", "&", "&"}); }));
     lexemes_.push_back(std::make_pair(Token::kForall,     [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "fa"); }));
     lexemes_.push_back(std::make_pair(Token::kExists,     [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "ex"); }));
     lexemes_.push_back(std::make_pair(Token::kAssign,     [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ":="); }));
@@ -144,8 +144,18 @@ class Lexer {
     lexemes_.push_back(std::make_pair(Token::kAstSlash,   [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "*/"); }));
     lexemes_.push_back(std::make_pair(Token::kLeftParen,  [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "("); }));
     lexemes_.push_back(std::make_pair(Token::kRightParen, [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ")"); }));
-    lexemes_.push_back(std::make_pair(Token::kUint,       [](ForwardIt begin, ForwardIt end) { return begin == end ? kPrefixMatch : (*begin != '0' || std::next(begin) == end) && std::all_of(begin, end, [](char c) { return IsDigit(c); }) ? kFullMatch : kMismatch; }));
-    lexemes_.push_back(std::make_pair(Token::kIdentifier, [](ForwardIt begin, ForwardIt end) { return begin == end ? kPrefixMatch : IsAlpha(*begin) && std::all_of(begin, end, [](char c) { return IsAlnum(c); }) ? kFullMatch : kMismatch; }));
+    lexemes_.push_back(std::make_pair(Token::kUint,       [](ForwardIt begin, ForwardIt end) { return
+                              begin == end
+                                  ? kPrefixMatch :
+                              (*begin != '0' || std::next(begin) == end) && std::all_of(begin, end, [](char c) { return IsDigit(c); })
+                                  ? kFullMatch
+                                  : kMismatch; }));
+    lexemes_.push_back(std::make_pair(Token::kIdentifier, [](ForwardIt begin, ForwardIt end) { return
+                              begin == end
+                                  ? kPrefixMatch :
+                              IsAlpha(*begin) && std::all_of(begin, end, [](char c) { return IsAlnum(c); })
+                                  ? kFullMatch
+                                  : kMismatch; }));
   }
 
   iterator begin() const { return iterator(&lexemes_, begin_, end_); }
@@ -163,6 +173,14 @@ class Lexer {
       return len < foobar.length() ? kPrefixMatch : kFullMatch;
     }
   }
+  static Match IsPrefix(ForwardIt begin, ForwardIt end, const std::initializer_list<std::string>& foobars) {
+    Match m = kMismatch;
+    for (const auto& foobar : foobars) {
+      m = std::max(m, IsPrefix(begin, end, foobar));
+    }
+    return m;
+  }
+
   static bool IsWhitespace(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
   static bool IsDigit(char c) { return '0' <= c && c <= '9'; }
   static bool IsAlpha(char c) { return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_'; }

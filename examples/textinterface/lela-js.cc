@@ -34,7 +34,7 @@ inline void parse(const char* c_str) {
   struct PrintAnnouncer : public Announcer {
     void AnnounceEntailment(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) override {
       std::string phi_str = to_string(phi);
-      std::cout << "Setup = " << s << std::endl;
+      std::cout << "Setup = " << std::endl << s << std::endl;
       std::cout << "Entails(" << k << ", " << phi_str << ") = " << std::boolalpha << yes << std::endl;
       EM_ASM_({
         announceEntailment($0, Pointer_stringify($1), $2);
