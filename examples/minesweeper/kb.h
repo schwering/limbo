@@ -26,13 +26,11 @@ class KnowledgeBase {
         XPos(ctx_.NewSort()),
         YPos(ctx_.NewSort()),
         T(ctx_.NewName(Bool)),
-        F(ctx_.NewName(Bool)),
         Mine(ctx_.NewFun(Bool, 2)) {
     lela::format::RegisterSort(Bool, "");
     lela::format::RegisterSort(XPos, "");
     lela::format::RegisterSort(YPos, "");
     lela::format::RegisterSymbol(T.symbol(), "T");
-    lela::format::RegisterSymbol(F.symbol(), "F");
     lela::format::RegisterSymbol(Mine, "Mine");
     X.resize(g_->width());
     for (size_t i = 0; i < g_->width(); ++i) {
@@ -92,7 +90,7 @@ class KnowledgeBase {
  private:
   lela::Literal MineLit(bool is, Point p) const {
     lela::Term t = Mine(X[p.x], Y[p.y]);
-    return is ? lela::Literal::Eq(t, T) : lela::Literal::Eq(t, F);
+    return is ? lela::Literal::Eq(t, T) : lela::Literal::Neq(t, T);
   }
 
   lela::Clause MineClause(bool sign, const std::vector<Point> ns) const {
@@ -155,7 +153,6 @@ class KnowledgeBase {
   lela::Symbol::Sort XPos;
   lela::Symbol::Sort YPos;
   lela::format::HiTerm T;               // name for positive truth value
-  lela::format::HiTerm F;               // name for positive truth value
   std::vector<lela::format::HiTerm> X;  // names for X positions
   std::vector<lela::format::HiTerm> Y;  // names for Y positions
   lela::format::HiSymbol Mine;
