@@ -1,0 +1,53 @@
+Sort ENTITY;
+Sort BOOL;
+
+Variable x -> ENTITY;
+Variable y -> ENTITY;
+
+Name Jesus -> ENTITY;
+Name Mary -> ENTITY;
+Name Joe -> ENTITY;
+Name HolyGhost -> ENTITY;
+Name God -> ENTITY;
+Name True -> BOOL;
+
+Function fatherOf/1 -> ENTITY;
+Function motherOf/1 -> ENTITY;
+Function is_mortal/1 -> BOOL;
+
+KB (Mary == motherOf(Jesus));
+KB (HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
+KB (is_mortal(Mary) == True);
+KB (is_mortal(Joe) == True);
+KB (fatherOf(Jesus) != x || x == Joe || is_mortal(x) != True);
+
+Let phi := HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
+Assert Entails (0, phi);
+
+Let phi := Ex x (x == fatherOf(Jesus));
+Refute Entails (0, phi);
+Entails (1, phi);
+
+Let phi := HolyGhost == fatherOf(Jesus);
+Refute Consistent (0, phi);
+Assert Consistent (1, phi);
+
+Let phi := HolyGhost == fatherOf(Jesus) && God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
+Refute Entails (0, phi);
+
+Let phi := motherOf(Jesus) == fatherOf(Jesus);
+Refute Entails    (0, phi);
+Refute Consistent (0, phi);
+Assert Entails    (0, !phi);
+Refute Consistent (0, !phi);
+Assert Consistent (1, !phi);
+
+Assert Entails (0, is_mortal(motherOf(Jesus)) == True);
+
+Let phi := is_mortal(fatherOf(Jesus)) == True;
+Assert Consistent (1, phi);
+Assert Consistent (1, !phi);
+
+Assert Entails    (1, Ex x is_mortal(x) == True);
+Refute Entails    (1, Fa x is_mortal(x) == True);
+

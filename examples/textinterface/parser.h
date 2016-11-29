@@ -121,7 +121,7 @@ class Parser {
     }
     if (Is(Symbol(0), Token::kSort) &&
         Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredSort(s); }) &&
-        Is(Symbol(2), Token::kSemicolon)) {
+        Is(Symbol(2), Token::kEndOfLine)) {
       kb_.RegisterSort(Symbol(1).val.str());
       Advance(2);
       return Success<bool>(true);
@@ -130,7 +130,7 @@ class Parser {
         Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredTerm(s); }) &&
         Is(Symbol(2), Token::kRArrow) &&
         Is(Symbol(3), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredSort(s); }) &&
-        Is(Symbol(4), Token::kSemicolon)) {
+        Is(Symbol(4), Token::kEndOfLine)) {
       kb_.RegisterVar(Symbol(1).val.str(), Symbol(3).val.str());
       Advance(4);
       return Success<bool>(true);
@@ -139,7 +139,7 @@ class Parser {
         Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredTerm(s); }) &&
         Is(Symbol(2), Token::kRArrow) &&
         Is(Symbol(3), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredSort(s); }) &&
-        Is(Symbol(4), Token::kSemicolon)) {
+        Is(Symbol(4), Token::kEndOfLine)) {
       kb_.RegisterName(Symbol(1).val.str(), Symbol(3).val.str());
       Advance(4);
       return Success<bool>(true);
@@ -150,7 +150,7 @@ class Parser {
         Is(Symbol(3), Token::kUint) &&
         Is(Symbol(4), Token::kRArrow) &&
         Is(Symbol(5), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredSort(s); }) &&
-        Is(Symbol(6), Token::kSemicolon)) {
+        Is(Symbol(6), Token::kEndOfLine)) {
       kb_.RegisterFun(Symbol(1).val.str(), std::stoi(Symbol(3).val.str()), Symbol(5).val.str());
       Advance(6);
       return Success<bool>(true);
@@ -220,9 +220,9 @@ class Parser {
       return Failure<lela::Literal>(MSG("Expected a lhs term"), lhs, DUMMY_LITERAL_);
     }
     bool pos;
-    if (Is(Symbol(0), Token::kEqual) ||
-        Is(Symbol(0), Token::kInequal)) {
-      pos = Is(Symbol(0), Token::kEqual);
+    if (Is(Symbol(0), Token::kEquality) ||
+        Is(Symbol(0), Token::kInequality)) {
+      pos = Is(Symbol(0), Token::kEquality);
       Advance(0);
     } else {
       return Failure<lela::Literal>(MSG("Expected equality or inequality '=='/'!='"), DUMMY_LITERAL_);
@@ -256,7 +256,7 @@ class Parser {
       return Failure<bool>(MSG("Expected right parenthesis ')'"));
     }
     Advance(0);
-    if (!Is(Symbol(0), Token::kSemicolon)) {
+    if (!Is(Symbol(0), Token::kEndOfLine)) {
       return Failure<bool>(MSG("Expected end of line ';'"));
     }
     Advance(0);
@@ -391,7 +391,7 @@ class Parser {
     if (!phi) {
       return Failure<bool>(MSG("Expected formula"), phi);
     }
-    if (!Is(Symbol(0), Token::kSemicolon)) {
+    if (!Is(Symbol(0), Token::kEndOfLine)) {
       return Failure<bool>(MSG("Expected end of line ';'"));
     }
     Advance(0);
@@ -436,7 +436,7 @@ class Parser {
       return Failure<bool>(MSG("Expected right parenthesis ')'"));
     }
     Advance(0);
-    if (!Is(Symbol(0), Token::kSemicolon)) {
+    if (!Is(Symbol(0), Token::kEndOfLine)) {
       return Failure<bool>(MSG("Expected end of line ';'"));
     }
     Advance(0);
@@ -457,6 +457,32 @@ class Parser {
     Result<bool> r;
     bool all = true;
     while ((r = query())) {
+      all &= r.val;
+    }
+    return !r.unapplicable ? r : Success<bool>(all);
+  }
+
+  // assertion_refutation --> Assert query | Refute query
+  Result<bool> assertion_refutation() {
+    if (!Is(Symbol(0), Token::kAssert) &&
+        !Is(Symbol(0), Token::kRefute)) {
+      return Unapplicable<bool>(MSG("No assertion_refutation"));
+    }
+    Result<bool> failure = Failure<bool>(MSG("Assertion/refutation failed"));
+    const bool pos = Is(Symbol(0), Token::kAssert);
+    Advance(0);
+    Result<bool> r = query();
+    if (!r) {
+      return Failure<bool>(MSG("Expected formula"), r);
+    }
+    return r.val == pos ? Success<bool>(true) : failure;
+  }
+
+  // assertions_refutations --> assertion_refutation*
+  Result<bool> assertions_refutations() {
+    Result<bool> r;
+    bool all = true;
+    while ((r = assertion_refutation())) {
       all &= r.val;
     }
     return !r.unapplicable ? r : Success<bool>(all);
@@ -483,6 +509,10 @@ class Parser {
       r = queries();
       if (!r) {
         return Failure<bool>(MSG("Error in queries"), r);
+      }
+      r = assertions_refutations();
+      if (!r) {
+        return Failure<bool>(MSG("Error in assertions_refutations"), r);
       }
     } while (begin_ != last);
     std::stringstream ss;

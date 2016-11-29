@@ -60,7 +60,7 @@
 
         ul.grammar { list-style-type: none; }
         .code { font-family: monospace; font-weight: bold; }
-        .metavariable { font-family: monospace; font-weight: bold; color: #800080; }
+        .metavariable { font-family: monospace; font-weight: normal; color: #800080; }
     </style>
 
     <script src="jquery-3.1.1.min.js"></script>
@@ -84,7 +84,8 @@ Also have a look at the <a href="../minesweeper/" target="_blank">the other demo
 <p>
 Load an example problem description:
 <select id="examples">
-<option value="example-1.txt" selected="selected">Parents</option>
+<option value="example-1.txt" selected="selected">Unknown Father</option>
+<option value="assertions-1.txt">Unknown Father (with assertions)</option>
 <option value="">none</option>
 </select> <br />
 If you like, you can edit the text. For help on the syntax, see <a href="#syntax">below</a>.
@@ -96,7 +97,6 @@ If you like, you can edit the text. For help on the syntax, see <a href="#syntax
 <input value="Click me!" type="button" id="parse-button" />
 
 <script>
-
 $(document).ready(function() {
    redirectConsole();
 
@@ -109,9 +109,12 @@ $(document).ready(function() {
             $.ajax({
                 url : file,
                 dataType: 'text',
-                success: function(data) { $('#parse-text').val(data); }
+                success: function(data) {
+                    $('#parse-text').val(data);
+                    scrollToBottom($('#parse-button'));
+                    $('#parse-button').focus();
+                }
             });
-            scroll($('#parse-button'));
         } else {
             $('#parse-text').val("").focus();
         }
@@ -122,7 +125,7 @@ $(document).ready(function() {
     });
 });
 
-function scroll(e) {
+function scrollToBottom(e) {
     var wHeight = $(window).height();
     var eOffset = $(e).offset().top;
     var eHeight = $(e).outerHeight();
@@ -137,7 +140,7 @@ function parse() {
     Module.ccall('lela_parse', 'void', ['string'], [text]);
     var t1 = performance.now();
     console.log("Parsing and reasoning took "+ Math.round(t1 - t0) +" milliseconds");
-    scroll($('#parse-output'));
+    scrollToBottom($('#parse-output'));
 }
 
 function resultClass(r) { return r ? 'success' : 'failure'; }
@@ -180,11 +183,13 @@ function redirectConsole() {
         if (message.length == 0) {
             return;
         }
-        var c = message.charCodeAt(0);
-        if ((65 <= c && c <= 90) || (97 <= c && c <= 122) || $('#debug-output').last() == null) {
-            $('#debug-output').append('<li>'+ message +'</li>');
-        } else {
-            $('#debug-output').children().last().append('<br />'+ message);
+        if (typeof message.charCodeAt !== 'undefined') {
+            var c = message.charCodeAt(0);
+            if ((65 <= c && c <= 90) || (97 <= c && c <= 122) || $('#debug-output').last() == null) {
+                $('#debug-output').append('<li>'+ message +'</li>');
+            } else {
+                $('#debug-output').children().last().append('<br />'+ message);
+            }
         }
     };
     console.error = console.debug = console.info = console.log;
@@ -249,7 +254,7 @@ Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.
 
 <p>A problem description consists of four parts:</p>
 <ol>
-    <li> declarations of sorts, variables, (standard) names, and functions; </li>
+    <li> declarations of sorts, variables, standard names, and functions; </li>
     <li> the knowledge definition; </li>
     <li> optional abbreviations for formulas; </li>
     <li> entailment and/or consistency queries. </li>
@@ -290,14 +295,14 @@ The knowledge base consists of a sequence of clauses, each of which is written a
 where <span class="metavariable">literal<sub>i</sub></span> denotes a literal, which either an equality or an inequality expression:
 </p>
 <ul class="grammar">
-    <li><span class="metavariable"><span class="metavariable">t<sub>1</sub></span> == <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="metavariable"><span class="metavariable">t<sub>1</sub></span> = <span class="metavariable">t<sub>2</sub></span></span></li>
-    <li><span class="metavariable"><span class="metavariable">t<sub>1</sub></span> != <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="metavariable"><span class="metavariable">t<sub>1</sub></span> /= <span class="metavariable">t<sub>2</sub></span></span></li>
+    <li><span class="code"><span class="metavariable">t<sub>1</sub></span> == <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code"><span class="metavariable">t<sub>1</sub></span> = <span class="metavariable">t<sub>2</sub></span></span></li>
+    <li><span class="code"><span class="metavariable">t<sub>1</sub></span> != <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code"><span class="metavariable">t<sub>1</sub></span> /= <span class="metavariable">t<sub>2</sub></span></span></li>
 </ul>
 <p>
 where <span class="metavariable">t<sub>i</sub></span> is a term.
-A term is either the identifier of a previously declared variable, a (standard) name, or a function symbol <span class="metavariable">f</span> applied to other terms <span class="metavariable">t'<sub>i</sub></span>, written <span class="code"><span class="metavariable">f</span>(<span class="metavariable">t'<sub>1</sub></span>, <span class="metavariable">...</span>, <span class="metavariable">t'<sub>k</sub></span>)</span>.
+A term is either the identifier of a previously declared variable, a standard name, or a function symbol <span class="metavariable">f</span> applied to other terms <span class="metavariable">t'<sub>i</sub></span>, written <span class="code"><span class="metavariable">f</span>(<span class="metavariable">t'<sub>1</sub></span>, <span class="metavariable">...</span>, <span class="metavariable">t'<sub>k</sub></span>)</span>.
 When <span class="metavariable">f</span> is a constant symbol (that is, has arity 0), the brackets may be omitted.
 Variables in the KB are implicitly universally quantified.
 </p>
@@ -314,7 +319,7 @@ Formula identifiers can be redefined.
 </p>
 
 <p>
-The set of formulas includes literals, negated formulas, disjunctions, conjunctions, and existentially and universally quantified formulas, formulas in brackets, and abbreviations:
+The set of formulas includes literals as defined above as well as negated formulas, disjunctions, conjunctions, and existentially and universally quantified formulas, formulas in brackets, and abbreviations:
 <ul class="grammar">
     <li><span class="code">!<span class="metavariable">formula</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
         <span class="code">~<span class="metavariable">formula</span></span></li>
@@ -328,8 +333,8 @@ The set of formulas includes literals, negated formulas, disjunctions, conjuncti
     <li><span class="code"><span class="metavariable">formula-identifier</span></span></li>
 </ul>
 <p>
-where <span class="metavariable">x</span> is the identifier of some previously declared variable and <span class="metavariable">formula-identifier</span> has been introduced in a formula abbreviation.
-Conjunction binds stronger than disjunctions, and the scope of negation and quantifiers is minimal; use brackets to increase the scope.
+where <span class="metavariable">x</span> is the identifier of a previously declared variable and <span class="metavariable">formula-identifier</span> has been introduced in a formula abbreviation.
+Conjunction binds stronger than disjunction, and the scope of negation and quantifiers is minimal.
 </p>
 
 <p>
@@ -344,10 +349,23 @@ where <span class="metavariable">k</span> &ge; 0 is a natural number that denote
 Both entailment and consistency queries are sound but incomplete with respect to classical logic.
 The reasoning effort is measured in case splits (a split means to select a term <span class="code">f(n<sub>1</sub>,...,n<sub>l</sub>)</span> and consider all possible denotations of that term) in entailment queries, and as term assignments (an assignment means to select a term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix their denotation) in consistency queries.
 </p>
+<p>
+For automated testing, it is also desirable to augment queries with the respected result.
+The language supports assertions and refutations for that purpose:
+</p>
+<ul class="grammar">
+    <li><span class="code">Assert Entails&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
+    <li><span class="code">Refute Entails&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
+    <li><span class="code">Assert Consistent&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
+    <li><span class="code">Refute Consistent&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
+</ul>
+<p>
+Execution aborts with an asserted entailment/consistency does not hold or when a refuted entailment/consistency does hold.
+</p>
 
 <p>
-The lexer and parser are hand-written (recursive descent) for this demo and hardly tested.
-Let's just hope it works &#9786;.
+C-style single line comments are supported as well: 
+    <span class="code">//&nbsp;<span class="metavariable">rest of line is comment</span>.
 </p>
 
 <h2>References</h2>

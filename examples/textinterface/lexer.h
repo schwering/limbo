@@ -18,8 +18,8 @@
 
 class Token {
  public:
-  enum Id { kError, kSort, kVar, kName, kFun, kKB, kLet, kEntails, kConsistent, kColon, kComma, kSemicolon, kEqual,
-    kInequal, kNot, kOr, kAnd, kForall, kExists, kAssign, kRArrow, kLRArrow, kSlash, kSlashAst, kAstSlash,
+  enum Id { kError, kSort, kVar, kName, kFun, kKB, kLet, kEntails, kConsistent, kAssert, kRefute, kColon, kComma,
+    kEndOfLine, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kAssign, kRArrow, kLRArrow, kSlash, kComment,
     kLeftParen, kRightParen, kUint, kIdentifier };
 
   Token() : id_(kError) {}
@@ -38,21 +38,33 @@ class Token {
 
 template<typename ForwardIt>
 class Lexer {
+ private:
+  class Word {
+   public:
+    Word(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {}
+    ForwardIt begin() const { return begin_; }
+    ForwardIt end() const { return end_; }
+    std::string str() const { return std::string(begin_, end_); }
+   private:
+    ForwardIt begin_;
+    ForwardIt end_;
+  };
+
  public:
   enum Match { kMismatch, kPrefixMatch, kFullMatch };
-  typedef std::list<std::pair<Token::Id, std::function<Match(ForwardIt, ForwardIt)>>> LexemeVector;
+  typedef std::list<std::pair<Token::Id, std::function<Match(Word)>>> LexemeVector;
 
   struct iterator {
     typedef std::ptrdiff_t difference_type;
     typedef Token value_type;
     typedef value_type reference;
     typedef value_type* pointer;
-    typedef std::input_iterator_tag iterator_category;
+    typedef std::forward_iterator_tag iterator_category;
     typedef lela::internal::iterator_proxy<iterator> proxy;
 
     iterator() = default;
     iterator(const LexemeVector* lexemes, ForwardIt it, ForwardIt end) : lexemes_(lexemes), it_(it), end_(end) {
-      SkipWhitespace();
+      SkipToNext();
     }
     iterator(const iterator&) = default;
     iterator& operator=(const iterator&) = default;
@@ -61,14 +73,14 @@ class Lexer {
     bool operator!=(const iterator& it) const { return !(*this == it); }
 
     reference operator*() const {
-      std::pair<ForwardIt, ForwardIt> substr = NextWord();
-      std::pair<Match, Token::Id> match = LexemeMatch(substr.first, substr.second);
-      return Token(match.second, std::string(substr.first, substr.second));
+      const Word w = CurrentWord();
+      const std::pair<Match, Token::Id> m = LexemeMatch(w);
+      return Token(m.second, w.str());
     }
 
     iterator& operator++() {
-      it_ = NextWord().second;
-      SkipWhitespace();
+      it_ = CurrentWord().end();
+      SkipToNext();
       return *this;
     }
 
@@ -78,32 +90,41 @@ class Lexer {
     ForwardIt char_iter() const { return it_; }
 
    private:
-    void SkipWhitespace() {
-      for (; it_ != end_ && IsWhitespace(*it_); ++it_) {
+    template<typename UnaryPredicate>
+    void SkipWhile(UnaryPredicate p) {
+      for (; it_ != end_ && p(*it_); ++it_) {
       }
     }
 
-    std::pair<ForwardIt, ForwardIt> NextWord() const {
+    void SkipToNext() {
+      SkipWhile([](char c) { return IsWhitespace(c); });
+      while (it_ != end_ && LexemeMatch(CurrentWord()).second == Token::kComment) {
+        SkipWhile([](char c) { return !IsNewLine(c); });
+        SkipWhile([](char c) { return IsWhitespace(c); });
+      }
+    }
+
+    Word CurrentWord() const {
       // Max-munch lexer
       assert(it_ != end_);
       ForwardIt it = it_;
       ForwardIt jt;
       std::pair<Match, Token::Id> m;
       for (jt = it; jt != end_; ++jt) {
-        m = LexemeMatch(it, std::next(jt));
+        m = LexemeMatch(Word(it, std::next(jt)));
         if (m.first == kMismatch) {
           break;
         }
       }
       assert(it != jt);
-      return std::make_pair(it, jt);
+      return Word(it, jt);
     }
 
-    std::pair<Match, Token::Id> LexemeMatch(ForwardIt begin, ForwardIt end) const {
+    std::pair<Match, Token::Id> LexemeMatch(Word w) const {
       Match best_match = kMismatch;
       Token::Id best_token = Token::kError;
       for (auto& p : *lexemes_) {
-        const Match m = p.second(begin, end);
+        const Match m = p.second(w);
         if ((best_match == kMismatch && m == kPrefixMatch) || (best_match != kFullMatch && m == kFullMatch)) {
           best_match = m;
           best_token = p.first;
@@ -118,42 +139,45 @@ class Lexer {
   };
 
   Lexer(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {
-    lexemes_.push_back(std::make_pair(Token::kSort,       [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "sort"); }));
-    lexemes_.push_back(std::make_pair(Token::kVar,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"var" "variable"}); }));
-    lexemes_.push_back(std::make_pair(Token::kName,       [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"name", "stdname"}); }));
-    lexemes_.push_back(std::make_pair(Token::kFun,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"fun", "function"}); }));
-    lexemes_.push_back(std::make_pair(Token::kKB,         [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "kb"); }));
-    lexemes_.push_back(std::make_pair(Token::kLet,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "let"); }));
-    lexemes_.push_back(std::make_pair(Token::kEntails,    [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "entails"); }));
-    lexemes_.push_back(std::make_pair(Token::kConsistent, [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "consistent"); }));
-    lexemes_.push_back(std::make_pair(Token::kColon,      [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ":"); }));
-    lexemes_.push_back(std::make_pair(Token::kSemicolon,  [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ";"); }));
-    lexemes_.push_back(std::make_pair(Token::kComma,      [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ","); }));
-    lexemes_.push_back(std::make_pair(Token::kEqual,      [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"==", "="}); }));
-    lexemes_.push_back(std::make_pair(Token::kInequal,    [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"!=", "/="}); }));
-    lexemes_.push_back(std::make_pair(Token::kNot,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"!", "~"}); }));
-    lexemes_.push_back(std::make_pair(Token::kOr,         [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"||", "|", "v"}); }));
-    lexemes_.push_back(std::make_pair(Token::kAnd,        [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, {"&&", "&", "&"}); }));
-    lexemes_.push_back(std::make_pair(Token::kForall,     [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "fa"); }));
-    lexemes_.push_back(std::make_pair(Token::kExists,     [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "ex"); }));
-    lexemes_.push_back(std::make_pair(Token::kAssign,     [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ":="); }));
-    lexemes_.push_back(std::make_pair(Token::kRArrow,     [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "->"); }));
-    lexemes_.push_back(std::make_pair(Token::kLRArrow,    [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "<->"); }));
-    lexemes_.push_back(std::make_pair(Token::kSlash,      [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "/"); }));
-    lexemes_.push_back(std::make_pair(Token::kSlashAst,   [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "/*"); }));
-    lexemes_.push_back(std::make_pair(Token::kAstSlash,   [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "*/"); }));
-    lexemes_.push_back(std::make_pair(Token::kLeftParen,  [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, "("); }));
-    lexemes_.push_back(std::make_pair(Token::kRightParen, [](ForwardIt begin, ForwardIt end) { return IsPrefix(begin, end, ")"); }));
-    lexemes_.push_back(std::make_pair(Token::kUint,       [](ForwardIt begin, ForwardIt end) { return
-                              begin == end
+    lexemes_.push_back(std::make_pair(Token::kSort,       [](Word w) { return IsPrefix(w, "sort"); }));
+    lexemes_.push_back(std::make_pair(Token::kVar,        [](Word w) { return IsPrefix(w, {"var", "variable"}); }));
+    lexemes_.push_back(std::make_pair(Token::kName,       [](Word w) { return IsPrefix(w, {"name", "stdname"}); }));
+    lexemes_.push_back(std::make_pair(Token::kFun,        [](Word w) { return IsPrefix(w, {"fun", "function"}); }));
+    lexemes_.push_back(std::make_pair(Token::kKB,         [](Word w) { return IsPrefix(w, "kb"); }));
+    lexemes_.push_back(std::make_pair(Token::kLet,        [](Word w) { return IsPrefix(w, "let"); }));
+    lexemes_.push_back(std::make_pair(Token::kEntails,    [](Word w) { return IsPrefix(w, "entails"); }));
+    lexemes_.push_back(std::make_pair(Token::kConsistent, [](Word w) { return IsPrefix(w, "consistent"); }));
+    lexemes_.push_back(std::make_pair(Token::kAssert,     [](Word w) { return IsPrefix(w, "assert"); }));
+    lexemes_.push_back(std::make_pair(Token::kRefute,     [](Word w) { return IsPrefix(w, "refute"); }));
+    lexemes_.push_back(std::make_pair(Token::kColon,      [](Word w) { return IsPrefix(w, ":"); }));
+    lexemes_.push_back(std::make_pair(Token::kEndOfLine,  [](Word w) { return IsPrefix(w, ";"); }));
+    lexemes_.push_back(std::make_pair(Token::kComma,      [](Word w) { return IsPrefix(w, ","); }));
+    lexemes_.push_back(std::make_pair(Token::kEquality,   [](Word w) { return IsPrefix(w, {"==", "="}); }));
+    lexemes_.push_back(std::make_pair(Token::kInequality, [](Word w) { return IsPrefix(w, {"!=", "/="}); }));
+    lexemes_.push_back(std::make_pair(Token::kNot,        [](Word w) { return IsPrefix(w, {"!", "~"}); }));
+    lexemes_.push_back(std::make_pair(Token::kOr,         [](Word w) { return IsPrefix(w, {"||", "|", "v"}); }));
+    lexemes_.push_back(std::make_pair(Token::kAnd,        [](Word w) { return IsPrefix(w, {"&&", "&", "&"}); }));
+    lexemes_.push_back(std::make_pair(Token::kForall,     [](Word w) { return IsPrefix(w, "fa"); }));
+    lexemes_.push_back(std::make_pair(Token::kExists,     [](Word w) { return IsPrefix(w, "ex"); }));
+    lexemes_.push_back(std::make_pair(Token::kAssign,     [](Word w) { return IsPrefix(w, ":="); }));
+    lexemes_.push_back(std::make_pair(Token::kRArrow,     [](Word w) { return IsPrefix(w, "->"); }));
+    lexemes_.push_back(std::make_pair(Token::kLRArrow,    [](Word w) { return IsPrefix(w, "<->"); }));
+    lexemes_.push_back(std::make_pair(Token::kSlash,      [](Word w) { return IsPrefix(w, "/"); }));
+    lexemes_.push_back(std::make_pair(Token::kComment,    [](Word w) { return IsPrefix(w, "//"); }));
+    lexemes_.push_back(std::make_pair(Token::kLeftParen,  [](Word w) { return IsPrefix(w, "("); }));
+    lexemes_.push_back(std::make_pair(Token::kRightParen, [](Word w) { return IsPrefix(w, ")"); }));
+    lexemes_.push_back(std::make_pair(Token::kUint,       [](Word w) { return
+                              w.begin() == w.end()
                                   ? kPrefixMatch :
-                              (*begin != '0' || std::next(begin) == end) && std::all_of(begin, end, [](char c) { return IsDigit(c); })
+                              (*w.begin() != '0' || std::next(w.begin()) == w.end()) &&
+                               std::all_of(w.begin(), w.end(), [](char c) { return IsDigit(c); })
                                   ? kFullMatch
                                   : kMismatch; }));
-    lexemes_.push_back(std::make_pair(Token::kIdentifier, [](ForwardIt begin, ForwardIt end) { return
-                              begin == end
+    lexemes_.push_back(std::make_pair(Token::kIdentifier, [](Word w) { return
+                              w.begin() == w.end()
                                   ? kPrefixMatch :
-                              IsAlpha(*begin) && std::all_of(begin, end, [](char c) { return IsAlnum(c); })
+                              IsAlpha(*w.begin()) &&
+                              std::all_of(w.begin(), w.end(), [](char c) { return IsAlnum(c); })
                                   ? kFullMatch
                                   : kMismatch; }));
   }
@@ -162,30 +186,31 @@ class Lexer {
   iterator end()   const { return iterator(&lexemes_, end_, end_); }
 
  private:
-  LexemeVector lexemes_;
-
-  static Match IsPrefix(ForwardIt begin, ForwardIt end, const std::string& foobar) {
-    size_t len = std::distance(begin, end);
-    auto r = lela::internal::transform_range(begin, end, [](char c) { return std::tolower(c); });
+  static Match IsPrefix(Word w, const std::string& foobar) {
+    size_t len = std::distance(w.begin(), w.end());
+    auto r = lela::internal::transform_range(w.begin(), w.end(), [](char c) { return std::tolower(c); });
     if (len > foobar.length() || std::mismatch(r.begin(), r.end(), foobar.begin()).first != r.end()) {
       return kMismatch;
     } else {
       return len < foobar.length() ? kPrefixMatch : kFullMatch;
     }
   }
-  static Match IsPrefix(ForwardIt begin, ForwardIt end, const std::initializer_list<std::string>& foobars) {
+
+  static Match IsPrefix(Word w, const std::initializer_list<std::string>& foobars) {
     Match m = kMismatch;
     for (const auto& foobar : foobars) {
-      m = std::max(m, IsPrefix(begin, end, foobar));
+      m = std::max(m, IsPrefix(w, foobar));
     }
     return m;
   }
 
-  static bool IsWhitespace(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
+  static bool IsNewLine(char c) { return c == '\r' || c == '\n'; }
+  static bool IsWhitespace(char c) { return c == ' ' || c == '\t' || IsNewLine(c); }
   static bool IsDigit(char c) { return '0' <= c && c <= '9'; }
   static bool IsAlpha(char c) { return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_'; }
   static bool IsAlnum(char c) { return IsAlpha(c) || IsDigit(c); }
 
+  LexemeVector lexemes_;
   ForwardIt begin_;
   ForwardIt end_;
 };
@@ -200,11 +225,13 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kLet:        return os << "kLet";
     case Token::kEntails:    return os << "kEntails";
     case Token::kConsistent: return os << "kConsistent";
+    case Token::kAssert:     return os << "kAssert";
+    case Token::kRefute:     return os << "kRefute";
     case Token::kColon:      return os << "kColon";
-    case Token::kSemicolon:  return os << "kSemicolon";
+    case Token::kEndOfLine:  return os << "kEndOfLine";
     case Token::kComma:      return os << "kComma";
-    case Token::kEqual:      return os << "kEqual";
-    case Token::kInequal:    return os << "kInequal";
+    case Token::kEquality:   return os << "kEquality";
+    case Token::kInequality: return os << "kInequality";
     case Token::kNot:        return os << "kNot";
     case Token::kOr:         return os << "kOr";
     case Token::kAnd:        return os << "kAnd";
@@ -214,8 +241,7 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kLRArrow:    return os << "kLRArrow";
     case Token::kAssign:     return os << "kAssign";
     case Token::kSlash:      return os << "kSlash";
-    case Token::kSlashAst:   return os << "kSlashAst";
-    case Token::kAstSlash:   return os << "kAstSlash";
+    case Token::kComment:    return os << "kComment";
     case Token::kLeftParen:  return os << "kLeftParen";
     case Token::kRightParen: return os << "kRightParen";
     case Token::kUint:       return os << "kUint";

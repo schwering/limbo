@@ -24,7 +24,7 @@
 
 using lela::format::operator<<;
 
-#if 0
+#if 1
 template<typename Iter>
 static void lex(Iter begin, Iter end) {
   Lexer<Iter> lexer(begin, end);
@@ -32,7 +32,8 @@ static void lex(Iter begin, Iter end) {
     if (t.id() == Token::kError) {
       std::cout << "ERROR ";
     }
-    std::cout << t.str() << " ";
+    //std::cout << t.str() << " ";
+    std::cout << t << " ";
   }
 }
 #endif
@@ -120,6 +121,7 @@ int main(int argc, char** argv) {
   } else {
     multi_pass_iterator<std::istreambuf_iterator<char>> begin(std::cin);
     multi_pass_iterator<std::istreambuf_iterator<char>> end;
+    lex(begin, end);
     const bool succ = parse(begin, end);
     return succ ? 0 : 1;
   }
