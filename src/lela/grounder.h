@@ -128,7 +128,6 @@ class Grounder {
   void PrepareForQuery(size_t k, const Formula::Reader<T>& phi) {
     names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, phi));
     names_changed_ |= AddPlusNames(PlusNames(phi));
-    names_changed_ |= AddPlusNames(PlusSplitNames(k, phi));
     AddSplitTerms(SplitTerms(k, phi));
     AddAssignLiterals(AssignLiterals(k, phi));
   }
@@ -360,8 +359,6 @@ class Grounder {
   }
 
   static PlusMap PlusNames(const Clause& c) {
-    //assert(std::all_of(c.begin(), c.end(),
-    //                   [](Literal a) { return a.quasiprimitive() || !(a.lhs().function() && a.rhs().function()); }));
     PlusMap plus = PlusNames(Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, c));
     // The following fixes Lemma 8 in the LBF paper. The problem is that
     // for KB = {[c = x]}, unit propagation should yield the empty clause;
@@ -370,23 +367,12 @@ class Grounder {
     // variables in any clause.
     // PlusNames() computes p for a given clause; it is hence p+1 where p
     // is the number of variables in that clause.
-#if 0
-    // To avoid unnecessary grounding, we leave p=0 in case there are no
-    // variables.
-    for (const Symbol::Sort sort : plus.keys()) {
-      if (plus[sort] > 0) {
-        ++plus[sort];
-      }
-    }
-    return plus;
-#endif
-    // This fixes lemma 8 and implicitly also creates enough additional split
-    // names. XXX TODO Do we need to add k additional split names or is 1
-    // sufficient?
-    PlusMap plus_lemma_8;
-    c.Traverse([&plus_lemma_8](Term t) { plus_lemma_8[t.sort()] = 1; return true; });
-    plus = PlusMap::Zip(plus, plus_lemma_8, [](size_t lp, size_t rp) { return lp + rp; });
-    return plus;
+    // This fix also takes care of the right-hand side split name: splitting
+    // always needs to consider at least one name that does not occur in the KB
+    // or query, i.e., for every split term there must be at least plus name.
+    PlusMap plus_one;
+    c.Traverse([&plus_one](Term t) { plus_one[t.sort()] = 1; return true; });
+    return PlusMap::Zip(plus, plus_one, [](size_t lp, size_t rp) { return lp + rp; });
   }
 
   template<typename T>
@@ -406,9 +392,6 @@ class Grounder {
   static void PlusNames(const Formula::Reader<T>& phi, PlusMap* cur, PlusMap* max) {
     switch (phi.head().type()) {
       case Formula::Element::kClause:
-#if 0
-        *cur = PlusNames(Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, phi.head().clause().val));
-#endif
         *cur = PlusNames(phi.head().clause().val);
         *max = *cur;
         break;
@@ -543,38 +526,6 @@ class Grounder {
       grounded.MakeSet();
     }
     return grounded;
-  }
-
-  template<typename T>
-  static PlusMap PlusSplitNames(size_t k, const Formula::Reader<T>& phi) {
-    // When a term t only occurs in the form of literals (t = n), (t = x), or
-    // their duals and negations, then splitting does not necessitate an
-    // additional name. However, when t is an argument of another term or when
-    // it occurs in literals of the form (t = t') or its dual or negation, then
-    // we might need a name for every split.
-    PlusMap plus;
-#if 0
-    phi.Traverse([&plus, k](Literal a) {
-      auto f = [&plus, k](Term t) {
-        if (t.function()) {
-          plus[t.sort()] = k;
-        }
-        return true;
-      };
-      if (a.lhs().function() && a.rhs().function()) {
-        f(a.lhs());
-        f(a.rhs());
-      }
-      for (Term t : a.lhs().args()) {
-        t.Traverse(f);
-      }
-      for (Term t : a.rhs().args()) {
-        t.Traverse(f);
-      }
-      return true;
-    });
-#endif
-    return plus;
   }
 
   bool AddMentionedNames(const SortedTermSet& names) {
