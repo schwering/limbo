@@ -360,8 +360,8 @@ class Grounder {
   }
 
   static PlusMap PlusNames(const Clause& c) {
-    assert(std::all_of(c.begin(), c.end(),
-                       [](Literal a) { return a.quasiprimitive() || !(a.lhs().function() && a.rhs().function()); }));
+    //assert(std::all_of(c.begin(), c.end(),
+    //                   [](Literal a) { return a.quasiprimitive() || !(a.lhs().function() && a.rhs().function()); }));
     PlusMap plus = PlusNames(Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, c));
     // The following fixes Lemma 8 in the LBF paper. The problem is that
     // for KB = {[c = x]}, unit propagation should yield the empty clause;
@@ -369,13 +369,23 @@ class Grounder {
     // to ground variables by p+1 names, where p is the maximum number of
     // variables in any clause.
     // PlusNames() computes p for a given clause; it is hence p+1 where p
-    // is the number of variables in that clause. To avoid unnecessary
-    // grounding, we leave p=0 in case there are no variables.
+    // is the number of variables in that clause.
+#if 0
+    // To avoid unnecessary grounding, we leave p=0 in case there are no
+    // variables.
     for (const Symbol::Sort sort : plus.keys()) {
       if (plus[sort] > 0) {
         ++plus[sort];
       }
     }
+    return plus;
+#endif
+    // This fixes lemma 8 and implicitly also creates enough additional split
+    // names. XXX TODO Do we need to add k additional split names or is 1
+    // sufficient?
+    PlusMap plus_lemma_8;
+    c.Traverse([&plus_lemma_8](Term t) { plus_lemma_8[t.sort()] = 1; return true; });
+    plus = PlusMap::Zip(plus, plus_lemma_8, [](size_t lp, size_t rp) { return lp + rp; });
     return plus;
   }
 
@@ -396,7 +406,10 @@ class Grounder {
   static void PlusNames(const Formula::Reader<T>& phi, PlusMap* cur, PlusMap* max) {
     switch (phi.head().type()) {
       case Formula::Element::kClause:
+#if 0
         *cur = PlusNames(Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, phi.head().clause().val));
+#endif
+        *cur = PlusNames(phi.head().clause().val);
         *max = *cur;
         break;
       case Formula::Element::kNot:
@@ -538,11 +551,9 @@ class Grounder {
     // their duals and negations, then splitting does not necessitate an
     // additional name. However, when t is an argument of another term or when
     // it occurs in literals of the form (t = t') or its dual or negation, then
-    // we might need a name for every split. For instance, (c != c) shall come
-    // out false at any split level. It is false at split level 0 and 1. At
-    // split level >= 2 we need to make sure that we split over at least 2
-    // names to find that (c != c) is false.
+    // we might need a name for every split.
     PlusMap plus;
+#if 0
     phi.Traverse([&plus, k](Literal a) {
       auto f = [&plus, k](Term t) {
         if (t.function()) {
@@ -562,6 +573,7 @@ class Grounder {
       }
       return true;
     });
+#endif
     return plus;
   }
 

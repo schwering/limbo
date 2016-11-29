@@ -192,5 +192,25 @@ TEST(SolverTest, ECAI2016Complete) {
   EXPECT_TRUE(solver.Consistent(1, Formula::Clause(Clause{Italian == T}).reader()));
 }
 
+TEST(SetupTest, Bool) {
+  Solver solver;
+  Context ctx(solver.sf(), solver.tf());
+  Symbol::Factory sf;
+  Term::Factory tf;
+  auto BOOL = sf.CreateSort();
+  auto T = ctx.NewName(BOOL);
+  auto P = ctx.NewFun(BOOL, 0)();
+  {
+    EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{P == T}).reader()));
+    EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P == T}).reader()));
+    EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{P != T}).reader()));
+    EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P != T}).reader()));
+    EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{P == T}).reader()));
+    EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P == T}).reader()));
+    EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{P != T}).reader()));
+    EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P != T}).reader()));
+  }
+}
+
 }  // namespace lela
 
