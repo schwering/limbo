@@ -57,7 +57,7 @@
         .announcement.failure .result::after { content: "failure" }
 
         .code { font-family: monospace; font-weight: bold; }
-        .metavariable { font-family: monospace; font-weight: bold; color: green; }
+        .metavariable { font-family: monospace; font-weight: bold; color: #800080; }
     </style>
 
     <script src="lela.js"></script>
@@ -294,7 +294,7 @@ Future work are the conditional beliefs [ECAI-2016] (should be easy), actions [K
 The reasoner is written in C++.
 The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
 This demo is compiled by <a href="http://emscripten.org">emscripten</a>, which compiles C++ to Javascript.
-On my computer, the Javascript is about 3&times; to 5&times; slower than the native binary.
+On my computer, the Javascript is 1.5&times; to 5&times; slower than the native binary.
 </p>
 
 <p>

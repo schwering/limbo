@@ -5,8 +5,11 @@
 
 #include <emscripten.h>
 
+#include "agent.h"
+#include "game.h"
+#include "kb.h"
 #include "printer.h"
-#include "play.h"
+#include "timer.h"
 
 namespace logging {
 

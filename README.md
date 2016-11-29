@@ -25,7 +25,7 @@ The entailment and consistency procedures are parameterised with a natural
 number that limits the maximum allowed reasoning effort, which is measured in
 the number of case splits.
 
-For the theoretical background, see the papers linked below, especially [1,2].
+For the theoretical background, see the papers linked below.
 
 ## Examples
 
@@ -34,13 +34,13 @@ For examples of usage, check out the following:
 * This [web demo](http://www.cse.unsw.edu.au/~cschwering/demo/textinterface/)
   allows to define and query a knowledge base through a simple text interface.
   You can also use it from the command line; the the code is
-  [here](examples/testinterface/).
+  [here](examples/textinterface/).
 * To see how the C++ API works, have a look at this [unit
   test](tests/solver.cc), which contains test cases that implement examples
   from [1,2]. To reduce boiler plate code, it uses [this higher-level
   API](src/lela/format/syntax.h), which overloads some C++ operators.
 * There's also Minesweeper [web
-  demo](http://www.cse.usnw.edu.au/~cschwering/demo/minesweeper/). You can also
+  demo](http://www.cse.unsw.edu.au/~cschwering/demo/minesweeper/). You can also
   use it from the command line; the the code is [here](examples/minesweeper/).
 
 ## Status

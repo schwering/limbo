@@ -148,7 +148,7 @@ TEST(SolverTest, ECAI2016Sound) {
   auto Bool = ctx.NewSort();              RegisterSort(Bool, "");
   auto Food = ctx.NewSort();              RegisterSort(Food, "");
   auto T = ctx.NewName(Bool);             REGISTER_SYMBOL(T);
-  auto F = ctx.NewName(Bool);             REGISTER_SYMBOL(F);
+  //auto F = ctx.NewName(Bool);             REGISTER_SYMBOL(F);
   auto Aussie = ctx.NewFun(Bool, 0)();    REGISTER_SYMBOL(Aussie);
   auto Italian = ctx.NewFun(Bool, 0)();   REGISTER_SYMBOL(Italian);
   auto Eats = ctx.NewFun(Bool, 1);        REGISTER_SYMBOL(Eats);
@@ -157,13 +157,13 @@ TEST(SolverTest, ECAI2016Sound) {
   auto roo = ctx.NewName(Food);           REGISTER_SYMBOL(roo);
   auto x = ctx.NewVar(Food);              REGISTER_SYMBOL(x);
   solver.AddClause({ Meat(roo) == T });
-  solver.AddClause({ Meat(x) == F, Eats(x) == F, Veggie == F });
-  solver.AddClause({ Aussie == F, Italian == F });
+  solver.AddClause({ Meat(x) != T, Eats(x) != T, Veggie != T });
+  solver.AddClause({ Aussie != T, Italian != T });
   solver.AddClause({ Aussie == T, Italian == T });
-  solver.AddClause({ Aussie == F, Eats(roo) == T });
+  solver.AddClause({ Aussie != T, Eats(roo) == T });
   solver.AddClause({ Italian == T, Veggie == T });
-  EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{Aussie == F}).reader()));
-  EXPECT_TRUE(solver.Entails(1, Formula::Clause(Clause{Aussie == F}).reader()));
+  EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{Aussie != T}).reader()));
+  EXPECT_TRUE(solver.Entails(1, Formula::Clause(Clause{Aussie != T}).reader()));
 }
 
 TEST(SolverTest, ECAI2016Complete) {
@@ -172,7 +172,7 @@ TEST(SolverTest, ECAI2016Complete) {
   auto Bool = ctx.NewSort();              RegisterSort(Bool, "");
   auto Food = ctx.NewSort();              RegisterSort(Food, "");
   auto T = ctx.NewName(Bool);             REGISTER_SYMBOL(T);
-  auto F = ctx.NewName(Bool);             REGISTER_SYMBOL(F);
+  //auto F = ctx.NewName(Bool);             REGISTER_SYMBOL(F);
   auto Aussie = ctx.NewFun(Bool, 0)();    REGISTER_SYMBOL(Aussie);
   auto Italian = ctx.NewFun(Bool, 0)();   REGISTER_SYMBOL(Italian);
   auto Eats = ctx.NewFun(Bool, 1);        REGISTER_SYMBOL(Eats);
@@ -181,13 +181,13 @@ TEST(SolverTest, ECAI2016Complete) {
   auto roo = ctx.NewName(Food);           REGISTER_SYMBOL(roo);
   auto x = ctx.NewVar(Food);              REGISTER_SYMBOL(x);
   solver.AddClause({ Meat(roo) == T });
-  solver.AddClause({ Meat(x) == F, Eats(x) == F, Veggie == F });
-  solver.AddClause({ Aussie == F, Italian == F });
+  solver.AddClause({ Meat(x) != T, Eats(x) != T, Veggie != T });
+  solver.AddClause({ Aussie != T, Italian != T });
   solver.AddClause({ Aussie == T, Italian == T });
-  solver.AddClause({ Aussie == F, Eats(roo) == T });
+  solver.AddClause({ Aussie != T, Eats(roo) == T });
   solver.AddClause({ Italian == T, Veggie == T });
-  EXPECT_TRUE(solver.EntailsComplete(0, Formula::Clause(Clause{Italian == F}).reader()));
-  EXPECT_FALSE(solver.EntailsComplete(1, Formula::Clause(Clause{Italian == F}).reader()));
+  EXPECT_TRUE(solver.EntailsComplete(0, Formula::Clause(Clause{Italian != T}).reader()));
+  EXPECT_FALSE(solver.EntailsComplete(1, Formula::Clause(Clause{Italian != T}).reader()));
   EXPECT_FALSE(solver.Consistent(0, Formula::Clause(Clause{Italian == T}).reader()));
   EXPECT_TRUE(solver.Consistent(1, Formula::Clause(Clause{Italian == T}).reader()));
 }
