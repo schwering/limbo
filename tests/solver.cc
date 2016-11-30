@@ -192,7 +192,7 @@ TEST(SolverTest, ECAI2016Complete) {
   EXPECT_TRUE(solver.Consistent(1, Formula::Clause(Clause{Italian == T}).reader()));
 }
 
-TEST(SetupTest, Bool) {
+TEST(SolverTest, Bool) {
   Solver solver;
   Context ctx(solver.sf(), solver.tf());
   Symbol::Factory sf;
@@ -209,6 +209,25 @@ TEST(SetupTest, Bool) {
     EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P == T}).reader()));
     EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{P != T}).reader()));
     EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P != T}).reader()));
+  }
+}
+
+TEST(SolverTest, Constants) {
+  Solver solver;
+  UnregisterAll();
+  Context ctx(solver.sf(), solver.tf());
+  Symbol::Factory sf;
+  Term::Factory tf;
+  auto SomeSort = sf.CreateSort();    RegisterSort(SomeSort, "");
+  auto a = ctx.NewFun(SomeSort, 0)(); REGISTER_SYMBOL(a);
+  auto b = ctx.NewFun(SomeSort, 0)(); REGISTER_SYMBOL(b);
+  {
+    for (int i = 0; i < 2; ++i) {
+      for (int k = 0; k <= 3; ++k) {
+        EXPECT_FALSE(solver.Entails(k, Formula::Clause(Clause{a == b}).reader()));
+        EXPECT_FALSE(solver.Entails(k, Formula::Clause(Clause{a != b}).reader()));
+      }
+    }
   }
 }
 

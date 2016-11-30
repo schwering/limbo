@@ -94,6 +94,10 @@ class Solver {
   }
 
  private:
+#ifdef FRIEND_TEST
+  FRIEND_TEST(SolverTest, Constants);
+#endif
+
   typedef Grounder::TermSet TermSet;
   typedef Grounder::LiteralSet LiteralSet;
   typedef Grounder::SortedTermSet SortedTermSet;

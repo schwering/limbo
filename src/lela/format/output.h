@@ -41,6 +41,11 @@ inline SymbolMap* symbol_map() {
   return &map;
 }
 
+inline void UnregisterAll() {
+  sort_map()->clear();
+  symbol_map()->clear();
+}
+
 inline void RegisterSort(Symbol::Sort s, const std::string& n) {
   (*sort_map())[s] = n;
 }

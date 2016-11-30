@@ -194,17 +194,20 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     EXPECT_NE(x3.sort(), a.sort());
     EXPECT_EQ(names.size(), 2);
     EXPECT_EQ(names[n1.symbol().sort()].size(), 2);
-    EXPECT_EQ(names[x3.symbol().sort()].size(), 1);
+    EXPECT_EQ(names[x3.symbol().sort()].size(), 2);
     EXPECT_EQ(names[a.sort()].size(), 2);
-    EXPECT_EQ(names[g.sort()].size(), 1);
-    EXPECT_EQ(names[h.sort()].size(), 1);
-    Term nx3 = names[x3.sort()][0];
-    Term nSplit = names[a.sort()][ names[a.sort()][0] == n1 ? 1 : 0 ];
-    EXPECT_NE(nx3, n1);
-    EXPECT_NE(nSplit, n1);
-    EXPECT_NE(nSplit, nx3);
+    EXPECT_EQ(names[g.sort()].size(), 2);
+    EXPECT_EQ(names[h.sort()].size(), 2);
+    Term nx3_1 = names[x3.sort()][0];
+    Term nx3_2 = names[x3.sort()][1];
+    Term n_Split = names[a.sort()][ names[a.sort()][0] == n1 ? 1 : 0 ];
+    EXPECT_NE(nx3_1, n1);
+    EXPECT_NE(nx3_2, n1);
+    EXPECT_NE(n_Split, n1);
+    EXPECT_NE(n_Split, nx3_1);
+    EXPECT_NE(n_Split, nx3_2);
     EXPECT_EQ(std::set<Term>(terms.begin(), terms.end()),
-              std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(g, {n1}), tf.CreateTerm(g, {nSplit}), tf.CreateTerm(h, {n1, nx3})}));
+              std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(g, {n1}), tf.CreateTerm(g, {n_Split}), tf.CreateTerm(h, {n1, nx3_1}), tf.CreateTerm(h, {n1, nx3_2})}));
   }
 
   {
@@ -398,8 +401,8 @@ TEST(GrounderTest, Ground_SplitNames) {
     g.PrepareForQuery(0, phi.reader());
     Grounder::SortedTermSet names = g.Names();
     EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
-    EXPECT_EQ(names[Human].size(), 1+0);
-    EXPECT_EQ(names[Animal].size(), 0+0);
+    EXPECT_EQ(names[Human].size(), 1+1);
+    EXPECT_EQ(names[Animal].size(), 0+1);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_EQ(terms.size(), 0);
   }
@@ -408,7 +411,7 @@ TEST(GrounderTest, Ground_SplitNames) {
     g.PrepareForQuery(1, phi.reader());
     Grounder::SortedTermSet names = g.Names();
     EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
-    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Human].size(), 1+1);
     EXPECT_EQ(names[Animal].size(), 0+1);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
@@ -418,7 +421,7 @@ TEST(GrounderTest, Ground_SplitNames) {
     g.PrepareForQuery(2, phi.reader());
     Grounder::SortedTermSet names = g.Names();
     EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
-    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Human].size(), 1+1);
     EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
@@ -428,7 +431,7 @@ TEST(GrounderTest, Ground_SplitNames) {
     g.PrepareForQuery(3, phi.reader());
     Grounder::SortedTermSet names = g.Names();
     EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
-    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Human].size(), 1+1);
     EXPECT_EQ(names[Animal].size(), 0+3);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
@@ -460,8 +463,8 @@ TEST(GrounderTest, Ground_SplitNames_iterated) {
     g.PrepareForQuery(0, phi.reader());
     Grounder::SortedTermSet names = g.Names();
     EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
-    EXPECT_EQ(names[Human].size(), 1+0);
-    EXPECT_EQ(names[Animal].size(), 0+0);
+    EXPECT_EQ(names[Human].size(), 1+1);
+    EXPECT_EQ(names[Animal].size(), 0+1);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_EQ(terms.size(), 0);
   }
@@ -469,7 +472,7 @@ TEST(GrounderTest, Ground_SplitNames_iterated) {
     g.PrepareForQuery(1, phi.reader());
     Grounder::SortedTermSet names = g.Names();
     EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
-    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Human].size(), 1+1);
     EXPECT_EQ(names[Animal].size(), 0+1);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
@@ -478,7 +481,7 @@ TEST(GrounderTest, Ground_SplitNames_iterated) {
     g.PrepareForQuery(2, phi.reader());
     Grounder::SortedTermSet names = g.Names();
     EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
-    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Human].size(), 1+1);
     EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
@@ -487,7 +490,7 @@ TEST(GrounderTest, Ground_SplitNames_iterated) {
     g.PrepareForQuery(3, phi.reader());
     Grounder::SortedTermSet names = g.Names();
     EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
-    EXPECT_EQ(names[Human].size(), 1+0);
+    EXPECT_EQ(names[Human].size(), 1+1);
     EXPECT_EQ(names[Animal].size(), 0+3);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
