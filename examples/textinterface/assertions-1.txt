@@ -48,6 +48,6 @@ Let phi := is_mortal(fatherOf(Jesus)) == True;
 Assert Consistent (1, phi);
 Assert Consistent (1, !phi);
 
-Assert Entails    (1, Ex x is_mortal(x) == True);
-Refute Entails    (1, Fa x is_mortal(x) == True);
+Assert Entails (1, Ex x is_mortal(x) == True);
+Refute Entails (1, Fa x is_mortal(x) == True);
 

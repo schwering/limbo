@@ -24,7 +24,7 @@
 
 using lela::format::operator<<;
 
-#if 1
+#if 0
 template<typename Iter>
 static void lex(Iter begin, Iter end) {
   Lexer<Iter> lexer(begin, end);
@@ -121,7 +121,6 @@ int main(int argc, char** argv) {
   } else {
     multi_pass_iterator<std::istreambuf_iterator<char>> begin(std::cin);
     multi_pass_iterator<std::istreambuf_iterator<char>> end;
-    lex(begin, end);
     const bool succ = parse(begin, end);
     return succ ? 0 : 1;
   }

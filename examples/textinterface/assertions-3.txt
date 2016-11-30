@@ -1,0 +1,13 @@
+Sort ENTITY;
+
+Fun a/0 -> ENTITY;
+Fun b/0 -> ENTITY;
+Fun f/1 -> ENTITY;
+Fun g/1 -> ENTITY;
+
+Refute Entails (2, a == b);
+Refute Entails (2, f(a) == g(a));
+Refute Entails (2, f(a) == g(b));
+Refute Entails (5, f(a) == g(a));
+Refute Entails (5, f(a) == g(b));
+

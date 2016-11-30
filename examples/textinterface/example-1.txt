@@ -46,6 +46,6 @@ Let phi := is_mortal(fatherOf(Jesus)) == True;
 Consistent (1, phi);
 Consistent (1, !phi);
 
-Entails    (1, Ex x is_mortal(x) == True);
-Entails    (1, Fa x is_mortal(x) == True);
+Entails (1, Ex x is_mortal(x) == True);
+Entails (1, Fa x is_mortal(x) == True);
 
