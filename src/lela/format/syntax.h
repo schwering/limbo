@@ -6,8 +6,8 @@
 #ifndef LELA_FORMAT_SYNTAX_H_
 #define LELA_FORMAT_SYNTAX_H_
 
-#include <lela/clause.h>
 #include <lela/formula.h>
+#include <lela/clause.h>
 #include <lela/literal.h>
 #include <lela/term.h>
 

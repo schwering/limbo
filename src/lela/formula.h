@@ -26,7 +26,6 @@
 #include <list>
 
 #include <lela/clause.h>
-#include <lela/setup.h>
 #include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 

@@ -16,11 +16,10 @@
 #include <utility>
 #include <vector>
 
-#include <lela/clause.h>
 #include <lela/formula.h>
 #include <lela/literal.h>
+#include <lela/setup.h>
 #include <lela/term.h>
-#include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)

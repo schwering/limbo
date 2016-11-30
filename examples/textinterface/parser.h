@@ -27,6 +27,7 @@
 #define MSG(msg)      (std::string(__FUNCTION__) +":"+ S__LINE__ +": "+ msg)
 
 struct Announcer {
+  virtual ~Announcer() {}
   virtual void AnnounceEntailment(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) = 0;
   virtual void AnnounceConsistency(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) = 0;
 };

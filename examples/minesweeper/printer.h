@@ -16,6 +16,7 @@ typedef std::string Color;
 
 class Colors {
  public:
+  virtual ~Colors() {}
   virtual Color reset()   const = 0;
   virtual Color dim()    const = 0;
   virtual Color black()   const = 0;

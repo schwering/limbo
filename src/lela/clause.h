@@ -28,7 +28,6 @@
 
 #include <lela/literal.h>
 #include <lela/internal/bloom.h>
-#include <lela/internal/compar.h>
 #include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 

@@ -15,8 +15,6 @@
 #include <lela/formula.h>
 #include <lela/format/output.h>
 
-#include "lexer.h"
-#include "kb.h"
 #include "parser.h"
 
 using lela::format::operator<<;

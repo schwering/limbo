@@ -3,29 +3,25 @@
 //
 // Command line application that interprets a problem description and queries.
 
-#include <algorithm>
-#include <functional>
 #include <fstream>
 #include <iostream>
 #include <iterator>
-#include <list>
 #include <memory>
-#include <string>
-#include <sstream>
-#include <utility>
+#include <vector>
+
 
 #include <lela/setup.h>
 #include <lela/formula.h>
 #include <lela/internal/iter.h>
 #include <lela/format/output.h>
 
-#include "lexer.h"
-#include "kb.h"
 #include "parser.h"
 
 using lela::format::operator<<;
 
 #if 0
+#include "lexer.h"
+
 template<typename Iter>
 static void lex(Iter begin, Iter end) {
   Lexer<Iter> lexer(begin, end);

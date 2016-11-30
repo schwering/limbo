@@ -45,7 +45,7 @@ add_subdirectory (src)
 #add_subdirectory (bats)
 
 add_subdirectory (tests)
-enable_testing ()
-
 add_subdirectory (examples)
+
+enable_testing ()
 
