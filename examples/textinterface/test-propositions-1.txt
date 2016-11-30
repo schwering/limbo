@@ -1,0 +1,26 @@
+Sort BOOL;
+
+Name T -> BOOL;
+Fun p/0 -> BOOL;
+Fun q/0 -> BOOL;
+
+Let P := p == T;
+Let Q := q == T;
+// Now we can use P and Q like propositional atoms in our query.
+
+Refute Entails (2, !P);
+Refute Entails (2, P);
+Assert Entails (1, P || !P);
+Refute Entails (0, P || !P);
+
+Let phi := (P || !P) && (Q || !Q);
+Assert Entails (1, phi); // because the conjunction is resolved before splitting
+Assert Entails (2, phi);
+
+Let phi := P &&  Q ||
+           P && !Q ||
+          !P &&  Q ||
+          !P && !Q;
+Refute Entails (1, phi);
+Assert Entails (2, phi);
+

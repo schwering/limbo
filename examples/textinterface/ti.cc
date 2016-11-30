@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <fstream>
 #include <iostream>
 #include <iterator>
 #include <list>
@@ -114,10 +115,23 @@ class multi_pass_iterator {
 };
 
 int main(int argc, char** argv) {
-  if (argc >= 2) {
-    std::cout << "Usage: " << argv[0] << std::endl;
-    std::cout << "The program reads and interprets a problem description from stdin." << std::endl;
+  if (argc >= 2 && (std::string(argv[1]) == "-h" || std::string(argv[1]) == "-help" || std::string(argv[1]) == "--help")) {
+    std::cout << "Usage: " << argv[0] << " [file [file ...]]" << std::endl;
+    std::cout << "If there is no file argument, content is read from stdin." << std::endl;
     return 2;
+  } else if (argc >= 2) {
+    bool succ = true;
+    for (int i = 1; i < argc && succ; ++i) {
+      std::ifstream stream(argv[i]);
+      if (!stream.is_open()) {
+        std::cerr << "Cannot open file " << argv[i] << std::endl;
+        return 2;
+      }
+      multi_pass_iterator<std::istreambuf_iterator<char>> begin(stream);
+      multi_pass_iterator<std::istreambuf_iterator<char>> end;
+      succ = succ && parse(begin, end);
+    }
+    return succ ? 0 : 1;
   } else {
     multi_pass_iterator<std::istreambuf_iterator<char>> begin(std::cin);
     multi_pass_iterator<std::istreambuf_iterator<char>> end;

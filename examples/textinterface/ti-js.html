@@ -14,10 +14,12 @@
         h1       { font-size: 220%; }
         h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
 
+        #examples { font-family: inherit; font-weight: bold; font-size: inherit; }
         #parse-text { background-color: #eeeeee; font-family: monospace; font-size: 140%; border: 2px solid black; width: 95%; height: 70%; }
         #parse-text { background: repeating-linear-gradient( -45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
-        #parse-button { display: block; background-color: black; color: #eee; font-family: inherit; font-weight: bold; font-size: 100%; margin-top: 2ex; margin-left: 25%; min-width: 25%; padding-top: 3ex; padding-bottom: 3ex; }
+        #parse-button { font-family: inherit; font-weight: bold; font-size: inherit; }
         #parse-button {
+            color: #eee;
             background:
                 linear-gradient(27deg, #151515 5px, transparent 5px) 0 5px,
                 linear-gradient(207deg, #151515 5px, transparent 5px) 10px 0px,
@@ -28,6 +30,7 @@
             background-color: #131313;
             background-size: 20px 20px;
         }
+        #parse-button { display: block; margin-top: 2ex; margin-left: 25%; min-width: 25%; padding-top: 3ex; padding-bottom: 3ex; }
 
         #parse-output, #debug-output { width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; }
         #parse-output, #debug-output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
@@ -64,7 +67,7 @@
     </style>
 
     <script src="jquery-3.1.1.min.js"></script>
-    <script src="lela.js"></script>
+    <script src="ti-js.js"></script>
 </head>
 
 <body>
@@ -82,12 +85,12 @@ Also have a look at the <a href="../minesweeper/" target="_blank">the other demo
 <h2>Problem Description</h2>
 
 <p>
-Load an example problem description:
-<select id="examples" multiple>
-<option value="example-1.txt" selected="selected">Example #1: Unknown Father</option>
-<option value="assertions-1.txt">Assertions #1: Unknown Father</option>
-<option value="assertions-2.txt">Assertions #2: Propositions</option>
-<option value="assertions-3.txt">Assertions #3: Constants</option>
+Load an example:
+<select id="examples">
+<option value="example-jesus-1.txt" selected="selected">Example: Unknown Father</option>
+<option value="test-propositions-1.txt">Test: Propositions</option>
+<option value="test-functions-1.txt">Test: Constants</option>
+<option value="test-jesus-1.txt">Test: Unknown Father</option>
 <option value="">none</option>
 </select> <br />
 If you like, you can edit the text. For help on the syntax, see <a href="#syntax">below</a>.
@@ -112,7 +115,7 @@ $(document).ready(function() {
                 url : file,
                 dataType: 'text',
                 success: function(data) {
-                    $('#parse-text').val(data);
+                    $('#parse-text').val(data.trim());
                     scrollToBottom($('#parse-button'));
                     $('#parse-button').focus();
                 }
@@ -149,7 +152,6 @@ function resultClass(r) { return r ? 'success' : 'failure'; }
 function resultLabel(r) { return r ? 'Success' : 'Failure'; }
 
 function announceEntailment(k, phi, success) {
-    //alert("Entails ("+ k +", "+ phi +") = "+ success);
     $('#parse-output').append(
         '<li class="announcement entailment '+ resultClass(success)+'">'+
         '<div class="split-level">'+ k +'</div><div class="formula">'+ phi +'</div><div class="result"></div>'+
@@ -157,7 +159,6 @@ function announceEntailment(k, phi, success) {
 }
 
 function announceConsistency(k, phi, success) {
-    //alert("Consistent ("+ k +", "+ phi +") = "+ success);
     $('#parse-output').append(
         '<li class="announcement consistency '+ resultClass(success)+'">'+
         '<div class="split-level">'+ k +'</div><div class="formula">'+ phi +'</div><div class="result"></div>'+
@@ -165,7 +166,6 @@ function announceConsistency(k, phi, success) {
 }
 
 function announceResult(success, msg) {
-    //alert("Success = "+ success +", msg = "+ msg);
     $('#parse-output').append(
         '<li class="announcement overall '+ resultClass(success)+'">'+
         '<div class="parser-result">Parser end result: '+ resultLabel(success) +' ('+ msg +')</div>'+
@@ -352,8 +352,7 @@ Both entailment and consistency queries are sound but incomplete with respect to
 The reasoning effort is measured in case splits (a split means to select a term <span class="code">f(n<sub>1</sub>,...,n<sub>l</sub>)</span> and consider all possible denotations of that term) in entailment queries, and as term assignments (an assignment means to select a term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix their denotation) in consistency queries.
 </p>
 <p>
-For automated testing, it is also desirable to augment queries with the respected result.
-The language supports assertions and refutations for that purpose:
+For automated testing, the language supports assertions and refutations:
 </p>
 <ul class="grammar">
     <li><span class="code">Assert Entails&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
@@ -367,7 +366,7 @@ Execution aborts with an asserted entailment/consistency does not hold or when a
 
 <p>
 C-style single line comments are supported as well: 
-    <span class="code">//&nbsp;<span class="metavariable">rest of line is comment</span>.
+    <span class="code">//&nbsp;<span class="metavariable">rest of line is comment</span></span>.
 </p>
 
 <h2>References</h2>

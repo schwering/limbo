@@ -1,4 +1,6 @@
 <!DOCTYPE HTML>
+<!-- vim:filetype=html:textwidth=200:shiftwidth=4:softtabstop=4:expandtab
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8"> 
@@ -31,6 +33,10 @@
         #output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
         #output { font-family: monospace; font-size: 110%; }
 
+        #output div.field { width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; white-space: pre; }
+        #output div.field { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
+        #output div.field { font-family: monospace; font-size: 110%; }
+
         #output span.black { color: black; }
         #output span.dim { color: #999; }
         #output span.reset { color: inherit; }
@@ -38,10 +44,11 @@
         #output span.green { color: green; font-weight: bold; }
     </style>
 
-    <script src="lela.js"></script>
+    <script src="jquery-3.1.1.min.js"></script>
+    <script src="mw-js.js"></script>
 </head>
 
-<body onload="initPage()">
+<body>
 
 <h1>Limited Reasoner Demo: Minesweeper</h1>
 
@@ -55,7 +62,12 @@ Also have a look at the <a href="../textinterface/" target="_blank">the other de
 
 <h2>Game Configuration</h2>
 
-<p>Standard configurations: <a href="javascript:setConfig(8,8,10);">small</a>, <a href="javascript:setConfig(16,16,40);">medium</a>, <a href="javascript:setConfig(16,32,99);">large</a>, <a href="javascript:setConfig(32,64,320);">huge</a> </p>
+<p>Standard configurations:
+	<a id="config-small" href="#config-small">small</a>,
+	<a id="config-medium" href="#config-medium">medium</a>,
+	<a id="config-large" href="#config-large">large</a>,
+	<a id="config-huge" href="#config-huge">huge</a> (be prepared for the browser being unresponsive)
+</p>
 
 <form>
 <div class="label">Width:</div> <input type="number" id="width" min="0" value="8" class="number"><br />
@@ -64,29 +76,29 @@ Also have a look at the <a href="../textinterface/" target="_blank">the other de
 <div style="height: 1ex;"></div>
 <div class="label">Max. splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
 <div class="label">Seed:</div> <input type="number" id="seed" min="0" value="0" class="number"><br />
-<input id="play-button" type="button" value="Click me!" onclick="play()" />
+<input id="play-button" type="button" value="Click me!" />
 </form>
 
 <script>
+$(document).ready(function() {
+    $('#config-small').click(function(){ setConfig(8, 8, 10); return false; });
+    $('#config-medium').click(function(){ setConfig(16, 16, 40); return false; });
+    $('#config-large').click(function(){ setConfig(16, 32, 99); return false; });
+    $('#config-huge').click(function(){ setConfig(32, 64, 320); return false; });
+    $('#play-button').click(function() { play(); });
+    $('#play-button').focus();
+});
+
 function setConfig(width, height, n_mines) {
-    console.log('test');
     document.getElementById('width').value = width;
     document.getElementById('height').value = height;
     document.getElementById('n_mines').value = n_mines;
 }
 
-function clearDiv(id) {
-    var div = document.getElementById(id);
-    while (div.firstChild) {
-        div.removeChild(div.firstChild);
-    }
-}
-
-
 var t0 = null;
 
 function play() {
-    clearDiv('output');
+    $('#output').empty();
 
     var width = document.getElementById('width').value;
     if (width == null) width = 8;
@@ -116,31 +128,59 @@ function playTurn() {
     }, 10);
 }
 
-function scrollDown() {
-    var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-    if (false && isFirefox) {
-        document.getElementById('output').scrollIntoView({block: "end", behavior: "smooth"});
-    } else {
-        document.getElementById('output').scrollIntoView(false);
-    }
-}
+var last_str = null;
 
 function printLine(str) {
+    // The minesweeper agent prints at the end of each turn a line of the form
+    // "Last move took [...]". We use this to split up the different turns and
+    // display them individually: one div per turn, and only the last turn's
+    // div is visible.
     setTimeout(function() {
-        var output = document.getElementById('output');
+        if ($('#output').children().length == 0) {
+            $('#output').append('<div></div>').addClass('field');
+        }
+	if (last_str && last_str.indexOf('Last') != -1) {
+            $('#output').children().last().hide();
+            $('#output').append('<div></div>').addClass('field');
+	}
         if (str.length == 0) {
             return;
         }
-        var div = document.createElement('div');
-        div.innerHTML = str;
-        output.appendChild(div);
+        $('#output').children().last().append($(document.createElement('div')).html(str));
+        last_str = str;
         scrollDown();
     }, 10);
 }
 
-function initPage() {
-    document.getElementById('play-button').focus();
+function scrollDown() {
+    document.getElementById('field-next').scrollIntoView(false);
 }
+
+function showField(which) {
+    $('#output').children(':visible').each(function(i) {
+        if (which == 'prev' && $(this).prev().length) {
+            $(this).hide();
+            $(this).prev().show();
+        }
+        if (which == 'next' && $(this).next().length) {
+            $(this).hide();
+            $(this).next().show();
+        }
+    });
+}
+
+$(document).ready(function() {
+    $('#field-prev').click(function() { showField('prev'); return false; });
+    $('#field-next').click(function() { showField('next'); return false; });
+});
+$(document).keydown(function(e) {
+    switch(e.which) {
+        case 37: showField('prev'); break; // left
+        case 39: showField('next'); break; // right
+        default: return;
+    }
+    e.preventDefault();
+});
 </script>
 
 
@@ -149,6 +189,7 @@ function initPage() {
 
 <div id="output"></div>
 
+<p>See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys).
 
 
 <h2>About the Reasoner</h2>
