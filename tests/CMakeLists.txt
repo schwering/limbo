@@ -1,7 +1,5 @@
-#include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
-
 find_package (Threads)
-find_package (GTest REQUIRED)
+find_package (GTest)
 include_directories (${GTEST_INCLUDE_DIRS})
 
 if (GTest_FOUND)

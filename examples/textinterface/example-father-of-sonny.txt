@@ -1,0 +1,39 @@
+// Who's Sonny's father, Frank or Fred?
+
+Sort ENTITY;
+Sort BOOL;
+
+Variable x -> ENTITY;
+Variable y -> ENTITY;
+
+Name Mary -> ENTITY;
+Name Frank -> ENTITY;
+Name Fred -> ENTITY;
+Name Sonny -> ENTITY;
+Name True -> BOOL;
+
+Function fatherOf/1 -> ENTITY;
+Function motherOf/1 -> ENTITY;
+
+KB (motherOf(Sonny) == Mary);
+KB (fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred);
+
+Entails (0, fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred);
+
+Let phi := Ex x (x == fatherOf(Sonny));
+Entails (0, phi);
+Entails (1, phi);
+
+Let phi := Frank == fatherOf(Sonny);
+Consistent (0, phi);
+Consistent (1, phi);
+
+Entails (0, Fred == fatherOf(Sonny) && Frank == fatherOf(Sonny) || Fred == fatherOf(Sonny));
+
+Let phi := motherOf(Sonny) == fatherOf(Sonny);
+Entails    (0, phi);
+Consistent (0, phi);
+Entails    (0, !phi);
+Consistent (0, !phi);
+Consistent (1, !phi);
+

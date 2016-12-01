@@ -1,0 +1,47 @@
+// Are Sally and Sonny siblings?
+
+Sort ENTITY;
+Sort BOOL;
+
+Variable x -> ENTITY;
+Variable y -> ENTITY;
+Variable z -> ENTITY;
+
+Name Mary -> ENTITY;
+Name Mia -> ENTITY;
+Name Frank -> ENTITY;
+Name Fred -> ENTITY;
+Name Sally -> ENTITY;
+Name Sonny -> ENTITY;
+Name T -> BOOL;
+
+Function fatherOf/1 -> ENTITY;
+Function motherOf/1 -> ENTITY;
+Function siblings/2 -> BOOL;
+
+// Sally's parents are Frank and either Mary or Mia.
+KB (motherOf(Sally) == Mary || motherOf(Sally) == Mia);
+KB (fatherOf(Sally) == Frank);
+
+// Sonny's parents are Mary and either Frank or Fred.
+KB (motherOf(Sonny) == Mary);
+KB (fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred);
+
+// When x and y have they same mother or father, they are siblings.
+KB (x == y || motherOf(x) != z || z != motherOf(y) || siblings(x, y) == T);
+KB (x == y || fatherOf(x) != z || z != fatherOf(y) || siblings(x, y) == T);
+
+// Mother and father of any person are not siblings.
+KB (motherOf(z) != x || fatherOf(z) != y || siblings(x, y) != T);
+
+// Mia and Frank or Mary and Fred are siblings.
+KB (siblings(Mia, Frank) == T || siblings(Mary, Fred) == T);
+
+// If Mia and Frank are siblings, they cannot have Sally together, so Sally's
+// mother must be Mary. Mary is also Sonny's mother, so they're siblings.
+// If Mary and Fred are siblings, they cannot have Sonny together, so Sonny's
+// father must be Frank. Frank is also Sally's father, so they're siblings.
+Entails (0, siblings(Sally, Sonny) == T);
+Entails (1, siblings(Sally, Sonny) == T);
+Entails (2, siblings(Sally, Sonny) == T);
+

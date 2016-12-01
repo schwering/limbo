@@ -1,3 +1,5 @@
+// Simulate propositions with boolean functions.
+
 Sort BOOL;
 
 Name T -> BOOL;

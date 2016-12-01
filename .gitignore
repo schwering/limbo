@@ -32,9 +32,11 @@ tests/solver
 tests/syntax
 tests/term
 examples/minesweeper/mw
-examples/minesweeper/lela.js*
+examples/minesweeper/mw-js.js*
+examples/minesweeper/jquery-*.min.js
 examples/textinterface/ti
-examples/textinterface/lela.js*
+examples/textinterface/ti-js.js*
+examples/textinterface/jquery-*.min.js
 
 callgrind.*
 

@@ -1,3 +1,6 @@
+// Who's the father of Jesus, God or Joseph?
+// Maybe the example is a bit unfortunate.
+
 Sort ENTITY;
 Sort BOOL;
 

@@ -208,7 +208,7 @@ class Lexer {
   static bool IsWhitespace(char c) { return c == ' ' || c == '\t' || IsNewLine(c); }
   static bool IsDigit(char c) { return '0' <= c && c <= '9'; }
   static bool IsAlpha(char c) { return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_'; }
-  static bool IsAlnum(char c) { return IsAlpha(c) || IsDigit(c); }
+  static bool IsAlnum(char c) { return IsAlpha(c) || IsDigit(c) || c == '-'; }
 
   LexemeVector lexemes_;
   ForwardIt begin_;

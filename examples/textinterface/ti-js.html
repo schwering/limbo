@@ -87,10 +87,13 @@ Also have a look at the <a href="../minesweeper/" target="_blank">the other demo
 <p>
 Load an example:
 <select id="examples">
-<option value="example-jesus-1.txt" selected="selected">Example: Unknown Father</option>
+<option value="example-father-of-sonny.txt">Example: Unknown Father<!-- (fictitious edition)</option>
+<option value="example-father-of-ronan.txt">Example: Unknown Father (Gossip edition)</option>
+<option value="example-mother-of-dionysos.txt">Example: Unknown Father (Dionysos edition)</option>
+<option value="example-father-of-jesus.txt">Example: Unknown Father (Jesus edition)--></option>
+<option value="example-siblings.txt">Example: Siblings</option>
 <option value="test-propositions-1.txt">Test: Propositions</option>
 <option value="test-functions-1.txt">Test: Constants</option>
-<option value="test-jesus-1.txt">Test: Unknown Father</option>
 <option value="">none</option>
 </select> <br />
 If you like, you can edit the text. For help on the syntax, see <a href="#syntax">below</a>.
@@ -242,7 +245,7 @@ Future work are the conditional beliefs [ECAI-2016] (should be easy), actions [K
 <p>
 The reasoner is written in C++.
 The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
-This demo is compiled by <a href="http://emscripten.org">emscripten</a>, which compiles C++ to Javascript.
+This demo is compiled by <a href="http://emscripten.org">emscripten</a>, which translates C++ to Javascript.
 On my computer, the Javascript is 1.5&times; to 5&times; slower than the native binary.
 </p>
 
@@ -282,7 +285,7 @@ where <span class="metavariable">sort-id</span> and <span class="metavariable">i
 Sort identifiers must be declared before they are used in variable, name, or function declarations.
 Sort identifiers cannot be declared twice.
 Variable, name, and function identifiers cannot be declared twice.
-An identifier starts with a lower- or upper-case letter and may be followed by further letters, digits, or underscore symbols.
+An identifier is a sequence of lower- and upper-case letters, digits, underscore and dash symbols, with the first symbol being a letter or underscore.
 </p>
 
 <p>

@@ -1,3 +1,5 @@
+// Simple test for functions.
+
 Sort ENTITY;
 
 Fun a/0 -> ENTITY;
