@@ -156,12 +156,12 @@ class Formula {
       SubstituteElement() = default;
       SubstituteElement(UnaryFunction theta, Term::Factory* tf) : theta_(theta), tf_(tf) {}
 
-      Element operator()(const Element& e) const {
-        switch (e.type()) {
-          case Element::kClause: return Element::Clause(e.clause().val.Substitute(theta_, tf_)); break;
+      Element operator()(ForwardIt it) const {
+        switch (it->type()) {
+          case Element::kClause: return Element::Clause(it->clause().val.Substitute(theta_, tf_)); break;
           case Element::kNot:    return Element::Not(); break;
           case Element::kOr:     return Element::Or(); break;
-          case Element::kExists: return Element::Exists(e.var().val.Substitute(theta_, tf_)); break;
+          case Element::kExists: return Element::Exists(it->var()); break;
         }
       }
 

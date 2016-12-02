@@ -14,6 +14,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <lela/internal/traits.h>
+
 namespace lela {
 namespace internal {
 
@@ -156,7 +158,8 @@ inline flatten_range<ContainerIt> nest_range(ContainerIt begin, ContainerIt end)
 template<typename InputIt, typename UnaryFunction>
 struct transform_iterator {
   typedef typename InputIt::difference_type difference_type;
-  typedef typename std::result_of<UnaryFunction(typename InputIt::value_type)>::type value_type;
+  typedef typename first_type<std::result_of<UnaryFunction(typename InputIt::value_type)>,
+                              std::result_of<UnaryFunction(         InputIt            )>>::type value_type;
   typedef const value_type* pointer;
   typedef value_type reference;
   typedef typename InputIt::iterator_category iterator_category;
@@ -168,7 +171,11 @@ struct transform_iterator {
   bool operator==(transform_iterator it) const { return iter_ == it.iter_; }
   bool operator!=(transform_iterator it) const { return !(*this == it); }
 
-  reference operator*() const { return func_(*iter_); }
+  template<typename It = InputIt>
+  typename std::result_of<UnaryFunction(typename It::value_type)>::type operator*() const { return func_(*iter_); }
+  template<typename It = InputIt>
+  typename std::result_of<UnaryFunction(         It            )>::type operator*() const { return func_(iter_); }
+
   transform_iterator& operator++() { ++iter_; return *this; }
   transform_iterator& operator--() { --iter_; return *this; }
 

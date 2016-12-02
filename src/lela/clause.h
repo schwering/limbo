@@ -30,6 +30,7 @@
 #include <lela/internal/bloom.h>
 #include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
+#include <lela/internal/traits.h>
 
 namespace lela {
 
@@ -91,24 +92,14 @@ class Clause {
   }
 
   template<typename UnaryFunction>
-  struct arg : public arg<decltype(&UnaryFunction::operator())> {};
-
-  template<typename UnaryFunction, typename ReturnType, typename ArgumentType>
-  struct arg<ReturnType (UnaryFunction::*)(ArgumentType) const> {
-    typedef ArgumentType type;
-  };
-
-  template<typename UnaryFunction>
-  typename std::enable_if<std::is_convertible<typename arg<UnaryFunction>::type, Term>::value>::type
-  Traverse(UnaryFunction f) const {
+  typename internal::if_arg<UnaryFunction, Term>::type Traverse(UnaryFunction f) const {
     for (Literal a : *this) {
       a.Traverse(f);
     }
   }
 
   template<typename UnaryFunction>
-  typename std::enable_if<std::is_convertible<typename arg<UnaryFunction>::type, Literal>::value>::type
-  Traverse(UnaryFunction f) const {
+  typename internal::if_arg<UnaryFunction, Literal>::type Traverse(UnaryFunction f) const {
     for (Literal a : *this) {
       f(a);
     }
