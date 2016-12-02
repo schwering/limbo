@@ -37,14 +37,6 @@ class Formula {
    public:
     enum Type { kClause, kNot, kOr, kExists };
 
-    // XXX The implicit operator= sometimes (in cli) takes a non-const reference. Why?!
-    Element& operator=(const Element& e) {
-      type_ = e.type_;
-      clause_ = e.clause_;
-      var_ = e.var_;
-      return *this;
-    }
-
     static Element Clause(const lela::Clause& c) { return Element(kClause, c); }
     static Element Not() { return Element(kNot); }
     static Element Or() { return Element(kOr); }
