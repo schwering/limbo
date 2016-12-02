@@ -27,9 +27,9 @@ TEST(SolverTest, Entails) {
     auto Bool = ctx.NewSort();                RegisterSort(Bool, "");
     auto True = ctx.NewName(Bool);            REGISTER_SYMBOL(True);
     auto Human = ctx.NewSort();               RegisterSort(Human, "");
-    auto Jesus = ctx.NewName(Human);          REGISTER_SYMBOL(Jesus);
+    auto Sonny = ctx.NewName(Human);          REGISTER_SYMBOL(Sonny);
     auto Mary = ctx.NewName(Human);           REGISTER_SYMBOL(Mary);
-    auto Joe = ctx.NewName(Human);            REGISTER_SYMBOL(Joe);
+    auto Frank = ctx.NewName(Human);          REGISTER_SYMBOL(Frank);
     auto Father = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Father);
     auto Mother = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Mother);
     auto IsParentOf = ctx.NewFun(Bool, 2);    REGISTER_SYMBOL(IsParentOf);
@@ -37,7 +37,7 @@ TEST(SolverTest, Entails) {
     auto y = ctx.NewVar(Human);               REGISTER_SYMBOL(y);
     {
       solver.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
-      solver.AddClause(Clause{ Mother(Jesus) == Mary });
+      solver.AddClause(Clause{ Mother(Sonny) == Mary });
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
       EXPECT_TRUE(solver.Entails(0, phi.reader()));
       EXPECT_TRUE(solver.Entails(1, phi.reader()));
@@ -52,10 +52,10 @@ TEST(SolverTest, Entails) {
     auto Bool = ctx.NewSort();                RegisterSort(Bool, "");
     auto True = ctx.NewName(Bool);            REGISTER_SYMBOL(True);
     auto Human = ctx.NewSort();               RegisterSort(Human, "");
-    auto Jesus = ctx.NewName(Human);          REGISTER_SYMBOL(Jesus);
+    auto Sonny = ctx.NewName(Human);          REGISTER_SYMBOL(Sonny);
     auto Mary = ctx.NewName(Human);           REGISTER_SYMBOL(Mary);
-    auto Joe = ctx.NewName(Human);            REGISTER_SYMBOL(Joe);
-    auto God = ctx.NewName(Human);            REGISTER_SYMBOL(God);
+    auto Frank = ctx.NewName(Human);          REGISTER_SYMBOL(Frank);
+    auto Fred = ctx.NewName(Human);           REGISTER_SYMBOL(Fred);
     auto Father = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Father);
     auto Mother = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Mother);
     auto IsParentOf = ctx.NewFun(Bool, 2);    REGISTER_SYMBOL(IsParentOf);
@@ -63,7 +63,7 @@ TEST(SolverTest, Entails) {
     auto y = ctx.NewVar(Human);               REGISTER_SYMBOL(y);
     {
       solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
-      solver.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God });
+      solver.AddClause(Clause{ Father(Sonny) == Mary, Father(Sonny) == Fred });
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
       EXPECT_FALSE(solver.Entails(0, phi.reader()));
       EXPECT_TRUE(solver.Entails(1, phi.reader()));
@@ -78,11 +78,11 @@ TEST(SolverTest, Entails) {
     auto Bool = ctx.NewSort();                RegisterSort(Bool, "");
     auto True = ctx.NewName(Bool);            REGISTER_SYMBOL(True);
     auto Human = ctx.NewSort();               RegisterSort(Human, "");
-    auto Jesus = ctx.NewName(Human);          REGISTER_SYMBOL(Jesus);
+    auto Sonny = ctx.NewName(Human);          REGISTER_SYMBOL(Sonny);
     auto Mary = ctx.NewName(Human);           REGISTER_SYMBOL(Mary);
-    auto Joe = ctx.NewName(Human);            REGISTER_SYMBOL(Joe);
-    auto God = ctx.NewName(Human);            REGISTER_SYMBOL(God);
-    auto HolyGhost = ctx.NewName(Human);      REGISTER_SYMBOL(HolyGhost);
+    auto Frank = ctx.NewName(Human);          REGISTER_SYMBOL(Frank);
+    auto Fred = ctx.NewName(Human);           REGISTER_SYMBOL(Fred);
+    auto Fox = ctx.NewName(Human);            REGISTER_SYMBOL(Fox);
     auto Father = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Father);
     auto Mother = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Mother);
     auto IsParentOf = ctx.NewFun(Bool, 2);    REGISTER_SYMBOL(IsParentOf);
@@ -90,7 +90,7 @@ TEST(SolverTest, Entails) {
     auto y = ctx.NewVar(Human);               REGISTER_SYMBOL(y);
     {
       solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
-      solver.AddClause(Clause{ Father(Jesus) == Mary, Father(Jesus) == God, Father(Jesus) == HolyGhost });
+      solver.AddClause(Clause{ Father(Sonny) == Mary, Father(Sonny) == Fred, Father(Sonny) == Fox });
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
       EXPECT_FALSE(solver.Entails(0, phi.reader()));
       EXPECT_TRUE(solver.Entails(1, phi.reader()));
@@ -105,9 +105,9 @@ TEST(SolverTest, Consistent) {
     auto Bool = ctx.NewSort();                RegisterSort(Bool, "");
     auto True = ctx.NewName(Bool);            REGISTER_SYMBOL(True);
     auto Human = ctx.NewSort();               RegisterSort(Human, "");
-    auto Jesus = ctx.NewName(Human);          REGISTER_SYMBOL(Jesus);
+    auto Sonny = ctx.NewName(Human);          REGISTER_SYMBOL(Sonny);
     auto Mary = ctx.NewName(Human);           REGISTER_SYMBOL(Mary);
-    auto Joe = ctx.NewName(Human);            REGISTER_SYMBOL(Joe);
+    auto Frank = ctx.NewName(Human);          REGISTER_SYMBOL(Frank);
     auto Father = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Father);
     auto Mother = ctx.NewFun(Human, 1);       REGISTER_SYMBOL(Mother);
     auto IsParentOf = ctx.NewFun(Bool, 2);    REGISTER_SYMBOL(IsParentOf);
@@ -115,7 +115,7 @@ TEST(SolverTest, Consistent) {
     auto y = ctx.NewVar(Human);               REGISTER_SYMBOL(y);
     {
       solver.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
-      solver.AddClause(Clause{ Mother(Jesus) == Mary });
+      solver.AddClause(Clause{ Mother(Sonny) == Mary });
       Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
       EXPECT_TRUE(solver.EntailsComplete(0, phi.reader()));
       EXPECT_TRUE(solver.EntailsComplete(1, phi.reader()));

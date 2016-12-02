@@ -61,7 +61,6 @@ TEST(FormulaTest, substitution) {
   Symbol::Factory sf;
   Term::Factory tf;
   const Symbol::Sort s1 = sf.CreateSort();
-  const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));
   const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
@@ -69,16 +68,20 @@ TEST(FormulaTest, substitution) {
   const Term x3 = tf.CreateTerm(sf.CreateVariable(s1));
   const Symbol a = sf.CreateFunction(s1, 0);
   const Symbol f = sf.CreateFunction(s1, 1);
-  const Symbol h = sf.CreateFunction(s2, 2);
+  const Symbol h = sf.CreateFunction(s1, 2);
   const Term f1 = tf.CreateTerm(f, {n1});
   const Term f2 = tf.CreateTerm(h, {n1,x2});
   const Term f3 = tf.CreateTerm(a, {});
 
-  auto phi = [f1,f2](Term x, Term t) { return Formula::Not(Formula::Exists(x, Formula::Clause(Clause{Literal::Eq(x,t), Literal::Neq(f1,f2)}))); };
+  auto phi = [x1,f1,f2](Term x, Term t) { return Formula::Not(Formula::Exists(x1, Formula::Clause(Clause{Literal::Eq(x,t), Literal::Neq(f1,f2)}))); };
 
+  EXPECT_NE(phi(x1,n1), phi(x2,n2));
   EXPECT_EQ(phi(x1,n2).reader().Substitute(Term::SingleSubstitution(n2,n1), &tf).Build(), phi(x1,n1));
   EXPECT_EQ(phi(x1,f3).reader().Substitute(Term::SingleSubstitution(f3,n1), &tf).Build(), phi(x1,n1));
-  EXPECT_EQ(phi(x1,f2).reader().Substitute(Term::SingleSubstitution(x1,x3), &tf).Build(), phi(x3,f2));
+  EXPECT_EQ(phi(x1,f2).reader().Substitute(Term::SingleSubstitution(x1,x3), &tf).Build(), phi(x1,f2));
+  EXPECT_EQ(phi(x1,f2).reader().Substitute(Term::SingleSubstitution(x1,n1), &tf).Build(), phi(x1,f2));
+  EXPECT_NE(phi(x1,f2).reader().Substitute(Term::SingleSubstitution(x1,n1), &tf).Build(), phi(n1,f2));
+  EXPECT_EQ(phi(x3,f2).reader().Substitute(Term::SingleSubstitution(x3,n1), &tf).Build(), phi(n1,f2));
 }
 
 }  // namespace lela

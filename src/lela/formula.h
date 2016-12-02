@@ -69,7 +69,7 @@ class Formula {
     ForwardIt begin() const { return begin_; }
     ForwardIt end() const { return end_; }
 
-    const Element& head() const { return *begin(); }
+    typename ForwardIt::reference head() const { return *begin(); }
 
     Reader arg() const {
       assert(head().type() == Element::kNot || head().type() == Element::kExists);
@@ -154,27 +154,77 @@ class Formula {
     template<typename UnaryFunction>
     struct SubstituteElement {
       SubstituteElement() = default;
-      SubstituteElement(UnaryFunction theta, Term::Factory* tf) : theta_(theta), tf_(tf) {}
+      SubstituteElement(UnaryFunction theta, Term::Factory* tf, bool preserve_bound_vars)
+          : theta_(theta), tf_(tf), preserve_bound_vars_(preserve_bound_vars) {}
 
-      Element operator()(ForwardIt it) const {
-        switch (it->type()) {
-          case Element::kClause: return Element::Clause(it->clause().val.Substitute(theta_, tf_)); break;
-          case Element::kNot:    return Element::Not(); break;
-          case Element::kOr:     return Element::Or(); break;
-          case Element::kExists: return Element::Exists(it->var()); break;
-        }
+      // Bound variables shall not be substituted. The implementation of this
+      // behaviour is a bit hacky. The resulting iterator is not more than a
+      // ForwardIterator, that is, the Bidirectional- and RandomAccessIterator
+      // operations have undefined behaviour because variable scope is not
+      // handled correctly.
+      internal::Maybe<Term> operator()(const Term t) const {
+        return !bound(t) ? theta_(t) : internal::Nothing;
+      }
+
+      Element operator()(const ForwardIt& it) const {
+        return const_cast<SubstituteElement*>(this)->transform(it);
       }
 
      private:
+      Element transform(const ForwardIt& it) {
+        if (!last_) {
+          last_ = internal::Just(it);
+        }
+        while (last_ && last_.val != it) {
+          unbind(++last_.val);
+        }
+        switch (it->type()) {
+          case Element::kClause:           return Element::Clause(it->clause().val.Substitute(*this, tf_)); break;
+          case Element::kNot:              return Element::Not(); break;
+          case Element::kOr:               return Element::Or(); break;
+          case Element::kExists: bind(it); return Element::Exists(it->var().val); break;
+        }
+      }
+
+      void bind(ForwardIt begin) {
+        assert(begin->var());
+        if (!preserve_bound_vars_) {
+          return;
+        }
+        if (theta_(begin->var().val)) {
+          bound_.push_back(std::make_pair(begin->var().val, Reader(begin).end()));
+        }
+      }
+
+      void unbind(ForwardIt potential_end) {
+        if (!preserve_bound_vars_) {
+          return;
+        }
+        for (auto it = bound_.begin(); it != bound_.end(); ++it) {
+          if (it->second == potential_end) {
+            it = bound_.erase(it);
+          }
+        }
+      }
+
+      bool bound(Term t) const {
+        return preserve_bound_vars_ &&
+               std::any_of(bound_.begin(), bound_.end(),
+                           [t](const std::pair<Term, ForwardIt>& p) { return p.first == t; });
+      }
+
       UnaryFunction theta_;
       Term::Factory* tf_;
+      bool preserve_bound_vars_;
+      std::vector<std::pair<Term, ForwardIt>> bound_;
+      internal::Maybe<ForwardIt> last_ = internal::Nothing;
     };
 
     template<typename UnaryFunction>
     Reader<internal::transform_iterator<ForwardIt, SubstituteElement<UnaryFunction>>>
-    Substitute(UnaryFunction theta, Term::Factory* tf) const {
+    Substitute(UnaryFunction theta, Term::Factory* tf, bool preserve_bound_vars = true) const {
       typedef internal::transform_iterator<ForwardIt, SubstituteElement<UnaryFunction>> iterator;
-      iterator it = iterator(begin(), SubstituteElement<UnaryFunction>(theta, tf));
+      iterator it = iterator(begin(), SubstituteElement<UnaryFunction>(theta, tf, preserve_bound_vars));
       return Reader<iterator>(it);
     }
 
@@ -185,7 +235,7 @@ class Formula {
           case Element::kClause: e.clause().val.Traverse(f); break;
           case Element::kNot:    break;
           case Element::kOr:     break;
-          case Element::kExists: /*e.var().val.Traverse(f);*/ break;
+          case Element::kExists: break;
         }
       }
     }
@@ -230,6 +280,9 @@ class Formula {
     ForwardIt end_;
   };
 
+  template<typename ForwardIt>
+  explicit Formula(const Reader<ForwardIt>& r) : es_(r.begin(), r.end()) {}
+
   Formula(Formula&&) = default;
   Formula(const Formula&) = default;
   Formula& operator=(const Formula&) = default;
@@ -238,9 +291,6 @@ class Formula {
   static Formula Not(const Formula& phi) { return Unary(Element::Not(), phi); }
   static Formula Or(const Formula& phi, const Formula& psi) { return Binary(Element::Or(), phi, psi); }
   static Formula Exists(Term var, const Formula& phi) { return Unary(Element::Exists(var), phi); }
-
-  template<typename ForwardIt>
-  explicit Formula(const Reader<ForwardIt>& r) : es_(r.begin(), r.end()) {}
 
   bool operator==(const Formula& phi) const { return es_ == phi.es_; }
   bool operator!=(const Formula& phi) const { return !(*this == phi); }
