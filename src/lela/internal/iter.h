@@ -70,24 +70,25 @@ struct int_iterator {
   UnaryFunction func_;
 };
 
-// Expects an iterator pointing to containers and iterates over their elements.
-template<typename ContainerIt>
+// Expects an iterator over containers, and iterates over the containers' elements.
+template<typename OuterInputIt,
+         typename InnerInputIt = decltype(std::declval<typename OuterInputIt::value_type const>().begin()),
+         InnerInputIt (OuterInputIt::value_type::*begin)() const = &OuterInputIt::value_type::begin,
+         InnerInputIt (OuterInputIt::value_type::*end)() const = &OuterInputIt::value_type::end>
 struct flatten_iterator {
   typedef std::ptrdiff_t difference_type;
-  typedef typename ContainerIt::value_type container_type;
-  typedef decltype(std::declval<container_type>().begin()) iterator_type;
-  typedef typename iterator_type::value_type value_type;
-  typedef typename iterator_type::pointer pointer;
-  typedef typename iterator_type::reference reference;
+  typedef typename InnerInputIt::value_type value_type;
+  typedef typename InnerInputIt::pointer pointer;
+  typedef typename InnerInputIt::reference reference;
   typedef std::input_iterator_tag iterator_category;
   typedef iterator_proxy<flatten_iterator> proxy;
 
   flatten_iterator() = default;
-  explicit flatten_iterator(ContainerIt cont_first, ContainerIt cont_last)
+  explicit flatten_iterator(OuterInputIt cont_first, OuterInputIt cont_last)
       : cont_first_(cont_first),
         cont_last_(cont_last) {
     if (cont_first_ != cont_last_) {
-      iter_ = (*cont_first_).begin();
+      iter_ = ((*cont_first_).*begin)();
     }
     Skip();
   }
@@ -99,12 +100,12 @@ struct flatten_iterator {
 
   reference operator*() const {
     assert(cont_first_ != cont_last_);
-    assert((*cont_first_).begin() != (*cont_first_).end());
+    assert(((*cont_first_).*begin)() != ((*cont_first_).*end)());
     return *iter_;
   }
 
   flatten_iterator& operator++() {
-    assert(cont_first_ != cont_last_ && iter_ != (*cont_first_).end());
+    assert(cont_first_ != cont_last_ && iter_ != ((*cont_first_).*end)());
     ++iter_;
     Skip();
     return *this;
@@ -119,27 +120,27 @@ struct flatten_iterator {
       if (cont_first_ == cont_last_) {
         break;  // iterator has ended
       }
-      if (iter_ != (*cont_first_).end()) {
+      if (iter_ != ((*cont_first_).*end)()) {
         break;  // found next element
       }
       ++cont_first_;
       if (cont_first_ != cont_last_) {
-        iter_ = (*cont_first_).begin();
+        iter_ = ((*cont_first_).*begin)();
       }
     }
-    assert(cont_first_ == cont_last_ || iter_ != (*cont_first_).end());
+    assert(cont_first_ == cont_last_ || iter_ != ((*cont_first_).*end)());
   }
 
-  ContainerIt cont_first_;
-  const ContainerIt cont_last_;
-  iterator_type iter_;
+  OuterInputIt cont_first_;
+  const OuterInputIt cont_last_;
+  InnerInputIt iter_;
 };
 
-template<typename ContainerIt>
+template<typename OuterInputIt>
 struct flatten_range {
-  typedef flatten_iterator<ContainerIt> iterator;
+  typedef flatten_iterator<OuterInputIt> iterator;
 
-  flatten_range(ContainerIt begin, ContainerIt end) : begin_(begin, end), end_(end, end) {}
+  flatten_range(OuterInputIt begin, OuterInputIt end) : begin_(begin, end), end_(end, end) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -149,9 +150,9 @@ struct flatten_range {
   iterator end_;
 };
 
-template<typename ContainerIt>
-inline flatten_range<ContainerIt> nest_range(ContainerIt begin, ContainerIt end) {
-  return flatten_range<ContainerIt>(begin, end);
+template<typename OuterInputIt>
+inline flatten_range<OuterInputIt> nest_range(OuterInputIt begin, OuterInputIt end) {
+  return flatten_range<OuterInputIt>(begin, end);
 }
 
 // Haskell's map function.
@@ -281,7 +282,7 @@ inline filtered_range<InputIt, UnaryPredicate> filter_range(InputIt begin,
   return filtered_range<InputIt, UnaryPredicate>(begin, end, pred);
 }
 
-template<typename T>
+template<typename T, typename Container = std::set<T>>
 struct unique_filter {
   bool operator()(const T& x) const {
     auto it = seen_.upper_bound(x);
@@ -294,7 +295,7 @@ struct unique_filter {
   }
 
  private:
-  mutable std::set<T> seen_;
+  mutable Container seen_;
 };
 
 template<typename InputIt1, typename InputIt2>
