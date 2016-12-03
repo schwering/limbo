@@ -80,6 +80,8 @@ class Symbol {
   }
   bool operator!=(Symbol s) const { return !(*this == s); }
 
+  std::uint64_t hash() const { return internal::hash(std::uint64_t(id_)); }
+
   bool name()     const { return id_ > 0; }
   bool variable() const { return id_ < 0 && ((-id_) % 2) == 0; }
   bool function() const { return id_ < 0 && ((-id_) % 2) != 0; }
@@ -94,8 +96,6 @@ class Symbol {
 
   Sort sort() const { return sort_; }
   Arity arity() const { return arity_; }
-
-  std::uint64_t hash() const { return internal::hash(std::uint64_t(id_)); }
 
  private:
   Symbol(Id id, Sort sort, Arity arity) : id_(id), sort_(sort), arity_(arity) {
@@ -140,6 +140,8 @@ class Term {
   bool operator<(Term t)  const { return data_ < t.data_; }
   bool operator>(Term t)  const { return data_ > t.data_; }
 
+  std::uint64_t hash() const { return internal::hash(std::uint64_t(reinterpret_cast<std::uintptr_t>(data_))); }
+
   template<typename UnaryFunction>
   Term Substitute(UnaryFunction theta, Factory* tf) const;
 
@@ -156,8 +158,6 @@ class Term {
   bool ground()         const { return name() || (function() && all_args([](Term t) { return t.ground(); })); }
   bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
   bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
-
-  std::uint64_t hash() const { return internal::hash(std::uint64_t(reinterpret_cast<std::uintptr_t>(data_))); }
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
@@ -317,13 +317,37 @@ void Term::Traverse(UnaryFunction f) const {
 namespace std {
 
 template<>
+struct hash<lela::Symbol> {
+  size_t operator()(const lela::Symbol s) const { return s.hash(); }
+};
+
+template<>
+struct equal_to<lela::Symbol> {
+  bool operator()(const lela::Symbol lhs, const lela::Symbol rhs) const { return lhs == rhs; }
+};
+
+template<>
+struct less<lela::Symbol> {
+  bool operator()(const lela::Symbol lhs, const lela::Symbol rhs) const { return comp_(lhs, rhs); }
+ private:
+  lela::Symbol::Comparator comp_;
+};
+
+template<>
 struct hash<lela::Term> {
   size_t operator()(const lela::Term t) const { return t.hash(); }
 };
 
 template<>
 struct equal_to<lela::Term> {
-  size_t operator()(const lela::Term lhs, const lela::Term rhs) const { return lhs == rhs; }
+  bool operator()(const lela::Term lhs, const lela::Term rhs) const { return lhs == rhs; }
+};
+
+template<>
+struct less<lela::Term> {
+  bool operator()(const lela::Term lhs, const lela::Term rhs) const { return comp_(lhs, rhs); }
+ private:
+  lela::Term::Comparator comp_;
 };
 
 }  // namespace std

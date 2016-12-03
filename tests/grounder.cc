@@ -198,9 +198,9 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     EXPECT_EQ(names[a.sort()].size(), 2);
     EXPECT_EQ(names[g.sort()].size(), 2);
     EXPECT_EQ(names[h.sort()].size(), 2);
-    Term nx3_1 = names[x3.sort()][0];
-    Term nx3_2 = names[x3.sort()][1];
-    Term n_Split = names[a.sort()][ names[a.sort()][0] == n1 ? 1 : 0 ];
+    Term nx3_1 = *names[x3.sort()].begin();
+    Term nx3_2 = *std::next(names[x3.sort()].begin());
+    Term n_Split = *names[a.sort()].begin() == n1 ? *std::next(names[a.sort()].begin()) : *names[a.sort()].begin();
     EXPECT_NE(nx3_1, n1);
     EXPECT_NE(nx3_2, n1);
     EXPECT_NE(n_Split, n1);
@@ -329,7 +329,7 @@ TEST(GrounderTest, Assignments) {
   //const Symbol h = sf.CreateFunction(s2, 2);                RegisterSymbol(h, "h");
   {
     Grounder::SortedTermSet ts;
-    ts.Add(n1);
+    ts.insert(n1);
     Grounder::Assignments as({}, &ts);
     EXPECT_EQ(length(as), 1);
     Term fx1 = tf.CreateTerm(f, {x1});
@@ -340,7 +340,7 @@ TEST(GrounderTest, Assignments) {
   }
   {
     Grounder::SortedTermSet ts;
-    ts.Add(n1);
+    ts.insert(n1);
     Grounder::Assignments as({x1}, &ts);
     EXPECT_EQ(length(as), 1);
     Term fx1 = tf.CreateTerm(f, {x1});
@@ -351,27 +351,27 @@ TEST(GrounderTest, Assignments) {
   }
   {
     Grounder::SortedTermSet ts;
-    ts.Add(n1);
-    ts.Add(n2);
+    ts.insert(n1);
+    ts.insert(n2);
     Grounder::Assignments as({x1}, &ts);
     EXPECT_EQ(length(as), 2);
     Term fx1 = tf.CreateTerm(f, {x1});
     Term fn1 = tf.CreateTerm(f, {n1});
     Term fn2 = tf.CreateTerm(f, {n2});
+    Grounder::TermSet substitutes;
     Grounder::Assignments::Assignment a = *as.begin();
-    EXPECT_NE(fx1.Substitute(a, &tf), fx1);
-    EXPECT_EQ(fx1.Substitute(a, &tf), fn1);
-    EXPECT_NE(fx1.Substitute(a, &tf), fn2);
+    substitutes.insert(fx1.Substitute(a, &tf));
     Grounder::Assignments::Assignment b = *std::next(as.begin());
-    EXPECT_NE(fx1.Substitute(b, &tf), fx1);
-    EXPECT_NE(fx1.Substitute(b, &tf), fn1);
-    EXPECT_EQ(fx1.Substitute(b, &tf), fn2);
+    substitutes.insert(fx1.Substitute(b, &tf));
+    EXPECT_EQ(substitutes.size(), 2);
+    EXPECT_EQ(substitutes, Grounder::TermSet({fn1, fn2}));
+    EXPECT_TRUE(substitutes.find(fx1) == substitutes.end());
   }
   {
     Grounder::SortedTermSet ts;
-    ts.Add(n1);
-    ts.Add(n2);
-    ts.Add(n3);
+    ts.insert(n1);
+    ts.insert(n2);
+    ts.insert(n3);
     Grounder::Assignments as({x1,x2,x3}, &ts);
     EXPECT_EQ(length(as), 4);
   }

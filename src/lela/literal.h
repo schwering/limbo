@@ -16,8 +16,10 @@
 #define LELA_LITERAL_H_
 
 #include <cassert>
+#include <cstdint>
 
 #include <algorithm>
+#include <functional>
 #include <utility>
 
 #include <lela/term.h>
@@ -47,6 +49,8 @@ class Literal {
 
   bool operator==(Literal a) const { return eq_ == a.eq_ && lhs_ == a.lhs_ && rhs_ == a.rhs_; }
   bool operator!=(Literal a) const { return !(*this == a); }
+
+  std::uint64_t hash() const { return eq_ ^ lhs_.hash() ^ rhs_.hash(); }
 
   // valid() holds for (t = t) and (n1 != n2) and (t1 != t2) if t1, t2 have different sorts.
   bool valid() const {
@@ -133,6 +137,28 @@ struct Literal::Comparator {
 };
 
 }  // namespace lela
+
+
+namespace std {
+
+template<>
+struct hash<lela::Literal> {
+  size_t operator()(const lela::Literal a) const { return a.hash(); }
+};
+
+template<>
+struct equal_to<lela::Literal> {
+  bool operator()(const lela::Literal lhs, const lela::Literal rhs) const { return lhs == rhs; }
+};
+
+template<>
+struct less<lela::Literal> {
+  bool operator()(const lela::Literal lhs, const lela::Literal rhs) const { return comp_(lhs, rhs); }
+ private:
+  lela::Literal::Comparator comp_;
+};
+
+}  // namespace std
 
 #endif  // LELA_LITERAL_H_
 

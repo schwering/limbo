@@ -344,7 +344,7 @@ class Setup {
       Term term_;
     };
 
-    struct GetClause {
+    struct GetClauseIndex {
       Index operator()(const TermMap::value_type& pair) const { return pair.second; }
     };
 
@@ -353,22 +353,22 @@ class Setup {
     typedef Setups::setup_iterator setup_iterator;
     typedef internal::transform_iterator<setup_iterator, GetTermPairs> term_pairs_iterator;
     typedef internal::flatten_iterator<term_pairs_iterator> every_term_pair_iterator;
-    typedef internal::transform_iterator<every_term_pair_iterator, GetClause> every_clause_with_term_iterator;
+    typedef internal::transform_iterator<every_term_pair_iterator, GetClauseIndex> every_clause_with_term_iterator;
     typedef internal::filter_iterator<every_clause_with_term_iterator, EnabledClause> clause_with_term_iterator;
 
-    ClausesWith(const Setup* owner, Term term) : owner_(owner), term_(term) {}
+    ClausesWith(const Setup* owner, Term t) : owner_(owner), term_(t) {}
 
     clause_with_term_iterator begin() const {
       auto first = term_pairs_iterator(owner_->setups().begin(), GetTermPairs(term_));
       auto last  = term_pairs_iterator(owner_->setups().end(), GetTermPairs(term_));
-      auto first_filter = every_clause_with_term_iterator(every_term_pair_iterator(first, last), GetClause());
-      auto last_filter  = every_clause_with_term_iterator(every_term_pair_iterator(last, last), GetClause());
+      auto first_filter = every_clause_with_term_iterator(every_term_pair_iterator(first, last), GetClauseIndex());
+      auto last_filter  = every_clause_with_term_iterator(every_term_pair_iterator(last, last), GetClauseIndex());
       return clause_with_term_iterator(first_filter, last_filter, EnabledClause(owner_));
     }
 
     clause_with_term_iterator end() const {
       auto last = term_pairs_iterator(owner_->setups().end(), GetTermPairs(term_));
-      auto last_filter = every_clause_with_term_iterator(every_term_pair_iterator(last, last), GetClause());
+      auto last_filter = every_clause_with_term_iterator(every_term_pair_iterator(last, last), GetClauseIndex());
       return clause_with_term_iterator(last_filter, last_filter, EnabledClause(owner_));
     }
 
@@ -377,7 +377,7 @@ class Setup {
     Term term_;
   };
 
-  ClausesWith clauses_with(Term term) const { return ClausesWith(this, term); }
+  ClausesWith clauses_with(Term t) const { return ClausesWith(this, t); }
 
 
   template<typename UnaryFunction>

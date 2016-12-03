@@ -159,9 +159,11 @@ inline flatten_range<OuterInputIt> nest_range(OuterInputIt begin, OuterInputIt e
 template<typename InputIt, typename UnaryFunction>
 struct transform_iterator {
   typedef typename InputIt::difference_type difference_type;
-  typedef typename first_type<std::result_of<UnaryFunction(typename InputIt::value_type)>,
-                              std::result_of<UnaryFunction(         InputIt            )>>::type value_type;
-  typedef const value_type* pointer;
+  typedef typename std::remove_reference<
+      typename first_type<std::result_of<UnaryFunction(typename InputIt::value_type)>,
+                          std::result_of<UnaryFunction(         InputIt            )>>::type
+    >::type value_type;
+  typedef const typename std::remove_reference<value_type>::type* pointer;
   typedef value_type reference;
   typedef typename InputIt::iterator_category iterator_category;
   typedef iterator_proxy<transform_iterator> proxy;

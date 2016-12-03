@@ -13,6 +13,8 @@
 #include <ostream>
 #include <set>
 #include <string>
+#include <unordered_set>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -94,13 +96,25 @@ std::ostream& operator<<(std::ostream& os, const std::set<T>& set);
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set);
 
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::unordered_set<T>& set);
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::unordered_multiset<T>& set);
+
 template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map);
 
 template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const std::multimap<K, T>& map);
 
-template<typename T>
+template<typename K, typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>& map);
+
+template<typename K, typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map);
+
+template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m);
 
 std::ostream& operator<<(std::ostream& os, const Symbol s) {
@@ -344,6 +358,18 @@ std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set) {
   return os;
 }
 
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::unordered_set<T>& set) {
+  print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::unordered_multiset<T>& set) {
+  print_sequence(os, set.begin(), set.end(), "m{", "}m", ", ");
+  return os;
+}
+
 template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map) {
   print_sequence(os, map.begin(), map.end(), "{", "}", ", ");
@@ -352,6 +378,18 @@ std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map) {
 
 template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const std::multimap<K, T>& map) {
+  print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
+  return os;
+}
+
+template<typename K, typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>& map) {
+  print_sequence(os, map.begin(), map.end(), "{", "}", ", ");
+  return os;
+}
+
+template<typename K, typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map) {
   print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
   return os;
 }
