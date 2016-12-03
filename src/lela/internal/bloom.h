@@ -22,6 +22,10 @@
 
 #include <cstdint>
 
+#include <functional>
+
+#include <lela/internal/hash.h>
+
 namespace lela {
 namespace internal {
 
@@ -29,6 +33,8 @@ class BloomFilter {
  public:
   bool operator==(BloomFilter b) const { return mask_ == b.mask_; }
   bool operator!=(BloomFilter b) const { return !(*this == b); }
+
+  std::uint64_t hash() const { return fnv1a_hash(mask_); }
 
   void Clear() {
     mask_ = 0;
@@ -80,6 +86,21 @@ class BloomFilter {
 
 }  // namespace internal
 }  // namespace lela
+
+
+namespace std {
+
+template<>
+struct hash<lela::internal::BloomFilter> {
+  size_t operator()(const lela::internal::BloomFilter a) const { return a.hash(); }
+};
+
+template<>
+struct equal_to<lela::internal::BloomFilter> {
+  bool operator()(const lela::internal::BloomFilter a, const lela::internal::BloomFilter b) const { return a == b; }
+};
+
+}  // namespace std
 
 #endif  // LELA_INTERNAL_BLOOM_H_
 

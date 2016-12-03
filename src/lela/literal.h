@@ -148,12 +148,12 @@ struct hash<lela::Literal> {
 
 template<>
 struct equal_to<lela::Literal> {
-  bool operator()(const lela::Literal lhs, const lela::Literal rhs) const { return lhs == rhs; }
+  bool operator()(const lela::Literal a, const lela::Literal b) const { return a == b; }
 };
 
 template<>
 struct less<lela::Literal> {
-  bool operator()(const lela::Literal lhs, const lela::Literal rhs) const { return comp_(lhs, rhs); }
+  bool operator()(const lela::Literal a, const lela::Literal b) const { return comp_(a, b); }
  private:
   lela::Literal::Comparator comp_;
 };

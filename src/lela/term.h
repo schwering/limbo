@@ -80,7 +80,7 @@ class Symbol {
   }
   bool operator!=(Symbol s) const { return !(*this == s); }
 
-  std::uint64_t hash() const { return internal::hash(std::uint64_t(id_)); }
+  std::uint64_t hash() const { return internal::fnv1a_hash(std::uint64_t(id_)); }
 
   bool name()     const { return id_ > 0; }
   bool variable() const { return id_ < 0 && ((-id_) % 2) == 0; }
@@ -140,7 +140,7 @@ class Term {
   bool operator<(Term t)  const { return data_ < t.data_; }
   bool operator>(Term t)  const { return data_ > t.data_; }
 
-  std::uint64_t hash() const { return internal::hash(std::uint64_t(reinterpret_cast<std::uintptr_t>(data_))); }
+  std::uint64_t hash() const { return internal::fnv1a_hash(std::uint64_t(reinterpret_cast<std::uintptr_t>(data_))); }
 
   template<typename UnaryFunction>
   Term Substitute(UnaryFunction theta, Factory* tf) const;
@@ -260,8 +260,8 @@ class Term::Factory {
   };
 
   struct DataPtrEquals {
-    size_t operator()(const lela::Term::Data* lhs, const lela::Term::Data* rhs) const {
-      return *lhs == *rhs;
+    size_t operator()(const lela::Term::Data* a, const lela::Term::Data* b) const {
+      return *a == *b;
     }
   };
 
@@ -323,12 +323,12 @@ struct hash<lela::Symbol> {
 
 template<>
 struct equal_to<lela::Symbol> {
-  bool operator()(const lela::Symbol lhs, const lela::Symbol rhs) const { return lhs == rhs; }
+  bool operator()(const lela::Symbol a, const lela::Symbol b) const { return a == b; }
 };
 
 template<>
 struct less<lela::Symbol> {
-  bool operator()(const lela::Symbol lhs, const lela::Symbol rhs) const { return comp_(lhs, rhs); }
+  bool operator()(const lela::Symbol a, const lela::Symbol b) const { return comp_(a, b); }
  private:
   lela::Symbol::Comparator comp_;
 };
@@ -340,12 +340,12 @@ struct hash<lela::Term> {
 
 template<>
 struct equal_to<lela::Term> {
-  bool operator()(const lela::Term lhs, const lela::Term rhs) const { return lhs == rhs; }
+  bool operator()(const lela::Term a, const lela::Term b) const { return a == b; }
 };
 
 template<>
 struct less<lela::Term> {
-  bool operator()(const lela::Term lhs, const lela::Term rhs) const { return comp_(lhs, rhs); }
+  bool operator()(const lela::Term a, const lela::Term b) const { return comp_(a, b); }
  private:
   lela::Term::Comparator comp_;
 };

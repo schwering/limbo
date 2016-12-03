@@ -11,7 +11,7 @@
 namespace lela {
 namespace internal {
 
-inline std::uint64_t hash(const std::uint64_t b) {
+inline std::uint64_t fnv1a_hash(const std::uint64_t b) {
   constexpr std::uint64_t offset_basis = 0xcbf29ce484222325;
   constexpr std::uint64_t magic_prime = 0x00000100000001b3;
   return

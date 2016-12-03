@@ -22,10 +22,10 @@ TEST(HashTest, hash) {
   for (uint64_t i1 : ints1) {
     uint64_t copy = i1;
     EXPECT_EQ(i1, copy);
-    EXPECT_EQ(hash(i1), hash(copy));
+    EXPECT_EQ(fnv1a_hash(i1), fnv1a_hash(copy));
     for (uint64_t i2 : ints2) {
       EXPECT_NE(i1, i2);
-      EXPECT_NE(hash(i1), hash(i2));
+      EXPECT_NE(fnv1a_hash(i1), fnv1a_hash(i2));
     }
   }
 }
