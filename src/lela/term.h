@@ -20,8 +20,8 @@
 #include <cassert>
 
 #include <algorithm>
+#include <functional>
 #include <unordered_set>
-#include <utility>
 #include <vector>
 
 #include <lela/internal/compar.h>

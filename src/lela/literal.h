@@ -18,7 +18,6 @@
 #include <cassert>
 
 #include <algorithm>
-#include <set>
 #include <utility>
 
 #include <lela/term.h>

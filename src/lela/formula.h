@@ -24,6 +24,8 @@
 #include <cassert>
 
 #include <list>
+#include <utility>
+#include <vector>
 
 #include <lela/clause.h>
 #include <lela/internal/iter.h>
