@@ -38,7 +38,8 @@
 #include <cassert>
 
 #include <algorithm>
-#include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -52,7 +53,7 @@ class Setup {
  public:
   typedef int Index;
   typedef std::vector<Clause> ClauseVec;
-  typedef std::multimap<Term, Index> TermMap;
+  typedef std::unordered_multimap<Term, Index> TermMap;
 
   Setup() = default;
   explicit Setup(const Setup* parent) : parent_(parent), del_(parent_->del_) { assert(parent_->sealed_); }
@@ -276,7 +277,7 @@ class Setup {
 
     struct EnabledClause {
       explicit EnabledClause(const Setup* owner) : owner_(owner) {}
-      bool operator()(const TermMap::value_type& pair) const { return owner_->enabled(pair.second); }
+      bool operator()(const TermMap::value_type& pair) { return owner_->enabled(pair.second); }
      private:
       const Setup* owner_;
     };
@@ -286,14 +287,14 @@ class Setup {
     };
 
     struct UniqueTerm {
-      bool operator()(Term t) { const bool b = term_ != t; term_ = t; return b; }
+      bool operator()(Term t) { const bool b = (last_ != t); last_ = t; return b; }
      private:
-      Term term_;
+      Term last_;
     };
 
     typedef Setups::setup_iterator setup_iterator;
-    typedef internal::transform_iterator<setup_iterator, GetTermPairs> term_pairs_iterator;
-    typedef internal::flatten_iterator<term_pairs_iterator> every_term_pair_iterator;
+    typedef internal::transform_iterator<setup_iterator, GetTermPairs> nested_term_pairs_iterator;
+    typedef internal::flatten_iterator<nested_term_pairs_iterator> every_term_pair_iterator;
     typedef internal::filter_iterator<every_term_pair_iterator, EnabledClause> term_pair_iterator;
     typedef internal::transform_iterator<term_pair_iterator, GetTerm> every_term_iterator;
     typedef internal::filter_iterator<every_term_iterator, UniqueTerm> term_iterator;
@@ -301,8 +302,8 @@ class Setup {
     explicit PrimitiveTerms(const Setup* owner) : owner_(owner) {}
 
     term_iterator begin() const {
-      auto first = term_pairs_iterator(owner_->setups().begin(), GetTermPairs());
-      auto last  = term_pairs_iterator(owner_->setups().end(), GetTermPairs());
+      auto first = nested_term_pairs_iterator(owner_->setups().begin(), GetTermPairs());
+      auto last  = nested_term_pairs_iterator(owner_->setups().end(), GetTermPairs());
       auto first_pair = every_term_pair_iterator(first, last);
       auto last_pair  = every_term_pair_iterator(last, last);
       auto first_filtered_pair = term_pair_iterator(first_pair, last_pair, EnabledClause(owner_));
@@ -313,10 +314,10 @@ class Setup {
     }
 
     term_iterator end() const {
-      auto last  = term_pairs_iterator(owner_->setups().end(), GetTermPairs());
-      auto last_pair  = every_term_pair_iterator(last, last);
-      auto last_filtered_pair  = term_pair_iterator(last_pair, last_pair, EnabledClause(owner_));
-      auto last_term  = every_term_iterator(last_filtered_pair, GetTerm());
+      auto last = nested_term_pairs_iterator(owner_->setups().end(), GetTermPairs());
+      auto last_pair = every_term_pair_iterator(last, last);
+      auto last_filtered_pair = term_pair_iterator(last_pair, last_pair, EnabledClause(owner_));
+      auto last_term = every_term_iterator(last_filtered_pair, GetTerm());
       return term_iterator(last_term, last_term, UniqueTerm());
     }
 
@@ -329,12 +330,33 @@ class Setup {
 
   struct ClausesWith {
     struct TermPairs {
-      TermPairs(const Setup* owner, Term t) : owner_(owner), term_(t) {}
-      TermMap::const_iterator begin() const { assert(owner_); return owner_->occurs_.lower_bound(term_); }
-      TermMap::const_iterator end()   const { assert(owner_); return owner_->occurs_.upper_bound(term_); }
+      struct EqualsTerm {
+        EqualsTerm() = default;
+        explicit EqualsTerm(Term t) : term_(t) {}
+        bool operator()(TermMap::value_type p) const { return p.first == term_; }
+       private:
+        Term term_;
+      };
+
+      typedef TermMap::const_local_iterator bucket_iterator;
+      typedef internal::filter_iterator<bucket_iterator, EqualsTerm> iterator;
+
+      TermPairs(const Setup* owner, Term t) {
+        // We avoid TermMap::equal_range() because it has linear complexity in
+        // a std::unordered_map.
+        const size_t bucket = owner->occurs_.bucket(t);
+        bucket_iterator begin = owner->occurs_.begin(bucket);
+        bucket_iterator end = owner->occurs_.end(bucket);
+        begin_ = iterator(begin, end, EqualsTerm(t));
+        end_   = iterator(end, end, EqualsTerm(t));
+      }
+
+      iterator begin() const { return begin_; }
+      iterator end()   const { return end_; }
+
      private:
-      const Setup* owner_;
-      Term term_;
+      iterator begin_;
+      iterator end_;
     };
 
     struct GetTermPairs {
@@ -348,28 +370,34 @@ class Setup {
       Index operator()(const TermMap::value_type& pair) const { return pair.second; }
     };
 
-    typedef Clauses::EnabledClause EnabledClause;
+    struct EnabledNoDupeClause {
+      explicit EnabledNoDupeClause(const Setup* owner) : owner_(owner) {}
+      bool operator()(Index i) { const bool b = (last_ != i); last_ = i; return b && owner_->enabled(i); }
+     private:
+      const Setup* owner_;
+      Index last_ = -1;
+    };
 
     typedef Setups::setup_iterator setup_iterator;
-    typedef internal::transform_iterator<setup_iterator, GetTermPairs> term_pairs_iterator;
-    typedef internal::flatten_iterator<term_pairs_iterator> every_term_pair_iterator;
+    typedef internal::transform_iterator<setup_iterator, GetTermPairs> nested_term_pairs_iterator;
+    typedef internal::flatten_iterator<nested_term_pairs_iterator> every_term_pair_iterator;
     typedef internal::transform_iterator<every_term_pair_iterator, GetClauseIndex> every_clause_with_term_iterator;
-    typedef internal::filter_iterator<every_clause_with_term_iterator, EnabledClause> clause_with_term_iterator;
+    typedef internal::filter_iterator<every_clause_with_term_iterator, EnabledNoDupeClause> clause_with_term_iterator;
 
     ClausesWith(const Setup* owner, Term t) : owner_(owner), term_(t) {}
 
     clause_with_term_iterator begin() const {
-      auto first = term_pairs_iterator(owner_->setups().begin(), GetTermPairs(term_));
-      auto last  = term_pairs_iterator(owner_->setups().end(), GetTermPairs(term_));
+      auto first = nested_term_pairs_iterator(owner_->setups().begin(), GetTermPairs(term_));
+      auto last  = nested_term_pairs_iterator(owner_->setups().end(), GetTermPairs(term_));
       auto first_filter = every_clause_with_term_iterator(every_term_pair_iterator(first, last), GetClauseIndex());
       auto last_filter  = every_clause_with_term_iterator(every_term_pair_iterator(last, last), GetClauseIndex());
-      return clause_with_term_iterator(first_filter, last_filter, EnabledClause(owner_));
+      return clause_with_term_iterator(first_filter, last_filter, EnabledNoDupeClause(owner_));
     }
 
     clause_with_term_iterator end() const {
-      auto last = term_pairs_iterator(owner_->setups().end(), GetTermPairs(term_));
+      auto last = nested_term_pairs_iterator(owner_->setups().end(), GetTermPairs(term_));
       auto last_filter = every_clause_with_term_iterator(every_term_pair_iterator(last, last), GetClauseIndex());
-      return clause_with_term_iterator(last_filter, last_filter, EnabledClause(owner_));
+      return clause_with_term_iterator(last_filter, last_filter, EnabledNoDupeClause(owner_));
     }
 
    private:
@@ -392,18 +420,16 @@ class Setup {
     assert(!sealed_);
     occurs_.clear();
     for (Index i = first(); i < last(); ++i) {
-      UpdateOccurrences(i);
+      AddOccurrences(i);
     }
   }
 
-  void UpdateOccurrences(Index i) {
+  void AddOccurrences(Index i) {
+    std::unordered_set<Term> funs;
     for (const Literal a : clause(i)) {
-      assert(a.primitive());
-      if (a.lhs().function()) {
-        auto r = occurs_.equal_range(a.lhs());
-        if (r.first == r.second || std::prev(r.second)->second != i) {
-          occurs_.insert(r.second, std::make_pair(a.lhs(), i));
-        }
+      assert(a.lhs().primitive());
+      if (funs.insert(a.lhs()).second) {
+        occurs_.insert(std::make_pair(a.lhs(), i));
       }
     }
   }
@@ -469,7 +495,7 @@ class Setup {
         if (c && !Subsumes(c.val)) {
           const Index k = AddClause(c.val);
           assert(k >= 0);
-          UpdateOccurrences(k);  // keep occurrence index up to date
+          AddOccurrences(k);  // keep occurrence index up to date
           RemoveSubsumed(k);  // keep setup minimal
         }
       }

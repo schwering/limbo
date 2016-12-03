@@ -131,7 +131,7 @@ struct flatten_iterator {
   }
 
   OuterInputIt cont_first_;
-  const OuterInputIt cont_last_;
+  OuterInputIt cont_last_;
   InnerInputIt iter_;
 };
 
@@ -238,7 +238,7 @@ struct filter_iterator {
   }
 
   InputIt iter_;
-  const InputIt end_;
+  InputIt end_;
   UnaryPredicate pred_;
 };
 
