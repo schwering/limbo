@@ -10,7 +10,6 @@
 #define LELA_INTERNAL_ITER_H_
 
 #include <iterator>
-#include <set>
 #include <type_traits>
 #include <utility>
 
@@ -135,25 +134,6 @@ struct flatten_iterator {
   const OuterInputIt cont_last_;
   InnerInputIt iter_;
 };
-
-template<typename OuterInputIt>
-struct flatten_range {
-  typedef flatten_iterator<OuterInputIt> iterator;
-
-  flatten_range(OuterInputIt begin, OuterInputIt end) : begin_(begin, end), end_(end, end) {}
-
-  iterator begin() const { return begin_; }
-  iterator end()   const { return end_; }
-
- private:
-  iterator begin_;
-  iterator end_;
-};
-
-template<typename OuterInputIt>
-inline flatten_range<OuterInputIt> nest_range(OuterInputIt begin, OuterInputIt end) {
-  return flatten_range<OuterInputIt>(begin, end);
-}
 
 // Haskell's map function.
 template<typename InputIt, typename UnaryFunction>
@@ -283,22 +263,6 @@ inline filtered_range<InputIt, UnaryPredicate> filter_range(InputIt begin,
                                                             UnaryPredicate pred = UnaryPredicate()) {
   return filtered_range<InputIt, UnaryPredicate>(begin, end, pred);
 }
-
-template<typename T, typename Container = std::set<T>>
-struct unique_filter {
-  bool operator()(const T& x) const {
-    auto it = seen_.upper_bound(x);
-    if (it == seen_.end()) {
-      seen_.insert(it, x);
-      return true;
-    } else {
-      return false;
-    }
-  }
-
- private:
-  mutable Container seen_;
-};
 
 template<typename InputIt1, typename InputIt2>
 struct joined_ranges {
