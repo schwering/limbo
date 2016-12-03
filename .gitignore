@@ -23,6 +23,7 @@ tests/bloom
 tests/clause
 tests/formula
 tests/grounder
+tests/hash
 tests/intmap
 tests/iter
 tests/literal

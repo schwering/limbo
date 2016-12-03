@@ -23,7 +23,7 @@
 
 #include <algorithm>
 #include <list>
-#include <map>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -261,11 +261,11 @@ class Grounder {
 
       TermRange& operator[](Term t) { return map_[t]; }
 
-      std::map<Term, TermRange>::iterator begin() { return map_.begin(); }
-      std::map<Term, TermRange>::iterator end() { return map_.end(); }
+      std::unordered_map<Term, TermRange>::iterator begin() { return map_.begin(); }
+      std::unordered_map<Term, TermRange>::iterator end() { return map_.end(); }
 
      private:
-      std::map<Term, TermRange> map_;
+      std::unordered_map<Term, TermRange> map_;
     };
 
     struct assignment_iterator {
@@ -323,7 +323,7 @@ class Grounder {
      private:
       const SortedTermSet* substitutes_ = nullptr;
       Assignment assignment_;
-      std::map<Term, TermRange>::iterator meta_iter_;
+      std::unordered_map<Term, TermRange>::iterator meta_iter_;
     };
 
     Assignments(const TermSet& vars, const SortedTermSet* substitutes) : vars_(vars), substitutes_(substitutes) {}

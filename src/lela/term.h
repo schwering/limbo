@@ -20,12 +20,12 @@
 #include <cassert>
 
 #include <algorithm>
-#include <map>
-#include <set>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include <lela/internal/compar.h>
+#include <lela/internal/hash.h>
 #include <lela/internal/intmap.h>
 #include <lela/internal/maybe.h>
 
@@ -74,6 +74,12 @@ class Symbol {
     Id last_variable_ = 0;
   };
 
+  bool operator==(Symbol s) const {
+    assert(id_ != s.id_ || (sort_ == s.sort_ && arity_ == s.arity_));
+    return id_ == s.id_;
+  }
+  bool operator!=(Symbol s) const { return !(*this == s); }
+
   bool name()     const { return id_ > 0; }
   bool variable() const { return id_ < 0 && ((-id_) % 2) == 0; }
   bool function() const { return id_ < 0 && ((-id_) % 2) != 0; }
@@ -87,8 +93,9 @@ class Symbol {
   }
 
   Sort sort() const { return sort_; }
-
   Arity arity() const { return arity_; }
+
+  std::uint64_t hash() const { return internal::hash(std::uint64_t(id_)); }
 
  private:
   Symbol(Id id, Sort sort, Arity arity) : id_(id), sort_(sort), arity_(arity) {
@@ -120,7 +127,6 @@ class Term {
  public:
   struct Comparator;
   typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
-  typedef std::set<Term, Comparator> Set;
 
   class Factory;
   struct SingleSubstitution;
@@ -151,23 +157,7 @@ class Term {
   bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
   bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
 
-  std::uint64_t hash() const {
-    // 64bit FNV-1a hash
-    constexpr std::uint64_t offset_basis = 0xcbf29ce484222325;
-    constexpr std::uint64_t magic_prime = 0x00000100000001b3;
-    const std::uint64_t b = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(data_));
-    return
-        ((((((((((((((((
-          offset_basis
-          ^ ((b >>  0) & 0xFF)) * magic_prime)
-          ^ ((b >>  8) & 0xFF)) * magic_prime)
-          ^ ((b >> 16) & 0xFF)) * magic_prime)
-          ^ ((b >> 24) & 0xFF)) * magic_prime)
-          ^ ((b >> 32) & 0xFF)) * magic_prime)
-          ^ ((b >> 40) & 0xFF)) * magic_prime)
-          ^ ((b >> 48) & 0xFF)) * magic_prime)
-          ^ ((b >> 56) & 0xFF)) * magic_prime);
-  }
+  std::uint64_t hash() const { return internal::hash(std::uint64_t(reinterpret_cast<std::uintptr_t>(data_))); }
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
@@ -180,6 +170,17 @@ class Term {
   struct Data {
     struct DeepComparator;
     Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args) {}
+
+    bool operator==(const Data& d) const { return symbol_ == d.symbol_ && args_ == d.args_; }
+    bool operator!=(const Data& s) const { return !(*this == s); }
+
+    std::uint64_t hash() const {
+      std::uint64_t h = symbol_.hash();
+      for (const lela::Term t : args_) {
+        h ^= t.hash();
+      }
+      return h;
+    }
 
     Symbol symbol_;
     Vector args_;
@@ -225,7 +226,7 @@ class Term::Factory {
   Factory& operator=(const Factory&) = delete;
 
   ~Factory() {
-    for (const std::set<Data*, Data::DeepComparator>& set : memory_.values()) {
+    for (const DataPtrSet& set : memory_.values()) {
       for (Data* data : set) {
         delete data;
       }
@@ -239,7 +240,7 @@ class Term::Factory {
   Term CreateTerm(Symbol symbol, const Vector& args) {
     assert(symbol.arity() == static_cast<Symbol::Arity>(args.size()));
     Data* d = new Data(symbol, args);
-    std::set<Data*, Data::DeepComparator>* s = &memory_[symbol.sort()];
+    DataPtrSet* s = &memory_[symbol.sort()];
     auto p = s->insert(d);
     if (p.second) {
       assert(d == *p.first);
@@ -252,7 +253,20 @@ class Term::Factory {
   }
 
  private:
-  internal::IntMap<Symbol::Sort, std::set<Data*, Data::DeepComparator>> memory_;
+  struct DataPtrHash {
+    size_t operator()(const lela::Term::Data* d) const {
+      return d->hash();
+    }
+  };
+
+  struct DataPtrEquals {
+    size_t operator()(const lela::Term::Data* lhs, const lela::Term::Data* rhs) const {
+      return *lhs == *rhs;
+    }
+  };
+
+  typedef std::unordered_set<Data*, DataPtrHash, DataPtrEquals> DataPtrSet;
+  internal::IntMap<Symbol::Sort, DataPtrSet> memory_;
 };
 
 struct Term::SingleSubstitution {
@@ -298,6 +312,21 @@ void Term::Traverse(UnaryFunction f) const {
 }
 
 }  // namespace lela
+
+
+namespace std {
+
+template<>
+struct hash<lela::Term> {
+  size_t operator()(const lela::Term t) const { return t.hash(); }
+};
+
+template<>
+struct equal_to<lela::Term> {
+  size_t operator()(const lela::Term lhs, const lela::Term rhs) const { return lhs == rhs; }
+};
+
+}  // namespace std
 
 #endif  // LELA_TERM_H_
 

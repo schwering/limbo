@@ -66,39 +66,20 @@ TEST(TermTest, general) {
   EXPECT_EQ(f3.symbol().id(), 1);
   EXPECT_EQ(f4.symbol().id(), 2);
 
-  Term::Set terms;
+  typedef std::set<Term, Term::Comparator> TermSet;
+  TermSet terms;
 
   terms.clear();
   f4.Traverse([&terms, s1](const Term t) { if (t.symbol().sort() == s1) { terms.insert(t); } return true; });
-  EXPECT_TRUE(terms == Term::Set({f1,n1}));
+  EXPECT_TRUE(terms == TermSet({f1,n1}));
 
   terms.clear();
   f4.Traverse([&terms](const Term t) { terms.insert(t); return true; });
-  EXPECT_TRUE(terms == Term::Set({n1,f1,f4}));
+  EXPECT_TRUE(terms == TermSet({n1,f1,f4}));
 
   std::set<Symbol::Sort> sorts;
   f4.Traverse([&sorts](Term t) { sorts.insert(t.symbol().sort()); return true; });
   EXPECT_TRUE(sorts == std::set<Symbol::Sort>({s1,s2}));
-}
-
-TEST(TermTest, hash) {
-  std::vector<Term> terms1;
-  std::vector<Term> terms2;
-  for (uint64_t i = 0, n = 1; i <= 19; ++i, n *= 10UL) {
-    ASSERT_LE(0UL + n, UINT64_MAX);
-    ASSERT_LE(1UL + n, UINT64_MAX);
-    terms1.push_back(Term(reinterpret_cast<Term::Data*>(0UL + n)));
-    terms2.push_back(Term(reinterpret_cast<Term::Data*>(1UL + n)));
-  }
-  for (Term t1 : terms1) {
-    Term copy = t1;
-    EXPECT_EQ(t1.data_, copy.data_);
-    EXPECT_EQ(t1.hash(), copy.hash());
-    for (Term t2 : terms2) {
-      EXPECT_NE(t1.data_, t2.data_);
-      EXPECT_NE(t1.hash(), t2.hash());
-    }
-  }
 }
 
 }  // namespace lela
