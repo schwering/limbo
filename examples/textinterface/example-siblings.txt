@@ -1,22 +1,22 @@
 // Are Sally and Sonny siblings?
 
-Sort ENTITY;
+Sort HUMAN;
 Sort BOOL;
 
-Variable x -> ENTITY;
-Variable y -> ENTITY;
-Variable z -> ENTITY;
+Variable x -> HUMAN;
+Variable y -> HUMAN;
+Variable z -> HUMAN;
 
-Name Mary -> ENTITY;
-Name Mia -> ENTITY;
-Name Frank -> ENTITY;
-Name Fred -> ENTITY;
-Name Sally -> ENTITY;
-Name Sonny -> ENTITY;
+Name Mary -> HUMAN;
+Name Mia -> HUMAN;
+Name Frank -> HUMAN;
+Name Fred -> HUMAN;
+Name Sally -> HUMAN;
+Name Sonny -> HUMAN;
 Name T -> BOOL;
 
-Function fatherOf/1 -> ENTITY;
-Function motherOf/1 -> ENTITY;
+Function fatherOf/1 -> HUMAN;
+Function motherOf/1 -> HUMAN;
 Function siblings/2 -> BOOL;
 
 // Sally's parents are Frank and either Mary or Mia.

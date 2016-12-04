@@ -1,11 +1,11 @@
 // Simple test for functions.
 
-Sort ENTITY;
+Sort OBJECT;
 
-Fun a/0 -> ENTITY;
-Fun b/0 -> ENTITY;
-Fun f/1 -> ENTITY;
-Fun g/1 -> ENTITY;
+Fun a/0 -> OBJECT;
+Fun b/0 -> OBJECT;
+Fun f/1 -> OBJECT;
+Fun g/1 -> OBJECT;
 
 Refute Entails (2, a == b);
 Refute Entails (2, f(a) == g(a));

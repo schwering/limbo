@@ -2,20 +2,20 @@
 // A non-religious version of the Jesus-example.
 // Based on some what on some gossip on the web.
 
-Sort ENTITY;
+Sort HUMAN;
 Sort BOOL;
 
-Variable x -> ENTITY;
-Variable y -> ENTITY;
+Variable x -> HUMAN;
+Variable y -> HUMAN;
 
-Name Mia -> ENTITY;
-Name Frank -> ENTITY;
-Name Woody -> ENTITY;
-Name Ronan -> ENTITY;
+Name Mia -> HUMAN;
+Name Frank -> HUMAN;
+Name Woody -> HUMAN;
+Name Ronan -> HUMAN;
 Name True -> BOOL;
 
-Function fatherOf/1 -> ENTITY;
-Function motherOf/1 -> ENTITY;
+Function fatherOf/1 -> HUMAN;
+Function motherOf/1 -> HUMAN;
 Function is_singer/1 -> BOOL;
 
 KB (motherOf(Ronan) == Mia);

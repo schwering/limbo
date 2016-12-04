@@ -1,19 +1,19 @@
 // Who's Sonny's father, Frank or Fred?
 
-Sort ENTITY;
+Sort HUMAN;
 Sort BOOL;
 
-Variable x -> ENTITY;
-Variable y -> ENTITY;
+Variable x -> HUMAN;
+Variable y -> HUMAN;
 
-Name Mary -> ENTITY;
-Name Frank -> ENTITY;
-Name Fred -> ENTITY;
-Name Sonny -> ENTITY;
+Name Mary -> HUMAN;
+Name Frank -> HUMAN;
+Name Fred -> HUMAN;
+Name Sonny -> HUMAN;
 Name True -> BOOL;
 
-Function fatherOf/1 -> ENTITY;
-Function motherOf/1 -> ENTITY;
+Function fatherOf/1 -> HUMAN;
+Function motherOf/1 -> HUMAN;
 
 KB (motherOf(Sonny) == Mary);
 KB (fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred);
