@@ -4,6 +4,7 @@
 // Command line application that interprets a problem description and queries.
 
 #include <fstream>
+#include <ios>
 #include <iostream>
 #include <iterator>
 #include <memory>
@@ -36,21 +37,24 @@ static void lex(Iter begin, Iter end) {
 #endif
 
 template<typename Iter>
-static bool parse(Iter begin, Iter end) {
+static bool parse(Iter begin, Iter end, KB* kb) {
   struct PrintAnnouncer : public Announcer {
     void AnnounceEntailment(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) override {
       std::cout << "Entails(" << k << ", " << phi << ") = " << std::boolalpha << yes << std::endl;
+      std::cout.flush();
     }
 
     void AnnounceConsistency(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) override {
       std::cout << "Consistent(" << k << ", " << phi << ") = " << std::boolalpha << yes << std::endl;
+      std::cout.flush();
     }
   };
   PrintAnnouncer announcer;
   typedef Parser<Iter> MyParser;
-  MyParser parser(begin, end, &announcer);
+  MyParser parser(begin, end, kb, &announcer);
   auto r = parser.Parse();
   std::cout << r << std::endl;
+  std::cout.flush();
   return bool(r);
 }
 
@@ -111,28 +115,54 @@ class multi_pass_iterator {
 };
 
 int main(int argc, char** argv) {
-  if (argc >= 2 && (std::string(argv[1]) == "-h" || std::string(argv[1]) == "-help" || std::string(argv[1]) == "--help")) {
-    std::cout << "Usage: " << argv[0] << " [file [file ...]]" << std::endl;
+  bool help = false;
+  bool wait = false;
+  bool after_flags = false;
+  std::vector<std::string> args;
+  for (int i = 1; i < argc; ++i) {
+    std::string s(argv[i]);
+    if (!after_flags && (s == "-h" || s == "--help")) {
+      help = true;
+    } else if (!after_flags && (s == "-w" || s == "--wait")) {
+      wait = true;
+    } else if (!after_flags && s == "--") {
+      after_flags = true;
+    } else if (!after_flags && !s.empty() && s[0] == 'w') {
+      std::cerr << "Unknown flag: " << s << " (use '--' to separate flags from arguments)" << std::endl;
+    } else {
+      args.push_back(s);
+    }
+  }
+  wait |= args.empty();
+
+  if (help) {
+    std::cout << "Usage: " << argv[0] << " [[-w | --wait]] file [file ...]]" << std::endl;
+    std::cout << "The flag -w or --wait specifies that after reading the files the program reads to stdin." << std::endl;
     std::cout << "If there is no file argument, content is read from stdin." << std::endl;
     return 2;
-  } else if (argc >= 2) {
-    bool succ = true;
-    for (int i = 1; i < argc && succ; ++i) {
-      std::ifstream stream(argv[i]);
-      if (!stream.is_open()) {
-        std::cerr << "Cannot open file " << argv[i] << std::endl;
-        return 2;
-      }
-      multi_pass_iterator<std::istreambuf_iterator<char>> begin(stream);
-      multi_pass_iterator<std::istreambuf_iterator<char>> end;
-      succ = succ && parse(begin, end);
+  }
+
+  std::ios_base::sync_with_stdio(true);
+  bool succ = true;
+  KB kb;
+  for (const std::string& arg : args) {
+    if (!succ) {
+      break;
     }
-    return succ ? 0 : 1;
-  } else {
+    std::ifstream stream(arg);
+    if (!stream.is_open()) {
+      std::cerr << "Cannot open file " << arg << std::endl;
+      return 2;
+    }
+    multi_pass_iterator<std::istreambuf_iterator<char>> begin(stream);
+    multi_pass_iterator<std::istreambuf_iterator<char>> end;
+    succ &= succ && parse(begin, end, &kb);
+  }
+  if (wait && succ) {
     multi_pass_iterator<std::istreambuf_iterator<char>> begin(std::cin);
     multi_pass_iterator<std::istreambuf_iterator<char>> end;
-    const bool succ = parse(begin, end);
-    return succ ? 0 : 1;
+    succ &= parse(begin, end, &kb);
   }
+  return succ ? 0 : 1;
 }
 

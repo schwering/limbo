@@ -59,9 +59,10 @@ inline void parse(const char* c_str) {
   };
 
   std::string str = c_str;
+  KB kb;
   PrintAnnouncer announcer;
 
-  StrParser parser(str.begin(), str.end(), &announcer);
+  StrParser parser(str.begin(), str.end(), &kb, &announcer);
   StrParser::Result<bool> r = parser.Parse();
 
   announcer.AnnounceResult(r);

@@ -80,13 +80,13 @@ class Parser {
     ForwardIt end_;
   };
 
-  Parser(ForwardIt begin, ForwardIt end, Announcer* announcer)
-      : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()), announcer_(announcer) {}
+  Parser(ForwardIt begin, ForwardIt end, KB* kb, Announcer* announcer)
+      : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()), kb_(kb), announcer_(announcer) {}
 
   Result<bool> Parse() { return start(); }
 
-  KB& kb() { return kb_; }
-  const KB& kb() const { return kb_; }
+  KB& kb() { return *kb_; }
+  const KB& kb() const { return *kb_; }
 
  private:
   template<typename T>
@@ -96,7 +96,7 @@ class Parser {
 
   template<typename T>
   Result<T> Failure(const std::string& msg, const T& val = T()) const {
-    return Result<T>(false, msg, begin_.char_iter(), end_.char_iter(), val);
+    return Result<T>(false, msg, begin().char_iter(), end().char_iter(), val);
   }
 
   template<typename T, typename U>
@@ -106,7 +106,7 @@ class Parser {
 
   template<typename T>
   Result<T> Unapplicable(const std::string& msg) const {
-    return Result<T>(true, msg, begin_.char_iter(), end_.char_iter());
+    return Result<T>(true, msg, begin().char_iter(), end().char_iter());
   }
 
   // declaration --> sort <sort-id> ;
@@ -121,38 +121,38 @@ class Parser {
       return Unapplicable<bool>(MSG("No declaration"));
     }
     if (Is(Symbol(0), Token::kSort) &&
-        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredSort(s); }) &&
+        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_->IsRegisteredSort(s); }) &&
         Is(Symbol(2), Token::kEndOfLine)) {
-      kb_.RegisterSort(Symbol(1).val.str());
+      kb_->RegisterSort(Symbol(1).val.str());
       Advance(2);
       return Success<bool>(true);
     }
     if (Is(Symbol(0), Token::kVar) &&
-        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredTerm(s); }) &&
+        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_->IsRegisteredTerm(s); }) &&
         Is(Symbol(2), Token::kRArrow) &&
-        Is(Symbol(3), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredSort(s); }) &&
+        Is(Symbol(3), Token::kIdentifier, [this](const std::string& s) { return kb_->IsRegisteredSort(s); }) &&
         Is(Symbol(4), Token::kEndOfLine)) {
-      kb_.RegisterVar(Symbol(1).val.str(), Symbol(3).val.str());
+      kb_->RegisterVar(Symbol(1).val.str(), Symbol(3).val.str());
       Advance(4);
       return Success<bool>(true);
     }
     if (Is(Symbol(0), Token::kName) &&
-        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredTerm(s); }) &&
+        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_->IsRegisteredTerm(s); }) &&
         Is(Symbol(2), Token::kRArrow) &&
-        Is(Symbol(3), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredSort(s); }) &&
+        Is(Symbol(3), Token::kIdentifier, [this](const std::string& s) { return kb_->IsRegisteredSort(s); }) &&
         Is(Symbol(4), Token::kEndOfLine)) {
-      kb_.RegisterName(Symbol(1).val.str(), Symbol(3).val.str());
+      kb_->RegisterName(Symbol(1).val.str(), Symbol(3).val.str());
       Advance(4);
       return Success<bool>(true);
     }
     if (Is(Symbol(0), Token::kFun) &&
-        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_.IsRegisteredTerm(s); }) &&
+        Is(Symbol(1), Token::kIdentifier, [this](const std::string& s) { return !kb_->IsRegisteredTerm(s); }) &&
         Is(Symbol(2), Token::kSlash) &&
         Is(Symbol(3), Token::kUint) &&
         Is(Symbol(4), Token::kRArrow) &&
-        Is(Symbol(5), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredSort(s); }) &&
+        Is(Symbol(5), Token::kIdentifier, [this](const std::string& s) { return kb_->IsRegisteredSort(s); }) &&
         Is(Symbol(6), Token::kEndOfLine)) {
-      kb_.RegisterFun(Symbol(1).val.str(), std::stoi(Symbol(3).val.str()), Symbol(5).val.str());
+      kb_->RegisterFun(Symbol(1).val.str(), std::stoi(Symbol(3).val.str()), Symbol(5).val.str());
       Advance(6);
       return Success<bool>(true);
     }
@@ -172,18 +172,18 @@ class Parser {
   //       |  f
   //       |  f(term, ..., term)
   Result<lela::Term> term() {
-    if (Is(Symbol(0), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredVar(s); })) {
-      lela::Term x = kb_.LookupVar(Symbol(0).val.str());
+    if (Is(Symbol(0), Token::kIdentifier, [this](const std::string& s) { return kb_->IsRegisteredVar(s); })) {
+      lela::Term x = kb_->LookupVar(Symbol(0).val.str());
       Advance(0);
       return Success(x);
     }
-    if (Is(Symbol(0), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredName(s); })) {
-      lela::Term n = kb_.LookupName(Symbol(0).val.str());
+    if (Is(Symbol(0), Token::kIdentifier, [this](const std::string& s) { return kb_->IsRegisteredName(s); })) {
+      lela::Term n = kb_->LookupName(Symbol(0).val.str());
       Advance(0);
       return Success(n);
     }
-    if (Is(Symbol(0), Token::kIdentifier, [this](const std::string& s) { return kb_.IsRegisteredFun(s); })) {
-      lela::Symbol s = kb_.LookupFun(Symbol(0).val.str());
+    if (Is(Symbol(0), Token::kIdentifier, [this](const std::string& s) { return kb_->IsRegisteredFun(s); })) {
+      lela::Symbol s = kb_->LookupFun(Symbol(0).val.str());
       Advance(0);
       lela::Term::Vector args;
       if (s.arity() > 0 || Is(Symbol(0), Token::kLeftParen)) {
@@ -209,7 +209,7 @@ class Parser {
         }
         Advance(0);
       }
-      return Success(kb_.solver().tf()->CreateTerm(s, args));
+      return Success(kb_->solver().tf()->CreateTerm(s, args));
     }
     return Failure<lela::Term>(MSG("Expected a term"));
   }
@@ -268,7 +268,7 @@ class Parser {
       ss << c;
       return Failure<bool>(MSG("KB clause "+ ss.str() +" must only contain ewff/quasiprimitive literals"));
     }
-    kb_.AddClause(c);
+    kb_->AddClause(c);
     return Success<bool>(true);
   }
 
@@ -321,10 +321,10 @@ class Parser {
       Advance(0);
       return phi;
     }
-    if (Is(Symbol(0), Token::kIdentifier) && kb_.IsRegisteredFormula(Symbol(0).val.str())) {
+    if (Is(Symbol(0), Token::kIdentifier) && kb_->IsRegisteredFormula(Symbol(0).val.str())) {
       std::string id = Symbol(0).val.str();
       Advance(0);
-      return Success<lela::Formula>(kb_.LookupFormula(id));
+      return Success<lela::Formula>(kb_->LookupFormula(id));
     }
     Result<lela::Literal> a = literal();
     if (a) {
@@ -396,7 +396,7 @@ class Parser {
       return Failure<bool>(MSG("Expected end of line ';'"));
     }
     Advance(0);
-    kb_.RegisterFormula(id, phi.val);
+    kb_->RegisterFormula(id, phi.val);
     return Success<bool>(true);
   }
 
@@ -443,12 +443,12 @@ class Parser {
     Advance(0);
     const lela::Formula phi_nf = phi.val.reader().NF();
     if (entailment) {
-      const bool r = kb_.solver().Entails(k, phi_nf.reader());
-      announcer_->AnnounceEntailment(k, kb_.solver().setup(), phi_nf, r);
+      const bool r = kb_->solver().Entails(k, phi_nf.reader());
+      announcer_->AnnounceEntailment(k, kb_->solver().setup(), phi_nf, r);
       return Success<bool>(r);
     } else {
-      const bool r = kb_.solver().Consistent(k, phi_nf.reader());
-      announcer_->AnnounceConsistency(k, kb_.solver().setup(), phi_nf, r);
+      const bool r = kb_->solver().Consistent(k, phi_nf.reader());
+      announcer_->AnnounceConsistency(k, kb_->solver().setup(), phi_nf, r);
       return Success<bool>(r);
     }
   }
@@ -492,9 +492,9 @@ class Parser {
   // start --> declarations kb_clauses
   Result<bool> start() {
     Result<bool> r;
-    iterator last;
+    iterator prev;
     do {
-      last = begin_;
+      prev = begin();
       r = declarations();
       if (!r) {
         return Failure<bool>(MSG("Error in declarations"), r);
@@ -515,7 +515,7 @@ class Parser {
       if (!r) {
         return Failure<bool>(MSG("Error in assertions_refutations"), r);
       }
-    } while (begin_ != last);
+    } while (begin() != prev);
     std::stringstream ss;
     ss << Symbol(0) << " " << Symbol(1) << " " << Symbol(2);
     return !Symbol(0) ? Success<bool>(true) : Failure<bool>(MSG("Unparsed input "+ ss.str()));
@@ -530,29 +530,40 @@ class Parser {
     return symbol && symbol.val.id() == id && p(symbol.val.str());
   }
 
-  lela::internal::Maybe<Token> Symbol(int n = 0) const {
-    auto it = begin_;
-    for (int i = 0; i < n && it != end_; ++i) {
-      assert(begin_ != end_);
+  lela::internal::Maybe<Token> Symbol(size_t n = 0) const {
+    auto it = begin();
+    for (size_t i = 0; i < n && it != end_; ++i) {
+      assert(begin() != end());
       ++it;
     }
     return it != end_ ? lela::internal::Just(*it) : lela::internal::Nothing;
   }
 
-  void Advance(int n = 0) {
-    for (int i = 0; i <= n; ++i) {
+  void Advance(size_t n = 0) {
+    begin_plus_ += n + 1;
+  }
+
+  iterator begin() const {
+    while (begin_plus_ > 0) {
       assert(begin_ != end_);
       ++begin_;
+      begin_plus_--;
     }
+    return begin_;
+  }
+
+  iterator end() const {
+    return end_;
   }
 
   Lex lexer_;
-  iterator begin_;
+  mutable iterator begin_;  // don't use begin_ directly: to avoid the stream blocking us, Advance() actually increments
+  mutable size_t begin_plus_ = 0;  // begin_plus_ instead of begin_; use begin() to obtain the incremented iterator.
   iterator end_;
-  KB kb_;
+  KB* kb_;
   Announcer* announcer_;
-  const lela::Literal DUMMY_LITERAL_ = lela::Literal::Eq(kb_.solver().tf()->CreateTerm(kb_.solver().sf()->CreateName(0)),
-                                                         kb_.solver().tf()->CreateTerm(kb_.solver().sf()->CreateName(0)));
+  const lela::Literal DUMMY_LITERAL_ = lela::Literal::Eq(kb_->solver().tf()->CreateTerm(kb_->solver().sf()->CreateName(0)),
+                                                         kb_->solver().tf()->CreateTerm(kb_->solver().sf()->CreateName(0)));
   const lela::Formula DUMMY_FORMULA_ = lela::Formula::Clause(lela::Clause{});
 };
 
