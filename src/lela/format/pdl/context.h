@@ -3,9 +3,13 @@
 //
 // Context objects store and create symbols, terms, and allow for textual
 // representation, and encapsulate a Solver object.
+//
+// Results are announced through the LogPredicate functor, which needs to
+// implement operator() for the structs defined in Logger. Logger itself is a
+// minimal implementation of a LogPredicate, which ignores all log data.
 
-#ifndef LELA_FORMAT_CONTEXT_H_
-#define LELA_FORMAT_CONTEXT_H_
+#ifndef LELA_FORMAT_PDL_CONTEXT_H_
+#define LELA_FORMAT_PDL_CONTEXT_H_
 
 #include <map>
 #include <iostream>
@@ -22,8 +26,71 @@ namespace lela {
 namespace format {
 namespace pdl {
 
+struct Logger {
+  struct LogData {};
+
+  struct RegisterData {
+    explicit RegisterData(const std::string& id) : id(id) {}
+    const std::string id;
+  };
+
+  struct RegisterSortData : public RegisterData {
+    explicit RegisterSortData(const std::string& id) : RegisterData(id) {}
+  };
+
+  struct RegisterNameData : public RegisterData {
+    RegisterNameData(const std::string& id, const std::string& sort_id) : RegisterData(id), sort_id(sort_id) {}
+    const std::string sort_id;
+  };
+
+  struct RegisterVariableData : public RegisterData {
+    RegisterVariableData(const std::string& id, const std::string& sort_id) : RegisterData(id), sort_id(sort_id) {}
+    const std::string sort_id;
+  };
+
+  struct RegisterFunctionData : public RegisterData {
+    RegisterFunctionData(const std::string& id, Symbol::Arity arity, const std::string& sort_id)
+        : RegisterData(id), arity(arity), sort_id(sort_id) {}
+    Symbol::Arity arity;
+    const std::string sort_id;
+  };
+
+  struct RegisterFormulaData : public RegisterData {
+    RegisterFormulaData(const std::string& id, const Formula& phi) : RegisterData(id), phi(phi) {}
+    const Formula phi;
+  };
+
+  struct AddClauseData : public LogData {
+    explicit AddClauseData(const Clause& c) : c(c) {}
+    const Clause c;
+  };
+
+  struct QueryData : public LogData {
+    QueryData(Solver::split_level k, const Setup* s, const Formula& phi, bool yes) : k(k), s(s), phi(phi), yes(yes) {}
+    const Solver::split_level k;
+    const Setup* const s;
+    const Formula phi;
+    const bool yes;
+  };
+
+  struct EntailmentData : public QueryData {
+    EntailmentData(Solver::split_level k, const Setup* s, const Formula& phi, bool yes)
+        : QueryData(k, s, phi, yes) {}
+  };
+
+  struct ConsistencyData : public QueryData {
+    ConsistencyData(Solver::split_level k, const Setup* s, const Formula& phi, bool yes)
+        : QueryData(k, s, phi, yes) {}
+  };
+
+  void operator()(const LogData& d) const {}
+};
+
+template<typename LogPredicate>
 class Context {
  public:
+  explicit Context(LogPredicate p = LogPredicate()) : logger_(p) {}
+
   Symbol::Sort CreateSort() {
     return solver_.sf()->CreateSort();
   }
@@ -104,7 +171,7 @@ class Context {
     const Symbol::Sort sort = CreateSort();
     lela::format::output::RegisterSort(sort, "");
     sorts_[id] = sort;
-    std::cout << "RegisterSort " << id << std::endl;
+    logger_(Logger::RegisterSortData(id));
   }
 
   void RegisterVariable(const std::string& id, const std::string& sort_id) {
@@ -115,7 +182,7 @@ class Context {
     const Term var = CreateVariable(sort);
     vars_[id] = var;
     lela::format::output::RegisterSymbol(var.symbol(), id);
-    std::cout << "RegisterVar " << id << " -> " << sort_id << std::endl;
+    logger_(Logger::RegisterVariableData(id, sort_id));
   }
 
   void RegisterName(const std::string& id, const std::string& sort_id) {
@@ -126,7 +193,7 @@ class Context {
     const Term name = CreateName(sort);
     names_[id] = name;
     lela::format::output::RegisterSymbol(name.symbol(), id);
-    std::cout << "RegisterName " << id << " -> " << sort_id << std::endl;
+    logger_(Logger::RegisterNameData(id, sort_id));
   }
 
   void RegisterFunction(const std::string& id, int arity, const std::string& sort_id) {
@@ -137,7 +204,7 @@ class Context {
     funs_.emplace(id, CreateFunction(sort, arity));
     Symbol s = funs_.find(id)->second;
     lela::format::output::RegisterSymbol(s, id);
-    std::cout << "RegisterFunction " << id << " / " << arity << " -> " << sort_id << std::endl;
+    logger_(Logger::RegisterFunctionData(id, arity, sort_id));
   }
 
   void RegisterFormula(const std::string& id, const Formula& phi) {
@@ -148,16 +215,13 @@ class Context {
       formulas_.erase(it);
     }
     formulas_.emplace(id, phi);
-    std::cout << "RegisterFormula " << id << " := " << phi;
-    if (contained)
-      std::cout << " (was previously " << LookupFormula(id) << ")";
-    std::cout << std::endl;
+    logger_(Logger::RegisterFormulaData(id, phi));
   }
 
   void AddClause(const Clause& c) {
     using lela::format::output::operator<<;
-    std::cout << "Adding clause " << c << std::endl;
     solver_.AddClause(c);
+    logger_(Logger::AddClauseData(c));
   }
 
   Solver* solver() { return &solver_; }
@@ -166,7 +230,10 @@ class Context {
   Symbol::Factory* sf() { return solver_.sf(); }
   Term::Factory* tf() { return solver_.tf(); }
 
+  const LogPredicate& logger() const { return logger_; }
+
  private:
+  LogPredicate                        logger_;
   std::map<std::string, Symbol::Sort> sorts_;
   std::map<std::string, Term>         vars_;
   std::map<std::string, Term>         names_;
@@ -179,5 +246,5 @@ class Context {
 }  // namespace format
 }  // namespace lela
 
-#endif  // LELA_FORMAT_CONTEXT_H_
+#endif  // LELA_FORMAT_PDL_CONTEXT_H_
 

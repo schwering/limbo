@@ -11,7 +11,7 @@
 #include <lela/internal/maybe.h>
 #include <lela/internal/iter.h>
 #include <lela/format/output.h>
-#include <lela/format/syntax.h>
+#include <lela/format/cpp/syntax.h>
 
 #include "game.h"
 #include "timer.h"

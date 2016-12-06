@@ -4,8 +4,8 @@
 #include <gtest/gtest.h>
 
 #include <lela/formula.h>
-#include <lela/format/syntax.h>
 #include <lela/format/output.h>
+#include <lela/format/cpp/syntax.h>
 
 namespace lela {
 

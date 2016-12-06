@@ -289,10 +289,11 @@ An identifier is a sequence of lower- and upper-case letters, digits, underscore
 </p>
 
 <p>
-The knowledge base consists of a sequence of clauses, each of which is written as
+The knowledge base consists of a sequence of clauses, each of which is written (synonymously) as
 </p>
 <ul class="grammar">
     <li><span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>);</span>
+        <span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span> | <span class="metavariable">...</span> | <span class="metavariable">literal<sub>k</sub></span>);</span>
         &nbsp;&nbsp;or&nbsp;&nbsp;
        <span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span> v <span class="metavariable">...</span> v <span class="metavariable">literal<sub>k</sub></span>);</span></li>
 </ul>
@@ -329,8 +330,10 @@ The set of formulas includes literals as defined above as well as negated formul
     <li><span class="code">!<span class="metavariable">formula</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
         <span class="code">~<span class="metavariable">formula</span></span></li>
     <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> &amp;&amp; <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code"><span class="metavariable">formula<sub>1</sub></span> &amp; <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
         <span class="code"><span class="metavariable">formula<sub>1</sub></span> ^ <span class="metavariable">formula<sub>2</sub></span></span></li>
     <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code"><span class="metavariable">formula<sub>1</sub></span> | <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
         <span class="code"><span class="metavariable">formula<sub>1</sub></span> v <span class="metavariable">formula<sub>2</sub></span></span></li>
     <li><span class="code">Ex <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>
     <li><span class="code">Fa <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>

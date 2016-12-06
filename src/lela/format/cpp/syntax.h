@@ -3,8 +3,8 @@
 //
 // Overloads some operators to provide a higher-level syntax for formulas.
 
-#ifndef LELA_FORMAT_SYNTAX_H_
-#define LELA_FORMAT_SYNTAX_H_
+#ifndef LELA_FORMAT_CPP_SYNTAX_H_
+#define LELA_FORMAT_CPP_SYNTAX_H_
 
 #include <lela/formula.h>
 #include <lela/clause.h>
@@ -98,5 +98,5 @@ inline HiFormula Fa(HiTerm x, const HiFormula& phi) { return ~Ex(x, ~phi); }
 }  // namespace format
 }  // namespace lela
 
-#endif  // LELA_FORMAT_SYNTAX_H_
+#endif  // LELA_FORMAT_CPP_SYNTAX_H_
 

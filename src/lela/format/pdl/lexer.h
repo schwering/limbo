@@ -1,10 +1,13 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2016 Christoph Schwering
 //
-// Max-munch lexer for our text interface.
+// Max-munch lexer for the problem description language.
+//
+// The compuational complexity is pretty bad (O(n^2)), but we don't expect very
+// long tokens, so parsing shouldn't be the bottleneck.
 
-#ifndef LELA_FORMAT_LEXER_H_
-#define LELA_FORMAT_LEXER_H_
+#ifndef LELA_FORMAT_PDL_LEXER_H_
+#define LELA_FORMAT_PDL_LEXER_H_
 
 #include <cassert>
 
@@ -160,7 +163,7 @@ class Lexer {
     lexemes_.push_back(std::make_pair(Token::kInequality, [](Word w) { return IsPrefix(w, {"!=", "/="}); }));
     lexemes_.push_back(std::make_pair(Token::kNot,        [](Word w) { return IsPrefix(w, {"!", "~"}); }));
     lexemes_.push_back(std::make_pair(Token::kOr,         [](Word w) { return IsPrefix(w, {"||", "|", "v"}); }));
-    lexemes_.push_back(std::make_pair(Token::kAnd,        [](Word w) { return IsPrefix(w, {"&&", "&", "&"}); }));
+    lexemes_.push_back(std::make_pair(Token::kAnd,        [](Word w) { return IsPrefix(w, {"&&", "&", "^"}); }));
     lexemes_.push_back(std::make_pair(Token::kForall,     [](Word w) { return IsPrefix(w, "fa"); }));
     lexemes_.push_back(std::make_pair(Token::kExists,     [](Word w) { return IsPrefix(w, "ex"); }));
     lexemes_.push_back(std::make_pair(Token::kAssign,     [](Word w) { return IsPrefix(w, ":="); }));
@@ -190,20 +193,20 @@ class Lexer {
   iterator end()   const { return iterator(&lexemes_, end_, end_); }
 
  private:
-  static Match IsPrefix(Word w, const std::string& foobar) {
+  static Match IsPrefix(Word w, const std::string& sentence) {
     size_t len = std::distance(w.begin(), w.end());
     auto r = lela::internal::transform_range(w.begin(), w.end(), [](char c) { return std::tolower(c); });
-    if (len > foobar.length() || std::mismatch(r.begin(), r.end(), foobar.begin()).first != r.end()) {
+    if (len > sentence.length() || std::mismatch(r.begin(), r.end(), sentence.begin()).first != r.end()) {
       return kMismatch;
     } else {
-      return len < foobar.length() ? kPrefixMatch : kFullMatch;
+      return len < sentence.length() ? kPrefixMatch : kFullMatch;
     }
   }
 
-  static Match IsPrefix(Word w, const std::initializer_list<std::string>& foobars) {
+  static Match IsPrefix(Word w, const std::initializer_list<std::string>& sentences) {
     Match m = kMismatch;
-    for (const auto& foobar : foobars) {
-      m = std::max(m, IsPrefix(w, foobar));
+    for (const auto& sentence : sentences) {
+      m = std::max(m, IsPrefix(w, sentence));
     }
     return m;
   }
@@ -263,5 +266,5 @@ std::ostream& operator<<(std::ostream& os, const Token& t) {
 }  // namespace format
 }  // namespace lela
 
-#endif // LELA_FORMAT_LEXER_H_
+#endif  // LELA_FORMAT_PDL_LEXER_H_
 

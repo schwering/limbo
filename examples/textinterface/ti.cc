@@ -10,21 +10,21 @@
 #include <memory>
 #include <vector>
 
-
 #include <lela/setup.h>
 #include <lela/formula.h>
 #include <lela/internal/iter.h>
 #include <lela/format/output.h>
-#include <lela/format/parser.h>
+#include <lela/format/pdl/context.h>
+#include <lela/format/pdl/parser.h>
 
 using lela::format::output::operator<<;
 
 #if 0
 #include "lexer.h"
 
-template<typename Iter>
-static void lex(Iter begin, Iter end) {
-  Lexer<Iter> lexer(begin, end);
+template<typename ForwardIt>
+static void lex(ForwardIt begin, ForwardIt end) {
+  Lexer<ForwardIt> lexer(begin, end);
   for (const Token& t : lexer) {
     if (t.id() == Token::kError) {
       std::cout << "ERROR ";
@@ -35,25 +35,14 @@ static void lex(Iter begin, Iter end) {
 }
 #endif
 
-template<typename Iter>
-static bool parse(Iter begin, Iter end, lela::format::pdl::Context* ctx) {
-  struct PrintAnnouncer : public lela::format::pdl::Announcer {
-    void AnnounceEntailment(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) override {
-      std::cout << "Entails(" << k << ", " << phi << ") = " << std::boolalpha << yes << std::endl;
-      std::cout.flush();
-    }
-
-    void AnnounceConsistency(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) override {
-      std::cout << "Consistent(" << k << ", " << phi << ") = " << std::boolalpha << yes << std::endl;
-      std::cout.flush();
-    }
-  };
-  PrintAnnouncer announcer;
-  typedef lela::format::pdl::Parser<Iter> Parser;
-  Parser parser(begin, end, ctx, &announcer);
+template<typename ForwardIt, typename LogPredicate>
+static bool parse(ForwardIt begin, ForwardIt end, lela::format::pdl::Context<LogPredicate>* ctx) {
+  typedef lela::format::pdl::Parser<ForwardIt, LogPredicate> Parser;
+  Parser parser(begin, end, ctx);
   auto r = parser.Parse();
-  std::cout << r << std::endl;
-  std::cout.flush();
+  if (!r) {
+    std::cout << r << std::endl;
+  }
   return bool(r);
 }
 
@@ -113,6 +102,39 @@ class multi_pass_iterator {
   size_t index_ = 0;
 };
 
+struct Logger : public lela::format::pdl::Logger {
+  void operator()(const LogData&) const {
+    std::cerr << "Unknown log data" << std::endl;
+  }
+  void operator()(const RegisterData& d) const {
+    std::cerr << "Registered " << d.id << std::endl;
+  }
+  void operator()(const RegisterSortData& d) const {
+    std::cerr << "Registered sort " << d.id << std::endl;
+  }
+  void operator()(const RegisterVariableData& d) const {
+    std::cerr << "Registered variable " << d.id << " of sort " << d.sort_id << std::endl;
+  }
+  void operator()(const RegisterNameData& d) const {
+    std::cerr << "Registered name " << d.id << " of sort " << d.sort_id << std::endl;
+  }
+  void operator()(const RegisterFunctionData& d) const {
+    std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl;
+  }
+  void operator()(const RegisterFormulaData& d) const {
+    std::cerr << "Registered formula " << d.id << " as " << d.phi << std::endl;
+  }
+  void operator()(const AddClauseData& d) const {
+    std::cerr << "Added clause " << d.c << std::endl;
+  }
+  void operator()(const EntailmentData& d) const {
+    std::cout << "Entails(" << d.k << ", " << d.phi << ") = " << std::boolalpha << d.yes << std::endl;
+  }
+  void operator()(const ConsistencyData& d) const {
+    std::cout << "Consistent(" << d.k << ", " << d.phi << ") = " << std::boolalpha << d.yes << std::endl;
+  }
+};
+
 int main(int argc, char** argv) {
   bool help = false;
   bool wait = false;
@@ -143,7 +165,7 @@ int main(int argc, char** argv) {
 
   std::ios_base::sync_with_stdio(true);
   bool succ = true;
-  lela::format::pdl::Context ctx;
+  lela::format::pdl::Context<Logger> ctx;
   for (const std::string& arg : args) {
     if (!succ) {
       break;

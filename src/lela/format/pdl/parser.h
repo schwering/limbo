@@ -6,8 +6,8 @@
 // See the comment above Parser::start() and its callees for the grammar
 // definition.
 
-#ifndef LELA_FORMAT_PARSER_H_
-#define LELA_FORMAT_PARSER_H_
+#ifndef LELA_FORMAT_PDL_PARSER_H_
+#define LELA_FORMAT_PDL_PARSER_H_
 
 #include <cassert>
 
@@ -18,9 +18,9 @@
 
 #include <lela/formula.h>
 #include <lela/setup.h>
-#include <lela/format/context.h>
-#include <lela/format/lexer.h>
 #include <lela/format/output.h>
+#include <lela/format/pdl/context.h>
+#include <lela/format/pdl/lexer.h>
 
 namespace lela {
 namespace format {
@@ -31,13 +31,7 @@ namespace pdl {
 #define LELA_STR__LINE__   LELA_S_(__LINE__)
 #define LELA_MSG(msg)      (std::string(__FUNCTION__) +":"+ LELA_STR__LINE__ +": "+ msg)
 
-struct Announcer {
-  virtual ~Announcer() {}
-  virtual void AnnounceEntailment(int k, const Setup& s, const Formula& phi, bool yes) = 0;
-  virtual void AnnounceConsistency(int k, const Setup& s, const Formula& phi, bool yes) = 0;
-};
-
-template<typename ForwardIt>
+template<typename ForwardIt, typename LogPredicate>
 class Parser {
  public:
   typedef Lexer<ForwardIt> Lex;
@@ -85,13 +79,13 @@ class Parser {
     ForwardIt end_;
   };
 
-  Parser(ForwardIt begin, ForwardIt end, Context* ctx, Announcer* announcer)
-      : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()), ctx_(ctx), announcer_(announcer) {}
+  Parser(ForwardIt begin, ForwardIt end, Context<LogPredicate>* ctx)
+      : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()), ctx_(ctx) {}
 
   Result<bool> Parse() { return start(); }
 
-  Context& ctx() { return *ctx_; }
-  const Context& ctx() const { return *ctx_; }
+  Context<LogPredicate>& ctx() { return *ctx_; }
+  const Context<LogPredicate>& ctx() const { return *ctx_; }
 
  private:
   template<typename T>
@@ -115,9 +109,9 @@ class Parser {
   }
 
   // declaration --> sort <sort-id> ;
-  //              |  var <id> => <sort-id> ;
-  //              |  name <id> => <sort-id> ;
-  //              |  fun <id> / <arity> => <sort-id> ;
+  //              |  var <id> -> <sort-id> ;
+  //              |  name <id> -> <sort-id> ;
+  //              |  fun <id> / <arity> -> <sort-id> ;
   Result<bool> declaration() {
     if (!Is(Token(0), Token::kSort) &&
         !Is(Token(0), Token::kVar) &&
@@ -450,11 +444,11 @@ class Parser {
     const Formula phi_nf = phi.val.reader().NF();
     if (entailment) {
       const bool r = ctx_->solver()->Entails(k, phi_nf.reader());
-      announcer_->AnnounceEntailment(k, ctx_->solver()->setup(), phi_nf, r);
+      ctx_->logger()(Logger::EntailmentData(k, &ctx_->solver()->setup(), phi_nf, r));
       return Success<bool>(r);
     } else {
       const bool r = ctx_->solver()->Consistent(k, phi_nf.reader());
-      announcer_->AnnounceConsistency(k, ctx_->solver()->setup(), phi_nf, r);
+      ctx_->logger()(Logger::ConsistencyData(k, &ctx_->solver()->setup(), phi_nf, r));
       return Success<bool>(r);
     }
   }
@@ -567,8 +561,8 @@ class Parser {
   mutable iterator begin_;  // don't use begin_ directly: to avoid the stream blocking us, Advance() actually increments
   mutable size_t begin_plus_ = 0;  // begin_plus_ instead of begin_; use begin() to obtain the incremented iterator.
   iterator end_;
-  Context* ctx_;
-  Announcer* announcer_;
+  Context<LogPredicate>* ctx_;
+  LogPredicate log_;
   const Literal DUMMY_LITERAL_ = Literal::Eq(ctx_->tf()->CreateTerm(ctx_->sf()->CreateName(0)),
                                              ctx_->tf()->CreateTerm(ctx_->sf()->CreateName(0)));
   const Formula DUMMY_FORMULA_ = Formula::Clause(Clause{});
@@ -578,5 +572,5 @@ class Parser {
 }  // namespace format
 }  // namespace lela
 
-#endif  // LELA_FORMAT_PARSER_H_
+#endif  // LELA_FORMAT_PDL_PARSER_H_
 
