@@ -72,8 +72,9 @@ class Grounder {
 
   Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
   Grounder(const Grounder&) = delete;
-  Grounder(const Grounder&&) = delete;
-  Grounder& operator=(const Grounder) = delete;
+  Grounder& operator=(const Grounder&) = delete;
+  Grounder(Grounder&&) = default;
+  Grounder& operator=(Grounder&&) = default;
 
   typedef std::list<Clause>::const_iterator clause_iterator;
   typedef internal::joined_ranges<clause_iterator, clause_iterator> clause_range;

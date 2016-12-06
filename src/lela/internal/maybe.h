@@ -25,12 +25,13 @@ struct Maybe {
   Maybe(bool yes, T&& val) : yes(yes), val(std::forward<T>(val)) {}
 
   Maybe(const Maybe&) = default;
-  Maybe(Maybe&&) = default;
-  template<typename U> Maybe(const Maybe<U>& m) : yes(m.yes), val(m.val) {}
-  template<typename U> Maybe(Maybe<U>&& m)      : yes(m.yes), val(m.val) {}
-
   Maybe& operator=(const Maybe&) = default;
+  template<typename U> Maybe(const Maybe<U>& m) : yes(m.yes), val(m.val) {}
+
+  Maybe(Maybe&&) = default;
   Maybe& operator=(Maybe&&) = default;
+  template<typename U> Maybe(Maybe<U>&& m) : yes(m.yes), val(m.val) {}
+
   ~Maybe() = default;
 
   bool operator==(const Maybe& m) const { return yes == m.yes && (!yes || val == m.val); }

@@ -57,8 +57,9 @@ class Solver {
 
   Solver() : grounder_(&sf_, &tf_) {}
   Solver(const Solver&) = delete;
-  Solver(const Solver&&) = delete;
   Solver& operator=(const Solver&) = delete;
+  Solver(Solver&&) = default;
+  Solver& operator=(Solver&&) = default;
 
   Symbol::Factory* sf() { return &sf_; }
   Term::Factory* tf() { return &tf_; }

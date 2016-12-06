@@ -285,10 +285,6 @@ class Formula {
   template<typename ForwardIt>
   explicit Formula(const Reader<ForwardIt>& r) : es_(r.begin(), r.end()) {}
 
-  Formula(Formula&&) = default;
-  Formula(const Formula&) = default;
-  Formula& operator=(const Formula&) = default;
-
   static Formula Clause(const lela::Clause& c) { return Atomic(Element::Clause(c)); }
   static Formula Not(const Formula& phi) { return Unary(Element::Not(), phi); }
   static Formula Or(const Formula& phi, const Formula& psi) { return Binary(Element::Or(), phi, psi); }

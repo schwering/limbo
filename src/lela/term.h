@@ -59,8 +59,9 @@ class Symbol {
 
     Factory() = default;
     Factory(const Factory&) = delete;
-    Factory(Factory&&) = delete;
     Factory& operator=(const Factory&) = delete;
+    Factory(Factory&&) = default;
+    Factory& operator=(Factory&&) = default;
 
     Sort   CreateSort()                           { return last_sort_++; }
     Symbol CreateName(Sort sort)                  { return CreateName(++last_name_, sort); }
@@ -222,8 +223,9 @@ class Term::Factory {
  public:
   Factory() = default;
   Factory(const Factory&) = delete;
-  Factory(Factory&&) = delete;
   Factory& operator=(const Factory&) = delete;
+  Factory(Factory&&) = default;
+  Factory& operator=(Factory&&) = default;
 
   ~Factory() {
     for (const DataPtrSet& set : memory_.values()) {

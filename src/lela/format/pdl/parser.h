@@ -44,8 +44,6 @@ class Parser {
     explicit Result(const T& val) : ok(true), val(val) {}
     Result(bool unapplicable, const std::string& msg, ForwardIt begin, ForwardIt end, const T& val = T())
         : ok(false), val(val), unapplicable(unapplicable), msg(msg), begin_(begin), end_(end) {}
-    Result(const Result&) = default;
-    Result& operator=(const Result&) = default;
 
     explicit operator bool() const { return ok; }
 

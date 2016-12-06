@@ -73,8 +73,6 @@ class Lexer {
     iterator(const LexemeVector* lexemes, ForwardIt it, ForwardIt end) : lexemes_(lexemes), it_(it), end_(end) {
       SkipToNext();
     }
-    iterator(const iterator&) = default;
-    iterator& operator=(const iterator&) = default;
 
     bool operator==(const iterator& it) const { return it_ == it.it_ && end_ == it.end_; }
     bool operator!=(const iterator& it) const { return !(*this == it); }
