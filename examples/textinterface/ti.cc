@@ -15,10 +15,9 @@
 #include <lela/formula.h>
 #include <lela/internal/iter.h>
 #include <lela/format/output.h>
+#include <lela/format/parser.h>
 
-#include "parser.h"
-
-using lela::format::operator<<;
+using lela::format::output::operator<<;
 
 #if 0
 #include "lexer.h"
@@ -37,8 +36,8 @@ static void lex(Iter begin, Iter end) {
 #endif
 
 template<typename Iter>
-static bool parse(Iter begin, Iter end, KB* kb) {
-  struct PrintAnnouncer : public Announcer {
+static bool parse(Iter begin, Iter end, lela::format::pdl::Context* ctx) {
+  struct PrintAnnouncer : public lela::format::pdl::Announcer {
     void AnnounceEntailment(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) override {
       std::cout << "Entails(" << k << ", " << phi << ") = " << std::boolalpha << yes << std::endl;
       std::cout.flush();
@@ -50,8 +49,8 @@ static bool parse(Iter begin, Iter end, KB* kb) {
     }
   };
   PrintAnnouncer announcer;
-  typedef Parser<Iter> MyParser;
-  MyParser parser(begin, end, kb, &announcer);
+  typedef lela::format::pdl::Parser<Iter> Parser;
+  Parser parser(begin, end, ctx, &announcer);
   auto r = parser.Parse();
   std::cout << r << std::endl;
   std::cout.flush();
@@ -144,7 +143,7 @@ int main(int argc, char** argv) {
 
   std::ios_base::sync_with_stdio(true);
   bool succ = true;
-  KB kb;
+  lela::format::pdl::Context ctx;
   for (const std::string& arg : args) {
     if (!succ) {
       break;
@@ -156,12 +155,12 @@ int main(int argc, char** argv) {
     }
     multi_pass_iterator<std::istreambuf_iterator<char>> begin(stream);
     multi_pass_iterator<std::istreambuf_iterator<char>> end;
-    succ &= succ && parse(begin, end, &kb);
+    succ &= succ && parse(begin, end, &ctx);
   }
   if (wait && succ) {
     multi_pass_iterator<std::istreambuf_iterator<char>> begin(std::cin);
     multi_pass_iterator<std::istreambuf_iterator<char>> end;
-    succ &= parse(begin, end, &kb);
+    succ &= parse(begin, end, &ctx);
   }
   return succ ? 0 : 1;
 }

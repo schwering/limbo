@@ -8,7 +8,7 @@
 
 namespace lela {
 
-using namespace lela::format;
+using namespace lela::format::output;
 
 TEST(LiteralTest, general) {
   Symbol::Factory sf;

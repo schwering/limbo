@@ -14,10 +14,9 @@
 #include <lela/setup.h>
 #include <lela/formula.h>
 #include <lela/format/output.h>
+#include <lela/format/parser.h>
 
-#include "parser.h"
-
-using lela::format::operator<<;
+using lela::format::output::operator<<;
 
 template<typename T>
 inline std::string to_string(const T& x) {
@@ -27,9 +26,9 @@ inline std::string to_string(const T& x) {
 }
 
 inline void parse(const char* c_str) {
-  typedef Parser<std::string::const_iterator> StrParser;
+  typedef lela::format::pdl::Parser<std::string::const_iterator> StrParser;
 
-  struct PrintAnnouncer : public Announcer {
+  struct PrintAnnouncer : public lela::format::pdl::Announcer {
     void AnnounceEntailment(int k, const lela::Setup& s, const lela::Formula& phi, bool yes) override {
       std::string phi_str = to_string(phi);
       std::cout << "Setup = " << std::endl << s << std::endl;
@@ -59,10 +58,10 @@ inline void parse(const char* c_str) {
   };
 
   std::string str = c_str;
-  KB kb;
+  lela::format::pdl::Context ctx;
   PrintAnnouncer announcer;
 
-  StrParser parser(str.begin(), str.end(), &kb, &announcer);
+  StrParser parser(str.begin(), str.end(), &ctx, &announcer);
   StrParser::Result<bool> r = parser.Parse();
 
   announcer.AnnounceResult(r);

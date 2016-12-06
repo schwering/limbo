@@ -9,7 +9,8 @@
 
 namespace lela {
 
-using namespace lela::format;
+using namespace lela::format::cpp;
+using namespace lela::format::output;
 
 #define REGISTER_SYMBOL(x)    RegisterSymbol(x, #x)
 
@@ -18,18 +19,17 @@ inline void RegisterSymbol(Term t, const std::string& n) {
 }
 
 TEST(InputTest, general) {
-  Symbol::Factory sf;
-  Term::Factory tf;
-  Context ctx(&sf, &tf);
-  auto BOOL = ctx.NewSort();
-  auto True = ctx.NewName(BOOL);            REGISTER_SYMBOL(True);
-  auto HUMAN = ctx.NewSort();
-  auto Father = ctx.NewFun(HUMAN, 1);       REGISTER_SYMBOL(Father);
-  auto Mother = ctx.NewFun(HUMAN, 1);       REGISTER_SYMBOL(Mother);
-  auto IsParentOf = ctx.NewFun(BOOL, 2);    REGISTER_SYMBOL(IsParentOf);
-  auto John = ctx.NewFun(HUMAN, 0);         REGISTER_SYMBOL(John);
-  auto x = ctx.NewVar(HUMAN);               REGISTER_SYMBOL(x);
-  auto y = ctx.NewVar(HUMAN);               REGISTER_SYMBOL(y);
+  Context ctx;
+  Term::Factory& tf = *ctx.tf();
+  auto BOOL = ctx.CreateSort();
+  auto True = ctx.CreateName(BOOL);                 REGISTER_SYMBOL(True);
+  auto HUMAN = ctx.CreateSort();
+  auto Father = ctx.CreateFunction(HUMAN, 1);       REGISTER_SYMBOL(Father);
+  auto Mother = ctx.CreateFunction(HUMAN, 1);       REGISTER_SYMBOL(Mother);
+  auto IsParentOf = ctx.CreateFunction(BOOL, 2);    REGISTER_SYMBOL(IsParentOf);
+  auto John = ctx.CreateFunction(HUMAN, 0);         REGISTER_SYMBOL(John);
+  auto x = ctx.CreateVariable(HUMAN);               REGISTER_SYMBOL(x);
+  auto y = ctx.CreateVariable(HUMAN);               REGISTER_SYMBOL(y);
   {
     Formula phi = Ex(x, John() == x);
     EXPECT_EQ(phi, Formula::Exists(x, Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})));
@@ -56,8 +56,8 @@ TEST(InputTest, general) {
   }
 
   {
-    auto P = ctx.NewFun(BOOL, 1);    REGISTER_SYMBOL(P);
-    auto Q = ctx.NewFun(BOOL, 1);    REGISTER_SYMBOL(P);
+    auto P = ctx.CreateFunction(BOOL, 1);    REGISTER_SYMBOL(P);
+    auto Q = ctx.CreateFunction(BOOL, 1);    REGISTER_SYMBOL(P);
     // That's the example formula from my thesis.
     Formula phi = Ex(x, P(x) == True) >> Fa(y, Q(y) == True);
     EXPECT_EQ(phi, Formula::Or(Formula::Not(Formula::Exists(x, Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(P, {x}), True)}))),

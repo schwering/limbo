@@ -11,7 +11,7 @@
 
 namespace lela {
 
-using namespace lela::format;
+using namespace lela::format::output;
 
 template<typename T>
 size_t dist(T r) { return std::distance(r.begin(), r.end()); }

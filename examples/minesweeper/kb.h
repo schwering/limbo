@@ -21,47 +21,48 @@ class KnowledgeBase {
   KnowledgeBase(const Game* g, int max_k)
       : g_(g),
         max_k_(max_k),
-        ctx_(solver_.sf(), solver_.tf()),
-        Bool(ctx_.NewSort()),
-        XPos(ctx_.NewSort()),
-        YPos(ctx_.NewSort()),
-        T(ctx_.NewName(Bool)),
-        Mine(ctx_.NewFun(Bool, 2)) {
-    lela::format::RegisterSort(Bool, "");
-    lela::format::RegisterSort(XPos, "");
-    lela::format::RegisterSort(YPos, "");
-    lela::format::RegisterSymbol(T.symbol(), "T");
-    lela::format::RegisterSymbol(Mine, "Mine");
+        Bool(ctx_.CreateSort()),
+        XPos(ctx_.CreateSort()),
+        YPos(ctx_.CreateSort()),
+        T(ctx_.CreateName(Bool)),
+        Mine(ctx_.CreateFunction(Bool, 2)) {
+    lela::format::output::RegisterSort(Bool, "");
+    lela::format::output::RegisterSort(XPos, "");
+    lela::format::output::RegisterSort(YPos, "");
+    lela::format::output::RegisterSymbol(T.symbol(), "T");
+    lela::format::output::RegisterSymbol(Mine, "Mine");
     X.resize(g_->width());
     for (size_t i = 0; i < g_->width(); ++i) {
-      X[i] = ctx_.NewName(XPos);
+      X[i] = ctx_.CreateName(XPos);
       std::stringstream ss;
       ss << "#X" << i;
-      lela::format::RegisterSymbol(X[i].symbol(), ss.str());
+      lela::format::output::RegisterSymbol(X[i].symbol(), ss.str());
     }
     Y.resize(g_->height());
     for (size_t i = 0; i < g_->height(); ++i) {
-      Y[i] = ctx_.NewName(YPos);
+      Y[i] = ctx_.CreateName(YPos);
       std::stringstream ss;
       ss << "#Y" << i;
-      lela::format::RegisterSymbol(Y[i].symbol(), ss.str());
+      lela::format::output::RegisterSymbol(Y[i].symbol(), ss.str());
     }
     processed_.resize(g_->n_fields(), false);
   }
 
   int max_k() const { return max_k_; }
 
-  const lela::Setup& setup() { return solver_.setup(); }
+  lela::Solver* solver() { return ctx_.solver(); }
+  const lela::Solver& solver() const { return ctx_.solver(); }
+  const lela::Setup& setup() const { return solver().setup(); }
 
   lela::internal::Maybe<bool> IsMine(Point p, int k) {
     t_.start();
     lela::internal::Maybe<bool> r = lela::internal::Nothing;
     lela::Formula yes_mine = lela::Formula::Clause(lela::Clause{MineLit(true, p)});
     lela::Formula no_mine = lela::Formula::Clause(lela::Clause{MineLit(false, p)});
-    if (solver_.Entails(k, yes_mine.reader())) {
+    if (solver()->Entails(k, yes_mine.reader())) {
       assert(g_->mine(p));
       r = lela::internal::Just(true);
-    } else if (solver_.Entails(k, no_mine.reader())) {
+    } else if (solver()->Entails(k, no_mine.reader())) {
       assert(!g_->mine(p));
       r = lela::internal::Just(false);
     }
@@ -106,23 +107,23 @@ class KnowledgeBase {
         return false;
       }
       case Game::FLAGGED: {
-        solver_.AddClause(lela::Clause{MineLit(true, p)});
+        solver()->AddClause(lela::Clause{MineLit(true, p)});
         return true;
       }
       case Game::HIT_MINE: {
-        solver_.AddClause(lela::Clause{MineLit(true, p)});
+        solver()->AddClause(lela::Clause{MineLit(true, p)});
         return true;
       }
       default: {
         const std::vector<Point>& ns = g_->neighbors_of(p);
         const int n = ns.size();
         for (const std::vector<Point>& ps : util::Subsets(ns, n - m + 1)) {
-          solver_.AddClause(MineClause(true, ps));
+          solver()->AddClause(MineClause(true, ps));
         }
         for (const std::vector<Point>& ps : util::Subsets(ns, m + 1)) {
-          solver_.AddClause(MineClause(false, ps));
+          solver()->AddClause(MineClause(false, ps));
         }
-        solver_.AddClause(lela::Clause{MineLit(false, p)});
+        solver()->AddClause(lela::Clause{MineLit(false, p)});
         return true;
       }
     }
@@ -136,26 +137,25 @@ class KnowledgeBase {
       }
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, n - m + 1)) {
-      solver_.AddClause(MineClause(true, ps));
+      solver()->AddClause(MineClause(true, ps));
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, m + 1)) {
-      solver_.AddClause(MineClause(false, ps));
+      solver()->AddClause(MineClause(false, ps));
     }
   }
 
   const Game* g_;
   int max_k_;
 
-  lela::Solver solver_;
-  lela::format::Context ctx_;
+  lela::format::cpp::Context ctx_;
 
   lela::Symbol::Sort Bool;
   lela::Symbol::Sort XPos;
   lela::Symbol::Sort YPos;
-  lela::format::HiTerm T;               // name for positive truth value
-  std::vector<lela::format::HiTerm> X;  // names for X positions
-  std::vector<lela::format::HiTerm> Y;  // names for Y positions
-  lela::format::HiSymbol Mine;
+  lela::format::cpp::HiTerm T;               // name for positive truth value
+  std::vector<lela::format::cpp::HiTerm> X;  // names for X positions
+  std::vector<lela::format::cpp::HiTerm> Y;  // names for Y positions
+  lela::format::cpp::HiSymbol Mine;
 
   std::vector<bool> processed_;
   size_t n_rem_mines_ = 11;

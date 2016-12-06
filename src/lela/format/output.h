@@ -28,6 +28,7 @@
 
 namespace lela {
 namespace format {
+namespace output {
 
 typedef std::map<Symbol::Sort, std::string> SortMap;
 typedef std::map<Symbol, std::string, Symbol::Comparator> SymbolMap;
@@ -404,6 +405,7 @@ std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
   return os;
 }
 
+}  // namespace output
 }  // namespace format
 }  // namespace lela
 

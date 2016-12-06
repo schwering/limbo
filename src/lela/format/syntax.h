@@ -9,12 +9,14 @@
 #include <lela/formula.h>
 #include <lela/clause.h>
 #include <lela/literal.h>
+#include <lela/solver.h>
 #include <lela/term.h>
 
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
 
 namespace lela {
 namespace format {
+namespace cpp {
 
 class HiTerm : public Term {
  public:
@@ -49,19 +51,31 @@ class HiFormula : public Formula {
 
 class Context {
  public:
-  Context(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
+  Symbol::Sort CreateSort() {
+    return sf()->CreateSort();
+  }
+  HiTerm CreateName(Symbol::Sort sort) {
+    return HiTerm(tf()->CreateTerm(sf()->CreateName(sort)));
+  }
+  HiTerm CreateVariable(Symbol::Sort sort) {
+    return HiTerm(tf()->CreateTerm(sf()->CreateVariable(sort)));
+  }
+  HiSymbol CreateFunction(Symbol::Sort sort, Symbol::Arity arity) {
+    return HiSymbol(tf(), sf()->CreateFunction(sort, arity));
+  }
 
-  Symbol::Sort NewSort() { return sf()->CreateSort(); }
-  HiTerm NewName(Symbol::Sort sort) { return HiTerm(tf()->CreateTerm(sf()->CreateName(sort))); }
-  HiTerm NewVar(Symbol::Sort sort) { return HiTerm(tf()->CreateTerm(sf()->CreateVariable(sort))); }
-  HiSymbol NewFun(Symbol::Sort sort, Symbol::Arity arity) { return HiSymbol(tf(), sf()->CreateFunction(sort, arity)); }
+  void AddClause(const Clause& c) {
+    solver_.AddClause(c);
+  }
+
+  Solver* solver() { return &solver_; }
+  const Solver& solver() const { return solver_; }
+
+  Symbol::Factory* sf() { return solver_.sf(); }
+  Term::Factory* tf() { return solver_.tf(); }
 
  private:
-  Symbol::Factory* sf() { return sf_; }
-  Term::Factory* tf() { return tf_; }
-
-  Symbol::Factory* const sf_;
-  Term::Factory* const tf_;
+  Solver solver_;
 };
 
 inline HiLiteral operator==(HiTerm t1, HiTerm t2) { return HiLiteral(Literal::Eq(t1, t2)); }
@@ -80,6 +94,7 @@ inline HiFormula operator==(const HiFormula& phi, const HiFormula& psi) { return
 inline HiFormula Ex(HiTerm x, const HiFormula& phi) { return Formula::Exists(x, phi); }
 inline HiFormula Fa(HiTerm x, const HiFormula& phi) { return ~Ex(x, ~phi); }
 
+}  // namespace cpp
 }  // namespace format
 }  // namespace lela
 

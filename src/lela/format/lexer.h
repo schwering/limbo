@@ -3,8 +3,8 @@
 //
 // Max-munch lexer for our text interface.
 
-#ifndef EXAMPLES_TEXTINTERFACE_LEXER_H_
-#define EXAMPLES_TEXTINTERFACE_LEXER_H_
+#ifndef LELA_FORMAT_LEXER_H_
+#define LELA_FORMAT_LEXER_H_
 
 #include <cassert>
 
@@ -15,6 +15,10 @@
 #include <utility>
 
 #include <lela/internal/iter.h>
+
+namespace lela {
+namespace format {
+namespace pdl {
 
 class Token {
  public:
@@ -255,5 +259,9 @@ std::ostream& operator<<(std::ostream& os, const Token& t) {
   return os << "Token(" << t.id() << "," << t.str() << ")";
 }
 
-#endif // EXAMPLES_TEXTINTERFACE_LEXER_H_
+}  // namespace pdl
+}  // namespace format
+}  // namespace lela
+
+#endif // LELA_FORMAT_LEXER_H_
 
