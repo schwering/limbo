@@ -2,7 +2,7 @@
 
 pub mod symbol;
 pub mod term;
-// pub mod literal;
+pub mod literal;
 // pub mod clause;
 // pub mod setup;
 // pub mod grounder;

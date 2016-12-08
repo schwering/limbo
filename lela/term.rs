@@ -1,9 +1,11 @@
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::mem::transmute;
 use lela::symbol::Arity;
+use lela::symbol::Sort;
 use lela::symbol::Symbol;
 
-#[derive(Eq, Hash, Clone, Debug)]
+#[derive(Eq, Hash, Clone, Copy, Debug)]
 pub struct Term<'a>(&'a TermData<'a>);
 
 impl<'a> Term<'a> {
@@ -14,11 +16,51 @@ impl<'a> Term<'a> {
     pub fn args(&self) -> &Vec<Term> {
         &(self.0).1
     }
+
+    pub fn sort(&self) -> Sort {
+        self.sym().sort()
+    }
+
+    pub fn var(&self) -> bool {
+        self.sym().var()
+    }
+
+    pub fn name(&self) -> bool {
+        self.sym().name()
+    }
+
+    pub fn fun(&self) -> bool {
+        self.sym().fun()
+    }
+
+    pub fn ground(&self) -> bool {
+        self.sym().name() || (self.sym().fun() && self.args().iter().all(|t| t.ground()))
+    }
+
+    pub fn primitive(&self) -> bool {
+        self.sym().fun() && self.args().iter().all(|t| t.name())
+    }
+
+    pub fn quasiprimitive(&self) -> bool {
+        self.sym().fun() && self.args().iter().all(|t| t.name() || t.var())
+    }
 }
 
 impl<'a> PartialEq for Term<'a> {
-    fn eq(&self, other: &Term) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.0 as *const TermData == other.0 as *const TermData
+    }
+}
+
+impl<'a> PartialOrd for Term<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        (self.0 as *const TermData).partial_cmp(&(other.0 as *const TermData))
+    }
+}
+
+impl<'a> Ord for Term<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        (self.0 as *const TermData).cmp(&(other.0 as *const TermData))
     }
 }
 

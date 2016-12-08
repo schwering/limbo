@@ -2,7 +2,7 @@ type Id = u32;
 pub type Sort = u8;
 pub type Arity = u8;
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub enum Symbol {
     Var(Id, Sort),
     Name(Id, Sort),
@@ -10,6 +10,27 @@ pub enum Symbol {
 }
 
 impl Symbol {
+    pub fn var(&self) -> bool {
+        match *self {
+            Symbol::Var(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn name(&self) -> bool {
+        match *self {
+            Symbol::Name(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn fun(&self) -> bool {
+        match *self {
+            Symbol::Fun(_, _, _) => true,
+            _ => false,
+        }
+    }
+
     pub fn sort(&self) -> Sort {
         match *self {
             Symbol::Var(_, sort) => sort,
