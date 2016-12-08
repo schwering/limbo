@@ -56,6 +56,8 @@ class Clause {
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
 
   bool Subsumes(const Clause& c) const {
+    assert(primitive());
+    assert(c.primitive());
     if (!bloom_.SubsetOf(c.bloom_)) {
       return false;
     }
@@ -105,8 +107,6 @@ class Clause {
   }
 
  private:
-  typedef std::vector<Literal>::iterator iterator;
-
   void Minimize() {
     lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.invalid(); }), lits_.end());
     std::sort(lits_.begin(), lits_.end(), Literal::Comparator());

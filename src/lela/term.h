@@ -164,10 +164,6 @@ class Term {
   void Traverse(UnaryFunction f) const;
 
  private:
-#ifdef FRIEND_TEST
-  FRIEND_TEST(TermTest, hash);
-#endif
-
   struct Data {
     struct DeepComparator;
     Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args) {}
