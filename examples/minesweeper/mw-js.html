@@ -33,10 +33,6 @@
         #output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
         #output { font-family: monospace; font-size: 110%; }
 
-        #output div.field { width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; white-space: pre; }
-        #output div.field { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
-        #output div.field { font-family: monospace; font-size: 110%; }
-
         #output span.black { color: black; }
         #output span.dim { color: #999; }
         #output span.reset { color: inherit; }
@@ -114,6 +110,7 @@ function play() {
     t0 = performance.now();
     Module.ccall('lela_init', 'void', ['number', 'number', 'number', 'numer', 'numer'], [width, height, n_mines, seed, max_k]);
     playTurn();
+    setTimeout(function() { scrollDown(); }, 250);
 }
 
 function playTurn() {
@@ -135,21 +132,20 @@ function printLine(str) {
     // "Last move took [...]". We use this to split up the different turns and
     // display them individually: one div per turn, and only the last turn's
     // div is visible.
-    setTimeout(function() {
-        if ($('#output').children().length == 0) {
-            $('#output').append('<div></div>').addClass('field');
-        }
-	if (last_str && last_str.indexOf('Last') != -1) {
-            $('#output').children().last().hide();
-            $('#output').append('<div></div>').addClass('field');
-	}
-        if (str.length == 0) {
-            return;
-        }
-        $('#output').children().last().append($(document.createElement('div')).html(str));
-        last_str = str;
-        scrollDown();
-    }, 10);
+    if (str.length == 0) {
+        return;
+    }
+    var is_first = $('#output').children().length == 0;
+    var had_last = last_str && last_str.indexOf('Last') != -1;
+    if (had_last) {
+        $('#output').children().last().hide();
+    }
+    if (is_first || had_last) {
+        $('#output').append('<div></div>');
+        $('#output').children().last().addClass('field');
+    }
+    $('#output').children().last().append($(document.createElement('div')).html(str));
+    last_str = str;
 }
 
 function scrollDown() {
