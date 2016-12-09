@@ -98,11 +98,7 @@ impl<'a> Literal<'a> {
           self.rhs() != other.rhs()))
     }
 
-    pub fn terms<'b, P>(&'b self, pred: P) -> Box<Iterator<Item = &'b Term<'a>> + 'b>
-        where P: Fn(&Term<'a>) -> bool,
-              P: 'b
-    {
-        self.lhs().terms(pred.clone());
-        self.rhs().terms(pred)
+    pub fn terms<'b>(&'b self) -> Box<Iterator<Item = &'b Term<'a>> + 'b> {
+        Box::new(self.lhs().terms().chain(self.rhs().terms()))
     }
 }

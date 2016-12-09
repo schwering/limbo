@@ -51,11 +51,8 @@ impl<'a> Term<'a> {
         self.fun() && self.args().iter().all(|t| t.name() || t.var())
     }
 
-    pub fn terms<'b, P>(&'b self, pred: P) -> Box<Iterator<Item = &'b Term<'a>> + 'b>
-        where P: Fn(&Self) -> bool,
-              P: 'b
-    {
-        Box::new(iter::once(self).chain(self.args().iter()).filter(move |t| pred(t)))
+    pub fn terms<'b>(&'b self) -> Box<Iterator<Item = &'b Term<'a>> + 'b> {
+        Box::new(iter::once(self).chain(self.args().iter()))
     }
 }
 

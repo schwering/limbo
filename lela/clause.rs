@@ -16,7 +16,7 @@ impl<'a> Clause<'a> {
         lits.retain(|a| !a.valid());
         let mut b = Bloom::new();
         for a in lits.iter() {
-            b.add(&a.lhs());
+            b.add(a.lhs());
         }
         Clause {
             bloom: b,
@@ -36,41 +36,37 @@ impl<'a> Clause<'a> {
         self.lits.len()
     }
 
-    pub fn iter(&self) -> Iter<Literal> {
-        self.lits.iter()
-    }
-
     pub fn valid(&self) -> bool {
-        self.iter().any(|a| a.valid())
+        self.lits().any(|a| a.valid())
     }
 
     pub fn invalid(&self) -> bool {
-        self.iter().all(|a| a.invalid())
+        self.lits().all(|a| a.invalid())
     }
 
     pub fn ground(&self) -> bool {
-        self.iter().all(|a| a.ground())
+        self.lits().all(|a| a.ground())
     }
 
     pub fn primitive(&self) -> bool {
-        self.iter().all(|a| a.primitive())
+        self.lits().all(|a| a.primitive())
     }
 
     pub fn quasiprimitive(&self) -> bool {
-        self.iter().all(|a| a.quasiprimitive())
+        self.lits().all(|a| a.quasiprimitive())
     }
 
     pub fn subsumes(&self, other: &Self) -> bool {
         assert!(self.primitive());
         assert!(other.primitive());
         Bloom::subset(&self.bloom, &other.bloom) &&
-        self.iter().all(|a| other.iter().any(|b| a.subsumes(b)))
+        self.lits().all(|a| other.lits().any(|b| a.subsumes(b)))
     }
 
     pub fn propagate_in_place(&mut self, a: &Literal) -> bool {
         assert!(self.primitive());
         assert!(a.primitive());
-        if self.bloom.contains(&a.lhs()) {
+        if self.bloom.contains(a.lhs()) {
             let n = self.len();
             self.lits.retain(|b| !Literal::complementary(a, b));
             self.len() != n
@@ -86,5 +82,13 @@ impl<'a> Clause<'a> {
         } else {
             None
         }
+    }
+
+    pub fn lits(&self) -> Iter<Literal<'a>> {
+        self.lits.iter()
+    }
+
+    pub fn terms<'b>(&'b self) -> Box<Iterator<Item = &'b Term<'a>> + 'b> {
+        Box::new(self.lits().flat_map(|a| a.terms()))
     }
 }
