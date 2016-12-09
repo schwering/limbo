@@ -34,15 +34,15 @@ impl<'a> Term<'a> {
     }
 
     pub fn ground(&self) -> bool {
-        self.sym().name() || (self.sym().fun() && self.args().iter().all(|t| t.ground()))
+        self.name() || (self.fun() && self.args().iter().all(|t| t.ground()))
     }
 
     pub fn primitive(&self) -> bool {
-        self.sym().fun() && self.args().iter().all(|t| t.name())
+        self.fun() && self.args().iter().all(|t| t.name())
     }
 
     pub fn quasiprimitive(&self) -> bool {
-        self.sym().fun() && self.args().iter().all(|t| t.name() || t.var())
+        self.fun() && self.args().iter().all(|t| t.name() || t.var())
     }
 }
 
@@ -77,15 +77,15 @@ impl<'a> Factory<'a> {
         Factory(HashSet::new())
     }
 
-    pub fn new_term(&mut self, sym: Symbol, args: Vec<Term<'a>>) -> Term<'a> {
+    pub fn new_term<'b>(&'b mut self, sym: Symbol, args: Vec<Term<'a>>) -> Term<'a> {
         assert_eq!(sym.arity(), args.len() as Arity);
         let tdb = Box::new(TermData(sym, args));
         if !self.0.contains(&tdb) {
             self.0.insert(tdb.clone());
         }
         let tdbr = self.0.get(&tdb).expect("Present or newly inserted");
-        let tdr = tdbr.as_ref();
-        let tdr2: &'a TermData<'a> = unsafe { transmute(tdr) };
+        let tdr1: &'b TermData = tdbr.as_ref();
+        let tdr2: &'a TermData = unsafe { transmute(tdr1) };
         Term(tdr2)
     }
 }
