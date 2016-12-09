@@ -25,10 +25,10 @@ impl Bloom {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     pub fn contains_u64(&self, x: u64) -> bool {
-        ( ((self.0 >> (shift(0, x))) & 1u64)
-        & ((self.0 >> (shift(1, x))) & 1u64)
-        & ((self.0 >> (shift(2, x))) & 1u64)
-        & ((self.0 >> (shift(3, x))) & 1u64)) != 0
+        ( (self.0 >> (shift(0, x)))
+        & (self.0 >> (shift(1, x)))
+        & (self.0 >> (shift(2, x)))
+        & (self.0 >> (shift(3, x))) & 1u64) != 0
     }
 
     pub fn contains<T: Hash>(&mut self, x: &T) -> bool {

@@ -1,3 +1,4 @@
+#![feature(conservative_impl_trait)]
 #[allow(dead_code)]
 
 mod lela;

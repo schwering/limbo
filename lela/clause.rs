@@ -25,11 +25,11 @@ impl<'a> Clause<'a> {
     }
 
     pub fn empty(&self) -> bool {
-        (self.len() == 0)
+        self.len() == 0
     }
 
     pub fn unit(&self) -> bool {
-        (self.len() == 1)
+        self.len() == 1
     }
 
     pub fn len(&self) -> usize {

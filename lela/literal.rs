@@ -36,21 +36,21 @@ impl<'a> Literal<'a> {
         }
     }
 
-    pub fn lhs(&self) -> Term {
+    pub fn lhs(&self) -> &Term<'a> {
         match *self {
-            Literal::Pos(lhs, _) => lhs,
-            Literal::Neg(lhs, _) => lhs,
+            Literal::Pos(ref lhs, _) => lhs,
+            Literal::Neg(ref lhs, _) => lhs,
         }
     }
 
-    pub fn rhs(&self) -> Term {
+    pub fn rhs(&self) -> &Term<'a> {
         match *self {
-            Literal::Pos(_, rhs) => rhs,
-            Literal::Neg(_, rhs) => rhs,
+            Literal::Pos(_, ref rhs) => rhs,
+            Literal::Neg(_, ref rhs) => rhs,
         }
     }
 
-    pub fn flip(self) -> Literal<'a> {
+    pub fn flip(self) -> Self {
         match self {
             Literal::Pos(lhs, rhs) => Literal::Neg(lhs, rhs),
             Literal::Neg(lhs, rhs) => Literal::Pos(lhs, rhs),
@@ -96,5 +96,13 @@ impl<'a> Literal<'a> {
         ((self.pos() == other.pos() && self.rhs() == other.rhs()) ||
          (self.pos() && !other.pos() && self.rhs().name() && other.rhs().name() &&
           self.rhs() != other.rhs()))
+    }
+
+    pub fn terms<'b, P>(&'b self, pred: P) -> Box<Iterator<Item = &'b Term<'a>> + 'b>
+        where P: Fn(&Term<'a>) -> bool,
+              P: 'b
+    {
+        self.lhs().terms(pred.clone());
+        self.rhs().terms(pred)
     }
 }

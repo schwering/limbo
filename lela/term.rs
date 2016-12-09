@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
+use std::iter;
 use std::mem::transmute;
 use lela::symbol::Arity;
 use lela::symbol::Sort;
@@ -14,8 +15,12 @@ impl<'a> Term<'a> {
         (self.0).0
     }
 
-    pub fn args(&self) -> &Vec<Term> {
+    pub fn args(&self) -> &Vec<Term<'a>> {
         &(self.0).1
+    }
+
+    pub fn arg(&self, i: usize) -> &Term<'a> {
+        &self.args()[i]
     }
 
     pub fn sort(&self) -> Sort {
@@ -44,6 +49,13 @@ impl<'a> Term<'a> {
 
     pub fn quasiprimitive(&self) -> bool {
         self.fun() && self.args().iter().all(|t| t.name() || t.var())
+    }
+
+    pub fn terms<'b, P>(&'b self, pred: P) -> Box<Iterator<Item = &'b Term<'a>> + 'b>
+        where P: Fn(&Self) -> bool,
+              P: 'b
+    {
+        Box::new(iter::once(self).chain(self.args().iter()).filter(move |t| pred(t)))
     }
 }
 
