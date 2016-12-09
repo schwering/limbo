@@ -58,19 +58,3 @@ fn offset_basis() -> u64 {
 fn magic_prime() -> u64 {
     0x00000100000001b3u64
 }
-
-
-#[cfg_attr(rustfmt, rustfmt_skip)]
-pub fn fnv1a_hash(x: u64) -> u64 {
-    ((((((((((((((((
-      offset_basis()
-      ^ ((x >>  0) & 0xFF)).wrapping_mul(magic_prime()))
-      ^ ((x >>  8) & 0xFF)).wrapping_mul(magic_prime()))
-      ^ ((x >> 16) & 0xFF)).wrapping_mul(magic_prime()))
-      ^ ((x >> 24) & 0xFF)).wrapping_mul(magic_prime()))
-      ^ ((x >> 32) & 0xFF)).wrapping_mul(magic_prime()))
-      ^ ((x >> 40) & 0xFF)).wrapping_mul(magic_prime()))
-      ^ ((x >> 48) & 0xFF)).wrapping_mul(magic_prime()))
-      ^ ((x >> 56) & 0xFF)).wrapping_mul(magic_prime()))
-
-}

@@ -1,6 +1,6 @@
 use lela::term::Term;
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Debug)]
 pub enum Literal<'a> {
     Pos(Term<'a>, Term<'a>),
     Neg(Term<'a>, Term<'a>),
@@ -57,6 +57,10 @@ impl<'a> Literal<'a> {
         }
     }
 
+    pub fn ground(&self) -> bool {
+        self.lhs().ground() && self.rhs().ground()
+    }
+
     pub fn primitive(&self) -> bool {
         self.lhs().primitive() && self.rhs().name()
     }
@@ -77,13 +81,12 @@ impl<'a> Literal<'a> {
         (self.pos() && self.lhs().sort() != self.rhs().sort())
     }
 
-    pub fn complements(&self, other: &Self) -> bool {
-        assert!(self.primitive());
-        assert!(other.primitive());
-        self.lhs() == other.lhs() &&
-        ((self.pos() != other.pos() && self.rhs() == other.rhs()) ||
-         (self.pos() == other.pos() && self.rhs().name() && other.rhs().name() &&
-          self.rhs() != other.rhs()))
+    pub fn complementary(a: &Self, b: &Self) -> bool {
+        assert!(a.primitive());
+        assert!(b.primitive());
+        a.lhs() == b.lhs() &&
+        ((a.pos() != b.pos() && a.rhs() == b.rhs()) ||
+         (a.pos() == b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()))
     }
 
     pub fn subsumes(&self, other: &Self) -> bool {
