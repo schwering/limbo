@@ -1,11 +1,12 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 use std::mem::transmute;
 use lela::symbol::Arity;
 use lela::symbol::Sort;
 use lela::symbol::Symbol;
 
-#[derive(Eq, Hash, Clone, Copy, Debug)]
+#[derive(Eq, Clone, Copy, Debug)]
 pub struct Term<'a>(&'a TermData<'a>);
 
 impl<'a> Term<'a> {
@@ -64,6 +65,11 @@ impl<'a> Ord for Term<'a> {
     }
 }
 
+impl<'a> Hash for Term<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.0 as *const TermData).hash(state);
+    }
+}
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TermData<'a>(Symbol, Vec<Term<'a>>);
