@@ -58,15 +58,15 @@ impl<'a> Clause<'a> {
     }
 
     pub fn subsumes(&self, other: &Self) -> bool {
-        assert!(self.primitive());
-        assert!(other.primitive());
+        debug_assert!(self.primitive());
+        debug_assert!(other.primitive());
         Bloom::subset(&self.bloom, &other.bloom) &&
         self.lits().all(|a| other.lits().any(|b| a.subsumes(b)))
     }
 
     pub fn propagate_in_place(&mut self, a: &Literal) -> bool {
-        assert!(self.primitive());
-        assert!(a.primitive());
+        debug_assert!(self.primitive());
+        debug_assert!(a.primitive());
         if self.bloom.contains(a.lhs()) {
             let n = self.len();
             self.lits.retain(|b| !Literal::complementary(a, b));

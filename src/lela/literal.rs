@@ -82,16 +82,16 @@ impl<'a> Literal<'a> {
     }
 
     pub fn complementary(a: &Self, b: &Self) -> bool {
-        assert!(a.primitive());
-        assert!(b.primitive());
+        debug_assert!(a.primitive());
+        debug_assert!(b.primitive());
         a.lhs() == b.lhs() &&
         ((a.pos() != b.pos() && a.rhs() == b.rhs()) ||
          (a.pos() == b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()))
     }
 
     pub fn subsumes(&self, other: &Self) -> bool {
-        assert!(self.primitive());
-        assert!(other.primitive());
+        debug_assert!(self.primitive());
+        debug_assert!(other.primitive());
         self.lhs() == other.lhs() &&
         ((self.pos() == other.pos() && self.rhs() == other.rhs()) ||
          (self.pos() && !other.pos() && self.rhs().name() && other.rhs().name() &&

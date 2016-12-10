@@ -35,7 +35,7 @@ impl<'a> Term<'a> {
     }
 
     pub fn arity(&self) -> Arity {
-        assert_eq!(self.sym().arity(), (self.0).args.len() as Arity);
+        debug_assert_eq!(self.sym().arity(), (self.0).args.len() as Arity);
         self.sym().arity()
     }
 
@@ -119,7 +119,7 @@ impl<'a> Factory<'a> {
     }
 
     pub fn new_term<'b>(&'b mut self, sym: Symbol, args: Vec<Term<'a>>) -> Term<'a> {
-        assert_eq!(sym.arity(), args.len() as Arity);
+        debug_assert_eq!(sym.arity(), args.len() as Arity);
         let tdb = Box::new(TermData {
             sym: sym,
             args: args,
