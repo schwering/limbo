@@ -1,4 +1,3 @@
-#![feature(fnbox)]
 #![feature(conservative_impl_trait)]
 #[allow(dead_code)]
 
@@ -41,7 +40,7 @@ fn main() {
 
     let t_fan = tf.new_term(a, vec![]);
     println!("f(a,n) = {:?}", t_fan);
-    let t_fun = t_fan.substitute(Box::new(|t| None), // if t == t_a { Some(t_u) } else { None }),
+    let t_fun = t_fan.substitute(&lela::substitution::SingleSubstitution::new(t_a, t_u),
                                  &mut tf);
     println!("f(u,n) = {:?}", t_fun);
 

@@ -1,4 +1,3 @@
-use std::boxed::FnBox;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -6,6 +5,7 @@ use std::iter;
 use std::mem::transmute;
 use std::slice::Iter;
 
+use lela::substitution::Substitution;
 use lela::symbol::Arity;
 use lela::symbol::Sort;
 use lela::symbol::Symbol;
@@ -63,16 +63,15 @@ impl<'a> Term<'a> {
         Box::new(iter::once(self).chain(self.args()))
     }
 
-    pub fn substitute<F>(&self, theta: Box<F>, factory: &mut Factory<'a>) -> Term<'a>
-        where F: for<'b> FnBox(Term<'b>) -> Option<Term<'b>>
+    pub fn substitute<S>(&self, theta: &S, factory: &mut Factory<'a>) -> Self
+        where S: Substitution<Term<'a>>
     {
-        if let Some(t) = theta.call_box((*self,)) {
-            t
+        if let Some(new) = theta.substitute(self) {
+            new
         } else if self.arity() > 0 {
-            // let args = self.args()
-            //    .map(Box::new(|t| t.substitute(theta, factory)))
-            //    .collect::<Vec<Term<'a>>>();
-            let args = self.0.args;
+            let args = self.args()
+                .map(|t| t.substitute(theta, factory))
+                .collect::<Vec<Term<'a>>>();
             factory.new_term(self.sym(), args)
         } else {
             *self
