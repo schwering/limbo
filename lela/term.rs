@@ -1,8 +1,11 @@
+use std::boxed::FnBox;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::iter;
 use std::mem::transmute;
+use std::slice::Iter;
+
 use lela::symbol::Arity;
 use lela::symbol::Sort;
 use lela::symbol::Symbol;
@@ -12,15 +15,7 @@ pub struct Term<'a>(&'a TermData<'a>);
 
 impl<'a> Term<'a> {
     pub fn sym(&self) -> Symbol {
-        (self.0).0
-    }
-
-    pub fn args(&self) -> &Vec<Term<'a>> {
-        &(self.0).1
-    }
-
-    pub fn arg(&self, i: usize) -> &Term<'a> {
-        &self.args()[i]
+        (self.0).sym
     }
 
     pub fn sort(&self) -> Sort {
@@ -39,20 +34,49 @@ impl<'a> Term<'a> {
         self.sym().fun()
     }
 
+    pub fn arity(&self) -> Arity {
+        assert_eq!(self.sym().arity(), (self.0).args.len() as Arity);
+        self.sym().arity()
+    }
+
+    pub fn args(&self) -> Iter<Term<'a>> {
+        (self.0).args.iter()
+    }
+
+    pub fn arg(&self, i: usize) -> &Term<'a> {
+        &(self.0).args[i]
+    }
+
     pub fn ground(&self) -> bool {
-        self.name() || (self.fun() && self.args().iter().all(|t| t.ground()))
+        self.name() || (self.fun() && self.args().all(|t| t.ground()))
     }
 
     pub fn primitive(&self) -> bool {
-        self.fun() && self.args().iter().all(|t| t.name())
+        self.fun() && self.args().all(|t| t.name())
     }
 
     pub fn quasiprimitive(&self) -> bool {
-        self.fun() && self.args().iter().all(|t| t.name() || t.var())
+        self.fun() && self.args().all(|t| t.name() || t.var())
     }
 
     pub fn terms<'b>(&'b self) -> Box<Iterator<Item = &'b Term<'a>> + 'b> {
-        Box::new(iter::once(self).chain(self.args().iter()))
+        Box::new(iter::once(self).chain(self.args()))
+    }
+
+    pub fn substitute<F>(&self, theta: Box<F>, factory: &mut Factory<'a>) -> Term<'a>
+        where F: for<'b> FnBox(Term<'b>) -> Option<Term<'b>>
+    {
+        if let Some(t) = theta.call_box((*self,)) {
+            t
+        } else if self.arity() > 0 {
+            // let args = self.args()
+            //    .map(Box::new(|t| t.substitute(theta, factory)))
+            //    .collect::<Vec<Term<'a>>>();
+            let args = self.0.args;
+            factory.new_term(self.sym(), args)
+        } else {
+            *self
+        }
     }
 }
 
@@ -81,7 +105,10 @@ impl<'a> Hash for Term<'a> {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct TermData<'a>(Symbol, Vec<Term<'a>>);
+pub struct TermData<'a> {
+    sym: Symbol,
+    args: Vec<Term<'a>>,
+}
 
 
 #[derive(Debug)]
@@ -94,7 +121,10 @@ impl<'a> Factory<'a> {
 
     pub fn new_term<'b>(&'b mut self, sym: Symbol, args: Vec<Term<'a>>) -> Term<'a> {
         assert_eq!(sym.arity(), args.len() as Arity);
-        let tdb = Box::new(TermData(sym, args));
+        let tdb = Box::new(TermData {
+            sym: sym,
+            args: args,
+        });
         if !self.0.contains(&tdb) {
             self.0.insert(tdb.clone());
         }

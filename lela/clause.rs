@@ -1,4 +1,5 @@
 use std::slice::Iter;
+
 use lela::bloom::Bloom;
 use lela::literal::Literal;
 use lela::term::Term;

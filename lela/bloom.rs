@@ -1,4 +1,5 @@
 use std::hash::{Hash, Hasher};
+
 use lela::hash::Fnv1aHasher;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
