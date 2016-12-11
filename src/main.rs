@@ -1,6 +1,8 @@
 #![feature(conservative_impl_trait)]
 #[allow(dead_code)]
 
+extern crate bitmap;
+
 mod lela;
 use lela::symbol::Symbol;
 use lela::term::Term;
@@ -13,38 +15,62 @@ fn main() {
 
     let sort = sf.new_sort();
 
-    let mut var: Vec<Term> = vec![];
-    for _ in [1..5].iter() {
-        var.push(tf.new_term(sf.new_var(sort), vec![]));
-    }
-
     let mut name: Vec<Term> = vec![];
-    for _ in [1..10].iter() {
+    for _ in 0..3 {
         name.push(tf.new_term(sf.new_name(sort), vec![]));
     }
+    println!("name {:?}", name.len());
 
     let mut nullary: Vec<Term> = vec![];
-    for _ in [1..10].iter() {
+    for _ in 0..2 {
         nullary.push(tf.new_term(sf.new_fun(sort, 0), vec![]));
     }
+    println!("nullary {:?}", nullary.len());
 
     let mut unary: Vec<Term> = vec![];
-    for _ in [1..5].iter() {
-        for &t in name.iter().chain(nullary.iter()) {
+    for _ in 0..2 {
+        for &t in name.iter() {
             unary.push(tf.new_term(sf.new_fun(sort, 1), vec![t]));
         }
     }
+    println!("unary {:?}", unary.len());
 
     let mut binary: Vec<Term> = vec![];
-    for _ in [1..5].iter() {
-        for &t1 in name.iter().chain(nullary.iter()).chain(unary.iter()) {
-            for &t2 in name.iter().chain(nullary.iter()).chain(unary.iter()) {
-                binary.push(tf.new_term(sf.new_fun(sort, 2), vec![t1, t2]));
+    // for _ in 0..2 {
+    // for &t1 in name.iter() {
+    // for &t2 in name.iter() {
+    // binary.push(tf.new_term(sf.new_fun(sort, 2), vec![t1, t2]));
+    // }
+    // }
+    // }
+    // println!("binary {:?}", binary.len());
+    //
+
+    let mut lits: Vec<Literal> = vec![];
+    for &t1 in binary.iter().chain(unary.iter()).chain(nullary.iter()) {
+        for &t2 in name.iter() {
+            lits.push(Literal::new_pos(t1, t2));
+            lits.push(Literal::new_neg(t2, t1));
+        }
+    }
+    println!("lits {:?}", lits.len());
+
+    let mut clauses: Vec<Clause> = vec![];
+    for &a in lits.iter() {
+        for &b in lits.iter() {
+            for &c in lits.iter() {
+                clauses.push(Clause::new(vec![a, b, c]));
             }
         }
     }
+    println!("clauses {:?}", clauses.len());
 
-    let mut lits: Vec<Literal> = vec![];
+    for c in clauses.iter() {
+        for d in clauses.iter() {
+            let sub = c.subsumes(d);
+            // println!("{:?}", sub);
+        }
+    }
 }
 
 fn main2() {

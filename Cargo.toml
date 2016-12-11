@@ -1,0 +1,17 @@
+[package]
+name = "lela"
+version = "0.1.0"
+authors = ["Christoph Schwering <c.schwering@unsw.edu.au>"]
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = false
+debug-assertions = false
+codegen-units = 1
+panic = 'unwind'
+
+[dependencies]
+bitmap = "3.1.3"
+

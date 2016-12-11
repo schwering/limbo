@@ -39,5 +39,7 @@ examples/textinterface/ti
 examples/textinterface/ti-js.js*
 examples/textinterface/jquery-*.min.js
 
+target
+
 callgrind.*
 

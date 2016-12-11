@@ -1,10 +1,11 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
+use std::hash::{Hash, Hasher, BuildHasherDefault};
 use std::iter;
 use std::mem::transmute;
 use std::slice::Iter;
 
+use lela::hash::Fnv1aHasher;
 use lela::substitution::Substitution;
 use lela::symbol::Arity;
 use lela::symbol::Sort;
@@ -110,12 +111,12 @@ pub struct TermData<'a> {
 }
 
 
-#[derive(Debug)]
-pub struct Factory<'a>(HashSet<Box<TermData<'a>>>);
+#[derive(Default, Debug)]
+pub struct Factory<'a>(HashSet<Box<TermData<'a>>, BuildHasherDefault<Fnv1aHasher>>);
 
 impl<'a> Factory<'a> {
     pub fn new() -> Self {
-        Factory(HashSet::new())
+        Factory(HashSet::default())
     }
 
     pub fn new_term<'b>(&'b mut self, sym: Symbol, args: Vec<Term<'a>>) -> Term<'a> {

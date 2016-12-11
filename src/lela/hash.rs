@@ -9,6 +9,12 @@ impl Fnv1aHasher {
     }
 }
 
+impl Default for Fnv1aHasher {
+    fn default() -> Fnv1aHasher {
+        Fnv1aHasher::new()
+    }
+}
+
 impl Hasher for Fnv1aHasher {
     fn finish(&self) -> u64 {
         self.0

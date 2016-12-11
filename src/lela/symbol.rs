@@ -49,6 +49,8 @@ impl Symbol {
 }
 
 
+
+#[derive(Default, Debug)]
 pub struct Factory {
     sort: Sort,
     var: Id,
