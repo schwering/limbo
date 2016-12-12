@@ -8,7 +8,7 @@ use lela::term::Term;
 pub type Index = u32;
 type TermMap<'a> = HashMap<Term<'a>, Index, BuildHasherDefault<Fnv1aHasher>>;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Setup<'a: 'b, 'b> {
     parent: Option<&'b Setup<'a, 'b>>,
     first: Index,
@@ -26,7 +26,7 @@ impl<'a, 'b> Setup<'a, 'b> {
         }
     }
 
-    fn inherit(&'b self) -> Self {
+    fn spawn(&'b self) -> Self {
         Setup {
             parent: Some(self),
             first: self.last(),
@@ -49,5 +49,19 @@ impl<'a, 'b> Setup<'a, 'b> {
 
     fn last(&self) -> Index {
         self.first + self.clauses.len() as u32
+    }
+}
+
+
+#[derive(Clone, Debug)]
+struct Iter<'a: 'b, 'b>(Option<&'b Setup<'a, 'b>>);
+
+impl<'a, 'b> Iterator for Iter<'a, 'b> {
+    type Item = &'b Setup<'a, 'b>;
+
+    fn next(&mut self) -> Option<&'b Setup<'a, 'b>> {
+        let this = self.0;
+        self.0 = self.0.map_or(None, |s| s.parent);
+        this
     }
 }
