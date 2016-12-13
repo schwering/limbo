@@ -71,11 +71,17 @@ int main() {
   }
   std::cout << "clauses " << clauses.size() << std::endl;
 
+  size_t i = 0;
+  size_t n = 0;
   for (const Clause& c : clauses) {
     for (const Clause& d : clauses) {
       const bool sub = c.Subsumes(d);
+      if (sub) ++i;
+      ++n;
     }
   }
+  std::cout << i << " / " << n << std::endl;
+  std::cout << double(i) / double(n) << std::endl;
 
   return 0;
 }

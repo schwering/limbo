@@ -65,12 +65,19 @@ fn main() {
     }
     println!("clauses {:?}", clauses.len());
 
+    let mut i = 0 as u64;
+    let mut n = 0 as u64;
     for c in clauses.iter() {
         for d in clauses.iter() {
             let sub = c.subsumes(d);
-            // println!("{:?}", sub);
+            if sub {
+                i += 1;
+            }
+            n += 1;
         }
     }
+    println!("{:?} / {:?}", i, n);
+    println!("{:?}", (i as f64) / (n as f64));
 }
 
 fn main2() {

@@ -3,6 +3,7 @@ use std::hash::{Hash, Hasher, BuildHasherDefault};
 
 use lela::hash::Fnv1aHasher;
 use lela::clause::Clause;
+use lela::literal::Literal;
 use lela::term::Term;
 
 pub type Index = u32;
@@ -26,7 +27,18 @@ impl<'a, 'b> Setup<'a, 'b> {
         }
     }
 
-    fn spawn(&'b self) -> Self {
+    pub fn add(&mut self, c: Clause<'a>) -> Option<Index> {
+        if c.valid() || self.parent.map_or(false, |s| s.subsumes(&c)) {
+            None
+        } else {
+            self.clauses.push(c);
+            Some(self.last())
+        }
+    }
+
+    pub fn init(&mut self) {}
+
+    pub fn spawn(&'b self) -> Self {
         Setup {
             parent: Some(self),
             first: self.last(),
@@ -35,12 +47,8 @@ impl<'a, 'b> Setup<'a, 'b> {
         }
     }
 
-    pub fn root(&self) -> &Self {
-        if let Some(setup) = self.parent {
-            setup.root()
-        } else {
-            self
-        }
+    pub fn subsumes(&self, c: &Clause) -> bool {
+        true
     }
 
     fn first(&self) -> Index {
@@ -49,6 +57,32 @@ impl<'a, 'b> Setup<'a, 'b> {
 
     fn last(&self) -> Index {
         self.first + self.clauses.len() as u32
+    }
+
+    fn setups(&'b self) -> Iter<'a, 'b> {
+        Iter(Some(self))
+    }
+
+    pub fn clauses(&'b self) -> impl Iterator<Item = &'b Clause<'a>> + 'b {
+        self.setups().flat_map(|s| s.clauses.iter())
+    }
+
+    pub fn literals(&'b self) -> impl Iterator<Item = &'b Literal<'a>> + 'b {
+        self.clauses().flat_map(|c| c.literals())
+    }
+
+    pub fn sub_terms(&'b self) -> impl Iterator<Item = &'b Term<'a>> + 'b {
+        self.literals().flat_map(|a| a.sub_terms())
+    }
+
+    pub fn lhs_terms(&'b self) -> impl Iterator<Item = &'b Term<'a>> + 'b {
+        self.clauses().flat_map(|c| c.lhs_terms())
+    }
+}
+
+impl<'a, 'b> Default for Setup<'a, 'b> {
+    fn default() -> Setup<'a, 'b> {
+        Setup::new()
     }
 }
 

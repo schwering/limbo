@@ -1,3 +1,4 @@
+use std::iter;
 use std::slice::Iter;
 
 use lela::bloom::Bloom;
@@ -38,30 +39,30 @@ impl<'a> Clause<'a> {
     }
 
     pub fn valid(&self) -> bool {
-        self.lits().any(|a| a.valid())
+        self.literals().any(|a| a.valid())
     }
 
     pub fn invalid(&self) -> bool {
-        self.lits().all(|a| a.invalid())
+        self.literals().all(|a| a.invalid())
     }
 
     pub fn ground(&self) -> bool {
-        self.lits().all(|a| a.ground())
+        self.literals().all(|a| a.ground())
     }
 
     pub fn primitive(&self) -> bool {
-        self.lits().all(|a| a.primitive())
+        self.literals().all(|a| a.primitive())
     }
 
     pub fn quasiprimitive(&self) -> bool {
-        self.lits().all(|a| a.quasiprimitive())
+        self.literals().all(|a| a.quasiprimitive())
     }
 
     pub fn subsumes(&self, other: &Self) -> bool {
         debug_assert!(self.primitive());
         debug_assert!(other.primitive());
         Bloom::subset(&self.bloom, &other.bloom) &&
-        self.lits().all(|a| other.lits().any(|b| a.subsumes(b)))
+        self.literals().all(|a| other.literals().any(|b| a.subsumes(b)))
     }
 
     pub fn propagate_in_place(&mut self, a: &Literal) -> bool {
@@ -85,11 +86,15 @@ impl<'a> Clause<'a> {
         }
     }
 
-    pub fn lits(&self) -> Iter<Literal<'a>> {
+    pub fn literals(&self) -> Iter<Literal<'a>> {
         self.lits.iter()
     }
 
-    pub fn terms<'b>(&'b self) -> Box<Iterator<Item = &'b Term<'a>> + 'b> {
-        Box::new(self.lits().flat_map(|a| a.terms()))
+    pub fn sub_terms<'b>(&'b self) -> impl Iterator<Item = &'b Term<'a>> + 'b {
+        self.literals().flat_map(|a| a.sub_terms())
+    }
+
+    pub fn lhs_terms<'b>(&'b self) -> impl Iterator<Item = &'b Term<'a>> + 'b {
+        self.literals().map(|a| a.lhs())
     }
 }

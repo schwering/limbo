@@ -98,7 +98,7 @@ impl<'a> Literal<'a> {
           self.rhs() != other.rhs()))
     }
 
-    pub fn terms<'b>(&'b self) -> Box<Iterator<Item = &'b Term<'a>> + 'b> {
-        Box::new(self.lhs().terms().chain(self.rhs().terms()))
+    pub fn sub_terms<'b>(&'b self) -> Box<Iterator<Item = &'b Term<'a>> + 'b> {
+        Box::new(self.lhs().sub_terms().chain(self.rhs().sub_terms()))
     }
 }

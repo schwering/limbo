@@ -60,8 +60,8 @@ impl<'a> Term<'a> {
         self.fun() && self.args().all(|t| t.name() || t.var())
     }
 
-    pub fn terms<'b>(&'b self) -> Box<Iterator<Item = &'b Term<'a>> + 'b> {
-        Box::new(iter::once(self).chain(self.args()))
+    pub fn sub_terms<'b>(&'b self) -> Box<Iterator<Item = &'b Term<'a>> + 'b> {
+        Box::new(iter::once(self).chain(self.args().flat_map(|t| t.sub_terms())))
     }
 
     pub fn substitute<S>(&self, theta: &S, factory: &mut Factory<'a>) -> Self
