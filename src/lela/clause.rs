@@ -1,13 +1,13 @@
 use std::iter;
 use std::slice::Iter;
 
-use lela::bloom::Bloom;
+use lela::bloom::BloomSet;
 use lela::literal::Literal;
 use lela::term::Term;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Clause<'a> {
-    bloom: Bloom,
+    bloom: BloomSet,
     lits: Vec<Literal<'a>>,
 }
 
@@ -16,7 +16,7 @@ impl<'a> Clause<'a> {
         lits.sort();
         lits.dedup();
         lits.retain(|a| !a.valid());
-        let mut b = Bloom::new();
+        let mut b = BloomSet::new();
         for a in lits.iter() {
             b.add(a.lhs());
         }
@@ -61,14 +61,14 @@ impl<'a> Clause<'a> {
     pub fn subsumes(&self, other: &Self) -> bool {
         debug_assert!(self.primitive());
         debug_assert!(other.primitive());
-        Bloom::subset(&self.bloom, &other.bloom) &&
+        other.bloom.possibly_includes(&self.bloom) &&
         self.literals().all(|a| other.literals().any(|b| a.subsumes(b)))
     }
 
     pub fn propagate_in_place(&mut self, a: &Literal) -> bool {
         debug_assert!(self.primitive());
         debug_assert!(a.primitive());
-        if self.bloom.contains(a.lhs()) {
+        if self.bloom.possibly_contains(a.lhs()) {
             let n = self.len();
             self.lits.retain(|b| !Literal::complementary(a, b));
             self.len() != n
