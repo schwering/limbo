@@ -42,7 +42,7 @@ class Clause {
   template<typename InputIt>
   Clause(InputIt begin, InputIt end) : lits_(begin, end) { Minimize(); }
 
-  bool operator==(const Clause& c) const { return bloom_ == c.bloom_ && lits_ == c.lits_; }
+  bool operator==(const Clause& c) const { return lhs_bloom_ == c.lhs_bloom_ && lits_ == c.lits_; }
   bool operator!=(const Clause& c) const { return !(*this == c); }
 
   const_iterator begin() const { return lits_.begin(); }
@@ -55,8 +55,12 @@ class Clause {
   bool valid()   const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
 
+  internal::BloomSet<Term> lhs_bloom() const { return lhs_bloom_; }
+
   bool Subsumes(const Clause& c) const {
-    if (!bloom_.SubsetOf(c.bloom_)) {
+    assert(primitive());
+    assert(c.primitive());
+    if (!c.lhs_bloom_.PossiblyIncludes(lhs_bloom_)) {
       return false;
     }
     for (Literal a : *this) {
@@ -72,7 +76,7 @@ class Clause {
     assert(primitive());
     assert(a.primitive());
     assert(a.lhs().function());
-    if (!bloom_.Contains(a.lhs().hash())) {
+    if (!lhs_bloom_.PossiblyContains(a.lhs())) {
       return internal::Nothing;
     }
     auto r = internal::filter_range(begin(), end(), [a](Literal b) { return !Literal::Complementary(a, b); });
@@ -105,8 +109,6 @@ class Clause {
   }
 
  private:
-  typedef std::vector<Literal>::iterator iterator;
-
   void Minimize() {
     lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.invalid(); }), lits_.end());
     std::sort(lits_.begin(), lits_.end(), Literal::Comparator());
@@ -115,13 +117,12 @@ class Clause {
   }
 
   void InitBloom() {
-    bloom_.Clear();
     for (Literal a : *this) {
-      bloom_.Add(a.lhs().hash());
+      lhs_bloom_.Add(a.lhs());
     }
   }
 
-  internal::BloomFilter bloom_;
+  internal::BloomSet<Term> lhs_bloom_;
   std::vector<Literal> lits_;
 };
 

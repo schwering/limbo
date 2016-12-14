@@ -1,9 +1,12 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014--2016 Christoph Schwering
 //
-// A Bloom filter allows for complete check whether an element is in a set.
-// That is, it may yield false positives. This implementation is designed for
-// small sets and specifically intended for clauses.
+// A BloomFilter allows for complete check whether an element is in a set.
+// That is, it may yield false positives. The class BloomSet<T> exists to
+// make this set interpretation clear.
+//
+// This implementation is designed for small sets and specifically intended
+// for clauses.
 //
 // Let m = 64 the size of the bitmask.
 // Let k be the number of hash functions.
@@ -31,6 +34,16 @@ namespace internal {
 
 class BloomFilter {
  public:
+  BloomFilter() = default;
+
+  static BloomFilter Union(BloomFilter a, BloomFilter b) {
+    return BloomFilter(a.mask_ | b.mask_);
+  }
+
+  static BloomFilter Intersection(BloomFilter a, BloomFilter b) {
+    return BloomFilter(a.mask_ & b.mask_);
+  }
+
   bool operator==(BloomFilter b) const { return mask_ == b.mask_; }
   bool operator!=(BloomFilter b) const { return !(*this == b); }
 
@@ -41,33 +54,33 @@ class BloomFilter {
   }
 
   void Add(std::uint64_t x) {
-    mask_ |= (ONE << (hash<0>(x) % BITS))
-          |  (ONE << (hash<1>(x) % BITS))
-          |  (ONE << (hash<2>(x) % BITS))
-          |  (ONE << (hash<3>(x) % BITS));
+    mask_ |= (ONE << shift<0>(x))
+          |  (ONE << shift<1>(x))
+          |  (ONE << shift<2>(x))
+          |  (ONE << shift<3>(x));
   }
 
   bool Contains(std::uint64_t x) const {
-    return ( ((mask_ >> (hash<0>(x) % BITS)) & ONE)
-           & ((mask_ >> (hash<1>(x) % BITS)) & ONE)
-           & ((mask_ >> (hash<2>(x) % BITS)) & ONE)
-           & ((mask_ >> (hash<3>(x) % BITS)) & ONE)) != 0;
+    return (( (mask_ >> shift<0>(x))
+            & (mask_ >> shift<1>(x))
+            & (mask_ >> shift<2>(x))
+            & (mask_ >> shift<3>(x))) & ONE) != 0;
   }
 
-  bool SubsetOf(BloomFilter b) const {
-    return Subset(*this, b);
+  bool Includes(BloomFilter b) const {
+    return Subset(b, *this);
   }
 
-  bool DisjointWith(BloomFilter b) const {
-    return Disjoint(*this, b);
+  bool Overlaps(BloomFilter b) {
+    return Overlap(*this, b);
   }
 
   static bool Subset(BloomFilter a, BloomFilter b) {
-    return ~((~a.mask_) | b.mask_) == 0;
+    return ~(~a.mask_ | b.mask_) == 0;
   }
 
-  static bool Disjoint(BloomFilter a, BloomFilter b) {
-    return (a.mask_ & b.mask_) == 0;
+  static bool Overlap(BloomFilter a, BloomFilter b) {
+    return (a.mask_ & b.mask_) != 0;
   }
 
  private:
@@ -75,13 +88,64 @@ class BloomFilter {
   FRIEND_TEST(BloomFilterTest, hash);
 #endif
 
-  static constexpr std::uint64_t ONE = 1;  // use this constant because 1 is signed
-  static constexpr std::uint64_t BITS = 64;
+  explicit BloomFilter(std::uint64_t mask) : mask_(mask) {}
 
   template<std::uint64_t I>
   static std::uint64_t hash(std::uint64_t x) { return (x >> (I*16)) & 0xFFFF; }
 
+  template<std::uint64_t I>
+  static std::uint64_t shift(std::uint64_t x) { return hash<I>(x) % BITS; }
+
+  static constexpr std::uint64_t ONE = 1;  // use this constant because 1 is signed
+  static constexpr std::uint64_t BITS = 64;
+
   std::uint64_t mask_ = 0;
+};
+
+template<typename T>
+class BloomSet {
+ public:
+  BloomSet() = default;
+
+  static BloomSet Union(BloomSet a, BloomSet b) {
+    return BloomSet(BloomFilter::Union(a.bf_, b.bf_));
+  }
+
+  static BloomSet Intersection(BloomSet a, BloomSet b) {
+    return BloomSet(BloomFilter::Intersection(a.bf_, b.bf_));
+  }
+
+  bool operator==(BloomSet b) const { return bf_ == b.bf_; }
+  bool operator!=(BloomSet b) const { return !(*this == b); }
+
+  std::uint64_t hash() const { return bf_.hash(); }
+
+  void Clear() {
+    bf_.Clear();
+  }
+
+  void Add(const T& x) {
+    const std::uint64_t h = x.hash();
+    bf_.Add(h);
+  }
+
+  bool PossiblyContains(const T& x) const {
+    const std::uint64_t h = x.hash();
+    return bf_.Contains(h);
+  }
+
+  bool PossiblyIncludes(BloomSet b) const {
+    return bf_.Includes(b.bf_);
+  }
+
+  bool PossiblyOverlaps(BloomSet b) const {
+    return bf_.Overlaps(b.bf_);
+  }
+
+ private:
+  explicit BloomSet(BloomFilter bf) : bf_(bf) {}
+
+  BloomFilter bf_;
 };
 
 }  // namespace internal
@@ -98,6 +162,16 @@ struct hash<lela::internal::BloomFilter> {
 template<>
 struct equal_to<lela::internal::BloomFilter> {
   bool operator()(const lela::internal::BloomFilter a, const lela::internal::BloomFilter b) const { return a == b; }
+};
+
+template<typename T>
+struct hash<lela::internal::BloomSet<T>> {
+  size_t operator()(const lela::internal::BloomSet<T> a) const { return a.hash(); }
+};
+
+template<typename T>
+struct equal_to<lela::internal::BloomSet<T>> {
+  bool operator()(const lela::internal::BloomSet<T> a, const lela::internal::BloomSet<T> b) const { return a == b; }
 };
 
 }  // namespace std
