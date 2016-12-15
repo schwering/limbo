@@ -77,6 +77,21 @@ int main(int argc, char *argv[]) {
   }
 
   Play(width, height, n_mines, seed, max_k, TerminalColors(), &std::cout);
+
+  std::cout << POS << " / " << TRUE_POS << std::endl;
+  std::cout << NEG << std::endl;
+  //std::cout << "pos/(pos+neg) = " << double(POS) / double(POS + NEG) << std::endl;
+  std::cout << "neg/(pos+neg) = " << double(NEG) / double(POS + NEG) << std::endl;
+  //std::cout << "true_pos/pos = " << double(TRUE_POS) / double(POS) << std::endl;
+  //std::cout << "true_pos/(pos+neg) = " << double(TRUE_POS) / double(NEG + POS) << std::endl;
+  std::cout << COUNT << std::endl;
+  std::cout << std::endl;
+  std::cout << SUB_POS << " / " << SUB_TRUE_POS << std::endl;
+  std::cout << SUB_NEG << std::endl;
+  //std::cout << "pos/(pos+neg) = " << double(SUB_POS) / double(SUB_POS + SUB_NEG) << std::endl;
+  std::cout << "neg/(pos+neg) = " << double(SUB_NEG) / double(SUB_POS + SUB_NEG) << std::endl;
+  //std::cout << "true_pos/pos = " << double(SUB_TRUE_POS) / double(SUB_POS) << std::endl;
+  //std::cout << "true_pos/(pos+neg) = " << double(SUB_TRUE_POS) / double(SUB_NEG + SUB_POS) << std::endl;
   return 0;
 }
 

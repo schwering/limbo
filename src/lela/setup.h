@@ -46,6 +46,7 @@
 
 #include <cassert>
 
+#include <bitset>
 #include <algorithm>
 #include <unordered_set>
 #include <vector>
@@ -53,6 +54,11 @@
 #include <lela/clause.h>
 #include <lela/internal/intmap.h>
 #include <lela/internal/iter.h>
+
+static int POS = 0;
+static int NEG = 0;
+static int TRUE_POS = 0;
+static uint64_t COUNT = 0;
 
 namespace lela {
 
@@ -82,13 +88,21 @@ class Setup {
       return true;
     }
     for (BucketIndex b : buckets()) {
+      std::uint64_t x = *reinterpret_cast<const uint64_t*>(&bucket_intersection(b));
+      COUNT += std::bitset<64>(x).count();
+      std::cout << std::bitset<64>(x).count() << " " << std::bitset<64>(x) << std::endl;
+      //std::cout << std::bitset<64>(*reinterpret_cast<const uint64_t*>(&bucket_union(b))) << std::endl;
+      //std::cout << std::endl;
       if (c.lhs_bloom().PossiblyIncludes(bucket_intersection(b))) {
+        ++POS;
         for (ClauseIndex i : bucket_clauses(b)) {
           if (clause(i).Subsumes(c)) {
+            ++TRUE_POS;
             return true;
           }
         }
       }
+      else ++NEG;
     }
     return false;
   }
@@ -98,7 +112,7 @@ class Setup {
       return false;
     }
     std::unordered_set<Term> primitive_terms;
-    for (Index i : clauses()) {
+    for (ClauseIndex i : clauses()) {
       for (Literal a : clause(i)) {
         primitive_terms.insert(a.lhs());
       }
@@ -206,7 +220,7 @@ class Setup {
       if (c.empty()) {
         contains_empty_clause_ = true;
       }
-      if (bucket_of_clause(i) >= last_bucket()) {
+      if (clause_bucket(i) >= last_bucket()) {
         buckets_.resize(buckets_.size() + 1, Bucket(c.lhs_bloom()));
       } else {
         buckets_.back().Add(c.lhs_bloom());
@@ -217,13 +231,16 @@ class Setup {
         units_.push_back(a);
         for (BucketIndex b : buckets()) {
           if (bucket_union(b).PossiblyOverlaps(c.lhs_bloom())) {
+            //++POS;
             for (ClauseIndex j : bucket_clauses(b)) {
               const internal::Maybe<Clause> d = clause(j).PropagateUnit(a);
               if (d) {
+            //++TRUE_POS;
                 AddUnprocessedClause(d.val);
               }
             }
           }
+          //else ++NEG;
         }
       }
     }
@@ -233,12 +250,15 @@ class Setup {
     const Clause& c = clause(i);
     for (BucketIndex b : buckets()) {
       if (bucket_union(b).PossiblyIncludes(c.lhs_bloom())) {
+        //++POS;
         for (ClauseIndex j : bucket_clauses(b)) {
           if (i != j && c.Subsumes(clause(j))) {
+            //++TRUE_POS;
             Disable(j);
           }
         }
       }
+      //else ++NEG;
     }
   }
 
@@ -258,28 +278,18 @@ class Setup {
     bs.Add(t);
     for (BucketIndex b : buckets()) {
       if (bucket_union(b).PossiblyOverlaps(bs)) {
+        //++POS;
         for (ClauseIndex i : bucket_clauses(b)) {
           for (Literal a : clause(i)) {
             if (t == a.lhs()) {
+            //++TRUE_POS;
               lits.insert(a);
             }
           }
         }
       }
+      //else ++NEG;
     }
-#if 0
-    for (Literal a : lits) {
-      for (Literal b : lits) {
-        if (a == b) {
-          break;
-        }
-        assert(Literal::Complementary(a, b) == Literal::Complementary(b, a));
-        if (Literal::Complementary(a, b)) {
-          return false;
-        }
-      }
-    }
-#else
     for (const Literal a : lits) {
       size_t b = lits.bucket(a);
       auto begin = lits.begin(b);
@@ -292,7 +302,6 @@ class Setup {
         }
       }
     }
-#endif
     return true;
   }
 
@@ -350,17 +359,6 @@ class Setup {
     return s->buckets_[i - s->first_bucket()].intersection_;
   }
 
-  BucketIndex bucket_of_clause(ClauseIndex i) const {
-    assert(0 <= i && i < last_clause());
-    const Setup* s = this;
-    while (i < s->first_clause()) {
-      assert(s->parent_);
-      s = s->parent_;
-    }
-    assert(s->first_clause() <= i && i < s->last_clause());
-    return s->first_bucket() + (i - s->first_clause()) / kBucketSize;
-  }
-
   Clauses bucket_clauses(BucketIndex i) const {
     assert(0 <= i && i < last_bucket());
     const Setup* s = this;
@@ -374,6 +372,16 @@ class Setup {
     return Clauses(this, first, last);
   }
 
+  BucketIndex clause_bucket(ClauseIndex i) const {
+    assert(0 <= i && i < last_clause());
+    const Setup* s = this;
+    while (i < s->first_clause()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_clause() <= i && i < s->last_clause());
+    return s->first_bucket() + (i - s->first_clause()) / kBucketSize;
+  }
 
   const Setup* parent_ = nullptr;
 
@@ -391,7 +399,7 @@ class Setup {
 
   std::vector<Bucket> buckets_;
   BucketIndex first_bucket_ = parent_ != nullptr ? parent_->last_bucket() : 0;
-  static constexpr BucketIndex kBucketSize = 32;
+  static constexpr BucketIndex kBucketSize = 8;
 
 #ifndef NDEBUG
   mutable bool spawned_ = false;

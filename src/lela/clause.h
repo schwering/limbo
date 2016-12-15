@@ -31,6 +31,10 @@
 #include <lela/internal/maybe.h>
 #include <lela/internal/traits.h>
 
+static int SUB_POS = 0;
+static int SUB_TRUE_POS = 0;
+static int SUB_NEG = 0;
+
 namespace lela {
 
 class Clause {
@@ -63,14 +67,17 @@ class Clause {
     assert(primitive());
     assert(c.primitive());
     if (!c.lhs_bloom_.PossiblyIncludes(lhs_bloom_)) {
+      ++SUB_NEG;
       return false;
     }
+    ++SUB_POS;
     for (Literal a : *this) {
       const bool subsumed = std::any_of(c.begin(), c.end(), [a](const Literal b) { return a.Subsumes(b); });
       if (!subsumed) {
         return false;
       }
     }
+    ++SUB_TRUE_POS;
     return true;
   }
 
