@@ -229,8 +229,8 @@ inline transform_iterators<InputIt, UnaryFunction> transform_range(InputIt begin
 }
 
 template<typename Range, typename InputIt, typename UnaryFunction>
-inline transform_iterators<InputIt, UnaryFunction> transform_range(Range r,
-                                                                   UnaryFunction func = UnaryFunction()) {
+inline transform_iterators<typename Range::iterator, UnaryFunction>
+transform_range(Range r, UnaryFunction func = UnaryFunction()) {
   return transform_range(r.begin(), r.end(), func);
 }
 
@@ -293,9 +293,9 @@ inline filter_iterators<InputIt, UnaryPredicate> filter_range(InputIt begin,
   return filter_iterators<InputIt, UnaryPredicate>(begin, end, pred);
 }
 
-template<typename Range, typename InputIt, typename UnaryPredicate>
-inline filter_iterators<InputIt, UnaryPredicate> filter_range(Range r,
-                                                              UnaryPredicate pred = UnaryPredicate()) {
+template<typename Range, typename UnaryPredicate>
+inline filter_iterators<typename Range::iterator, UnaryPredicate>
+filter_range(Range r, UnaryPredicate pred = UnaryPredicate()) {
   return filter_range(r.begin(), r.end(), pred);
 }
 

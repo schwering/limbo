@@ -48,6 +48,8 @@ class Clause {
   const_iterator begin() const { return lits_.begin(); }
   const_iterator end()   const { return lits_.end(); }
 
+  Literal get(size_t i) const { return lits_[i]; }
+
   bool   empty() const { return lits_.empty(); }
   bool   unit()  const { return size() == 1; }
   size_t size()  const { return lits_.size(); }

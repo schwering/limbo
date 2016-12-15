@@ -67,11 +67,19 @@ class BloomFilter {
             & (mask_ >> shift<3>(x))) & ONE) != 0;
   }
 
+  void Unite(BloomFilter b) {
+    mask_ |= b.mask_;
+  }
+
+  void Intersect(BloomFilter b) {
+    mask_ &= b.mask_;
+  }
+
   bool Includes(BloomFilter b) const {
     return Subset(b, *this);
   }
 
-  bool Overlaps(BloomFilter b) {
+  bool Overlaps(BloomFilter b) const {
     return Overlap(*this, b);
   }
 
@@ -140,6 +148,14 @@ class BloomSet {
 
   bool PossiblyOverlaps(BloomSet b) const {
     return bf_.Overlaps(b.bf_);
+  }
+
+  void Unite(BloomSet b) {
+    bf_.Unite(b.bf_);
+  }
+
+  void Intersect(BloomSet b) {
+    bf_.Intersect(b.bf_);
   }
 
  private:

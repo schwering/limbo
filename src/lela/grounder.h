@@ -77,7 +77,7 @@ class Grounder {
   Grounder& operator=(Grounder&&) = default;
 
   typedef std::list<Clause>::const_iterator clause_iterator;
-  typedef internal::joined_ranges<clause_iterator, clause_iterator> clause_range;
+  typedef internal::joined_iterators<clause_iterator, clause_iterator> clause_range;
 
   clause_range clauses() const {
     return internal::join_ranges(processed_clauses_.cbegin(), processed_clauses_.cend(),
