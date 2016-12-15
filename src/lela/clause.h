@@ -90,6 +90,10 @@ class Clause {
   bool primitive()      const { return std::all_of(begin(), end(), [](Literal a) { return a.primitive(); }); }
   bool quasiprimitive() const { return std::all_of(begin(), end(), [](Literal a) { return a.quasiprimitive(); }); }
 
+  bool MentionsLhs(Term t) const {
+    return lhs_bloom_.PossiblyContains(t) && std::any_of(begin(), end(), [t](Literal a) { return a.lhs() == t; });
+  }
+
   template<typename UnaryFunction>
   Clause Substitute(UnaryFunction theta, Term::Factory* tf) const {
     auto r = internal::transform_range(begin(), end(), [theta, tf](Literal a) { return a.Substitute(theta, tf); });

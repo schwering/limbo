@@ -55,42 +55,25 @@ class Setup {
   typedef std::unordered_multimap<Term, Index> TermMap;
 
   Setup() = default;
-  explicit Setup(const Setup* parent) : parent_(parent), del_(parent_->del_) { assert(parent_->sealed_); }
+  explicit Setup(const Setup* parent)
+      : parent_(parent), contains_empty_clause_(parent_->contains_empty_clause_), del_(parent_->del_) {}
 
-  Index AddClause(const Clause& c) {
-    assert(!sealed_);
-    assert(c.primitive());
-    assert(!c.valid());
-    if (Subsumes(c)) {
-      return -1;
-    }
-    if (c.empty()) {
-      contains_empty_clause_ = true;
-    }
-    clauses_.push_back(c);
-    const Index i = last_clause() - 1;
-    assert(clause(i) == c);
-    if (bucket_of_clause(i) >= last_bucket()) {
-      buckets_.resize(buckets_.size() + 1, Bucket(c.lhs_bloom()));
-    } else {
-      buckets_.back().Add(c.lhs_bloom());
-    }
-    if (c.unit()) {
-      units_.push_back(c.get(0));
-    }
-    return i;
+  void AddClause(const Clause& c) {
+    AddUnprocessedClause(c);
+    ProcessClauses();
   }
 
+#if 0
   void Init() {
     Minimize();
     PropagateUnits();
-#ifndef NDEBUG
-    sealed_ = true;
-#endif
   }
+#endif
 
   bool Subsumes(const Clause& c) const {
-    assert(!c.valid());
+    if (c.valid()) {
+      return true;
+    }
     for (Index b : buckets()) {
       if (c.lhs_bloom().PossiblyIncludes(bucket_intersection(b))) {
         for (Index i : bucket_clauses(b)) {
@@ -174,7 +157,13 @@ class Setup {
 
   const Clause& clause(Index i) const {
     assert(0 <= i && i < last_clause());
-    return i >= first_clause() ? clauses_[i - first_clause()] : parent_->clause(i);
+    const Setup* s = this;
+    while (i < s->first_clause()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_clause() <= i && i < s->last_clause());
+    return s->clauses_[i - s->first_clause()];
   }
 
 #if 0
@@ -213,13 +202,44 @@ class Setup {
   }
 
  private:
-  void Minimize() {
-    assert(!sealed_);
-    // We only need to remove clauses subsumed by this setup, as the parent is
-    // already assumed to be minimal and does not subsume the new clauses.
-    for (int i = first_clause(); i < last_clause(); ++i) {
-      if (!disabled(i)) {
-        RemoveSubsumed(i);
+  void AddUnprocessedClause(const Clause& c) {
+    unprocessed_clauses_.push_back(c);
+  }
+
+  void ProcessClauses() {
+    while (!unprocessed_clauses_.empty()) {
+      const Clause c = unprocessed_clauses_.back();
+      unprocessed_clauses_.pop_back();
+      if (Subsumes(c)) {
+        continue;
+      }
+      clauses_.push_back(c);
+      const Index i = last_clause() - 1;
+      assert(c.primitive());
+      assert(clause(i) == c);
+      if (c.empty()) {
+        contains_empty_clause_ = true;
+      }
+      if (bucket_of_clause(i) >= last_bucket()) {
+        buckets_.resize(buckets_.size() + 1, Bucket(c.lhs_bloom()));
+      } else {
+        buckets_.back().Add(c.lhs_bloom());
+      }
+      RemoveSubsumed(i);
+      PropagateUnits(i);
+      if (c.unit()) {
+        const Literal a = c.get(0);
+        units_.push_back(a);
+        for (Index b : buckets()) {
+          if (bucket_union(b).PossiblyOverlaps(c.lhs_bloom())) {
+            for (Index j : bucket_clauses(b)) {
+              const internal::Maybe<Clause> d = clause(j).PropagateUnit(a);
+              if (d) {
+                AddUnprocessedClause(d.val);
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -237,8 +257,8 @@ class Setup {
     }
   }
 
+#if 0
   void PropagateUnits() {
-    assert(!sealed_);
     Index first = 0;
     Index last;
     for (;;) {
@@ -261,11 +281,23 @@ class Setup {
             if (c && !Subsumes(c.val)) {
               const Index k = AddClause(c.val);
               assert(k >= 0);
-              RemoveSubsumed(k);  // keep setup minimal
+              RemoveSubsumed(k);
             }
           }
         }
       }
+    }
+  }
+#endif
+
+  void PropagateUnits(const Index i) {
+    const Clause& c = clause(i);
+    internal::Maybe<Clause> d = internal::Nothing;
+    for (Index u : units()) {
+      d = (!d ? c : d.val).PropagateUnit(unit(u));
+    }
+    if (d) {
+      AddUnprocessedClause(d.val);
     }
   }
 
@@ -279,9 +311,19 @@ class Setup {
   Index first_unit() const { return first_unit_; }
   Index last_unit()  const { return first_unit_ + units_.size(); }
 
+  internal::int_iterators<Index> units() const {
+    return internal::int_range(0, last_unit());
+  }
+
   Literal unit(Index i) const {
     assert(0 <= i && i < last_unit());
-    return i >= first_unit() ? units_[i - first_unit()] : parent_->unit(i);
+    const Setup* s = this;
+    while (i < s->first_unit()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_unit() <= i && i < s->last_unit());
+    return s->units_[i - s->first_unit()];
   }
 
   // first_bucket() and last_bucket() are the global inclusive/exclusive
@@ -290,8 +332,6 @@ class Setup {
   // the global bucket index i.
   Index first_bucket() const { return first_bucket_; }
   Index last_bucket()  const { return first_bucket_ + (buckets_.size() + kBucketSize - 1) / kBucketSize; }
-
-  Index bucket_of_clause(Index i) const { return first_bucket_ + (i - first_clause_) / kBucketSize; }
 
   internal::int_iterators<Index> buckets() const { return internal::int_range(0, last_bucket()); }
 
@@ -309,18 +349,41 @@ class Setup {
 
   const internal::BloomSet<Term>& bucket_union(Index i) const {
     assert(0 <= i && i < last_bucket());
-    return i >= first_bucket() ? buckets_[i - first_bucket()].union_ : parent_->bucket_union(i);
+    const Setup* s = this;
+    while (i < s->first_bucket()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_bucket() <= i && i < s->last_bucket());
+    return s->buckets_[i - s->first_bucket()].union_;
   }
 
   const internal::BloomSet<Term>& bucket_intersection(Index i) const {
     assert(0 <= i && i < last_bucket());
-    return i >= first_bucket() ? buckets_[i - first_bucket()].intersection_ : parent_->bucket_intersection(i);
+    const Setup* s = this;
+    while (i < s->first_bucket()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_bucket() <= i && i < s->last_bucket());
+    return s->buckets_[i - s->first_bucket()].intersection_;
+  }
+
+  Index bucket_of_clause(Index i) const {
+    assert(0 <= i && i < last_clause());
+    const Setup* s = this;
+    while (i < s->first_clause()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_clause() <= i && i < s->last_clause());
+    return s->first_bucket() + (i - s->first_clause()) / kBucketSize;
   }
 
   Clauses bucket_clauses(Index i) const {
     assert(0 <= i && i < last_bucket());
     const Setup* s = this;
-    while (i < first_bucket()) {
+    while (i < s->first_bucket()) {
       assert(s->parent_);
       s = s->parent_;
     }
@@ -339,14 +402,12 @@ class Setup {
   bool enabled(Index i) const { return !disabled(i); }
 
   const Setup* parent_ = nullptr;
-#ifndef NDEBUG
-  bool sealed_ = false;
-#endif
 
   bool contains_empty_clause_ = false;
 
   // clauses_ contains all clauses added in this setup; the indexing is local.
   std::vector<Clause> clauses_;
+  std::vector<Clause> unprocessed_clauses_;
   Index first_clause_ = parent_ != nullptr ? parent_->last_clause() : 0;
 
   // units_ additionally contains all unit clauses_ added in this setup; the

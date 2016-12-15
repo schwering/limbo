@@ -164,7 +164,9 @@ class Solver {
         return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &phi, t](Term n) {
           Setup ss(&s);
           ss.AddClause(Clause{Literal::Eq(t, n)});
+#if 0
           ss.Init();
+#endif
           return Split(ss, split_terms, names, k-1, phi);
         });
       });
@@ -226,7 +228,9 @@ class Solver {
             ss.AddClause(c);
           }
         }
+#if 0
         ss.Init();
+#endif
         return Assign(ss, assign_lits, names, k-1, phi);
       });
     } else {
@@ -239,7 +243,7 @@ class Solver {
     switch (phi.head().type()) {
       case Formula::Element::kClause: {
         const Clause c = ResolveDeterminedTerms(s, phi.head().clause().val);
-        return c.valid() || s.Subsumes(c);
+        return c.valid() || (c.primitive() && s.Subsumes(c));
       }
       case Formula::Element::kNot: {
         switch (phi.arg().head().type()) {

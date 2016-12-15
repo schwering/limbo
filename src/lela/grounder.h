@@ -143,7 +143,9 @@ class Grounder {
           }
         }
       }
+#if 0
       s->Init();
+#endif
       processed_clauses_.splice(processed_clauses_.begin(), unprocessed_clauses_);
       names_changed_ = false;
     }
@@ -167,12 +169,16 @@ class Grounder {
     TermSet queue = Ground(SplitTerms(k, phi));
     while (!queue.empty()) {
       const Term t = *queue.begin();
+      assert(t.primitive());
       queue.erase(queue.begin());
       auto p = splits.insert(t);
       if (p.second) {
-        for (Setup::Index i : s.clauses_with(t)) {
-          TermSet next = Mentioned<Term, TermSet>([](Term t) { return t.function(); }, s.clause(i));
-          queue.insert(next.begin(), next.end());
+        for (Setup::Index i : s.clauses()) {
+          const Clause& c = s.clause(i);
+          if (c.MentionsLhs(t)) {
+            TermSet next = Mentioned<Term, TermSet>([](Term t) { return t.function(); }, c);
+            queue.insert(next.begin(), next.end());
+          }
         }
       }
     }
