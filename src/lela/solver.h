@@ -162,11 +162,8 @@ class Solver {
         const TermSet& ns = names[t.sort()];
         assert(!ns.empty());
         return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &phi, t](Term n) {
-          Setup ss(&s);
+          Setup ss = s.Spawn();
           ss.AddClause(Clause{Literal::Eq(t, n)});
-#if 0
-          ss.Init();
-#endif
           return Split(ss, split_terms, names, k-1, phi);
         });
       });
@@ -221,7 +218,7 @@ class Solver {
       return std::any_of(assign_lits.begin(), assign_lits.end(),
                          [this, &s, &assign_lits, &names, k, &phi](const LiteralSet& lits) {
         assert(!lits.empty());
-        Setup ss(&s);
+        Setup ss = s.Spawn();
         for (Literal a : lits) {
           Clause c{a};
           if (!ss.Subsumes(c)) {

@@ -122,7 +122,7 @@ class Grounder {
       if (!parent) {
         setups_.push_front(Setup());
       } else {
-        setups_.push_front(Setup(parent));
+        setups_.push_front(parent->Spawn());
       }
       Setup* s = &setups_.front();
       assert(s != parent);

@@ -105,10 +105,11 @@ class Literal {
   }
 
  private:
-  Literal(bool sign, Term lhs, Term rhs)
-      : eq_(sign),
-        lhs_(lhs < rhs ? lhs : rhs),
-        rhs_(lhs < rhs ? rhs : lhs) {
+  Literal(bool sign, Term lhs, Term rhs) :
+      eq_(sign),
+      lhs_(lhs < rhs ? lhs : rhs),
+      rhs_(lhs < rhs ? rhs : lhs)
+  {
     assert(!lhs_.null());
     assert(!rhs_.null());
     if (!lhs_.function() && rhs_.function()) {

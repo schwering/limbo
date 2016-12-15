@@ -156,8 +156,8 @@ class Formula {
     template<typename UnaryFunction>
     struct SubstituteElement {
       SubstituteElement() = default;
-      SubstituteElement(UnaryFunction theta, Term::Factory* tf, bool preserve_bound_vars)
-          : theta_(theta), tf_(tf), preserve_bound_vars_(preserve_bound_vars) {}
+      SubstituteElement(UnaryFunction theta, Term::Factory* tf, bool preserve_bound_vars) :
+          theta_(theta), tf_(tf), preserve_bound_vars_(preserve_bound_vars) {}
 
       // Bound variables shall not be substituted. The implementation of this
       // behaviour is a bit hacky. The resulting iterator is not more than a

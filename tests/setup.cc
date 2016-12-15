@@ -54,7 +54,7 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
     EXPECT_FALSE(s0.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
     {
-      lela::Setup s1(&s0);
+      lela::Setup s1 = s0.Spawn();
       s1.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)}));
       s1.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)}));
       s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(fn,n)}));
@@ -82,7 +82,7 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
       EXPECT_FALSE(s1.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
       {
-        lela::Setup s2(&s1);
+        lela::Setup s2 = s1.Spawn();
         s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)}));
 #if 0
         s2.Init();
@@ -107,7 +107,7 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
         }
 
         {
-          lela::Setup s3(&s2);
+          lela::Setup s3 = s2.Spawn();
           s3.AddClause(Clause({Literal::Neq(a,m)}));
 #if 0
           s3.Init();

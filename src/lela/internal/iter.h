@@ -73,8 +73,8 @@ template<typename T, typename UnaryFunction = Identity>
 struct int_iterators {
   typedef int_iterator<T, UnaryFunction> iterator;
 
-  explicit int_iterators(T begin, T end, UnaryFunction func1 = UnaryFunction(), UnaryFunction func2 = UnaryFunction())
-      : begin_(begin, func1), end_(end, func2) {}
+  explicit int_iterators(T begin, T end, UnaryFunction func1 = UnaryFunction(), UnaryFunction func2 = UnaryFunction()) :
+      begin_(begin, func1), end_(end, func2) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -106,8 +106,8 @@ struct flatten_iterator {
   typedef iterator_proxy<flatten_iterator> proxy;
 
   flatten_iterator() = default;
-  explicit flatten_iterator(OuterInputIt cont_first, OuterInputIt cont_last)
-      : cont_first_(cont_first),
+  explicit flatten_iterator(OuterInputIt cont_first, OuterInputIt cont_last) :
+      cont_first_(cont_first),
         cont_last_(cont_last) {
     if (cont_first_ != cont_last_) {
       iter_ = ((*cont_first_).*begin)();
@@ -210,8 +210,8 @@ template<typename InputIt, typename UnaryFunction>
 struct transform_iterators {
   typedef transform_iterator<InputIt, UnaryFunction> iterator;
 
-  transform_iterators(InputIt begin, InputIt end, UnaryFunction func = UnaryFunction())
-      : begin_(begin, func), end_(end, func) {}
+  transform_iterators(InputIt begin, InputIt end, UnaryFunction func = UnaryFunction()) :
+      begin_(begin, func), end_(end, func) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -247,8 +247,8 @@ struct filter_iterator {
   typedef iterator_proxy<filter_iterator> proxy;
 
   filter_iterator() = default;
-  filter_iterator(InputIt it, const InputIt end, UnaryPredicate pred = UnaryPredicate())
-      : iter_(it), end_(end), pred_(pred) { Skip(); }
+  filter_iterator(InputIt it, const InputIt end, UnaryPredicate pred = UnaryPredicate()) :
+      iter_(it), end_(end), pred_(pred) { Skip(); }
 
   bool operator==(filter_iterator it) const { return iter_ == it.iter_; }
   bool operator!=(filter_iterator it) const { return !(*this == it); }
@@ -275,8 +275,8 @@ template<typename InputIt, typename UnaryPredicate>
 struct filter_iterators {
   typedef filter_iterator<InputIt, UnaryPredicate> iterator;
 
-  filter_iterators(InputIt begin, InputIt end, UnaryPredicate pred = UnaryPredicate())
-      : begin_(begin, end, pred), end_(end, end, pred) {}
+  filter_iterators(InputIt begin, InputIt end, UnaryPredicate pred = UnaryPredicate()) :
+      begin_(begin, end, pred), end_(end, end, pred) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -334,8 +334,8 @@ struct joined_iterators {
     InputIt2 it2_;
   };
 
-  joined_iterators(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2)
-      : begin1_(begin1), end1_(end1), begin2_(begin2), end2_(end2) {}
+  joined_iterators(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2) :
+      begin1_(begin1), end1_(end1), begin2_(begin2), end2_(end2) {}
 
   iterator begin() const { return iterator(begin1_, end1_, begin2_); }
   iterator end()   const { return iterator(end1_, end1_, end2_); }
