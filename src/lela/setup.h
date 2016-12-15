@@ -52,7 +52,6 @@ namespace lela {
 class Setup {
  public:
   typedef int Index;
-  typedef std::vector<Clause> ClauseVec;
   typedef std::unordered_multimap<Term, Index> TermMap;
 
   Setup() = default;
@@ -65,8 +64,8 @@ class Setup {
     if (parent() != nullptr && parent()->Subsumes(c)) {
       return -1;
     }
-    cs_.push_back(c);
-    const Index k = last() - 1;
+    clauses_.push_back(c);
+    const Index k = last_clause() - 1;
     assert(clause(k) == c);
     return k;
   }
@@ -82,9 +81,13 @@ class Setup {
 
   bool Subsumes(const Clause& c) const {
     assert(!c.valid());
-    for (Index i : clauses()) {
-      if (clause(i).Subsumes(c)) {
-        return true;
+    for (Index b = 0; b < last_bucket(); ++b) {
+      if (c.lhs_bloom().PossiblyIncludes(bucket(b))) {
+        for (Index i : bucket_clauses(b)) {
+          if (clause(i).Subsumes(c)) {
+            return true;
+          }
+        }
       }
     }
     return false;
@@ -156,8 +159,8 @@ class Setup {
   }
 
   const Clause& clause(Index i) const {
-    assert(0 <= i && i < last());
-    return i >= first() ? cs_[i - first()] : parent()->clause(i);
+    assert(0 <= i && i < last_clause());
+    return i >= first_clause() ? clauses_[i - first_clause()] : parent()->clause(i);
   }
 
 
@@ -196,11 +199,31 @@ class Setup {
   Setups setups() const { return Setups(this); }
 
 
+  struct AddOffset {
+    AddOffset() : owner_(nullptr) {}
+    explicit AddOffset(const Setup* owner) : owner_(owner) {}
+    Index operator()(Index i) const { return i + (owner_ == nullptr ? 0 : owner_->last_clause()); }
+   private:
+    const Setup* owner_;
+  };
+
+  struct EnabledClause {
+    explicit EnabledClause(const Setup* owner) : owner_(owner) {}
+    bool operator()(Index i) const { return owner_->enabled(i); }
+   private:
+    const Setup* owner_;
+  };
+
+  internal::filter_iterators<internal::int_iterator<Index, AddOffset>, EnabledClause> clauses() const {
+    return internal::filter_range(internal::int_range(0, 0, AddOffset(0), AddOffset(this)), EnabledClause(this));
+  }
+
+#if 0
   struct Clauses {
     struct AddOffset {
       AddOffset() : owner_(nullptr) {}
       explicit AddOffset(const Setup* owner) : owner_(owner) {}
-      Index operator()(Index i) const { return i + (owner_ == nullptr ? 0 : owner_->last()); }
+      Index operator()(Index i) const { return i + (owner_ == nullptr ? 0 : owner_->last_clause()); }
      private:
       const Setup* owner_;
     };
@@ -232,6 +255,7 @@ class Setup {
   };
 
   Clauses clauses() const { return Clauses(this); }
+#endif
 
 
   struct UnitClauses {
@@ -419,7 +443,7 @@ class Setup {
   void InitOccurrences() {
     assert(!sealed_);
     occurs_.clear();
-    for (Index i = first(); i < last(); ++i) {
+    for (Index i = first_clause(); i < last_clause(); ++i) {
       AddOccurrences(i);
     }
   }
@@ -438,7 +462,7 @@ class Setup {
     assert(!sealed_);
     // We only need to remove clauses subsumed by this setup, as the parent is
     // already assumed to be minimal and does not subsume the new clauses.
-    for (int i = first(); i < last(); ++i) {
+    for (int i = first_clause(); i < last_clause(); ++i) {
       if (!disabled(i)) {
         RemoveSubsumed(i);
       }
@@ -502,33 +526,73 @@ class Setup {
     }
   }
 
-  const Setup* root() const { return parent_ != nullptr ? parent_->parent() : this; }
   const Setup* parent() const { return parent_; }
+
+  // first_clause() and last_clause() are the global inclusive/exclusive
+  // indices of clauses_; clause(i) returns the clause for global index i.
+  Index first_clause() const { return first_clause_; }
+  Index last_clause()  const { return first_clause_ + clauses_.size(); }
+
+  // first_unit() and last_unit() are the global inclusive/exclusive
+  // indices of unit; unit(i) returns the unit clause for global index i.
+  Index first_unit() const { return first_unit_; }
+  Index last_unit()  const { return first_unit_ + units_.size(); }
+
+  Literal unit(Index i) const {
+    assert(0 <= i && i < last_unit());
+    return i >= first_unit() ? units_[i - first_unit()] : parent()->unit(i);
+  }
+
+  // first_bucket() and last_bucket() are the global inclusive/exclusive
+  // indices of buckets_; bucket(i) returns the bucket for global index i;
+  // bucket_clauses(i) returns the range of clauses that are grouped in
+  // the global bucket index i.
+  Index first_bucket() const { return first_bucket_; }
+  Index last_bucket()  const { return first_bucket_ + (buckets_.size() + BUCKET_SIZE - 1) / BUCKET_SIZE; }
+
+  internal::BloomSet<Term> bucket(Index i) const {
+    assert(0 <= i && i < last_bucket());
+    return i >= first_bucket() ? buckets_[i - first_bucket()] : parent()->bucket(i);
+  }
+
+  internal::int_iterators<Index> bucket_clauses(Index i) const {
+    assert(0 <= i && i < last_bucket());
+    if (i >= first_bucket()) {
+      const Index first = (i - first_bucket()) / BUCKET_SIZE;
+      const Index last  = std::min(first + BUCKET_SIZE, last_clause());
+      return internal::int_range(first, last);
+    } else {
+      return parent()->bucket_clauses(i);
+    }
+  }
 
   // Disable() marks a clause as inactive, disabled() and enabled() indicate
   // whether a clause is inactive and active, respectivel, clause() returns a
   // clause; the indexing is global. Note that del_ is copied from the parent
   // setup.
-  void Disable(Index i) { assert(0 <= i && i < last()); del_[i] = true; }
-  bool disabled(Index i) const { assert(0 <= i && i < last()); return del_[i]; }
+  void Disable(Index i) { assert(0 <= i && i < last_clause()); del_[i] = true; }
+  bool disabled(Index i) const { assert(0 <= i && i < last_clause()); return del_[i]; }
   bool enabled(Index i) const { return !disabled(i); }
 
-  // first() and last() represent the global indices this setup represents;
-  // first() is inclusive and last() is exclusive (usual C++ iterator
-  // terminology).
-  Index first() const { return first_; }
-  Index last()  const { return first_ + cs_.size(); }
-
   const Setup* parent_ = nullptr;
-  Index first_ = parent_ != nullptr ? parent_->last() : 0;
 #ifndef NDEBUG
   bool sealed_ = false;
 #endif
 
-  // cs_ contains all clauses added in this setup, and occurs_ is their index;
-  // the indexing in cs_ is local.
-  ClauseVec cs_;
-  TermMap occurs_;
+  // clauses_ contains all clauses added in this setup; the indexing is local.
+  std::vector<Clause> clauses_;
+  Index first_clause_ = parent_ != nullptr ? parent_->last_clause() : 0;
+
+  // units_ additionally contains all unit clauses_ added in this setup; the
+  // indexing is local.
+  std::vector<Literal> units_;
+  Index first_unit_ = parent_ != nullptr ? parent_->last_unit() : 0;
+
+  // lhs_blooms_[i] is the intersection clauses_[j] for i in [B*i,...,B*(i+1)),
+  // where B is BUCKET_SIZE.
+  std::vector<internal::BloomSet<Term>> buckets_;
+  Index first_bucket_ = parent_ != nullptr ? parent_->last_bucket() : 0;
+  static constexpr Index BUCKET_SIZE = 8;
 
   // del_ masks all deleted clauses; the number is global, because a clause
   // active in the parent setup may be inactive in this one.

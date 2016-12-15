@@ -69,6 +69,29 @@ struct int_iterator {
   UnaryFunction func_;
 };
 
+template<typename T, typename UnaryFunction = Identity>
+struct int_iterators {
+  typedef int_iterator<T, UnaryFunction> iterator;
+
+  explicit int_iterators(T begin, T end, UnaryFunction func1 = UnaryFunction(), UnaryFunction func2 = UnaryFunction())
+      : begin_(begin, func1), end_(end, func2) {}
+
+  iterator begin() const { return begin_; }
+  iterator end()   const { return end_; }
+
+ private:
+  iterator begin_;
+  iterator end_;
+};
+
+template<typename T, typename UnaryFunction = Identity>
+inline int_iterators<T, UnaryFunction> int_range(T begin,
+                                                 T end,
+                                                 UnaryFunction func1 = UnaryFunction(),
+                                                 UnaryFunction func2 = UnaryFunction()) {
+  return int_iterators<T, UnaryFunction>(begin, end, func1, func2);
+}
+
 // Expects an iterator over containers, and iterates over the containers' elements.
 template<typename OuterInputIt,
          typename InnerInputIt = decltype(std::declval<typename OuterInputIt::value_type const>().begin()),
@@ -184,10 +207,10 @@ struct transform_iterator {
 };
 
 template<typename InputIt, typename UnaryFunction>
-struct transformed_range {
+struct transform_iterators {
   typedef transform_iterator<InputIt, UnaryFunction> iterator;
 
-  transformed_range(InputIt begin, InputIt end, UnaryFunction func = UnaryFunction())
+  transform_iterators(InputIt begin, InputIt end, UnaryFunction func = UnaryFunction())
       : begin_(begin, func), end_(end, func) {}
 
   iterator begin() const { return begin_; }
@@ -199,10 +222,16 @@ struct transformed_range {
 };
 
 template<typename InputIt, typename UnaryFunction>
-inline transformed_range<InputIt, UnaryFunction> transform_range(InputIt begin,
-                                                                 InputIt end,
-                                                                 UnaryFunction func = UnaryFunction()) {
-  return transformed_range<InputIt, UnaryFunction>(begin, end, func);
+inline transform_iterators<InputIt, UnaryFunction> transform_range(InputIt begin,
+                                                                   InputIt end,
+                                                                   UnaryFunction func = UnaryFunction()) {
+  return transform_iterators<InputIt, UnaryFunction>(begin, end, func);
+}
+
+template<typename Range, typename InputIt, typename UnaryFunction>
+inline transform_iterators<InputIt, UnaryFunction> transform_range(Range r,
+                                                                   UnaryFunction func = UnaryFunction()) {
+  return transform_range(r.begin(), r.end(), func);
 }
 
 // Haskell's filter function.
@@ -243,10 +272,10 @@ struct filter_iterator {
 };
 
 template<typename InputIt, typename UnaryPredicate>
-struct filtered_range {
+struct filter_iterators {
   typedef filter_iterator<InputIt, UnaryPredicate> iterator;
 
-  filtered_range(InputIt begin, InputIt end, UnaryPredicate pred = UnaryPredicate())
+  filter_iterators(InputIt begin, InputIt end, UnaryPredicate pred = UnaryPredicate())
       : begin_(begin, end, pred), end_(end, end, pred) {}
 
   iterator begin() const { return begin_; }
@@ -258,14 +287,20 @@ struct filtered_range {
 };
 
 template<typename InputIt, typename UnaryPredicate>
-inline filtered_range<InputIt, UnaryPredicate> filter_range(InputIt begin,
-                                                            InputIt end,
-                                                            UnaryPredicate pred = UnaryPredicate()) {
-  return filtered_range<InputIt, UnaryPredicate>(begin, end, pred);
+inline filter_iterators<InputIt, UnaryPredicate> filter_range(InputIt begin,
+                                                              InputIt end,
+                                                              UnaryPredicate pred = UnaryPredicate()) {
+  return filter_iterators<InputIt, UnaryPredicate>(begin, end, pred);
+}
+
+template<typename Range, typename InputIt, typename UnaryPredicate>
+inline filter_iterators<InputIt, UnaryPredicate> filter_range(Range r,
+                                                              UnaryPredicate pred = UnaryPredicate()) {
+  return filter_range(r.begin(), r.end(), pred);
 }
 
 template<typename InputIt1, typename InputIt2>
-struct joined_ranges {
+struct joined_iterators {
   struct iterator {
     typedef std::ptrdiff_t difference_type;
     typedef typename InputIt1::value_type value_type;
@@ -299,7 +334,7 @@ struct joined_ranges {
     InputIt2 it2_;
   };
 
-  joined_ranges(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2)
+  joined_iterators(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2)
       : begin1_(begin1), end1_(end1), begin2_(begin2), end2_(end2) {}
 
   iterator begin() const { return iterator(begin1_, end1_, begin2_); }
@@ -313,8 +348,16 @@ struct joined_ranges {
 };
 
 template<typename InputIt1, typename InputIt2>
-inline joined_ranges<InputIt1, InputIt2> join_ranges(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2) {
-  return joined_ranges<InputIt1, InputIt2>(begin1, end1, begin2, end2);
+inline joined_iterators<InputIt1, InputIt2> join_ranges(InputIt1 begin1,
+                                                        InputIt1 end1,
+                                                        InputIt2 begin2,
+                                                        InputIt2 end2) {
+  return joined_iterators<InputIt1, InputIt2>(begin1, end1, begin2, end2);
+}
+
+template<typename Range1, typename Range2, typename InputIt1, typename InputIt2>
+inline joined_iterators<InputIt1, InputIt2> join_ranges(Range1 r1, Range2 r2) {
+  return join_ranges(r1.begin(), r1.end(), r2.begin(), r2.end());
 }
 
 }  // namespace internal
