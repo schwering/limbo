@@ -46,21 +46,21 @@ class Grounder {
    public:
     using internal::IntMap<Symbol::Sort, TermSet>::IntMap;
 
-    size_t insert(Term t) {
+    std::size_t insert(Term t) {
       auto p = (*this)[t.sort()].insert(t);
       return p.second ? 1 : 0;
     }
 
-    size_t insert(const TermSet& terms) {
-      size_t n = 0;
+    std::size_t insert(const TermSet& terms) {
+      std::size_t n = 0;
       for (Term t : terms) {
         n += insert(t);
       }
       return n;
     }
 
-    size_t insert(const SortedTermSet& terms) {
-      size_t n = 0;
+    std::size_t insert(const SortedTermSet& terms) {
+      std::size_t n = 0;
       for (const TermSet& set : terms.values()) {
         for (Term t : set) {
           n += insert(t);
@@ -98,7 +98,7 @@ class Grounder {
   }
 
   template<typename T>
-  void PrepareForQuery(size_t k, const Formula::Reader<T>& phi) {
+  void PrepareForQuery(std::size_t k, const Formula::Reader<T>& phi) {
     names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, phi));
     names_changed_ |= AddPlusNames(PlusNames(phi));
     names_changed_ |= AddPlusNames(PlusSplitNames(k, phi));
@@ -162,7 +162,7 @@ class Grounder {
   }
 
   template<typename T>
-  TermSet RelevantSplitTerms(size_t k, const Formula::Reader<T>& phi) {
+  TermSet RelevantSplitTerms(std::size_t k, const Formula::Reader<T>& phi) {
     PrepareForQuery(k, phi);
     const Setup& s = Ground();
     TermSet splits;
@@ -173,7 +173,7 @@ class Grounder {
       queue.erase(queue.begin());
       auto p = splits.insert(t);
       if (p.second) {
-        for (Setup::Index i : s.clauses()) {
+        for (Setup::ClauseIndex i : s.clauses()) {
           const Clause& c = s.clause(i);
           if (c.MentionsLhs(t)) {
             TermSet next = Mentioned<Term, TermSet>([](Term t) { return t.function(); }, c);
@@ -314,7 +314,7 @@ class Grounder {
     const SortedTermSet* substitutes_;
   };
 
-  typedef internal::IntMap<Symbol::Sort, size_t> PlusMap;
+  typedef internal::IntMap<Symbol::Sort, std::size_t> PlusMap;
 
   template<typename Needle, typename Collection, typename Haystack, typename UnaryPredicate>
   static Collection Mentioned(const UnaryPredicate p, const Haystack& obj) {
@@ -347,7 +347,7 @@ class Grounder {
     // is the number of variables in that clause.
     PlusMap plus_one;
     c.Traverse([&plus_one](Term t) { plus_one[t.sort()] = 1; return true; });
-    return PlusMap::Zip(plus, plus_one, [](size_t lp, size_t rp) { return lp + rp; });
+    return PlusMap::Zip(plus, plus_one, [](std::size_t lp, std::size_t rp) { return lp + rp; });
   }
 
   template<typename T>
@@ -378,9 +378,9 @@ class Grounder {
         PlusMap rcur, rmax;
         PlusNames(phi.left(), &lcur, &lmax);
         PlusNames(phi.right(), &rcur, &rmax);
-        *cur = PlusMap::Zip(lcur, rcur, [](size_t lp, size_t rp) { return lp + rp; });
-        *max = PlusMap::Zip(lmax, rmax, [](size_t lp, size_t rp) { return std::max(lp, rp); });
-        *max = PlusMap::Zip(*max, *cur, [](size_t mp, size_t cp) { return std::max(mp, cp); });
+        *cur = PlusMap::Zip(lcur, rcur, [](std::size_t lp, std::size_t rp) { return lp + rp; });
+        *max = PlusMap::Zip(lmax, rmax, [](std::size_t lp, std::size_t rp) { return std::max(lp, rp); });
+        *max = PlusMap::Zip(*max, *cur, [](std::size_t mp, std::size_t cp) { return std::max(mp, cp); });
         break;
       }
       case Formula::Element::kExists:
@@ -394,7 +394,7 @@ class Grounder {
   }
 
   template<typename T>
-  static PlusMap PlusSplitNames(size_t k, const Formula::Reader<T>& phi) {
+  static PlusMap PlusSplitNames(std::size_t k, const Formula::Reader<T>& phi) {
     // When a term t only occurs in the form of literals (t = n), (t = x), or
     // their duals and negations, then splitting does not necessitate an
     // additional name. However, when t is an argument of another term or when
@@ -427,7 +427,7 @@ class Grounder {
   }
 
   template<typename T>
-  TermSet SplitTerms(size_t k, const Formula::Reader<T>& phi) {
+  TermSet SplitTerms(std::size_t k, const Formula::Reader<T>& phi) {
     if (k == 0) {
       return TermSet();
     }
@@ -437,7 +437,7 @@ class Grounder {
   }
 
   template<typename T>
-  LiteralSet AssignLiterals(size_t k, const Formula::Reader<T>& phi) {
+  LiteralSet AssignLiterals(std::size_t k, const Formula::Reader<T>& phi) {
     if (k == 0) {
       return LiteralSet();
     }
@@ -452,11 +452,11 @@ class Grounder {
   void Flatten(Term t, BinaryPredicate inner_p, UnaryPredicate outer_p) {
     if (!t.quasiprimitive()) {
       Term::Vector args = t.args();
-      for (size_t i = 0; i < args.size(); ++i) {
+      for (std::size_t i = 0; i < args.size(); ++i) {
         if (args[i].function()) {
           Term x = tf_->CreateTerm(sf_->CreateVariable(args[i].sort()));
           inner_p(args[i], x);
-          for (size_t j = i; j < args.size(); ++j) {
+          for (std::size_t j = i; j < args.size(); ++j) {
             if (args[j] == args[i]) {
               args[j] = x;
             }
@@ -564,15 +564,15 @@ class Grounder {
   }
 
   bool AddMentionedNames(const SortedTermSet& names) {
-    const size_t added = names_.insert(names);
+    const std::size_t added = names_.insert(names);
     return added > 0;
   }
 
   bool AddPlusNames(const PlusMap& plus) {
-    size_t added = 0;
+    std::size_t added = 0;
     for (const Symbol::Sort sort : plus.keys()) {
-      size_t m = plus_[sort];
-      size_t n = plus[sort];
+      std::size_t m = plus_[sort];
+      std::size_t n = plus[sort];
       if (n > m) {
         plus_[sort] = n;
         n -= m;
@@ -585,7 +585,7 @@ class Grounder {
   }
 
   bool AddSplitTerms(const TermSet& terms) {
-    size_t added = 0;
+    std::size_t added = 0;
     for (Term t : terms) {
       added += splits_.insert(t).second ? 1 : 0;
     }
@@ -593,7 +593,7 @@ class Grounder {
   }
 
   bool AddAssignLiterals(const LiteralSet& lits) {
-    size_t added = 0;
+    std::size_t added = 0;
     for (Literal a : lits) {
       added += assigns_.insert(a.pos() ? a : a.flip()).second ? 1 : 0;
     }

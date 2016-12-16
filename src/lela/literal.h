@@ -50,7 +50,7 @@ class Literal {
   bool operator==(Literal a) const { return eq_ == a.eq_ && lhs_ == a.lhs_ && rhs_ == a.rhs_; }
   bool operator!=(Literal a) const { return !(*this == a); }
 
-  std::uint64_t hash() const { return eq_ ^ lhs_.hash() ^ rhs_.hash(); }
+  internal::hash_t hash() const { return eq_ ^ lhs_.hash() ^ rhs_.hash(); }
 
   // valid() holds for (t = t) and (n1 != n2) and (t1 != t2) if t1, t2 have different sorts.
   bool valid() const {
@@ -108,8 +108,7 @@ class Literal {
   Literal(bool sign, Term lhs, Term rhs) :
       eq_(sign),
       lhs_(lhs < rhs ? lhs : rhs),
-      rhs_(lhs < rhs ? rhs : lhs)
-  {
+      rhs_(lhs < rhs ? rhs : lhs) {
     assert(!lhs_.null());
     assert(!rhs_.null());
     if (!lhs_.function() && rhs_.function()) {
@@ -144,7 +143,7 @@ namespace std {
 
 template<>
 struct hash<lela::Literal> {
-  size_t operator()(const lela::Literal a) const { return a.hash(); }
+  std::size_t operator()(const lela::Literal a) const { return a.hash(); }
 };
 
 template<>

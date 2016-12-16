@@ -34,40 +34,40 @@ TEST(BloomFilterTest, Subset_Contains) {
   BloomFilter bf1;
 
   for (Term t : ts) {
-    EXPECT_TRUE(bf1.Includes(bf0));
+    EXPECT_TRUE(bf0.SubsetOf(bf1));
     EXPECT_FALSE(bf1.Contains(t.hash()));
   }
   for (Term t : ts) {
-    EXPECT_TRUE(bf1.Includes(bf0));
+    EXPECT_TRUE(bf0.SubsetOf(bf1));
     EXPECT_FALSE(bf1.Contains(t.hash()));
     bf1.Add(t.hash());
     EXPECT_TRUE(bf1.Contains(t.hash()));
-    EXPECT_TRUE(bf1.Includes(bf0));
+    EXPECT_TRUE(bf0.SubsetOf(bf1));
     //std::cout << std::hex << bf1.mask_ << std::endl;
   }
 
   for (Term t : ts) {
-    EXPECT_TRUE(bf0.Includes(bf0));
+    EXPECT_TRUE(bf0.SubsetOf(bf0));
     EXPECT_FALSE(bf0.Contains(t.hash()));
   }
   for (Term t : ts) {
-    EXPECT_TRUE(bf0.Includes(bf0));
+    EXPECT_TRUE(bf0.SubsetOf(bf0));
     EXPECT_FALSE(bf0.Contains(t.hash()));
     bf0.Add(t.hash());
     //std::cout << std::hex << bf0.mask_ << std::endl;
     EXPECT_TRUE(bf0.Contains(t.hash()));
-    EXPECT_TRUE(bf0.Includes(bf0));
+    EXPECT_TRUE(bf0.SubsetOf(bf0));
   }
 
   bf0.Add(f4.hash());
   //std::cout << std::hex << bf0.mask_ << std::endl;
   EXPECT_TRUE(bf0.Contains(f4.hash()));
   EXPECT_FALSE(bf1.Contains(f4.hash()));
-  EXPECT_FALSE(bf1.Includes(bf0));
+  EXPECT_FALSE(bf0.SubsetOf(bf1));
 
   bf0.Clear();
-  EXPECT_TRUE(bf1.Includes(bf0));
-  EXPECT_FALSE(bf0.Includes(bf1));
+  EXPECT_TRUE(bf0.SubsetOf(bf1));
+  EXPECT_FALSE(bf1.SubsetOf(bf0));
 }
 
 TEST(BloomFilterTest, hash) {

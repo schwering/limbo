@@ -83,8 +83,8 @@ class IntMap : public std::vector<T> {
   template<typename BinaryFunction>
   static IntMap Zip(const IntMap& m1, const IntMap& m2, BinaryFunction f) {
     IntMap m;
-    size_t s = std::max(m1.size(), m2.size());
-    for (size_t i = 0; i < s; ++i) {
+    std::size_t s = std::max(m1.size(), m2.size());
+    for (std::size_t i = 0; i < s; ++i) {
       m[i] = f(m1[i], m2[i]);
     }
     return m;
@@ -92,8 +92,8 @@ class IntMap : public std::vector<T> {
 
   template<typename BinaryFunction>
   void Zip(const IntMap& m, BinaryFunction f) {
-    size_t s = std::max(parent::size(), m.size());
-    for (size_t i = 0; i < s; ++i) {
+    std::size_t s = std::max(parent::size(), m.size());
+    for (std::size_t i = 0; i < s; ++i) {
       (*this)[i] = f((*this)[i], m[i]);
     }
   }

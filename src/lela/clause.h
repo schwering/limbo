@@ -31,10 +31,6 @@
 #include <lela/internal/maybe.h>
 #include <lela/internal/traits.h>
 
-static int SUB_POS = 0;
-static int SUB_TRUE_POS = 0;
-static int SUB_NEG = 0;
-
 namespace lela {
 
 class Clause {
@@ -52,11 +48,11 @@ class Clause {
   const_iterator begin() const { return lits_.begin(); }
   const_iterator end()   const { return lits_.end(); }
 
-  Literal get(size_t i) const { return lits_[i]; }
+  Literal get(std::size_t i) const { return lits_[i]; }
 
-  bool   empty() const { return lits_.empty(); }
-  bool   unit()  const { return size() == 1; }
-  size_t size()  const { return lits_.size(); }
+  bool        empty() const { return lits_.empty(); }
+  bool        unit()  const { return size() == 1; }
+  std::size_t size()  const { return lits_.size(); }
 
   bool valid()   const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
   bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
@@ -66,18 +62,15 @@ class Clause {
   bool Subsumes(const Clause& c) const {
     assert(primitive());
     assert(c.primitive());
-    if (!c.lhs_bloom_.PossiblyIncludes(lhs_bloom_)) {
-      ++SUB_NEG;
+    if (!lhs_bloom_.PossiblySubsetOf(c.lhs_bloom_)) {
       return false;
     }
-    ++SUB_POS;
     for (Literal a : *this) {
       const bool subsumed = std::any_of(c.begin(), c.end(), [a](const Literal b) { return a.Subsumes(b); });
       if (!subsumed) {
         return false;
       }
     }
-    ++SUB_TRUE_POS;
     return true;
   }
 

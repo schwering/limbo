@@ -81,7 +81,7 @@ class Symbol {
   }
   bool operator!=(Symbol s) const { return !(*this == s); }
 
-  std::uint64_t hash() const { return internal::fnv1a_hash(std::uint64_t(id_)); }
+  internal::hash_t hash() const { return internal::fnv1a_hash(id_); }
 
   bool name()     const { return id_ > 0; }
   bool variable() const { return id_ < 0 && ((-id_) % 2) == 0; }
@@ -141,7 +141,7 @@ class Term {
   bool operator<(Term t)  const { return data_ < t.data_; }
   bool operator>(Term t)  const { return data_ > t.data_; }
 
-  std::uint64_t hash() const { return internal::fnv1a_hash(std::uint64_t(reinterpret_cast<std::uintptr_t>(data_))); }
+  internal::hash_t hash() const { return internal::fnv1a_hash(reinterpret_cast<std::uintptr_t>(data_)); }
 
   template<typename UnaryFunction>
   Term Substitute(UnaryFunction theta, Factory* tf) const;
@@ -171,8 +171,8 @@ class Term {
     bool operator==(const Data& d) const { return symbol_ == d.symbol_ && args_ == d.args_; }
     bool operator!=(const Data& s) const { return !(*this == s); }
 
-    std::uint64_t hash() const {
-      std::uint64_t h = symbol_.hash();
+    internal::hash_t hash() const {
+      internal::hash_t h = symbol_.hash();
       for (const lela::Term t : args_) {
         h ^= t.hash();
       }
@@ -251,17 +251,8 @@ class Term::Factory {
   }
 
  private:
-  struct DataPtrHash {
-    size_t operator()(const lela::Term::Data* d) const {
-      return d->hash();
-    }
-  };
-
-  struct DataPtrEquals {
-    size_t operator()(const lela::Term::Data* a, const lela::Term::Data* b) const {
-      return *a == *b;
-    }
-  };
+  struct DataPtrHash   { std::size_t operator()(const Term::Data* d) const { return d->hash(); } };
+  struct DataPtrEquals { std::size_t operator()(const Term::Data* a, const Term::Data* b) const { return *a == *b; } };
 
   typedef std::unordered_set<Data*, DataPtrHash, DataPtrEquals> DataPtrSet;
   internal::IntMap<Symbol::Sort, DataPtrSet> memory_;
@@ -316,7 +307,7 @@ namespace std {
 
 template<>
 struct hash<lela::Symbol> {
-  size_t operator()(const lela::Symbol s) const { return s.hash(); }
+  std::size_t operator()(const lela::Symbol s) const { return s.hash(); }
 };
 
 template<>
@@ -333,7 +324,7 @@ struct less<lela::Symbol> {
 
 template<>
 struct hash<lela::Term> {
-  size_t operator()(const lela::Term t) const { return t.hash(); }
+  std::size_t operator()(const lela::Term t) const { return t.hash(); }
 };
 
 template<>

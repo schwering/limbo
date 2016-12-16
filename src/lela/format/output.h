@@ -230,7 +230,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<Literal>& c) {
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
   struct Get {
     explicit Get(const Setup* owner) : owner_(owner) {}
-    std::vector<Literal> operator()(const Setup::Index i) const {
+    std::vector<Literal> operator()(const Setup::ClauseIndex i) const {
       // Sort here already so that the sorting of the clauses operators on
       // sorted clauses. Do not use Clause here, because that class will change
       // the ordering.
@@ -251,7 +251,7 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
         internal::LessComparator<size_t>,
         internal::LexicographicContainerComparator<std::vector<Literal>, PrintLiteralComparator>> comp;
   };
-  Setup::Clauses cs = s.clauses();
+  auto cs = s.clauses();
   auto r = internal::transform_range(cs.begin(), cs.end(), Get(&s));
   std::vector<std::vector<Literal>> vec(r.begin(), r.end());
   std::sort(vec.begin(), vec.end(), Comp());

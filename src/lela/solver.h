@@ -225,9 +225,6 @@ class Solver {
             ss.AddClause(c);
           }
         }
-#if 0
-        ss.Init();
-#endif
         return Assign(ss, assign_lits, names, k-1, phi);
       });
     } else {
@@ -296,7 +293,7 @@ class Solver {
       changed = false;
       c = c.Substitute([&s, &changed](const Term t) -> internal::Maybe<Term> {
         if (t.primitive()) {
-          for (Setup::Index i : s.clauses()) {
+          for (Setup::ClauseIndex i : s.clauses()) {
             if (s.clause(i).unit()) {
               Literal a = *s.clause(i).begin();
               if (a.pos() && a.lhs() == t) {

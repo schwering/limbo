@@ -207,7 +207,7 @@ Future work are the conditional beliefs [ECAI-2016] (should be easy), actions [K
 The reasoner is written in C++.
 The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
 This demo is compiled by <a href="http://emscripten.org">emscripten</a>, which compiles C++ to Javascript.
-On my computer, the Javascript is 3&times; to 5&times; slower than the native binary.
+On my computer, the Javascript is 1.5&times; to 5&times; slower than the native binary.
 </p>
 
 <p>
@@ -252,6 +252,12 @@ On every turn, the agent checks for every cell whether it is known to contain a 
 
 <p>
 Note the agent's actions are not represented in the knowledge base &ndash; it's just hard-coded in C++. Extending the knowledge base to a basic action theory that also represents the agent's actions would be the next step.
+</p>
+
+<p>
+The runtime reported by the game refers to the time the agent actually spend playing.
+The actual time that passes between starting and finishing the game may be longer because the graphical display procedures take some time.
+(To be precise, the browser takes a 10 ms break between moves to remain responsive.)
 </p>
 
 

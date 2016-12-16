@@ -11,21 +11,39 @@
 namespace lela {
 namespace internal {
 
-inline std::uint64_t fnv1a_hash(const std::uint64_t b) {
-  constexpr std::uint64_t offset_basis = 0xcbf29ce484222325;
-  constexpr std::uint64_t magic_prime = 0x00000100000001b3;
+typedef std::uint64_t hash_t;
+
+template<typename T>
+hash_t fnv1a_hash(const T& x) {
+  constexpr hash_t kOffsetBasis = 0xcbf29ce484222325;
+  constexpr hash_t kMagicPrime = 0x00000100000001b3;
+  hash_t h = kOffsetBasis;
+  for (std::size_t i = 0; i < sizeof(x); ++i) {
+    const std::uint8_t b = reinterpret_cast<const std::uint8_t*>(&x)[i];
+    h ^= b;
+    h *= kMagicPrime;
+  }
+  return h;
+}
+
+#if 0
+template<>
+hash_t fnv1a_hash(const std::uint64_t& x) {
+  constexpr hash_t kOffsetBasis = 0xcbf29ce484222325;
+  constexpr hash_t kMagicPrime = 0x00000100000001b3;
   return
       ((((((((((((((((
-        offset_basis
-        ^ ((b >>  0) & 0xFF)) * magic_prime)
-        ^ ((b >>  8) & 0xFF)) * magic_prime)
-        ^ ((b >> 16) & 0xFF)) * magic_prime)
-        ^ ((b >> 24) & 0xFF)) * magic_prime)
-        ^ ((b >> 32) & 0xFF)) * magic_prime)
-        ^ ((b >> 40) & 0xFF)) * magic_prime)
-        ^ ((b >> 48) & 0xFF)) * magic_prime)
-        ^ ((b >> 56) & 0xFF)) * magic_prime);
+        kOffsetBasis
+        ^ ((x >>  0) & 0xFF)) * kMagicPrime)
+        ^ ((x >>  8) & 0xFF)) * kMagicPrime)
+        ^ ((x >> 16) & 0xFF)) * kMagicPrime)
+        ^ ((x >> 24) & 0xFF)) * kMagicPrime)
+        ^ ((x >> 32) & 0xFF)) * kMagicPrime)
+        ^ ((x >> 40) & 0xFF)) * kMagicPrime)
+        ^ ((x >> 48) & 0xFF)) * kMagicPrime)
+        ^ ((x >> 56) & 0xFF)) * kMagicPrime);
 }
+#endif
 
 }  // namespace internal
 }  // namespace lela

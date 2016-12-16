@@ -46,7 +46,6 @@
 
 #include <cassert>
 
-#include <bitset>
 #include <algorithm>
 #include <unordered_set>
 #include <vector>
@@ -55,19 +54,11 @@
 #include <lela/internal/intmap.h>
 #include <lela/internal/iter.h>
 
-static int POS = 0;
-static int NEG = 0;
-static int TRUE_POS = 0;
-static uint64_t COUNT = 0;
-
 namespace lela {
 
 class Setup {
  public:
-  typedef int Index;
-  typedef Index ClauseIndex;
-  typedef Index UnitIndex;
-  typedef Index BucketIndex;
+  typedef unsigned int ClauseIndex;
 
   Setup() = default;
 
@@ -88,21 +79,13 @@ class Setup {
       return true;
     }
     for (BucketIndex b : buckets()) {
-      std::uint64_t x = *reinterpret_cast<const uint64_t*>(&bucket_intersection(b));
-      COUNT += std::bitset<64>(x).count();
-      std::cout << std::bitset<64>(x).count() << " " << std::bitset<64>(x) << std::endl;
-      //std::cout << std::bitset<64>(*reinterpret_cast<const uint64_t*>(&bucket_union(b))) << std::endl;
-      //std::cout << std::endl;
-      if (c.lhs_bloom().PossiblyIncludes(bucket_intersection(b))) {
-        ++POS;
+      if (bucket_intersection(b).PossiblySubsetOf(c.lhs_bloom())) {
         for (ClauseIndex i : bucket_clauses(b)) {
           if (clause(i).Subsumes(c)) {
-            ++TRUE_POS;
             return true;
           }
         }
       }
-      else ++NEG;
     }
     return false;
   }
@@ -136,29 +119,16 @@ class Setup {
   }
 
 
-  struct Clauses {
-    struct EnabledClause {
-      explicit EnabledClause(const Setup* owner) : owner_(owner) {}
-      bool operator()(ClauseIndex i) const { return owner_->enabled(i); }
-     private:
-      const Setup* owner_;
-    };
-    typedef internal::filter_iterators<internal::int_iterator<ClauseIndex>, EnabledClause> range;
-    typedef range::iterator iterator;
-
-    Clauses(const Setup* owner, ClauseIndex begin, ClauseIndex end) :
-        r_(internal::filter_range(internal::int_range(begin, end), EnabledClause(owner))) {}
-
-    iterator begin() const { return r_.begin(); }
-    iterator end()   const { return r_.end(); }
-
+  struct EnabledClause {
+    explicit EnabledClause(const Setup* owner) : owner_(owner) {}
+    bool operator()(ClauseIndex i) const { return owner_->enabled(i); }
    private:
-     range r_;
+    const Setup* owner_;
   };
 
-  Clauses clauses() const {
-    return Clauses(this, 0, last_clause());
-  }
+  typedef internal::filter_iterators<internal::int_iterator<ClauseIndex>, EnabledClause> ClauseRange;
+
+  ClauseRange clauses() const { return mk_clause_range(0, last_clause()); }
 
   const Clause& clause(ClauseIndex i) const {
     assert(0 <= i && i < last_clause());
@@ -173,11 +143,14 @@ class Setup {
 
 
  private:
+  typedef unsigned int UnitIndex;
+  typedef unsigned int BucketIndex;
+
   struct Bucket {
     explicit Bucket(internal::BloomSet<Term> b) : union_(b), intersection_(b) {}
 
     void Add(internal::BloomSet<Term> b) {
-      union_.Unite(b);
+      union_.Union(b);
       intersection_.Intersect(b);
     }
 
@@ -186,7 +159,7 @@ class Setup {
   };
 
   struct LhsHasher {
-    size_t operator()(const Literal a) const { return a.lhs().hash(); }
+    std::size_t operator()(const Literal a) const { return a.lhs().hash(); }
   };
 
   typedef std::unordered_set<Literal, LhsHasher> LiteralSet;
@@ -194,8 +167,7 @@ class Setup {
   explicit Setup(const Setup* parent) :
       parent_(parent),
       contains_empty_clause_(parent_->contains_empty_clause_),
-      del_(parent_->del_)
-  {
+      del_(parent_->del_) {
 #ifndef NDEBUG
     parent->spawned_ = true;
 #endif
@@ -231,16 +203,13 @@ class Setup {
         units_.push_back(a);
         for (BucketIndex b : buckets()) {
           if (bucket_union(b).PossiblyOverlaps(c.lhs_bloom())) {
-            //++POS;
             for (ClauseIndex j : bucket_clauses(b)) {
               const internal::Maybe<Clause> d = clause(j).PropagateUnit(a);
               if (d) {
-            //++TRUE_POS;
                 AddUnprocessedClause(d.val);
               }
             }
           }
-          //else ++NEG;
         }
       }
     }
@@ -249,16 +218,13 @@ class Setup {
   void RemoveSubsumed(const ClauseIndex i) {
     const Clause& c = clause(i);
     for (BucketIndex b : buckets()) {
-      if (bucket_union(b).PossiblyIncludes(c.lhs_bloom())) {
-        //++POS;
+      if (c.lhs_bloom().PossiblySubsetOf(bucket_union(b))) {
         for (ClauseIndex j : bucket_clauses(b)) {
           if (i != j && c.Subsumes(clause(j))) {
-            //++TRUE_POS;
             Disable(j);
           }
         }
       }
-      //else ++NEG;
     }
   }
 
@@ -278,20 +244,17 @@ class Setup {
     bs.Add(t);
     for (BucketIndex b : buckets()) {
       if (bucket_union(b).PossiblyOverlaps(bs)) {
-        //++POS;
         for (ClauseIndex i : bucket_clauses(b)) {
           for (Literal a : clause(i)) {
             if (t == a.lhs()) {
-            //++TRUE_POS;
               lits.insert(a);
             }
           }
         }
       }
-      //else ++NEG;
     }
     for (const Literal a : lits) {
-      size_t b = lits.bucket(a);
+      std::size_t b = lits.bucket(a);
       auto begin = lits.begin(b);
       auto end   = lits.end(b);
       for (auto it = begin; it != end; ++it) {
@@ -319,9 +282,14 @@ class Setup {
   bool enabled(ClauseIndex i) const { assert(0 <= i && i < last_clause()); return !del_[i]; }
 
 
-  internal::int_iterators<UnitIndex> units() const {
-    return internal::int_range(0, last_unit());
+  ClauseRange mk_clause_range(ClauseIndex first, ClauseIndex last) const {
+    return internal::filter_range(internal::int_iterator<ClauseIndex>(first),
+                                  internal::int_iterator<ClauseIndex>(last),
+                                  EnabledClause(this));
   }
+
+
+  internal::int_iterators<UnitIndex> units() const { return internal::int_range(0u, last_unit()); }
 
   Literal unit(UnitIndex i) const {
     assert(0 <= i && i < last_unit());
@@ -335,7 +303,7 @@ class Setup {
   }
 
 
-  internal::int_iterators<BucketIndex> buckets() const { return internal::int_range(0, last_bucket()); }
+  internal::int_iterators<BucketIndex> buckets() const { return internal::int_range(0u, last_bucket()); }
 
   const internal::BloomSet<Term>& bucket_union(BucketIndex i) const {
     assert(0 <= i && i < last_bucket());
@@ -359,7 +327,7 @@ class Setup {
     return s->buckets_[i - s->first_bucket()].intersection_;
   }
 
-  Clauses bucket_clauses(BucketIndex i) const {
+  ClauseRange bucket_clauses(BucketIndex i) const {
     assert(0 <= i && i < last_bucket());
     const Setup* s = this;
     while (i < s->first_bucket()) {
@@ -369,7 +337,7 @@ class Setup {
     assert(s->first_bucket() <= i && i < s->last_bucket());
     const ClauseIndex first = s->first_clause() + (i - s->first_bucket()) * kBucketSize;
     const ClauseIndex last  = std::min(first + kBucketSize, s->last_clause());
-    return Clauses(this, first, last);
+    return mk_clause_range(first, last);
   }
 
   BucketIndex clause_bucket(ClauseIndex i) const {
@@ -399,7 +367,7 @@ class Setup {
 
   std::vector<Bucket> buckets_;
   BucketIndex first_bucket_ = parent_ != nullptr ? parent_->last_bucket() : 0;
-  static constexpr BucketIndex kBucketSize = 8;
+  static constexpr BucketIndex kBucketSize = 128;
 
 #ifndef NDEBUG
   mutable bool spawned_ = false;
