@@ -18,7 +18,8 @@ inline void RegisterSymbol(Term t, const std::string& n) {
   RegisterSymbol(t.symbol(), n);
 }
 
-TEST(InputTest, general) {
+TEST(Syntax, general) {
+  // An extended version of this test is TEST(Formula, NF), which also tests the normal form.
   Context ctx;
   Term::Factory& tf = *ctx.tf();
   auto BOOL = ctx.CreateSort();
@@ -33,40 +34,28 @@ TEST(InputTest, general) {
   {
     Formula::Ref phi = *Ex(x, John() == x);
     EXPECT_EQ(*phi, *Formula::Exists(x, Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})));
-    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()), *Formula::Exists(x, Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})));
   }
   {
     Formula::Ref phi = *Fa(x, John() == x);
     EXPECT_EQ(*phi, *Formula::Not(Formula::Exists(x, Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})))));
-    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()), *Formula::Not(Formula::Exists(x, Formula::Atomic(Clause{Literal::Neq(tf.CreateTerm(John, {}), x)}))));
   }
   {
     Formula::Ref phi = *Fa(x, IsParentOf(Mother(x), x) == True && IsParentOf(Father(x), x) == True);
     EXPECT_EQ(*phi, *Formula::Not(Formula::Exists(x, Formula::Not(Formula::Not(Formula::Or(Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Mother, {x}), x}), True)})),
-                                                                                            Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))))))));
-    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()), *Formula::Not(Formula::Exists(x, Formula::Atomic(Clause{Literal::Neq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Mother, {x}), x}), True),
-                                                                                             Literal::Neq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))));
+                                                                                           Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))))))));
   }
   {
     Formula::Ref phi = *Fa(x, IsParentOf(x, y) == True && IsParentOf(Father(x), x) == True);
     EXPECT_EQ(*phi, *Formula::Not(Formula::Exists(x, Formula::Not(Formula::Not(Formula::Or(Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {x, y}), True)})),
-                                                                                            Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))))))));
-    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()), *Formula::Not(Formula::Exists(x, Formula::Atomic(Clause{Literal::Neq(tf.CreateTerm(IsParentOf, {x, y}), True),
-                                                                                             Literal::Neq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))));
+                                                                                           Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))))))));
   }
 
   {
     auto P = ctx.CreateFunction(BOOL, 1);    REGISTER_SYMBOL(P);
     auto Q = ctx.CreateFunction(BOOL, 1);    REGISTER_SYMBOL(P);
-    // That's the example formula from my thesis.
     Formula::Ref phi = *(Ex(x, P(x) == True) >> Fa(y, Q(y) == True));
     EXPECT_EQ(*phi, *Formula::Or(Formula::Not(Formula::Exists(x, Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(P, {x}), True)}))),
                                  Formula::Not(Formula::Exists(y, Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(Q, {y}), True)}))))));
-    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()),
-              *Formula::Not(Formula::Exists(x, Formula::Not(Formula::Not(Formula::Exists(y, Formula::Not(
-                                       Formula::Atomic(Clause{Literal::Neq(tf.CreateTerm(P, {x}), True),
-                                                       Literal::Eq(tf.CreateTerm(Q, {y}), True)})
-                                       )))))));
   }
 }
 

@@ -183,6 +183,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     //Formula::Ref phi = Formula::Exists(x3, Formula::Atomic({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(a, {}))}));
     Formula::Ref phi = Formula::Exists(x3, Formula::Atomic({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(g, {tf.CreateTerm(a, {})}))}))->NF(&sf, &tf);
+    // NF introduces two new variables of the same sort as x3, and one new of the same sort as n1.
     Grounder gg(&sf, &tf);
     gg.PrepareForQuery(1, *phi);
     Grounder::TermSet terms = gg.SplitTerms();
@@ -193,21 +194,28 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     EXPECT_NE(x3.sort(), n1.sort());
     EXPECT_NE(x3.sort(), a.sort());
     EXPECT_EQ(names.size(), 2);
-    EXPECT_EQ(names[n1.symbol().sort()].size(), 2);
-    EXPECT_EQ(names[x3.symbol().sort()].size(), 2);
-    EXPECT_EQ(names[a.sort()].size(), 2);
-    EXPECT_EQ(names[g.sort()].size(), 2);
-    EXPECT_EQ(names[h.sort()].size(), 2);
+    EXPECT_EQ(n1.symbol().sort(), a.sort());
+    EXPECT_EQ(x3.symbol().sort(), g.sort());
+    EXPECT_EQ(x3.symbol().sort(), h.sort());
+    EXPECT_EQ(names[n1.symbol().sort()].size(), 1+1+1);
+    EXPECT_EQ(names[x3.symbol().sort()].size(), 0+2+1);
+    Term na_1 = *names[a.sort()].begin();
+    Term na_2 = *std::next(names[a.sort()].begin());
+    Term na_3 = *std::next(std::next(names[a.sort()].begin()));
+    EXPECT_TRUE(na_1 == n1 || na_2 == n1 || na_3 == n1);
     Term nx3_1 = *names[x3.sort()].begin();
     Term nx3_2 = *std::next(names[x3.sort()].begin());
-    Term n_Split = *names[a.sort()].begin() == n1 ? *std::next(names[a.sort()].begin()) : *names[a.sort()].begin();
-    EXPECT_NE(nx3_1, n1);
-    EXPECT_NE(nx3_2, n1);
-    EXPECT_NE(n_Split, n1);
-    EXPECT_NE(n_Split, nx3_1);
-    EXPECT_NE(n_Split, nx3_2);
+    Term nx3_3 = *std::next(std::next(names[x3.sort()].begin()));
+    EXPECT_TRUE(nx3_1 != nx3_2 && nx3_2 != nx3_3 && nx3_1 != nx3_3);
     EXPECT_EQ(std::set<Term>(terms.begin(), terms.end()),
-              std::set<Term>({tf.CreateTerm(a, {}), tf.CreateTerm(g, {n1}), tf.CreateTerm(g, {n_Split}), tf.CreateTerm(h, {n1, nx3_1}), tf.CreateTerm(h, {n1, nx3_2})}));
+              std::set<Term>({tf.CreateTerm(a, {}),
+                             tf.CreateTerm(g, {n1}),
+                             tf.CreateTerm(g, {na_1}),
+                             tf.CreateTerm(g, {na_2}),
+                             tf.CreateTerm(g, {na_3}),
+                             tf.CreateTerm(h, {n1, nx3_1}),
+                             tf.CreateTerm(h, {n1, nx3_2}),
+                             tf.CreateTerm(h, {n1, nx3_3})}));
   }
 
   {
@@ -380,19 +388,19 @@ TEST(GrounderTest, Assignments) {
 TEST(GrounderTest, Ground_SplitNames) {
   Symbol::Factory sf;
   Term::Factory tf;
-  const Symbol::Sort Bool = sf.CreateSort();
-  const Symbol::Sort Human = sf.CreateSort();
-  const Symbol::Sort Animal = sf.CreateSort();
+  const Symbol::Sort Bool = sf.CreateSort();                            RegisterSort(Bool, "");
+  const Symbol::Sort Human = sf.CreateSort();                           RegisterSort(Human, "");
+  const Symbol::Sort Animal = sf.CreateSort();                          RegisterSort(Animal, "");
   //
-  const Term T          = tf.CreateTerm(sf.CreateName(Bool));
+  const Term T          = tf.CreateTerm(sf.CreateName(Bool));           RegisterSymbol(T.symbol(), "T");
   //const Term F          = tf.CreateTerm(sf.CreateName(Bool));
   //
-  const Symbol IsHuman  = sf.CreateFunction(Bool, 1);
-  const Term x          = tf.CreateTerm(sf.CreateVariable(Human));
+  const Symbol IsHuman  = sf.CreateFunction(Bool, 1);                   RegisterSymbol(IsHuman, "IsHuman");
+  const Term x          = tf.CreateTerm(sf.CreateVariable(Human));      RegisterSymbol(x.symbol(), "x");
   const Term xIsHuman   = tf.CreateTerm(IsHuman, {x});
   //
-  const Symbol IsAnimal = sf.CreateFunction(Bool, 1);
-  const Term a          = tf.CreateTerm(sf.CreateFunction(Animal, 0));
+  const Symbol IsAnimal = sf.CreateFunction(Bool, 1);                   RegisterSymbol(IsAnimal, "IsAnimal");
+  const Term a          = tf.CreateTerm(sf.CreateFunction(Animal, 0));  RegisterSymbol(a.symbol(), "a");
   const Term aIsAnimal  = tf.CreateTerm(IsAnimal, {a});
   //
   Formula::Ref phi = Formula::Exists(x, Formula::Atomic(Clause({ Literal::Eq(xIsHuman, T), Literal::Neq(aIsAnimal, T) })))->NF(&sf, &tf);
@@ -400,9 +408,9 @@ TEST(GrounderTest, Ground_SplitNames) {
     Grounder g(&sf, &tf);
     g.PrepareForQuery(0, *phi);
     Grounder::SortedTermSet names = g.Names();
-    EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
+    EXPECT_EQ(names[Bool].size(), 1+1);
     EXPECT_EQ(names[Human].size(), 1+1);
-    EXPECT_EQ(names[Animal].size(), 0+1);
+    EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_EQ(terms.size(), 0);
   }
@@ -410,9 +418,9 @@ TEST(GrounderTest, Ground_SplitNames) {
     Grounder g(&sf, &tf);
     g.PrepareForQuery(1, *phi);
     Grounder::SortedTermSet names = g.Names();
-    EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
+    EXPECT_EQ(names[Bool].size(), 1+1);
     EXPECT_EQ(names[Human].size(), 1+1);
-    EXPECT_EQ(names[Animal].size(), 0+1);
+    EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
   }
@@ -420,7 +428,7 @@ TEST(GrounderTest, Ground_SplitNames) {
     Grounder g(&sf, &tf);
     g.PrepareForQuery(2, *phi);
     Grounder::SortedTermSet names = g.Names();
-    EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
+    EXPECT_EQ(names[Bool].size(), 1+1);
     EXPECT_EQ(names[Human].size(), 1+1);
     EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
@@ -430,9 +438,9 @@ TEST(GrounderTest, Ground_SplitNames) {
     Grounder g(&sf, &tf);
     g.PrepareForQuery(3, *phi);
     Grounder::SortedTermSet names = g.Names();
-    EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
+    EXPECT_EQ(names[Bool].size(), 1+1);
     EXPECT_EQ(names[Human].size(), 1+1);
-    EXPECT_EQ(names[Animal].size(), 0+3);
+    EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
   }
@@ -456,33 +464,31 @@ TEST(GrounderTest, Ground_SplitNames_iterated) {
   const Term a          = tf.CreateTerm(sf.CreateFunction(Animal, 0));  RegisterSymbol(a.symbol(), "a");
   const Term aIsAnimal  = tf.CreateTerm(IsAnimal, {a});
   //
-  std::cout << *Formula::Exists(x, Formula::Atomic(Clause({ Literal::Eq(xIsHuman, T), Literal::Neq(aIsAnimal, T) }))) << std::endl;
   Formula::Ref phi = Formula::Exists(x, Formula::Atomic(Clause({ Literal::Eq(xIsHuman, T), Literal::Neq(aIsAnimal, T) })))->NF(&sf, &tf);
-  std::cout << *phi << std::endl;
   // same as previous test except that we re-use the grounder
   Grounder g(&sf, &tf);
   {
     g.PrepareForQuery(0, *phi);
     Grounder::SortedTermSet names = g.Names();
-    EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
+    EXPECT_EQ(names[Bool].size(), 1+1);
     EXPECT_EQ(names[Human].size(), 1+1);
-    EXPECT_EQ(names[Animal].size(), 0+1);
+    EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_EQ(terms.size(), 0);
   }
   {
     g.PrepareForQuery(1, *phi);
     Grounder::SortedTermSet names = g.Names();
-    EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
+    EXPECT_EQ(names[Bool].size(), 1+1);
     EXPECT_EQ(names[Human].size(), 1+1);
-    EXPECT_EQ(names[Animal].size(), 0+1);
+    EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
   }
   {
     g.PrepareForQuery(2, *phi);
     Grounder::SortedTermSet names = g.Names();
-    EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
+    EXPECT_EQ(names[Bool].size(), 1+1);
     EXPECT_EQ(names[Human].size(), 1+1);
     EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
@@ -491,9 +497,9 @@ TEST(GrounderTest, Ground_SplitNames_iterated) {
   {
     g.PrepareForQuery(3, *phi);
     Grounder::SortedTermSet names = g.Names();
-    EXPECT_EQ(names[Bool].size(), 1+1);// 2+0);
+    EXPECT_EQ(names[Bool].size(), 1+1);
     EXPECT_EQ(names[Human].size(), 1+1);
-    EXPECT_EQ(names[Animal].size(), 0+3);
+    EXPECT_EQ(names[Animal].size(), 0+2);
     Grounder::TermSet terms = g.SplitTerms();
     EXPECT_NE(terms.size(), 0);
   }

@@ -149,6 +149,7 @@ class Formula {
     void append_not() { prefix_.push_back(Element{kNot}); }
     void prepend_exists(Term x) { prefix_.push_front(Element{kExists, x}); }
 
+    size_t size() const { return prefix_.size(); }
     bool even() const { size_t n = 0; for (const auto& e : prefix_) { if (e.type == kNot) ++n; } return n % 2 == 0; }
 
     Ref PrependTo(Ref phi) const {
@@ -525,8 +526,10 @@ Formula::Ref Formula::Atomic::Flatten(Symbol::Factory* sf, Term::Factory* tf) co
   }
   assert(lits.size() >= arg().size());
   assert(std::all_of(lits.begin(), lits.end(), [](Literal a) { return a.quasiprimitive(); }));
-  vars.prepend_not();
-  vars.append_not();
+  if (vars.size() > 0) {
+    vars.prepend_not();
+    vars.append_not();
+  }
   return vars.PrependTo(Formula::Atomic(Clause(lits.begin(), lits.end())));
 }
 
