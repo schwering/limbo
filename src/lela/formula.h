@@ -121,6 +121,7 @@ class Formula {
     Ref c = Clone();
     c->Rectify(sf, tf);
     c = c->Normalize();
+    c = c->Flatten(sf, tf);
     return c;
   }
 
@@ -144,14 +145,11 @@ class Formula {
   typedef std::unordered_map<Term, Term> TermMap;
 
   struct QuantifierPrefix {
-    explicit QuantifierPrefix(const Formula& suffix) : suffix_(suffix) {}
-    void PrependNot() { prefix_.push_front(Element{kNot}); }
-    void AppendNot() { prefix_.push_back(Element{kNot}); }
-    void PrependExists(Term x) { prefix_.push_front(Element{kExists, x}); }
+    void prepend_not() { prefix_.push_front(Element{kNot}); }
+    void append_not() { prefix_.push_back(Element{kNot}); }
+    void prepend_exists(Term x) { prefix_.push_front(Element{kExists, x}); }
 
     bool even() const { size_t n = 0; for (const auto& e : prefix_) { if (e.type == kNot) ++n; } return n % 2 == 0; }
-
-    const Formula& suffix() const { return suffix_; }
 
     Ref PrependTo(Ref phi) const {
       for (auto it = prefix_.rbegin(); it != prefix_.rend(); ++it) {
@@ -168,7 +166,6 @@ class Formula {
    private:
     struct Element { Type type; Term x; };
     std::list<Element> prefix_;
-    const Formula& suffix_;
   };
 
   explicit Formula(Type type) : type_(type) {}
@@ -176,19 +173,29 @@ class Formula {
   virtual TermSet FreeVars() const = 0;
   virtual TermSet SubTerms() const = 0;
 
-  virtual void ISubstitute(const ISubstitution& theta, Term::Factory* tf) = 0;
-  virtual void ITraverse(const ITraversal<Term>& f)    const = 0;
-  virtual void ITraverse(const ITraversal<Literal>& f) const = 0;
+  virtual void ISubstitute(const ISubstitution&, Term::Factory*) = 0;
+  virtual void ITraverse(const ITraversal<Term>&)    const = 0;
+  virtual void ITraverse(const ITraversal<Literal>&) const = 0;
 
-  void Rectify(Symbol::Factory* sf, Term::Factory* tf) { TermMap tm; Rectify(&tm, sf, tf); }
-  virtual void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) = 0;
+  void Rectify(Symbol::Factory* sf, Term::Factory* tf) {
+    TermMap tm;
+    for (Term x : free_vars()) {
+      tm.insert(std::make_pair(x, x));
+    }
+    // Rectify() renames every bound variable that also occurs free globally
+    // somewhere in the formula or is bound by another quantifier to the left
+    // of the current position.
+    Rectify(&tm, sf, tf);
+  }
+  virtual void Rectify(TermMap*, Symbol::Factory*, Term::Factory*) = 0;
 
-  virtual QuantifierPrefix quantifier_prefix() const = 0;
-
-  //virtual Ref Flatten(Term::Factory* tf) const = 0;
-  //virtual Ref Simplify() const = 0;
+  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const = 0;
 
   virtual Ref Normalize() const = 0;
+
+  //virtual Ref Simplify() const = 0;
+
+  virtual Ref Flatten(Symbol::Factory*, Term::Factory*) const = 0;
 
  private:
   Type type_;
@@ -228,13 +235,18 @@ class Formula::Atomic : public Formula {
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
     c_ = c_.Substitute([tm](Term t) {
       TermMap::const_iterator it;
-      return t.variable() && ((it = tm->find(t)) != tm->end()) ? internal::Just(it->second) : internal::Nothing;
+      return t.variable() && ((it = tm->find(t)) != tm->end() && it->first != it->second)
+          ? internal::Just(it->second) : internal::Nothing;
     }, tf);
   }
 
-  virtual QuantifierPrefix quantifier_prefix() const override { return QuantifierPrefix(*this); }
+  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+    return std::make_pair(QuantifierPrefix(), this);
+  }
 
   Ref Normalize() const override { return Formula::Atomic(c_); }
+
+  Ref Flatten(Symbol::Factory*, Term::Factory*) const override;
 
  private:
   Clause c_;
@@ -260,13 +272,15 @@ class Formula::Not : public Formula {
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { phi_->Rectify(tm, sf, tf); }
 
-  virtual QuantifierPrefix quantifier_prefix() const override {
-    QuantifierPrefix p = phi_->quantifier_prefix();
-    p.PrependNot();
+  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+    auto p = phi_->quantifier_prefix();
+    p.first.prepend_not();
     return p;
   }
 
   Ref Normalize() const override;
+
+  Ref Flatten(Symbol::Factory* sf, Term::Factory* tf) const override { return Formula::Not(phi_->Flatten(sf, tf)); }
 
  private:
   Ref phi_;
@@ -312,9 +326,15 @@ class Formula::Or : public Formula {
     rhs_->Rectify(tm, sf, tf);
   }
 
-  virtual QuantifierPrefix quantifier_prefix() const override { return QuantifierPrefix(*this); }
+  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+    return std::make_pair(QuantifierPrefix(), this);
+  }
 
   Ref Normalize() const override;
+
+  Ref Flatten(Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Formula::Or(lhs_->Flatten(sf, tf), rhs_->Flatten(sf, tf));
+  }
 
  private:
   Ref lhs_;
@@ -347,21 +367,27 @@ class Formula::Exists : public Formula {
   void ITraverse(const ITraversal<Literal>& f) const override { phi_->ITraverse(f); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
-    Term old_x = x_;
-    Term new_x = tf->CreateTerm(sf->CreateVariable(old_x.sort()));
-    tm->insert(std::make_pair(old_x, new_x));
-    x_ = new_x;
-    phi_->Rectify(tm, sf, tf);
-    tm->erase(old_x);
+    TermMap::const_iterator it = tm->find(x_);
+    if (it != tm->end()) {
+      const Term old_x = x_;
+      const Term new_x = tf->CreateTerm(sf->CreateVariable(old_x.sort()));
+      tm->insert(it, std::make_pair(old_x, new_x));
+      x_ = new_x;
+      phi_->Rectify(tm, sf, tf);
+    }
   }
 
-  virtual QuantifierPrefix quantifier_prefix() const override {
-    QuantifierPrefix p = phi_->quantifier_prefix();
-    p.PrependExists(x_);
+  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+    auto p = phi_->quantifier_prefix();
+    p.first.prepend_exists(x_);
     return p;
   }
 
   Ref Normalize() const override { return Formula::Exists(x_, phi_->Normalize()); }
+
+  Ref Flatten(Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Formula::Exists(x_, phi_->Flatten(sf, tf));
+  }
 
  private:
   Term x_;
@@ -416,354 +442,93 @@ Formula::Ref Formula::Not::Normalize() const {
 Formula::Ref Formula::Or::Normalize() const {
   Ref l = lhs_->Normalize();
   Ref r = rhs_->Normalize();
-  QuantifierPrefix lq = l->quantifier_prefix();
-  QuantifierPrefix rq = r->quantifier_prefix();
-  const Formula& ls = lq.suffix();
-  const Formula& rs = rq.suffix();
-  if (ls.type() == kAtomic && (lq.even() || ls.as_atomic().arg().unit()) &&
-      rs.type() == kAtomic && (rq.even() || rs.as_atomic().arg().unit())) {
-    Clause lc = ls.as_atomic().arg();
-    Clause rc = rs.as_atomic().arg();
-    if (!lq.even()) {
-      lq.AppendNot();
+  QuantifierPrefix lp;
+  QuantifierPrefix rp;
+  const Formula* ls;
+  const Formula* rs;
+  std::tie(lp, ls) = l->quantifier_prefix();
+  std::tie(rp, rs) = r->quantifier_prefix();
+  if (ls->type() == kAtomic && (lp.even() || ls->as_atomic().arg().unit()) &&
+      rs->type() == kAtomic && (rp.even() || rs->as_atomic().arg().unit())) {
+    Clause lc = ls->as_atomic().arg();
+    Clause rc = rs->as_atomic().arg();
+    if (!lp.even()) {
+      lp.append_not();
       lc = Clause({lc.get(0).flip()});
     }
-    if (!rq.even()) {
-      rq.AppendNot();
+    if (!rp.even()) {
+      rp.append_not();
       rc = Clause({rc.get(0).flip()});
     }
     const auto lits = internal::join_ranges(lc.begin(), lc.end(), rc.begin(), rc.end());
-    return lq.PrependTo(rq.PrependTo(Atomic(Clause(lits.begin(), lits.end()))));
+    return lp.PrependTo(rp.PrependTo(Atomic(Clause(lits.begin(), lits.end()))));
   } else {
     return Formula::Or(std::move(l), std::move(r));
   }
 }
 
-#if 0
-class Formula {
- public:
-  class Element {
-   public:
-    enum Type { kClause, kNot, kOr, kExists };
-
-    static Element Clause(const lela::Clause& c) { return Element(kClause, c); }
-    static Element Not() { return Element(kNot); }
-    static Element Or() { return Element(kOr); }
-    static Element Exists(Term var) { assert(var.variable()); return Element(kExists, var); }
-
-    bool operator==(const Element& e) const {
-      return type_ == e.type_ &&
-            (type_ != kClause || clause_ == e.clause_) &&
-            (type_ != kExists || var_ == e.var_);
-    }
-    bool operator!=(const Element& e) const { return !(*this == e); }
-
-    Type type() const { return type_; }
-    const internal::Maybe<lela::Clause>& clause() const { return clause_; }
-    internal::Maybe<Term> var() const { return var_; }
-
-   private:
-    explicit Element(Type type) : type_(type) {}
-    Element(Type type, Term var) : type_(type), var_(internal::Just(var)) {}
-    Element(Type type, const lela::Clause& c) : type_(type), clause_(internal::Just(c)) {}
-
-    Type type_;
-    internal::Maybe<lela::Clause> clause_ = internal::Nothing;
-    internal::Maybe<Term> var_ = internal::Nothing;
-  };
-
-  template<typename ForwardIt = std::list<Element>::const_iterator>
-  class Reader {
-   public:
-    ForwardIt begin() const { return begin_; }
-    ForwardIt end() const { return end_; }
-
-    typename ForwardIt::reference head() const { return *begin(); }
-
-    Reader arg() const {
-      assert(head().type() == Element::kNot || head().type() == Element::kExists);
-      return Reader(std::next(begin()));
-    }
-
-    Reader left() const {
-      assert(head().type() == Element::kOr);
-      return Reader(std::next(begin()));
-    }
-
-    Reader right() const {
-      assert(head().type() == Element::kOr);
-      return Reader(left().end());
-    }
-
-    Formula Build() const { return Formula(*this); }
-
-    Formula Rectify(Symbol::Factory* sf, Term::Factory* tf) const;
-    Formula Flatten(Term::Factory* tf) const;
-    Formula Simplify() const;
-    Formula NF() const;
-
-    template<typename UnaryFunction>
-    struct SubstituteElement {
-      SubstituteElement() = default;
-      SubstituteElement(UnaryFunction theta, Term::Factory* tf) : theta_(theta), tf_(tf) {}
-
-      Element operator()(ForwardIt it) const {
-        switch (it->type()) {
-          case Element::kClause: return Element::Clause(it->clause().val.Substitute(theta_, tf_));
-          case Element::kNot:    return *it;
-          case Element::kOr:     return *it;
-          case Element::kExists: assert(it->var().val.Substitute(theta_, tf_) == it->var().val); return *it;
-        }
-      }
-
-     private:
-      UnaryFunction theta_;
-      Term::Factory* tf_;
-    };
-
-    template<typename UnaryFunction>
-    Reader<internal::transform_iterator<ForwardIt, SubstituteElement<UnaryFunction>>>
-    Substitute(UnaryFunction theta, Term::Factory* tf) const {
-      typedef internal::transform_iterator<ForwardIt, SubstituteElement<UnaryFunction>> iterator;
-      iterator it = iterator(begin(), SubstituteElement<UnaryFunction>(theta, tf));
-      return Reader<iterator>(it);
-    }
-
-    template<typename UnaryFunction>
-    void Traverse(UnaryFunction f) const {
-      for (const Element& e : *this) {
-        switch (e.type()) {
-          case Element::kClause: e.clause().val.Traverse(f); break;
-          case Element::kNot:    break;
-          case Element::kOr:     break;
-          case Element::kExists: break;
-        }
-      }
-    }
-
-    struct QuantifierPrefix {
-      QuantifierPrefix(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {}
-
-      ForwardIt begin() const { return begin_; }
-      ForwardIt end()   const { return end_; }
-
-      bool even() const {
-        return std::count_if(begin(), end(), [](const Element& e) { return e.type() == Element::kNot; }) % 2 == 0;
-      }
-
-      Reader<ForwardIt> suffix() const { return Reader(end_); }
-
-     private:
-      ForwardIt begin_;
-      ForwardIt end_;
-    };
-
-    QuantifierPrefix quantifiers() const {
-      auto last = std::find_if_not(begin(), end(), [](const Element& e) {
-        return e.type() == Element::kNot || e.type() == Element::kExists;
-      });
-      return QuantifierPrefix(begin(), last);
-    }
-
-   private:
-    friend class Formula;
-
-    explicit Reader(ForwardIt begin) : begin_(begin), end_(begin) {
-      for (int n = 1; n > 0; --n, ++end_) {
-        switch ((*end_).type()) {
-          case Element::kClause: n += 0; break;
-          case Element::kNot:    n += 1; break;
-          case Element::kOr:     n += 2; break;
-          case Element::kExists: n += 1; break;
-        }
-      }
-    }
-
-    ForwardIt begin_;
-    ForwardIt end_;
-  };
-
-  template<typename ForwardIt>
-  explicit Formula(const Reader<ForwardIt>& r) : es_(r.begin(), r.end()) {}
-
-  static Formula Clause(const lela::Clause& c) { return Atomic(Element::Clause(c)); }
-  static Formula Not(const Formula& phi) { return Unary(Element::Not(), phi); }
-  static Formula Or(const Formula& phi, const Formula& psi) { return Binary(Element::Or(), phi, psi); }
-  static Formula Exists(Term var, const Formula& phi) { return Unary(Element::Exists(var), phi); }
-
-  bool operator==(const Formula& phi) const { return es_ == phi.es_; }
-  bool operator!=(const Formula& phi) const { return !(*this == phi); }
-
-  Reader<> reader() const { return Reader<>(es_.begin()); }
-
- private:
-  static Formula Atomic(Element op) {
-    assert(op.type() == Element::kClause);
-    Formula r;
-    r.es_.push_front(op);
-    return r;
-  }
-
-  static Formula Unary(Element op, Formula s) {
-    assert(op.type() == Element::kNot || op.type() == Element::kExists);
-    s.es_.push_front(op);
-    return s;
-  }
-
-  static Formula Binary(Element op, Formula s, Formula r) {
-    assert(op.type() == Element::kOr);
-    r.es_.splice(r.es_.begin(), s.es_);
-    r.es_.push_front(op);
-    return r;
-  }
-
-  Formula() = default;
-
-  std::list<Element> es_;
-};
-
-template<typename ForwardIt>
-Formula Formula::Reader<ForwardIt>::Rectify(Symbol::Factory* sf, Term::Factory* tf) const {
-  std::unordered_map<Term, Term> var_map;
-  std::list<Element> es;
-  for (auto e_it = begin(), last = end(); e_it != last; ++e_it) {
-    const Element& e = *e_it;
-    switch (e.type()) {
-      case Element::kClause: {
-        auto substitute = [&var_map](Term t) {
-          auto it = var_map.find(t);
-          return it != var_map.end() && t != it->second ? internal::Just(it->second) : internal::Nothing;
-        };
-        es.push_back(Element::Clause(e.clause().val.Substitute(substitute, tf)));
-        break;
-      }
-      case Element::kNot: {
-        es.push_back(e);
-        break;
-      }
-      case Element::kOr: {
-        es.push_back(e);
-        break;
-      }
-      case Element::kExists: {
-        const Term x = e.var().val;
-        auto it = var_map.find(x);
-        Term new_x;
-        if (it == var_map.end()) {
-          var_map.insert(std::make_pair(x, x));
-          new_x = x;
-        } else if (it != var_map.end()) {
-          new_x = tf->CreateTerm(sf->CreateVariable(x.sort()));
-          var_map.insert(std::make_pair(x, new_x));
-        }
-        es.push_back(Element::Exists(new_x));
-        break;
-      }
+Formula::Ref Formula::Atomic::Flatten(Symbol::Factory* sf, Term::Factory* tf) const {
+  typedef std::unordered_set<Literal> LiteralSet;
+  LiteralSet queue(arg().begin(), arg().end());
+  TermMap term_to_var;
+  for (Literal a : queue) {
+    if (a.quasiprimitive() && a.rhs().variable()) {
+      assert(a.lhs().function());
+      term_to_var[a.rhs()] = a.lhs();
     }
   }
-  assert(es.size() == Build().es_.size());
-  Formula r;
-  r.es_.splice(r.es_.begin(), es);
-  return r;
-}
-
-template<typename ForwardIt>
-Formula Formula::Reader<ForwardIt>::Flatten(Symbol::Factory* sf, Term::Factory* tf) const {
-  Formula rect;
-  std::unordered_map<Term, Term> var_map;
-  std::list<Element> es;
-  for (auto e_it = begin(), last = end(); e_it != last; ++e_it) {
-    const Element& e = *e_it;
-    switch (e.type()) {
-      case Element::kClause: {
-        std::pair<std::vector<Term>, Clause> 
-        es.push_back(Element::Clause(e.clause().val.Substitute(substitute, tf)));
-        break;
-      }
-      case Element::kNot: {
-        es.push_back(e);
-        break;
-      }
-      case Element::kOr: {
-        es.push_back(e);
-        break;
-      }
-      case Element::kExists: {
-        es.push_back(e);
-        break;
-      }
-    }
-  }
-  assert(es.size() == Build().es_.size());
-  Formula r;
-  r.es_.splice(r.es_.begin(), es);
-  return r;
-}
-
-template<typename ForwardIt>
-Formula Formula::Reader<ForwardIt>::NF() const {
-  switch (head().type()) {
-    case Element::kClause: {
-      return Build();
-    }
-    case Element::kNot: {
-      switch (arg().head().type()) {
-        case Element::kClause: {
-          const lela::Clause c = arg().head().clause().val;
-          if (c.unit()) {
-            return Clause(lela::Clause({c.begin()->flip()}));
-          } else {
-            return Clause(c);
-          }
-        }
-        case Element::kOr:
-          return Not(arg().NF());
-        case Element::kNot:
-          return arg().arg().NF();
-        case Element::kExists:
-          return Not(Exists(arg().head().var().val, arg().arg().NF()));
-      }
-    }
-    case Element::kOr: {
-      Formula phi = left().NF();
-      Formula psi = right().NF();
-      auto phi_quant = phi.reader().quantifiers();
-      auto psi_quant = psi.reader().quantifiers();
-      Reader phi_r = phi_quant.suffix();
-      Reader psi_r = psi_quant.suffix();
-      if (phi_r.head().type() == Element::kClause && (phi_quant.even() || phi_r.head().clause().val.unit()) &&
-          psi_r.head().type() == Element::kClause && (psi_quant.even() || psi_r.head().clause().val.unit())) {
-        std::list<Element> phi_p(phi_quant.begin(), phi_quant.end());
-        std::list<Element> psi_p(psi_quant.begin(), psi_quant.end());
-        lela::Clause phi_c = phi_r.head().clause().val;
-        lela::Clause psi_c = psi_r.head().clause().val;
-        if (!phi_quant.even()) {
-          assert(phi_c.unit());
-          phi_p.push_back(Element::Not());
-          phi_c = lela::Clause({phi_c.begin()->flip()});
-        }
-        if (!psi_quant.even()) {
-          assert(psi_c.unit());
-          psi_p.push_back(Element::Not());
-          psi_c = lela::Clause({psi_c.begin()->flip()});
-        }
-        auto ls = internal::join_ranges(phi_c.begin(), phi_c.end(), psi_c.begin(), psi_c.end());
-        const lela::Clause c(ls.begin(), ls.end());
-        Formula r;
-        r.es_.push_front(Element::Clause(c));
-        r.es_.splice(r.es_.begin(), psi_p);
-        r.es_.splice(r.es_.begin(), phi_p);
-        return r;
+  LiteralSet lits;
+  QuantifierPrefix vars;
+  while (!queue.empty()) {
+    auto it = queue.begin();
+    Literal a = *it;
+    queue.erase(it);
+    if (a.quasiprimitive()) {
+      lits.insert(a);
+    } else if (a.rhs().function()) {
+      assert(a.lhs().function());
+      Term old_rhs = a.rhs();
+      Term new_rhs;
+      TermMap::const_iterator it = term_to_var.find(old_rhs);
+      if (it != term_to_var.end()) {
+        new_rhs = it->second;
       } else {
-        return Or(phi, psi);
+        new_rhs = tf->CreateTerm(sf->CreateVariable(old_rhs.sort()));
+        term_to_var[old_rhs] = new_rhs;
+        vars.prepend_exists(new_rhs);
+      }
+      Literal new_a = a.Substitute(Term::SingleSubstitution(old_rhs, new_rhs), tf);
+      Literal new_b = Literal::Neq(new_rhs, old_rhs);
+      queue.insert(new_a);
+      queue.insert(new_b);
+    } else {
+      assert(!a.lhs().quasiprimitive());
+      for (Term arg : a.lhs().args()) {
+        if (arg.function()) {
+          Term old_arg = arg;
+          Term new_arg;
+          TermMap::const_iterator it = term_to_var.find(old_arg);
+          if (it != term_to_var.end()) {
+            new_arg = it->second;
+          } else {
+            new_arg = tf->CreateTerm(sf->CreateVariable(old_arg.sort()));
+            term_to_var[old_arg] = new_arg;
+            vars.prepend_exists(new_arg);
+          }
+          Literal new_a = a.Substitute(Term::SingleSubstitution(old_arg, new_arg), tf);
+          Literal new_b = Literal::Neq(new_arg, old_arg);
+          queue.insert(new_a);
+          queue.insert(new_b);
+        }
       }
     }
-    case Element::kExists: {
-      return Exists(head().var().val, arg().NF());
-    }
   }
+  assert(lits.size() >= arg().size());
+  assert(std::all_of(lits.begin(), lits.end(), [](Literal a) { return a.quasiprimitive(); }));
+  vars.prepend_not();
+  vars.append_not();
+  return vars.PrependTo(Formula::Atomic(Clause(lits.begin(), lits.end())));
 }
-#endif
 
 }  // namespace lela
 

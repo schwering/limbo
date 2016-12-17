@@ -230,7 +230,7 @@ class Solver {
   bool Reduce(const Setup& s, const SortedTermSet& names, const Formula& phi) {
     switch (phi.type()) {
       case Formula::kAtomic: {
-        const Clause c = ResolveDeterminedTerms(s, phi.as_atomic().arg());
+        const Clause c = phi.as_atomic().arg();
         return c.valid() || (c.primitive() && s.Subsumes(c));
       }
       case Formula::kNot: {
@@ -280,29 +280,6 @@ class Solver {
         });
       }
     }
-  }
-
-  Clause ResolveDeterminedTerms(const Setup& s, Clause c) {
-    assert(c.ground());
-    bool changed;
-    do {
-      changed = false;
-      c = c.Substitute([&s, &changed](const Term t) -> internal::Maybe<Term> {
-        if (t.primitive()) {
-          for (Setup::ClauseIndex i : s.clauses()) {
-            if (s.clause(i).unit()) {
-              Literal a = *s.clause(i).begin();
-              if (a.pos() && a.lhs() == t) {
-                changed = true;
-                return internal::Just(a.rhs());
-              }
-            }
-          }
-        }
-        return internal::Nothing;
-      }, &tf_);
-    } while (changed);
-    return c;
   }
 
   Symbol::Factory sf_;

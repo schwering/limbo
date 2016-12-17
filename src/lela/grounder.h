@@ -422,103 +422,16 @@ class Grounder {
     if (k == 0) {
       return TermSet();
     }
-    TermSet terms = Mentioned<Term, TermSet>([](Term t) { return t.function(); }, phi);
-    Flatten(&terms);
-    return terms;
+    return Mentioned<Term, TermSet>([](Term t) { return t.function(); }, phi);
   }
 
   LiteralSet AssignLiterals(std::size_t k, const Formula& phi) {
     if (k == 0) {
       return LiteralSet();
     }
-    LiteralSet lits = Mentioned<Literal, LiteralSet>([](Literal a) {
+    return Mentioned<Literal, LiteralSet>([](Literal a) {
       return a.lhs().function() || a.rhs().function();
     }, phi);
-    Flatten(&lits);
-    return lits;
-  }
-
-  template<typename BinaryPredicate, typename UnaryPredicate>
-  void Flatten(Term t, BinaryPredicate inner_p, UnaryPredicate outer_p) {
-    if (!t.quasiprimitive()) {
-      Term::Vector args = t.args();
-      for (std::size_t i = 0; i < args.size(); ++i) {
-        if (args[i].function()) {
-          Term x = tf_->CreateTerm(sf_->CreateVariable(args[i].sort()));
-          inner_p(args[i], x);
-          for (std::size_t j = i; j < args.size(); ++j) {
-            if (args[j] == args[i]) {
-              args[j] = x;
-            }
-          }
-        }
-      }
-      outer_p(tf_->CreateTerm(t.symbol(), args));
-    }
-  }
-
-  void Flatten(TermSet* terms) {
-    TermSet queue;
-    for (Term t : *terms) {
-      if (!t.quasiprimitive()) {
-        queue.insert(t);
-      }
-    }
-    while (!queue.empty()) {
-      Term t = *queue.begin();
-      queue.erase(queue.begin());
-      assert(!t.quasiprimitive());
-      auto p = [terms, &queue](Term tt, Term = Term()) {
-        if (tt.quasiprimitive()) {
-          terms->insert(tt);
-        } else {
-          queue.insert(tt);
-        }
-      };
-      Flatten(t, p, p);
-    }
-    for (auto it = terms->begin(); it != terms->end(); ) {
-      if (it->quasiprimitive()) {
-        ++it;
-      } else {
-        it = terms->erase(it);
-      }
-    }
-  }
-
-  void Flatten(LiteralSet* lits) {
-    LiteralSet queue;
-    for (Literal a : *lits) {
-      if (!a.quasiprimitive()) {
-        queue.insert(a);
-      }
-    }
-    auto save = [lits, &queue](Literal a) { if (a.quasiprimitive()) { lits->insert(a); } else { queue.insert(a); } };
-    while (!queue.empty()) {
-      Literal a = *queue.begin();
-      queue.erase(queue.begin());
-      assert(!a.quasiprimitive());
-      if (a.rhs().function()) {
-        Term x = tf_->CreateTerm(sf_->CreateVariable(a.rhs().sort()));
-        save(Literal::Neq(a.rhs(), x));
-        save(a.pos() ? Literal::Eq(a.lhs(), x) : Literal::Neq(a.lhs(), x));
-      } else if (!a.lhs().quasiprimitive()) {
-        auto inner_p = [save](Term arg, Term x) {
-          save(Literal::Neq(arg, x));
-        };
-        auto outer_p = [save, a](Term new_lhs) {
-          save(a.pos() ? Literal::Eq(new_lhs, a.rhs()) : Literal::Neq(new_lhs, a.rhs()));
-        };
-        Flatten(a.lhs(), inner_p, outer_p);
-      }
-    }
-    for (auto it = lits->begin(); it != lits->end(); ) {
-      if (it->quasiprimitive()) {
-        ++it;
-      } else {
-        it = lits->erase(it);
-      }
-    }
   }
 
   template<typename T>
