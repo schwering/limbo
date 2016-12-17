@@ -22,7 +22,9 @@ KB (Mary == motherOf(Jesus));
 KB (HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus));
 KB (is_mortal(Mary) == True);
 KB (is_mortal(Joe) == True);
-KB (fatherOf(Jesus) != x || x == Joe || is_mortal(x) != True);
+KB (fatherOf(Jesus) != Joe -> is_mortal(fatherOf(Jesus)) != True);
+// An alternative way to state the previous clause:
+// KB (fatherOf(Jesus) != x || x == Joe || is_mortal(x) != True);
 
 Let phi := HolyGhost == fatherOf(Jesus) || God == fatherOf(Jesus) || Joe == fatherOf(Jesus);
 Assert Entails (0, phi);

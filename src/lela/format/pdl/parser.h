@@ -248,55 +248,6 @@ class Parser {
     return Success(std::unique_ptr<Literal>(new Literal(a)));
   }
 
-  // kb_clause --> () ;
-  //            |  ( literal [, literal]* ) ;
-  Result<bool> kb_clause() {
-    if (!Is(Token(0), Token::kKB)) {
-      return Unapplicable<bool>(LELA_MSG("No kb_clause"));
-    }
-    Advance(0);
-    std::vector<Literal> ls;
-    for (int i = 0; (i == 0 && Is(Token(0), Token::kLeftParen)) ||
-                    (i >  0 && (Is(Token(0), Token::kComma) || Is(Token(0), Token::kOr))); ++i) {
-      Advance(0);
-      Result<std::unique_ptr<Literal>> a = literal();
-      if (!a) {
-        return Failure<bool>(LELA_MSG("Expected literal"), a);
-      }
-      ls.push_back(*a.val);
-    }
-    if (!Is(Token(0), Token::kRightParen)) {
-      return Failure<bool>(LELA_MSG("Expected right parenthesis ')'"));
-    }
-    Advance(0);
-    if (!Is(Token(0), Token::kEndOfLine)) {
-      return Failure<bool>(LELA_MSG("Expected end of line ';'"));
-    }
-    Advance(0);
-    const Clause c(ls.begin(), ls.end());
-    if (!std::all_of(c.begin(), c.end(),
-                     [](Literal a) { return (!a.lhs().function() && !a.rhs().function()) || a.quasiprimitive(); })) {
-      using lela::format::output::operator<<;
-      std::stringstream ss;
-      ss << c;
-      return Failure<bool>(LELA_MSG("KB clause "+ ss.str() +" must only contain ewff/quasiprimitive literals"));
-    }
-    ctx_->AddClause(c);
-    return Success(true);
-  }
-
-  // kb_clauses --> kb_clause*
-  Result<bool> kb_clauses() {
-    Result<bool> r;
-    while ((r = kb_clause())) {
-    }
-    if (!r.unapplicable) {
-      return r;
-    } else {
-      return Success(true);
-    }
-  }
-
   // primary_formula --> ! primary_formula
   //                  |  Ex x primary_formula
   //                  |  Fa x primary_formula
@@ -350,7 +301,7 @@ class Parser {
     return Failure<Formula::Ref>("Expected formula");
   }
 
-  // conjunctive_formula --> primary_formula && primary_formula
+  // conjunctive_formula --> primary_formula [ && primary_formula ]*
   Result<Formula::Ref> conjunctive_formula() {
     Result<Formula::Ref> phi = primary_formula();
     if (!phi) {
@@ -368,7 +319,7 @@ class Parser {
     return phi;
   }
 
-  // disjunctive_formula --> conjunctive_formula || conjunctive_formula
+  // disjunctive_formula --> conjunctive_formula [ || conjunctive_formula ]*
   Result<Formula::Ref> disjunctive_formula() {
     Result<Formula::Ref> phi = conjunctive_formula();
     if (!phi) {
@@ -385,9 +336,47 @@ class Parser {
     return phi;
   }
 
-  // formula --> disjunctive_formula
+  // implication_formula --> disjunctive_formula -> disjunctive_formula
+  //                      |  disjunctive_formula
+  Result<Formula::Ref> implication_formula() {
+    Result<Formula::Ref> phi = disjunctive_formula();
+    if (!phi) {
+      return Failure<Formula::Ref>(LELA_MSG("Expected left argument disjunctive formula"), phi);
+    }
+    if (Is(Token(0), Token::kRArrow)) {
+      Advance(0);
+      Result<Formula::Ref> psi = disjunctive_formula();
+      if (!psi) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected right argument disjunctive formula"), psi);
+      }
+      phi = Success(Formula::Or(Formula::Not(std::move(phi.val)), std::move(psi.val)));
+    }
+    return phi;
+  }
+
+  // equivalence_formula --> implication_formula -> implication_formula
+  //                      |  implication_formula
+  Result<Formula::Ref> equivalence_formula() {
+    Result<Formula::Ref> phi = implication_formula();
+    if (!phi) {
+      return Failure<Formula::Ref>(LELA_MSG("Expected left argument implication formula"), phi);
+    }
+    if (Is(Token(0), Token::kLRArrow)) {
+      Advance(0);
+      Result<Formula::Ref> psi = implication_formula();
+      if (!psi) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected right argument implication formula"), psi);
+      }
+      Formula::Ref lr = Formula::Or(Formula::Not(phi.val->Clone()), psi.val->Clone());
+      Formula::Ref rl = Formula::Or(Formula::Not(std::move(phi.val)), std::move(psi.val));
+      phi = Success(Formula::Not(Formula::Or(Formula::Not(std::move(lr)), Formula::Not(std::move(rl)))));
+    }
+    return phi;
+  }
+
+  // formula --> equivalence_formula
   Result<Formula::Ref> formula() {
-    return disjunctive_formula();
+    return equivalence_formula();
   }
 
   // abbreviation --> let identifier := formula
@@ -421,6 +410,70 @@ class Parser {
   Result<bool> abbreviations() {
     Result<bool> r;
     while ((r = abbreviation())) {
+    }
+    if (!r.unapplicable) {
+      return r;
+    } else {
+      return Success(true);
+    }
+  }
+
+  // kb_clause --> KB formula ;
+  Result<bool> kb_clause() {
+    if (!Is(Token(0), Token::kKB)) {
+      return Unapplicable<bool>(LELA_MSG("No kb_clause"));
+    }
+    Advance(0);
+    Result<Formula::Ref> phi = formula();
+    if (!phi) {
+      return Failure<bool>(LELA_MSG("Expected KB clause formula"), phi);
+    }
+    if (!Is(Token(0), Token::kEndOfLine)) {
+      return Failure<bool>(LELA_MSG("Expected end of line ';'"));
+    }
+    Advance(0);
+    phi.val = phi.val->NF(ctx_->sf(), ctx_->tf());
+    const Formula* phi_ptr = phi.val.get();
+    size_t nots = 0;
+    for (;;) {
+      switch (phi_ptr->type()) {
+        case Formula::kAtomic: {
+          if (nots % 2 != 0) {
+            goto error;
+          }
+          const Clause c = phi_ptr->as_atomic().arg();
+          if (!std::all_of(c.begin(), c.end(), [](Literal a) {
+                           return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); })) {
+            goto error;
+          }
+          ctx_->AddClause(c);
+          return Success(true);
+        }
+        case Formula::kNot: {
+          ++nots;
+          phi_ptr = &phi_ptr->as_not().arg();
+          break;
+        }
+        case Formula::kOr: {
+          goto error;
+        }
+        case Formula::kExists: {
+          if (nots % 2 == 0) {
+            goto error;
+          }
+          phi_ptr = &phi_ptr->as_exists().arg();
+          break;
+        }
+      }
+    }
+error:
+    return Failure<bool>(LELA_MSG("Expected KB clause formula: NF of the formula must be clause with universal quantifiers"), phi);
+  }
+
+  // kb_clauses --> kb_clause*
+  Result<bool> kb_clauses() {
+    Result<bool> r;
+    while ((r = kb_clause())) {
     }
     if (!r.unapplicable) {
       return r;

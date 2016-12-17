@@ -47,13 +47,13 @@ inline void parse(const char* c_str) {
       std::cout << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl;
     }
     void operator()(const RegisterFormulaData& d) const {
-      std::cout << "Registered formula " << d.id << " as " << d.phi << std::endl;
+      std::cout << "Registered formula " << d.id << " as " << *d.phi << std::endl;
     }
     void operator()(const AddClauseData& d) const {
       std::cout << "Added clause " << d.c << std::endl;
     }
     void operator()(const EntailmentData& d) const {
-      std::string phi_str = to_string(d.phi);
+      std::string phi_str = to_string(*d.phi);
       std::cout << "Setup = " << std::endl << *d.s << std::endl;
       std::cout << "Entails(" << d.k << ", " << phi_str << ") = " << std::boolalpha << d.yes << std::endl;
       EM_ASM_({
@@ -61,7 +61,7 @@ inline void parse(const char* c_str) {
       }, d.k, phi_str.c_str(), d.yes);
     }
     void operator()(const ConsistencyData& d) const {
-      std::string phi_str = to_string(d.phi);
+      std::string phi_str = to_string(*d.phi);
       std::cout << "Setup = " << std::endl << *d.s << std::endl;
       std::cout << "Consistent(" << d.k << ", " << phi_str << ") = " << std::boolalpha << d.yes << std::endl;
       EM_ASM_({
