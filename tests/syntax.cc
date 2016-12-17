@@ -31,41 +31,42 @@ TEST(InputTest, general) {
   auto x = ctx.CreateVariable(HUMAN);               REGISTER_SYMBOL(x);
   auto y = ctx.CreateVariable(HUMAN);               REGISTER_SYMBOL(y);
   {
-    Formula phi = Ex(x, John() == x);
-    EXPECT_EQ(phi, Formula::Exists(x, Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})));
-    EXPECT_EQ(phi.reader().NF(), Formula::Exists(x, Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})));
+    Formula::Ref phi = *Ex(x, John() == x);
+    EXPECT_EQ(*phi, *Formula::Exists(x, Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})));
+    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()), *Formula::Exists(x, Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})));
   }
   {
-    Formula phi = Fa(x, John() == x);
-    EXPECT_EQ(phi, Formula::Not(Formula::Exists(x, Formula::Not(Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})))));
-    EXPECT_EQ(phi.reader().NF(), Formula::Not(Formula::Exists(x, Formula::Clause(Clause{Literal::Neq(tf.CreateTerm(John, {}), x)}))));
+    Formula::Ref phi = *Fa(x, John() == x);
+    EXPECT_EQ(*phi, *Formula::Not(Formula::Exists(x, Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(John, {}), x)})))));
+    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()), *Formula::Not(Formula::Exists(x, Formula::Atomic(Clause{Literal::Neq(tf.CreateTerm(John, {}), x)}))));
   }
   {
-    Formula phi = Fa(x, IsParentOf(Mother(x), x) == True && IsParentOf(Father(x), x) == True);
-    EXPECT_EQ(phi, Formula::Not(Formula::Exists(x, Formula::Not(Formula::Not(Formula::Or(Formula::Not(Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Mother, {x}), x}), True)})),
-                                                                                         Formula::Not(Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))))))));
-    EXPECT_EQ(phi.reader().NF(), Formula::Not(Formula::Exists(x, Formula::Clause(Clause{Literal::Neq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Mother, {x}), x}), True),
-                                                                                        Literal::Neq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))));
+    Formula::Ref phi = *Fa(x, IsParentOf(Mother(x), x) == True && IsParentOf(Father(x), x) == True);
+    EXPECT_EQ(*phi, *Formula::Not(Formula::Exists(x, Formula::Not(Formula::Not(Formula::Or(Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Mother, {x}), x}), True)})),
+                                                                                            Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))))))));
+    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()), *Formula::Not(Formula::Exists(x, Formula::Atomic(Clause{Literal::Neq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Mother, {x}), x}), True),
+                                                                                             Literal::Neq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))));
   }
   {
-    Formula phi = Fa(x, IsParentOf(x, y) == True && IsParentOf(Father(x), x) == True);
-    EXPECT_EQ(phi, Formula::Not(Formula::Exists(x, Formula::Not(Formula::Not(Formula::Or(Formula::Not(Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {x, y}), True)})),
-                                                                                         Formula::Not(Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))))))));
-    EXPECT_EQ(phi.reader().NF(), Formula::Not(Formula::Exists(x, Formula::Clause(Clause{Literal::Neq(tf.CreateTerm(IsParentOf, {x, y}), True),
-                                                                                        Literal::Neq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))));
+    Formula::Ref phi = *Fa(x, IsParentOf(x, y) == True && IsParentOf(Father(x), x) == True);
+    EXPECT_EQ(*phi, *Formula::Not(Formula::Exists(x, Formula::Not(Formula::Not(Formula::Or(Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {x, y}), True)})),
+                                                                                            Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))))))));
+    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()), *Formula::Not(Formula::Exists(x, Formula::Atomic(Clause{Literal::Neq(tf.CreateTerm(IsParentOf, {x, y}), True),
+                                                                                             Literal::Neq(tf.CreateTerm(IsParentOf, {tf.CreateTerm(Father, {x}), x}), True)}))));
   }
 
   {
     auto P = ctx.CreateFunction(BOOL, 1);    REGISTER_SYMBOL(P);
     auto Q = ctx.CreateFunction(BOOL, 1);    REGISTER_SYMBOL(P);
     // That's the example formula from my thesis.
-    Formula phi = Ex(x, P(x) == True) >> Fa(y, Q(y) == True);
-    EXPECT_EQ(phi, Formula::Or(Formula::Not(Formula::Exists(x, Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(P, {x}), True)}))),
-                               Formula::Not(Formula::Exists(y, Formula::Not(Formula::Clause(Clause{Literal::Eq(tf.CreateTerm(Q, {y}), True)}))))));
-    EXPECT_EQ(phi.reader().NF(), Formula::Not(Formula::Exists(x, Formula::Not(Formula::Not(Formula::Exists(y, Formula::Not(
-                                  Formula::Clause(Clause{Literal::Neq(tf.CreateTerm(P, {x}), True),
-                                                         Literal::Eq(tf.CreateTerm(Q, {y}), True)})
-                                )))))));
+    Formula::Ref phi = *(Ex(x, P(x) == True) >> Fa(y, Q(y) == True));
+    EXPECT_EQ(*phi, *Formula::Or(Formula::Not(Formula::Exists(x, Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(P, {x}), True)}))),
+                                 Formula::Not(Formula::Exists(y, Formula::Not(Formula::Atomic(Clause{Literal::Eq(tf.CreateTerm(Q, {y}), True)}))))));
+    EXPECT_EQ(*phi->NF(ctx.sf(), ctx.tf()),
+              *Formula::Not(Formula::Exists(x, Formula::Not(Formula::Not(Formula::Exists(y, Formula::Not(
+                                       Formula::Atomic(Clause{Literal::Neq(tf.CreateTerm(P, {x}), True),
+                                                       Literal::Eq(tf.CreateTerm(Q, {y}), True)})
+                                       )))))));
   }
 }
 

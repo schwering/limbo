@@ -56,6 +56,12 @@ struct if_arg<Function, ExpType, Type, N, true> {
   typedef Type type;
 };
 
+// remove_const_ref<T>::type removes the const and reference from T.
+template<typename T>
+struct remove_const_ref {
+  typedef typename std::remove_const<typename std::remove_reference<T>::type>::type type;
+};
+
 }  // namespace internal
 }  // namespace lela
 

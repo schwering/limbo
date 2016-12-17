@@ -56,8 +56,8 @@ struct Logger {
   };
 
   struct RegisterFormulaData : public RegisterData {
-    RegisterFormulaData(const std::string& id, const Formula& phi) : RegisterData(id), phi(phi) {}
-    const Formula phi;
+    RegisterFormulaData(const std::string& id, const Formula& phi) : RegisterData(id), phi(phi.Clone()) {}
+    const Formula::Ref phi;
   };
 
   struct AddClauseData : public LogData {
@@ -66,10 +66,11 @@ struct Logger {
   };
 
   struct QueryData : public LogData {
-    QueryData(Solver::split_level k, const Setup* s, const Formula& phi, bool yes) : k(k), s(s), phi(phi), yes(yes) {}
+    QueryData(Solver::split_level k, const Setup* s, const Formula& phi, bool yes) :
+        k(k), s(s), phi(phi.Clone()), yes(yes) {}
     const Solver::split_level k;
     const Setup* const s;
-    const Formula phi;
+    const Formula::Ref phi;
     const bool yes;
   };
 
@@ -163,7 +164,7 @@ class Context {
     const auto it = formulas_.find(id);
     if (it == formulas_.end())
       throw std::domain_error(id);
-    return it->second;
+    return *it->second;
   }
 
   void RegisterSort(const std::string& id) {
@@ -214,7 +215,7 @@ class Context {
     if (contained) {
       formulas_.erase(it);
     }
-    formulas_.emplace(id, phi);
+    formulas_.emplace(id, phi.Clone());
     logger_(Logger::RegisterFormulaData(id, phi));
   }
 
@@ -238,7 +239,7 @@ class Context {
   std::map<std::string, Term>         vars_;
   std::map<std::string, Term>         names_;
   std::map<std::string, Symbol>       funs_;
-  std::map<std::string, Formula>      formulas_;
+  std::map<std::string, Formula::Ref> formulas_;
   Solver solver_;
 };
 

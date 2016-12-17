@@ -57,12 +57,12 @@ class KnowledgeBase {
   lela::internal::Maybe<bool> IsMine(Point p, int k) {
     t_.start();
     lela::internal::Maybe<bool> r = lela::internal::Nothing;
-    lela::Formula yes_mine = lela::Formula::Clause(lela::Clause{MineLit(true, p)});
-    lela::Formula no_mine = lela::Formula::Clause(lela::Clause{MineLit(false, p)});
-    if (solver()->Entails(k, yes_mine.reader())) {
+    lela::Formula::Ref yes_mine = lela::Formula::Atomic(lela::Clause{MineLit(true, p)});
+    lela::Formula::Ref no_mine = lela::Formula::Atomic(lela::Clause{MineLit(false, p)});
+    if (solver()->Entails(k, *yes_mine)) {
       assert(g_->mine(p));
       r = lela::internal::Just(true);
-    } else if (solver()->Entails(k, no_mine.reader())) {
+    } else if (solver()->Entails(k, *no_mine)) {
       assert(!g_->mine(p));
       r = lela::internal::Just(false);
     }

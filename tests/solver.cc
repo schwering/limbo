@@ -39,11 +39,11 @@ TEST(SolverTest, Entails) {
     {
       solver.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Mother(Sonny) == Mary });
-      Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      EXPECT_TRUE(solver.Entails(0, phi.reader()));
-      EXPECT_TRUE(solver.Entails(1, phi.reader()));
-      EXPECT_TRUE(solver.Entails(0, phi.reader()));
-      EXPECT_TRUE(solver.Entails(1, phi.reader()));
+      Formula::Ref phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
+      EXPECT_TRUE(solver.Entails(0, *phi));
+      EXPECT_TRUE(solver.Entails(1, *phi));
+      EXPECT_TRUE(solver.Entails(0, *phi));
+      EXPECT_TRUE(solver.Entails(1, *phi));
     }
   }
 
@@ -65,11 +65,11 @@ TEST(SolverTest, Entails) {
     {
       solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Father(Sonny) == Mary, Father(Sonny) == Fred });
-      Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      EXPECT_FALSE(solver.Entails(0, phi.reader()));
-      EXPECT_TRUE(solver.Entails(1, phi.reader()));
-      EXPECT_FALSE(solver.Entails(0, phi.reader()));
-      EXPECT_TRUE(solver.Entails(1, phi.reader()));
+      Formula::Ref phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
+      EXPECT_FALSE(solver.Entails(0, *phi));
+      EXPECT_TRUE(solver.Entails(1, *phi));
+      EXPECT_FALSE(solver.Entails(0, *phi));
+      EXPECT_TRUE(solver.Entails(1, *phi));
     }
   }
 
@@ -92,9 +92,9 @@ TEST(SolverTest, Entails) {
     {
       solver.AddClause(Clause{ Father(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Father(Sonny) == Mary, Father(Sonny) == Fred, Father(Sonny) == Fox });
-      Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      EXPECT_FALSE(solver.Entails(0, phi.reader()));
-      EXPECT_TRUE(solver.Entails(1, phi.reader()));
+      Formula::Ref phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
+      EXPECT_FALSE(solver.Entails(0, *phi));
+      EXPECT_TRUE(solver.Entails(1, *phi));
     }
   }
 }
@@ -117,11 +117,11 @@ TEST(SolverTest, Consistent) {
     {
       solver.AddClause(Clause{ Mother(x) != y, x == y, IsParentOf(y,x) == True });
       solver.AddClause(Clause{ Mother(Sonny) == Mary });
-      Formula phi = Ex(x, Ex(y, IsParentOf(y,x) == True)).reader().NF();
-      EXPECT_TRUE(solver.EntailsComplete(0, phi.reader()));
-      EXPECT_TRUE(solver.EntailsComplete(1, phi.reader()));
-      EXPECT_TRUE(solver.EntailsComplete(0, phi.reader()));
-      EXPECT_TRUE(solver.EntailsComplete(1, phi.reader()));
+      Formula::Ref phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
+      EXPECT_TRUE(solver.EntailsComplete(0, *phi));
+      EXPECT_TRUE(solver.EntailsComplete(1, *phi));
+      EXPECT_TRUE(solver.EntailsComplete(0, *phi));
+      EXPECT_TRUE(solver.EntailsComplete(1, *phi));
     }
   }
 }
@@ -139,8 +139,8 @@ TEST(SolverTest, KR2016) {
   solver.AddClause({ bestFriend(mary) == sue, bestFriend(mary) == jane });
   solver.AddClause({ father(sue) == george });
   solver.AddClause({ father(jane) == george });
-  EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{father(bestFriend(mary)) == george}).reader()));
-  EXPECT_TRUE(solver.Entails(1, Formula::Clause(Clause{father(bestFriend(mary)) == george}).reader()));
+  EXPECT_FALSE(solver.Entails(0, *Formula::Atomic(Clause{father(bestFriend(mary)) == george})));
+  EXPECT_TRUE(solver.Entails(1, *Formula::Atomic(Clause{father(bestFriend(mary)) == george})));
 }
 
 TEST(SolverTest, ECAI2016Sound) {
@@ -163,8 +163,8 @@ TEST(SolverTest, ECAI2016Sound) {
   solver.AddClause({ Aussie == T, Italian == T });
   solver.AddClause({ Aussie != T, Eats(roo) == T });
   solver.AddClause({ Italian == T, Veggie == T });
-  EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{Aussie != T}).reader()));
-  EXPECT_TRUE(solver.Entails(1, Formula::Clause(Clause{Aussie != T}).reader()));
+  EXPECT_FALSE(solver.Entails(0, *Formula::Atomic(Clause{Aussie != T})));
+  EXPECT_TRUE(solver.Entails(1, *Formula::Atomic(Clause{Aussie != T})));
 }
 
 TEST(SolverTest, ECAI2016Complete) {
@@ -187,10 +187,10 @@ TEST(SolverTest, ECAI2016Complete) {
   solver.AddClause({ Aussie == T, Italian == T });
   solver.AddClause({ Aussie != T, Eats(roo) == T });
   solver.AddClause({ Italian == T, Veggie == T });
-  EXPECT_TRUE(solver.EntailsComplete(0, Formula::Clause(Clause{Italian != T}).reader()));
-  EXPECT_FALSE(solver.EntailsComplete(1, Formula::Clause(Clause{Italian != T}).reader()));
-  EXPECT_FALSE(solver.Consistent(0, Formula::Clause(Clause{Italian == T}).reader()));
-  EXPECT_TRUE(solver.Consistent(1, Formula::Clause(Clause{Italian == T}).reader()));
+  EXPECT_TRUE(solver.EntailsComplete(0, *Formula::Atomic(Clause{Italian != T})));
+  EXPECT_FALSE(solver.EntailsComplete(1, *Formula::Atomic(Clause{Italian != T})));
+  EXPECT_FALSE(solver.Consistent(0, *Formula::Atomic(Clause{Italian == T})));
+  EXPECT_TRUE(solver.Consistent(1, *Formula::Atomic(Clause{Italian == T})));
 }
 
 TEST(SolverTest, Bool) {
@@ -200,14 +200,14 @@ TEST(SolverTest, Bool) {
   auto T = ctx.CreateName(BOOL);
   auto P = ctx.CreateFunction(BOOL, 0)();
   {
-    EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{P == T}).reader()));
-    EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P == T}).reader()));
-    EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{P != T}).reader()));
-    EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P != T}).reader()));
-    EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{P == T}).reader()));
-    EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P == T}).reader()));
-    EXPECT_FALSE(solver.Entails(0, Formula::Clause(Clause{P != T}).reader()));
-    EXPECT_FALSE(solver.Entails(1, Formula::Clause(Clause{P != T}).reader()));
+    EXPECT_FALSE(solver.Entails(0, *Formula::Atomic(Clause{P == T})));
+    EXPECT_FALSE(solver.Entails(1, *Formula::Atomic(Clause{P == T})));
+    EXPECT_FALSE(solver.Entails(0, *Formula::Atomic(Clause{P != T})));
+    EXPECT_FALSE(solver.Entails(1, *Formula::Atomic(Clause{P != T})));
+    EXPECT_FALSE(solver.Entails(0, *Formula::Atomic(Clause{P == T})));
+    EXPECT_FALSE(solver.Entails(1, *Formula::Atomic(Clause{P == T})));
+    EXPECT_FALSE(solver.Entails(0, *Formula::Atomic(Clause{P != T})));
+    EXPECT_FALSE(solver.Entails(1, *Formula::Atomic(Clause{P != T})));
   }
 }
 
@@ -221,8 +221,8 @@ TEST(SolverTest, Constants) {
   {
     for (int i = 0; i < 2; ++i) {
       for (int k = 0; k <= 3; ++k) {
-        EXPECT_FALSE(solver.Entails(k, Formula::Clause(Clause{a == b}).reader()));
-        EXPECT_FALSE(solver.Entails(k, Formula::Clause(Clause{a != b}).reader()));
+        EXPECT_FALSE(solver.Entails(k, *Formula::Atomic(Clause{a == b})));
+        EXPECT_FALSE(solver.Entails(k, *Formula::Atomic(Clause{a != b})));
       }
     }
   }

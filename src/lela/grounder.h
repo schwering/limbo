@@ -97,8 +97,7 @@ class Grounder {
     unprocessed_clauses_.push_front(c);
   }
 
-  template<typename T>
-  void PrepareForQuery(std::size_t k, const Formula::Reader<T>& phi) {
+  void PrepareForQuery(std::size_t k, const Formula& phi) {
     names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, phi));
     names_changed_ |= AddPlusNames(PlusNames(phi));
     names_changed_ |= AddPlusNames(PlusSplitNames(k, phi));
@@ -143,9 +142,6 @@ class Grounder {
           }
         }
       }
-#if 0
-      s->Init();
-#endif
       processed_clauses_.splice(processed_clauses_.begin(), unprocessed_clauses_);
       names_changed_ = false;
     }
@@ -161,8 +157,7 @@ class Grounder {
     return Ground(splits_);
   }
 
-  template<typename T>
-  TermSet RelevantSplitTerms(std::size_t k, const Formula::Reader<T>& phi) {
+  TermSet RelevantSplitTerms(std::size_t k, const Formula& phi) {
     PrepareForQuery(k, phi);
     const Setup& s = Ground();
     TermSet splits;
@@ -350,8 +345,7 @@ class Grounder {
     return PlusMap::Zip(plus, plus_one, [](std::size_t lp, std::size_t rp) { return lp + rp; });
   }
 
-  template<typename T>
-  static PlusMap PlusNames(const Formula::Reader<T>& phi) {
+  static PlusMap PlusNames(const Formula& phi) {
     // Roughly, we need to add one name for each quantifier. More precisely,
     // it suffices to check for every sort which is the maximal number of
     // different variables occurring freely in any subformula of phi. We do
@@ -363,29 +357,28 @@ class Grounder {
     return max;
   }
 
-  template<typename T>
-  static void PlusNames(const Formula::Reader<T>& phi, PlusMap* cur, PlusMap* max) {
-    switch (phi.head().type()) {
-      case Formula::Element::kClause:
-        *cur = PlusNames(phi.head().clause().val);
+  static void PlusNames(const Formula& phi, PlusMap* cur, PlusMap* max) {
+    switch (phi.type()) {
+      case Formula::kAtomic:
+        *cur = PlusNames(phi.as_atomic().arg());
         *max = *cur;
         break;
-      case Formula::Element::kNot:
-        PlusNames(phi.arg(), cur, max);
+      case Formula::kNot:
+        PlusNames(phi.as_not().arg(), cur, max);
         break;
-      case Formula::Element::kOr: {
+      case Formula::kOr: {
         PlusMap lcur, lmax;
         PlusMap rcur, rmax;
-        PlusNames(phi.left(), &lcur, &lmax);
-        PlusNames(phi.right(), &rcur, &rmax);
+        PlusNames(phi.as_or().lhs(), &lcur, &lmax);
+        PlusNames(phi.as_or().rhs(), &rcur, &rmax);
         *cur = PlusMap::Zip(lcur, rcur, [](std::size_t lp, std::size_t rp) { return lp + rp; });
         *max = PlusMap::Zip(lmax, rmax, [](std::size_t lp, std::size_t rp) { return std::max(lp, rp); });
         *max = PlusMap::Zip(*max, *cur, [](std::size_t mp, std::size_t cp) { return std::max(mp, cp); });
         break;
       }
-      case Formula::Element::kExists:
-        PlusNames(phi.arg(), cur, max);
-        Symbol::Sort sort = phi.head().var().val.sort();
+      case Formula::kExists:
+        PlusNames(phi.as_exists().arg(), cur, max);
+        Symbol::Sort sort = phi.as_exists().x().sort();
         if ((*cur)[sort] > 0) {
           --(*cur)[sort];
         }
@@ -393,8 +386,7 @@ class Grounder {
     }
   }
 
-  template<typename T>
-  static PlusMap PlusSplitNames(std::size_t k, const Formula::Reader<T>& phi) {
+  static PlusMap PlusSplitNames(std::size_t k, const Formula& phi) {
     // When a term t only occurs in the form of literals (t = n), (t = x), or
     // their duals and negations, then splitting does not necessitate an
     // additional name. However, when t is an argument of another term or when
@@ -426,8 +418,7 @@ class Grounder {
     return plus;
   }
 
-  template<typename T>
-  TermSet SplitTerms(std::size_t k, const Formula::Reader<T>& phi) {
+  TermSet SplitTerms(std::size_t k, const Formula& phi) {
     if (k == 0) {
       return TermSet();
     }
@@ -436,8 +427,7 @@ class Grounder {
     return terms;
   }
 
-  template<typename T>
-  LiteralSet AssignLiterals(std::size_t k, const Formula::Reader<T>& phi) {
+  LiteralSet AssignLiterals(std::size_t k, const Formula& phi) {
     if (k == 0) {
       return LiteralSet();
     }

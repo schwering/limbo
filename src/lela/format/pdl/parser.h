@@ -12,6 +12,7 @@
 #include <cassert>
 
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -41,8 +42,15 @@ class Parser {
   template<typename T>
   struct Result {
     Result() = default;
-    explicit Result(const T& val) : ok(true), val(val) {}
-    Result(bool unapplicable, const std::string& msg, ForwardIt begin, ForwardIt end, const T& val = T())
+    Result(Result&&) = default;
+    Result& operator=(Result&&) = default;
+
+    explicit Result(T&& val) : ok(true), val(std::forward<T>(val)) {}
+
+    Result(bool unapplicable, const std::string& msg, ForwardIt begin, ForwardIt end)
+        : ok(false), unapplicable(unapplicable), msg(msg), begin_(begin), end_(end) {}
+
+    Result(bool unapplicable, const std::string& msg, ForwardIt begin, ForwardIt end, T&& val)
         : ok(false), val(val), unapplicable(unapplicable), msg(msg), begin_(begin), end_(end) {}
 
     explicit operator bool() const { return ok; }
@@ -87,18 +95,21 @@ class Parser {
 
  private:
   template<typename T>
-  Result<T> Success(const T& result) {
-    return Result<T>(result);
+  Result<T> Success(T&& result) const { return Result<T>(std::forward<T>(result)); }
+
+  template<typename T>
+  Result<T> Failure(const std::string& msg) const {
+    return Result<T>(false, msg, begin().char_iter(), end().char_iter());
   }
 
   template<typename T>
-  Result<T> Failure(const std::string& msg, const T& val = T()) const {
+  Result<T> Failure(const std::string& msg, T&& val) const {
     return Result<T>(false, msg, begin().char_iter(), end().char_iter(), val);
   }
 
   template<typename T, typename U>
-  static Result<T> Failure(const std::string& msg, const Result<U>& r, const T& val = T()) {
-    return Result<T>(false, msg + " [because] " + r.msg, r.begin(), r.end(), val);
+  static Result<T> Failure(const std::string& msg, const Result<U>& r) {
+    return Result<T>(false, msg + " [because] " + r.msg, r.begin(), r.end());
   }
 
   template<typename T>
@@ -122,7 +133,7 @@ class Parser {
         Is(Token(2), Token::kEndOfLine)) {
       ctx_->RegisterSort(Token(1).val.str());
       Advance(2);
-      return Success<bool>(true);
+      return Success(true);
     }
     if (Is(Token(0), Token::kVar) &&
         Is(Token(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
@@ -131,7 +142,7 @@ class Parser {
         Is(Token(4), Token::kEndOfLine)) {
       ctx_->RegisterVariable(Token(1).val.str(), Token(3).val.str());
       Advance(4);
-      return Success<bool>(true);
+      return Success(true);
     }
     if (Is(Token(0), Token::kName) &&
         Is(Token(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
@@ -140,7 +151,7 @@ class Parser {
         Is(Token(4), Token::kEndOfLine)) {
       ctx_->RegisterName(Token(1).val.str(), Token(3).val.str());
       Advance(4);
-      return Success<bool>(true);
+      return Success(true);
     }
     if (Is(Token(0), Token::kFun) &&
         Is(Token(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
@@ -151,7 +162,7 @@ class Parser {
         Is(Token(6), Token::kEndOfLine)) {
       ctx_->RegisterFunction(Token(1).val.str(), std::stoi(Token(3).val.str()), Token(5).val.str());
       Advance(6);
-      return Success<bool>(true);
+      return Success(true);
     }
     return Failure<bool>(LELA_MSG("Invalid sort/var/name/fun declaration"));
   }
@@ -161,7 +172,11 @@ class Parser {
     Result<bool> r;
     while ((r = declaration())) {
     }
-    return !r.unapplicable ? r : Success<bool>(true);
+    if (!r.unapplicable) {
+      return r;
+    } else {
+      return Success(true);
+    }
   }
 
   // term --> x
@@ -172,12 +187,12 @@ class Parser {
     if (Is(Token(0), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredVariable(s); })) {
       Term x = ctx_->LookupVariable(Token(0).val.str());
       Advance(0);
-      return Success(x);
+      return Success(Term(x));
     }
     if (Is(Token(0), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredName(s); })) {
       Term n = ctx_->LookupName(Token(0).val.str());
       Advance(0);
-      return Success(n);
+      return Success(Term(n));
     }
     if (Is(Token(0), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredFunction(s); })) {
       class Symbol s = ctx_->LookupFunction(Token(0).val.str());
@@ -212,10 +227,10 @@ class Parser {
   }
 
   // literal --> term [ '==' | '!=' ] term
-  Result<Literal> literal() {
+  Result<std::unique_ptr<Literal>> literal() {
     Result<Term> lhs = term();
     if (!lhs) {
-      return Failure<Literal>(LELA_MSG("Expected a lhs term"), lhs, DUMMY_LITERAL_);
+      return Failure<std::unique_ptr<Literal>>(LELA_MSG("Expected a lhs term"), lhs);
     }
     bool pos;
     if (Is(Token(0), Token::kEquality) ||
@@ -223,14 +238,14 @@ class Parser {
       pos = Is(Token(0), Token::kEquality);
       Advance(0);
     } else {
-      return Failure<Literal>(LELA_MSG("Expected equality or inequality '=='/'!='"), DUMMY_LITERAL_);
+      return Failure<std::unique_ptr<Literal>>(LELA_MSG("Expected equality or inequality '=='/'!='"));
     }
     Result<Term> rhs = term();
     if (!rhs) {
-      return Failure<Literal>(LELA_MSG("Expected rhs term"), rhs, DUMMY_LITERAL_);
+      return Failure<std::unique_ptr<Literal>>(LELA_MSG("Expected rhs term"), rhs);
     }
     Literal a = pos ? Literal::Eq(lhs.val, rhs.val) : Literal::Neq(lhs.val, rhs.val);
-    return Success<Literal>(a);
+    return Success(std::unique_ptr<Literal>(new Literal(a)));
   }
 
   // kb_clause --> () ;
@@ -244,11 +259,11 @@ class Parser {
     for (int i = 0; (i == 0 && Is(Token(0), Token::kLeftParen)) ||
                     (i >  0 && (Is(Token(0), Token::kComma) || Is(Token(0), Token::kOr))); ++i) {
       Advance(0);
-      Result<Literal> a = literal();
+      Result<std::unique_ptr<Literal>> a = literal();
       if (!a) {
         return Failure<bool>(LELA_MSG("Expected literal"), a);
       }
-      ls.push_back(a.val);
+      ls.push_back(*a.val);
     }
     if (!Is(Token(0), Token::kRightParen)) {
       return Failure<bool>(LELA_MSG("Expected right parenthesis ')'"));
@@ -267,7 +282,7 @@ class Parser {
       return Failure<bool>(LELA_MSG("KB clause "+ ss.str() +" must only contain ewff/quasiprimitive literals"));
     }
     ctx_->AddClause(c);
-    return Success<bool>(true);
+    return Success(true);
   }
 
   // kb_clauses --> kb_clause*
@@ -275,7 +290,11 @@ class Parser {
     Result<bool> r;
     while ((r = kb_clause())) {
     }
-    return !r.unapplicable ? r : Success<bool>(true);
+    if (!r.unapplicable) {
+      return r;
+    } else {
+      return Success(true);
+    }
   }
 
   // primary_formula --> ! primary_formula
@@ -284,37 +303,37 @@ class Parser {
   //                  |  ( formula )
   //                  |  abbreviation
   //                  |  literal
-  Result<Formula> primary_formula(int binary_connective_recursion = 0) {
+  Result<Formula::Ref> primary_formula(int binary_connective_recursion = 0) {
     if (Is(Token(0), Token::kNot)) {
       Advance(0);
-      Result<Formula> phi = primary_formula();
+      Result<Formula::Ref> phi = primary_formula();
       if (!phi) {
-        return Failure<Formula>(LELA_MSG("Expected a primary formula within negation"), phi, DUMMY_FORMULA_);
+        return Failure<Formula::Ref>(LELA_MSG("Expected a primary formula within negation"), phi);
       }
-      return Success<Formula>(Formula::Not(phi.val));
+      return Success(Formula::Not(std::move(phi.val)));
     }
     if (Is(Token(0), Token::kExists) || Is(Token(0), Token::kForall)) {
       bool ex = Is(Token(0), Token::kExists);
       Advance(0);
       Result<Term> x = term();
       if (!x.val.variable()) {
-        return Failure<Formula>(LELA_MSG("Expected variable in quantifier"), x, DUMMY_FORMULA_);
+        return Failure<Formula::Ref>(LELA_MSG("Expected variable in quantifier"), x);
       }
-      Result<Formula> phi = primary_formula();
+      Result<Formula::Ref> phi = primary_formula();
       if (!phi) {
-        return Failure<Formula>(LELA_MSG("Expected primary formula within quantifier"), phi, DUMMY_FORMULA_);
+        return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within quantifier"), phi);
       }
-      return Success<Formula>(ex ? Formula::Exists(x.val, phi.val)
-                                 : Formula::Not(Formula::Exists(x.val, Formula::Not(phi.val))));
+      return Success(ex ? Formula::Exists(x.val, std::move(phi.val))
+                        : Formula::Not(Formula::Exists(x.val, Formula::Not(std::move(phi.val)))));
     }
     if (Is(Token(0), Token::kLeftParen)) {
       Advance(0);
-      Result<Formula> phi = formula();
+      Result<Formula::Ref> phi = formula();
       if (!phi) {
-        return Failure<Formula>(LELA_MSG("Expected formula within brackets"), phi, DUMMY_FORMULA_);
+        return Failure<Formula::Ref>(LELA_MSG("Expected formula within brackets"), phi);
       }
       if (!Is(Token(0), Token::kRightParen)) {
-        return Failure<Formula>(LELA_MSG("Expected closing right parenthesis ')'"), DUMMY_FORMULA_);
+        return Failure<Formula::Ref>(LELA_MSG("Expected closing right parenthesis ')'"));
       }
       Advance(0);
       return phi;
@@ -322,52 +341,52 @@ class Parser {
     if (Is(Token(0), Token::kIdentifier) && ctx_->IsRegisteredFormula(Token(0).val.str())) {
       std::string id = Token(0).val.str();
       Advance(0);
-      return Success<Formula>(ctx_->LookupFormula(id));
+      return Success(ctx_->LookupFormula(id).Clone());
     }
-    Result<Literal> a = literal();
+    Result<std::unique_ptr<Literal>> a = literal();
     if (a) {
-      return Success<Formula>(Formula::Clause(Clause{a.val}));
+      return Success(Formula::Atomic(Clause{*a.val}));
     }
-    return Failure<Formula>("Expected formula", DUMMY_FORMULA_);
+    return Failure<Formula::Ref>("Expected formula");
   }
 
   // conjunctive_formula --> primary_formula && primary_formula
-  Result<Formula> conjunctive_formula() {
-    Result<Formula> phi = primary_formula();
+  Result<Formula::Ref> conjunctive_formula() {
+    Result<Formula::Ref> phi = primary_formula();
     if (!phi) {
-      return Failure<Formula>(LELA_MSG("Expected left conjunctive formula"), phi, DUMMY_FORMULA_);
+      return Failure<Formula::Ref>(LELA_MSG("Expected left conjunctive formula"), phi);
     }
     while (Is(Token(0), Token::kAnd)) {
       Advance(0);
-      Result<Formula> psi = primary_formula();
+      Result<Formula::Ref> psi = primary_formula();
       if (!psi) {
-        return Failure<Formula>(LELA_MSG("Expected left conjunctive formula"), psi, DUMMY_FORMULA_);
+        return Failure<Formula::Ref>(LELA_MSG("Expected left conjunctive formula"), psi);
       }
-      phi = Success<Formula>(Formula::Not(Formula::Or(Formula::Not(phi.val),
-                                                      Formula::Not(psi.val))));
+      phi = Success(Formula::Not(Formula::Or(Formula::Not(std::move(phi.val)),
+                                             Formula::Not(std::move(psi.val)))));
     }
     return phi;
   }
 
   // disjunctive_formula --> conjunctive_formula || conjunctive_formula
-  Result<Formula> disjunctive_formula() {
-    Result<Formula> phi = conjunctive_formula();
+  Result<Formula::Ref> disjunctive_formula() {
+    Result<Formula::Ref> phi = conjunctive_formula();
     if (!phi) {
-      return Failure<Formula>(LELA_MSG("Expected left argument conjunctive formula"), phi, DUMMY_FORMULA_);
+      return Failure<Formula::Ref>(LELA_MSG("Expected left argument conjunctive formula"), phi);
     }
     while (Is(Token(0), Token::kOr)) {
       Advance(0);
-      Result<Formula> psi = conjunctive_formula();
+      Result<Formula::Ref> psi = conjunctive_formula();
       if (!psi) {
-        return Failure<Formula>(LELA_MSG("Expected right argument conjunctive formula"), psi, DUMMY_FORMULA_);
+        return Failure<Formula::Ref>(LELA_MSG("Expected right argument conjunctive formula"), psi);
       }
-      phi = Success<Formula>(Formula::Or(phi.val, psi.val));
+      phi = Success(Formula::Or(std::move(phi.val), std::move(psi.val)));
     }
     return phi;
   }
 
   // formula --> disjunctive_formula
-  Result<Formula> formula() {
+  Result<Formula::Ref> formula() {
     return disjunctive_formula();
   }
 
@@ -386,7 +405,7 @@ class Parser {
       return Failure<bool>(LELA_MSG("Expected assignment operator ':='"));
     }
     Advance(0);
-    const Result<Formula> phi = formula();
+    const Result<Formula::Ref> phi = formula();
     if (!phi) {
       return Failure<bool>(LELA_MSG("Expected formula"), phi);
     }
@@ -394,8 +413,8 @@ class Parser {
       return Failure<bool>(LELA_MSG("Expected end of line ';'"));
     }
     Advance(0);
-    ctx_->RegisterFormula(id, phi.val);
-    return Success<bool>(true);
+    ctx_->RegisterFormula(id, *phi.val);
+    return Success(true);
   }
 
   // abbreviations --> abbreviation*
@@ -403,7 +422,11 @@ class Parser {
     Result<bool> r;
     while ((r = abbreviation())) {
     }
-    return !r.unapplicable ? r : Success<bool>(true);
+    if (!r.unapplicable) {
+      return r;
+    } else {
+      return Success(true);
+    }
   }
 
   // query --> Entails(k, formula) | Consistent(k, formula)
@@ -427,7 +450,7 @@ class Parser {
       return Failure<bool>(LELA_MSG("Expected comma ';'"));
     }
     Advance(0);
-    Result<Formula> phi = formula();
+    Result<Formula::Ref> phi = formula();
     if (!phi) {
       return Failure<bool>(LELA_MSG("Expected query formula"));
     }
@@ -439,15 +462,15 @@ class Parser {
       return Failure<bool>(LELA_MSG("Expected end of line ';'"));
     }
     Advance(0);
-    const Formula phi_nf = phi.val.reader().NF();
+    const Formula::Ref phi_nf = phi.val->NF(ctx_->sf(), ctx_->tf());
     if (entailment) {
-      const bool r = ctx_->solver()->Entails(k, phi_nf.reader());
-      ctx_->logger()(Logger::EntailmentData(k, &ctx_->solver()->setup(), phi_nf, r));
-      return Success<bool>(r);
+      const bool r = ctx_->solver()->Entails(k, *phi_nf);
+      ctx_->logger()(Logger::EntailmentData(k, &ctx_->solver()->setup(), *phi_nf, r));
+      return Success(bool(r));
     } else {
-      const bool r = ctx_->solver()->Consistent(k, phi_nf.reader());
-      ctx_->logger()(Logger::ConsistencyData(k, &ctx_->solver()->setup(), phi_nf, r));
-      return Success<bool>(r);
+      const bool r = ctx_->solver()->Consistent(k, *phi_nf);
+      ctx_->logger()(Logger::ConsistencyData(k, &ctx_->solver()->setup(), *phi_nf, r));
+      return Success(bool(r));
     }
   }
 
@@ -458,7 +481,11 @@ class Parser {
     while ((r = query())) {
       all &= r.val;
     }
-    return !r.unapplicable ? r : Success<bool>(all);
+    if (!r.unapplicable) {
+      return r;
+    } else {
+      return Success(bool(all));
+    }
   }
 
   // assertion_refutation --> Assert query | Refute query
@@ -474,7 +501,11 @@ class Parser {
     if (!r) {
       return Failure<bool>(LELA_MSG("Expected formula"), r);
     }
-    return r.val == pos ? Success<bool>(true) : failure;
+    if (r.val == pos) {
+      return Success(true);
+    } else {
+      return failure;
+    }
   }
 
   // assertions_refutations --> assertion_refutation*
@@ -484,7 +515,11 @@ class Parser {
     while ((r = assertion_refutation())) {
       all &= r.val;
     }
-    return !r.unapplicable ? r : Success<bool>(all);
+    if (!r.unapplicable) {
+      return r;
+    } else {
+      return Success(bool(all));
+    }
   }
 
   // start --> declarations kb_clauses
@@ -517,7 +552,7 @@ class Parser {
     std::stringstream ss;
     using lela::format::output::operator<<;
     ss << Token(0) << " " << Token(1) << " " << Token(2);
-    return !Token(0) ? Success<bool>(true) : Failure<bool>(LELA_MSG("Unparsed input "+ ss.str()));
+    return !Token(0) ? Success(true) : Failure<bool>(LELA_MSG("Unparsed input "+ ss.str()));
   }
 
   bool Is(const lela::internal::Maybe<Token>& symbol, Token::Id id) const {
@@ -561,9 +596,6 @@ class Parser {
   iterator end_;
   Context<LogPredicate>* ctx_;
   LogPredicate log_;
-  const Literal DUMMY_LITERAL_ = Literal::Eq(ctx_->tf()->CreateTerm(ctx_->sf()->CreateName(0)),
-                                             ctx_->tf()->CreateTerm(ctx_->sf()->CreateName(0)));
-  const Formula DUMMY_FORMULA_ = Formula::Clause(Clause{});
 };
 
 }  // namespace pdl

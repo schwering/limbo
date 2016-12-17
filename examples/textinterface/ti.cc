@@ -122,16 +122,16 @@ struct Logger : public lela::format::pdl::Logger {
     std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl;
   }
   void operator()(const RegisterFormulaData& d) const {
-    std::cerr << "Registered formula " << d.id << " as " << d.phi << std::endl;
+    std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl;
   }
   void operator()(const AddClauseData& d) const {
     std::cerr << "Added clause " << d.c << std::endl;
   }
   void operator()(const EntailmentData& d) const {
-    std::cout << "Entails(" << d.k << ", " << d.phi << ") = " << std::boolalpha << d.yes << std::endl;
+    std::cout << "Entails(" << d.k << ", " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl;
   }
   void operator()(const ConsistencyData& d) const {
-    std::cout << "Consistent(" << d.k << ", " << d.phi << ") = " << std::boolalpha << d.yes << std::endl;
+    std::cout << "Consistent(" << d.k << ", " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl;
   }
 };
 

@@ -259,43 +259,41 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
   return os;
 }
 
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const Formula::Reader<T>& phi) {
-  switch (phi.head().type()) {
-    case Formula::Element::kClause:
-      os << phi.head().clause().val;
+std::ostream& operator<<(std::ostream& os, const Formula& phi) {
+  switch (phi.type()) {
+    case Formula::kAtomic:
+      os << phi.as_atomic().arg();
       break;
-    case Formula::Element::kNot:
+    case Formula::kNot:
 #ifdef PRINT_ABBREVIATIONS
-      if (phi.arg().head().type() == Formula::Element::kOr &&
-          phi.arg().left().head().type() == Formula::Element::kNot &&
-          phi.arg().right().head().type() == Formula::Element::kNot) {
-        os << '(' << phi.arg().left().arg() << ' ' << "\u2227" << ' ' << phi.arg().right().arg() << ')';
-      } else if (phi.arg().head().type() == Formula::Element::kClause) {
-        const Clause& c = phi.arg().head().clause().val;
+      if (phi.as_not().arg().type() == Formula::kOr &&
+          phi.as_not().arg().as_or().left().type() == Formula::kNot &&
+          phi.as_not().arg().as_or().right().type() == Formula::kNot) {
+        os << '('
+           << phi.as_not().arg().as_or().left().as_not().arg()
+           << ' ' << "\u2227" << ' '
+           << phi.as_not().arg().as_or().right().as_not().arg()
+           << ')';
+      } else if (phi.as_not().arg().type() == Formula::kAtomic) {
+        const Clause& c = phi.as_not().arg().as_atomic().arg();
         print_sequence(os, c.begin(), c.end(), "[", "]", " \u2227 ");
-      } else if (phi.arg().head().type() == Formula::Element::kExists &&
-                 phi.arg().arg().head().type() == Formula::Element::kNot) {
-        os << "\u2200" << phi.arg().head().var().val << phi.arg().arg().arg();
+      } else if (phi.as_not().arg().type() == Formula::kExists &&
+                 phi.as_not().arg().as_exists().arg().type() == Formula::kNot) {
+        os << "\u2200" << phi.as_not().arg().as_exists().x() << phi.as_not().arg().as_exists().arg().as_not().arg();
       } else {
-        os << "\u00AC" << phi.arg();
+        os << "\u00AC" << phi.as_not().arg();
       }
 #else
-      os << "\u00AC" << phi.arg();
+      os << "\u00AC" << phi.as_not().arg();
 #endif
       break;
-    case Formula::Element::kOr:
-      os << '(' << phi.left() << ' ' << "\u2228" << ' ' << phi.right() << ')';
+    case Formula::kOr:
+      os << '(' << phi.as_or().lhs() << ' ' << "\u2228" << ' ' << phi.as_or().rhs() << ')';
       break;
-    case Formula::Element::kExists:
-      os << "\u2203" << phi.head().var().val << phi.arg();
+    case Formula::kExists:
+      os << "\u2203" << phi.as_exists().x() << phi.as_exists().arg();
       break;
   }
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const Formula& phi) {
-  os << phi.reader();
   return os;
 }
 

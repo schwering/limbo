@@ -68,8 +68,7 @@ class Solver {
 
   const Setup& setup() const { return grounder_.Ground(); }
 
-  template<typename T>
-  bool Entails(int k, const Formula::Reader<T>& phi, bool assume_consistent = true) {
+  bool Entails(int k, const Formula& phi, bool assume_consistent = true) {
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
     TermSet split_terms =
@@ -80,13 +79,11 @@ class Solver {
     return s.Subsumes(Clause{}) || ReduceConjunctions(s, split_terms, names, k, phi);
   }
 
-  template<typename T>
-  bool EntailsComplete(int k, const Formula::Reader<T>& phi) {
-    return !Consistent(k, Formula::Not(phi.Build()).reader());
+  bool EntailsComplete(int k, const Formula& phi) {
+    return !Consistent(k, *Formula::Not(phi.Clone()));
   }
 
-  template<typename T>
-  bool Consistent(int k, const Formula::Reader<T>& phi) {
+  bool Consistent(int k, const Formula& phi) {
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
     std::list<LiteralSet> assign_lits = k == 0 ? std::list<LiteralSet>() : grounder_.AssignLiterals();
@@ -103,39 +100,39 @@ class Solver {
   typedef Grounder::LiteralSet LiteralSet;
   typedef Grounder::SortedTermSet SortedTermSet;
 
-  template<typename T>
   bool ReduceConjunctions(const Setup& s,
                           const TermSet& split_terms,
                           const SortedTermSet& names,
                           int k,
-                          const Formula::Reader<T>& phi) {
-    switch (phi.head().type()) {
-      case Formula::Element::kNot: {
-        switch (phi.arg().head().type()) {
-          case Formula::Element::kClause: {
-            const Clause c = phi.arg().head().clause().val;
+                          const Formula& phi) {
+    switch (phi.type()) {
+      case Formula::kNot: {
+        switch (phi.as_not().arg().type()) {
+          case Formula::kAtomic: {
+            const Clause c = phi.as_not().arg().as_atomic().arg();
             return std::all_of(c.begin(), c.end(), [this, &s, &split_terms, &names, k](Literal a) {
               a = a.flip();
-              Formula psi = Formula::Clause(Clause{a});
-              return a.valid() || ReduceConjunctions(s, split_terms, names, k, psi.reader());
+              Formula::Ref psi = Formula::Atomic(Clause{a});
+              return a.valid() || ReduceConjunctions(s, split_terms, names, k, *psi);
             });
           }
-          case Formula::Element::kNot: {
-            return ReduceConjunctions(s, split_terms, names, k, phi.arg().arg());
+          case Formula::kNot: {
+            return ReduceConjunctions(s, split_terms, names, k, phi.as_not().arg().as_not().arg());
           }
-          case Formula::Element::kOr: {
-            Formula left = Formula::Not(phi.arg().left().Build());
-            Formula right = Formula::Not(phi.arg().right().Build());
-            return ReduceConjunctions(s, split_terms, names, k, left.reader()) &&
-                   ReduceConjunctions(s, split_terms, names, k, right.reader());
+          case Formula::kOr: {
+            Formula::Ref left = Formula::Not(phi.as_not().arg().as_or().lhs().Clone());
+            Formula::Ref right = Formula::Not(phi.as_not().arg().as_or().rhs().Clone());
+            return ReduceConjunctions(s, split_terms, names, k, *left) &&
+                   ReduceConjunctions(s, split_terms, names, k, *right);
           }
-          case Formula::Element::kExists: {
-            const Term x = phi.arg().head().var().val;
-            const Formula::Reader<T> psi = phi.arg().arg();
+          case Formula::kExists: {
+            const Term x = phi.as_not().arg().as_exists().x();
+            const Formula& psi = phi.as_not().arg().as_exists().arg();
             const TermSet& ns = names[x.sort()];
             return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &psi, x](const Term n) {
-              Formula xi = Formula::Not(psi.Substitute(Term::SingleSubstitution(x, n), tf()).Build());
-              return ReduceConjunctions(s, split_terms, names, k, xi.reader());
+              Formula::Ref xi = Formula::Not(psi.Clone());
+              xi->SubstituteFree(Term::SingleSubstitution(x, n), tf());
+              return ReduceConjunctions(s, split_terms, names, k, *xi);
             });
           }
           default:
@@ -148,12 +145,11 @@ class Solver {
     }
   }
 
-  template<typename T>
   bool Split(const Setup& s,
              const TermSet& split_terms,
              const SortedTermSet& names,
              int k,
-             const Formula::Reader<T>& phi) {
+             const Formula& phi) {
     if (s.Subsumes(Clause{})) {
       return true;
     } else if (k > 0) {
@@ -172,34 +168,34 @@ class Solver {
     }
   }
 
-  template<typename T>
   bool ReduceDisjunctions(const Setup& s,
                           const std::list<LiteralSet>& assign_lits,
                           const SortedTermSet& names,
                           int k,
-                          const Formula::Reader<T>& phi) {
-    switch (phi.head().type()) {
-      case Formula::Element::kClause: {
+                          const Formula& phi) {
+    switch (phi.type()) {
+      case Formula::kAtomic: {
         return Assign(s, assign_lits, names, k, phi);
       }
-      case Formula::Element::kOr: {
-        Formula::Reader<T> left = phi.left();
-        Formula::Reader<T> right = phi.right();
+      case Formula::kOr: {
+        const Formula& left = phi.as_or().lhs();
+        const Formula& right = phi.as_or().rhs();
         return ReduceDisjunctions(s, assign_lits, names, k, left) ||
                ReduceDisjunctions(s, assign_lits, names, k, right);
       }
-      case Formula::Element::kExists: {
-        const Term x = phi.head().var().val;
+      case Formula::kExists: {
+        const Term x = phi.as_exists().x();
         const TermSet& ns = names[x.sort()];
         return std::any_of(ns.begin(), ns.end(), [this, &s, &assign_lits, &names, k, &phi, x](const Term n) {
-          Formula psi = phi.arg().Substitute(Term::SingleSubstitution(x, n), tf()).Build();
-          return ReduceDisjunctions(s, assign_lits, names, k, psi.reader());
+          Formula::Ref psi = phi.as_exists().arg().Clone();
+          psi->SubstituteFree(Term::SingleSubstitution(x, n), tf());
+          return ReduceDisjunctions(s, assign_lits, names, k, *psi);
         });
       }
-      case Formula::Element::kNot: {
-        switch (phi.arg().head().type()) {
-          case Formula::Element::kNot:
-            return ReduceDisjunctions(s, assign_lits, names, k, phi.arg().arg());
+      case Formula::kNot: {
+        switch (phi.as_not().arg().type()) {
+          case Formula::kNot:
+            return ReduceDisjunctions(s, assign_lits, names, k, phi.as_not().arg().as_not().arg());
           default:
             return Assign(s, assign_lits, names, k, phi);
         }
@@ -207,12 +203,11 @@ class Solver {
     }
   }
 
-  template<typename T>
   bool Assign(const Setup& s,
               const std::list<LiteralSet>& assign_lits,
               const SortedTermSet& names,
               int k,
-              const Formula::Reader<T>& phi) {
+              const Formula& phi) {
     if (k > 0) {
       assert(!assign_lits.empty());
       return std::any_of(assign_lits.begin(), assign_lits.end(),
@@ -232,55 +227,56 @@ class Solver {
     }
   }
 
-  template<typename T>
-  bool Reduce(const Setup& s, const SortedTermSet& names, const Formula::Reader<T>& phi) {
-    switch (phi.head().type()) {
-      case Formula::Element::kClause: {
-        const Clause c = ResolveDeterminedTerms(s, phi.head().clause().val);
+  bool Reduce(const Setup& s, const SortedTermSet& names, const Formula& phi) {
+    switch (phi.type()) {
+      case Formula::kAtomic: {
+        const Clause c = ResolveDeterminedTerms(s, phi.as_atomic().arg());
         return c.valid() || (c.primitive() && s.Subsumes(c));
       }
-      case Formula::Element::kNot: {
-        switch (phi.arg().head().type()) {
-          case Formula::Element::kClause: {
-            const Clause c = phi.arg().head().clause().val;
+      case Formula::kNot: {
+        switch (phi.as_not().arg().type()) {
+          case Formula::kAtomic: {
+            const Clause c = phi.as_not().arg().as_atomic().arg();
             return std::all_of(c.begin(), c.end(), [this, &s, &names](Literal a) {
-              Formula psi = Formula::Clause(Clause{a.flip()});
-              return Reduce(s, names, psi.reader());
+              Formula::Ref psi = Formula::Atomic(Clause{a.flip()});
+              return Reduce(s, names, *psi);
             });
           }
-          case Formula::Element::kNot: {
-            return Reduce(s, names, phi.arg().arg());
+          case Formula::kNot: {
+            return Reduce(s, names, phi.as_not().arg().as_not().arg());
           }
-          case Formula::Element::kOr: {
-            Formula left = Formula::Not(phi.arg().left().Build());
-            Formula right = Formula::Not(phi.arg().right().Build());
-            return Reduce(s, names, left.reader()) &&
-                   Reduce(s, names, right.reader());
+          case Formula::kOr: {
+            Formula::Ref left = Formula::Not(phi.as_not().arg().as_or().lhs().Clone());
+            Formula::Ref right = Formula::Not(phi.as_not().arg().as_or().rhs().Clone());
+            return Reduce(s, names, *left) &&
+                   Reduce(s, names, *right);
           }
-          case Formula::Element::kExists: {
-            const Term x = phi.arg().head().var().val;
-            const Formula::Reader<T> psi = phi.arg().arg();
+          case Formula::kExists: {
+            const Term x = phi.as_not().arg().as_exists().x();
+            const Formula& psi = phi.as_not().arg().as_exists().arg();
             const TermSet& ns = names[x.sort()];
             return std::all_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
-              Formula xi = Formula::Not(psi.Substitute(Term::SingleSubstitution(x, n), tf()).Build());
-              return Reduce(s, names, xi.reader());
+              Formula::Ref xi = Formula::Not(psi.Clone());
+              xi->SubstituteFree(Term::SingleSubstitution(x, n), tf());
+              return Reduce(s, names, *xi);
             });
           }
         }
       }
-      case Formula::Element::kOr: {
-        Formula::Reader<T> left = phi.left();
-        Formula::Reader<T> right = phi.right();
+      case Formula::kOr: {
+        const Formula& left = phi.as_or().lhs();
+        const Formula& right = phi.as_or().rhs();
         return Reduce(s, names, left) ||
                Reduce(s, names, right);
       }
-      case Formula::Element::kExists: {
-        const Term x = phi.head().var().val;
-        const Formula::Reader<T> psi = phi.arg();
+      case Formula::kExists: {
+        const Term x = phi.as_exists().x();
+        const Formula& psi = phi.as_exists().arg();
         const TermSet& ns = names[x.sort()];
         return std::any_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
-          Formula xi = psi.Substitute(Term::SingleSubstitution(x, n), tf()).Build();
-          return Reduce(s, names, xi.reader());
+          Formula::Ref xi = psi.Clone();
+          xi->SubstituteFree(Term::SingleSubstitution(x, n), tf());
+          return Reduce(s, names, *xi);
         });
       }
     }

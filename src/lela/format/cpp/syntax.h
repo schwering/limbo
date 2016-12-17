@@ -42,11 +42,29 @@ class HiLiteral : public Literal {
   explicit HiLiteral(Literal t) : Literal(t) {}
 };
 
-class HiFormula : public Formula {
+class HiFormula {
  public:
-  HiFormula(HiLiteral a) : HiFormula(Clause({a})) {}  // NOLINT
-  HiFormula(const lela::Clause& c) : HiFormula(Formula::Clause(c)) {}  // NOLINT
-  HiFormula(const Formula& phi) : Formula(phi) {}  // NOLINT
+  HiFormula(HiLiteral a) : HiFormula(Clause({a})) {}
+  HiFormula(const lela::Clause& c) : HiFormula(Formula::Atomic(c)) {}
+  HiFormula(const Formula::Ref& phi) : HiFormula(*phi) {}
+  HiFormula(const Formula& phi) : phi_(phi.Clone()) {}
+
+  operator       Formula::Ref&()       { return phi_; }
+  operator const Formula::Ref&() const { return phi_; }
+
+  operator       Formula&()       { return phi(); }
+  operator const Formula&() const { return phi(); }
+
+        Formula& phi()       { return *phi_; }
+  const Formula& phi() const { return *phi_; }
+
+        Formula::Ref& operator->()       { return phi_; }
+  const Formula::Ref& operator->() const { return phi_; }
+
+  Formula::Ref operator*() { return std::move(phi_); }
+
+ private:
+  Formula::Ref phi_;
 };
 
 class Context {
@@ -81,9 +99,9 @@ class Context {
 inline HiLiteral operator==(HiTerm t1, HiTerm t2) { return HiLiteral(Literal::Eq(t1, t2)); }
 inline HiLiteral operator!=(HiTerm t1, HiTerm t2) { return HiLiteral(Literal::Neq(t1, t2)); }
 
-inline HiFormula operator~(const HiFormula& phi) { return Formula::Not(phi); }
+inline HiFormula operator~(const HiFormula& phi) { return Formula::Not(phi.phi().Clone()); }
 inline HiFormula operator!(const HiFormula& phi) { return ~phi; }
-inline HiFormula operator||(const HiFormula& phi, const HiFormula& psi) { return Formula::Or(phi, psi); }
+inline HiFormula operator||(const HiFormula& phi, const HiFormula& psi) { return Formula::Or(phi.phi().Clone(), psi.phi().Clone()); }
 inline HiFormula operator&&(const HiFormula& phi, const HiFormula& psi) { return ~(~phi || ~psi); }
 
 inline HiFormula operator>>(const HiFormula& phi, const HiFormula& psi) { return (~phi || psi); }
@@ -91,7 +109,7 @@ inline HiFormula operator<<(const HiFormula& phi, const HiFormula& psi) { return
 
 inline HiFormula operator==(const HiFormula& phi, const HiFormula& psi) { return (phi >> psi) && (phi << psi); }
 
-inline HiFormula Ex(HiTerm x, const HiFormula& phi) { return Formula::Exists(x, phi); }
+inline HiFormula Ex(HiTerm x, const HiFormula& phi) { return Formula::Exists(x, phi.phi().Clone()); }
 inline HiFormula Fa(HiTerm x, const HiFormula& phi) { return ~Ex(x, ~phi); }
 
 }  // namespace cpp
