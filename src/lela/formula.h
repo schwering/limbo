@@ -473,8 +473,7 @@ Formula::Ref Formula::Atomic::Flatten(Symbol::Factory* sf, Term::Factory* tf) co
   LiteralSet queue(arg().begin(), arg().end());
   TermMap term_to_var;
   for (Literal a : queue) {
-    if (a.quasiprimitive() && a.rhs().variable()) {
-      assert(a.lhs().function());
+    if (!a.pos() && a.lhs().function() && a.rhs().variable()) {
       term_to_var[a.rhs()] = a.lhs();
     }
   }
