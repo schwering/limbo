@@ -484,7 +484,7 @@ Formula::Ref Formula::Atomic::Flatten(Symbol::Factory* sf, Term::Factory* tf) co
     auto it = queue.begin();
     Literal a = *it;
     queue.erase(it);
-    if (a.quasiprimitive()) {
+    if (a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function())) {
       lits.insert(a);
     } else if (a.rhs().function()) {
       assert(a.lhs().function());

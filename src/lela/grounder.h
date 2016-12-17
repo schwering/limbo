@@ -86,7 +86,7 @@ class Grounder {
 
   void AddClause(const Clause& c) {
     assert(std::all_of(c.begin(), c.end(),
-                       [](Literal a) { return a.quasiprimitive() || !(a.lhs().function() && a.rhs().function()); }));
+                       [](Literal a) { return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
     if (c.valid()) {
       return;
     }
