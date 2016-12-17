@@ -100,7 +100,6 @@ class Grounder {
   void PrepareForQuery(std::size_t k, const Formula& phi) {
     names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, phi));
     names_changed_ |= AddPlusNames(PlusNames(phi));
-    names_changed_ |= AddPlusNames(PlusSplitNames(k, phi));
     AddSplitTerms(SplitTerms(k, phi));
     AddAssignLiterals(AssignLiterals(k, phi));
   }
@@ -384,38 +383,6 @@ class Grounder {
         }
         break;
     }
-  }
-
-  static PlusMap PlusSplitNames(std::size_t k, const Formula& phi) {
-    // When a term t only occurs in the form of literals (t = n), (t = x), or
-    // their duals and negations, then splitting does not necessitate an
-    // additional name. However, when t is an argument of another term or when
-    // it occurs in literals of the form (t = t') or its dual or negation, then
-    // we might need a name for every split.
-    // Note that in general we really need k plus names. For instance,
-    // (c = d) is not valid. To see that for k >= 2, splitting needs to consider
-    // at least 2 <= k names, not just one.
-    PlusMap plus;
-    phi.Traverse([&plus, k](Literal a) {
-      auto f = [&plus, k](Term t) {
-        if (t.function()) {
-          plus[t.sort()] = k;
-        }
-        return true;
-      };
-      if (a.lhs().function() && a.rhs().function()) {
-        f(a.lhs());
-        f(a.rhs());
-      }
-      for (Term t : a.lhs().args()) {
-        t.Traverse(f);
-      }
-      for (Term t : a.rhs().args()) {
-        t.Traverse(f);
-      }
-      return true;
-    });
-    return plus;
   }
 
   TermSet SplitTerms(std::size_t k, const Formula& phi) {
