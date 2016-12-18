@@ -42,7 +42,12 @@ KB (siblings(Mia, Frank) == T || siblings(Mary, Fred) == T);
 // mother must be Mary. Mary is also Sonny's mother, so they're siblings.
 // If Mary and Fred are siblings, they cannot have Sonny together, so Sonny's
 // father must be Frank. Frank is also Sally's father, so they're siblings.
-Entails (0, siblings(Sally, Sonny) == T);
-Entails (1, siblings(Sally, Sonny) == T);
-Entails (2, siblings(Sally, Sonny) == T);
+Refute Entails (0, siblings(Sally, Sonny) == T);
+Assert Entails (1, siblings(Sally, Sonny) == T);
+
+Assert Entails (0, Fa x siblings(motherOf(x), fatherOf(x)) != T);
+Assert Entails (0, ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(y,z) != T));
+// Requires reflexivity of siblings/2:
+Refute Entails (0, ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(z,y) != T));
+Assert Entails (1, ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(z,y) != T));
 
