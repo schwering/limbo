@@ -267,12 +267,12 @@ std::ostream& operator<<(std::ostream& os, const Formula& phi) {
     case Formula::kNot:
 #ifdef PRINT_ABBREVIATIONS
       if (phi.as_not().arg().type() == Formula::kOr &&
-          phi.as_not().arg().as_or().left().type() == Formula::kNot &&
-          phi.as_not().arg().as_or().right().type() == Formula::kNot) {
+          phi.as_not().arg().as_or().lhs().type() == Formula::kNot &&
+          phi.as_not().arg().as_or().rhs().type() == Formula::kNot) {
         os << '('
-           << phi.as_not().arg().as_or().left().as_not().arg()
+           << phi.as_not().arg().as_or().lhs().as_not().arg()
            << ' ' << "\u2227" << ' '
-           << phi.as_not().arg().as_or().right().as_not().arg()
+           << phi.as_not().arg().as_or().rhs().as_not().arg()
            << ')';
       } else if (phi.as_not().arg().type() == Formula::kAtomic) {
         const Clause& c = phi.as_not().arg().as_atomic().arg();

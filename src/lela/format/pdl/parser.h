@@ -12,6 +12,7 @@
 #include <cassert>
 
 #include <iostream>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -30,7 +31,13 @@ namespace pdl {
 #define LELA_S(x)          #x
 #define LELA_S_(x)         LELA_S(x)
 #define LELA_STR__LINE__   LELA_S_(__LINE__)
-#define LELA_MSG(msg)      (std::string(__FUNCTION__) +":"+ LELA_STR__LINE__ +": "+ msg)
+#define LELA_MSG(msg)      (std::string(msg) +" (at "+ __FUNCTION__ +"():"+ LELA_STR__LINE__ +")")
+
+namespace {
+  static const size_t kErrorMsgWidth = std::max(std::max(std::string("Unapplicable: ").length(),
+                                                         std::string("Failure: ").length()),
+                                                         std::string("because ").length());
+}
 
 template<typename ForwardIt, typename LogPredicate>
 class Parser {
@@ -61,11 +68,11 @@ class Parser {
     std::string to_string() const {
       std::stringstream ss;
       if (ok) {
-        ss << "Success(" << val << ")";
-      } else if (unapplicable) {
-        ss << "Unapplicable(" << msg << ", \"" << std::string(begin(), end()) << "\")";
+        ss << "Success: " << val;
       } else {
-        ss << "Failure(" << msg << ", \"" << std::string(begin(), end()) << "\")";
+        ss << std::setw(kErrorMsgWidth) << std::left << (unapplicable ? "Unapplicable:" : "Failure:");
+        ss << msg << std::endl;
+        ss << "At rest of input: \"" << std::string(begin(), end()) << "\"";
       }
       return ss.str();
     }
@@ -109,12 +116,14 @@ class Parser {
 
   template<typename T, typename U>
   static Result<T> Failure(const std::string& msg, const Result<U>& r) {
-    return Result<T>(false, msg + " [because] " + r.msg, r.begin(), r.end());
+    std::stringstream ss;
+    ss << msg << std::endl << std::setw(kErrorMsgWidth) << std::left << "because:" << r.msg;
+    return Result<T>(false, ss.str(), r.begin(), r.end());
   }
 
   template<typename T>
   Result<T> Unapplicable(const std::string& msg) const {
-    return Result<T>(true, msg, begin().char_iter(), end().char_iter());
+    return Result<T>(true, "\t" + msg, begin().char_iter(), end().char_iter());
   }
 
   // declaration --> sort <sort-id> ;
@@ -223,7 +232,7 @@ class Parser {
       }
       return Success(ctx_->tf()->CreateTerm(s, args));
     }
-    return Failure<Term>(LELA_MSG("Expected a term"));
+    return Failure<Term>(LELA_MSG("Expected a declared variable/name/function identifier"));
   }
 
   // literal --> term [ '==' | '!=' ] term
@@ -267,6 +276,9 @@ class Parser {
       bool ex = Is(Token(0), Token::kExists);
       Advance(0);
       Result<Term> x = term();
+      if (!x) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected variable in quantifier"), x);
+      }
       if (!x.val.variable()) {
         return Failure<Formula::Ref>(LELA_MSG("Expected variable in quantifier"), x);
       }
@@ -295,10 +307,10 @@ class Parser {
       return Success(ctx_->LookupFormula(id).Clone());
     }
     Result<std::unique_ptr<Literal>> a = literal();
-    if (a) {
-      return Success(Formula::Atomic(Clause{*a.val}));
+    if (!a) {
+      return Failure<Formula::Ref>(LELA_MSG("Expected literal"), a);
     }
-    return Failure<Formula::Ref>("Expected formula");
+    return Success(Formula::Atomic(Clause{*a.val}));
   }
 
   // conjunctive_formula --> primary_formula [ && primary_formula ]*

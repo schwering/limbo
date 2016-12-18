@@ -74,8 +74,10 @@ TEST(Formula, NF) {
     Formula::Ref phi_nf = phi->NF(ctx.sf(), ctx.tf());
     Term x_tmp1 = (*phi_nf).as_not().arg().as_exists().arg().as_not().arg().as_exists().x();
     Term x_tmp2 = (*phi_nf).as_not().arg().as_exists().arg().as_not().arg().as_exists().arg().as_exists().x();
-    auto phi_nf_exp = [&](Term x_tmp1, Term x_tmp2) {
-      return Formula::Not(Formula::Exists(x, Formula::Not(Formula::Exists(x_tmp1, Formula::Exists(x_tmp2, Formula::Not(
+    auto phi_nf_exp = [&](bool flip, Term x_tmp1, Term x_tmp2) {
+      return Formula::Not(Formula::Exists(x, Formula::Not(Formula::Exists(flip ? x_tmp1 : x_tmp2,
+                              Formula::Exists(flip ? x_tmp2 : x_tmp1,
+                              Formula::Not(
                               Formula::Atomic(Clause{
                                               Literal::Neq(tf.CreateTerm(IsParentOf, {x_tmp2, x}), True),
                                               Literal::Neq(tf.CreateTerm(IsParentOf, {x_tmp1, x}), True),
@@ -83,7 +85,8 @@ TEST(Formula, NF) {
                                               Literal::Neq(tf.CreateTerm(Mother, {x}), x_tmp2)
                                               })))))));
     };
-    EXPECT_TRUE(*phi_nf == *phi_nf_exp(x_tmp1, x_tmp2) || *phi_nf == *phi_nf_exp(x_tmp2, x_tmp1));
+    EXPECT_TRUE(*phi_nf == *phi_nf_exp(true,  x_tmp1, x_tmp2) || *phi_nf == *phi_nf_exp(true,  x_tmp2, x_tmp1) ||
+                *phi_nf == *phi_nf_exp(false, x_tmp1, x_tmp2) || *phi_nf == *phi_nf_exp(false, x_tmp2, x_tmp1));
   }
   {
     Formula::Ref phi = *Fa(x, IsParentOf(x, y) == True && IsParentOf(Father(x), x) == True);

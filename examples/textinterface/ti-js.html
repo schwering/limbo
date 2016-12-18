@@ -10,6 +10,7 @@
     <style type="text/css">
         body { font-family: 'Open Sans', sans-serif; font-size: 140%; }
         p { text-align: justify; }
+        i { font-weight: 600; font-style: normal; }
 
         h1       { font-size: 220%; }
         h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
@@ -260,8 +261,8 @@ Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.
 <p>A problem description consists of four parts:</p>
 <ol>
     <li> declarations of sorts, variables, standard names, and functions; </li>
-    <li> the knowledge definition; </li>
     <li> optional abbreviations for formulas; </li>
+    <li> the knowledge definition; </li>
     <li> entailment and/or consistency queries. </li>
 </ol>
 <p>
@@ -273,32 +274,42 @@ All sorts, variables, names, and function symbols must be declared before they a
 They are of the following form:
 </p>
 <ul class="grammar">
-    <li><span class="code">Sort <span class="metavariable">sort-id</span>;</span>
-    <li><span class="code">Variable <span class="metavariable">id</span> -&gt; <span class="metavariable">sort-id</span>;</span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code">Var <span class="metavariable">id</span> -&gt; <span class="metavariable">sort-id</span>;</span></li>
-    <li><span class="code">Name <span class="metavariable">id</span> -&gt; <span class="metavariable">sort-id</span>;</span></li>
-    <li><span class="code">Function <span class="metavariable">id</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort-id</span>;</span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code">Fun <span class="metavariable">id</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort-id</span>;</span></li>
+    <li><span class="code">Sort <span class="metavariable">sort</span>;</span>
+    <li><span class="code">Variable <span class="metavariable">x</span> -&gt; <span class="metavariable">sort</span>;</span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code">Var <span class="metavariable">x</span> -&gt; <span class="metavariable">sort</span>;</span></li>
+    <li><span class="code">Name <span class="metavariable">n</span> -&gt; <span class="metavariable">sort</span>;</span></li>
+    <li><span class="code">Function <span class="metavariable">f</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort</span>;</span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code">Fun <span class="metavariable">f</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort</span>;</span></li>
 </ul>
 <p>
-where <span class="metavariable">sort-id</span> and <span class="metavariable">id</span> are identifiers and <span class="metavariable">arity</span> &ge; 0 is a number.
-Sort identifiers must be declared before they are used in variable, name, or function declarations.
-Sort identifiers cannot be declared twice.
-Variable, name, and function identifiers cannot be declared twice.
+where <span class="metavariable">sort</span>, <span class="metavariable">x</span>, <span class="metavariable">n</span>, <span class="metavariable">f</span> are identifiers and <span class="metavariable">arity</span> is a natural number &ge; 0.
 An identifier is a sequence of lower- and upper-case letters, digits, underscore and dash symbols, with the first symbol being a letter or underscore.
+Sort identifiers must be declared before they are used in variable, name, or function declarations.
+No two sorts can have the same identifier.
+No two variables, names, or functions can have the same identifier.
 </p>
 
 <p>
-The knowledge base consists of a sequence of clauses, each of which is written (synonymously) as
-</p>
+The set of formulas includes literals, negated formulas, disjunctions, conjunctions, implications, equivalences, and existentially and universally quantified formulas, formulas in brackets, and abbreviations:
 <ul class="grammar">
-    <li><span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>);</span>
-        <span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span> | <span class="metavariable">...</span> | <span class="metavariable">literal<sub>k</sub></span>);</span>
-        &nbsp;&nbsp;or&nbsp;&nbsp;
-       <span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span> v <span class="metavariable">...</span> v <span class="metavariable">literal<sub>k</sub></span>);</span></li>
+    <li><span class="code"><span class="metavariable">literal</span></span></li>
+    <li><span class="code">!<span class="metavariable">formula</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code">~<span class="metavariable">formula</span></span></li>
+    <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> &amp;&amp; <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code"><span class="metavariable">formula<sub>1</sub></span> &amp; <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code"><span class="metavariable">formula<sub>1</sub></span> ^ <span class="metavariable">formula<sub>2</sub></span></span></li>
+    <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code"><span class="metavariable">formula<sub>1</sub></span> | <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code"><span class="metavariable">formula<sub>1</sub></span> v <span class="metavariable">formula<sub>2</sub></span></span></li>
+    <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> -&gt; <span class="metavariable">formula<sub>2</sub></span></span></li>
+    <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> &lt;-&gt; <span class="metavariable">formula<sub>2</sub></span></span></li>
+    <li><span class="code">Ex <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>
+    <li><span class="code">Fa <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>
+    <li><span class="code">(<span class="metavariable">formula</span>)</span></li>
+    <li><span class="code"><span class="metavariable">formula-id</span></span></li>
 </ul>
 <p>
-where <span class="metavariable">literal<sub>i</sub></span> denotes a literal, which either an equality or an inequality expression:
+where <span class="metavariable">literal</span> denotes a literal, which either an equality or an inequality expression:
 </p>
 <ul class="grammar">
     <li><span class="code"><span class="metavariable">t<sub>1</sub></span> == <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
@@ -308,41 +319,43 @@ where <span class="metavariable">literal<sub>i</sub></span> denotes a literal, w
 </ul>
 <p>
 where <span class="metavariable">t<sub>i</sub></span> is a term.
-A term is either the identifier of a previously declared variable, a standard name, or a function symbol <span class="metavariable">f</span> applied to other terms <span class="metavariable">t'<sub>i</sub></span>, written <span class="code"><span class="metavariable">f</span>(<span class="metavariable">t'<sub>1</sub></span>, <span class="metavariable">...</span>, <span class="metavariable">t'<sub>k</sub></span>)</span>.
+A term is either the identifier of a previously declared variable <span class="metavariable">x</span>, a standard name <span class="metavariable">n</span>, or a compound term <span class="code"><span class="metavariable">f</span>(<span class="metavariable">t'<sub>1</sub></span>, <span class="metavariable">...</span>, <span class="metavariable">t'<sub>k</sub></span>)</span> where a function
+symbol <span class="metavariable">f</span> is applied to other terms <span class="metavariable">t'<sub>i</sub></span>.
 When <span class="metavariable">f</span> is a constant symbol (that is, has arity 0), the brackets may be omitted.
 Variables in the KB are implicitly universally quantified.
 </p>
-
 <p>
-For convenience, abbreviations for formulas can be defined by
+The identifiers of any variables <span class="metavariable">x</span>, standard names standard name <span class="metavariable">n</span>, function symbols <span class="metavariable">f</span>, or formula abbreviations <span class="metavariable">formula-id</span> must have been declared before they can be used in formulas.
 </p>
-<ul class="grammar">
-    <li><span class="code">Let <span class="metavariable">id</span> := <span class="metavariable">formula</span>;</span></li>
-</ul>
 <p>
-where <span class="metavariable">id</span> is the identifier by which the formula can later be referred.
-Formula identifiers can be redefined.
+Equivalence binds stronger than implication, implication binds stronger than conjunction, conjunction binds stronger than disjunction, and the scope of negation and quantifiers is minimal.
 </p>
 
 <p>
-The set of formulas includes literals as defined above as well as negated formulas, disjunctions, conjunctions, and existentially and universally quantified formulas, formulas in brackets, and abbreviations:
+Any formula abbreviation <span class="metavariable">formula-id</span> must be defined before use:
+</p>
 <ul class="grammar">
-    <li><span class="code">!<span class="metavariable">formula</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code">~<span class="metavariable">formula</span></span></li>
-    <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> &amp;&amp; <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code"><span class="metavariable">formula<sub>1</sub></span> &amp; <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code"><span class="metavariable">formula<sub>1</sub></span> ^ <span class="metavariable">formula<sub>2</sub></span></span></li>
-    <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code"><span class="metavariable">formula<sub>1</sub></span> | <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code"><span class="metavariable">formula<sub>1</sub></span> v <span class="metavariable">formula<sub>2</sub></span></span></li>
-    <li><span class="code">Ex <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>
-    <li><span class="code">Fa <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>
-    <li><span class="code">(<span class="metavariable">formula</span>)</span></li>
-    <li><span class="code"><span class="metavariable">formula-identifier</span></span></li>
+    <li><span class="code">Let <span class="metavariable">formula-id</span> := <span class="metavariable">formula</span>;</span></li>
 </ul>
 <p>
-where <span class="metavariable">x</span> is the identifier of a previously declared variable and <span class="metavariable">formula-identifier</span> has been introduced in a formula abbreviation.
-Conjunction binds stronger than disjunction, and the scope of negation and quantifiers is minimal.
+where <span class="metavariable">formula-id</span> is the identifier by which the formula can later be referred.
+The same identifier can be used for two different formulas; the semantics is that the latter definition overrides the former.
+</p>
+
+<p>
+The knowledge base consists of a sequence of clauses, each of which is written (synonymously) as
+</p>
+<ul class="grammar">
+    <li><span class="code">KB&nbsp;<span class="metavariable">formula</span>;</span></li>
+</ul>
+<p>
+with the syntactic restriction that the <i>normal form</i> (explained below) of <span class="metavariable">formula</span> is a clause with leading universal quantifiers.
+Furthermore, free variables in <span class="metavariable">formula</span> in KB definitions are implicitly universally quantified.
+The definition of the normal form is tedious, but the idea is this: push negations inwards but not into clauses, and pull quantifiers out of clauses.
+The rationale is to create new clauses (while avoiding the exponential blowup of a full CNF).
+Additionally, terms are flattened so that no two function symbols occur in a any literal.
+For instance, a disjunction <span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>);</span> meets this requirement trivially.
+Implications are also allowed, provided that the negation of the antecedent as well as the consequent meet above form, as does <span class="code">KB&nbsp;(Ex <span class="metavariable">x</span> (<span class="metavariable">literal<sub>1</sub></span> &amp;&amp; <span class="metavariable">literal<sub>k</sub></span>) -&gt; (<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">literal<sub>k</sub></span>));</span>.
 </p>
 
 <p>
@@ -353,9 +366,10 @@ Formulas can be used to query for entailment or consistency:
     <li><span class="code">Consistent&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
 </ul>
 <p>
-where <span class="metavariable">k</span> &ge; 0 is a natural number that denotes the reasoning effort and <span class="metavariable">formula</span> is a formula as defined above.
+where <span class="metavariable">k</span> is a natural number &ge; 0 that denotes the reasoning effort and <span class="metavariable">formula</span> is a formula as defined above.
 Both entailment and consistency queries are sound but incomplete with respect to classical logic.
 The reasoning effort is measured in case splits (a split means to select a term <span class="code">f(n<sub>1</sub>,...,n<sub>l</sub>)</span> and consider all possible denotations of that term) in entailment queries, and as term assignments (an assignment means to select a term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix their denotation) in consistency queries.
+The formula is brought into the <i>normal form</i> described above (roughly: push negations inwards but not inside clauses, pull quantifiers out of clauses, rewrite clauses so no literal contains two functions), which makes life easier for the reasoner.
 </p>
 <p>
 For automated testing, the language supports assertions and refutations:

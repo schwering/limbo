@@ -3,24 +3,10 @@
 //
 // Basic first-order formulas without any syntactic sugar. The atomic entities
 // here are clauses, and the connectives are negation, disjunction, and
-// existential quantifier. Formulas are immutable.
+// existential quantifier.
 //
-// Formulas can be accessed through Readers, which gives access to Element
-// objects, which is either a Clause or a logical operator, which in case of an
-// existential operator is parameterized with a (variable) Term. Readers and
-// Elements are immutable.
-//
-// Substitute() and NF() are only well-behaved when the formula is rectified,
-// that is, every variable is bound exactly by one quantifier. Rectify() can be
-// used to ensure this condition holds.
-//
-// Readers are glorified range objects; their behaviour is only defined while
-// the owning Formula is alive. NF() implements a normal form similar to
-// negation normal form which however preserves clauses (and it turns
-// clauses that are not explicitly represented as such into ones).
-//
-// Internally it's stored in Polish notation as a list of Element objects.
-// Element would be a union if C++ would allow non-trivial types in unions.
+// NF() rectifies a formula (that is, renames variables to make sure no variable
+// occurs freely and bound or bound by two different quantifiers).
 
 #ifndef LELA_FORMULA_H_
 #define LELA_FORMULA_H_
@@ -70,14 +56,10 @@ class Formula {
   virtual Ref Clone() const = 0;
 
   Type type() const { return type_; }
-  bool is_atomic() const { return type_ == kAtomic; }
-  bool is_not() const { return type_ == kNot; }
-  bool is_or() const { return type_ == kOr; }
-  bool is_exists() const { return type_ == kExists; }
 
   const class Atomic& as_atomic() const;
-  const class Not& as_not() const;
-  const class Or& as_or() const;
+  const class Not&    as_not() const;
+  const class Or&     as_or() const;
   const class Exists& as_exists() const;
 
   const TermSet& free_vars() const {
@@ -85,13 +67,6 @@ class Formula {
       free_vars_ = internal::Just(FreeVars());
     }
     return free_vars_.val;
-  }
-
-  const TermSet& sub_terms() const {
-    if (!sub_terms_) {
-      sub_terms_ = internal::Just(SubTerms());
-    }
-    return sub_terms_.val;
   }
 
   template<typename UnaryFunction>
@@ -121,7 +96,7 @@ class Formula {
     Ref c = Clone();
     c->Rectify(sf, tf);
     c = c->Normalize();
-    c = c->Flatten(sf, tf);
+    c = c->Flatten(0, sf, tf);
     return c;
   }
 
@@ -148,6 +123,7 @@ class Formula {
     void prepend_not() { prefix_.push_front(Element{kNot}); }
     void append_not() { prefix_.push_back(Element{kNot}); }
     void prepend_exists(Term x) { prefix_.push_front(Element{kExists, x}); }
+    void append_exists(Term x) { prefix_.push_back(Element{kExists, x}); }
 
     size_t size() const { return prefix_.size(); }
     bool even() const { size_t n = 0; for (const auto& e : prefix_) { if (e.type == kNot) ++n; } return n % 2 == 0; }
@@ -172,7 +148,6 @@ class Formula {
   explicit Formula(Type type) : type_(type) {}
 
   virtual TermSet FreeVars() const = 0;
-  virtual TermSet SubTerms() const = 0;
 
   virtual void ISubstitute(const ISubstitution&, Term::Factory*) = 0;
   virtual void ITraverse(const ITraversal<Term>&)    const = 0;
@@ -188,20 +163,17 @@ class Formula {
     // of the current position.
     Rectify(&tm, sf, tf);
   }
-  virtual void Rectify(TermMap*, Symbol::Factory*, Term::Factory*) = 0;
+  virtual void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) = 0;
 
   virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const = 0;
 
   virtual Ref Normalize() const = 0;
 
-  //virtual Ref Simplify() const = 0;
-
-  virtual Ref Flatten(Symbol::Factory*, Term::Factory*) const = 0;
+  virtual Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const = 0;
 
  private:
   Type type_;
   mutable internal::Maybe<TermSet> free_vars_ = internal::Nothing;
-  mutable internal::Maybe<TermSet> sub_terms_ = internal::Nothing;
 };
 
 class Formula::Atomic : public Formula {
@@ -218,12 +190,6 @@ class Formula::Atomic : public Formula {
   TermSet FreeVars() const override {
     TermSet ts;
     c_.Traverse([&ts](Term x) { if (x.variable()) ts.insert(x); return true; });
-    return ts;
-  }
-
-  TermSet SubTerms() const override {
-    TermSet ts;
-    c_.Traverse([&ts](Term x) { ts.insert(x); return true; });
     return ts;
   }
 
@@ -245,9 +211,9 @@ class Formula::Atomic : public Formula {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
-  Ref Normalize() const override { return Formula::Atomic(c_); }
+  Ref Normalize() const override { return Clone(); }
 
-  Ref Flatten(Symbol::Factory*, Term::Factory*) const override;
+  Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override;
 
  private:
   Clause c_;
@@ -265,7 +231,6 @@ class Formula::Not : public Formula {
 
  protected:
   TermSet FreeVars() const override { return phi_->FreeVars(); }
-  TermSet SubTerms() const override { return phi_->SubTerms(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { phi_->ISubstitute(theta, tf); }
   void ITraverse(const ITraversal<Term>& f)    const override { phi_->ITraverse(f); }
@@ -281,7 +246,9 @@ class Formula::Not : public Formula {
 
   Ref Normalize() const override;
 
-  Ref Flatten(Symbol::Factory* sf, Term::Factory* tf) const override { return Formula::Not(phi_->Flatten(sf, tf)); }
+  Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Formula::Not(phi_->Flatten(nots + 1, sf, tf));
+  }
 
  private:
   Ref phi_;
@@ -308,13 +275,6 @@ class Formula::Or : public Formula {
     return ts1;
   }
 
-  TermSet SubTerms() const override {
-    TermSet ts1 = lhs_->SubTerms();
-    const TermSet ts2 = rhs_->SubTerms();
-    ts1.insert(ts2.begin(), ts2.end());
-    return ts2;
-  }
-
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
     lhs_->ISubstitute(theta, tf);
     rhs_->ISubstitute(theta, tf);
@@ -333,8 +293,8 @@ class Formula::Or : public Formula {
 
   Ref Normalize() const override;
 
-  Ref Flatten(Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Formula::Or(lhs_->Flatten(sf, tf), rhs_->Flatten(sf, tf));
+  Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Formula::Or(lhs_->Flatten(nots, sf, tf), rhs_->Flatten(nots, sf, tf));
   }
 
  private:
@@ -357,7 +317,6 @@ class Formula::Exists : public Formula {
 
  protected:
   TermSet FreeVars() const override { TermSet ts = phi_->FreeVars(); ts.erase(x_); return ts; }
-  TermSet SubTerms() const override { return phi_->SubTerms(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
     theta.Bind(x_);
@@ -386,8 +345,8 @@ class Formula::Exists : public Formula {
 
   Ref Normalize() const override { return Formula::Exists(x_, phi_->Normalize()); }
 
-  Ref Flatten(Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Formula::Exists(x_, phi_->Flatten(sf, tf));
+  Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Formula::Exists(x_, phi_->Flatten(nots, sf, tf));
   }
 
  private:
@@ -425,7 +384,7 @@ Formula::Ref Formula::Not::Normalize() const {
       if (c.unit()) {
         return Formula::Atomic(Clause({c.get(0).flip()}));
       } else {
-        return Formula::Atomic(c);
+        return Clone();
       }
     }
     case kNot:
@@ -468,9 +427,23 @@ Formula::Ref Formula::Or::Normalize() const {
   }
 }
 
-Formula::Ref Formula::Atomic::Flatten(Symbol::Factory* sf, Term::Factory* tf) const {
+Formula::Ref Formula::Atomic::Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const {
+  // The following two expressions are equivalent provided that x1 ... xN do
+  // not occur in t1 ... tN:
+  // (1)  Fa x1 ... Fa xN (t1 != x1 || ... || tN != xN || c)
+  // (2)  Ex x1 ... Ex xN (t1 == x1 && ... && tN == xN && c)
+  // From the reasoner's point of view, (1) is preferable because it's a bigger
+  // clause.
+  // This method generates clauses of the form (1). However, when c is nested in
+  // an odd number of negations, the result is equivalent to (2). In the special
+  // case where c is a unit clause, we can still keep the clausal structure of
+  // the transformed formula. For the following is equivalent: we negate the
+  // literal in the unit clause, apply the transformation to the new unit
+  // clause, and prepend another negation to the transformed formula.
   typedef std::unordered_set<Literal> LiteralSet;
-  LiteralSet queue(arg().begin(), arg().end());
+  bool add_double_negation = nots % 2 == 1 && arg().unit();
+  const Clause c = add_double_negation ? Clause({arg().get(0).flip()}) : arg();
+  LiteralSet queue(c.begin(), c.end());
   TermMap term_to_var;
   for (Literal a : queue) {
     if (!a.pos() && a.lhs().function() && a.rhs().variable()) {
@@ -495,7 +468,7 @@ Formula::Ref Formula::Atomic::Flatten(Symbol::Factory* sf, Term::Factory* tf) co
       } else {
         new_rhs = tf->CreateTerm(sf->CreateVariable(old_rhs.sort()));
         term_to_var[old_rhs] = new_rhs;
-        vars.prepend_exists(new_rhs);
+        vars.append_exists(new_rhs);
       }
       Literal new_a = a.Substitute(Term::SingleSubstitution(old_rhs, new_rhs), tf);
       Literal new_b = Literal::Neq(new_rhs, old_rhs);
@@ -513,7 +486,7 @@ Formula::Ref Formula::Atomic::Flatten(Symbol::Factory* sf, Term::Factory* tf) co
           } else {
             new_arg = tf->CreateTerm(sf->CreateVariable(old_arg.sort()));
             term_to_var[old_arg] = new_arg;
-            vars.prepend_exists(new_arg);
+            vars.append_exists(new_arg);
           }
           Literal new_a = a.Substitute(Term::SingleSubstitution(old_arg, new_arg), tf);
           Literal new_b = Literal::Neq(new_arg, old_arg);
@@ -524,12 +497,16 @@ Formula::Ref Formula::Atomic::Flatten(Symbol::Factory* sf, Term::Factory* tf) co
     }
   }
   assert(lits.size() >= arg().size());
-  assert(std::all_of(lits.begin(), lits.end(), [](Literal a) { return a.quasiprimitive(); }));
-  if (vars.size() > 0) {
-    vars.prepend_not();
+  assert(std::all_of(lits.begin(), lits.end(), [](Literal a) { return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
+  if (vars.size() == 0) {
+    return Clone();
+  } else {
+    if (!add_double_negation) {
+      vars.prepend_not();
+    }
     vars.append_not();
+    return vars.PrependTo(Formula::Atomic(Clause(lits.begin(), lits.end())));
   }
-  return vars.PrependTo(Formula::Atomic(Clause(lits.begin(), lits.end())));
 }
 
 }  // namespace lela
