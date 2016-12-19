@@ -41,26 +41,39 @@
 
         .announcement { font-family: font-family: monospace; font-weight: bold; white-space: pre-wrap; }
         .announcement div { display: inline-block; }
+        .announcement .parse-result,
+        .announcement.failure .parse-remainder { display: block; }
+        .announcement.success .parse-remainder { display: none; }
 
         .announcement .split-level,
-        .announcement .formula { color: black; font-weight: normal; }
+        .announcement .formula,
+        .announcement .parse-result,
+        .announcement .parse-remainder { color: black; font-weight: normal; }
 
         .announcement .split-level::after,
         .announcement .split-level::before,
         .announcement .formula::after,
-        .announcement .formula::before { font-weight: bold; }
+        .announcement .formula::before,
+        .announcement .parse-result::after,
+        .announcement .parse-result::before,
+        .announcement .parse-remainder::after,
+        .announcement .parse-remainder::before { font-weight: bold; }
 
-        .announcement.success *::after, .announcement.success *::before, .announcement.success.overall * { color: green; }
-        .announcement.failure *::after, .announcement.failure *::before, .announcement.failure.overall * { color: red; }
+        .announcement.success *::after, .announcement.success *::before { color: green; }
+        .announcement.failure *::after, .announcement.failure *::before { color: red; }
 
-        .announcement.entailment  .split-level::before { content: "Entails    (" }
-        .announcement.consistency .split-level::before { content: "Consistent (" }
+        .announcement.entailment  .split-level::before { content: "Entails    ("; }
+        .announcement.consistency .split-level::before { content: "Consistent ("; }
 
         .announcement .split-level::after { content: ", " }
         .announcement .result::before { content: ")  \2192  " }
 
         .announcement.success .result::after { content: "success" }
         .announcement.failure .result::after { content: "failure" }
+
+        .announcement.overall.success .parse-result::before { display: block; content: "Success"; }
+        .announcement.overall.failure .parse-result::before { display: block; content: "Failure"; }
+        .announcement.overall.failure .parse-remainder::before { display: block; content: "with remaining input"; }
 
         ul.grammar { list-style-type: none; }
         .code { font-family: monospace; font-weight: bold; }
@@ -169,10 +182,11 @@ function announceConsistency(k, phi, success) {
         '</li>');
 }
 
-function announceResult(success, msg) {
+function announceResult(success, msg, remainder) {
     $('#parse-output').append(
         '<li class="announcement overall '+ resultClass(success)+'">'+
-        '<div class="parser-result">Parser end result: '+ resultLabel(success) +' ('+ msg +')</div>'+
+        '<div class="parse-result">'+ msg +'</div>'+
+        '<div class="parse-remainder">'+ remainder +'</div>'+
         '</li>');
 }
 

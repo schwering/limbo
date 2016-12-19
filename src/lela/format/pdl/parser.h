@@ -31,12 +31,15 @@ namespace pdl {
 #define LELA_S(x)          #x
 #define LELA_S_(x)         LELA_S(x)
 #define LELA_STR__LINE__   LELA_S_(__LINE__)
-#define LELA_MSG(msg)      (std::string(msg) +" (at "+ __FUNCTION__ +"():"+ LELA_STR__LINE__ +")")
+#define LELA_MSG(msg)      (std::string(msg) +" (in rule "+ __FUNCTION__ +":"+ LELA_STR__LINE__ +")")
 
 namespace {
-  static const size_t kErrorMsgWidth = std::max(std::max(std::string("Unapplicable: ").length(),
-                                                         std::string("Failure: ").length()),
-                                                         std::string("because ").length());
+  static const std::string kUnapplicableLabel = std::string("Unappl.: ");
+  static const std::string kFailureLabel = std::string("Failure: ");
+  static const std::string kCausesLabel = std::string("causes: ");
+  static const size_t kErrorMsgWidth = std::max(std::max(kUnapplicableLabel.length(),
+                                                         kFailureLabel.length()),
+                                                         kCausesLabel.length());
 }
 
 template<typename ForwardIt, typename LogPredicate>
@@ -70,12 +73,13 @@ class Parser {
       if (ok) {
         ss << "Success: " << val;
       } else {
-        ss << std::setw(kErrorMsgWidth) << std::left << (unapplicable ? "Unapplicable:" : "Failure:");
         ss << msg << std::endl;
-        ss << "At rest of input: \"" << std::string(begin(), end()) << "\"";
+        ss << "with remaining input: \"" << std::string(begin(), end()) << "\"";
       }
       return ss.str();
     }
+
+    std::string remaining_input() const { return std::string(begin(), end()); }
 
     bool ok;
     T val;
@@ -109,23 +113,29 @@ class Parser {
 
   template<typename T>
   Result<T> Failure(const std::string& msg) const {
-    return Result<T>(false, msg, begin().char_iter(), end().char_iter());
+    std::stringstream ss;
+    ss << std::setw(kErrorMsgWidth) << std::left << kFailureLabel << msg;
+    return Result<T>(false, ss.str(), begin().char_iter(), end().char_iter());
   }
 
   template<typename T>
   Result<T> Failure(const std::string& msg, T&& val) const {
-    return Result<T>(false, msg, begin().char_iter(), end().char_iter(), val);
+    std::stringstream ss;
+    ss << std::setw(kErrorMsgWidth) << std::left << kFailureLabel << msg;
+    return Result<T>(false, ss.str(), begin().char_iter(), end().char_iter(), val);
   }
 
   template<typename T, typename U>
   static Result<T> Failure(const std::string& msg, const Result<U>& r) {
     std::stringstream ss;
-    ss << msg << std::endl << std::setw(kErrorMsgWidth) << std::left << "because:" << r.msg;
+    ss << r.msg << std::endl << std::setw(kErrorMsgWidth) << std::right << kCausesLabel << msg;
     return Result<T>(false, ss.str(), r.begin(), r.end());
   }
 
   template<typename T>
   Result<T> Unapplicable(const std::string& msg) const {
+    std::stringstream ss;
+    ss << std::setw(kErrorMsgWidth) << std::left << kUnapplicableLabel << msg;
     return Result<T>(true, "\t" + msg, begin().char_iter(), end().char_iter());
   }
 
@@ -520,7 +530,7 @@ error:
     Advance(0);
     Result<Formula::Ref> phi = formula();
     if (!phi) {
-      return Failure<bool>(LELA_MSG("Expected query formula"));
+      return Failure<bool>(LELA_MSG("Expected query formula"), phi);
     }
     if (!Is(Token(0), Token::kRightParen)) {
       return Failure<bool>(LELA_MSG("Expected right parenthesis ')'"));
