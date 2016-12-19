@@ -49,53 +49,6 @@ std::ostream& operator<<(std::ostream& os, const Point& p) {
 }
 
 
-namespace util {
-
-template<class T>
-T faculty(T n) {
-  T r = 1;
-  while (n > 0) {
-    r *= n;
-    --n;
-  }
-  return r;
-}
-
-template<class T>
-T choice(T n, T k) {
-  return faculty(n) / faculty(k) / faculty(n - k);
-}
-
-template<class Container, class ConstIterator>
-void Subsets(const ConstIterator first,
-             const ConstIterator last,
-             const size_t n,
-             const Container& current,
-             std::set<Container>* subsets) {
-  if (current.size() == n) {
-    subsets->insert(current);
-    return;
-  }
-  if (first == last ||
-      current.size() + static_cast<ssize_t>(std::distance(first, last)) < n) {
-    return;
-  }
-  Subsets(std::next(first), last, n, current, subsets);
-  Container current1 = current;
-  current1.push_back(*first);
-  Subsets(std::next(first), last, n, current1, subsets);
-}
-
-template<class Container>
-std::set<Container> Subsets(const Container& s, size_t n) {
-  std::set<Container> ss;
-  Subsets(s.begin(), s.end(), n, {}, &ss);
-  return ss;
-}
-
-}  // namespace util
-
-
 class Game {
  public:
   static constexpr int HIT_MINE = -1;

@@ -16,6 +16,38 @@
 #include "game.h"
 #include "timer.h"
 
+namespace util {
+
+template<class Container, class ConstIterator>
+void Subsets(const ConstIterator first,
+             const ConstIterator last,
+             const size_t n,
+             const Container& current,
+             std::set<Container>* subsets) {
+  if (current.size() == n) {
+    subsets->insert(current);
+    return;
+  }
+  if (first == last ||
+      current.size() + static_cast<ssize_t>(std::distance(first, last)) < n) {
+    return;
+  }
+  Subsets(std::next(first), last, n, current, subsets);
+  Container current1 = current;
+  current1.push_back(*first);
+  Subsets(std::next(first), last, n, current1, subsets);
+}
+
+template<class Container>
+std::set<Container> Subsets(const Container& s, size_t n) {
+  std::set<Container> ss;
+  Subsets(s.begin(), s.end(), n, {}, &ss);
+  return ss;
+}
+
+}  // namespace util
+
+
 class KnowledgeBase {
  public:
   KnowledgeBase(const Game* g, int max_k)

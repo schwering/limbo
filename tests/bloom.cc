@@ -70,17 +70,30 @@ TEST(BloomFilterTest, Subset_Contains) {
   EXPECT_FALSE(bf1.SubsetOf(bf0));
 }
 
+#if 0
 TEST(BloomFilterTest, hash) {
-  uint64_t x = 0xFF03FF02FF01FF00;
+  const uint64_t x = 0xFF03FF02FF01FF00;
   EXPECT_EQ(BloomFilter::hash<0>(x), 0xFF00);
   EXPECT_EQ(BloomFilter::hash<1>(x), 0xFF01);
   EXPECT_EQ(BloomFilter::hash<2>(x), 0xFF02);
   EXPECT_EQ(BloomFilter::hash<3>(x), 0xFF03);
-  //std::cout << std::hex << x << std::endl;
-  //std::cout << std::hex << BloomFilter::hash<0>(x) << std::endl;
-  //std::cout << std::hex << BloomFilter::hash<1>(x) << std::endl;
-  //std::cout << std::hex << BloomFilter::hash<2>(x) << std::endl;
-  //std::cout << std::hex << BloomFilter::hash<3>(x) << std::endl;
+}
+#endif
+
+TEST(BloomFilterTest, hash) {
+  const uint64_t x = 0xFF03FF02FF01FF00;
+  EXPECT_EQ(BloomFilter::index<0>(x), 0x00);
+  EXPECT_EQ(BloomFilter::index<1>(x), 0x3F);
+  EXPECT_EQ(BloomFilter::index<2>(x), 0x01);
+  EXPECT_EQ(BloomFilter::index<3>(x), 0x3F);
+  EXPECT_EQ(BloomFilter::index<4>(x), 0x02);
+  EXPECT_EQ(BloomFilter::index<5>(x), 0x3F);
+  EXPECT_EQ(BloomFilter::index<6>(x), 0x03);
+  EXPECT_EQ(BloomFilter::index<7>(x), 0x3F);
+  EXPECT_EQ(BloomFilter::index<0>(uint64_t(64)), 0);
+  EXPECT_EQ(BloomFilter::index<0>(uint64_t(63)), 63);
+  EXPECT_EQ(BloomFilter::index<7>(uint64_t(64) << (7*8)), 0);
+  EXPECT_EQ(BloomFilter::index<7>(uint64_t(63) << (7*8)), 63);
 }
 
 }  // namespace internal

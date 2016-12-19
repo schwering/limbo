@@ -31,6 +31,9 @@
 #include <lela/internal/maybe.h>
 #include <lela/internal/traits.h>
 
+static uint64_t POS = 0;
+static uint64_t NEG = 0;
+
 namespace lela {
 
 class Clause {
@@ -63,8 +66,10 @@ class Clause {
     assert(primitive());
     assert(c.primitive());
     if (!lhs_bloom_.PossiblySubsetOf(c.lhs_bloom_)) {
+      ++NEG;
       return false;
     }
+    ++POS;
     for (Literal a : *this) {
       const bool subsumed = std::any_of(c.begin(), c.end(), [a](const Literal b) { return a.Subsumes(b); });
       if (!subsumed) {

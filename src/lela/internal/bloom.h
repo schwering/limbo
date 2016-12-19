@@ -42,22 +42,22 @@ class BloomFilter {
   bool operator==(const BloomFilter& b) const { return mask_ == b.mask_; }
   bool operator!=(const BloomFilter& b) const { return !(*this == b); }
 
-  internal::hash_t hash() const { return fnv1a_hash(mask_); }
+  hash_t hash() const { return fnv1a_hash(mask_); }
 
   void Clear() { mask_ = 0; }
 
-  void Add(const internal::hash_t& x) {
-    mask_ |= (mask_t(1) << shift<0>(x))
-          |  (mask_t(1) << shift<1>(x))
-          |  (mask_t(1) << shift<2>(x))
-          |  (mask_t(1) << shift<3>(x));
+  void Add(const hash_t& x) {
+    mask_ |= (mask_t(1) << index<0>(x))
+          |  (mask_t(1) << index<1>(x))
+          |  (mask_t(1) << index<2>(x))
+          |  (mask_t(1) << index<3>(x));
   }
 
-  bool Contains(const internal::hash_t& x) const {
-    return (( (mask_ >> shift<0>(x))
-            & (mask_ >> shift<1>(x))
-            & (mask_ >> shift<2>(x))
-            & (mask_ >> shift<3>(x))) & mask_t(1)) != 0;
+  bool Contains(const hash_t& x) const {
+    return (( (mask_ >> index<0>(x))
+            & (mask_ >> index<1>(x))
+            & (mask_ >> index<2>(x))
+            & (mask_ >> index<3>(x))) & mask_t(1)) != 0;
   }
 
   void Union(const BloomFilter& b)     { mask_ |= b.mask_; }
@@ -74,16 +74,29 @@ class BloomFilter {
   FRIEND_TEST(BloomFilterTest, hash);
 #endif
 
-  static constexpr std::size_t BITS = 64;
+  typedef std::uint64_t bit_index_t;
   typedef std::uint64_t mask_t;
 
   explicit BloomFilter(const mask_t& mask) : mask_(mask) {}
 
   template<std::size_t I>
-  static internal::hash_t hash(const internal::hash_t& x) { return (x >> (I*16)) & 0xFFFF; }
-
-  template<std::size_t I>
-  static mask_t shift(const internal::hash_t& x) { return hash<I>(x) % BITS; }
+  static bit_index_t index(hash_t x) {
+    // index() should slice the original hash_t x into several bit_index_t,
+    // whose range shall be [0 ... bits(mask_t) - 1], that is, the indices
+    // of the bits in mask_t.
+    //
+    // When mask_t is a 64 bit integer, we just need log_2(64) = 6 bits for
+    // an index. So we can do is take the Ith byte and return its value
+    // modulo 64, which then gives a hash in the range [0 ... 63]:
+    //
+    // return ((x >> (I*8)) & 0xFF) % (sizeof(mask_t) * 8);
+    //
+    // But since 63 is just binary 111111, we can simply take the six
+    // right-most bits of the byte:
+    constexpr bit_index_t kMaxIndex = 63;
+    static_assert((~mask_t(0) >> kMaxIndex) == 1, "mask does not cover mask_t indices");
+    return (x >> (I*8)) & kMaxIndex;
+  }
 
   mask_t mask_ = 0;
 };
@@ -103,7 +116,7 @@ class BloomSet {
   bool operator==(const BloomSet& b) const { return bf_ == b.bf_; }
   bool operator!=(const BloomSet& b) const { return !(*this == b); }
 
-  internal::hash_t hash() const { return bf_.hash(); }
+  hash_t hash() const { return bf_.hash(); }
 
   void Clear()                      { bf_.Clear(); }
   void Add(const T& x)              { bf_.Add(x.hash()); }

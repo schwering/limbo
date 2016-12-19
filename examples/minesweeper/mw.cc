@@ -77,6 +77,7 @@ int main(int argc, char *argv[]) {
   }
 
   Play(width, height, n_mines, seed, max_k, TerminalColors(), &std::cout);
+  std::cout << NEG << " / " << (NEG+POS) << " = " << double(NEG) / double(NEG+POS) << std::endl;
   return 0;
 }
 
