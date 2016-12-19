@@ -103,36 +103,16 @@ class multi_pass_iterator {
 };
 
 struct Logger : public lela::format::pdl::Logger {
-  void operator()(const LogData&) const {
-    std::cerr << "Unknown log data" << std::endl;
-  }
-  void operator()(const RegisterData& d) const {
-    std::cerr << "Registered " << d.id << std::endl;
-  }
-  void operator()(const RegisterSortData& d) const {
-    std::cerr << "Registered sort " << d.id << std::endl;
-  }
-  void operator()(const RegisterVariableData& d) const {
-    std::cerr << "Registered variable " << d.id << " of sort " << d.sort_id << std::endl;
-  }
-  void operator()(const RegisterNameData& d) const {
-    std::cerr << "Registered name " << d.id << " of sort " << d.sort_id << std::endl;
-  }
-  void operator()(const RegisterFunctionData& d) const {
-    std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl;
-  }
-  void operator()(const RegisterFormulaData& d) const {
-    std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl;
-  }
-  void operator()(const AddClauseData& d) const {
-    std::cerr << "Added clause " << d.c << std::endl;
-  }
-  void operator()(const EntailmentData& d) const {
-    std::cout << "Entails(" << d.k << ", " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl;
-  }
-  void operator()(const ConsistencyData& d) const {
-    std::cout << "Consistent(" << d.k << ", " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl;
-  }
+  void operator()(const LogData&)                const { std::cerr << "Unknown log data" << std::endl; }
+  void operator()(const RegisterData& d)         const { std::cerr << "Registered " << d.id << std::endl; }
+  void operator()(const RegisterSortData& d)     const { std::cerr << "Registered sort " << d.id << std::endl; }
+  void operator()(const RegisterVariableData& d) const { std::cerr << "Registered variable " << d.id << " of sort " << d.sort_id << std::endl; }
+  void operator()(const RegisterNameData& d)     const { std::cerr << "Registered name " << d.id << " of sort " << d.sort_id << std::endl; }
+  void operator()(const RegisterFunctionData& d) const { std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl; }
+  void operator()(const RegisterFormulaData& d)  const { std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl; }
+  void operator()(const AddClauseData& d)        const { std::cerr << "Added clause " << d.c << std::endl; }
+  void operator()(const EntailmentData& d)       const { std::cout << "Entails(" << d.k << ", " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl; }
+  void operator()(const ConsistencyData& d)      const { std::cout << "Consistent(" << d.k << ", " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl; }
 };
 
 int main(int argc, char** argv) {

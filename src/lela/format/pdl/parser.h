@@ -101,6 +101,9 @@ class Parser {
   const Context<LogPredicate>& ctx() const { return *ctx_; }
 
  private:
+  static_assert(std::is_convertible<typename ForwardIt::iterator_category, std::forward_iterator_tag>::value,
+                "ForwardIt has wrong iterator category");
+
   template<typename T>
   Result<T> Success(T&& result) const { return Result<T>(std::forward<T>(result)); }
 

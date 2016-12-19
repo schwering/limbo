@@ -137,6 +137,11 @@ struct flatten_iterator {
   proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
 
  private:
+  static_assert(std::is_convertible<typename OuterInputIt::iterator_category, std::input_iterator_tag>::value,
+                "OuterInputIt has wrong iterator category");
+  static_assert(std::is_convertible<typename InnerInputIt::iterator_category, std::input_iterator_tag>::value,
+                "InnerInputIt has wrong iterator category");
+
   void Skip() {
     for (;;) {
       if (cont_first_ == cont_last_) {
@@ -202,6 +207,9 @@ struct transform_iterator {
   bool operator>=(transform_iterator it) const { return !(*this < it); }
 
  private:
+  static_assert(std::is_convertible<typename InputIt::iterator_category, std::input_iterator_tag>::value,
+                "InputIt has wrong iterator category");
+
   InputIt iter_;
   UnaryFunction func_;
 };
@@ -217,6 +225,9 @@ struct transform_iterators {
   iterator end()   const { return end_; }
 
  private:
+  static_assert(std::is_convertible<typename InputIt::iterator_category, std::input_iterator_tag>::value,
+                "InputIt has wrong iterator category");
+
   iterator begin_;
   iterator end_;
 };
@@ -260,6 +271,9 @@ struct filter_iterator {
   proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
 
  private:
+  static_assert(std::is_convertible<typename InputIt::iterator_category, std::input_iterator_tag>::value,
+                "InputIt has wrong iterator category");
+
   void Skip() {
     while (iter_ != end_ && !pred_(*iter_)) {
       ++iter_;
@@ -341,6 +355,11 @@ struct joined_iterators {
   iterator end()   const { return iterator(end1_, end1_, end2_); }
 
  private:
+  static_assert(std::is_convertible<typename InputIt1::iterator_category, std::input_iterator_tag>::value,
+                "InputIt1 has wrong iterator category");
+  static_assert(std::is_convertible<typename InputIt2::iterator_category, std::input_iterator_tag>::value,
+                "InputIt2 has wrong iterator category");
+
   InputIt1 begin1_;
   InputIt1 end1_;
   InputIt2 begin2_;
