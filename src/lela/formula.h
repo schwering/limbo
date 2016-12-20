@@ -30,18 +30,33 @@ class Formula {
  public:
   typedef std::unique_ptr<Formula> Ref;
   typedef std::unordered_set<Term> TermSet;
+  typedef unsigned int split_level;
+  enum Type { kAtomic, kNot, kOr, kExists, kKnow, kCons, kBel };
 
-  enum Type { kAtomic, kNot, kOr, kExists };
+  class Factory {
+   public:
+    Factory() = default;
+    Factory(const Factory&) = delete;
+    Factory& operator=(const Factory&) = delete;
+    Factory(Factory&&) = default;
+    Factory& operator=(Factory&&) = default;
+
+    static Ref Atomic(const Clause& c);
+    static Ref Not(Ref alpha);
+    static Ref Or(Ref lhs, Ref rhs);
+    static Ref Exists(Term lhs, Ref rhs);
+    static Ref Know(split_level k, Ref alpha);
+    static Ref Cons(split_level k, Ref alpha);
+    static Ref Bel(split_level k, split_level l, Ref alpha, Ref beta);
+  };
 
   class Atomic;
   class Not;
   class Or;
   class Exists;
-
-  static Ref Atomic(const Clause& c);
-  static Ref Not(Ref phi);
-  static Ref Or(Ref lhs, Ref rhs);
-  static Ref Exists(Term lhs, Ref rhs);
+  class Know;
+  class Cons;
+  class Bel;
 
   Formula(const Formula&) = delete;
   Formula& operator=(const Formula&) = delete;
@@ -57,10 +72,13 @@ class Formula {
 
   Type type() const { return type_; }
 
-  const class Atomic& as_atomic() const;
-  const class Not&    as_not() const;
-  const class Or&     as_or() const;
-  const class Exists& as_exists() const;
+  const Atomic& as_atomic() const;
+  const Not&    as_not() const;
+  const Or&     as_or() const;
+  const Exists& as_exists() const;
+  const Know&   as_know() const;
+  const Cons&   as_cons() const;
+  const Bel&    as_bel() const;
 
   const TermSet& free_vars() const {
     if (!free_vars_) {
@@ -93,12 +111,16 @@ class Formula {
   }
 
   Ref NF(Symbol::Factory* sf, Term::Factory* tf) const {
-    Ref c = Clone();
+    Formula::Ref c = Clone();
     c->Rectify(sf, tf);
     c = c->Normalize();
     c = c->Flatten(0, sf, tf);
-    return c;
+    return Ref(std::move(c));
   }
+
+  virtual bool objective() const = 0;
+  virtual bool subjective() const = 0;
+  virtual bool quantified_in() const = 0;
 
  protected:
   struct ISubstitution {
@@ -128,17 +150,7 @@ class Formula {
     size_t size() const { return prefix_.size(); }
     bool even() const { size_t n = 0; for (const auto& e : prefix_) { if (e.type == kNot) ++n; } return n % 2 == 0; }
 
-    Ref PrependTo(Ref phi) const {
-      for (auto it = prefix_.rbegin(); it != prefix_.rend(); ++it) {
-        assert(it->type == kNot || it->type == kExists);
-        if (it->type == kNot) {
-          phi = Not(std::move(phi));
-        } else {
-          phi = Exists(it->x, std::move(phi));
-        }
-      }
-      return phi;
-    }
+    Ref PrependTo(Ref alpha) const;
 
    private:
     struct Element { Type type; Term x; };
@@ -176,15 +188,31 @@ class Formula {
   mutable internal::Maybe<TermSet> free_vars_ = internal::Nothing;
 };
 
+Formula::Ref Formula::QuantifierPrefix::PrependTo(Formula::Ref alpha) const {
+  for (auto it = prefix_.rbegin(); it != prefix_.rend(); ++it) {
+    assert(it->type == kNot || it->type == kExists);
+    if (it->type == kNot) {
+      alpha = Factory::Not(std::move(alpha));
+    } else {
+      alpha = Factory::Exists(it->x, std::move(alpha));
+    }
+  }
+  return Ref(std::move(alpha));
+}
+
 class Formula::Atomic : public Formula {
  public:
-  explicit Atomic(const Clause& c) : Formula(kAtomic), c_(c) {}
+  explicit Atomic(const Clause& c) : Formula(Formula::kAtomic), c_(c) {}
 
   bool operator==(const Formula& that) const override { return type() == that.type() && c_ == that.as_atomic().c_; }
 
   Ref Clone() const override { return Ref(new Atomic(c_)); }
 
   const Clause& arg() const { return c_; }
+
+  bool objective() const override { return true; }
+  bool subjective() const override { return false; }
+  bool quantified_in() const override { return false; }
 
  protected:
   TermSet FreeVars() const override {
@@ -221,25 +249,29 @@ class Formula::Atomic : public Formula {
 
 class Formula::Not : public Formula {
  public:
-  explicit Not(Ref phi) : Formula(kNot), phi_(std::move(phi)) {}
+  explicit Not(Ref alpha) : Formula(kNot), alpha_(std::move(alpha)) {}
 
-  bool operator==(const Formula& that) const override { return type() == that.type() && *phi_ == *that.as_not().phi_; }
+  bool operator==(const Formula& that) const override { return type() == that.type() && *alpha_ == *that.as_not().alpha_; }
 
-  Ref Clone() const override { return Formula::Not(phi_->Clone()); }
+  Ref Clone() const override { return Factory::Not(alpha_->Clone()); }
 
-  const Formula& arg() const { return *phi_; }
+  const Formula& arg() const { return *alpha_; }
+
+  bool objective() const override { return alpha_->objective(); }
+  bool subjective() const override { return alpha_->subjective(); }
+  bool quantified_in() const override { return false; }
 
  protected:
-  TermSet FreeVars() const override { return phi_->FreeVars(); }
+  TermSet FreeVars() const override { return alpha_->FreeVars(); }
 
-  void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { phi_->ISubstitute(theta, tf); }
-  void ITraverse(const ITraversal<Term>& f)    const override { phi_->ITraverse(f); }
-  void ITraverse(const ITraversal<Literal>& f) const override { phi_->ITraverse(f); }
+  void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
+  void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { phi_->Rectify(tm, sf, tf); }
+  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
 
   virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
-    auto p = phi_->quantifier_prefix();
+    auto p = alpha_->quantifier_prefix();
     p.first.prepend_not();
     return p;
   }
@@ -247,11 +279,11 @@ class Formula::Not : public Formula {
   Ref Normalize() const override;
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Formula::Not(phi_->Flatten(nots + 1, sf, tf));
+    return Factory::Not(alpha_->Flatten(nots + 1, sf, tf));
   }
 
  private:
-  Ref phi_;
+  Ref alpha_;
 };
 
 class Formula::Or : public Formula {
@@ -262,10 +294,14 @@ class Formula::Or : public Formula {
     return type() == that.type() && *lhs_ == *that.as_or().lhs_ && *rhs_ == *that.as_or().rhs_;
   }
 
-  Ref Clone() const override { return Formula::Or(lhs_->Clone(), rhs_->Clone()); }
+  Ref Clone() const override { return Factory::Or(lhs_->Clone(), rhs_->Clone()); }
 
   const Formula& lhs() const { return *lhs_; }
   const Formula& rhs() const { return *rhs_; }
+
+  bool objective() const override { return lhs_->objective() && rhs_->objective(); }
+  bool subjective() const override { return lhs_->subjective() && rhs_->subjective(); }
+  bool quantified_in() const override { return lhs_->quantified_in() || rhs_->quantified_in(); }
 
  protected:
   TermSet FreeVars() const override {
@@ -294,7 +330,7 @@ class Formula::Or : public Formula {
   Ref Normalize() const override;
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Formula::Or(lhs_->Flatten(nots, sf, tf), rhs_->Flatten(nots, sf, tf));
+    return Factory::Or(lhs_->Flatten(nots, sf, tf), rhs_->Flatten(nots, sf, tf));
   }
 
  private:
@@ -304,27 +340,31 @@ class Formula::Or : public Formula {
 
 class Formula::Exists : public Formula {
  public:
-  Exists(Term x, Ref phi) : Formula(kExists), x_(x), phi_(std::move(phi)) {}
+  Exists(Term x, Ref alpha) : Formula(kExists), x_(x), alpha_(std::move(alpha)) {}
 
   bool operator==(const Formula& that) const override {
-    return type() == that.type() && x_ == that.as_exists().x_ && *phi_ == *that.as_exists().phi_;
+    return type() == that.type() && x_ == that.as_exists().x_ && *alpha_ == *that.as_exists().alpha_;
   }
 
-  Ref Clone() const override { return Formula::Exists(x_, phi_->Clone()); }
+  Ref Clone() const override { return Factory::Exists(x_, alpha_->Clone()); }
 
   Term x() const { return x_; }
-  const Formula& arg() const { return *phi_; }
+  const Formula& arg() const { return *alpha_; }
+
+  bool objective() const override { return alpha_->objective(); }
+  bool subjective() const override { return alpha_->subjective(); }
+  bool quantified_in() const override { return alpha_->quantified_in(); }
 
  protected:
-  TermSet FreeVars() const override { TermSet ts = phi_->FreeVars(); ts.erase(x_); return ts; }
+  TermSet FreeVars() const override { TermSet ts = alpha_->FreeVars(); ts.erase(x_); return ts; }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
     theta.Bind(x_);
-    phi_->ISubstitute(theta, tf);
+    alpha_->ISubstitute(theta, tf);
     theta.Unbind(x_);
   }
-  void ITraverse(const ITraversal<Term>& f)    const override { phi_->ITraverse(f); }
-  void ITraverse(const ITraversal<Literal>& f) const override { phi_->ITraverse(f); }
+  void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
     TermMap::const_iterator it = tm->find(x_);
@@ -333,31 +373,184 @@ class Formula::Exists : public Formula {
       const Term new_x = tf->CreateTerm(sf->CreateVariable(old_x.sort()));
       tm->insert(it, std::make_pair(old_x, new_x));
       x_ = new_x;
-      phi_->Rectify(tm, sf, tf);
+      alpha_->Rectify(tm, sf, tf);
     }
   }
 
   virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
-    auto p = phi_->quantifier_prefix();
+    auto p = alpha_->quantifier_prefix();
     p.first.prepend_exists(x_);
     return p;
   }
 
-  Ref Normalize() const override { return Formula::Exists(x_, phi_->Normalize()); }
+  Ref Normalize() const override { return Factory::Exists(x_, alpha_->Normalize()); }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Formula::Exists(x_, phi_->Flatten(nots, sf, tf));
+    return Factory::Exists(x_, alpha_->Flatten(nots, sf, tf));
   }
 
  private:
   Term x_;
-  Ref phi_;
+  Ref alpha_;
 };
 
-Formula::Ref Formula::Atomic(const Clause& c) { return Ref(new class Atomic(c)); }
-Formula::Ref Formula::Not(Ref phi) { return Ref(new class Not(std::move(phi))); }
-Formula::Ref Formula::Or(Ref lhs, Ref rhs) { return Ref(new class Or(std::move(lhs), std::move(rhs))); }
-Formula::Ref Formula::Exists(Term x, Ref phi) { return Ref(new class Exists(x, std::move(phi))); }
+class Formula::Know : public Formula {
+ public:
+  Know(split_level k, Ref alpha) : Formula(kKnow), k_(k), alpha_(std::move(alpha)) {}
+
+  bool operator==(const Formula& that) const override {
+    return type() == that.type() && *alpha_ == *that.as_know().alpha_;
+  }
+
+  Ref Clone() const override { return Factory::Know(k_, alpha_->Clone()); }
+
+  split_level k() const { return k_; }
+  const Formula& arg() const { return *alpha_; }
+
+  bool objective() const override { return false; }
+  bool subjective() const override { return true; }
+  bool quantified_in() const override { return !free_vars().empty(); }
+
+ protected:
+  TermSet FreeVars() const override { return alpha_->FreeVars(); }
+
+  void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
+  void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
+
+  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
+
+  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+    return std::make_pair(QuantifierPrefix(), this);
+  }
+
+  Ref Normalize() const override { return Factory::Know(k_, alpha_->Normalize()); }
+
+  Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Know(k_, alpha_->Flatten(0, sf, tf));
+  }
+
+ private:
+  split_level k_;
+  Ref alpha_;
+};
+
+class Formula::Cons : public Formula {
+ public:
+  Cons(split_level k, Ref alpha) : Formula(kCons), k_(k), alpha_(std::move(alpha)) {}
+
+  bool operator==(const Formula& that) const override {
+    return type() == that.type() && *alpha_ == *that.as_cons().alpha_;
+  }
+
+  Ref Clone() const override { return Factory::Cons(k_, alpha_->Clone()); }
+
+  split_level k() const { return k_; }
+  const Formula& arg() const { return *alpha_; }
+
+  bool objective() const override { return false; }
+  bool subjective() const override { return true; }
+  bool quantified_in() const override { return !free_vars().empty(); }
+
+ protected:
+  TermSet FreeVars() const override { return alpha_->FreeVars(); }
+
+  void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
+  void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
+
+  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
+
+  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+    return std::make_pair(QuantifierPrefix(), this);
+  }
+
+  Ref Normalize() const override { return Factory::Cons(k_, alpha_->Normalize()); }
+
+  Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Cons(k_, alpha_->Flatten(0, sf, tf));
+  }
+
+ private:
+  split_level k_;
+  Ref alpha_;
+};
+
+class Formula::Bel : public Formula {
+ public:
+  Bel(split_level k, split_level l, Ref antecedent, Ref consequent) :
+      Formula(kBel),
+      k_(k),
+      l_(l),
+      antecedent_(antecedent->Clone()),
+      consequent_(consequent->Clone()),
+      not_antecedent_or_consequent_(Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
+
+  bool operator==(const Formula& that) const override {
+    return type() == that.type() &&
+        *antecedent_ == *that.as_bel().antecedent_ &&
+        *not_antecedent_or_consequent_ == *that.as_bel().not_antecedent_or_consequent_;
+  }
+
+  Ref Clone() const override { return Factory::Bel(k_, l_, antecedent_->Clone(), consequent_->Clone()); }
+
+  split_level k() const { return k_; }
+  split_level l() const { return l_; }
+  const Formula& antecedent() const { return *antecedent_; }
+  const Formula& consequent() const { return *consequent_; }
+  const Formula& not_antecedent_or_consequent() const { return *not_antecedent_or_consequent_; }
+
+  bool objective() const override { return false; }
+  bool subjective() const override { return true; }
+  bool quantified_in() const override { return !free_vars().empty(); }
+
+ protected:
+  TermSet FreeVars() const override {
+    assert(antecedent_->FreeVars() == not_antecedent_or_consequent_->FreeVars());
+    return not_antecedent_or_consequent_->FreeVars();
+  }
+
+  void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
+    antecedent_->ISubstitute(theta, tf);
+    consequent_->ISubstitute(theta, tf);
+    not_antecedent_or_consequent_->ISubstitute(theta, tf);
+  }
+  void ITraverse(const ITraversal<Term>& f)    const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); }
+  void ITraverse(const ITraversal<Literal>& f) const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); }
+
+  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
+    antecedent_->Rectify(tm, sf, tf);
+    consequent_->Rectify(tm, sf, tf);
+    not_antecedent_or_consequent_->Rectify(tm, sf, tf);
+  }
+
+  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+    return std::make_pair(QuantifierPrefix(), this);
+  }
+
+  Ref Normalize() const override { return Factory::Bel(k_, l_, antecedent_->Normalize(), consequent_->Normalize()); }
+
+  Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Bel(k_, l_, antecedent_->Flatten(0, sf, tf), consequent_->Flatten(0, sf, tf));
+  }
+
+ private:
+  split_level k_;
+  split_level l_;
+  Ref antecedent_;
+  Ref consequent_;
+  Ref not_antecedent_or_consequent_;
+};
+
+Formula::Ref Formula::Factory::Atomic(const Clause& c)   { return Ref(new class Atomic(c)); }
+Formula::Ref Formula::Factory::Not(Ref alpha)            { return Ref(new class Not(std::move(alpha))); }
+Formula::Ref Formula::Factory::Or(Ref lhs, Ref rhs)      { return Ref(new class Or(std::move(lhs), std::move(rhs))); }
+Formula::Ref Formula::Factory::Exists(Term x, Ref alpha) { return Ref(new class Exists(x, std::move(alpha))); }
+Formula::Ref Formula::Factory::Know(split_level k, Ref alpha) { return Ref(new class Know(k, std::move(alpha))); }
+Formula::Ref Formula::Factory::Cons(split_level k, Ref alpha) { return Ref(new class Cons(k, std::move(alpha))); }
+Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta) {
+  return Ref(new class Bel(k, l, std::move(alpha), std::move(beta)));
+}
 
 const class Formula::Atomic& Formula::as_atomic() const {
   assert(type_ == kAtomic);
@@ -375,14 +568,25 @@ const class Formula::Exists& Formula::as_exists() const {
   assert(type_ == kExists);
   return *dynamic_cast<const class Exists*>(this);
 }
-
+const class Formula::Know& Formula::as_know() const {
+  assert(type_ == kKnow);
+  return *dynamic_cast<const class Know*>(this);
+}
+const class Formula::Cons& Formula::as_cons() const {
+  assert(type_ == kCons);
+  return *dynamic_cast<const class Cons*>(this);
+}
+const class Formula::Bel& Formula::as_bel() const {
+  assert(type_ == kBel);
+  return *dynamic_cast<const class Bel*>(this);
+}
 
 Formula::Ref Formula::Not::Normalize() const {
-  switch (phi_->type()) {
+  switch (alpha_->type()) {
     case kAtomic: {
       const Clause& c = arg().as_atomic().arg();
       if (c.unit()) {
-        return Formula::Atomic(Clause({c.get(0).flip()}));
+        return Factory::Atomic(Clause({c.get(0).flip()}));
       } else {
         return Clone();
       }
@@ -390,11 +594,16 @@ Formula::Ref Formula::Not::Normalize() const {
     case kNot:
       return arg().as_not().arg().Normalize();
     case kOr:
-      return Formula::Not(arg().Normalize());
+      return Factory::Not(arg().Normalize());
     case kExists: {
       Term x = arg().as_exists().x();
-      const Formula& phi = arg().as_exists().arg();
-      return Formula::Not(Formula::Exists(x, phi.Normalize()));
+      const Formula& alpha = arg().as_exists().arg();
+      return Factory::Not(Factory::Exists(x, alpha.Normalize()));
+    }
+    case kKnow:
+    case kCons:
+    case kBel: {
+      return Factory::Not(arg().Normalize());
     }
   }
 }
@@ -421,9 +630,9 @@ Formula::Ref Formula::Or::Normalize() const {
       rc = Clause({rc.get(0).flip()});
     }
     const auto lits = internal::join_ranges(lc.begin(), lc.end(), rc.begin(), rc.end());
-    return lp.PrependTo(rp.PrependTo(Atomic(Clause(lits.begin(), lits.end()))));
+    return lp.PrependTo(rp.PrependTo(Factory::Atomic(Clause(lits.begin(), lits.end()))));
   } else {
-    return Formula::Or(std::move(l), std::move(r));
+    return Factory::Or(std::move(l), std::move(r));
   }
 }
 
@@ -505,7 +714,7 @@ Formula::Ref Formula::Atomic::Flatten(size_t nots, Symbol::Factory* sf, Term::Fa
       vars.prepend_not();
     }
     vars.append_not();
-    return vars.PrependTo(Formula::Atomic(Clause(lits.begin(), lits.end())));
+    return vars.PrependTo(Factory::Atomic(Clause(lits.begin(), lits.end())));
   }
 }
 

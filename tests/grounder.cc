@@ -172,17 +172,17 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 //  {
 //    Grounder g(&sf, &tf);
 //    g.AddClause(Clause({Literal::Neq(c1, x1)}));
-//    g.PrepareForQuery(Formula::Exists(x1, *Formula::Atomic({Literal::Eq(x1, x1)}))->NF(&sf, &tf));
-//    g.PrepareForQuery(Formula::Exists(x2, *Formula::Atomic({Literal::Eq(x2, x2)}))->NF(&sf, &tf));
-//    g.PrepareForQuery(Formula::Exists(x3, *Formula::Atomic({Literal::Eq(x3, x3)}))->NF(&sf, &tf));
-//    g.PrepareForQuery(Formula::Exists(x4, *Formula::Atomic({Literal::Eq(x4, x4)}))->NF(&sf, &tf));
+//    g.PrepareForQuery(Formula::Factory::Exists(x1, *Formula::Factory::Atomic({Literal::Eq(x1, x1)}))->NF(&sf, &tf));
+//    g.PrepareForQuery(Formula::Factory::Exists(x2, *Formula::Factory::Atomic({Literal::Eq(x2, x2)}))->NF(&sf, &tf));
+//    g.PrepareForQuery(Formula::Factory::Exists(x3, *Formula::Factory::Atomic({Literal::Eq(x3, x3)}))->NF(&sf, &tf));
+//    g.PrepareForQuery(Formula::Factory::Exists(x4, *Formula::Factory::Atomic({Literal::Eq(x4, x4)}))->NF(&sf, &tf));
 //    lela::Setup s = g.Ground();
 //    EXPECT_EQ(length(s.clauses()), 2);
 //  }
 
   {
-    //Formula::Ref phi = Formula::Exists(x3, Formula::Atomic({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(a, {}))}));
-    Formula::Ref phi = Formula::Exists(x3, Formula::Atomic({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(g, {tf.CreateTerm(a, {})}))}))->NF(&sf, &tf);
+    //auto phi = Formula::Factory::Exists(x3, Formula::Factory::Atomic({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(a, {}))}));
+    auto phi = Formula::Factory::Exists(x3, Formula::Factory::Atomic({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(g, {tf.CreateTerm(a, {})}))}))->NF(&sf, &tf);
     // NF introduces two new variables of the same sort as x3, and one new of the same sort as n1.
     Grounder gg(&sf, &tf);
     gg.PrepareForQuery(1, *phi);
@@ -222,7 +222,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     Clause c{Literal::Eq(tf.CreateTerm(h, {n1,n3}), n3)}; 
     Clause d{Literal::Eq(tf.CreateTerm(h, {x1,n3}), n3)}; 
     Clause e{Literal::Eq(tf.CreateTerm(f, {x1}), n1)}; 
-    Formula::Ref phi = Formula::Exists(x3, Formula::Atomic({Literal::Eq(tf.CreateTerm(h, {n1,x3}), x3)}))->NF(&sf, &tf);
+    auto phi = Formula::Factory::Exists(x3, Formula::Factory::Atomic({Literal::Eq(tf.CreateTerm(h, {n1,x3}), x3)}))->NF(&sf, &tf);
     Grounder g(&sf, &tf);
     const class Setup* last;
     {
@@ -403,7 +403,7 @@ TEST(GrounderTest, Ground_SplitNames) {
   const Term a          = tf.CreateTerm(sf.CreateFunction(Animal, 0));  RegisterSymbol(a.symbol(), "a");
   const Term aIsAnimal  = tf.CreateTerm(IsAnimal, {a});
   //
-  Formula::Ref phi = Formula::Exists(x, Formula::Atomic(Clause({ Literal::Eq(xIsHuman, T), Literal::Neq(aIsAnimal, T) })))->NF(&sf, &tf);
+  auto phi = Formula::Factory::Exists(x, Formula::Factory::Atomic(Clause({ Literal::Eq(xIsHuman, T), Literal::Neq(aIsAnimal, T) })))->NF(&sf, &tf);
   {
     Grounder g(&sf, &tf);
     g.PrepareForQuery(0, *phi);
@@ -464,7 +464,7 @@ TEST(GrounderTest, Ground_SplitNames_iterated) {
   const Term a          = tf.CreateTerm(sf.CreateFunction(Animal, 0));  RegisterSymbol(a.symbol(), "a");
   const Term aIsAnimal  = tf.CreateTerm(IsAnimal, {a});
   //
-  Formula::Ref phi = Formula::Exists(x, Formula::Atomic(Clause({ Literal::Eq(xIsHuman, T), Literal::Neq(aIsAnimal, T) })))->NF(&sf, &tf);
+  auto phi = Formula::Factory::Exists(x, Formula::Factory::Atomic(Clause({ Literal::Eq(xIsHuman, T), Literal::Neq(aIsAnimal, T) })))->NF(&sf, &tf);
   // same as previous test except that we re-use the grounder
   Grounder g(&sf, &tf);
   {

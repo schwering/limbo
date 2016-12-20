@@ -2,9 +2,9 @@
 // Copyright 2014--2016 Christoph Schwering
 //
 // Solver implements limited belief implications. The key methods are Entails()
-// and Satisfies(), which determine whether the knowledge base consistent of
-// the clauses added with AddClause() entail a query or are consistent with it,
-// respectively. Entails() and Satisfies() both are sound but incomplete: if
+// and Consistent(), which determine whether the knowledge base consisting of
+// the clauses added with AddClause() entails a query or is consistent with it,
+// respectively. Entails() and Consistent() both are sound but incomplete: if
 // they return true, this answer is correct with respect to classical logic;
 // if they return false, this may not be correct and should be rather
 // interpreted as "don't know." The method EntailsComplete() uses Consistent()
@@ -53,7 +53,7 @@ namespace lela {
 
 class Solver {
  public:
-  typedef unsigned int split_level;
+  typedef Formula::split_level split_level;
 
   Solver() : grounder_(&sf_, &tf_) {}
   Solver(const Solver&) = delete;
@@ -68,7 +68,23 @@ class Solver {
 
   const Setup& setup() const { return grounder_.Ground(); }
 
+  bool Satisfies(Formula& sigma, bool assume_consistent = true) {
+    assert(sigma.subjective());
+    switch (sigma.type()) {
+      case Formula::kAtomic:
+      case Formula::kNot:
+      case Formula::kOr:
+      case Formula::kExists:
+      case Formula::kKnow:
+      case Formula::kCons:
+      case Formula::kBel:
+        break;
+    }
+    return false;
+  }
+
   bool Entails(int k, const Formula& phi, bool assume_consistent = true) {
+    assert(phi.objective());
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
     TermSet split_terms =
@@ -80,10 +96,13 @@ class Solver {
   }
 
   bool EntailsComplete(int k, const Formula& phi) {
-    return !Consistent(k, *Formula::Not(phi.Clone()));
+    assert(phi.objective());
+    Formula::Ref psi = Formula::Factory::Not(phi.Clone());
+    return !Consistent(k, *psi);
   }
 
   bool Consistent(int k, const Formula& phi) {
+    assert(phi.objective());
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
     std::list<LiteralSet> assign_lits = k == 0 ? std::list<LiteralSet>() : grounder_.AssignLiterals();
@@ -105,6 +124,7 @@ class Solver {
                           const SortedTermSet& names,
                           int k,
                           const Formula& phi) {
+    assert(phi.objective());
     switch (phi.type()) {
       case Formula::kNot: {
         switch (phi.as_not().arg().type()) {
@@ -112,7 +132,7 @@ class Solver {
             const Clause c = phi.as_not().arg().as_atomic().arg();
             return std::all_of(c.begin(), c.end(), [this, &s, &split_terms, &names, k](Literal a) {
               a = a.flip();
-              Formula::Ref psi = Formula::Atomic(Clause{a});
+              Formula::Ref psi = Formula::Factory::Atomic(Clause{a});
               return a.valid() || ReduceConjunctions(s, split_terms, names, k, *psi);
             });
           }
@@ -120,8 +140,8 @@ class Solver {
             return ReduceConjunctions(s, split_terms, names, k, phi.as_not().arg().as_not().arg());
           }
           case Formula::kOr: {
-            Formula::Ref left = Formula::Not(phi.as_not().arg().as_or().lhs().Clone());
-            Formula::Ref right = Formula::Not(phi.as_not().arg().as_or().rhs().Clone());
+            Formula::Ref left = Formula::Factory::Not(phi.as_not().arg().as_or().lhs().Clone());
+            Formula::Ref right = Formula::Factory::Not(phi.as_not().arg().as_or().rhs().Clone());
             return ReduceConjunctions(s, split_terms, names, k, *left) &&
                    ReduceConjunctions(s, split_terms, names, k, *right);
           }
@@ -130,7 +150,7 @@ class Solver {
             const Formula& psi = phi.as_not().arg().as_exists().arg();
             const TermSet& ns = names[x.sort()];
             return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &psi, x](const Term n) {
-              Formula::Ref xi = Formula::Not(psi.Clone());
+              Formula::Ref xi = Formula::Factory::Not(psi.Clone());
               xi->SubstituteFree(Term::SingleSubstitution(x, n), tf());
               return ReduceConjunctions(s, split_terms, names, k, *xi);
             });
@@ -150,6 +170,7 @@ class Solver {
              const SortedTermSet& names,
              int k,
              const Formula& phi) {
+    assert(phi.objective());
     if (s.Subsumes(Clause{})) {
       return true;
     } else if (k > 0) {
@@ -173,6 +194,7 @@ class Solver {
                           const SortedTermSet& names,
                           int k,
                           const Formula& phi) {
+    assert(phi.objective());
     switch (phi.type()) {
       case Formula::kAtomic: {
         return Assign(s, assign_lits, names, k, phi);
@@ -200,6 +222,11 @@ class Solver {
             return Assign(s, assign_lits, names, k, phi);
         }
       }
+      case Formula::kKnow:
+      case Formula::kCons:
+      case Formula::kBel:
+        assert(false);
+        return false;
     }
   }
 
@@ -208,6 +235,7 @@ class Solver {
               const SortedTermSet& names,
               int k,
               const Formula& phi) {
+    assert(phi.objective());
     if (k > 0) {
       assert(!assign_lits.empty());
       return std::any_of(assign_lits.begin(), assign_lits.end(),
@@ -228,6 +256,7 @@ class Solver {
   }
 
   bool Reduce(const Setup& s, const SortedTermSet& names, const Formula& phi) {
+    assert(phi.objective());
     switch (phi.type()) {
       case Formula::kAtomic: {
         const Clause c = phi.as_atomic().arg();
@@ -238,7 +267,7 @@ class Solver {
           case Formula::kAtomic: {
             const Clause c = phi.as_not().arg().as_atomic().arg();
             return std::all_of(c.begin(), c.end(), [this, &s, &names](Literal a) {
-              Formula::Ref psi = Formula::Atomic(Clause{a.flip()});
+              Formula::Ref psi = Formula::Factory::Atomic(Clause{a.flip()});
               return Reduce(s, names, *psi);
             });
           }
@@ -246,8 +275,8 @@ class Solver {
             return Reduce(s, names, phi.as_not().arg().as_not().arg());
           }
           case Formula::kOr: {
-            Formula::Ref left = Formula::Not(phi.as_not().arg().as_or().lhs().Clone());
-            Formula::Ref right = Formula::Not(phi.as_not().arg().as_or().rhs().Clone());
+            Formula::Ref left = Formula::Factory::Not(phi.as_not().arg().as_or().lhs().Clone());
+            Formula::Ref right = Formula::Factory::Not(phi.as_not().arg().as_or().rhs().Clone());
             return Reduce(s, names, *left) &&
                    Reduce(s, names, *right);
           }
@@ -256,11 +285,16 @@ class Solver {
             const Formula& psi = phi.as_not().arg().as_exists().arg();
             const TermSet& ns = names[x.sort()];
             return std::all_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
-              Formula::Ref xi = Formula::Not(psi.Clone());
+              Formula::Ref xi = Formula::Factory::Not(psi.Clone());
               xi->SubstituteFree(Term::SingleSubstitution(x, n), tf());
               return Reduce(s, names, *xi);
             });
           }
+          case Formula::kKnow:
+          case Formula::kCons:
+          case Formula::kBel:
+            assert(false);
+            break;
         }
       }
       case Formula::kOr: {
@@ -279,6 +313,11 @@ class Solver {
           return Reduce(s, names, *xi);
         });
       }
+      case Formula::kKnow:
+      case Formula::kCons:
+      case Formula::kBel:
+        assert(false);
+        return false;
     }
   }
 

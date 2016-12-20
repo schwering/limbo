@@ -259,40 +259,46 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Formula& phi) {
-  switch (phi.type()) {
+std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
+  switch (alpha.type()) {
     case Formula::kAtomic:
-      os << phi.as_atomic().arg();
+      os << alpha.as_atomic().arg();
       break;
     case Formula::kNot:
 #ifdef PRINT_ABBREVIATIONS
-      if (phi.as_not().arg().type() == Formula::kOr &&
-          phi.as_not().arg().as_or().lhs().type() == Formula::kNot &&
-          phi.as_not().arg().as_or().rhs().type() == Formula::kNot) {
+      if (alpha.as_not().arg().type() == Formula::kOr &&
+          alpha.as_not().arg().as_or().lhs().type() == Formula::kNot &&
+          alpha.as_not().arg().as_or().rhs().type() == Formula::kNot) {
         os << '('
-           << phi.as_not().arg().as_or().lhs().as_not().arg()
+           << alpha.as_not().arg().as_or().lhs().as_not().arg()
            << ' ' << "\u2227" << ' '
-           << phi.as_not().arg().as_or().rhs().as_not().arg()
+           << alpha.as_not().arg().as_or().rhs().as_not().arg()
            << ')';
-      } else if (phi.as_not().arg().type() == Formula::kAtomic) {
-        const Clause& c = phi.as_not().arg().as_atomic().arg();
+      } else if (alpha.as_not().arg().type() == Formula::kAtomic) {
+        const Clause& c = alpha.as_not().arg().as_atomic().arg();
         print_sequence(os, c.begin(), c.end(), "[", "]", " \u2227 ");
-      } else if (phi.as_not().arg().type() == Formula::kExists &&
-                 phi.as_not().arg().as_exists().arg().type() == Formula::kNot) {
-        os << "\u2200" << phi.as_not().arg().as_exists().x() << phi.as_not().arg().as_exists().arg().as_not().arg();
+      } else if (alpha.as_not().arg().type() == Formula::kExists &&
+                 alpha.as_not().arg().as_exists().arg().type() == Formula::kNot) {
+        os << "\u2200" << alpha.as_not().arg().as_exists().x() << alpha.as_not().arg().as_exists().arg().as_not().arg();
       } else {
-        os << "\u00AC" << phi.as_not().arg();
+        os << "\u00AC" << alpha.as_not().arg();
       }
 #else
-      os << "\u00AC" << phi.as_not().arg();
+      os << "\u00AC" << alpha.as_not().arg();
 #endif
       break;
     case Formula::kOr:
-      os << '(' << phi.as_or().lhs() << ' ' << "\u2228" << ' ' << phi.as_or().rhs() << ')';
+      os << '(' << alpha.as_or().lhs() << ' ' << "\u2228" << ' ' << alpha.as_or().rhs() << ')';
       break;
     case Formula::kExists:
-      os << "\u2203" << phi.as_exists().x() << phi.as_exists().arg();
+      os << "\u2203" << alpha.as_exists().x() << alpha.as_exists().arg();
       break;
+    case Formula::kKnow:
+      os << "K_" << alpha.as_know().k() << alpha.as_know().arg();
+    case Formula::kCons:
+      os << "M_" << alpha.as_cons().arg() << alpha.as_cons().arg();
+    case Formula::kBel:
+      os << "B_" << alpha.as_bel().k() << "^" << alpha.as_bel().l() << alpha.as_bel().antecedent() << "\u21D2" << alpha.as_bel().consequent();
   }
   return os;
 }

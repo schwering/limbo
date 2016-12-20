@@ -39,7 +39,8 @@ namespace lela {
 
 class Grounder {
  public:
-  typedef std::unordered_set<Term> TermSet;
+  typedef Formula::split_level split_level;
+  typedef Formula::TermSet TermSet;
   typedef std::unordered_set<Literal> LiteralSet;
 
   class SortedTermSet : public internal::IntMap<Symbol::Sort, TermSet> {
@@ -97,7 +98,8 @@ class Grounder {
     unprocessed_clauses_.push_front(c);
   }
 
-  void PrepareForQuery(std::size_t k, const Formula& phi) {
+  void PrepareForQuery(split_level k, const Formula& phi) {
+    assert(phi.objective());
     names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, phi));
     names_changed_ |= AddPlusNames(PlusNames(phi));
     AddSplitTerms(SplitTerms(k, phi));
@@ -156,7 +158,8 @@ class Grounder {
     return Ground(splits_);
   }
 
-  TermSet RelevantSplitTerms(std::size_t k, const Formula& phi) {
+  TermSet RelevantSplitTerms(split_level k, const Formula& phi) {
+    assert(phi.objective());
     PrepareForQuery(k, phi);
     const Setup& s = Ground();
     TermSet splits;
@@ -345,6 +348,7 @@ class Grounder {
   }
 
   static PlusMap PlusNames(const Formula& phi) {
+    assert(phi.objective());
     // Roughly, we need to add one name for each quantifier. More precisely,
     // it suffices to check for every sort which is the maximal number of
     // different variables occurring freely in any subformula of phi. We do
@@ -357,6 +361,7 @@ class Grounder {
   }
 
   static void PlusNames(const Formula& phi, PlusMap* cur, PlusMap* max) {
+    assert(phi.objective());
     switch (phi.type()) {
       case Formula::kAtomic:
         *cur = PlusNames(phi.as_atomic().arg());
@@ -375,24 +380,31 @@ class Grounder {
         *max = PlusMap::Zip(*max, *cur, [](std::size_t mp, std::size_t cp) { return std::max(mp, cp); });
         break;
       }
-      case Formula::kExists:
+      case Formula::kExists: {
         PlusNames(phi.as_exists().arg(), cur, max);
         Symbol::Sort sort = phi.as_exists().x().sort();
         if ((*cur)[sort] > 0) {
           --(*cur)[sort];
         }
         break;
+      }
+      case Formula::kKnow:
+      case Formula::kCons:
+      case Formula::kBel:
+        break;
     }
   }
 
-  TermSet SplitTerms(std::size_t k, const Formula& phi) {
+  TermSet SplitTerms(split_level k, const Formula& phi) {
+    assert(phi.objective());
     if (k == 0) {
       return TermSet();
     }
     return Mentioned<Term, TermSet>([](Term t) { return t.function(); }, phi);
   }
 
-  LiteralSet AssignLiterals(std::size_t k, const Formula& phi) {
+  LiteralSet AssignLiterals(split_level k, const Formula& phi) {
+    assert(phi.objective());
     if (k == 0) {
       return LiteralSet();
     }

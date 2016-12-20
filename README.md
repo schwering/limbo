@@ -1,10 +1,9 @@
 # Limited Epistemic Logic in Action
 
-LELA (**L**imited **E**pistemic **L**ogic in **A**ction; the acronym is
-tentative :-)) is a C++ library that facilitates *decidable reasoning in
-first-order knowledge bases*. It aims to implement the theory of limited
-reasoning presented in [1,2,3,4], which achieves decidability by putting
-a limit on the maximum allowed reasoning effort.
+LELA (**L**imited **E**pistemic **L**ogic in **A**ction) is a C++ library for
+*decidable reasoning in first-order knowledge bases*. It aims to implement the
+theory of limited reasoning presented in [1,2,3,4], which achieves decidability
+by putting a limit on the maximum allowed reasoning effort.
 
 ## Features
 

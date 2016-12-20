@@ -283,7 +283,7 @@ class Parser {
       if (!phi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected a primary formula within negation"), phi);
       }
-      return Success(Formula::Not(std::move(phi.val)));
+      return Success(Formula::Factory::Not(std::move(phi.val)));
     }
     if (Is(Token(0), Token::kExists) || Is(Token(0), Token::kForall)) {
       bool ex = Is(Token(0), Token::kExists);
@@ -299,8 +299,8 @@ class Parser {
       if (!phi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within quantifier"), phi);
       }
-      return Success(ex ? Formula::Exists(x.val, std::move(phi.val))
-                        : Formula::Not(Formula::Exists(x.val, Formula::Not(std::move(phi.val)))));
+      return Success(ex ? Formula::Factory::Exists(x.val, std::move(phi.val))
+                        : Formula::Factory::Not(Formula::Factory::Exists(x.val, Formula::Factory::Not(std::move(phi.val)))));
     }
     if (Is(Token(0), Token::kLeftParen)) {
       Advance(0);
@@ -323,7 +323,7 @@ class Parser {
     if (!a) {
       return Failure<Formula::Ref>(LELA_MSG("Expected literal"), a);
     }
-    return Success(Formula::Atomic(Clause{*a.val}));
+    return Success(Formula::Factory::Atomic(Clause{*a.val}));
   }
 
   // conjunctive_formula --> primary_formula [ && primary_formula ]*
@@ -338,8 +338,8 @@ class Parser {
       if (!psi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected left conjunctive formula"), psi);
       }
-      phi = Success(Formula::Not(Formula::Or(Formula::Not(std::move(phi.val)),
-                                             Formula::Not(std::move(psi.val)))));
+      phi = Success(Formula::Factory::Not(Formula::Factory::Or(Formula::Factory::Not(std::move(phi.val)),
+                                                               Formula::Factory::Not(std::move(psi.val)))));
     }
     return phi;
   }
@@ -356,7 +356,7 @@ class Parser {
       if (!psi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected right argument conjunctive formula"), psi);
       }
-      phi = Success(Formula::Or(std::move(phi.val), std::move(psi.val)));
+      phi = Success(Formula::Factory::Or(std::move(phi.val), std::move(psi.val)));
     }
     return phi;
   }
@@ -374,7 +374,7 @@ class Parser {
       if (!psi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected right argument disjunctive formula"), psi);
       }
-      phi = Success(Formula::Or(Formula::Not(std::move(phi.val)), std::move(psi.val)));
+      phi = Success(Formula::Factory::Or(Formula::Factory::Not(std::move(phi.val)), std::move(psi.val)));
     }
     return phi;
   }
@@ -392,9 +392,10 @@ class Parser {
       if (!psi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected right argument implication formula"), psi);
       }
-      Formula::Ref lr = Formula::Or(Formula::Not(phi.val->Clone()), psi.val->Clone());
-      Formula::Ref rl = Formula::Or(Formula::Not(std::move(phi.val)), std::move(psi.val));
-      phi = Success(Formula::Not(Formula::Or(Formula::Not(std::move(lr)), Formula::Not(std::move(rl)))));
+      Formula::Ref lr = Formula::Factory::Or(Formula::Factory::Not(phi.val->Clone()), psi.val->Clone());
+      Formula::Ref rl = Formula::Factory::Or(Formula::Factory::Not(std::move(phi.val)), std::move(psi.val));
+      phi = Success(Formula::Factory::Not(Formula::Factory::Or(Formula::Factory::Not(std::move(lr)),
+                                                               Formula::Factory::Not(std::move(rl)))));
     }
     return phi;
   }
