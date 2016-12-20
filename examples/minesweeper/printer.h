@@ -4,6 +4,7 @@
 #ifndef EXAMPLES_MINESWEEPER_PRINTER_H_
 #define EXAMPLES_MINESWEEPER_PRINTER_H_
 
+#include <iostream>
 #include <iomanip>
 #include <string>
 
@@ -17,20 +18,20 @@ typedef std::string Color;
 class Colors {
  public:
   virtual ~Colors() {}
-  virtual Color reset()   const = 0;
-  virtual Color dim()    const = 0;
-  virtual Color black()   const = 0;
-  virtual Color red()     const = 0;
-  virtual Color green()   const = 0;
+  virtual Color reset() const = 0;
+  virtual Color dim()   const = 0;
+  virtual Color black() const = 0;
+  virtual Color red()   const = 0;
+  virtual Color green() const = 0;
 };
 
 class TerminalColors : public Colors {
  public:
-  Color reset()   const override { return s(0); }
-  Color dim()     const override { return s(2); }
-  Color black()   const override { return s(30); }
-  Color red()     const override { return s(31); }
-  Color green()   const override { return s(32); }
+  Color reset() const override { return s(0); }
+  Color dim()   const override { return s(2); }
+  Color black() const override { return s(30); }
+  Color red()   const override { return s(31); }
+  Color green() const override { return s(32); }
 
  private:
   static Color s(int c) {
@@ -50,6 +51,10 @@ class HtmlColors : public Colors {
 
  private:
   static Color s(const std::string& cls) {
+    // Hack: on iOS Safari and Chrome, double spaces are not displayed correctly sometimes;
+    // so let's use '_' as fill character and re-replace it with "&nbsp;" in the Javascript
+    // code.
+    std::cout.fill('_');
     std::stringstream ss;
     ss << "</span><span class='"+ cls +"'>";
     return ss.str();

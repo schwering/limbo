@@ -33,6 +33,7 @@
         #output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
         #output { font-family: monospace; font-size: 110%; }
 
+        #output span { white-space: pre; }
         #output span.black { color: black; }
         #output span.dim { color: #999; }
         #output span.reset { color: inherit; }
@@ -144,6 +145,10 @@ function printLine(str) {
         $('#output').append('<div></div>');
         $('#output').children().last().addClass('field');
     }
+    // Hack: on iOS Safari and Chrome, double spaces are not displayed correctly sometimes;
+    // so let's use '_' as fill character and re-replace it with "&nbsp;" in the Javascript
+    // code.
+    str = str.replace(/_/g, "&nbsp;");
     $('#output').children().last().append($(document.createElement('div')).html(str));
     last_str = str;
 }
