@@ -164,7 +164,6 @@ int main(int argc, char** argv) {
     multi_pass_iterator<std::istreambuf_iterator<char>> end;
     succ &= parse(begin, end, &ctx);
   }
-  std::cout << NEG << " / " << (NEG+POS) << " = " << double(NEG) / double(NEG+POS) << std::endl;
   return succ ? 0 : 1;
 }
 

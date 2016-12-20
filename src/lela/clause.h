@@ -31,9 +31,6 @@
 #include <lela/internal/maybe.h>
 #include <lela/internal/traits.h>
 
-static uint64_t POS = 0;
-static uint64_t NEG = 0;
-
 namespace lela {
 
 class Clause {
@@ -65,18 +62,9 @@ class Clause {
   bool Subsumes(const Clause& c) const {
     assert(primitive());
     assert(c.primitive());
-    if (!lhs_bloom_.PossiblySubsetOf(c.lhs_bloom_)) {
-      ++NEG;
-      return false;
-    }
-    ++POS;
-    for (Literal a : *this) {
-      const bool subsumed = std::any_of(c.begin(), c.end(), [a](const Literal b) { return a.Subsumes(b); });
-      if (!subsumed) {
-        return false;
-      }
-    }
-    return true;
+    return lhs_bloom_.PossiblySubsetOf(c.lhs_bloom_) &&
+        std::all_of(begin(), end(), [&c](const Literal a) {
+                    return std::any_of(c.begin(), c.end(), [a](const Literal b) { return a.Subsumes(b); }); });
   }
 
   internal::Maybe<Clause> PropagateUnit(Literal a) const {
