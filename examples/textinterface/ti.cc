@@ -110,8 +110,8 @@ struct Logger : public lela::format::pdl::Logger {
   void operator()(const RegisterNameData& d)     const { std::cerr << "Registered name " << d.id << " of sort " << d.sort_id << std::endl; }
   void operator()(const RegisterFunctionData& d) const { std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl; }
   void operator()(const RegisterFormulaData& d)  const { std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl; }
-  void operator()(const AddToKbData& d)          const { std::cerr << "Added " << d.alpha << (d.ok ? "" : "un") << "successfully" << std::endl; }
-  void operator()(const QueryData& d)            const { std::cout << "Query(" << *d.phi << ") = " << std::boolalpha << d.yes << std::endl; }
+  void operator()(const AddToKbData& d)          const { std::cerr << "KB: " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
+  void operator()(const QueryData& d)            const { std::cout << "Query: " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl; }
 };
 
 int main(int argc, char** argv) {

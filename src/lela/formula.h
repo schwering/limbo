@@ -91,7 +91,7 @@ class Formula {
   template<typename UnaryFunction>
   void SubstituteFree(UnaryFunction theta, Term::Factory* tf) {
     struct FreeSubstitution : public ISubstitution {
-      FreeSubstitution(UnaryFunction func) : func_(func) {}
+      explicit FreeSubstitution(UnaryFunction func) : func_(func) {}
       internal::Maybe<Term> operator()(Term t) const override { return !bound(t) ? func_(t) : internal::Nothing; }
      private:
       UnaryFunction func_;
@@ -103,7 +103,7 @@ class Formula {
   void Traverse(UnaryFunction f) const {
     typedef typename internal::remove_const_ref<typename internal::arg<UnaryFunction>::template type<0>>::type arg_type;
     struct Traversal : public ITraversal<arg_type> {
-      Traversal(UnaryFunction func) : func_(func) {}
+      explicit Traversal(UnaryFunction func) : func_(func) {}
       bool operator()(arg_type t) const override { return func_(t); }
      private:
       UnaryFunction func_;
@@ -153,7 +153,15 @@ class Formula {
     void append_exists(Term x) { prefix_.push_back(Element{kExists, x}); }
 
     size_t size() const { return prefix_.size(); }
-    bool even() const { size_t n = 0; for (const auto& e : prefix_) { if (e.type == kNot) ++n; } return n % 2 == 0; }
+    bool even() const {
+      size_t n = 0;
+      for (const auto& e : prefix_) {
+        if (e.type == kNot) {
+          ++n;
+        }
+      }
+      return n % 2 == 0;
+    }
 
     Ref PrependTo(Ref alpha) const;
 
@@ -248,7 +256,7 @@ class Formula::Atomic : public Formula {
     }, tf);
   }
 
-  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+  std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
@@ -324,7 +332,8 @@ class Formula::Atomic : public Formula {
       }
     }
     assert(lits.size() >= arg().size());
-    assert(std::all_of(lits.begin(), lits.end(), [](Literal a) { return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
+    assert(std::all_of(lits.begin(), lits.end(), [](Literal a) {
+                       return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
     if (vars.size() == 0) {
       return Clone();
     } else {
@@ -336,7 +345,7 @@ class Formula::Atomic : public Formula {
     }
   }
 
-  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
     if (nots % 2 != 0 ||
         !std::all_of(c_.begin(), c_.end(), [](Literal a) {
                      return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); })) {
@@ -390,7 +399,7 @@ class Formula::Or : public Formula {
     beta_->Rectify(tm, sf, tf);
   }
 
-  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+  std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
@@ -426,7 +435,7 @@ class Formula::Or : public Formula {
     return Factory::Or(alpha_->Flatten(nots, sf, tf), beta_->Flatten(nots, sf, tf));
   }
 
-  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
     if (nots % 2 != 0) {
       return internal::Nothing;
     }
@@ -487,7 +496,7 @@ class Formula::Exists : public Formula {
     }
   }
 
-  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+  std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     auto p = alpha_->quantifier_prefix();
     p.first.prepend_exists(x_);
     return p;
@@ -499,7 +508,7 @@ class Formula::Exists : public Formula {
     return Factory::Exists(x_, alpha_->Flatten(nots, sf, tf));
   }
 
-  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
     if (nots % 2 == 0) {
       return internal::Nothing;
     }
@@ -513,7 +522,9 @@ class Formula::Exists : public Formula {
 
 class Formula::Not : public Formula {
  public:
-  bool operator==(const Formula& that) const override { return type() == that.type() && *alpha_ == *that.as_not().alpha_; }
+  bool operator==(const Formula& that) const override {
+    return type() == that.type() && *alpha_ == *that.as_not().alpha_;
+  }
 
   Ref Clone() const override { return Factory::Not(alpha_->Clone()); }
 
@@ -538,7 +549,7 @@ class Formula::Not : public Formula {
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
 
-  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+  std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     auto p = alpha_->quantifier_prefix();
     p.first.prepend_not();
     return p;
@@ -575,7 +586,7 @@ class Formula::Not : public Formula {
     return Factory::Not(alpha_->Flatten(nots + 1, sf, tf));
   }
 
-  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
     return alpha_->AsUnivClause(nots + 1);
   }
 
@@ -613,7 +624,7 @@ class Formula::Know : public Formula {
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
 
-  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+  std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
@@ -624,7 +635,7 @@ class Formula::Know : public Formula {
     return Factory::Know(k_, std::move(alpha));
   }
 
-  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
+  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
 
  private:
   split_level k_;
@@ -661,7 +672,7 @@ class Formula::Cons : public Formula {
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
 
-  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+  std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
@@ -672,7 +683,7 @@ class Formula::Cons : public Formula {
     return Factory::Cons(k_, std::move(alpha));
   }
 
-  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
+  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
 
  private:
   split_level k_;
@@ -727,7 +738,7 @@ class Formula::Bel : public Formula {
     not_antecedent_or_consequent_->Rectify(tm, sf, tf);
   }
 
-  virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+  std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
@@ -741,7 +752,7 @@ class Formula::Bel : public Formula {
     return Factory::Bel(k_, l_, std::move(ante), std::move(conse), std::move(not_ante_or_conse));
   }
 
-  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
+  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
 
  private:
   Bel(split_level k, split_level l, Ref antecedent, Ref consequent, Ref not_antecedent_or_consequent) :
@@ -759,16 +770,16 @@ class Formula::Bel : public Formula {
   Ref not_antecedent_or_consequent_;
 };
 
-inline Formula::Ref Formula::Factory::Atomic(const Clause& c)   { return Ref(new class Atomic(c)); }
-inline Formula::Ref Formula::Factory::Not(Ref alpha)            { return Ref(new class Not(std::move(alpha))); }
-inline Formula::Ref Formula::Factory::Or(Ref lhs, Ref rhs)      { return Ref(new class Or(std::move(lhs), std::move(rhs))); }
-inline Formula::Ref Formula::Factory::Exists(Term x, Ref alpha) { return Ref(new class Exists(x, std::move(alpha))); }
-inline Formula::Ref Formula::Factory::Know(split_level k, Ref alpha) { return Ref(new class Know(k, std::move(alpha))); }
-inline Formula::Ref Formula::Factory::Cons(split_level k, Ref alpha) { return Ref(new class Cons(k, std::move(alpha))); }
-inline Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta) {
+Formula::Ref Formula::Factory::Atomic(const Clause& c)   { return Ref(new class Atomic(c)); }
+Formula::Ref Formula::Factory::Not(Ref alpha)            { return Ref(new class Not(std::move(alpha))); }
+Formula::Ref Formula::Factory::Or(Ref lhs, Ref rhs)    { return Ref(new class Or(std::move(lhs), std::move(rhs))); }
+Formula::Ref Formula::Factory::Exists(Term x, Ref alpha) { return Ref(new class Exists(x, std::move(alpha))); }
+Formula::Ref Formula::Factory::Know(split_level k, Ref alpha) { return Ref(new class Know(k, std::move(alpha))); }
+Formula::Ref Formula::Factory::Cons(split_level k, Ref alpha) { return Ref(new class Cons(k, std::move(alpha))); }
+Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta) {
   return Ref(new class Bel(k, l, std::move(alpha), std::move(beta)));
 }
-inline Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta) {
+Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta) {
   return Ref(new class Bel(k, l, std::move(alpha), std::move(beta), std::move(not_alpha_or_beta)));
 }
 

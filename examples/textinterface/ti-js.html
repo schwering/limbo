@@ -62,11 +62,8 @@
         .announcement.success *::after, .announcement.success *::before { color: green; }
         .announcement.failure *::after, .announcement.failure *::before { color: red; }
 
-        .announcement.entailment  .split-level::before { content: "Entails    ("; }
-        .announcement.consistency .split-level::before { content: "Consistent ("; }
-
-        .announcement .split-level::after { content: ", " }
-        .announcement .result::before { content: ")  \2192  " }
+        .announcement.query .formula::before { content: "Query: "; }
+        .announcement.query .formula::after { content: "  \2192  " }
 
         .announcement.success .result::after { content: "success" }
         .announcement.failure .result::after { content: "failure" }
@@ -101,14 +98,12 @@ Also have a look at the <a href="../minesweeper/" target="_blank">the other demo
 <p>
 Load an example:
 <select id="examples">
-<option value="example-father-of-sonny.txt">Example: Unknown Father<!-- (fictitious edition)</option>
-<option value="example-father-of-ronan.txt">Example: Unknown Father (Gossip edition)</option>
-<option value="example-mother-of-dionysos.txt">Example: Unknown Father (Dionysos edition)</option>
-<option value="example-father-of-jesus.txt">Example: Unknown Father (Jesus edition)--></option>
-<option value="example-siblings.txt">Example: Siblings</option>
-<option value="test-propositions.txt">Test: Propositions</option>
-<option value="test-functions.txt">Test: Constants</option>
-<option value="" style="color: #666;">none</option>
+<option id="example-sonny" value="example-father-of-sonny.txt">Example: Unknown Father</option>
+<option id="example-siblings" value="example-siblings.txt">Example: Siblings</option>
+<option id="example-veggie" value="example-veggie.txt">Example: Veggie</option>
+<option id="example-propositions" value="test-propositions.txt">Test: Propositions</option>
+<option id="example-functions" value="test-functions.txt">Test: Constants</option>
+<option id="example-none" value="" style="color: #666;">none</option>
 </select> <br />
 If you like, you can edit the text. For help on the syntax, see <a href="#syntax">below</a>.
 </p>
@@ -123,6 +118,14 @@ $(document).ready(function() {
    redirectConsole();
 
     $('#debug-toggle').click(function(){ $('#debug-div').toggle(); return false; });
+    
+    var select_ex = getParameterByName('ex');
+    if (select_ex) {
+        select_ex = 'example-' + select_ex;
+        $('#examples option').filter(function(){
+            return this.id === select_ex
+        }).prop('selected', true);
+    }
 
     $('#examples').change(function() {
         var file = null;
@@ -147,6 +150,16 @@ $(document).ready(function() {
     });
 });
 
+function getParameterByName(name) {
+    var url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
 function scrollToBottom(e) {
     var wHeight = $(window).height();
     var eOffset = $(e).offset().top;
@@ -168,17 +181,10 @@ function parse() {
 function resultClass(r) { return r ? 'success' : 'failure'; }
 function resultLabel(r) { return r ? 'Success' : 'Failure'; }
 
-function announceEntailment(k, phi, success) {
+function announceQuery(phi, success) {
     $('#parse-output').append(
-        '<li class="announcement entailment '+ resultClass(success)+'">'+
-        '<div class="split-level">'+ k +'</div><div class="formula">'+ phi +'</div><div class="result"></div>'+
-        '</li>');
-}
-
-function announceConsistency(k, phi, success) {
-    $('#parse-output').append(
-        '<li class="announcement consistency '+ resultClass(success)+'">'+
-        '<div class="split-level">'+ k +'</div><div class="formula">'+ phi +'</div><div class="result"></div>'+
+        '<li class="announcement query '+ resultClass(success)+'">'+
+        '<div class="formula">'+ phi +'</div><div class="result"></div>'+
         '</li>');
 }
 
@@ -304,7 +310,7 @@ No two variables, names, or functions can have the same identifier.
 </p>
 
 <p>
-The set of formulas includes literals, negated formulas, disjunctions, conjunctions, implications, equivalences, and existentially and universally quantified formulas, formulas in brackets, and abbreviations:
+The set of formulas includes literals, negated formulas, disjunctions, conjunctions, implications, equivalences, and existentially and universally quantified formulas, knowledge and non-knowledge and belief modalities, formulas in brackets, and abbreviations:
 <ul class="grammar">
     <li><span class="code"><span class="metavariable">literal</span></span></li>
     <li><span class="code">!<span class="metavariable">formula</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
@@ -319,11 +325,14 @@ The set of formulas includes literals, negated formulas, disjunctions, conjuncti
     <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> &lt;-&gt; <span class="metavariable">formula<sub>2</sub></span></span></li>
     <li><span class="code">Ex <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>
     <li><span class="code">Fa <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>
+    <li><span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span></li>
+    <li><span class="code">Cons&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span></li>
+    <li><span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span></li>
     <li><span class="code">(<span class="metavariable">formula</span>)</span></li>
     <li><span class="code"><span class="metavariable">formula-id</span></span></li>
 </ul>
 <p>
-where <span class="metavariable">literal</span> denotes a literal, which either an equality or an inequality expression:
+Here <span class="metavariable">literal</span> denotes a literal, which either an equality or an inequality expression:
 </p>
 <ul class="grammar">
     <li><span class="code"><span class="metavariable">t<sub>1</sub></span> == <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
@@ -339,10 +348,21 @@ When <span class="metavariable">f</span> is a constant symbol (that is, has arit
 Variables in the KB are implicitly universally quantified.
 </p>
 <p>
+The <span class="metavariable">split-level</span> is a natural number &ge; 0 that indicates how much reasoning effort the reasoner can spend on proving the <span class="metavariable">formula</span> in the modality.
+The modal operator <span class="code">Know</span> is the usual knowledge modality, <span class="code">Cons</span> means a formula is considered possible (that is, its negation is not known), and <span class="code">Bel</span> is conditional belief.
+All three operators are sound but incomplete with respect to the unlimited logic of only-knowing/believing.
+The <span class="metavariable">split-level</span> can have two different meanings.
+The one within <span class="code">Know</span> and the first parameter of <span class="code">Bel</span> specify how many terms may be split.
+A split means to select a term <span class="code">f(n<sub>1</sub>,...,n<sub>l</sub>)</span> and consider all possible denotations of that term; that is, the reasoner tests all (relevant) assignments for these terms.
+The <span class="metavariable">split-level</span> in <span class="code">Cons</span> and the second parameter of <span class="code">Bel</span>, on the other hand, specify how many terms can be freely assigned a value, which means to select a (possibly non-ground) term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix its denotation.
+</p>
+<p>
 The identifiers of any variables <span class="metavariable">x</span>, standard names standard name <span class="metavariable">n</span>, function symbols <span class="metavariable">f</span>, or formula abbreviations <span class="metavariable">formula-id</span> must have been declared before they can be used in formulas.
 </p>
 <p>
-Equivalence binds stronger than implication, implication binds stronger than conjunction, conjunction binds stronger than disjunction, and the scope of negation and quantifiers is minimal.
+Equivalence binds stronger than implication, implication binds stronger than conjunction, conjunction binds stronger than disjunction, and the scope of negation, quantifiers, and modal operators is minimal.
+Let me emphasize the last point.
+For example, to say that <span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> is known, you need to brackets as in <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; (<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span>)</span>.
 </p>
 
 <p>
@@ -360,42 +380,36 @@ The same identifier can be used for two different formulas; the semantics is tha
 The knowledge base consists of a sequence of clauses, each of which is written (synonymously) as
 </p>
 <ul class="grammar">
-    <li><span class="code">KB&nbsp;<span class="metavariable">formula</span>;</span></li>
+    <li><span class="code">KB:&nbsp;<span class="metavariable">formula</span>;</span></li>
 </ul>
 <p>
-with the syntactic restriction that the <i>normal form</i> (explained below) of <span class="metavariable">formula</span> is a clause with leading universal quantifiers.
-Furthermore, free variables in <span class="metavariable">formula</span> in KB definitions are implicitly universally quantified.
-The definition of the normal form is tedious, but the idea is this: push negations inwards but not into clauses, and pull quantifiers out of clauses.
-The rationale is to create new clauses (while avoiding the exponential blowup of a full CNF).
-Additionally, terms are flattened so that no two function symbols occur in a any literal.
-For instance, a disjunction <span class="code">KB&nbsp;(<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>);</span> meets this requirement trivially.
-Implications are also allowed, provided that the negation of the antecedent as well as the consequent meet above form, as does <span class="code">KB&nbsp;(Ex <span class="metavariable">x</span> (<span class="metavariable">literal<sub>1</sub></span> &amp;&amp; <span class="metavariable">literal<sub>k</sub></span>) -&gt; (<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">literal<sub>k</sub></span>));</span>.
+with the syntactic restriction that the <i>normal form</i> (explained below) of <span class="metavariable">formula</span> is a clause with leading universal quantifier, or a clause within a knowledge modality <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span> (the <span class="metavariable">split-level</span> is ignored then), or a formula <span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span> where the normal form of <span class="code">!<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> must be universally quantified clause and the <span class="metavariable">split-level</span>s affect how faithful the induced system of spheres is to the unlimited logic.
 </p>
 
 <p>
-Formulas can be used to query for entailment or consistency:
+Free variables in <span class="metavariable">formula</span> in KB definitions are implicitly universally quantified.
+The definition of the normal form is tedious, but the idea is this: push negations inwards but not into clauses, and pull quantifiers out of clauses.
+The rationale is to create new clauses (while avoiding the exponential blowup of a full CNF).
+Additionally, terms are flattened so that no two function symbols occur in a any literal.
+For instance, a disjunction <span class="code">KB:&nbsp;(<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>);</span> meets this requirement trivially.
+Implications are also allowed, provided that the negation of the antecedent as well as the consequent meet above form, as does <span class="code">KB:&nbsp;(Ex <span class="metavariable">x</span> (<span class="metavariable">literal<sub>1</sub></span> &amp;&amp; <span class="metavariable">literal<sub>k</sub></span>) -&gt; (<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">literal<sub>k</sub></span>));</span>.
 </p>
-<ul class="grammar">
-    <li><span class="code">Entails&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
-    <li><span class="code">Consistent&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
-</ul>
+
 <p>
-where <span class="metavariable">k</span> is a natural number &ge; 0 that denotes the reasoning effort and <span class="metavariable">formula</span> is a formula as defined above.
-Both entailment and consistency queries are sound but incomplete with respect to classical logic.
-The reasoning effort is measured in case splits (a split means to select a term <span class="code">f(n<sub>1</sub>,...,n<sub>l</sub>)</span> and consider all possible denotations of that term) in entailment queries, and as term assignments (an assignment means to select a term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix their denotation) in consistency queries.
-The formula is brought into the <i>normal form</i> described above (roughly: push negations inwards but not inside clauses, pull quantifiers out of clauses, rewrite clauses so no literal contains two functions), which makes life easier for the reasoner.
 </p>
+
 <p>
+Queries can be of the form
 For automated testing, the language supports assertions and refutations:
 </p>
 <ul class="grammar">
-    <li><span class="code">Assert Entails&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
-    <li><span class="code">Refute Entails&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
-    <li><span class="code">Assert Consistent&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
-    <li><span class="code">Refute Consistent&nbsp;(<span class="metavariable">k</span>, <span class="metavariable">formula</span>);</span></li>
+    <li><span class="code">Query: <span class="metavariable">formula</span>;</span></li>
+    <li><span class="code">Assert: <span class="metavariable">formula</span>;</span></li>
+    <li><span class="code">Refute: <span class="metavariable">formula</span>;</span></li>
 </ul>
 <p>
-Execution aborts with an asserted entailment/consistency does not hold or when a refuted entailment/consistency does hold.
+The query <span class="metavariable">formula</span> must be subjective, which means terms must not occur outside of modal operators.
+The <span class="code">Assert</span> and <span class="code">Refute</span> versions just differ from the <span class="code">Query</span> version in that they yield a error when the query does not come out true or false, respectively.
 </p>
 
 <p>

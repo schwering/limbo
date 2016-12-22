@@ -6,6 +6,8 @@
 #ifndef LELA_FORMAT_CPP_SYNTAX_H_
 #define LELA_FORMAT_CPP_SYNTAX_H_
 
+#include <utility>
+
 #include <lela/formula.h>
 #include <lela/clause.h>
 #include <lela/literal.h>
@@ -39,10 +41,10 @@ class HiFormula;
 
 class HiFormula {
  public:
-  HiFormula(const Literal& a) : HiFormula(Clause({a})) {}
-  HiFormula(const lela::Clause& c) : HiFormula(Formula::Factory::Atomic(c)) {}
-  HiFormula(const Formula::Ref& phi) : HiFormula(*phi) {}
-  HiFormula(const Formula& phi) : phi_(phi.Clone()) {}
+  HiFormula(const Literal& a) : HiFormula(Clause({a})) {}  // NOLINT
+  HiFormula(const lela::Clause& c) : HiFormula(Formula::Factory::Atomic(c)) {}  // NOLINT
+  HiFormula(const Formula::Ref& phi) : HiFormula(*phi) {}  // NOLINT
+  HiFormula(const Formula& phi) : phi_(phi.Clone()) {}  // NOLINT
 
   operator       Formula::Ref&()       { return phi_; }
   operator const Formula::Ref&() const { return phi_; }
@@ -106,7 +108,8 @@ inline HiFormula operator!=(HiTerm t1, HiTerm t2) { return HiFormula(Literal::Ne
 
 inline HiFormula operator~(const HiFormula& phi) { return Formula::Factory::Not(phi.phi().Clone()); }
 inline HiFormula operator!(const HiFormula& phi) { return ~phi; }
-inline HiFormula operator||(const HiFormula& phi, const HiFormula& psi) { return Formula::Factory::Or(phi.phi().Clone(), psi.phi().Clone()); }
+inline HiFormula operator||(const HiFormula& phi, const HiFormula& psi) {
+  return Formula::Factory::Or(phi.phi().Clone(), psi.phi().Clone()); }
 inline HiFormula operator&&(const HiFormula& phi, const HiFormula& psi) { return ~(~phi || ~psi); }
 
 inline HiFormula operator>>(const HiFormula& phi, const HiFormula& psi) { return (~phi || psi); }

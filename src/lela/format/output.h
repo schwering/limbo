@@ -313,13 +313,14 @@ std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
       os << "\u2203" << alpha.as_exists().x() << alpha.as_exists().arg();
       break;
     case Formula::kKnow:
-      os << "Know<" << alpha.as_know().k() << ">" << alpha.as_know().arg();
+      os << "Know<" << alpha.as_know().k() << "> " << alpha.as_know().arg();
       break;
     case Formula::kCons:
-      os << "Cons<" << alpha.as_cons().arg() << ">" << alpha.as_cons().arg();
+      os << "Cons<" << alpha.as_cons().k() << "> " << alpha.as_cons().arg();
       break;
     case Formula::kBel:
-      os << "Bel<" << alpha.as_bel().k() << "," << alpha.as_bel().l() << ">" << alpha.as_bel().antecedent() << "\u21D2" << alpha.as_bel().consequent();
+      os << "Bel<" << alpha.as_bel().k() << "," << alpha.as_bel().l() << "> " << alpha.as_bel().antecedent() <<
+          " \u21D2 " << alpha.as_bel().consequent();
       break;
   }
   return os;

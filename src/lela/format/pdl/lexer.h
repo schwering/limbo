@@ -168,7 +168,7 @@ class Lexer {
     lexemes_.emplace_back(Token::kExists,       [](Word w) { return IsPrefix(w, "ex"); });
     lexemes_.emplace_back(Token::kRArrow,       [](Word w) { return IsPrefix(w, "->"); });
     lexemes_.emplace_back(Token::kLRArrow,      [](Word w) { return IsPrefix(w, "<->"); });
-    lexemes_.emplace_back(Token::kDoubleRArrow, [](Word w) { return IsPrefix(w, "=>"); });
+    lexemes_.emplace_back(Token::kDoubleRArrow, [](Word w) { return IsPrefix(w, "==>"); });
     lexemes_.emplace_back(Token::kLeftParen,    [](Word w) { return IsPrefix(w, "("); });
     lexemes_.emplace_back(Token::kRightParen,   [](Word w) { return IsPrefix(w, ")"); });
     lexemes_.emplace_back(Token::kKnow,         [](Word w) { return IsPrefix(w, "know"); });
@@ -254,7 +254,7 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kExists:       return os << "Ex";
     case Token::kRArrow:       return os << "->";
     case Token::kLRArrow:      return os << "<->";
-    case Token::kDoubleRArrow: return os << "=>";
+    case Token::kDoubleRArrow: return os << "==>";
     case Token::kLeftParen:    return os << "(";
     case Token::kRightParen:   return os << ")";
     case Token::kKnow:         return os << "Know";

@@ -6,6 +6,7 @@
 
 #include <cassert>
 
+#include <utility>
 #include <vector>
 
 #include <lela/formula.h>
@@ -196,7 +197,8 @@ class KnowledgeBase {
       }
       case Formula::kBel: {
         const Formula::Ref ante = ReduceModalities(alpha.as_bel().antecedent(), assume_consistent);
-        const Formula::Ref not_ante_or_conse = ReduceModalities(alpha.as_bel().not_antecedent_or_consequent(), assume_consistent);
+        const Formula::Ref not_ante_or_conse = ReduceModalities(alpha.as_bel().not_antecedent_or_consequent(),
+                                                                assume_consistent);
         const Formula::split_level k = alpha.as_bel().k();
         const Formula::split_level l = alpha.as_bel().l();
         std::vector<Formula::Ref> consistent;

@@ -12,10 +12,10 @@
 #include <cassert>
 
 #include <iostream>
-#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <lela/formula.h>
@@ -32,15 +32,6 @@ namespace pdl {
 #define LELA_S_(x)         LELA_S(x)
 #define LELA_STR__LINE__   LELA_S_(__LINE__)
 #define LELA_MSG(msg)      (std::string(msg) +" (in rule "+ __FUNCTION__ +":"+ LELA_STR__LINE__ +")")
-
-namespace {
-  static const std::string kUnapplicableLabel = std::string("Unappl.: ");
-  static const std::string kFailureLabel = std::string("Failure: ");
-  static const std::string kCausesLabel = std::string("causes: ");
-  static const size_t kErrorMsgWidth = std::max(std::max(kUnapplicableLabel.length(),
-                                                         kFailureLabel.length()),
-                                                         kCausesLabel.length());
-}
 
 template<typename ForwardIt, typename LogPredicate>
 class Parser {
@@ -114,28 +105,28 @@ class Parser {
   template<typename T>
   Result<T> Failure(const std::string& msg) const {
     std::stringstream ss;
-    ss << std::setw(kErrorMsgWidth) << std::left << kFailureLabel << msg;
+    ss << kFailureLabel << msg;
     return Result<T>(false, ss.str(), begin().char_iter(), end().char_iter());
   }
 
   template<typename T>
   Result<T> Failure(const std::string& msg, T&& val) const {
     std::stringstream ss;
-    ss << std::setw(kErrorMsgWidth) << std::left << kFailureLabel << msg;
+    ss << kFailureLabel << msg;
     return Result<T>(false, ss.str(), begin().char_iter(), end().char_iter(), val);
   }
 
   template<typename T, typename U>
   static Result<T> Failure(const std::string& msg, const Result<U>& r) {
     std::stringstream ss;
-    ss << r.msg << std::endl << std::setw(kErrorMsgWidth) << std::right << kCausesLabel << msg;
+    ss << r.msg << std::endl << kCausesLabel << msg;
     return Result<T>(false, ss.str(), r.begin(), r.end());
   }
 
   template<typename T>
   Result<T> Unapplicable(const std::string& msg) const {
     std::stringstream ss;
-    ss << std::setw(kErrorMsgWidth) << std::left << kUnapplicableLabel << msg;
+    ss << kUnapplicableLabel << msg;
     return Result<T>(true, "\t" + msg, begin().char_iter(), end().char_iter());
   }
 
@@ -331,7 +322,7 @@ class Parser {
         return Success(Formula::Factory::Cons(k, std::move(alpha.val)));
       }
     }
-    if (Is(Token(0), Token::kBel)) { 
+    if (Is(Token(0), Token::kBel)) {
       Advance(0);
       if (!Is(Token(0), Token::kLess)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected '<'"));
@@ -359,10 +350,11 @@ class Parser {
       if (!alpha) {
         return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
       }
-      Result<Formula::Ref> beta = primary_formula();
       if (!Is(Token(0), Token::kDoubleRArrow)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected conditional belief arrow"));
       }
+      Advance(0);
+      Result<Formula::Ref> beta = primary_formula();
       if (!beta) {
         return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), beta);
       }
@@ -543,8 +535,9 @@ class Parser {
       return Failure<Formula::Ref>(LELA_MSG("Expected subjective formula"), alpha);
     }
     if (!alpha.val->subjective()) {
-      return Failure<Formula::Ref>(LELA_MSG("Expected subjective formula
-                                            "(i.e., no functions outside of modal operators)"), alpha);
+      return Failure<Formula::Ref>(LELA_MSG("Expected subjective formula "
+                                            "(i.e., no functions outside of modal operators; "
+                                            "probably caused by missing brackets)"));
     }
     return Success(std::move(alpha.val));
   }
@@ -707,6 +700,10 @@ class Parser {
     return end_;
   }
 
+  static const std::string kUnapplicableLabel;
+  static const std::string kFailureLabel;
+  static const std::string kCausesLabel;
+
   Lex lexer_;
   mutable iterator begin_;  // don't use begin_ directly: to avoid the stream blocking us, Advance() actually increments
   mutable size_t begin_plus_ = 0;  // begin_plus_ instead of begin_; use begin() to obtain the incremented iterator.
@@ -714,6 +711,16 @@ class Parser {
   Context<LogPredicate>* ctx_;
   LogPredicate log_;
 };
+
+
+template<typename ForwardIt, typename LogPredicate>
+const std::string Parser<ForwardIt, LogPredicate>::kUnapplicableLabel = std::string("Unappl.: ");
+
+template<typename ForwardIt, typename LogPredicate>
+const std::string Parser<ForwardIt, LogPredicate>::kFailureLabel = std::string("Failure: ");
+
+template<typename ForwardIt, typename LogPredicate>
+const std::string Parser<ForwardIt, LogPredicate>::kCausesLabel = std::string(" causes: ");
 
 }  // namespace pdl
 }  // namespace format

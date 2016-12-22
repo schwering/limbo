@@ -39,7 +39,6 @@ TEST(SolverTest, ECAI2016Sound) {
   EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(T == T), *(Italian == T || Veggie == T))));
   EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(Italian != T), *(Aussie == T))));
   EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(Meat(roo) != T), *(T != T))));
-  Formula::Ref phi = Formula::Factory::Bel(k, l, *(~Fa(x, (Veggie == T && Meat(x) == T) >> (Eats(x) != T))), *(T != T))->NF(ctx.sf(), ctx.tf());
   EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(~Fa(x, (Veggie == T && Meat(x) == T) >> (Eats(x) != T))), *(T != T))));
   EXPECT_FALSE(kb.Entails(*Formula::Factory::Bel(0, 0, *(Italian != T), *(Veggie != T))));
   EXPECT_FALSE(kb.Entails(*Formula::Factory::Bel(0, 1, *(Italian != T), *(Veggie != T))));

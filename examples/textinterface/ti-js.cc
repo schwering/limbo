@@ -28,22 +28,22 @@ inline std::string to_string(const T& x) {
 
 inline void parse(const char* c_str) {
   struct Logger : public lela::format::pdl::Logger {
-    void operator()(const LogData&)                const { std::cerr << "Unknown log data" << std::endl; }
-    void operator()(const RegisterData& d)         const { std::cerr << "Registered " << d.id << std::endl; }
-    void operator()(const RegisterSortData& d)     const { std::cerr << "Registered sort " << d.id << std::endl; }
-    void operator()(const RegisterVariableData& d) const { std::cerr << "Registered variable " << d.id << " of sort " << d.sort_id << std::endl; }
-    void operator()(const RegisterNameData& d)     const { std::cerr << "Registered name " << d.id << " of sort " << d.sort_id << std::endl; }
-    void operator()(const RegisterFunctionData& d) const { std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl; }
-    void operator()(const RegisterFormulaData& d)  const { std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl; }
-    void operator()(const AddToKbData& d)          const { std::cerr << "Added " << d.alpha << (d.ok ? "" : "un") << "successfully" << std::endl; }
+    void operator()(const LogData&)                const { std::cout << "Unknown log data" << std::endl; }
+    void operator()(const RegisterData& d)         const { std::cout << "Registered " << d.id << std::endl; }
+    void operator()(const RegisterSortData& d)     const { std::cout << "Registered sort " << d.id << std::endl; }
+    void operator()(const RegisterVariableData& d) const { std::cout << "Registered variable " << d.id << " of sort " << d.sort_id << std::endl; }
+    void operator()(const RegisterNameData& d)     const { std::cout << "Registered name " << d.id << " of sort " << d.sort_id << std::endl; }
+    void operator()(const RegisterFunctionData& d) const { std::cout << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl; }
+    void operator()(const RegisterFormulaData& d)  const { std::cout << "Registered formula " << d.id << " as " << *d.phi << std::endl; }
+    void operator()(const AddToKbData& d)          const { std::cout << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
     void operator()(const QueryData& d) const {
       std::string phi_str = to_string(*d.phi);
       for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
         std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
       }
-      std::cout << "Entails(" << phi_str << ") = " << std::boolalpha << d.yes << std::endl;
+      std::cout << "Query: " << phi_str << " = " << std::boolalpha << d.yes << std::endl;
       EM_ASM_({
-        announceEntailment($0, Pointer_stringify($1), $2);
+        announceQuery(Pointer_stringify($0), $1);
       }, phi_str.c_str(), d.yes);
     }
   };

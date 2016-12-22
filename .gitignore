@@ -28,6 +28,7 @@ tests/intmap
 tests/iter
 tests/literal
 tests/Makefile
+tests/modal
 tests/setup
 tests/solver
 tests/syntax
