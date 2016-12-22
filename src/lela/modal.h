@@ -15,9 +15,16 @@ namespace lela {
 
 class KnowledgeBase {
  public:
-  KnowledgeBase(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {
+  typedef std::size_t sphere_index;
+
+  KnowledgeBase(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf), objective_(sf, tf) {
     spheres_.push_back(Solver(sf, tf));
   }
+
+  KnowledgeBase(const KnowledgeBase&) = delete;
+  KnowledgeBase& operator=(const KnowledgeBase&) = delete;
+  KnowledgeBase(KnowledgeBase&&) = default;
+  KnowledgeBase& operator=(KnowledgeBase&&) = default;
 
   static bool ProperPlus(const Formula& phi) {
     return bool(GetProperPlusClause(phi));
@@ -34,8 +41,8 @@ class KnowledgeBase {
   }
 
   void Add(Formula::split_level k, Formula::split_level l,
-           const Clause& antecedent, const Clause& not_antecedent_or_consequent) {
-    beliefs_.push_back(Conditional{k, l, antecedent, not_antecedent_or_consequent});
+           const Formula& antecedent, const Clause& not_antecedent_or_consequent) {
+    beliefs_.push_back(Conditional{k, l, antecedent.Clone(), not_antecedent_or_consequent});
 #ifndef NDEBUG
     init_spheres_ = false;
 #endif
@@ -46,10 +53,10 @@ class KnowledgeBase {
     if (psi->type() == Formula::kBel) {
       const Formula::split_level k = psi->as_bel().k();
       const Formula::split_level l = psi->as_bel().l();
-      internal::Maybe<Clause> ante = GetProperPlusClause(psi->as_bel().antecedent());
+      const Formula& ante = psi->as_bel().antecedent();
       internal::Maybe<Clause> not_ante_or_conse = GetProperPlusClause(psi->as_bel().not_antecedent_or_consequent());
-      if (ante && not_ante_or_conse) {
-        Add(k, l, ante.val, not_ante_or_conse.val);
+      if (not_ante_or_conse) {
+        Add(k, l, ante, not_ante_or_conse.val);
         return true;
       }
     } else {
@@ -78,15 +85,19 @@ class KnowledgeBase {
         const Conditional& c = beliefs_[i];
         if (!done[i]) {
           sphere.AddClause(c.not_ante_or_conse);
-          ++n_done;
         }
       }
       for (std::size_t i = 0; is_plausibility_consistent && i < beliefs_.size(); ++i) {
         const Conditional& c = beliefs_[i];
-        if (!done[i] && sphere.Consistent(c.l, *Formula::Factory::Atomic(c.ante))) {
-          done[i] = true;
-          if (!sphere.Entails(c.k, *Formula::Factory::Not(Formula::Factory::Atomic(c.ante)))) {
-            is_plausibility_consistent = false;
+        if (!done[i]) {
+          const bool possiblyConsistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()));
+          if (possiblyConsistent) {
+            done[i] = true;
+            ++n_done;
+            const bool necessarilyConsistent = sphere.Consistent(c.l, *c.ante);
+            if (!necessarilyConsistent) {
+              is_plausibility_consistent = false;
+            }
           }
         }
       }
@@ -99,23 +110,26 @@ class KnowledgeBase {
 #endif
   }
 
-  bool Satisfies(const Formula& sigma, bool assume_consistent = true) {
+  bool Entails(const Formula& sigma, bool assume_consistent = true) {
     assert(init_spheres_);
     assert(sigma.subjective());
     Formula::Ref phi = ReduceModalities(sigma, assume_consistent);
     assert(phi->objective());
-    return Solver(sf_, tf_).Entails(0, *phi);
+    return objective_.Entails(0, *phi);
   }
+
+  sphere_index n_spheres() const { return spheres_.size(); }
+  Solver& sphere(sphere_index p) { return spheres_[p]; }
+  const std::vector<Solver>& spheres() const { return spheres_; }
 
  private:
   struct Conditional {
     Formula::split_level k;
     Formula::split_level l;
-    Clause ante;
+    Formula::Ref ante;
     Clause not_ante_or_conse;
   };
   typedef Grounder::SortedTermSet SortedTermSet;
-  typedef std::size_t sphere_index;
 
   static internal::Maybe<Clause> GetProperPlusClause(const Formula& phi) {
     size_t nots = 0;
@@ -219,13 +233,11 @@ class KnowledgeBase {
     }
   }
 
-  sphere_index n_spheres() const { return spheres_.size(); }
-
-  Formula::Ref ResConsistent(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
+  Formula::Ref ResEntails(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
     return bool_to_formula(spheres_[p].Entails(k, *Res(p, phi.Clone()), assume_consistent));
   }
 
-  Formula::Ref ResEntails(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
+  Formula::Ref ResConsistent(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
     return bool_to_formula(spheres_[p].Consistent(k, *Res(p, phi.Clone())/*, assume_consistent*/));
   }
 
@@ -277,9 +289,10 @@ class KnowledgeBase {
 
   Symbol::Factory* sf_;
   Term::Factory* tf_;
-  std::vector<Solver> spheres_;
   std::vector<Clause> knowledge_;
   std::vector<Conditional> beliefs_;
+  std::vector<Solver> spheres_;
+  Solver objective_;
 #ifndef NDEBUG
   bool init_spheres_ = false;
 #endif

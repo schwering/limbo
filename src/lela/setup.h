@@ -75,8 +75,11 @@ class Setup {
   }
 
   bool Subsumes(const Clause& c) const {
-    if (c.valid()) {
+    if (contains_empty_clause_ || c.valid()) {
       return true;
+    }
+    if (c.invalid()) {
+      return contains_empty_clause_;
     }
     for (BucketIndex b : buckets()) {
       if (bucket_intersection(b).PossiblySubsetOf(c.lhs_bloom())) {

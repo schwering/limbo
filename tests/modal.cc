@@ -33,18 +33,19 @@ TEST(SolverTest, ECAI2016Sound) {
   auto x = ctx.CreateVariable(Food);              REGISTER_SYMBOL(x);
   Formula::split_level k = 1;
   Formula::split_level l = 1;
-  kb.Add(*Formula::Factory::Bel(k, l, *(Aussie == T), *(Italian != T)));
-  kb.Add(*Formula::Factory::Bel(k, l, *(Italian == T), *(Aussie != T)));
-  kb.Add(*Formula::Factory::Bel(k, l, *(Aussie == T), *(Eats(roo) == T)));
-  kb.Add(*Formula::Factory::Bel(k, l, *(T == T), *(Italian == T || Veggie == T)));
-  kb.Add(*Formula::Factory::Bel(k, l, *(Italian != T), *(Aussie == T)));
-  kb.Add(*Formula::Factory::Bel(k, l, *(Meat(roo) != T), *(T != T)));
-  kb.Add(*Formula::Factory::Bel(k, l, *(~Fa(x, (Veggie == T && Meat(x) == T) >> (Eats(x) != T))), *(T != T)));
+  EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(Aussie == T), *(Italian != T))));
+  EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(Italian == T), *(Aussie != T))));
+  EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(Aussie == T), *(Eats(roo) == T))));
+  EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(T == T), *(Italian == T || Veggie == T))));
+  EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(Italian != T), *(Aussie == T))));
+  EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(Meat(roo) != T), *(T != T))));
+  Formula::Ref phi = Formula::Factory::Bel(k, l, *(~Fa(x, (Veggie == T && Meat(x) == T) >> (Eats(x) != T))), *(T != T))->NF(ctx.sf(), ctx.tf());
+  EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(~Fa(x, (Veggie == T && Meat(x) == T) >> (Eats(x) != T))), *(T != T))));
   kb.BuildSpheres();
-  EXPECT_FALSE(kb.Satisfies(*Formula::Factory::Bel(0, 0, *(Italian != T), *(Veggie != T))));
-  EXPECT_FALSE(kb.Satisfies(*Formula::Factory::Bel(0, 1, *(Italian != T), *(Veggie != T))));
-  EXPECT_FALSE(kb.Satisfies(*Formula::Factory::Bel(1, 0, *(Italian != T), *(Veggie != T))));
-  EXPECT_TRUE(kb.Satisfies(*Formula::Factory::Bel(1, 1, *(Italian != T), *(Veggie != T))));
+  EXPECT_FALSE(kb.Entails(*Formula::Factory::Bel(0, 0, *(Italian != T), *(Veggie != T))));
+  EXPECT_FALSE(kb.Entails(*Formula::Factory::Bel(0, 1, *(Italian != T), *(Veggie != T))));
+  EXPECT_FALSE(kb.Entails(*Formula::Factory::Bel(1, 0, *(Italian != T), *(Veggie != T))));
+  EXPECT_TRUE(kb.Entails(*Formula::Factory::Bel(1, 1, *(Italian != T), *(Veggie != T))));
 }
 
 }  // namespace lela

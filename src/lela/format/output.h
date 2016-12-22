@@ -20,7 +20,13 @@
 
 #include <lela/formula.h>
 #include <lela/literal.h>
+#if 0
+#include <lela/modal.h>
+#endif
 #include <lela/setup.h>
+#if 0
+#include <lela/solver.h>
+#endif
 #include <lela/term.h>
 #include <lela/internal/maybe.h>
 
@@ -259,6 +265,19 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
   return os;
 }
 
+#if 0
+std::ostream& operator<<(std::ostream& os, const Solver& s) {
+  return os << s.setup();
+}
+
+std::ostream& operator<<(std::ostream& os, const KnowledgeBase& kb) {
+  for (const Solver& s : kb.spheres()) {
+    os << s << std::endl;
+  }
+  return os;
+}
+#endif
+
 std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
   switch (alpha.type()) {
     case Formula::kAtomic:
@@ -301,6 +320,10 @@ std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
       os << "B_" << alpha.as_bel().k() << "^" << alpha.as_bel().l() << alpha.as_bel().antecedent() << "\u21D2" << alpha.as_bel().consequent();
   }
   return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Formula::Ref& alpha) {
+  return os << *alpha;
 }
 
 template<typename InputIt>
