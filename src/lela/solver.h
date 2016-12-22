@@ -117,7 +117,7 @@ class Solver {
             return std::all_of(c.begin(), c.end(), [this, &s, &split_terms, &names, k](Literal a) {
               a = a.flip();
               Formula::Ref psi = Formula::Factory::Atomic(Clause{a});
-              return a.valid() || ReduceConjunctions(s, split_terms, names, k, *psi);
+              return ReduceConjunctions(s, split_terms, names, k, *psi);
             });
           }
           case Formula::kNot: {
@@ -155,9 +155,13 @@ class Solver {
              int k,
              const Formula& phi) {
     assert(phi.objective());
-    if (s.Subsumes(Clause{})) {
+    if (s.Subsumes(Clause{}) || phi.trivially_valid()) {
       return true;
     } else if (k > 0) {
+      if (split_terms.empty()) {
+        assert(phi.trivially_invalid());
+        return phi.trivially_valid();
+      }
       assert(!split_terms.empty());
       return std::any_of(split_terms.begin(), split_terms.end(), [this, &s, &split_terms, &names, k, &phi](Term t) {
         const TermSet& ns = names[t.sort()];
@@ -203,7 +207,7 @@ class Solver {
           case Formula::kNot:
             return ReduceDisjunctions(s, assign_lits, names, k, phi.as_not().arg().as_not().arg());
           default:
-            return Assign(s, assign_lits, names, k, phi);
+            return !phi.trivially_invalid() && Assign(s, assign_lits, names, k, phi);
         }
       }
       case Formula::kKnow:
@@ -220,7 +224,13 @@ class Solver {
               int k,
               const Formula& phi) {
     assert(phi.objective());
-    if (k > 0) {
+    if (s.Subsumes(Clause{}) || phi.trivially_invalid()) {
+      return false;
+    } else if (k > 0) {
+      if (assign_lits.empty()) {
+        assert(s.Consistent() && (phi.trivially_valid() || phi.trivially_invalid()));
+        return phi.trivially_valid();
+      }
       assert(!assign_lits.empty());
       return std::any_of(assign_lits.begin(), assign_lits.end(),
                          [this, &s, &assign_lits, &names, k, &phi](const LiteralSet& lits) {
