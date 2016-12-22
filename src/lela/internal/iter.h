@@ -235,13 +235,13 @@ struct transform_iterators {
 template<typename InputIt, typename UnaryFunction>
 inline transform_iterators<InputIt, UnaryFunction> transform_range(InputIt begin,
                                                                    InputIt end,
-                                                                   UnaryFunction func = UnaryFunction()) {
+                                                                   UnaryFunction func) {
   return transform_iterators<InputIt, UnaryFunction>(begin, end, func);
 }
 
 template<typename Range, typename InputIt, typename UnaryFunction>
 inline transform_iterators<typename Range::iterator, UnaryFunction>
-transform_range(Range r, UnaryFunction func = UnaryFunction()) {
+transform_range(Range r, UnaryFunction func) {
   return transform_range(r.begin(), r.end(), func);
 }
 
@@ -303,13 +303,13 @@ struct filter_iterators {
 template<typename InputIt, typename UnaryPredicate>
 inline filter_iterators<InputIt, UnaryPredicate> filter_range(InputIt begin,
                                                               InputIt end,
-                                                              UnaryPredicate pred = UnaryPredicate()) {
+                                                              UnaryPredicate pred) {
   return filter_iterators<InputIt, UnaryPredicate>(begin, end, pred);
 }
 
 template<typename Range, typename UnaryPredicate>
 inline filter_iterators<typename Range::iterator, UnaryPredicate>
-filter_range(Range r, UnaryPredicate pred = UnaryPredicate()) {
+filter_range(Range r, UnaryPredicate pred) {
   return filter_range(r.begin(), r.end(), pred);
 }
 

@@ -52,6 +52,10 @@ class Grounder {
       return p.second ? 1 : 0;
     }
 
+    void erase(Term t) {
+      (*this)[t.sort()].erase(t);
+    }
+
     std::size_t insert(const TermSet& terms) {
       std::size_t n = 0;
       for (Term t : terms) {
@@ -325,16 +329,11 @@ class Grounder {
     return needles;
   }
 
-  static PlusMap PlusNames(const TermSet& vars) {
+  static PlusMap PlusNames(const Clause& c) {
     PlusMap plus;
-    for (const Term var : vars) {
+    for (const Term var : Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, c)) {
       ++plus[var.sort()];
     }
-    return plus;
-  }
-
-  static PlusMap PlusNames(const Clause& c) {
-    PlusMap plus = PlusNames(Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, c));
     // The following fixes Lemma 8 in the LBF paper. The problem is that
     // for KB = {[c = x]}, unit propagation should yield the empty clause;
     // but this requires that x is grounded by more than one name. It suffices

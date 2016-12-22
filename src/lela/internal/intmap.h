@@ -24,6 +24,7 @@ template<typename Key, typename T>
 class IntMap : public std::vector<T> {
  public:
   typedef std::vector<T> parent;
+  typedef T value_type;
 
   using std::vector<T>::vector;
 

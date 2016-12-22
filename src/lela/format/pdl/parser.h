@@ -480,9 +480,6 @@ class Parser {
           phi_ptr = &phi_ptr->as_not().arg();
           break;
         }
-        case Formula::kOr: {
-          goto error;
-        }
         case Formula::kExists: {
           if (nots % 2 == 0) {
             goto error;
@@ -490,6 +487,11 @@ class Parser {
           phi_ptr = &phi_ptr->as_exists().arg();
           break;
         }
+        case Formula::kOr:
+        case Formula::kKnow:
+        case Formula::kCons:
+        case Formula::kBel:
+          goto error;
       }
     }
 error:

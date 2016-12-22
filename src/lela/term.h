@@ -293,7 +293,7 @@ Term Term::Substitute(UnaryFunction theta, Factory* tf) const {
 
 template<typename UnaryFunction>
 void Term::Traverse(UnaryFunction f) const {
-  if (f(*this)) {
+  if (f(*this) && arity() > 0) {
     for (Term arg : args()) {
       arg.Traverse(f);
     }

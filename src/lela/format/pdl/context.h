@@ -90,22 +90,22 @@ struct Logger {
 template<typename LogPredicate>
 class Context {
  public:
-  explicit Context(LogPredicate p = LogPredicate()) : logger_(p) {}
+  explicit Context(LogPredicate p = LogPredicate()) : logger_(p), solver_(&sf_, &tf_) {}
 
   Symbol::Sort CreateSort() {
-    return solver_.sf()->CreateSort();
+    return sf()->CreateSort();
   }
 
   Term CreateVariable(Symbol::Sort sort) {
-    return solver_.tf()->CreateTerm(solver_.sf()->CreateVariable(sort));
+    return tf()->CreateTerm(sf()->CreateVariable(sort));
   }
 
   Term CreateName(Symbol::Sort sort) {
-    return solver_.tf()->CreateTerm(solver_.sf()->CreateName(sort));
+    return tf()->CreateTerm(sf()->CreateName(sort));
   }
 
   Symbol CreateFunction(Symbol::Sort sort, Symbol::Arity arity) {
-    return solver_.sf()->CreateFunction(sort, arity);
+    return sf()->CreateFunction(sort, arity);
   }
 
   bool IsRegisteredSort(const std::string& id) const {
@@ -228,8 +228,8 @@ class Context {
   Solver* solver() { return &solver_; }
   const Solver& solver() const { return solver_; }
 
-  Symbol::Factory* sf() { return solver_.sf(); }
-  Term::Factory* tf() { return solver_.tf(); }
+  Symbol::Factory* sf() { return &sf_; }
+  Term::Factory* tf() { return &tf_; }
 
   const LogPredicate& logger() const { return logger_; }
 
@@ -240,6 +240,8 @@ class Context {
   std::map<std::string, Term>         names_;
   std::map<std::string, Symbol>       funs_;
   std::map<std::string, Formula::Ref> formulas_;
+  Symbol::Factory sf_;
+  Term::Factory tf_;
   Solver solver_;
 };
 
