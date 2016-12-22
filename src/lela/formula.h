@@ -48,6 +48,7 @@ class Formula {
     inline static Ref Know(split_level k, Ref alpha);
     inline static Ref Cons(split_level k, Ref alpha);
     inline static Ref Bel(split_level k, split_level l, Ref alpha, Ref beta);
+    inline static Ref Bel(split_level k, split_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta);
   };
 
   class Atomic;
@@ -661,12 +662,8 @@ class Formula::Bel : public Formula {
   friend class Factory;
 
   Bel(split_level k, split_level l, Ref antecedent, Ref consequent) :
-      Formula(kBel),
-      k_(k),
-      l_(l),
-      antecedent_(antecedent->Clone()),
-      consequent_(consequent->Clone()),
-      not_antecedent_or_consequent_(Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
+      Bel(k, l, antecedent->Clone(), consequent->Clone(),
+          Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
 
   TermSet FreeVars() const override {
     assert(antecedent_->FreeVars() == not_antecedent_or_consequent_->FreeVars());
@@ -691,13 +688,23 @@ class Formula::Bel : public Formula {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
-  Ref Normalize() const override { return Factory::Bel(k_, l_, antecedent_->Normalize(), consequent_->Normalize()); }
+  Ref Normalize() const override { return Factory::Bel(k_, l_, antecedent_->Normalize(), consequent_->Normalize(),
+                                                       not_antecedent_or_consequent_->Normalize()); }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Factory::Bel(k_, l_, antecedent_->Flatten(0, sf, tf), consequent_->Flatten(0, sf, tf));
+    return Factory::Bel(k_, l_, antecedent_->Flatten(0, sf, tf), consequent_->Flatten(0, sf, tf),
+                        not_antecedent_or_consequent_->Flatten(0, sf, tf));
   }
 
  private:
+  Bel(split_level k, split_level l, Ref antecedent, Ref consequent, Ref not_antecedent_or_consequent) :
+      Formula(kBel),
+      k_(k),
+      l_(l),
+      antecedent_(std::move(antecedent)),
+      consequent_(std::move(consequent)),
+      not_antecedent_or_consequent_(std::move(not_antecedent_or_consequent)) {}
+
   split_level k_;
   split_level l_;
   Ref antecedent_;
@@ -713,6 +720,9 @@ inline Formula::Ref Formula::Factory::Know(split_level k, Ref alpha) { return Re
 inline Formula::Ref Formula::Factory::Cons(split_level k, Ref alpha) { return Ref(new class Cons(k, std::move(alpha))); }
 inline Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta) {
   return Ref(new class Bel(k, l, std::move(alpha), std::move(beta)));
+}
+inline Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta) {
+  return Ref(new class Bel(k, l, std::move(alpha), std::move(beta), std::move(not_alpha_or_beta)));
 }
 
 inline const class Formula::Atomic& Formula::as_atomic() const {
