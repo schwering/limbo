@@ -45,7 +45,7 @@ inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, int m
   } else {
     *os << colors.red() << "You loose :-(";
   }
-  *os << "  [width: " << g.width() << ", height: " << g.height() << ", height: " << g.n_mines() << ", seed: " << g.seed() << ", runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
+  *os << "  [width: " << g.width() << ", height: " << g.height() << ", height: " << g.n_mines() << ", seed: " << g.seed() << ", max-k: " << max_k << ", runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
   return win;
 }
 

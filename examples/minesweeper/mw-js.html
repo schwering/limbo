@@ -29,11 +29,11 @@
             background-size: 20px 20px;
         }
 
-        #output { width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; white-space: pre; }
+        #output { min-width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; overflow: scroll; }
         #output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
         #output { font-family: monospace; font-size: 110%; }
 
-        #output span { white-space: pre; }
+        #output span { }
         #output span.black { color: black; }
         #output span.dim { color: #999; }
         #output span.reset { color: inherit; }
@@ -50,7 +50,7 @@
 <h1>Limited Reasoner Demo: Minesweeper</h1>
 
 <p>
-<b>Quick start:</b> have a look at the "Problem Description", hit the "Click me!" button, and check the output under "Reasoning Results".
+<b>Quick start:</b> choose a "Game Configuration", hit the "Click me!" button, and see the agent play under "Game Output".
 </p>
 
 <p>
@@ -67,9 +67,9 @@ Also have a look at the <a href="../textinterface/" target="_blank">the other de
 </p>
 
 <form>
-<div class="label">Width:</div> <input type="number" id="width" min="0" value="8" class="number"><br />
-<div class="label">Height:</div> <input type="number" id="height" min="0" value="8" class="number"><br />
-<div class="label">Mines:</div> <input type="number" id="n_mines" min="0" value="10" class="number"><br />
+<div class="label">Width:</div> <input type="number" id="width" min="0" class="number"><br />
+<div class="label">Height:</div> <input type="number" id="height" min="0" class="number"><br />
+<div class="label">Mines:</div> <input type="number" id="n_mines" min="0" class="number"><br />
 <div style="height: 1ex;"></div>
 <div class="label">Max. splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
 <div class="label">Seed:</div> <input type="number" id="seed" min="0" value="0" class="number"><br />
@@ -78,7 +78,7 @@ Also have a look at the <a href="../textinterface/" target="_blank">the other de
 
 <script>
 $(document).ready(function() {
-    $('#config-small').click(function(){ setConfig(8, 8, 10); return false; });
+    $('#config-small').click(function(){ setConfig(8, 8, 10); return false; }).click();
     $('#config-medium').click(function(){ setConfig(16, 16, 40); return false; });
     $('#config-large').click(function(){ setConfig(16, 32, 99); return false; });
     $('#config-huge').click(function(){ setConfig(32, 64, 320); return false; });
@@ -111,7 +111,8 @@ function play() {
     t0 = performance.now();
     Module.ccall('lela_init', 'void', ['number', 'number', 'number', 'numer', 'numer'], [width, height, n_mines, seed, max_k]);
     playTurn();
-    setTimeout(function() { scrollDown(); }, 250);
+    setTimeout(function() { scrollDown(); }, 50);
+    setTimeout(function() { scrollDown(); }, 100);
 }
 
 function playTurn() {
@@ -148,7 +149,7 @@ function printLine(str) {
     // Hack: on iOS Safari and Chrome, double spaces are not displayed correctly sometimes;
     // so let's use '_' as fill character and re-replace it with "&nbsp;" in the Javascript
     // code.
-    str = str.replace(/_/g, "&nbsp;");
+    str = str.replace(/_/g, "&nbsp;") + '<br />';
     $('#output').children().last().append($(document.createElement('div')).html(str));
     last_str = str;
 }
@@ -190,6 +191,14 @@ $(document).keydown(function(e) {
 
 <div id="output"></div>
 
+<p>
+<b>Quick explanation:</b>
+The agent aims to explore the field without hitting a mine.
+When it opens a mine-free cell, it learns how many adjacent cells contain a mine.
+This number is displayed in every cell (except for <code>0</code>, which instead is visualised by a dot).
+A green <code style="color: green; font-weight: bold;">X</code> represents a cell the agent has reasoned out to contain a mine.
+</p>
+
 <p>See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys).
 
 
@@ -224,7 +233,7 @@ Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.
 <h2>About Minesweeper</h2>
 
 <p>
-Among the <code>width</code> &times; <code>height</code> cells on the field, <code>n_mines</code> cells contain mines. The goal of the agent is to identify these mines.
+Among the <code>width</code> &times; <code>height</code> cells on the field, <code>n_mines</code> cells contain a mine. The goal of the agent is to identify these mines.
 </p>
 
 <p>
@@ -248,7 +257,8 @@ The agent is a simple C++ program that loops over all cells and uses the reasone
 </p>
 
 <p>
-For every cell <code>(x,y)</code>, we use a proposition <code>IsMine(x,y)</code>. When a cell is explored, the agent receives the information how many adjacent cells contain a mine. To reflect this new information, the agent adds clauses of <code>IsMine(x,y)</code>. For instance, when the agent learns that one of the eight adjacent cell contains a mine, it adds <code>IsMine(x-1,y) &or; IsMine(x-1,y+1) &or; IsMine(x,y+1) &or; IsMine(x+1,y+1) &or; IsMine(x+1,y) &or; IsMine(x+1,y-1) &or; IsMine(x,y-1) &or; IsMine(x-1,y-1)</code> to say that at least one of the neighbors contains a mine, and a few similar clauses to say that at least seven adjacent cells contain <i>no</i> mine.
+For every cell <code>(x,y)</code>, we use a proposition <code>IsMine(x,y)</code>. When a cell is explored, the agent receives the information how many adjacent cells contain a mine. To reflect this
+new information, the agent adds clauses of <code>IsMine(x,y)</code>. For instance, when the agent learns that one of the eight adjacent cell contains a mine, it adds <code>IsMine(x-1,y) &or; IsMine(x-1,y+1) &or; IsMine(x,y+1) &or; IsMine(x+1,y+1) &or; IsMine(x+1,y) &or; IsMine(x+1,y-1) &or; IsMine(x,y-1) &or; IsMine(x-1,y-1)</code> to say that at least one of the neighbours contains a mine, and a few similar clauses to say that at least seven adjacent cells contain <i>no</i> mine.
 </p>
 
 <p>

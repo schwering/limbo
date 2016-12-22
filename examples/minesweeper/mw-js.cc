@@ -131,7 +131,7 @@ bool PlayTurn() {
     } else {
       std::cout << colors.red() << "You loose :-(";
     }
-    std::cout << "  [width: " << game->width() << ", height: " << game->height() << ", height: " << game->n_mines() << ", seed: " << game->seed() << ", runtime: " << timer_overall->duration() << " seconds]" << colors.reset() << std::endl;
+    std::cout << "  [width: " << game->width() << ", height: " << game->height() << ", height: " << game->n_mines() << ", seed: " << game->seed() << ", max-k: " << kb->max_k() << ", runtime: " << timer_overall->duration() << " seconds]" << colors.reset() << std::endl;
   }
 
   return game_over;
