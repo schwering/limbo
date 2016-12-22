@@ -119,6 +119,8 @@ class Formula {
     return Ref(std::move(c));
   }
 
+  internal::Maybe<Clause> AsUnivClause() const { return AsUnivClause(0); }
+
   virtual bool objective() const = 0;
   virtual bool subjective() const = 0;
   virtual bool quantified_in() const = 0;
@@ -186,6 +188,8 @@ class Formula {
 
   virtual Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const = 0;
 
+  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const = 0;
+
  private:
   Type type_;
   mutable internal::Maybe<TermSet> free_vars_ = internal::Nothing;
@@ -251,86 +255,95 @@ class Formula::Atomic : public Formula {
   Ref Normalize() const override { return Clone(); }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-  // The following two expressions are equivalent provided that x1 ... xN do
-  // not occur in t1 ... tN:
-  // (1)  Fa x1 ... Fa xN (t1 != x1 || ... || tN != xN || c)
-  // (2)  Ex x1 ... Ex xN (t1 == x1 && ... && tN == xN && c)
-  // From the reasoner's point of view, (1) is preferable because it's a bigger
-  // clause.
-  // This method generates clauses of the form (1). However, when c is nested in
-  // an odd number of negations, the result is equivalent to (2). In the special
-  // case where c is a unit clause, we can still keep the clausal structure of
-  // the transformed formula. For the following is equivalent: we negate the
-  // literal in the unit clause, apply the transformation to the new unit
-  // clause, and prepend another negation to the transformed formula.
-  typedef std::unordered_set<Literal> LiteralSet;
-  bool add_double_negation = nots % 2 == 1 && arg().unit();
-  const Clause c = add_double_negation ? Clause({arg().get(0).flip()}) : arg();
-  LiteralSet queue(c.begin(), c.end());
-  TermMap term_to_var;
-  for (Literal a : queue) {
-    if (!a.pos() && a.lhs().function() && a.rhs().variable()) {
-      term_to_var[a.rhs()] = a.lhs();
-    }
-  }
-  LiteralSet lits;
-  QuantifierPrefix vars;
-  while (!queue.empty()) {
-    auto it = queue.begin();
-    Literal a = *it;
-    queue.erase(it);
-    if (a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function())) {
-      lits.insert(a);
-    } else if (a.rhs().function()) {
-      assert(a.lhs().function());
-      Term old_rhs = a.rhs();
-      Term new_rhs;
-      TermMap::const_iterator it = term_to_var.find(old_rhs);
-      if (it != term_to_var.end()) {
-        new_rhs = it->second;
-      } else {
-        new_rhs = tf->CreateTerm(sf->CreateVariable(old_rhs.sort()));
-        term_to_var[old_rhs] = new_rhs;
-        vars.append_exists(new_rhs);
+    // The following two expressions are equivalent provided that x1 ... xN do
+    // not occur in t1 ... tN:
+    // (1)  Fa x1 ... Fa xN (t1 != x1 || ... || tN != xN || c)
+    // (2)  Ex x1 ... Ex xN (t1 == x1 && ... && tN == xN && c)
+    // From the reasoner's point of view, (1) is preferable because it's a bigger
+    // clause.
+    // This method generates clauses of the form (1). However, when c is nested in
+    // an odd number of negations, the result is equivalent to (2). In the special
+    // case where c is a unit clause, we can still keep the clausal structure of
+    // the transformed formula. For the following is equivalent: we negate the
+    // literal in the unit clause, apply the transformation to the new unit
+    // clause, and prepend another negation to the transformed formula.
+    typedef std::unordered_set<Literal> LiteralSet;
+    bool add_double_negation = nots % 2 == 1 && arg().unit();
+    const Clause c = add_double_negation ? Clause({arg().get(0).flip()}) : arg();
+    LiteralSet queue(c.begin(), c.end());
+    TermMap term_to_var;
+    for (Literal a : queue) {
+      if (!a.pos() && a.lhs().function() && a.rhs().variable()) {
+        term_to_var[a.rhs()] = a.lhs();
       }
-      Literal new_a = a.Substitute(Term::SingleSubstitution(old_rhs, new_rhs), tf);
-      Literal new_b = Literal::Neq(new_rhs, old_rhs);
-      queue.insert(new_a);
-      queue.insert(new_b);
-    } else {
-      assert(!a.lhs().quasiprimitive());
-      for (Term arg : a.lhs().args()) {
-        if (arg.function()) {
-          Term old_arg = arg;
-          Term new_arg;
-          TermMap::const_iterator it = term_to_var.find(old_arg);
-          if (it != term_to_var.end()) {
-            new_arg = it->second;
-          } else {
-            new_arg = tf->CreateTerm(sf->CreateVariable(old_arg.sort()));
-            term_to_var[old_arg] = new_arg;
-            vars.append_exists(new_arg);
+    }
+    LiteralSet lits;
+    QuantifierPrefix vars;
+    while (!queue.empty()) {
+      auto it = queue.begin();
+      Literal a = *it;
+      queue.erase(it);
+      if (a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function())) {
+        lits.insert(a);
+      } else if (a.rhs().function()) {
+        assert(a.lhs().function());
+        Term old_rhs = a.rhs();
+        Term new_rhs;
+        TermMap::const_iterator it = term_to_var.find(old_rhs);
+        if (it != term_to_var.end()) {
+          new_rhs = it->second;
+        } else {
+          new_rhs = tf->CreateTerm(sf->CreateVariable(old_rhs.sort()));
+          term_to_var[old_rhs] = new_rhs;
+          vars.append_exists(new_rhs);
+        }
+        Literal new_a = a.Substitute(Term::SingleSubstitution(old_rhs, new_rhs), tf);
+        Literal new_b = Literal::Neq(new_rhs, old_rhs);
+        queue.insert(new_a);
+        queue.insert(new_b);
+      } else {
+        assert(!a.lhs().quasiprimitive());
+        for (Term arg : a.lhs().args()) {
+          if (arg.function()) {
+            Term old_arg = arg;
+            Term new_arg;
+            TermMap::const_iterator it = term_to_var.find(old_arg);
+            if (it != term_to_var.end()) {
+              new_arg = it->second;
+            } else {
+              new_arg = tf->CreateTerm(sf->CreateVariable(old_arg.sort()));
+              term_to_var[old_arg] = new_arg;
+              vars.append_exists(new_arg);
+            }
+            Literal new_a = a.Substitute(Term::SingleSubstitution(old_arg, new_arg), tf);
+            Literal new_b = Literal::Neq(new_arg, old_arg);
+            queue.insert(new_a);
+            queue.insert(new_b);
           }
-          Literal new_a = a.Substitute(Term::SingleSubstitution(old_arg, new_arg), tf);
-          Literal new_b = Literal::Neq(new_arg, old_arg);
-          queue.insert(new_a);
-          queue.insert(new_b);
         }
       }
     }
-  }
-  assert(lits.size() >= arg().size());
-  assert(std::all_of(lits.begin(), lits.end(), [](Literal a) { return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
-  if (vars.size() == 0) {
-    return Clone();
-  } else {
-    if (!add_double_negation) {
-      vars.prepend_not();
+    assert(lits.size() >= arg().size());
+    assert(std::all_of(lits.begin(), lits.end(), [](Literal a) { return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
+    if (vars.size() == 0) {
+      return Clone();
+    } else {
+      if (!add_double_negation) {
+        vars.prepend_not();
+      }
+      vars.append_not();
+      return vars.PrependTo(Factory::Atomic(Clause(lits.begin(), lits.end())));
     }
-    vars.append_not();
-    return vars.PrependTo(Factory::Atomic(Clause(lits.begin(), lits.end())));
   }
-}
+
+  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+    if (nots % 2 != 0 ||
+        !std::all_of(c_.begin(), c_.end(), [](Literal a) {
+                     return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); })) {
+      return internal::Nothing;
+    }
+    return internal::Just(c_);
+  }
 
  private:
   Clause c_;
@@ -339,42 +352,42 @@ class Formula::Atomic : public Formula {
 class Formula::Or : public Formula {
  public:
   bool operator==(const Formula& that) const override {
-    return type() == that.type() && *lhs_ == *that.as_or().lhs_ && *rhs_ == *that.as_or().rhs_;
+    return type() == that.type() && *alpha_ == *that.as_or().alpha_ && *beta_ == *that.as_or().beta_;
   }
 
-  Ref Clone() const override { return Factory::Or(lhs_->Clone(), rhs_->Clone()); }
+  Ref Clone() const override { return Factory::Or(alpha_->Clone(), beta_->Clone()); }
 
-  const Formula& lhs() const { return *lhs_; }
-  const Formula& rhs() const { return *rhs_; }
+  const Formula& lhs() const { return *alpha_; }
+  const Formula& rhs() const { return *beta_; }
 
-  bool objective() const override { return lhs_->objective() && rhs_->objective(); }
-  bool subjective() const override { return lhs_->subjective() && rhs_->subjective(); }
-  bool quantified_in() const override { return lhs_->quantified_in() || rhs_->quantified_in(); }
-  bool trivially_valid() const override { return lhs_->trivially_valid() || rhs_->trivially_valid(); }
-  bool trivially_invalid() const override { return lhs_->trivially_invalid() && rhs_->trivially_invalid(); }
+  bool objective() const override { return alpha_->objective() && beta_->objective(); }
+  bool subjective() const override { return alpha_->subjective() && beta_->subjective(); }
+  bool quantified_in() const override { return alpha_->quantified_in() || beta_->quantified_in(); }
+  bool trivially_valid() const override { return alpha_->trivially_valid() || beta_->trivially_valid(); }
+  bool trivially_invalid() const override { return alpha_->trivially_invalid() && beta_->trivially_invalid(); }
 
  protected:
   friend class Factory;
 
-  Or(Ref lhs, Ref rhs) : Formula(kOr), lhs_(std::move(lhs)), rhs_(std::move(rhs)) {}
+  Or(Ref lhs, Ref rhs) : Formula(kOr), alpha_(std::move(lhs)), beta_(std::move(rhs)) {}
 
   TermSet FreeVars() const override {
-    TermSet ts1 = lhs_->FreeVars();
-    const TermSet ts2 = rhs_->FreeVars();
+    TermSet ts1 = alpha_->FreeVars();
+    const TermSet ts2 = beta_->FreeVars();
     ts1.insert(ts2.begin(), ts2.end());
     return ts1;
   }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
-    lhs_->ISubstitute(theta, tf);
-    rhs_->ISubstitute(theta, tf);
+    alpha_->ISubstitute(theta, tf);
+    beta_->ISubstitute(theta, tf);
   }
-  void ITraverse(const ITraversal<Term>& f)    const override { lhs_->ITraverse(f); rhs_->ITraverse(f); }
-  void ITraverse(const ITraversal<Literal>& f) const override { lhs_->ITraverse(f); rhs_->ITraverse(f); }
+  void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); beta_->ITraverse(f); }
+  void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); beta_->ITraverse(f); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
-    lhs_->Rectify(tm, sf, tf);
-    rhs_->Rectify(tm, sf, tf);
+    alpha_->Rectify(tm, sf, tf);
+    beta_->Rectify(tm, sf, tf);
   }
 
   virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
@@ -382,8 +395,8 @@ class Formula::Or : public Formula {
   }
 
   Ref Normalize() const override {
-    Ref l = lhs_->Normalize();
-    Ref r = rhs_->Normalize();
+    Ref l = alpha_->Normalize();
+    Ref r = beta_->Normalize();
     QuantifierPrefix lp;
     QuantifierPrefix rp;
     const Formula* ls;
@@ -410,12 +423,25 @@ class Formula::Or : public Formula {
   }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Factory::Or(lhs_->Flatten(nots, sf, tf), rhs_->Flatten(nots, sf, tf));
+    return Factory::Or(alpha_->Flatten(nots, sf, tf), beta_->Flatten(nots, sf, tf));
+  }
+
+  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+    if (nots % 2 != 0) {
+      return internal::Nothing;
+    }
+    const internal::Maybe<Clause> c1 = alpha_->AsUnivClause(nots);
+    const internal::Maybe<Clause> c2 = beta_->AsUnivClause(nots);
+    if (!c1 || !c2) {
+      return internal::Nothing;
+    }
+    const auto r = internal::join_ranges(c1.val.begin(), c1.val.end(), c2.val.begin(), c2.val.end());
+    return internal::Just(Clause(r.begin(), r.end()));
   }
 
  private:
-  Ref lhs_;
-  Ref rhs_;
+  Ref alpha_;
+  Ref beta_;
 };
 
 class Formula::Exists : public Formula {
@@ -471,6 +497,13 @@ class Formula::Exists : public Formula {
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     return Factory::Exists(x_, alpha_->Flatten(nots, sf, tf));
+  }
+
+  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+    if (nots % 2 == 0) {
+      return internal::Nothing;
+    }
+    return alpha_->AsUnivClause(nots);
   }
 
  private:
@@ -542,6 +575,10 @@ class Formula::Not : public Formula {
     return Factory::Not(alpha_->Flatten(nots + 1, sf, tf));
   }
 
+  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+    return alpha_->AsUnivClause(nots + 1);
+  }
+
  private:
   Ref alpha_;
 };
@@ -583,8 +620,11 @@ class Formula::Know : public Formula {
   Ref Normalize() const override { return Factory::Know(k_, alpha_->Normalize()); }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Factory::Know(k_, alpha_->Flatten(0, sf, tf));
+    Formula::Ref alpha = alpha_->Flatten(0, sf, tf);
+    return Factory::Know(k_, std::move(alpha));
   }
+
+  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
 
  private:
   split_level k_;
@@ -628,8 +668,11 @@ class Formula::Cons : public Formula {
   Ref Normalize() const override { return Factory::Cons(k_, alpha_->Normalize()); }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Factory::Cons(k_, alpha_->Flatten(0, sf, tf));
+    Formula::Ref alpha = alpha_->Flatten(0, sf, tf);
+    return Factory::Cons(k_, std::move(alpha));
   }
+
+  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
 
  private:
   split_level k_;
@@ -692,9 +735,13 @@ class Formula::Bel : public Formula {
                                                        not_antecedent_or_consequent_->Normalize()); }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    return Factory::Bel(k_, l_, antecedent_->Flatten(0, sf, tf), consequent_->Flatten(0, sf, tf),
-                        not_antecedent_or_consequent_->Flatten(0, sf, tf));
+    Formula::Ref ante = antecedent_->Flatten(0, sf, tf);
+    Formula::Ref conse = consequent_->Flatten(0, sf, tf);
+    Formula::Ref not_ante_or_conse = not_antecedent_or_consequent_->Flatten(0, sf, tf);
+    return Factory::Bel(k_, l_, std::move(ante), std::move(conse), std::move(not_ante_or_conse));
   }
+
+  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
 
  private:
   Bel(split_level k, split_level l, Ref antecedent, Ref consequent, Ref not_antecedent_or_consequent) :

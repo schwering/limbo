@@ -26,41 +26,32 @@ class KnowledgeBase {
   KnowledgeBase(KnowledgeBase&&) = default;
   KnowledgeBase& operator=(KnowledgeBase&&) = default;
 
-  static bool ProperPlus(const Formula& phi) {
-    return bool(GetProperPlusClause(phi));
-  }
-
   void Add(const Clause& c) {
     for (Solver& sphere : spheres_) {
       sphere.AddClause(c);
     }
     knowledge_.push_back(c);
-#ifndef NDEBUG
-    init_spheres_ = false;
-#endif
   }
 
   void Add(Formula::split_level k, Formula::split_level l,
            const Formula& antecedent, const Clause& not_antecedent_or_consequent) {
     beliefs_.push_back(Conditional{k, l, antecedent.Clone(), not_antecedent_or_consequent});
-#ifndef NDEBUG
-    init_spheres_ = false;
-#endif
+    spheres_changed_ = true;
   }
 
-  bool Add(const Formula& phi) {
-    Formula::Ref psi = phi.NF(sf_, tf_);
+  bool Add(const Formula& alpha) {
+    Formula::Ref psi = alpha.NF(sf_, tf_);
     if (psi->type() == Formula::kBel) {
       const Formula::split_level k = psi->as_bel().k();
       const Formula::split_level l = psi->as_bel().l();
       const Formula& ante = psi->as_bel().antecedent();
-      internal::Maybe<Clause> not_ante_or_conse = GetProperPlusClause(psi->as_bel().not_antecedent_or_consequent());
+      internal::Maybe<Clause> not_ante_or_conse = psi->as_bel().not_antecedent_or_consequent().AsUnivClause();
       if (not_ante_or_conse) {
         Add(k, l, ante, not_ante_or_conse.val);
         return true;
       }
     } else {
-      internal::Maybe<Clause> c = GetProperPlusClause(psi->as_know().arg());
+      internal::Maybe<Clause> c = (psi->type() == Formula::kKnow ? psi->as_know().arg() : *psi).AsUnivClause();
       if (c) {
         Add(c.val);
         return true;
@@ -68,6 +59,32 @@ class KnowledgeBase {
     }
     return false;
   }
+
+  bool Entails(const Formula& sigma, bool assume_consistent = true) {
+    assert(sigma.subjective());
+    if (spheres_changed_) {
+      BuildSpheres();
+      spheres_changed_ = false;
+    }
+    Formula::Ref sigma_nf = sigma.NF(sf_, tf_);
+    Formula::Ref phi = ReduceModalities(*sigma_nf, assume_consistent);
+    assert(phi->objective());
+    return objective_.Entails(0, *phi);
+  }
+
+  sphere_index n_spheres() const { return spheres_.size(); }
+  Solver& sphere(sphere_index p) { return spheres_[p]; }
+  const Solver& sphere(sphere_index p) const { return spheres_[p]; }
+  const std::vector<Solver>& spheres() const { return spheres_; }
+
+ private:
+  struct Conditional {
+    Formula::split_level k;
+    Formula::split_level l;
+    Formula::Ref ante;
+    Clause not_ante_or_conse;
+  };
+  typedef Grounder::SortedTermSet SortedTermSet;
 
   void BuildSpheres() {
     spheres_.clear();
@@ -106,30 +123,9 @@ class KnowledgeBase {
       }
     } while (n_done > last_n_done);
 #ifndef NDEBUG
-    init_spheres_ = true;
+    spheres_changed_ = true;
 #endif
   }
-
-  bool Entails(const Formula& sigma, bool assume_consistent = true) {
-    assert(init_spheres_);
-    assert(sigma.subjective());
-    Formula::Ref phi = ReduceModalities(sigma, assume_consistent);
-    assert(phi->objective());
-    return objective_.Entails(0, *phi);
-  }
-
-  sphere_index n_spheres() const { return spheres_.size(); }
-  Solver& sphere(sphere_index p) { return spheres_[p]; }
-  const std::vector<Solver>& spheres() const { return spheres_; }
-
- private:
-  struct Conditional {
-    Formula::split_level k;
-    Formula::split_level l;
-    Formula::Ref ante;
-    Clause not_ante_or_conse;
-  };
-  typedef Grounder::SortedTermSet SortedTermSet;
 
   static internal::Maybe<Clause> GetProperPlusClause(const Formula& phi) {
     size_t nots = 0;
@@ -293,9 +289,7 @@ class KnowledgeBase {
   std::vector<Conditional> beliefs_;
   std::vector<Solver> spheres_;
   Solver objective_;
-#ifndef NDEBUG
-  bool init_spheres_ = false;
-#endif
+  bool spheres_changed_ = false;
 };
 
 }  // namespace lela

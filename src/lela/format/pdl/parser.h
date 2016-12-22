@@ -148,7 +148,7 @@ class Parser {
         !Is(Token(0), Token::kVar) &&
         !Is(Token(0), Token::kName) &&
         !Is(Token(0), Token::kFun)) {
-      return Unapplicable<bool>(LELA_MSG("No declaration"));
+      return Unapplicable<bool>(LELA_MSG("Expected 'Sort', 'Var', 'Name' or 'Fun'"));
     }
     if (Is(Token(0), Token::kSort) &&
         Is(Token(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredSort(s); }) &&
@@ -273,17 +273,20 @@ class Parser {
   // primary_formula --> ! primary_formula
   //                  |  Ex x primary_formula
   //                  |  Fa x primary_formula
+  //                  |  Know k : primary_formula
+  //                  |  Cons k : primary_formula
+  //                  |  Bel k l : primary_formula => primary_formula
   //                  |  ( formula )
   //                  |  abbreviation
   //                  |  literal
   Result<Formula::Ref> primary_formula(int binary_connective_recursion = 0) {
     if (Is(Token(0), Token::kNot)) {
       Advance(0);
-      Result<Formula::Ref> phi = primary_formula();
-      if (!phi) {
-        return Failure<Formula::Ref>(LELA_MSG("Expected a primary formula within negation"), phi);
+      Result<Formula::Ref> alpha = primary_formula();
+      if (!alpha) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected a primary formula within negation"), alpha);
       }
-      return Success(Formula::Factory::Not(std::move(phi.val)));
+      return Success(Formula::Factory::Not(std::move(alpha.val)));
     }
     if (Is(Token(0), Token::kExists) || Is(Token(0), Token::kForall)) {
       bool ex = Is(Token(0), Token::kExists);
@@ -295,24 +298,87 @@ class Parser {
       if (!x.val.variable()) {
         return Failure<Formula::Ref>(LELA_MSG("Expected variable in quantifier"), x);
       }
-      Result<Formula::Ref> phi = primary_formula();
-      if (!phi) {
-        return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within quantifier"), phi);
+      Result<Formula::Ref> alpha = primary_formula();
+      if (!alpha) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within quantifier"), alpha);
       }
-      return Success(ex ? Formula::Factory::Exists(x.val, std::move(phi.val))
-                        : Formula::Factory::Not(Formula::Factory::Exists(x.val, Formula::Factory::Not(std::move(phi.val)))));
+      return Success(ex ? Formula::Factory::Exists(x.val, std::move(alpha.val))
+                        : Formula::Factory::Not(Formula::Factory::Exists(x.val, Formula::Factory::Not(std::move(alpha.val)))));
+    }
+    if (Is(Token(0), Token::kKnow) || Is(Token(0), Token::kCons)) {
+      bool know = Is(Token(0), Token::kKnow);
+      Advance(0);
+      if (!Is(Token(0), Token::kLess)) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected '<'"));
+      }
+      Advance(0);
+      if (!Is(Token(0), Token::kUint)) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected split level integer"));
+      }
+      const Formula::split_level k = std::stoi(Token(0).val.str());
+      Advance(0);
+      if (!Is(Token(0), Token::kGreater)) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected '>'"));
+      }
+      Advance(0);
+      Result<Formula::Ref> alpha = primary_formula();
+      if (!alpha) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
+      }
+      if (know) {
+        return Success(Formula::Factory::Know(k, std::move(alpha.val)));
+      } else {
+        return Success(Formula::Factory::Cons(k, std::move(alpha.val)));
+      }
+    }
+    if (Is(Token(0), Token::kBel)) { 
+      Advance(0);
+      if (!Is(Token(0), Token::kLess)) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected '<'"));
+      }
+      Advance(0);
+      if (!Is(Token(0), Token::kUint)) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected first split level integer"));
+      }
+      const Formula::split_level k = std::stoi(Token(0).val.str());
+      Advance(0);
+      if (!Is(Token(0), Token::kComma)) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected ','"));
+      }
+      Advance(0);
+      if (!Is(Token(0), Token::kUint)) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected second split level integer"));
+      }
+      const Formula::split_level l = std::stoi(Token(0).val.str());
+      Advance(0);
+      if (!Is(Token(0), Token::kGreater)) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected '>'"));
+      }
+      Advance(0);
+      Result<Formula::Ref> alpha = primary_formula();
+      if (!alpha) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
+      }
+      Result<Formula::Ref> beta = primary_formula();
+      if (!Is(Token(0), Token::kDoubleRArrow)) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected conditional belief arrow"));
+      }
+      if (!beta) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), beta);
+      }
+      return Success(Formula::Factory::Bel(k, l, std::move(alpha.val), std::move(beta.val)));
     }
     if (Is(Token(0), Token::kLeftParen)) {
       Advance(0);
-      Result<Formula::Ref> phi = formula();
-      if (!phi) {
-        return Failure<Formula::Ref>(LELA_MSG("Expected formula within brackets"), phi);
+      Result<Formula::Ref> alpha = formula();
+      if (!alpha) {
+        return Failure<Formula::Ref>(LELA_MSG("Expected formula within brackets"), alpha);
       }
       if (!Is(Token(0), Token::kRightParen)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected closing right parenthesis ')'"));
       }
       Advance(0);
-      return phi;
+      return alpha;
     }
     if (Is(Token(0), Token::kIdentifier) && ctx_->IsRegisteredFormula(Token(0).val.str())) {
       std::string id = Token(0).val.str();
@@ -328,9 +394,9 @@ class Parser {
 
   // conjunctive_formula --> primary_formula [ && primary_formula ]*
   Result<Formula::Ref> conjunctive_formula() {
-    Result<Formula::Ref> phi = primary_formula();
-    if (!phi) {
-      return Failure<Formula::Ref>(LELA_MSG("Expected left conjunctive formula"), phi);
+    Result<Formula::Ref> alpha = primary_formula();
+    if (!alpha) {
+      return Failure<Formula::Ref>(LELA_MSG("Expected left conjunctive formula"), alpha);
     }
     while (Is(Token(0), Token::kAnd)) {
       Advance(0);
@@ -338,17 +404,17 @@ class Parser {
       if (!psi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected left conjunctive formula"), psi);
       }
-      phi = Success(Formula::Factory::Not(Formula::Factory::Or(Formula::Factory::Not(std::move(phi.val)),
-                                                               Formula::Factory::Not(std::move(psi.val)))));
+      alpha = Success(Formula::Factory::Not(Formula::Factory::Or(Formula::Factory::Not(std::move(alpha.val)),
+                                                                 Formula::Factory::Not(std::move(psi.val)))));
     }
-    return phi;
+    return alpha;
   }
 
   // disjunctive_formula --> conjunctive_formula [ || conjunctive_formula ]*
   Result<Formula::Ref> disjunctive_formula() {
-    Result<Formula::Ref> phi = conjunctive_formula();
-    if (!phi) {
-      return Failure<Formula::Ref>(LELA_MSG("Expected left argument conjunctive formula"), phi);
+    Result<Formula::Ref> alpha = conjunctive_formula();
+    if (!alpha) {
+      return Failure<Formula::Ref>(LELA_MSG("Expected left argument conjunctive formula"), alpha);
     }
     while (Is(Token(0), Token::kOr)) {
       Advance(0);
@@ -356,17 +422,17 @@ class Parser {
       if (!psi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected right argument conjunctive formula"), psi);
       }
-      phi = Success(Formula::Factory::Or(std::move(phi.val), std::move(psi.val)));
+      alpha = Success(Formula::Factory::Or(std::move(alpha.val), std::move(psi.val)));
     }
-    return phi;
+    return alpha;
   }
 
   // implication_formula --> disjunctive_formula -> disjunctive_formula
   //                      |  disjunctive_formula
   Result<Formula::Ref> implication_formula() {
-    Result<Formula::Ref> phi = disjunctive_formula();
-    if (!phi) {
-      return Failure<Formula::Ref>(LELA_MSG("Expected left argument disjunctive formula"), phi);
+    Result<Formula::Ref> alpha = disjunctive_formula();
+    if (!alpha) {
+      return Failure<Formula::Ref>(LELA_MSG("Expected left argument disjunctive formula"), alpha);
     }
     if (Is(Token(0), Token::kRArrow)) {
       Advance(0);
@@ -374,17 +440,17 @@ class Parser {
       if (!psi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected right argument disjunctive formula"), psi);
       }
-      phi = Success(Formula::Factory::Or(Formula::Factory::Not(std::move(phi.val)), std::move(psi.val)));
+      alpha = Success(Formula::Factory::Or(Formula::Factory::Not(std::move(alpha.val)), std::move(psi.val)));
     }
-    return phi;
+    return alpha;
   }
 
   // equivalence_formula --> implication_formula -> implication_formula
   //                      |  implication_formula
   Result<Formula::Ref> equivalence_formula() {
-    Result<Formula::Ref> phi = implication_formula();
-    if (!phi) {
-      return Failure<Formula::Ref>(LELA_MSG("Expected left argument implication formula"), phi);
+    Result<Formula::Ref> alpha = implication_formula();
+    if (!alpha) {
+      return Failure<Formula::Ref>(LELA_MSG("Expected left argument implication formula"), alpha);
     }
     if (Is(Token(0), Token::kLRArrow)) {
       Advance(0);
@@ -392,12 +458,12 @@ class Parser {
       if (!psi) {
         return Failure<Formula::Ref>(LELA_MSG("Expected right argument implication formula"), psi);
       }
-      Formula::Ref lr = Formula::Factory::Or(Formula::Factory::Not(phi.val->Clone()), psi.val->Clone());
-      Formula::Ref rl = Formula::Factory::Or(Formula::Factory::Not(std::move(phi.val)), std::move(psi.val));
-      phi = Success(Formula::Factory::Not(Formula::Factory::Or(Formula::Factory::Not(std::move(lr)),
-                                                               Formula::Factory::Not(std::move(rl)))));
+      Formula::Ref lr = Formula::Factory::Or(Formula::Factory::Not(alpha.val->Clone()), psi.val->Clone());
+      Formula::Ref rl = Formula::Factory::Or(Formula::Factory::Not(std::move(alpha.val)), std::move(psi.val));
+      alpha = Success(Formula::Factory::Not(Formula::Factory::Or(Formula::Factory::Not(std::move(lr)),
+                                                                 Formula::Factory::Not(std::move(rl)))));
     }
-    return phi;
+    return alpha;
   }
 
   // formula --> equivalence_formula
@@ -420,15 +486,15 @@ class Parser {
       return Failure<bool>(LELA_MSG("Expected assignment operator ':='"));
     }
     Advance(0);
-    const Result<Formula::Ref> phi = formula();
-    if (!phi) {
-      return Failure<bool>(LELA_MSG("Expected formula"), phi);
+    const Result<Formula::Ref> alpha = formula();
+    if (!alpha) {
+      return Failure<bool>(LELA_MSG("Expected formula"), alpha);
     }
     if (!Is(Token(0), Token::kEndOfLine)) {
       return Failure<bool>(LELA_MSG("Expected end of line ';'"));
     }
     Advance(0);
-    ctx_->RegisterFormula(id, *phi.val);
+    ctx_->RegisterFormula(id, *alpha.val);
     return Success(true);
   }
 
@@ -444,64 +510,49 @@ class Parser {
     }
   }
 
-  // kb_clause --> KB formula ;
-  Result<bool> kb_clause() {
+  // kb_formula --> KB : formula ;
+  Result<bool> kb_formula() {
     if (!Is(Token(0), Token::kKB)) {
-      return Unapplicable<bool>(LELA_MSG("No kb_clause"));
+      return Unapplicable<bool>(LELA_MSG("Expected 'KB'"));
     }
     Advance(0);
-    Result<Formula::Ref> phi = formula();
-    if (!phi) {
-      return Failure<bool>(LELA_MSG("Expected KB clause formula"), phi);
+    if (!Is(Token(0), Token::kColon)) {
+      return Unapplicable<bool>(LELA_MSG("Expected ':'"));
+    }
+    Advance(0);
+    Result<Formula::Ref> alpha = formula();
+    if (!alpha) {
+      return Failure<bool>(LELA_MSG("Expected KB formula"), alpha);
     }
     if (!Is(Token(0), Token::kEndOfLine)) {
       return Failure<bool>(LELA_MSG("Expected end of line ';'"));
     }
     Advance(0);
-    phi.val = phi.val->NF(ctx_->sf(), ctx_->tf());
-    const Formula* phi_ptr = phi.val.get();
-    size_t nots = 0;
-    for (;;) {
-      switch (phi_ptr->type()) {
-        case Formula::kAtomic: {
-          if (nots % 2 != 0) {
-            goto error;
-          }
-          const Clause c = phi_ptr->as_atomic().arg();
-          if (!std::all_of(c.begin(), c.end(), [](Literal a) {
-                           return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); })) {
-            goto error;
-          }
-          ctx_->AddClause(c);
-          return Success(true);
-        }
-        case Formula::kNot: {
-          ++nots;
-          phi_ptr = &phi_ptr->as_not().arg();
-          break;
-        }
-        case Formula::kExists: {
-          if (nots % 2 == 0) {
-            goto error;
-          }
-          phi_ptr = &phi_ptr->as_exists().arg();
-          break;
-        }
-        case Formula::kOr:
-        case Formula::kKnow:
-        case Formula::kCons:
-        case Formula::kBel:
-          goto error;
-      }
+    if (ctx_->AddToKb(*alpha.val)) {
+      return Success(true);
+    } else {
+      return Failure<bool>(LELA_MSG("Couldn't add formula to KB; is it proper+ "
+                                    "(i.e., its NF must be a universally quantified clause)?"));
     }
-error:
-    return Failure<bool>(LELA_MSG("Expected KB clause formula: NF of the formula must be clause with universal quantifiers"), phi);
   }
 
-  // kb_clauses --> kb_clause*
-  Result<bool> kb_clauses() {
+  // subjective_formula --> formula
+  Result<Formula::Ref> subjective_formula() {
+    Result<Formula::Ref> alpha = formula();
+    if (!alpha) {
+      return Failure<Formula::Ref>(LELA_MSG("Expected subjective formula"), alpha);
+    }
+    if (!alpha.val->subjective()) {
+      return Failure<Formula::Ref>(LELA_MSG("Expected subjective formula
+                                            "(i.e., no functions outside of modal operators)"), alpha);
+    }
+    return Success(std::move(alpha.val));
+  }
+
+  // kb_formulas --> kb_formula*
+  Result<bool> kb_formulas() {
     Result<bool> r;
-    while ((r = kb_clause())) {
+    while ((r = kb_formula())) {
     }
     if (!r.unapplicable) {
       return r;
@@ -510,49 +561,26 @@ error:
     }
   }
 
-  // query --> Entails(k, formula) | Consistent(k, formula)
+  // query --> Query : subjective_formula ;
   Result<bool> query() {
-    if (!Is(Token(0), Token::kEntails) &&
-        !Is(Token(0), Token::kConsistent)) {
-      return Unapplicable<bool>(LELA_MSG("No query"));
-    }
-    const bool entailment = Is(Token(0), Token::kEntails);
-    Advance(0);
-    if (!Is(Token(0), Token::kLeftParen)) {
-      return Failure<bool>(LELA_MSG("Expected left parenthesis '('"));
+    if (!Is(Token(0), Token::kQuery)) {
+      return Unapplicable<bool>(LELA_MSG("Expected 'Query'"));
     }
     Advance(0);
-    if (!Is(Token(0), Token::kUint)) {
-      return Failure<bool>(LELA_MSG("Expected split level integer"));
-    }
-    const int k = std::stoi(Token(0).val.str());
-    Advance(0);
-    if (!Is(Token(0), Token::kComma)) {
-      return Failure<bool>(LELA_MSG("Expected comma ';'"));
+    if (!Is(Token(0), Token::kColon)) {
+      return Unapplicable<bool>(LELA_MSG("Expected ':'"));
     }
     Advance(0);
-    Result<Formula::Ref> phi = formula();
-    if (!phi) {
-      return Failure<bool>(LELA_MSG("Expected query formula"), phi);
+    Result<Formula::Ref> alpha = subjective_formula();
+    if (!alpha) {
+      return Failure<bool>(LELA_MSG("Expected query subjective_formula"), alpha);
     }
-    if (!Is(Token(0), Token::kRightParen)) {
-      return Failure<bool>(LELA_MSG("Expected right parenthesis ')'"));
-    }
-    Advance(0);
     if (!Is(Token(0), Token::kEndOfLine)) {
       return Failure<bool>(LELA_MSG("Expected end of line ';'"));
     }
     Advance(0);
-    const Formula::Ref phi_nf = phi.val->NF(ctx_->sf(), ctx_->tf());
-    if (entailment) {
-      const bool r = ctx_->solver()->Entails(k, *phi_nf);
-      ctx_->logger()(Logger::EntailmentData(k, &ctx_->solver()->setup(), *phi_nf, r));
-      return Success(bool(r));
-    } else {
-      const bool r = ctx_->solver()->Consistent(k, *phi_nf);
-      ctx_->logger()(Logger::ConsistencyData(k, &ctx_->solver()->setup(), *phi_nf, r));
-      return Success(bool(r));
-    }
+    const bool r = ctx_->Query(*alpha.val);
+    return Success(bool(r));
   }
 
   // queries --> query*
@@ -569,23 +597,31 @@ error:
     }
   }
 
-  // assertion_refutation --> Assert query | Refute query
+  // assertion_refutation --> Assert subjective_formula | Refute subjective_formula
   Result<bool> assertion_refutation() {
     if (!Is(Token(0), Token::kAssert) &&
         !Is(Token(0), Token::kRefute)) {
-      return Unapplicable<bool>(LELA_MSG("No assertion_refutation"));
+      return Unapplicable<bool>(LELA_MSG("Expected 'Assert' or 'Refute'"));
     }
-    Result<bool> failure = Failure<bool>(LELA_MSG("Assertion/refutation failed"));
     const bool pos = Is(Token(0), Token::kAssert);
     Advance(0);
-    Result<bool> r = query();
-    if (!r) {
-      return Failure<bool>(LELA_MSG("Expected formula"), r);
+    if (!Is(Token(0), Token::kColon)) {
+      return Failure<bool>(LELA_MSG("Expected ':'"));
     }
-    if (r.val == pos) {
+    Advance(0);
+    Result<Formula::Ref> alpha = subjective_formula();
+    if (!alpha) {
+      return Failure<bool>(LELA_MSG("Expected assertion/refutation subjective_formula"), alpha);
+    }
+    if (!Is(Token(0), Token::kEndOfLine)) {
+      return Failure<bool>(LELA_MSG("Expected end of line ';'"));
+    }
+    Advance(0);
+    const bool r = ctx_->Query(*alpha.val);
+    if (r == pos) {
       return Success(true);
     } else {
-      return failure;
+      return Failure<bool>(LELA_MSG("Assertion/refutation failed"));
     }
   }
 
@@ -603,7 +639,7 @@ error:
     }
   }
 
-  // start --> declarations kb_clauses
+  // start --> declarations kb_formulas
   Result<bool> start() {
     Result<bool> r;
     iterator prev;
@@ -613,9 +649,9 @@ error:
       if (!r) {
         return Failure<bool>(LELA_MSG("Error in declarations"), r);
       }
-      r = kb_clauses();
+      r = kb_formulas();
       if (!r) {
-        return Failure<bool>(LELA_MSG("Error in kb_clauses"), r);
+        return Failure<bool>(LELA_MSG("Error in kb_formulas"), r);
       }
       r = abbreviations();
       if (!r) {

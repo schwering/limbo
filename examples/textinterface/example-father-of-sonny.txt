@@ -15,25 +15,25 @@ Name True -> BOOL;
 Function fatherOf/1 -> HUMAN;
 Function motherOf/1 -> HUMAN;
 
-KB (motherOf(Sonny) == Mary);
-KB (fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred);
+KB: motherOf(Sonny) == Mary;
+KB: fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred;
 
-Entails (0, fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred);
+Query: Know<0> fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred;
 
 Let phi := Ex x (x == fatherOf(Sonny));
-Entails (0, phi);
-Entails (1, phi);
+Query: Know<0> phi;
+Query: Know<1> phi;
 
 Let phi := Frank == fatherOf(Sonny);
-Consistent (0, phi);
-Consistent (1, phi);
+Query: Cons<0> phi;
+Query: Cons<1> phi;
 
-Entails (0, Fred == fatherOf(Sonny) && Frank == fatherOf(Sonny) || Fred == fatherOf(Sonny));
+Query: Know<0> Fred == fatherOf(Sonny) && Frank == fatherOf(Sonny) || Fred == fatherOf(Sonny);
 
 Let phi := motherOf(Sonny) == fatherOf(Sonny);
-Entails    (0, phi);
-Consistent (0, phi);
-Entails    (0, !phi);
-Consistent (0, !phi);
-Consistent (1, !phi);
+Query: Know<0> phi;
+Query: Cons<0> phi;
+Query: Know<0> !phi;
+Query: Cons<0> !phi;
+Query: Cons<1> !phi;
 

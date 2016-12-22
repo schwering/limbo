@@ -19,7 +19,7 @@
 
 #include <lela/term.h>
 #include <lela/formula.h>
-#include <lela/solver.h>
+#include <lela/modal.h>
 #include <lela/format/output.h>
 
 namespace lela {
@@ -60,28 +60,19 @@ struct Logger {
     const Formula::Ref phi;
   };
 
-  struct AddClauseData : public LogData {
-    explicit AddClauseData(const Clause& c) : c(c) {}
-    const Clause c;
+  struct AddToKbData : public LogData {
+    AddToKbData(const Formula& alpha, bool ok) : alpha(alpha), ok(ok) {}
+    const Formula& alpha;
+    const bool ok;
   };
 
   struct QueryData : public LogData {
-    QueryData(Solver::split_level k, const Setup* s, const Formula& phi, bool yes) :
-        k(k), s(s), phi(phi.Clone()), yes(yes) {}
-    const Solver::split_level k;
-    const Setup* const s;
+    QueryData(const KnowledgeBase& kb, const Formula& phi, bool assume_consistent, bool yes) :
+        kb(kb), phi(phi.Clone()), assume_consistent(assume_consistent), yes(yes) {}
+    const KnowledgeBase& kb;
     const Formula::Ref phi;
+    const bool assume_consistent;
     const bool yes;
-  };
-
-  struct EntailmentData : public QueryData {
-    EntailmentData(Solver::split_level k, const Setup* s, const Formula& phi, bool yes)
-        : QueryData(k, s, phi, yes) {}
-  };
-
-  struct ConsistencyData : public QueryData {
-    ConsistencyData(Solver::split_level k, const Setup* s, const Formula& phi, bool yes)
-        : QueryData(k, s, phi, yes) {}
   };
 
   void operator()(const LogData& d) const {}
@@ -90,7 +81,7 @@ struct Logger {
 template<typename LogPredicate>
 class Context {
  public:
-  explicit Context(LogPredicate p = LogPredicate()) : logger_(p), solver_(&sf_, &tf_) {}
+  explicit Context(LogPredicate p = LogPredicate()) : logger_(p), kb_(&sf_, &tf_) {}
 
   Symbol::Sort CreateSort() {
     return sf()->CreateSort();
@@ -168,7 +159,6 @@ class Context {
   }
 
   void RegisterSort(const std::string& id) {
-    using lela::format::output::operator<<;
     const Symbol::Sort sort = CreateSort();
     lela::format::output::RegisterSort(sort, "");
     sorts_[id] = sort;
@@ -176,7 +166,6 @@ class Context {
   }
 
   void RegisterVariable(const std::string& id, const std::string& sort_id) {
-    using lela::format::output::operator<<;
     if (IsRegisteredVariable(id))
       throw std::domain_error(id);
     const Symbol::Sort sort = LookupSort(sort_id);
@@ -187,7 +176,6 @@ class Context {
   }
 
   void RegisterName(const std::string& id, const std::string& sort_id) {
-    using lela::format::output::operator<<;
     if (IsRegisteredName(id))
       throw std::domain_error(id);
     const Symbol::Sort sort = LookupSort(sort_id);
@@ -198,7 +186,6 @@ class Context {
   }
 
   void RegisterFunction(const std::string& id, int arity, const std::string& sort_id) {
-    using lela::format::output::operator<<;
     if (IsRegisteredFunction(id))
       throw std::domain_error(id);
     const Symbol::Sort sort = sorts_[sort_id];
@@ -209,7 +196,6 @@ class Context {
   }
 
   void RegisterFormula(const std::string& id, const Formula& phi) {
-    using lela::format::output::operator<<;
     const auto it = formulas_.find(id);
     const bool contained = it != formulas_.end();
     if (contained) {
@@ -219,14 +205,23 @@ class Context {
     logger_(Logger::RegisterFormulaData(id, phi));
   }
 
-  void AddClause(const Clause& c) {
-    using lela::format::output::operator<<;
-    solver_.AddClause(c);
-    logger_(Logger::AddClauseData(c));
+  bool AddToKb(const Formula& alpha) {
+    const bool ok = kb_.Add(alpha);
+    logger_(Logger::AddToKbData(alpha, ok));
+    return ok;
   }
 
-  Solver* solver() { return &solver_; }
-  const Solver& solver() const { return solver_; }
+  bool Query(const Formula& alpha) {
+    const bool yes = kb_.Entails(alpha, assume_consistent_);
+    logger()(Logger::QueryData(kb_, alpha, assume_consistent_, yes));
+    return yes;
+  }
+
+  bool assume_consistent() const { return assume_consistent_; }
+  void assume_consistent(bool b) { assume_consistent_ = b; }
+
+  KnowledgeBase* kb() { return &kb_; }
+  const KnowledgeBase& kb() const { return kb_; }
 
   Symbol::Factory* sf() { return &sf_; }
   Term::Factory* tf() { return &tf_; }
@@ -242,7 +237,8 @@ class Context {
   std::map<std::string, Formula::Ref> formulas_;
   Symbol::Factory sf_;
   Term::Factory tf_;
-  Solver solver_;
+  KnowledgeBase kb_;
+  bool assume_consistent_ = true;
 };
 
 }  // namespace pdl

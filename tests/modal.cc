@@ -21,15 +21,15 @@ inline void RegisterSymbol(Term t, const std::string& n) {
 TEST(SolverTest, ECAI2016Sound) {
   Context ctx;
   KnowledgeBase kb(ctx.sf(), ctx.tf());
-  auto Bool = ctx.CreateSort();              RegisterSort(Bool, "");
-  auto Food = ctx.CreateSort();              RegisterSort(Food, "");
-  auto T = ctx.CreateName(Bool);             REGISTER_SYMBOL(T);
+  auto Bool = ctx.CreateSort();                   RegisterSort(Bool, "");
+  auto Food = ctx.CreateSort();                   RegisterSort(Food, "");
+  auto T = ctx.CreateName(Bool);                  REGISTER_SYMBOL(T);
   auto Aussie = ctx.CreateFunction(Bool, 0)();    REGISTER_SYMBOL(Aussie);
   auto Italian = ctx.CreateFunction(Bool, 0)();   REGISTER_SYMBOL(Italian);
   auto Eats = ctx.CreateFunction(Bool, 1);        REGISTER_SYMBOL(Eats);
   auto Meat = ctx.CreateFunction(Bool, 1);        REGISTER_SYMBOL(Meat);
   auto Veggie = ctx.CreateFunction(Bool, 0)();    REGISTER_SYMBOL(Veggie);
-  auto roo = ctx.CreateName(Food);           REGISTER_SYMBOL(roo);
+  auto roo = ctx.CreateName(Food);                REGISTER_SYMBOL(roo);
   auto x = ctx.CreateVariable(Food);              REGISTER_SYMBOL(x);
   Formula::split_level k = 1;
   Formula::split_level l = 1;
@@ -41,7 +41,6 @@ TEST(SolverTest, ECAI2016Sound) {
   EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(Meat(roo) != T), *(T != T))));
   Formula::Ref phi = Formula::Factory::Bel(k, l, *(~Fa(x, (Veggie == T && Meat(x) == T) >> (Eats(x) != T))), *(T != T))->NF(ctx.sf(), ctx.tf());
   EXPECT_TRUE(kb.Add(*Formula::Factory::Bel(k, l, *(~Fa(x, (Veggie == T && Meat(x) == T) >> (Eats(x) != T))), *(T != T))));
-  kb.BuildSpheres();
   EXPECT_FALSE(kb.Entails(*Formula::Factory::Bel(0, 0, *(Italian != T), *(Veggie != T))));
   EXPECT_FALSE(kb.Entails(*Formula::Factory::Bel(0, 1, *(Italian != T), *(Veggie != T))));
   EXPECT_FALSE(kb.Entails(*Formula::Factory::Bel(1, 0, *(Italian != T), *(Veggie != T))));

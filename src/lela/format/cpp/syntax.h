@@ -58,52 +58,13 @@ class HiFormula {
 
   Formula::Ref operator*() { return std::move(phi_); }
 
-  Clause as_clause() const { return AsClause(*phi_); }
-
-
- private:
-  static Clause AsClause(const Formula& phi) {
-    size_t nots = 0;
-    const Formula* phi_ptr = &phi;
-    for (;;) {
-      switch (phi_ptr->type()) {
-        case Formula::kAtomic: {
-          if (nots % 2 != 0) {
-            return Clause({});
-          }
-          const Clause c = phi_ptr->as_atomic().arg();
-          if (!std::all_of(c.begin(), c.end(), [](Literal a) {
-                           return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); })) {
-            return Clause({});
-          }
-          return c;
-        }
-        case Formula::kNot: {
-          ++nots;
-          phi_ptr = &phi_ptr->as_not().arg();
-          break;
-        }
-        case Formula::kExists: {
-          if (nots % 2 == 0) {
-            return Clause({});
-          }
-          phi_ptr = &phi_ptr->as_exists().arg();
-          break;
-        }
-        case Formula::kOr: {
-          const Clause c1 = HiFormula(phi_ptr->as_or().lhs()).as_clause();
-          const Clause c2 = HiFormula(phi_ptr->as_or().rhs()).as_clause();
-          const auto r = internal::join_ranges(c1.begin(), c1.end(), c2.begin(), c2.end());
-          return Clause(r.begin(), r.end());
-        }
-        case Formula::kKnow:
-        case Formula::kCons:
-        case Formula::kBel:
-          return Clause({});
-      }
-    }
+  Clause as_clause() const {
+    internal::Maybe<Clause> c = phi_->AsUnivClause();
+    assert(c);
+    return c.val;
   }
 
+ private:
   Formula::Ref phi_;
 };
 
