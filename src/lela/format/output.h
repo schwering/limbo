@@ -103,11 +103,11 @@ std::ostream& operator<<(std::ostream& os, const std::set<T>& set);
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set);
 
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::unordered_set<T>& set);
+template<typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const std::unordered_set<T, H, E>& set);
 
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::unordered_multiset<T>& set);
+template<typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const std::unordered_multiset<T, H, E>& set);
 
 template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map);
@@ -390,14 +390,14 @@ std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set) {
   return os;
 }
 
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::unordered_set<T>& set) {
+template<typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const std::unordered_set<T, H, E>& set) {
   print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
   return os;
 }
 
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::unordered_multiset<T>& set) {
+template<typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const std::unordered_multiset<T, H, E>& set) {
   print_sequence(os, set.begin(), set.end(), "m{", "}m", ", ");
   return os;
 }

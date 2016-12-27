@@ -41,7 +41,7 @@ class Grounder {
  public:
   typedef Formula::split_level split_level;
   typedef Formula::TermSet TermSet;
-  typedef std::unordered_set<Literal> LiteralSet;
+  typedef std::unordered_set<Literal, Literal::LhsHasher> LiteralSet;
 
   class SortedTermSet : public internal::IntMap<Symbol::Sort, TermSet> {
    public:
@@ -105,6 +105,10 @@ class Grounder {
   void PrepareForQuery(split_level k, const Formula& phi) {
     assert(phi.objective());
     names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, phi));
+    // TODO It might be a good idea to re-use the plus-names as plus-names
+    // for later queries. That is, plus-names must be stored separately
+    // from ordinary names so we can later identify how many plus-names
+    // we already have. Otherwise the setup seems to grow continuously.
     names_changed_ |= AddPlusNames(PlusNames(phi));
     AddSplitTerms(SplitTerms(k, phi));
     AddAssignLiterals(AssignLiterals(k, phi));
@@ -412,9 +416,9 @@ class Grounder {
     }, phi);
   }
 
-  template<typename T>
-  std::unordered_set<T> Ground(const std::unordered_set<T>& ungrounded) const {
-    std::unordered_set<T> grounded;
+  template<typename T, typename Hasher = std::less<T>>
+  std::unordered_set<T, Hasher> Ground(const std::unordered_set<T, Hasher>& ungrounded) const {
+    std::unordered_set<T, Hasher> grounded;
     for (T u : ungrounded) {
       assert(u.quasiprimitive());
       const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, u);
@@ -427,14 +431,12 @@ class Grounder {
     return grounded;
   }
 
-  template<typename T>
-  std::unordered_set<T> PartiallyGround(const std::unordered_set<T>& ungrounded) const {
-    std::unordered_set<T> grounded;
+  template<typename T, typename Hasher = std::less<T>>
+  std::unordered_set<T, Hasher> PartiallyGround(const std::unordered_set<T, Hasher>& ungrounded) const {
+    std::unordered_set<T, Hasher> grounded;
     for (T u : ungrounded) {
       assert(u.quasiprimitive());
       const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, u);
-      SortedTermSet terms = names_;
-      terms.insert(vars);
       for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
         T g = u.Substitute(mapping, tf_);
         assert(g.primitive());
@@ -465,20 +467,53 @@ class Grounder {
     return added > 0;
   }
 
-  bool AddSplitTerms(const TermSet& terms) {
+  void AddSplitTerms(const TermSet& terms) {
     std::size_t added = 0;
     for (Term t : terms) {
       added += splits_.insert(t).second ? 1 : 0;
     }
-    return added > 0;
   }
 
-  bool AddAssignLiterals(const LiteralSet& lits) {
-    std::size_t added = 0;
+  void AddAssignLiterals(LiteralSet lits) {
     for (Literal a : lits) {
-      added += assigns_.insert(a.pos() ? a : a.flip()).second ? 1 : 0;
+      if (assigns_.bucket_count() > 0) {
+        const std::size_t b = assigns_.bucket(a);
+        for (auto it = assigns_.begin(b); it != assigns_.end(b); ++it) {
+          Literal b = *it;
+          if (a.lhs().symbol() == b.lhs().symbol() && (a.lhs() != b.lhs() || a.rhs() != b.rhs())) {
+            for (Symbol::Arity i = 0; i < a.lhs().arity(); ++i) {
+              const Term l = a.lhs().args()[i];
+              const Term r = a.lhs().args()[i];
+              if (l.sort() != r.sort()) {
+                continue;
+              }
+              if (l != r) {
+                const Term x = tf_->CreateTerm(sf_->CreateVariable(l.sort()));
+                a = a.Substitute(Term::SingleSubstitution(l, x), tf_);
+                b = b.Substitute(Term::SingleSubstitution(r, x), tf_);
+              }
+            }
+            if (a.rhs().sort() != b.rhs().sort()) {
+              continue;
+            }
+            if (a.rhs() != b.rhs()) {
+              const Term x = tf_->CreateTerm(sf_->CreateVariable(a.rhs().sort()));
+              a = a.Substitute(Term::SingleSubstitution(a.rhs(), x), tf_);
+            }
+            assigns_.erase(*it);
+            break;
+          }
+        }
+      }
+      if (!a.pos()) {
+        a = a.flip();
+        if (!a.rhs().variable()) {
+          const Term x = tf_->CreateTerm(sf_->CreateVariable(a.rhs().sort()));
+          a = a.Substitute(Term::SingleSubstitution(a.rhs(), x), tf_);
+        }
+      }
+      assigns_.insert(a);
     }
-    return added > 0;
   }
 
   Symbol::Factory* const sf_;

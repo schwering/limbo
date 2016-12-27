@@ -69,8 +69,8 @@
         .announcement.failure .result::after { content: "failure" }
 
         .announcement.overall.success .parse-result::before { display: block; content: "Success"; }
-        .announcement.overall.failure .parse-result::before { display: block; content: "Failure"; }
-        .announcement.overall.failure .parse-remainder::before { display: block; content: "with remaining input"; }
+        .announcement.overall.failure .parse-result::before { display: block; content: "Failure:"; }
+        .announcement.overall.failure .parse-remainder::before { display: block; content: "with remaining input:"; }
 
         ul.grammar { list-style-type: none; }
         .code { font-family: monospace; font-weight: bold; }
@@ -103,6 +103,7 @@ Load an example:
 <option id="example-veggie" value="example-veggie.txt">Example: Veggie</option>
 <option id="example-propositions" value="test-propositions.txt">Test: Propositions</option>
 <option id="example-functions" value="test-functions.txt">Test: Constants</option>
+<option id="example-introspection" value="test-introspection.txt">Test: Introspection</option>
 <option id="example-none" value="" style="color: #666;">none</option>
 </select> <br />
 If you like, you can edit the text. For help on the syntax, see <a href="#syntax">below</a>.
@@ -325,9 +326,12 @@ The set of formulas includes literals, negated formulas, disjunctions, conjuncti
     <li><span class="code"><span class="metavariable">formula<sub>1</sub></span> &lt;-&gt; <span class="metavariable">formula<sub>2</sub></span></span></li>
     <li><span class="code">Ex <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>
     <li><span class="code">Fa <span class="metavariable">x</span> <span class="metavariable">formula</span></span></li>
-    <li><span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span></li>
-    <li><span class="code">Cons&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span></li>
-    <li><span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span></li>
+    <li><span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code">K&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span></li>
+    <li><span class="code">Cons&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code">M&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span></li>
+    <li><span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+        <span class="code">B&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span></li>
     <li><span class="code">(<span class="metavariable">formula</span>)</span></li>
     <li><span class="code"><span class="metavariable">formula-id</span></span></li>
 </ul>
@@ -342,8 +346,7 @@ Here <span class="metavariable">literal</span> denotes a literal, which either a
 </ul>
 <p>
 where <span class="metavariable">t<sub>i</sub></span> is a term.
-A term is either the identifier of a previously declared variable <span class="metavariable">x</span>, a standard name <span class="metavariable">n</span>, or a compound term <span class="code"><span class="metavariable">f</span>(<span class="metavariable">t'<sub>1</sub></span>, <span class="metavariable">...</span>, <span class="metavariable">t'<sub>k</sub></span>)</span> where a function
-symbol <span class="metavariable">f</span> is applied to other terms <span class="metavariable">t'<sub>i</sub></span>.
+A term is either the identifier of a previously declared variable <span class="metavariable">x</span>, a previously declared standard name <span class="metavariable">n</span>, or a compound term <span class="code"><span class="metavariable">f</span>(<span class="metavariable">t'<sub>1</sub></span>, <span class="metavariable">...</span>, <span class="metavariable">t'<sub>k</sub></span>)</span> where a previously declared function symbol <span class="metavariable">f</span> of arity <span class="metavariable">k</span> is applied to other terms <span class="metavariable">t'<sub>i</sub></span>.
 When <span class="metavariable">f</span> is a constant symbol (that is, has arity 0), the brackets may be omitted.
 Variables in the KB are implicitly universally quantified.
 </p>
@@ -383,7 +386,10 @@ The knowledge base consists of a sequence of clauses, each of which is written (
     <li><span class="code">KB:&nbsp;<span class="metavariable">formula</span>;</span></li>
 </ul>
 <p>
-with the syntactic restriction that the <i>normal form</i> (explained below) of <span class="metavariable">formula</span> is a clause with leading universal quantifier, or a clause within a knowledge modality <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span> (the <span class="metavariable">split-level</span> is ignored then), or a formula <span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span> where the normal form of <span class="code">!<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> must be universally quantified clause and the <span class="metavariable">split-level</span>s affect how faithful the induced system of spheres is to the unlimited logic.
+with the syntactic restriction that the <i>normal form</i> (explained below) of <span class="metavariable">formula</span> is a clause with leading universal quantifier, or a clause within a knowledge
+modality <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span> (the <span class="metavariable">split-level</span> is ignored
+then), or a formula <span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span
+class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span> where the normal form of <span class="code">!<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> must be a universally quantified clause and the <span class="metavariable">split-level</span>s affect how faithful the induced system of spheres is to the unlimited logic.
 </p>
 
 <p>
@@ -391,16 +397,15 @@ Free variables in <span class="metavariable">formula</span> in KB definitions ar
 The definition of the normal form is tedious, but the idea is this: push negations inwards but not into clauses, and pull quantifiers out of clauses.
 The rationale is to create new clauses (while avoiding the exponential blowup of a full CNF).
 Additionally, terms are flattened so that no two function symbols occur in a any literal.
-For instance, a disjunction <span class="code">KB:&nbsp;(<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>);</span> meets this requirement trivially.
-Implications are also allowed, provided that the negation of the antecedent as well as the consequent meet above form, as does <span class="code">KB:&nbsp;(Ex <span class="metavariable">x</span> (<span class="metavariable">literal<sub>1</sub></span> &amp;&amp; <span class="metavariable">literal<sub>k</sub></span>) -&gt; (<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">literal<sub>k</sub></span>));</span>.
+For instance, a disjunction <span class="code">KB:&nbsp;<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span>;</span> meets this requirement trivially.
+Implications are also allowed, provided that the negation of the antecedent as well as the consequent meet above form, as does <span class="code">KB:&nbsp;Ex <span class="metavariable">x</span> (<span class="metavariable">literal<sub>1</sub></span> &amp;&amp; <span class="metavariable">literal<sub>2</sub></span>) -&gt; (<span class="metavariable">literal<sub>3</sub></span> || <span class="metavariable">literal<sub>4</sub></span>);</span>.
 </p>
 
 <p>
 </p>
 
 <p>
-Queries can be of the form
-For automated testing, the language supports assertions and refutations:
+Queries can be of the form:
 </p>
 <ul class="grammar">
     <li><span class="code">Query: <span class="metavariable">formula</span>;</span></li>
@@ -408,7 +413,7 @@ For automated testing, the language supports assertions and refutations:
     <li><span class="code">Refute: <span class="metavariable">formula</span>;</span></li>
 </ul>
 <p>
-The query <span class="metavariable">formula</span> must be subjective, which means terms must not occur outside of modal operators.
+The query <span class="metavariable">formula</span> must be subjective, which means functions must not occur outside of modal operators (but variables, names, quantifiers, etc. may occur).
 The <span class="code">Assert</span> and <span class="code">Refute</span> versions just differ from the <span class="code">Query</span> version in that they yield a error when the query does not come out true or false, respectively.
 </p>
 

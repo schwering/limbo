@@ -31,9 +31,9 @@ Assert: Ex x M<1> p(x) = T;
 Assert: Fa x ~ K<1> p(x) = T;
 Assert: Fa x   M<1> p(x) = T;
 Assert: Fa x ~ K<1> p(x) /= T;
-Assert: Fa x   M<4> p(x) /= T;
+Assert: Fa x   M<1> p(x) /= T;
 
-//Assert: K<1> Ex x (p(x) = T ^ M<1> p(x) /= T);
-//Assert: K<1> Fa x (p(x) = T -> M<1> p(x) /= T);
-//Assert: K<1> Ex x (p(x) = T ^ ~K<1>~ p(x) = T);
+Assert: K<1> Ex x (p(x) = T ^ M<1> p(x) /= T);
+Assert: K<1> Fa x (p(x) = T -> M<1> p(x) /= T);
+Assert: K<1> Ex x (p(x) = T ^ ~K<1>~ p(x) = T);
 

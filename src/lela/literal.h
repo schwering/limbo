@@ -30,6 +30,7 @@ namespace lela {
 class Literal {
  public:
   struct Comparator;
+  struct LhsHasher;
 
   static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
   static Literal Neq(Term lhs, Term rhs) { return Literal(false, lhs, rhs); }
@@ -134,6 +135,10 @@ struct Literal::Comparator {
   internal::LexicographicComparator<Term::Comparator,
                                     Term::Comparator,
                                     internal::LessComparator<bool>> comp;
+};
+
+struct Literal::LhsHasher {
+  std::size_t operator()(const Literal a) const { return a.lhs().hash(); }
 };
 
 }  // namespace lela

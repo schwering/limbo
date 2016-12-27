@@ -163,6 +163,7 @@ int main(int argc, char** argv) {
     multi_pass_iterator<std::istreambuf_iterator<char>> end;
     succ &= parse(begin, end, &ctx);
   }
+  std::cout << "Bye." << std::endl;
   return succ ? 0 : 1;
 }
 

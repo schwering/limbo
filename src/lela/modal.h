@@ -11,7 +11,6 @@
 
 #include <lela/formula.h>
 #include <lela/solver.h>
-#include <lela/format/output.h>
 
 namespace lela {
 
@@ -204,7 +203,6 @@ class KnowledgeBase {
 
   Formula::Ref ResConsistent(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
     auto if_no_free_vars = [k, assume_consistent, this](sphere_index p, const Formula& psi) {
-      using lela::format::output::operator<<; std::cout << psi << " = " << spheres_[p].Consistent(k, psi/*, assume_consistent*/) << std::endl;
       return spheres_[p].Consistent(k, psi/*, assume_consistent*/);  // TODO implement assume_consistent
     };
     return Res(p, phi.Clone(), if_no_free_vars);

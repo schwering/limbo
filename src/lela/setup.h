@@ -161,11 +161,7 @@ class Setup {
     internal::BloomSet<Term> intersection_;
   };
 
-  struct LhsHasher {
-    std::size_t operator()(const Literal a) const { return a.lhs().hash(); }
-  };
-
-  typedef std::unordered_set<Literal, LhsHasher> LiteralSet;
+  typedef std::unordered_set<Literal, Literal::LhsHasher> LiteralSet;
 
   explicit Setup(const Setup* parent) :
       parent_(parent),
@@ -257,6 +253,7 @@ class Setup {
       }
     }
     for (const Literal a : lits) {
+      assert(lits.bucket_count() > 0);
       std::size_t b = lits.bucket(a);
       auto begin = lits.begin(b);
       auto end   = lits.end(b);

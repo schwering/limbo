@@ -56,6 +56,9 @@ For examples of usage, check out the following:
   projection separate from the core reasoner and implement them as a
   preprocessing step.
 * Nested beliefs from [4] are not yet implemented.
+* If time permits, I'll rewrite the whole system in Rust. First results (cf.
+  'rust' branch) indicate it's faster. And it's actually fun, which C++ really
+  is not for me.
 
 ## References
 
