@@ -144,16 +144,16 @@ class Lexer {
   };
 
   Lexer(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {
-    lexemes_.emplace_back(Token::kSort,         [](Word w) { return IsPrefix(w, "sort"); });
-    lexemes_.emplace_back(Token::kVar,          [](Word w) { return IsPrefix(w, {"var", "variable"}); });
-    lexemes_.emplace_back(Token::kName,         [](Word w) { return IsPrefix(w, {"name", "stdname"}); });
-    lexemes_.emplace_back(Token::kFun,          [](Word w) { return IsPrefix(w, {"fun", "function"}); });
+    lexemes_.emplace_back(Token::kSort,         [](Word w) { return IsPrefix(w, {"Sort", "sort"}); });
+    lexemes_.emplace_back(Token::kVar,          [](Word w) { return IsPrefix(w, {"Var", "Variable", "var", "variable"}); });
+    lexemes_.emplace_back(Token::kName,         [](Word w) { return IsPrefix(w, {"Name", "name"}); });
+    lexemes_.emplace_back(Token::kFun,          [](Word w) { return IsPrefix(w, {"Fun", "fun", "Function", "function"}); });
     lexemes_.emplace_back(Token::kSlash,        [](Word w) { return IsPrefix(w, "/"); });
-    lexemes_.emplace_back(Token::kKB,           [](Word w) { return IsPrefix(w, "kb"); });
-    lexemes_.emplace_back(Token::kLet,          [](Word w) { return IsPrefix(w, "let"); });
-    lexemes_.emplace_back(Token::kQuery,        [](Word w) { return IsPrefix(w, "query"); });
-    lexemes_.emplace_back(Token::kAssert,       [](Word w) { return IsPrefix(w, "assert"); });
-    lexemes_.emplace_back(Token::kRefute,       [](Word w) { return IsPrefix(w, "refute"); });
+    lexemes_.emplace_back(Token::kKB,           [](Word w) { return IsPrefix(w, {"KB", "Kb", "kb"}); });
+    lexemes_.emplace_back(Token::kLet,          [](Word w) { return IsPrefix(w, {"Let", "let"}); });
+    lexemes_.emplace_back(Token::kQuery,        [](Word w) { return IsPrefix(w, {"Query", "query"}); });
+    lexemes_.emplace_back(Token::kAssert,       [](Word w) { return IsPrefix(w, {"Assert", "assert"}); });
+    lexemes_.emplace_back(Token::kRefute,       [](Word w) { return IsPrefix(w, {"Refute", "refute"}); });
     lexemes_.emplace_back(Token::kEndOfLine,    [](Word w) { return IsPrefix(w, ";"); });
     lexemes_.emplace_back(Token::kColon,        [](Word w) { return IsPrefix(w, ":"); });
     lexemes_.emplace_back(Token::kComma,        [](Word w) { return IsPrefix(w, ","); });
@@ -164,16 +164,16 @@ class Lexer {
     lexemes_.emplace_back(Token::kNot,          [](Word w) { return IsPrefix(w, {"!", "~"}); });
     lexemes_.emplace_back(Token::kOr,           [](Word w) { return IsPrefix(w, {"||", "|", "v"}); });
     lexemes_.emplace_back(Token::kAnd,          [](Word w) { return IsPrefix(w, {"&&", "&", "^"}); });
-    lexemes_.emplace_back(Token::kForall,       [](Word w) { return IsPrefix(w, "fa"); });
-    lexemes_.emplace_back(Token::kExists,       [](Word w) { return IsPrefix(w, "ex"); });
+    lexemes_.emplace_back(Token::kForall,       [](Word w) { return IsPrefix(w, {"Fa", "fa"}); });
+    lexemes_.emplace_back(Token::kExists,       [](Word w) { return IsPrefix(w, {"Ex", "ex"}); });
     lexemes_.emplace_back(Token::kRArrow,       [](Word w) { return IsPrefix(w, "->"); });
     lexemes_.emplace_back(Token::kLRArrow,      [](Word w) { return IsPrefix(w, "<->"); });
     lexemes_.emplace_back(Token::kDoubleRArrow, [](Word w) { return IsPrefix(w, "==>"); });
     lexemes_.emplace_back(Token::kLeftParen,    [](Word w) { return IsPrefix(w, "("); });
     lexemes_.emplace_back(Token::kRightParen,   [](Word w) { return IsPrefix(w, ")"); });
-    lexemes_.emplace_back(Token::kKnow,         [](Word w) { return IsPrefix(w, "know"); });
-    lexemes_.emplace_back(Token::kCons,         [](Word w) { return IsPrefix(w, "cons"); });
-    lexemes_.emplace_back(Token::kBel,          [](Word w) { return IsPrefix(w, "bel"); });
+    lexemes_.emplace_back(Token::kKnow,         [](Word w) { return IsPrefix(w, {"K", "Know", "know"}); });
+    lexemes_.emplace_back(Token::kCons,         [](Word w) { return IsPrefix(w, {"M", "Cons", "cons"}); });
+    lexemes_.emplace_back(Token::kBel,          [](Word w) { return IsPrefix(w, {"B", "Bel", "bel"}); });
     lexemes_.emplace_back(Token::kAssign,       [](Word w) { return IsPrefix(w, ":="); });
     lexemes_.emplace_back(Token::kComment,      [](Word w) { return IsPrefix(w, "//"); });
     lexemes_.emplace_back(Token::kUint,
@@ -199,13 +199,12 @@ class Lexer {
   static_assert(std::is_convertible<typename ForwardIt::iterator_category, std::forward_iterator_tag>::value,
                 "ForwardIt has wrong iterator category");
 
-  static Match IsPrefix(Word w, const std::string& sentence) {
+  static Match IsPrefix(Word w, const std::string& s) {
     size_t len = std::distance(w.begin(), w.end());
-    auto r = lela::internal::transform_range(w.begin(), w.end(), [](char c) { return std::tolower(c); });
-    if (len > sentence.length() || std::mismatch(r.begin(), r.end(), sentence.begin()).first != r.end()) {
+    if (len > s.length() || std::mismatch(w.begin(), w.end(), s.begin()).first != w.end()) {
       return kMismatch;
     } else {
-      return len < sentence.length() ? kPrefixMatch : kFullMatch;
+      return len < s.length() ? kPrefixMatch : kFullMatch;
     }
   }
 

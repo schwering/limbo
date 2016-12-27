@@ -1,0 +1,39 @@
+Sort OBJ;
+Var x -> OBJ;
+Name n -> OBJ;
+
+Query: n = n;
+Query: Ex x x = x;
+Query: Fa x x = x;
+Assert: Ex x K<0> x = x;
+Assert: Ex x K<0> x = n;
+Assert: Fa x K<0> x = x;
+Refute: Fa x K<0> x = n;
+
+
+Sort BOOL;
+Fun p/1 -> BOOL;
+Name m -> OBJ;
+Name T -> BOOL;
+
+KB: p(m) = T v p(n) = T;
+
+Refute: K<0> Ex x p(x) = T;
+Refute: M<0> Ex x p(x) = T;
+Assert: K<1> Ex x p(x) = T;
+Assert: M<1> Ex x p(x) = T;
+
+Refute: Ex x K<0> p(x) = T;
+Refute: Ex x M<0> p(x) = T;
+Refute: Ex x K<1> p(x) = T;
+Assert: Ex x M<1> p(x) = T;
+
+Assert: Fa x ~ K<1> p(x) = T;
+Assert: Fa x   M<1> p(x) = T;
+Assert: Fa x ~ K<1> p(x) /= T;
+Assert: Fa x   M<4> p(x) /= T;
+
+//Assert: K<1> Ex x (p(x) = T ^ M<1> p(x) /= T);
+//Assert: K<1> Fa x (p(x) = T -> M<1> p(x) /= T);
+//Assert: K<1> Ex x (p(x) = T ^ ~K<1>~ p(x) = T);
+

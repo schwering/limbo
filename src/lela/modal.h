@@ -11,6 +11,7 @@
 
 #include <lela/formula.h>
 #include <lela/solver.h>
+#include <lela/format/output.h>
 
 namespace lela {
 
@@ -128,43 +129,6 @@ class KnowledgeBase {
 #endif
   }
 
-  static internal::Maybe<Clause> GetProperPlusClause(const Formula& phi) {
-    size_t nots = 0;
-    const Formula* phi_ptr = &phi;
-    for (;;) {
-      switch (phi_ptr->type()) {
-        case Formula::kAtomic: {
-          if (nots % 2 != 0) {
-            return internal::Nothing;
-          }
-          const Clause c = phi_ptr->as_atomic().arg();
-          if (!std::all_of(c.begin(), c.end(), [](Literal a) {
-                           return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); })) {
-            return internal::Nothing;
-          }
-          return internal::Just(c);
-        }
-        case Formula::kNot: {
-          ++nots;
-          phi_ptr = &phi_ptr->as_not().arg();
-          break;
-        }
-        case Formula::kExists: {
-          if (nots % 2 == 0) {
-            return internal::Nothing;
-          }
-          phi_ptr = &phi_ptr->as_exists().arg();
-          break;
-        }
-        case Formula::kOr:
-        case Formula::kKnow:
-        case Formula::kCons:
-        case Formula::kBel:
-          return internal::Nothing;
-      }
-    }
-  }
-
   Formula::Ref ReduceModalities(const Formula& alpha, bool assume_consistent) {
     if (alpha.objective()) {
       return alpha.Clone();
@@ -191,7 +155,7 @@ class KnowledgeBase {
         return ResEntails(p, alpha.as_know().k(), *phi, assume_consistent);
       }
       case Formula::kCons: {
-        const sphere_index p = 0;
+        const sphere_index p = n_spheres() - 1;
         Formula::Ref phi = ReduceModalities(alpha.as_cons().arg(), assume_consistent);
         return ResConsistent(p, alpha.as_cons().k(), *phi, assume_consistent);
       }
@@ -232,47 +196,58 @@ class KnowledgeBase {
   }
 
   Formula::Ref ResEntails(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
-    return bool_to_formula(spheres_[p].Entails(k, *Res(p, phi.Clone()), assume_consistent));
+    auto if_no_free_vars = [k, assume_consistent, this](sphere_index p, const Formula& psi) {
+      return spheres_[p].Entails(k, psi, assume_consistent);
+    };
+    return Res(p, phi.Clone(), if_no_free_vars);
   }
 
   Formula::Ref ResConsistent(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
-    return bool_to_formula(spheres_[p].Consistent(k, *Res(p, phi.Clone())/*, assume_consistent*/));
+    auto if_no_free_vars = [k, assume_consistent, this](sphere_index p, const Formula& psi) {
+      using lela::format::output::operator<<; std::cout << psi << " = " << spheres_[p].Consistent(k, psi/*, assume_consistent*/) << std::endl;
+      return spheres_[p].Consistent(k, psi/*, assume_consistent*/);  // TODO implement assume_consistent
+    };
+    return Res(p, phi.Clone(), if_no_free_vars);
   }
 
-  Formula::Ref Res(sphere_index p, Formula::Ref phi) {
+  template<typename BinaryPredicate>
+  Formula::Ref Res(sphere_index p, Formula::Ref phi, BinaryPredicate if_no_free_vars) {
     SortedTermSet names = spheres_[p].names();
     phi->Traverse([&names](Term t) { if (t.name()) names.insert(t); return true; });
-    return Res(p, std::move(phi), &names);
+    return Res(p, std::move(phi), &names, if_no_free_vars);
   }
 
-  Formula::Ref Res(sphere_index p, Formula::Ref phi, SortedTermSet* names) {
+  template<typename BinaryPredicate>
+  Formula::Ref Res(sphere_index p, Formula::Ref phi, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
     if (phi->free_vars().empty()) {
-      return phi;
+      return bool_to_formula(if_no_free_vars(p, *phi));
     }
     Term x = *phi->free_vars().begin();
-    Formula::Ref psi = ResOtherName(p, phi->Clone(), x, names);
+    Formula::Ref psi = ResOtherName(p, phi->Clone(), x, names, if_no_free_vars);
     for (Term n : (*names)[x.sort()]) {
-      Formula::Ref xi = ResName(p, phi->Clone(), x, n, names);
+      Formula::Ref xi = ResName(p, phi->Clone(), x, n, names, if_no_free_vars);
       psi = Formula::Factory::Not(Formula::Factory::Or(Formula::Factory::Not(std::move(xi)),
                                                        Formula::Factory::Not(std::move(psi))));
     }
     return psi;
   }
 
-  Formula::Ref ResName(sphere_index p, Formula::Ref phi, Term x, Term n, SortedTermSet* names) {
+  template<typename BinaryPredicate>
+  Formula::Ref ResName(sphere_index p, Formula::Ref phi, Term x, Term n, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
     // (x == n -> RES(p, phi^x_n)) in clausal form
     phi->SubstituteFree(Term::SingleSubstitution(x, n), tf_);
-    phi = Res(p, std::move(phi), names);
+    phi = Res(p, std::move(phi), names, if_no_free_vars);
     Literal if_not = Literal::Neq(x, n);
     return Formula::Factory::Or(Formula::Factory::Atomic(Clause({if_not})), std::move(phi));
   }
 
-  Formula::Ref ResOtherName(sphere_index p, Formula::Ref phi, Term x, SortedTermSet* names) {
+  template<typename BinaryPredicate>
+  Formula::Ref ResOtherName(sphere_index p, Formula::Ref phi, Term x, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
     // (x != n1 && ... && x != nK -> RES(p, phi^x_n0)^n0_x) in clausal form
     Term n0 = tf_->CreateTerm(sf_->CreateName(x.sort()));
     phi->SubstituteFree(Term::SingleSubstitution(x, n0), tf_);
     names->insert(n0);
-    phi = Res(p, std::move(phi), names);
+    phi = Res(p, std::move(phi), names, if_no_free_vars);
     names->erase(n0);
     phi->SubstituteFree(Term::SingleSubstitution(n0, x), tf_);
     const SortedTermSet::value_type& ns = (*names)[x.sort()];

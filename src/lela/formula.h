@@ -225,7 +225,7 @@ class Formula::Atomic : public Formula {
 
   bool objective() const override { return true; }
   bool subjective() const override {
-    return std::all_of(c_.begin(), c_.end(), [](Literal a) { return a.lhs().function() && a.rhs().function(); });
+    return std::all_of(c_.begin(), c_.end(), [](Literal a) { return !a.lhs().function() && !a.rhs().function(); });
   }
   bool quantified_in() const override { return false; }
   bool trivially_valid() const override { return c_.valid(); }

@@ -69,6 +69,7 @@ class Solver {
 
   bool Entails(int k, const Formula& phi, bool assume_consistent = true) {
     assert(phi.objective());
+    assert(phi.free_vars().empty());
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
     TermSet split_terms =
@@ -81,12 +82,14 @@ class Solver {
 
   bool EntailsComplete(int k, const Formula& phi) {
     assert(phi.objective());
+    assert(phi.free_vars().empty());
     Formula::Ref psi = Formula::Factory::Not(phi.Clone());
     return !Consistent(k, *psi);
   }
 
   bool Consistent(int k, const Formula& phi) {
     assert(phi.objective());
+    assert(phi.free_vars().empty());
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
     std::list<LiteralSet> assign_lits = k == 0 ? std::list<LiteralSet>() : grounder_.AssignLiterals();

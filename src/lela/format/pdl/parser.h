@@ -294,7 +294,8 @@ class Parser {
         return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within quantifier"), alpha);
       }
       return Success(ex ? Formula::Factory::Exists(x.val, std::move(alpha.val))
-                        : Formula::Factory::Not(Formula::Factory::Exists(x.val, Formula::Factory::Not(std::move(alpha.val)))));
+                        : Formula::Factory::Not(Formula::Factory::Exists(x.val,
+                                                                         Formula::Factory::Not(std::move(alpha.val)))));
     }
     if (Is(Token(0), Token::kKnow) || Is(Token(0), Token::kCons)) {
       bool know = Is(Token(0), Token::kKnow);
