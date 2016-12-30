@@ -320,7 +320,7 @@ std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
       break;
     case Formula::kBel:
       os << "Bel<" << alpha.as_bel().k() << "," << alpha.as_bel().l() << "> " << alpha.as_bel().antecedent() <<
-          " \u21D2 " << alpha.as_bel().consequent();
+          " \u27FE  " << alpha.as_bel().consequent();
       break;
   }
   return os;
