@@ -114,6 +114,7 @@ class OmniscientPrinter : public Printer {
         return Label(colors_->reset(), ss.str());
       }
     }
+    throw;
   }
 };
 
@@ -134,6 +135,7 @@ class SimplePrinter : public Printer {
         return Label(colors_->reset(), ss.str());
       }
     }
+    throw;
   }
 };
 
@@ -176,6 +178,7 @@ class KnowledgeBasePrinter : public Printer {
         return Label(colors_->reset(), ss.str());
       }
     }
+    throw;
   }
 
  private:

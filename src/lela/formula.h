@@ -580,6 +580,7 @@ class Formula::Not : public Formula {
         return Factory::Not(arg().Normalize());
       }
     }
+    throw;
   }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {

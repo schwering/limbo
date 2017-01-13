@@ -150,6 +150,7 @@ class Solver {
         return Split(s, split_terms, names, k, phi);
       }
     }
+    throw;
   }
 
   bool Split(const Setup& s,
@@ -219,6 +220,7 @@ class Solver {
         assert(false);
         return false;
     }
+    throw;
   }
 
   bool Assign(const Setup& s,
@@ -316,6 +318,7 @@ class Solver {
         assert(false);
         return false;
     }
+    throw;
   }
 
   Term::Factory* tf_;

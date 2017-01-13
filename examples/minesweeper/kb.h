@@ -159,6 +159,7 @@ class KnowledgeBase {
         return true;
       }
     }
+    throw;
   }
 
   void UpdateRemainingMines(size_t m, size_t n) {

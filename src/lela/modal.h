@@ -192,6 +192,7 @@ class KnowledgeBase {
         return phi;
       }
     }
+    throw;
   }
 
   Formula::Ref ResEntails(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
