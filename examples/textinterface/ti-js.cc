@@ -57,7 +57,7 @@ inline void parse(const char* c_str) {
   Parser parser(str.begin(), str.end(), &ctx);
   const Parser::Result<bool> r = parser.Parse();
 
-  std::cout << r << std::endl;
+  std::cout << r.str() << std::endl;
   EM_ASM_({
     announceResult($0, Pointer_stringify($1), Pointer_stringify($2));
   }, bool(r), r.msg.c_str(), r.remaining_input().c_str());

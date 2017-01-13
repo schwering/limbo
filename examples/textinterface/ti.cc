@@ -41,7 +41,7 @@ static bool parse(ForwardIt begin, ForwardIt end, lela::format::pdl::Context<Log
   Parser parser(begin, end, ctx);
   auto r = parser.Parse();
   if (!r) {
-    std::cout << r << std::endl;
+    std::cout << r.str() << std::endl;
   }
   return bool(r);
 }

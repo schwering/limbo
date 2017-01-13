@@ -59,7 +59,7 @@ class Parser {
     ForwardIt begin() const { return begin_; }
     ForwardIt end()   const { return end_; }
 
-    std::string to_string() const {
+    std::string str() const {
       std::stringstream ss;
       if (ok) {
         ss << "Success: " << val;
@@ -78,11 +78,6 @@ class Parser {
     std::string msg;
 
    private:
-    template<typename U>
-    friend std::ostream& operator<<(std::ostream& os, const Result<U>& r) {
-      return os << r.to_string();
-    }
-
     ForwardIt begin_;
     ForwardIt end_;
   };
@@ -135,41 +130,41 @@ class Parser {
   //              |  name <id> -> <sort-id> ;
   //              |  fun <id> / <arity> -> <sort-id> ;
   Result<bool> declaration() {
-    if (!Is(Token(0), Token::kSort) &&
-        !Is(Token(0), Token::kVar) &&
-        !Is(Token(0), Token::kName) &&
-        !Is(Token(0), Token::kFun)) {
+    if (!Is(Tok(0), Token::kSort) &&
+        !Is(Tok(0), Token::kVar) &&
+        !Is(Tok(0), Token::kName) &&
+        !Is(Tok(0), Token::kFun)) {
       return Unapplicable<bool>(LELA_MSG("Expected 'Sort', 'Var', 'Name' or 'Fun'"));
     }
-    if (Is(Token(0), Token::kSort) &&
-        Is(Token(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredSort(s); })) {
-      ctx_->RegisterSort(Token(1).val.str());
+    if (Is(Tok(0), Token::kSort) &&
+        Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredSort(s); })) {
+      ctx_->RegisterSort(Tok(1).val.str());
       Advance(2);
       return Success(true);
     }
-    if (Is(Token(0), Token::kVar) &&
-        Is(Token(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
-        Is(Token(2), Token::kRArrow) &&
-        Is(Token(3), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
-      ctx_->RegisterVariable(Token(1).val.str(), Token(3).val.str());
+    if (Is(Tok(0), Token::kVar) &&
+        Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
+        Is(Tok(2), Token::kRArrow) &&
+        Is(Tok(3), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
+      ctx_->RegisterVariable(Tok(1).val.str(), Tok(3).val.str());
       Advance(4);
       return Success(true);
     }
-    if (Is(Token(0), Token::kName) &&
-        Is(Token(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
-        Is(Token(2), Token::kRArrow) &&
-        Is(Token(3), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
-      ctx_->RegisterName(Token(1).val.str(), Token(3).val.str());
+    if (Is(Tok(0), Token::kName) &&
+        Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
+        Is(Tok(2), Token::kRArrow) &&
+        Is(Tok(3), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
+      ctx_->RegisterName(Tok(1).val.str(), Tok(3).val.str());
       Advance(4);
       return Success(true);
     }
-    if (Is(Token(0), Token::kFun) &&
-        Is(Token(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
-        Is(Token(2), Token::kSlash) &&
-        Is(Token(3), Token::kUint) &&
-        Is(Token(4), Token::kRArrow) &&
-        Is(Token(5), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
-      ctx_->RegisterFunction(Token(1).val.str(), std::stoi(Token(3).val.str()), Token(5).val.str());
+    if (Is(Tok(0), Token::kFun) &&
+        Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
+        Is(Tok(2), Token::kSlash) &&
+        Is(Tok(3), Token::kUint) &&
+        Is(Tok(4), Token::kRArrow) &&
+        Is(Tok(5), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
+      ctx_->RegisterFunction(Tok(1).val.str(), std::stoi(Tok(3).val.str()), Tok(5).val.str());
       Advance(6);
       return Success(true);
     }
@@ -193,28 +188,28 @@ class Parser {
   //       |  f
   //       |  f(term, ..., term)
   Result<Term> term() {
-    if (Is(Token(0), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredVariable(s); })) {
-      Term x = ctx_->LookupVariable(Token(0).val.str());
+    if (Is(Tok(0), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredVariable(s); })) {
+      Term x = ctx_->LookupVariable(Tok(0).val.str());
       Advance();
       return Success(Term(x));
     }
-    if (Is(Token(0), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredName(s); })) {
-      Term n = ctx_->LookupName(Token(0).val.str());
+    if (Is(Tok(0), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredName(s); })) {
+      Term n = ctx_->LookupName(Tok(0).val.str());
       Advance();
       return Success(Term(n));
     }
-    if (Is(Token(0), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredFunction(s); })) {
-      class Symbol s = ctx_->LookupFunction(Token(0).val.str());
+    if (Is(Tok(0), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredFunction(s); })) {
+      class Symbol s = ctx_->LookupFunction(Tok(0).val.str());
       Advance();
       Term::Vector args;
-      if (s.arity() > 0 || Is(Token(0), Token::kLeftParen)) {
-        if (!Is(Token(0), Token::kLeftParen)) {
+      if (s.arity() > 0 || Is(Tok(0), Token::kLeftParen)) {
+        if (!Is(Tok(0), Token::kLeftParen)) {
           return Failure<Term>(LELA_MSG("Expected left parenthesis '('"));
         }
         Advance();
         for (Symbol::Arity i = 0; i < s.arity(); ++i) {
           if (i > 0) {
-            if (!Is(Token(0), Token::kComma)) {
+            if (!Is(Tok(0), Token::kComma)) {
               return Failure<Term>(LELA_MSG("Expected comma ','"));
             }
             Advance();
@@ -225,7 +220,7 @@ class Parser {
           }
           args.push_back(t.val);
         }
-        if (!Is(Token(0), Token::kRightParen)) {
+        if (!Is(Tok(0), Token::kRightParen)) {
           return Failure<Term>(LELA_MSG("Expected right parenthesis ')'"));
         }
         Advance();
@@ -242,9 +237,9 @@ class Parser {
       return Failure<std::unique_ptr<Literal>>(LELA_MSG("Expected a lhs term"), lhs);
     }
     bool pos;
-    if (Is(Token(0), Token::kEquality) ||
-        Is(Token(0), Token::kInequality)) {
-      pos = Is(Token(0), Token::kEquality);
+    if (Is(Tok(0), Token::kEquality) ||
+        Is(Tok(0), Token::kInequality)) {
+      pos = Is(Tok(0), Token::kEquality);
       Advance();
     } else {
       return Failure<std::unique_ptr<Literal>>(LELA_MSG("Expected equality or inequality '=='/'!='"));
@@ -267,7 +262,7 @@ class Parser {
   //                  |  abbreviation
   //                  |  literal
   Result<Formula::Ref> primary_formula(int binary_connective_recursion = 0) {
-    if (Is(Token(0), Token::kNot)) {
+    if (Is(Tok(0), Token::kNot)) {
       Advance();
       Result<Formula::Ref> alpha = primary_formula();
       if (!alpha) {
@@ -275,8 +270,8 @@ class Parser {
       }
       return Success(Formula::Factory::Not(std::move(alpha.val)));
     }
-    if (Is(Token(0), Token::kExists) || Is(Token(0), Token::kForall)) {
-      bool ex = Is(Token(0), Token::kExists);
+    if (Is(Tok(0), Token::kExists) || Is(Tok(0), Token::kForall)) {
+      bool ex = Is(Tok(0), Token::kExists);
       Advance();
       Result<Term> x = term();
       if (!x) {
@@ -293,19 +288,19 @@ class Parser {
                         : Formula::Factory::Not(Formula::Factory::Exists(x.val,
                                                                          Formula::Factory::Not(std::move(alpha.val)))));
     }
-    if (Is(Token(0), Token::kKnow) || Is(Token(0), Token::kCons)) {
-      bool know = Is(Token(0), Token::kKnow);
+    if (Is(Tok(0), Token::kKnow) || Is(Tok(0), Token::kCons)) {
+      bool know = Is(Tok(0), Token::kKnow);
       Advance();
-      if (!Is(Token(0), Token::kLess)) {
+      if (!Is(Tok(0), Token::kLess)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected '<'"));
       }
       Advance();
-      if (!Is(Token(0), Token::kUint)) {
+      if (!Is(Tok(0), Token::kUint)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected split level integer"));
       }
-      const Formula::split_level k = std::stoi(Token(0).val.str());
+      const Formula::split_level k = std::stoi(Tok(0).val.str());
       Advance();
-      if (!Is(Token(0), Token::kGreater)) {
+      if (!Is(Tok(0), Token::kGreater)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected '>'"));
       }
       Advance();
@@ -319,27 +314,27 @@ class Parser {
         return Success(Formula::Factory::Cons(k, std::move(alpha.val)));
       }
     }
-    if (Is(Token(0), Token::kBel)) {
+    if (Is(Tok(0), Token::kBel)) {
       Advance();
-      if (!Is(Token(0), Token::kLess)) {
+      if (!Is(Tok(0), Token::kLess)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected '<'"));
       }
       Advance();
-      if (!Is(Token(0), Token::kUint)) {
+      if (!Is(Tok(0), Token::kUint)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected first split level integer"));
       }
-      const Formula::split_level k = std::stoi(Token(0).val.str());
+      const Formula::split_level k = std::stoi(Tok(0).val.str());
       Advance();
-      if (!Is(Token(0), Token::kComma)) {
+      if (!Is(Tok(0), Token::kComma)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected ','"));
       }
       Advance();
-      if (!Is(Token(0), Token::kUint)) {
+      if (!Is(Tok(0), Token::kUint)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected second split level integer"));
       }
-      const Formula::split_level l = std::stoi(Token(0).val.str());
+      const Formula::split_level l = std::stoi(Tok(0).val.str());
       Advance();
-      if (!Is(Token(0), Token::kGreater)) {
+      if (!Is(Tok(0), Token::kGreater)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected '>'"));
       }
       Advance();
@@ -347,7 +342,7 @@ class Parser {
       if (!alpha) {
         return Failure<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
       }
-      if (!Is(Token(0), Token::kDoubleRArrow)) {
+      if (!Is(Tok(0), Token::kDoubleRArrow)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected conditional belief arrow"));
       }
       Advance();
@@ -357,20 +352,20 @@ class Parser {
       }
       return Success(Formula::Factory::Bel(k, l, std::move(alpha.val), std::move(beta.val)));
     }
-    if (Is(Token(0), Token::kLeftParen)) {
+    if (Is(Tok(0), Token::kLeftParen)) {
       Advance();
       Result<Formula::Ref> alpha = formula();
       if (!alpha) {
         return Failure<Formula::Ref>(LELA_MSG("Expected formula within brackets"), alpha);
       }
-      if (!Is(Token(0), Token::kRightParen)) {
+      if (!Is(Tok(0), Token::kRightParen)) {
         return Failure<Formula::Ref>(LELA_MSG("Expected closing right parenthesis ')'"));
       }
       Advance();
       return alpha;
     }
-    if (Is(Token(0), Token::kIdentifier) && ctx_->IsRegisteredFormula(Token(0).val.str())) {
-      std::string id = Token(0).val.str();
+    if (Is(Tok(0), Token::kIdentifier) && ctx_->IsRegisteredFormula(Tok(0).val.str())) {
+      std::string id = Tok(0).val.str();
       Advance();
       return Success(ctx_->LookupFormula(id).Clone());
     }
@@ -387,7 +382,7 @@ class Parser {
     if (!alpha) {
       return Failure<Formula::Ref>(LELA_MSG("Expected left conjunctive formula"), alpha);
     }
-    while (Is(Token(0), Token::kAnd)) {
+    while (Is(Tok(0), Token::kAnd)) {
       Advance();
       Result<Formula::Ref> psi = primary_formula();
       if (!psi) {
@@ -405,7 +400,7 @@ class Parser {
     if (!alpha) {
       return Failure<Formula::Ref>(LELA_MSG("Expected left argument conjunctive formula"), alpha);
     }
-    while (Is(Token(0), Token::kOr)) {
+    while (Is(Tok(0), Token::kOr)) {
       Advance();
       Result<Formula::Ref> psi = conjunctive_formula();
       if (!psi) {
@@ -423,7 +418,7 @@ class Parser {
     if (!alpha) {
       return Failure<Formula::Ref>(LELA_MSG("Expected left argument disjunctive formula"), alpha);
     }
-    if (Is(Token(0), Token::kRArrow)) {
+    if (Is(Tok(0), Token::kRArrow)) {
       Advance();
       Result<Formula::Ref> psi = disjunctive_formula();
       if (!psi) {
@@ -441,7 +436,7 @@ class Parser {
     if (!alpha) {
       return Failure<Formula::Ref>(LELA_MSG("Expected left argument implication formula"), alpha);
     }
-    if (Is(Token(0), Token::kLRArrow)) {
+    if (Is(Tok(0), Token::kLRArrow)) {
       Advance();
       Result<Formula::Ref> psi = implication_formula();
       if (!psi) {
@@ -462,16 +457,16 @@ class Parser {
 
   // abbreviation --> let identifier := formula
   Result<bool> abbreviation() {
-    if (!Is(Token(0), Token::kLet)) {
+    if (!Is(Tok(0), Token::kLet)) {
       return Unapplicable<bool>(LELA_MSG("Expected abbreviation operator 'let'"));
     }
     Advance();
-    if (!Is(Token(0), Token::kIdentifier)) {
+    if (!Is(Tok(0), Token::kIdentifier)) {
       return Failure<bool>(LELA_MSG("Expected fresh identifier"));
     }
-    const std::string id = Token(0).val.str();
+    const std::string id = Tok(0).val.str();
     Advance();
-    if (!Is(Token(0), Token::kAssign)) {
+    if (!Is(Tok(0), Token::kAssign)) {
       return Failure<bool>(LELA_MSG("Expected assignment operator ':='"));
     }
     Advance();
@@ -497,11 +492,11 @@ class Parser {
 
   // kb_formula --> KB : formula ;
   Result<bool> kb_formula() {
-    if (!Is(Token(0), Token::kKB)) {
+    if (!Is(Tok(0), Token::kKB)) {
       return Unapplicable<bool>(LELA_MSG("Expected 'KB'"));
     }
     Advance();
-    if (!Is(Token(0), Token::kColon)) {
+    if (!Is(Tok(0), Token::kColon)) {
       return Unapplicable<bool>(LELA_MSG("Expected ':'"));
     }
     Advance();
@@ -545,11 +540,11 @@ class Parser {
 
   // query --> Query : subjective_formula ;
   Result<bool> query() {
-    if (!Is(Token(0), Token::kQuery)) {
+    if (!Is(Tok(0), Token::kQuery)) {
       return Unapplicable<bool>(LELA_MSG("Expected 'Query'"));
     }
     Advance();
-    if (!Is(Token(0), Token::kColon)) {
+    if (!Is(Tok(0), Token::kColon)) {
       return Unapplicable<bool>(LELA_MSG("Expected ':'"));
     }
     Advance();
@@ -577,13 +572,13 @@ class Parser {
 
   // assertion_refutation --> Assert subjective_formula | Refute subjective_formula
   Result<bool> assertion_refutation() {
-    if (!Is(Token(0), Token::kAssert) &&
-        !Is(Token(0), Token::kRefute)) {
+    if (!Is(Tok(0), Token::kAssert) &&
+        !Is(Tok(0), Token::kRefute)) {
       return Unapplicable<bool>(LELA_MSG("Expected 'Assert' or 'Refute'"));
     }
-    const bool pos = Is(Token(0), Token::kAssert);
+    const bool pos = Is(Tok(0), Token::kAssert);
     Advance();
-    if (!Is(Token(0), Token::kColon)) {
+    if (!Is(Tok(0), Token::kColon)) {
       return Failure<bool>(LELA_MSG("Expected ':'"));
     }
     Advance();
@@ -642,8 +637,8 @@ class Parser {
     } while (begin() != prev);
     std::stringstream ss;
     using lela::format::output::operator<<;
-    ss << Token(0) << " " << Token(1) << " " << Token(2);
-    return !Token(0) ? Success(true) : Failure<bool>(LELA_MSG("Unparsed input "+ ss.str()));
+    ss << Tok(0) << " " << Tok(1) << " " << Tok(2);
+    return !Tok(0) ? Success(true) : Failure<bool>(LELA_MSG("Unparsed input "+ ss.str()));
   }
 
   bool Is(const lela::internal::Maybe<Token>& symbol, Token::Id id) const {
@@ -655,7 +650,7 @@ class Parser {
     return symbol && symbol.val.id() == id && p(symbol.val.str());
   }
 
-  lela::internal::Maybe<Token> Token(size_t n = 0) const {
+  lela::internal::Maybe<Token> Tok(size_t n = 0) const {
     auto it = begin();
     for (size_t i = 0; i < n && it != end_; ++i) {
       assert(begin() != end());

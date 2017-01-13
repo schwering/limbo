@@ -55,7 +55,6 @@ int main(int argc, char *argv[]) {
   size_t n_mines = 10;
   size_t seed = 0;
   size_t max_k = 2;
-  bool print_knowledge = false;
   if (argc >= 2) {
     width = atoi(argv[1]);
   }
@@ -72,10 +71,6 @@ int main(int argc, char *argv[]) {
   if (argc >= 6) {
     max_k = atoi(argv[5]);
   }
-  if (argc >= 7) {
-    print_knowledge = argv[6] == std::string("know");
-  }
-
   Play(width, height, n_mines, seed, max_k, TerminalColors(), &std::cout);
   return 0;
 }
