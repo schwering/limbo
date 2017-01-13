@@ -10,10 +10,13 @@ cpplint.py
 
 CMakeCache.txt
 CMakeFiles
-*.cmake
+CTest*.cmake
+cmake_install.cmake
 Makefile
 compile_commands.json
 .ycm_extra_conf.py
+DartConfiguration.tcl
+target
 
 Testing
 tests/googletest
