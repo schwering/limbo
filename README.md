@@ -34,10 +34,10 @@ For examples of usage, check out the following:
   allows to define and query a knowledge base through a simple text interface.
   You can also use it from the command line; the the code is
   [here](examples/textinterface/).
-* To see how the C++ API works, have a look at this [unit
-  test](tests/solver.cc), which contains test cases that implement examples
-  from [1,2]. To reduce boiler plate code, it uses [this higher-level
-  API](src/lela/format/syntax.h), which overloads some C++ operators.
+* To see how the C++ API works, have a look at [this](tests/solver.cc) and
+  [that](tests/modal.cc) unit tests, which contain test cases that implement
+  examples from [1,2]. To reduce boiler plate code, they use a [higher-level
+  API](src/lela/format/cpp/syntax.h), which overloads some C++ operators.
 * There's also Minesweeper [web
   demo](http://www.cse.unsw.edu.au/~cschwering/demo/minesweeper/). You can also
   use it from the command line; the the code is [here](examples/minesweeper/).
