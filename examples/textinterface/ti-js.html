@@ -75,7 +75,7 @@
         ul.grammar { list-style-type: none; }
         ul.grammar.table { display: table; }
         ul.grammar.table li { display: table-row; }
-        ul.grammar div.label { display: table-cell; padding-right: .75ex; }
+        ul.grammar div.label { display: table-cell; padding-right: 1ex; }
         ul.grammar div.body { display: table-cell; }
         .code { font-family: monospace; font-weight: bold; }
         .metavariable { font-family: monospace; font-weight: normal; color: #800080; }
@@ -268,8 +268,7 @@ Queries are not subject to any syntactic restriction.
 </p>
 
 <p>
-Decision procedures for sound entailment [KR-2016] and sound consistency [ECAI-2016] are implemented.
-Future work are the conditional beliefs [ECAI-2016] (should be easy), actions [KR-2014] [ (as a preprocessing step), and introspection [IJCAI-2013].
+The addition of situation calculus-style actions [KR-2014] is future work.
 </p>
 
 <p>
@@ -292,7 +291,7 @@ Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.
     <li> declarations of sorts, variables, standard names, and functions; </li>
     <li> optional abbreviations for formulas; </li>
     <li> the knowledge definition; </li>
-    <li> entailment and/or consistency queries. </li>
+    <li> queries. </li>
 </ol>
 <p>
 The syntax of these segments is as follows, where <span class="code">this font</span> is a word of the the problem description language, and <span class="metavariable">this font</span> represents a meta-variable.
@@ -302,13 +301,29 @@ The syntax of these segments is as follows, where <span class="code">this font</
 All sorts, variables, names, and function symbols must be declared before they are used.
 Declarations are of the following form:
 </p>
-<ul class="grammar">
-    <li><span class="code">Sort <span class="metavariable">sort</span></span>
-    <li><span class="code">Variable <span class="metavariable">x</span> -&gt; <span class="metavariable">sort</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code">Var <span class="metavariable">x</span> -&gt; <span class="metavariable">sort</span></span></li>
-    <li><span class="code">Name <span class="metavariable">n</span> -&gt; <span class="metavariable">sort</span></span></li>
-    <li><span class="code">Function <span class="metavariable">f</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code">Fun <span class="metavariable">f</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort</span></span></li>
+<ul class="grammar table">
+    <li><div class="label">sort declaration:</div>
+        <div class="body">
+            <span class="code">Sort <span class="metavariable">sort</span></span>
+        </div>
+    </li>
+    <li><div class="label">variable declaration:</div>
+        <div class="body">
+            <span class="code">Variable <span class="metavariable">x</span> -&gt; <span class="metavariable">sort</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+            <span class="code">Var <span class="metavariable">x</span> -&gt; <span class="metavariable">sort</span></span>
+        </div>
+    </li>
+    <li><div class="label">name declaration:</div>
+        <div class="body">
+            <span class="code">Name <span class="metavariable">n</span> -&gt; <span class="metavariable">sort</span></span>
+        </div>
+    </li>
+    <li><div class="label">function declaration:</div>
+        <div class="body">
+            <span class="code">Function <span class="metavariable">f</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort</span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+            <span class="code">Fun <span class="metavariable">f</span>/<span class="metavariable">arity</span> -&gt; <span class="metavariable">sort</span></span>
+        </div>
+    </li>
 </ul>
 <p>
 where <span class="metavariable">sort</span>, <span class="metavariable">x</span>, <span class="metavariable">n</span>, <span class="metavariable">f</span> are identifiers and <span class="metavariable">arity</span> is a natural number &ge; 0.
@@ -374,14 +389,14 @@ The following constructs are well-formed formulas:
     <li><div class="label">knowledge modality:</div>
         <div class="body">
             <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span>
-            &nbsp;&nbsp;or<br />
+            &nbsp;&nbsp;or&nbsp;&nbsp;
             <span class="code">K&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span>
         </div>
     </li>
     <li><div class="label">considering-possible modality:</div>
         <div class="body">
             <span class="code">Cons&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span>
-            &nbsp;&nbsp;or<br />
+            &nbsp;&nbsp;or&nbsp;&nbsp;
             <span class="code">M&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span>
         </div>
     </li>
@@ -392,7 +407,7 @@ The following constructs are well-formed formulas:
             <span class="code">B&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span>
         </div>
     </li>
-    <li><div class="label">brackets to group formulas:</div>
+    <li><div class="label">override operator precedence:</div>
         <div class="body">
             <span class="code">(<span class="metavariable">formula</span>)</span>
         </div>
@@ -400,18 +415,26 @@ The following constructs are well-formed formulas:
     <li><div class="label">formula abbreviations:</div>
         <div class="body">
             <span class="code"><span class="metavariable">formula-id</span></span>
-            &nbsp;&nbsp;where the <span class="metavariable">formula-id</span> must be defined as specified below
+            &nbsp;&nbsp;where the value of <span class="metavariable">formula-id</span> must have been defined as specified below
         </div>
     </li>
 </ul>
 <p>
-A <span class="metavariable">literal</span> is an equality or inequality expression:
+A <span class="metavariable">literal</span> is of the following form:
 </p>
-<ul class="grammar">
-    <li><span class="code"><span class="metavariable">t<sub>1</sub></span> == <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code"><span class="metavariable">t<sub>1</sub></span> = <span class="metavariable">t<sub>2</sub></span></span></li>
-    <li><span class="code"><span class="metavariable">t<sub>1</sub></span> != <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
-        <span class="code"><span class="metavariable">t<sub>1</sub></span> /= <span class="metavariable">t<sub>2</sub></span></span></li>
+<ul class="grammar table">
+    <li><div class="label">equality:</div>
+        <div class="body">
+            <span class="code"><span class="metavariable">t<sub>1</sub></span> == <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+            <span class="code"><span class="metavariable">t<sub>1</sub></span> = <span class="metavariable">t<sub>2</sub></span></span>
+        </div>
+    </li>
+    <li><div class="label">inequality:</div>
+        <div class="body">
+            <span class="code"><span class="metavariable">t<sub>1</sub></span> != <span class="metavariable">t<sub>2</sub></span></span> &nbsp;&nbsp;or&nbsp;&nbsp;
+            <span class="code"><span class="metavariable">t<sub>1</sub></span> /= <span class="metavariable">t<sub>2</sub></span></span>
+        </div>
+    </li>
 </ul>
 <p>
 where <span class="metavariable">t<sub>i</sub></span> is a term.
@@ -430,7 +453,7 @@ The <span class="metavariable">split-level</span> in <span class="code">Cons</sp
 </p>
 <p>
 Operator precedence is as follows: 
-equivalence &lt; implication &lt; disjunction &lt; conjunction &lt; negation, quantifiers, modalities.
+equivalence &lt; implication &lt; disjunction &lt; conjunction &lt; negation, quantifiers, modalities &lt; brackets.
 Note the maximal precedence of quantifiers and modalities.
 Use brackets to expand the scope of a quantifier or a modal operator.
 For example, to say that <span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> is known, write <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; (<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span>)</span>.
@@ -455,15 +478,16 @@ The knowledge base consists of a sequence of statements of the following form:
     <li><span class="code">KB:&nbsp;<span class="metavariable">formula</span></span></li>
 </ul>
 <p>
-with the syntactic restriction that the <i>normal form</i> (explained below) of <span class="metavariable">formula</span> is a clause with leading universal quantifier, or a clause within a knowledge
-modality <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span> (the <span class="metavariable">split-level</span> is ignored
-then), or a formula <span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span
-class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span> where the normal form of <span class="code">!<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> must be a universally quantified clause and the <span class="metavariable">split-level</span>s affect how faithful the induced system of spheres is to the unlimited logic.
+where one of the following syntactic conditions must be satisfied:
 </p>
-
+<ol>
+    <li><span class="metavariable">formula</span> contains no modal operators and its normal form (&approx; prenex-NNF) is a clause without existentially quantified variables;</li>
+    <li><span class="metavariable">formula</span> is of the form <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula'</span></span> where <span class="metavariable">formula'</span> satisfies to condition 1 (the <span class="metavariable">split-level</span> is ignored);</li>
+    <li><span class="metavariable">formula</span> is of the form <span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span> where <span class="code">!<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> satisfies to condition 1 (the <span class="metavariable">split-level</span>s affect how faithful the induced system of spheres is to the unlimited logic).</li>
+</ol>
 <p>
 Free variables in <span class="metavariable">formula</span> in KB definitions are implicitly universally quantified.
-The definition of the normal form is tedious, but the idea is this: push negations inwards but not into clauses, and pull quantifiers out of clauses.
+The formal definition of the normal form is tedious, but the idea is this: push negations inwards but not into clauses, and pull quantifiers out of clauses.
 The rationale is to create new clauses (while avoiding the exponential blowup of a full CNF).
 Additionally, terms are flattened so that no two function symbols occur in a any literal.
 For instance, a disjunction <span class="code">KB:&nbsp;<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span></span> meets this requirement trivially.
@@ -471,10 +495,7 @@ Implications are also allowed, provided that the negation of the antecedent as w
 </p>
 
 <p>
-</p>
-
-<p>
-Queries can be of the form:
+Queries are of the form:
 </p>
 <ul class="grammar">
     <li><span class="code">Query: <span class="metavariable">formula</span></span></li>
@@ -482,13 +503,12 @@ Queries can be of the form:
     <li><span class="code">Refute: <span class="metavariable">formula</span></span></li>
 </ul>
 <p>
-The query <span class="metavariable">formula</span> must be subjective, which means functions must not occur outside of modal operators (but variables, names, quantifiers, etc. may occur).
-The <span class="code">Assert</span> and <span class="code">Refute</span> versions just differ from the <span class="code">Query</span> version in that they yield a error when the query does not come out true or false, respectively.
+where <span class="metavariable">formula</span> is subjective, which means functions must not occur outside of modal operators (but variables, names, quantifiers, etc. may).
+The <span class="code">Assert</span> and <span class="code">Refute</span> versions differ from the <span class="code">Query</span> version in that they yield a error when the query does not come out true or false, respectively; this is useful for automated testing.
 </p>
 
 <p>
-C-style single line comments are supported as well: 
-    <span class="code">//&nbsp;<span class="metavariable">rest of line is comment</span></span>.
+C-style single line comments are supported as well: <span class="code">//&nbsp;<span class="metavariable">rest of line is comment</span></span>.
 </p>
 
 <h2>References</h2>

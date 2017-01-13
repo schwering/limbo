@@ -1,30 +1,46 @@
 # Limited Epistemic Logic in Action
 
 LELA (**L**imited **E**pistemic **L**ogic in **A**ction) is a C++ library for
-*decidable reasoning in first-order knowledge bases*. It aims to implement the
-theory of limited reasoning presented in [1,2,3,4], which achieves decidability
-by putting a limit on the maximum allowed reasoning effort.
+*decidable reasoning in first-order knowledge bases* based on the theory of
+*limited belief* from [1,2,3,4]. [Here is a quick
+demo](http://www.cse.unsw.edu.au/~cschwering/demo/textinterface/).
 
 ## Features
 
-The logical language features functions and equality, first-order
-quantification, standard names, and sorts. (Predicates are not built-in but can
-be simulated with no overhead using boolean functions.) Knowledge bases are
-restricted to be in clausal form with only universally quantified variables.
-(Existentially quantified variables in the knowledge base can be simulated with
-functions.) Queries are not subject to any syntactic restriction.
+The library provides a logical language to encode and reason about knowledge
+and beliefs.
 
-The library provides procedures to check whether a query is entailed by or
-consistent with a knowledge base. These procedures are *sound* but *incomplete*
-with respect to classical logic. That is, whenever the procedure says the
-knowledge base entails (is consistent with) a query, then this answer is
-correct, but the converse direction does not hold. Completeness needs to be
-sacrificed to achieve decidability.
-The entailment and consistency procedures are parameterised with a natural
-number that limits the maximum allowed reasoning effort, which is measured in
-the number of case splits.
+The logical language features functions of different sorts, standard names that
+designate distinct objects, first-order variables and quantification, equality,
+and modal operators for knowledge and conditional belief. (Predicates are not
+built-in but can be simulated without overhead using boolean functions.)
 
-For the theoretical background, see the papers linked below.
+An agent's knowledge and beliefs are encoded in this language. This knowledge
+base is subject to a syntactic restriction: it must be in clausal form, and all
+variables must be universally quantified. (Existentially quantified variables
+in the knowledge base can be simulated through Skolemization.) For instance,
+assuming a birthday scenario and a gift box, we could say that we know the box
+contains a gift.
+
+Reasoning in such knowledge bases is done with queries expressed in this
+language. For example, we can say that we believe that something is in the box
+and that we have no idea what it is. A decision procedure evaluates such
+queries in a way that is *sound* but *incomplete* with respect to classical
+logic. That is, if the procedure says that the knowledge base entails the
+query, then this correct, but conversely the procedure may miss some true
+queries. Completeness is sacrificed for decidability, which means that the
+procedure actually terminates. (Soundness, completeness, decidability in
+first-order logic is one of those "pick any two" scenarios.)
+
+How much *effort* (and time) is spend on evaluating a query is controlled
+through a parameter that specifies how many case splits the reasoner may
+investigate. Every modal operator is decorated with such an effort parameter.
+This effort parameter and its limiting effect on the reasoning capabilities is
+the key ingredient to achieve decidability without restricting the syntactical
+expressivity of queries. This sets this theory apart from decidable syntactical
+subclasses of first-order logic and from description logics.
+
+For more theoretical background see the papers linked below.
 
 ## Examples
 
@@ -57,8 +73,7 @@ For examples of usage, check out the following:
   preprocessing step.
 * Nested beliefs from [4] are not yet implemented.
 * If time permits, I'll rewrite the whole system in Rust. First results (cf.
-  'rust' branch) indicate it's faster. And it's actually fun, which C++ really
-  is not for me.
+  'rust' branch) indicate it's faster. And it's actually fun!
 
 ## References
 
