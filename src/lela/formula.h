@@ -716,8 +716,12 @@ class Formula::Bel : public Formula {
   friend class Factory;
 
   Bel(split_level k, split_level l, Ref antecedent, Ref consequent) :
-      Bel(k, l, antecedent->Clone(), consequent->Clone(),
-          Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
+      Formula(kBel),
+      k_(k),
+      l_(l),
+      antecedent_(antecedent->Clone()),
+      consequent_(consequent->Clone()),
+      not_antecedent_or_consequent_(Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
 
   TermSet FreeVars() const override {
     assert(antecedent_->FreeVars() == not_antecedent_or_consequent_->FreeVars());
