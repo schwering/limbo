@@ -65,7 +65,7 @@ class Solver {
 
   const Setup& setup() const { return grounder_.Ground(); }
 
-  const Grounder::SortedTermSet& names() { return grounder_.Names(); }
+  Grounder* grounder() { return &grounder_; }
 
   bool Entails(int k, const Formula& phi, bool assume_consistent = true) {
     assert(phi.objective());

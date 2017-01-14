@@ -111,7 +111,14 @@ struct Logger : public lela::format::pdl::Logger {
   void operator()(const RegisterFunctionData& d) const { std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl; }
   void operator()(const RegisterFormulaData& d)  const { std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl; }
   void operator()(const AddToKbData& d)          const { std::cerr << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
-  void operator()(const QueryData& d)            const { std::cout << "Query: " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl; }
+  void operator()(const QueryData& d)            const {
+    for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
+      std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
+    }
+    std::cout << "Query: " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl;
+    std::cout << std::endl;
+    std::cout << std::endl;
+  }
 };
 
 int main(int argc, char** argv) {

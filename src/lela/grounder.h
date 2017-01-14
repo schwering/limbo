@@ -15,6 +15,11 @@
 // result of Ground(). The unprocessed clauses include those which were added
 // with AddClause(). In case new names have been added due to AddClause() or
 // PrepareForQuery(), the unprocessed clauses include all added clauses.
+//
+// Sometimes names are used temporarily in queries. For that purpose, Grounder
+// offers CreateName() and ReturnName() as a layer on-top of Term::Factory and
+// Symbol::Factory. Returning such temporary names for later re-use may avoid
+// bloating up the setups.
 
 #ifndef LELA_GROUNDER_H_
 #define LELA_GROUNDER_H_
@@ -73,6 +78,11 @@ class Grounder {
       }
       return n;
     }
+
+    bool contains(Term t) const {
+      const TermSet& ts = (*this)[t.sort()];
+      return ts.find(t) != ts.end();
+    }
   };
 
   Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
@@ -105,10 +115,6 @@ class Grounder {
   void PrepareForQuery(split_level k, const Formula& phi) {
     assert(phi.objective());
     names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, phi));
-    // TODO It might be a good idea to re-use the plus-names as plus-names
-    // for later queries. That is, plus-names must be stored separately
-    // from ordinary names so we can later identify how many plus-names
-    // we already have. Otherwise the setup seems to grow continuously.
     names_changed_ |= AddPlusNames(PlusNames(phi));
     AddSplitTerms(SplitTerms(k, phi));
     AddAssignLiterals(AssignLiterals(k, phi));
@@ -160,6 +166,23 @@ class Grounder {
 
   const SortedTermSet& Names() const {
     return names_;
+  }
+
+  Term CreateName(Symbol::Sort sort) {
+    TermSet& ns = owned_names_[sort];
+    if (ns.empty()) {
+      return tf_->CreateTerm(sf_->CreateName(sort));
+    } else {
+      auto it = ns.begin();
+      const Term n = *it;
+      ns.erase(it);
+      return n;
+    }
+  }
+
+  void ReturnName(Term n) {
+    assert(n.name());
+    owned_names_.insert(n);
   }
 
   TermSet SplitTerms() const {
@@ -460,7 +483,7 @@ class Grounder {
         plus_[sort] = n;
         n -= m;
         while (n-- > 0) {
-          added += names_.insert(tf_->CreateTerm(sf_->CreateName(sort)));
+          added += names_.insert(CreateName(sort));
         }
       }
     }
@@ -525,6 +548,7 @@ class Grounder {
   bool names_changed_ = false;
   std::list<Clause> processed_clauses_;
   std::list<Clause> unprocessed_clauses_;
+  SortedTermSet owned_names_;
   std::list<Setup> setups_;
 };
 

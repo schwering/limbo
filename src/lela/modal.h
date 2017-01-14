@@ -32,12 +32,15 @@ class KnowledgeBase {
       sphere.AddClause(c);
     }
     knowledge_.push_back(c);
+    c.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
   }
 
   void Add(Formula::split_level k, Formula::split_level l,
            const Formula& antecedent, const Clause& not_antecedent_or_consequent) {
     beliefs_.push_back(Conditional{k, l, antecedent.Clone(), not_antecedent_or_consequent});
     spheres_changed_ = true;
+    antecedent.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
+    not_antecedent_or_consequent.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
   }
 
   bool Add(const Formula& alpha) {
@@ -196,22 +199,22 @@ class KnowledgeBase {
   }
 
   Formula::Ref ResEntails(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
-    auto if_no_free_vars = [k, assume_consistent, this](sphere_index p, const Formula& psi) {
-      return spheres_[p].Entails(k, psi, assume_consistent);
+    auto if_no_free_vars = [k, assume_consistent, this](Solver* sphere, const Formula& psi) {
+      return sphere->Entails(k, psi, assume_consistent);
     };
     return Res(p, phi.Clone(), if_no_free_vars);
   }
 
   Formula::Ref ResConsistent(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
-    auto if_no_free_vars = [k, assume_consistent, this](sphere_index p, const Formula& psi) {
-      return spheres_[p].Consistent(k, psi/*, assume_consistent*/);  // TODO implement assume_consistent
+    auto if_no_free_vars = [k, assume_consistent, this](Solver* sphere, const Formula& psi) {
+      return sphere->Consistent(k, psi/*, assume_consistent*/);  // TODO implement assume_consistent
     };
     return Res(p, phi.Clone(), if_no_free_vars);
   }
 
   template<typename BinaryPredicate>
   Formula::Ref Res(sphere_index p, Formula::Ref phi, BinaryPredicate if_no_free_vars) {
-    SortedTermSet names = spheres_[p].names();
+    SortedTermSet names = names_;
     phi->Traverse([&names](Term t) { if (t.name()) names.insert(t); return true; });
     return Res(p, std::move(phi), &names, if_no_free_vars);
   }
@@ -219,7 +222,8 @@ class KnowledgeBase {
   template<typename BinaryPredicate>
   Formula::Ref Res(sphere_index p, Formula::Ref phi, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
     if (phi->free_vars().empty()) {
-      return bool_to_formula(if_no_free_vars(p, *phi));
+      const bool r = if_no_free_vars(&spheres_[p], *phi);
+      return bool_to_formula(r);
     }
     Term x = *phi->free_vars().begin();
     Formula::Ref psi = ResOtherName(p, phi->Clone(), x, names, if_no_free_vars);
@@ -243,12 +247,13 @@ class KnowledgeBase {
   template<typename BinaryPredicate>
   Formula::Ref ResOtherName(sphere_index p, Formula::Ref phi, Term x, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
     // (x != n1 && ... && x != nK -> RES(p, phi^x_n0)^n0_x) in clausal form
-    Term n0 = tf_->CreateTerm(sf_->CreateName(x.sort()));
+    Term n0 = spheres_[p].grounder()->CreateName(x.sort());
     phi->SubstituteFree(Term::SingleSubstitution(x, n0), tf_);
     names->insert(n0);
     phi = Res(p, std::move(phi), names, if_no_free_vars);
     names->erase(n0);
     phi->SubstituteFree(Term::SingleSubstitution(n0, x), tf_);
+    spheres_[p].grounder()->ReturnName(n0);
     const SortedTermSet::value_type& ns = (*names)[x.sort()];
     const auto if_not = internal::transform_range(ns.begin(), ns.end(), [x](Term n) { return Literal::Eq(x, n); });
     return Formula::Factory::Or(Formula::Factory::Atomic(Clause(if_not.begin(), if_not.end())), std::move(phi));
@@ -263,6 +268,7 @@ class KnowledgeBase {
   Term::Factory* tf_;
   std::vector<Clause> knowledge_;
   std::vector<Conditional> beliefs_;
+  SortedTermSet names_;
   std::vector<Solver> spheres_;
   Solver objective_;
   bool spheres_changed_ = false;
