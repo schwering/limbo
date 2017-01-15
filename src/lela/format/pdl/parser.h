@@ -125,62 +125,73 @@ class Parser {
     return Result<T>(true, "\t" + msg, begin().char_iter(), end().char_iter());
   }
 
-  // declaration --> sort <sort-id> ;
-  //              |  var <id> -> <sort-id> ;
-  //              |  name <id> -> <sort-id> ;
-  //              |  fun <id> / <arity> -> <sort-id> ;
+  // declaration --> sort <sort-id> [ , <sort-id>]*
+  //              |  var <id> [ , <id> ]* -> <sort-id>
+  //              |  name <id> [ , <id> ]* -> <sort-id>
+  //              |  fun <id> [ , <id> ]* / <arity> -> <sort-id>
   Result<bool> declaration() {
-    if (!Is(Tok(0), Token::kSort) &&
-        !Is(Tok(0), Token::kVar) &&
-        !Is(Tok(0), Token::kName) &&
-        !Is(Tok(0), Token::kFun)) {
-      return Unapplicable<bool>(LELA_MSG("Expected 'Sort', 'Var', 'Name' or 'Fun'"));
+    if (Is(Tok(), Token::kSort)) {
+      do {
+        Advance();
+        if (Is(Tok(), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredSort(s); })) {
+          ctx_->RegisterSort(Tok().val.str());
+          Advance();
+        } else {
+          return Failure<bool>(LELA_MSG("Expected sort identifier"));
+        }
+      } while (Is(Tok(0), Token::kComma));
+      return Success<bool>(true);
     }
-    if (Is(Tok(0), Token::kSort) &&
-        Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredSort(s); })) {
-      ctx_->RegisterSort(Tok(1).val.str());
-      Advance(2);
-      return Success(true);
+    if (Is(Tok(), Token::kVar) || Is(Tok(), Token::kName)) {
+      const bool var = Is(Tok(), Token::kVar);
+      std::vector<std::string> ids;
+      do {
+        Advance();
+        if (Is(Tok(), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); })) {
+          ids.push_back(Tok().val.str());
+          Advance();
+        } else {
+          return Failure<bool>(LELA_MSG(var ? "Expected variable identifier" : "Expected name identifier"));
+        }
+      } while (Is(Tok(0), Token::kComma));
+      if (Is(Tok(0), Token::kRArrow) &&
+          Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
+        const std::string sort = Tok(1).val.str();
+        for (const std::string& id : ids) {
+          var ? ctx_->RegisterVariable(id, sort) : ctx_->RegisterName(id, sort);
+        }
+        Advance(2);
+      } else {
+        return Failure<bool>(LELA_MSG("Expected arrow and sort identifier"));
+      }
+      return Success<bool>(true);
     }
-    if (Is(Tok(0), Token::kVar) &&
-        Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
-        Is(Tok(2), Token::kRArrow) &&
-        Is(Tok(3), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
-      ctx_->RegisterVariable(Tok(1).val.str(), Tok(3).val.str());
-      Advance(4);
-      return Success(true);
+    if (Is(Tok(), Token::kFun)) {
+      std::vector<std::pair<std::string, Symbol::Arity>> ids;
+      do {
+        Advance();
+        if (Is(Tok(0), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
+            Is(Tok(1), Token::kSlash) &&
+            Is(Tok(2), Token::kUint)) {
+          ids.push_back(std::make_pair(Tok(0).val.str(), std::stoi(Tok(2).val.str())));
+          Advance(3);
+        } else {
+          return Failure<bool>(LELA_MSG("Expected function identifier"));
+        }
+      } while (Is(Tok(0), Token::kComma));
+      if (Is(Tok(0), Token::kRArrow) &&
+          Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
+        const std::string sort = Tok(1).val.str();
+        for (const auto& id_arity : ids) {
+          ctx_->RegisterFunction(id_arity.first, id_arity.second, sort);
+        }
+        Advance(2);
+      } else {
+        return Failure<bool>(LELA_MSG("Expected arrow and sort identifier"));
+      }
+      return Success<bool>(true);
     }
-    if (Is(Tok(0), Token::kName) &&
-        Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
-        Is(Tok(2), Token::kRArrow) &&
-        Is(Tok(3), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
-      ctx_->RegisterName(Tok(1).val.str(), Tok(3).val.str());
-      Advance(4);
-      return Success(true);
-    }
-    if (Is(Tok(0), Token::kFun) &&
-        Is(Tok(1), Token::kIdentifier, [this](const std::string& s) { return !ctx_->IsRegisteredTerm(s); }) &&
-        Is(Tok(2), Token::kSlash) &&
-        Is(Tok(3), Token::kUint) &&
-        Is(Tok(4), Token::kRArrow) &&
-        Is(Tok(5), Token::kIdentifier, [this](const std::string& s) { return ctx_->IsRegisteredSort(s); })) {
-      ctx_->RegisterFunction(Tok(1).val.str(), std::stoi(Tok(3).val.str()), Tok(5).val.str());
-      Advance(6);
-      return Success(true);
-    }
-    return Failure<bool>(LELA_MSG("Invalid sort/var/name/fun declaration"));
-  }
-
-  // declarations --> declaration*
-  Result<bool> declarations() {
-    Result<bool> r;
-    while ((r = declaration())) {
-    }
-    if (!r.unapplicable) {
-      return r;
-    } else {
-      return Success(true);
-    }
+    return Unapplicable<bool>(LELA_MSG("Expected 'Sort', 'Var', 'Name' or 'Fun'"));
   }
 
   // term --> x
@@ -478,19 +489,7 @@ class Parser {
     return Success(true);
   }
 
-  // abbreviations --> abbreviation*
-  Result<bool> abbreviations() {
-    Result<bool> r;
-    while ((r = abbreviation())) {
-    }
-    if (!r.unapplicable) {
-      return r;
-    } else {
-      return Success(true);
-    }
-  }
-
-  // kb_formula --> KB : formula ;
+  // kb_formula --> KB : formula
   Result<bool> kb_formula() {
     if (!Is(Tok(0), Token::kKB)) {
       return Unapplicable<bool>(LELA_MSG("Expected 'KB'"));
@@ -526,57 +525,15 @@ class Parser {
     return Success(std::move(alpha.val));
   }
 
-  // kb_formulas --> kb_formula*
-  Result<bool> kb_formulas() {
-    Result<bool> r;
-    while ((r = kb_formula())) {
-    }
-    if (!r.unapplicable) {
-      return r;
-    } else {
-      return Success(true);
-    }
-  }
-
-  // query --> Query : subjective_formula ;
+  // query --> [ Query | Refute | Assert ] : subjective_formula
   Result<bool> query() {
-    if (!Is(Tok(0), Token::kQuery)) {
-      return Unapplicable<bool>(LELA_MSG("Expected 'Query'"));
-    }
-    Advance();
-    if (!Is(Tok(0), Token::kColon)) {
-      return Unapplicable<bool>(LELA_MSG("Expected ':'"));
-    }
-    Advance();
-    Result<Formula::Ref> alpha = subjective_formula();
-    if (!alpha) {
-      return Failure<bool>(LELA_MSG("Expected query subjective_formula"), alpha);
-    }
-    const bool r = ctx_->Query(*alpha.val);
-    return Success(bool(r));
-  }
-
-  // queries --> query*
-  Result<bool> queries() {
-    Result<bool> r;
-    bool all = true;
-    while ((r = query())) {
-      all &= r.val;
-    }
-    if (!r.unapplicable) {
-      return r;
-    } else {
-      return Success(bool(all));
-    }
-  }
-
-  // assertion_refutation --> Assert subjective_formula | Refute subjective_formula
-  Result<bool> assertion_refutation() {
-    if (!Is(Tok(0), Token::kAssert) &&
+    if (!Is(Tok(0), Token::kQuery) &&
+        !Is(Tok(0), Token::kAssert) &&
         !Is(Tok(0), Token::kRefute)) {
-      return Unapplicable<bool>(LELA_MSG("Expected 'Assert' or 'Refute'"));
+      return Unapplicable<bool>(LELA_MSG("Expected 'Query', 'Assert', or 'Refute'"));
     }
-    const bool pos = Is(Tok(0), Token::kAssert);
+    const bool is_query = Is(Tok(0), Token::kQuery);
+    const bool is_assert = Is(Tok(0), Token::kAssert);
     Advance();
     if (!Is(Tok(0), Token::kColon)) {
       return Failure<bool>(LELA_MSG("Expected ':'"));
@@ -584,55 +541,86 @@ class Parser {
     Advance();
     Result<Formula::Ref> alpha = subjective_formula();
     if (!alpha) {
-      return Failure<bool>(LELA_MSG("Expected assertion/refutation subjective_formula"), alpha);
+      return Failure<bool>(LELA_MSG("Expected query/assertion/refutation subjective_formula"), alpha);
     }
     const bool r = ctx_->Query(*alpha.val);
-    if (r == pos) {
+    if (is_query) {
+      return Success(bool(r));
+    } else if (r == is_assert) {
       return Success(true);
     } else {
       return Failure<bool>(LELA_MSG("Assertion/refutation failed"));
     }
   }
 
-  // assertions_refutations --> assertion_refutation*
-  Result<bool> assertions_refutations() {
-    Result<bool> r;
-    bool all = true;
-    while ((r = assertion_refutation())) {
-      all &= r.val;
+  // if_conditional --> If formula block
+  Result<bool> if_conditional() {
+    if (!Is(Tok(0), Token::kIf)) {
+      return Unapplicable<bool>(LELA_MSG("Expected 'Query', 'Assert', or 'Refute'"));
     }
-    if (!r.unapplicable) {
+    Advance();
+    Result<Formula::Ref> alpha = formula();
+    if (!alpha) {
+      return Failure<bool>(LELA_MSG("Expected formula in if_conditional"), alpha);
+    }
+    Result<bool> r = block();
+    if (!r) {
+      return Failure<bool>(LELA_MSG("Expected block in if_conditional"), r);
+    }
+    return Success(true);
+  }
+
+  // block --> Begin branch* End
+  Result<bool> block() {
+    if (!Is(Tok(), Token::kBegin)) {
+      Result<bool> r = branch();
+      if (!r) {
+        return Failure<bool>(LELA_MSG("Expected branch in block"), r);
+      }
       return r;
     } else {
-      return Success(bool(all));
+      Advance();
+      const size_t n_blocks = n_blocks_;
+      ++n_blocks_;
+      while (n_blocks_ > n_blocks) {
+        if (Is(Tok(), Token::kEnd)) {
+          Advance();
+          --n_blocks_;
+        } else {
+          Result<bool> r = branch();
+          if (!r) {
+            return Failure<bool>(LELA_MSG("Expected branch in block"), r);
+          }
+        }
+      }
+      return Success(true);
     }
   }
 
-  // start --> declarations kb_formulas
+  // branch --> [ declarations | kb_formula | abbreviation | query ]
+  Result<bool> branch() {
+    typedef Result<bool> (Parser::*Rule)();
+    std::vector<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation, &Parser::query,
+                               &Parser::if_conditional/*, &Parser::while_loop, &Parser::for_loop, &Parser::call*/};
+    for (Rule rule : rules) {
+      const Result<bool> r = (this->*rule)();
+      if (r) {
+        break;
+      } else if (!r.unapplicable) {
+        return Failure<bool>(LELA_MSG("Error in declaration/kb_formula/abbreviation/query"), r);
+      }
+    }
+    return Success(true);
+  }
+
+  // start --> branch
   Result<bool> start() {
-    Result<bool> r;
     iterator prev;
     do {
       prev = begin();
-      r = declarations();
+      const Result<bool> r = branch();
       if (!r) {
-        return Failure<bool>(LELA_MSG("Error in declarations"), r);
-      }
-      r = kb_formulas();
-      if (!r) {
-        return Failure<bool>(LELA_MSG("Error in kb_formulas"), r);
-      }
-      r = abbreviations();
-      if (!r) {
-        return Failure<bool>(LELA_MSG("Error in abbreviations"), r);
-      }
-      r = queries();
-      if (!r) {
-        return Failure<bool>(LELA_MSG("Error in queries"), r);
-      }
-      r = assertions_refutations();
-      if (!r) {
-        return Failure<bool>(LELA_MSG("Error in assertions_refutations"), r);
+        return Failure<bool>(LELA_MSG("Error in start"), r);
       }
     } while (begin() != prev);
     std::stringstream ss;
@@ -684,6 +672,7 @@ class Parser {
   mutable iterator begin_;  // don't use begin_ directly: to avoid the stream blocking us, Advance() actually increments
   mutable size_t begin_plus_ = 0;  // begin_plus_ instead of begin_; use begin() to obtain the incremented iterator.
   iterator end_;
+  size_t n_blocks_ = 0;
   Context<LogPredicate>* ctx_;
   LogPredicate log_;
 };

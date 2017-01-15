@@ -83,6 +83,10 @@ class Context {
  public:
   explicit Context(LogPredicate p = LogPredicate()) : logger_(p), kb_(&sf_, &tf_) {}
 
+  struct Callback {
+    virtual void operator()(const std::vector<Term>& args) const = 0;
+  };
+
   Symbol::Sort CreateSort() {
     return sf()->CreateSort();
   }
@@ -121,6 +125,10 @@ class Context {
 
   bool IsRegisteredTerm(const std::string& id) const {
     return IsRegisteredVariable(id) || IsRegisteredName(id) || IsRegisteredFunction(id);
+  }
+
+  bool IsRegisteredCallback(const std::string& id) const {
+    return callbacks_.find(id) != callbacks_.end();
   }
 
   Symbol::Sort LookupSort(const std::string& id) const {
@@ -205,6 +213,10 @@ class Context {
     logger_(Logger::RegisterFormulaData(id, phi));
   }
 
+  void RegisterCallback(const std::string& id, const Callback* cb) {
+    callbacks_.emplace(id, cb);
+  }
+
   bool AddToKb(const Formula& alpha) {
     const bool ok = kb_.Add(alpha);
     logger_(Logger::AddToKbData(alpha, ok));
@@ -235,6 +247,7 @@ class Context {
   std::map<std::string, Term>         names_;
   std::map<std::string, Symbol>       funs_;
   std::map<std::string, Formula::Ref> formulas_;
+  std::map<std::string, Callback*>    callbacks_;
   Symbol::Factory sf_;
   Term::Factory tf_;
   KnowledgeBase kb_;

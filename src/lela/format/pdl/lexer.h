@@ -25,9 +25,10 @@ namespace pdl {
 
 class Token {
  public:
-  enum Id { kError, kSort, kVar, kName, kFun, kSlash, kKB, kLet, kQuery, kAssert, kRefute, kEndOfLine, kColon, kComma,
-    kLess, kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow, kDoubleRArrow,
-    kLeftParen, kRightParen, kKnow, kCons, kBel, kAssign, kComment, kUint, kIdentifier };
+  enum Id { kError, kSort, kVar, kName, kFun, kSlash, kKB, kLet, kQuery, kAssert, kRefute, kColon, kComma, kLess,
+    kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow, kDoubleRArrow, kLeftParen,
+    kRightParen, kKnow, kCons, kBel, kAssign, kIf, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment, kUint, kIdentifier
+  };
 
   Token() : id_(kError) {}
   explicit Token(Id id) : id_(id) {}
@@ -154,7 +155,6 @@ class Lexer {
     lexemes_.emplace_back(Token::kQuery,        [](Word w) { return IsPrefix(w, {"Query", "query"}); });
     lexemes_.emplace_back(Token::kAssert,       [](Word w) { return IsPrefix(w, {"Assert", "assert"}); });
     lexemes_.emplace_back(Token::kRefute,       [](Word w) { return IsPrefix(w, {"Refute", "refute"}); });
-    lexemes_.emplace_back(Token::kEndOfLine,    [](Word w) { return IsPrefix(w, ";"); });
     lexemes_.emplace_back(Token::kColon,        [](Word w) { return IsPrefix(w, ":"); });
     lexemes_.emplace_back(Token::kComma,        [](Word w) { return IsPrefix(w, ","); });
     lexemes_.emplace_back(Token::kLess,         [](Word w) { return IsPrefix(w, "<"); });
@@ -175,6 +175,13 @@ class Lexer {
     lexemes_.emplace_back(Token::kCons,         [](Word w) { return IsPrefix(w, {"M", "Cons", "cons"}); });
     lexemes_.emplace_back(Token::kBel,          [](Word w) { return IsPrefix(w, {"B", "Bel", "bel"}); });
     lexemes_.emplace_back(Token::kAssign,       [](Word w) { return IsPrefix(w, ":="); });
+    lexemes_.emplace_back(Token::kIf,           [](Word w) { return IsPrefix(w, {"If", "if"}); });
+    lexemes_.emplace_back(Token::kWhile,        [](Word w) { return IsPrefix(w, {"While", "while"}); });
+    lexemes_.emplace_back(Token::kFor,          [](Word w) { return IsPrefix(w, {"For", "for"}); });
+    lexemes_.emplace_back(Token::kIn,           [](Word w) { return IsPrefix(w, {"In", "in"}); });
+    lexemes_.emplace_back(Token::kBegin,        [](Word w) { return IsPrefix(w, {"Begin", "begin"}); });
+    lexemes_.emplace_back(Token::kEnd,          [](Word w) { return IsPrefix(w, {"End", "end"}); });
+    lexemes_.emplace_back(Token::kCall,         [](Word w) { return IsPrefix(w, {"Call", "call"}); });
     lexemes_.emplace_back(Token::kComment,      [](Word w) { return IsPrefix(w, "//"); });
     lexemes_.emplace_back(Token::kUint,
                           [](Word w) { return w.begin() == w.end()
@@ -239,7 +246,6 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kQuery:        return os << "Query";
     case Token::kAssert:       return os << "Assert";
     case Token::kRefute:       return os << "Refute";
-    case Token::kEndOfLine:    return os << ";";
     case Token::kColon:        return os << ":";
     case Token::kComma:        return os << ",";
     case Token::kLess:         return os << "<";
@@ -260,6 +266,13 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kCons:         return os << "Cons";
     case Token::kBel:          return os << "Bel";
     case Token::kAssign:       return os << ":=";
+    case Token::kIf:           return os << "If";
+    case Token::kWhile:        return os << "While";
+    case Token::kFor:          return os << "For";
+    case Token::kIn:           return os << "In";
+    case Token::kBegin:        return os << "Begin";
+    case Token::kEnd:          return os << "End";
+    case Token::kCall:         return os << "Call";
     case Token::kComment:      return os << "//";
     case Token::kUint:         return os << "<uint>";
     case Token::kIdentifier:   return os << "<identifier>";

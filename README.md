@@ -2,13 +2,13 @@
 
 LELA (**L**imited **E**pistemic **L**ogic in **A**ction) is a C++ library for
 *decidable reasoning in first-order knowledge bases* based on the theory of
-*limited belief* from [1,2,3,4]. [Here is a quick
+*limited belief* from [1,2,3,4]. [Here is a
 demo](http://www.cse.unsw.edu.au/~cschwering/demo/textinterface/).
 
 ## Features
 
 The library provides a logical language to encode and reason about knowledge
-and beliefs.
+and belief.
 
 The logical language features functions of different sorts, standard names that
 designate distinct objects, first-order variables and quantification, equality,
@@ -44,8 +44,6 @@ For more theoretical background see the papers linked below.
 
 ## Examples
 
-For examples of usage, check out the following:
-
 * This [web demo](http://www.cse.unsw.edu.au/~cschwering/demo/textinterface/)
   allows to define and query a knowledge base through a simple text interface.
   You can also use it from the command line; the the code is
@@ -54,9 +52,10 @@ For examples of usage, check out the following:
   [that](tests/modal.cc) unit tests, which contain test cases that implement
   examples from [1,2]. To reduce boiler plate code, they use a [higher-level
   API](src/lela/format/cpp/syntax.h), which overloads some C++ operators.
-* There's also Minesweeper [web
-  demo](http://www.cse.unsw.edu.au/~cschwering/demo/minesweeper/). You can also
-  use it from the command line; the the code is [here](examples/minesweeper/).
+* There's also [Minesweeper web
+  demo](http://www.cse.unsw.edu.au/~cschwering/demo/minesweeper/). You can use
+  it from the command line as well; the the code is
+  [here](examples/minesweeper/).
 
 ## Status
 
