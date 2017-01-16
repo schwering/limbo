@@ -39,11 +39,17 @@ template<typename ForwardIt, typename LogPredicate>
 static bool parse(ForwardIt begin, ForwardIt end, lela::format::pdl::Context<LogPredicate>* ctx) {
   typedef lela::format::pdl::Parser<ForwardIt, LogPredicate> Parser;
   Parser parser(begin, end, ctx);
-  auto r = parser.Parse();
-  if (!r) {
-    std::cout << r.str() << std::endl;
+  auto parse_result = parser.Parse();
+  if (!parse_result) {
+    std::cout << parse_result.str() << std::endl;
+    return false;
   }
-  return bool(r);
+  auto exec_result = parse_result.val.Run();
+  if (!exec_result) {
+    std::cout << exec_result.str() << std::endl;
+    return false;
+  }
+  return true;
 }
 
 // istreambuf_iterators are InputIterators, but our lexer wants a ForwardIterator, so we need to wrap it.

@@ -55,12 +55,12 @@ inline void parse(const char* c_str) {
   Context ctx;
 
   Parser parser(str.begin(), str.end(), &ctx);
-  const Parser::Result<bool> r = parser.Parse();
+  const Parser::Result<Parser::Action<>> r = parser.Parse();
 
   std::cout << r.str() << std::endl;
   EM_ASM_({
     announceResult($0, Pointer_stringify($1), Pointer_stringify($2));
-  }, bool(r), r.msg.c_str(), r.remaining_input().c_str());
+  }, bool(r), r.msg().c_str(), r.remaining_input().c_str());
 }
 
 extern "C" void lela_parse(const char* s) {

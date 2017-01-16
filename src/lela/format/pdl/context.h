@@ -87,89 +87,31 @@ class Context {
     virtual void operator()(const std::vector<Term>& args) const = 0;
   };
 
-  Symbol::Sort CreateSort() {
-    return sf()->CreateSort();
-  }
+  Symbol::Sort CreateSort() { return sf()->CreateSort(); }
+  Term CreateVariable(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateVariable(sort)); }
+  Term CreateName(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateName(sort)); }
+  Symbol CreateFunction(Symbol::Sort sort, Symbol::Arity arity) { return sf()->CreateFunction(sort, arity); }
 
-  Term CreateVariable(Symbol::Sort sort) {
-    return tf()->CreateTerm(sf()->CreateVariable(sort));
-  }
-
-  Term CreateName(Symbol::Sort sort) {
-    return tf()->CreateTerm(sf()->CreateName(sort));
-  }
-
-  Symbol CreateFunction(Symbol::Sort sort, Symbol::Arity arity) {
-    return sf()->CreateFunction(sort, arity);
-  }
-
-  bool IsRegisteredSort(const std::string& id) const {
-    return sorts_.find(id) != sorts_.end();
-  }
-
-  bool IsRegisteredVariable(const std::string& id) const {
-    return vars_.find(id) != vars_.end();
-  }
-
-  bool IsRegisteredName(const std::string& id) const {
-    return names_.find(id) != names_.end();
-  }
-
-  bool IsRegisteredFunction(const std::string& id) const {
-    return funs_.find(id) != funs_.end();
-  }
-
-  bool IsRegisteredFormula(const std::string& id) const {
-    return formulas_.find(id) != formulas_.end();
-  }
-
+  bool IsRegisteredSort(const std::string& id) const { return sorts_.Registered(id); }
+  bool IsRegisteredVariable(const std::string& id) const { return vars_.Registered(id); }
+  bool IsRegisteredName(const std::string& id) const { return names_.Registered(id); }
+  bool IsRegisteredFunction(const std::string& id) const { return funs_.Registered(id); }
+  bool IsRegisteredFormula(const std::string& id) const { return formulas_.Registered(id); }
   bool IsRegisteredTerm(const std::string& id) const {
     return IsRegisteredVariable(id) || IsRegisteredName(id) || IsRegisteredFunction(id);
   }
+  bool IsRegisteredCallback(const std::string& id) const { return callbacks_.Register(id); }
 
-  bool IsRegisteredCallback(const std::string& id) const {
-    return callbacks_.find(id) != callbacks_.end();
-  }
-
-  Symbol::Sort LookupSort(const std::string& id) const {
-    const auto it = sorts_.find(id);
-    if (it == sorts_.end())
-      throw std::domain_error(id);
-    return it->second;
-  }
-
-  Term LookupVariable(const std::string& id) const {
-    const auto it = vars_.find(id);
-    if (it == vars_.end())
-      throw std::domain_error(id);
-    return it->second;
-  }
-
-  Term LookupName(const std::string& id) const {
-    const auto it = names_.find(id);
-    if (it == names_.end())
-      throw std::domain_error(id);
-    return it->second;
-  }
-
-  const Symbol& LookupFunction(const std::string& id) const {
-    const auto it = funs_.find(id);
-    if (it == funs_.end())
-      throw std::domain_error(id);
-    return it->second;
-  }
-
-  const Formula& LookupFormula(const std::string& id) const {
-    const auto it = formulas_.find(id);
-    if (it == formulas_.end())
-      throw std::domain_error(id);
-    return *it->second;
-  }
+  Symbol::Sort LookupSort(const std::string& id) const { return sorts_.Find(id); }
+  Term LookupVariable(const std::string& id) const { return vars_.Find(id); }
+  Term LookupName(const std::string& id) const { return names_.Find(id); }
+  const Symbol& LookupFunction(const std::string& id) const { return funs_.Find(id); }
+  const Formula& LookupFormula(const std::string& id) const { return *formulas_.Find(id); }
 
   void RegisterSort(const std::string& id) {
     const Symbol::Sort sort = CreateSort();
     lela::format::output::RegisterSort(sort, "");
-    sorts_[id] = sort;
+    sorts_.Register(id, sort);
     logger_(Logger::RegisterSortData(id));
   }
 
@@ -178,7 +120,7 @@ class Context {
       throw std::domain_error(id);
     const Symbol::Sort sort = LookupSort(sort_id);
     const Term var = CreateVariable(sort);
-    vars_[id] = var;
+    vars_.Register(id, var);
     lela::format::output::RegisterSymbol(var.symbol(), id);
     logger_(Logger::RegisterVariableData(id, sort_id));
   }
@@ -188,7 +130,7 @@ class Context {
       throw std::domain_error(id);
     const Symbol::Sort sort = LookupSort(sort_id);
     const Term name = CreateName(sort);
-    names_[id] = name;
+    names_.Register(id, name);
     lela::format::output::RegisterSymbol(name.symbol(), id);
     logger_(Logger::RegisterNameData(id, sort_id));
   }
@@ -196,25 +138,23 @@ class Context {
   void RegisterFunction(const std::string& id, int arity, const std::string& sort_id) {
     if (IsRegisteredFunction(id))
       throw std::domain_error(id);
-    const Symbol::Sort sort = sorts_[sort_id];
-    funs_.emplace(id, CreateFunction(sort, arity));
-    Symbol s = funs_.find(id)->second;
-    lela::format::output::RegisterSymbol(s, id);
+    const Symbol::Sort sort = LookupSort(sort_id);
+    const Symbol fun = CreateFunction(sort, arity);
+    funs_.Register(id, fun);
+    lela::format::output::RegisterSymbol(fun, id);
     logger_(Logger::RegisterFunctionData(id, arity, sort_id));
   }
 
   void RegisterFormula(const std::string& id, const Formula& phi) {
-    const auto it = formulas_.find(id);
-    const bool contained = it != formulas_.end();
-    if (contained) {
-      formulas_.erase(it);
-    }
-    formulas_.emplace(id, phi.Clone());
+    formulas_.Register(id, phi.Clone());
     logger_(Logger::RegisterFormulaData(id, phi));
   }
 
   void RegisterCallback(const std::string& id, const Callback* cb) {
-    callbacks_.emplace(id, cb);
+    if (IsRegisteredCallback(id)) {
+      throw std::domain_error(id);
+    }
+    callbacks_.Register(id, cb);
   }
 
   bool AddToKb(const Formula& alpha) {
@@ -241,17 +181,29 @@ class Context {
   const LogPredicate& logger() const { return logger_; }
 
  private:
-  LogPredicate                        logger_;
-  std::map<std::string, Symbol::Sort> sorts_;
-  std::map<std::string, Term>         vars_;
-  std::map<std::string, Term>         names_;
-  std::map<std::string, Symbol>       funs_;
-  std::map<std::string, Formula::Ref> formulas_;
-  std::map<std::string, Callback*>    callbacks_;
-  Symbol::Factory sf_;
-  Term::Factory tf_;
-  KnowledgeBase kb_;
-  bool assume_consistent_ = true;
+  template<typename T>
+  class Registry {
+   public:
+    bool Registered(const std::string& id) const { auto it = r_.find(id); return it != r_.end(); }
+    void Register(const std::string& id, const T& val) { r_.insert(std::make_pair(id, val)); }
+    void Register(const std::string& id, T&& val) { Unregister(id); r_.emplace(id, std::forward<T>(val)); }
+    void Unregister(const std::string& id) { auto it = r_.find(id); if (it != r_.end()) { r_.erase(it); } }
+    const T& Find(const std::string& id) const { auto it = r_.find(id); return it->second; }
+   private:
+    std::map<std::string, T> r_;
+  };
+
+  LogPredicate           logger_;
+  Registry<Symbol::Sort> sorts_;
+  Registry<Term>         vars_;
+  Registry<Term>         names_;
+  Registry<Symbol>       funs_;
+  Registry<Formula::Ref> formulas_;
+  Registry<Callback*>    callbacks_;
+  Symbol::Factory        sf_;
+  Term::Factory          tf_;
+  KnowledgeBase          kb_;
+  bool                   assume_consistent_ = true;
 };
 
 }  // namespace pdl
