@@ -27,8 +27,8 @@ class Token {
  public:
   enum Id { kError, kSort, kVar, kName, kFun, kSlash, kKB, kLet, kQuery, kAssert, kRefute, kColon, kComma, kLess,
     kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow, kDoubleRArrow, kLeftParen,
-    kRightParen, kKnow, kCons, kBel, kAssign, kIf, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment, kUint, kIdentifier
-  };
+    kRightParen, kKnow, kCons, kBel, kAssign, kIf, kElse, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment, kUint,
+    kIdentifier };
 
   Token() : id_(kError) {}
   explicit Token(Id id) : id_(id) {}
@@ -176,6 +176,7 @@ class Lexer {
     lexemes_.emplace_back(Token::kBel,          [](Word w) { return IsPrefix(w, {"B", "Bel", "bel"}); });
     lexemes_.emplace_back(Token::kAssign,       [](Word w) { return IsPrefix(w, ":="); });
     lexemes_.emplace_back(Token::kIf,           [](Word w) { return IsPrefix(w, {"If", "if"}); });
+    lexemes_.emplace_back(Token::kElse,         [](Word w) { return IsPrefix(w, {"Else", "else"}); });
     lexemes_.emplace_back(Token::kWhile,        [](Word w) { return IsPrefix(w, {"While", "while"}); });
     lexemes_.emplace_back(Token::kFor,          [](Word w) { return IsPrefix(w, {"For", "for"}); });
     lexemes_.emplace_back(Token::kIn,           [](Word w) { return IsPrefix(w, {"In", "in"}); });
@@ -267,6 +268,7 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kBel:          return os << "Bel";
     case Token::kAssign:       return os << ":=";
     case Token::kIf:           return os << "If";
+    case Token::kElse:         return os << "Else";
     case Token::kWhile:        return os << "While";
     case Token::kFor:          return os << "For";
     case Token::kIn:           return os << "In";

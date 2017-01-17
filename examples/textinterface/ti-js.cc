@@ -49,18 +49,19 @@ inline void parse(const char* c_str) {
   };
 
   typedef lela::format::pdl::Context<Logger> Context;
-  typedef lela::format::pdl::Parser<std::string::const_iterator, Logger> Parser;
+  typedef lela::format::pdl::Parser<std::string::const_iterator, Context> Parser;
 
   std::string str = c_str;
+
   Context ctx;
+  Parser parser(str.begin(), str.end());
+  const Parser::Result<Parser::Action<>> parse_result = parser.Parse();
+  const Parser::Result<> exec_result = parse_result.val.Run(&ctx);
 
-  Parser parser(str.begin(), str.end(), &ctx);
-  const Parser::Result<Parser::Action<>> r = parser.Parse();
-
-  std::cout << r.str() << std::endl;
+  std::cout << exec_result.str() << std::endl;
   EM_ASM_({
     announceResult($0, Pointer_stringify($1), Pointer_stringify($2));
-  }, bool(r), r.msg().c_str(), r.remaining_input().c_str());
+  }, bool(exec_result), exec_result.msg().c_str(), exec_result.remaining_input().c_str());
 }
 
 extern "C" void lela_parse(const char* s) {

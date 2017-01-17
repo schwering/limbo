@@ -4,7 +4,8 @@
 // Recursive descent parser for the problem description language. The grammar
 // for formulas is aims to reduce brackets and implement operator precedence.
 // See the comment above Parser::start() and its callees for the grammar
-// definition.
+// definition. The Context template parameter is merely passed around to be
+// the argument of Parser::Action functors, as returned by Parser::Parse().
 
 #ifndef LELA_FORMAT_PDL_PARSER_H_
 #define LELA_FORMAT_PDL_PARSER_H_
@@ -13,7 +14,6 @@
 
 #include <functional>
 #include <iostream>
-#include <list>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -23,7 +23,6 @@
 #include <lela/formula.h>
 #include <lela/setup.h>
 #include <lela/format/output.h>
-#include <lela/format/pdl/context.h>
 #include <lela/format/pdl/lexer.h>
 
 namespace lela {
@@ -35,7 +34,7 @@ namespace pdl {
 #define LELA_STR__LINE__   LELA_S_(__LINE__)
 #define LELA_MSG(msg)      (std::string(msg) +" (in rule "+ __FUNCTION__ +":"+ LELA_STR__LINE__ +")")
 
-template<typename ForwardIt, typename LogPredicate>
+template<typename ForwardIt, typename Context>
 class Parser {
  public:
   typedef Lexer<ForwardIt> Lex;
@@ -93,9 +92,9 @@ class Parser {
   };
 
   template<typename T = Void>
-  class Action : public std::shared_ptr<std::function<Result<T>()>> {
+  class Action : public std::shared_ptr<std::function<Result<T>(Context*)>> {
    public:
-    typedef std::function<Result<T>()> function;
+    typedef std::function<Result<T>(Context*)> function;
     typedef std::shared_ptr<function> base;
 
     Action() = default;
@@ -106,10 +105,10 @@ class Parser {
     //template<typename NullaryFunction>
     //Action(NullaryFunction&& func) : base::shared_ptr(new function(std::forward<NullaryFunction>(func))) {}
 
-    Result<T> Run() const {
+    Result<T> Run(Context* ctx) const {
       function* f = base::get();
       if (f) {
-        return (*f)();
+        return (*f)(ctx);
       } else {
         return Result<T>(Result<T>::kError, LELA_MSG("Action is null"));
       }
@@ -122,12 +121,12 @@ class Parser {
       if (!b) {
         return a;
       }
-      return [a, b]() {
-        Result<> r = (*a)();
+      return [a, b](Context* ctx) {
+        Result<> r = (*a)(ctx);
         if (!r) {
           return r;
         }
-        return (*b)();
+        return (*b)(ctx);
       };
     }
 
@@ -137,13 +136,9 @@ class Parser {
     }
   };
 
-  Parser(ForwardIt begin, ForwardIt end, Context<LogPredicate>* ctx)
-      : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()), ctx_(ctx) {}
+  Parser(ForwardIt begin, ForwardIt end) : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()) {}
 
   Result<Action<>> Parse() { return start(); }
-
-  Context<LogPredicate>& ctx() { return *ctx_; }
-  const Context<LogPredicate>& ctx() const { return *ctx_; }
 
  private:
   static_assert(std::is_convertible<typename ForwardIt::iterator_category, std::forward_iterator_tag>::value,
@@ -173,7 +168,6 @@ class Parser {
     return Result<T>(Result<T>::kUnapplicable, "\t" + msg, begin().char_iter(), end().char_iter());
   }
 
-#if 1
   // declaration --> sort <sort-id> [ , <sort-id>]*
   //              |  var <id> [ , <id> ]* -> <sort-id>
   //              |  name <id> [ , <id> ]* -> <sort-id>
@@ -186,9 +180,9 @@ class Parser {
         if (Is(Tok(), Token::kIdentifier)) {
           const std::string id = Tok().val.str();
           Advance();
-          a += [this, id]() {
-            if (!ctx_->IsRegisteredSort(id)) {
-              ctx_->RegisterSort(id);
+          a += [this, id](Context* ctx) {
+            if (!ctx->IsRegisteredSort(id)) {
+              ctx->RegisterSort(id);
               return Success<>();
             } else {
               return Error<>(LELA_MSG("Sort "+ id +" is already registered"));
@@ -218,10 +212,10 @@ class Parser {
         Advance(2);
         Action<> a;
         for (const std::string& id : ids) {
-          a += [this, var, sort, id]() {
-            if (ctx_->IsRegisteredSort(sort)) {
-              if (!ctx_->IsRegisteredTerm(id)) {
-                var ? ctx_->RegisterVariable(id, sort) : ctx_->RegisterName(id, sort);
+          a += [this, var, sort, id](Context* ctx) {
+            if (ctx->IsRegisteredSort(sort)) {
+              if (!ctx->IsRegisteredTerm(id)) {
+                var ? ctx->RegisterVariable(id, sort) : ctx->RegisterName(id, sort);
                 return Success<>();
               } else {
                 return Error<>(LELA_MSG("Term "+ id +" is already registered"));
@@ -257,10 +251,10 @@ class Parser {
         for (const auto& id_arity : ids) {
           const std::string id = id_arity.first;
           const Symbol::Arity arity = id_arity.second;
-          a += [this, sort, id, arity]() {
-            if (ctx_->IsRegisteredSort(sort)) {
-              if (!ctx_->IsRegisteredTerm(id)) {
-                ctx_->RegisterFunction(id, arity, sort);
+          a += [this, sort, id, arity](Context* ctx) {
+            if (ctx->IsRegisteredSort(sort)) {
+              if (!ctx->IsRegisteredTerm(id)) {
+                ctx->RegisterFunction(id, arity, sort);
                 return Success<>();
               } else {
                 return Error<>(LELA_MSG("Term "+ id +" is already registered"));
@@ -285,17 +279,17 @@ class Parser {
     if (Is(Tok(), Token::kIdentifier)) {
       const std::string id = Tok().val.str();
       Advance();
-      return Success<Action<Term>>([this, id]() {
-        if (ctx_->IsRegisteredVariable(id)) {
-          return Success<Term>(ctx_->LookupVariable(id));
-        } else if (ctx_->IsRegisteredName(id)) {
-          return Success<Term>(ctx_->LookupName(id));
-        } else if (ctx_->IsRegisteredFunction(id)) {
-          Symbol f = ctx_->LookupFunction(id);
+      return Success<Action<Term>>([this, id](Context* ctx) {
+        if (ctx->IsRegisteredVariable(id)) {
+          return Success<Term>(ctx->LookupVariable(id));
+        } else if (ctx->IsRegisteredName(id)) {
+          return Success<Term>(ctx->LookupName(id));
+        } else if (ctx->IsRegisteredFunction(id)) {
+          Symbol f = ctx->LookupFunction(id);
           if (f.arity() != 0) {
             return Error<Term>(LELA_MSG("Wrong number of arguments for "+ id));
           }
-          return Success(ctx_->tf()->CreateTerm(f));
+          return Success(ctx->tf()->CreateTerm(f));
         } else {
           return Error<Term>(LELA_MSG("Error in atomic_term"));
         }
@@ -332,26 +326,26 @@ class Parser {
           }
         }
       }
-      return Success<Action<Term>>([this, id, args_a = args]() {
-        if (ctx_->IsRegisteredVariable(id)) {
-          return Success<Term>(ctx_->LookupVariable(id));
-        } else if (ctx_->IsRegisteredName(id)) {
-          return Success<Term>(ctx_->LookupName(id));
-        } else if (ctx_->IsRegisteredFunction(id)) {
-          Symbol f = ctx_->LookupFunction(id);
+      return Success<Action<Term>>([this, id, args_a = args](Context* ctx) {
+        if (ctx->IsRegisteredVariable(id)) {
+          return Success<Term>(ctx->LookupVariable(id));
+        } else if (ctx->IsRegisteredName(id)) {
+          return Success<Term>(ctx->LookupName(id));
+        } else if (ctx->IsRegisteredFunction(id)) {
+          Symbol f = ctx->LookupFunction(id);
           if (f.arity() != args_a.size()) {
             return Error<Term>(LELA_MSG("Wrong number of arguments for "+ id));
           }
           Term::Vector args;
           for (const Action<Term>& a : args_a) {
-            Result<Term> t = a.Run();
+            Result<Term> t = a.Run(ctx);
             if (t) {
               args.push_back(t.val);
             } else {
               return Error<Term>(LELA_MSG("Expected argument term"), t);
             }
           }
-          return Success(ctx_->tf()->CreateTerm(f, args));
+          return Success(ctx->tf()->CreateTerm(f, args));
         } else {
           return Error<Term>(LELA_MSG("Error in term"));
         }
@@ -377,12 +371,12 @@ class Parser {
     if (!rhs) {
       return Error<Action<std::unique_ptr<Literal>>>(LELA_MSG("Expected rhs term"), rhs);
     }
-    return Success<Action<std::unique_ptr<Literal>>>([lhs_a = lhs.val, pos, rhs_a = rhs.val]() {
-      Result<Term> lhs = lhs_a.Run();
+    return Success<Action<std::unique_ptr<Literal>>>([lhs_a = lhs.val, pos, rhs_a = rhs.val](Context* ctx) {
+      Result<Term> lhs = lhs_a.Run(ctx);
       if (!lhs) {
         return Error<std::unique_ptr<Literal>>(LELA_MSG("Expected a lhs term"), lhs);
       }
-      Result<Term> rhs = rhs_a.Run();
+      Result<Term> rhs = rhs_a.Run(ctx);
       if (!rhs) {
         return Error<std::unique_ptr<Literal>>(LELA_MSG("Expected a rhs term"), rhs);
       }
@@ -407,8 +401,8 @@ class Parser {
       if (!alpha) {
         return Error<Action<Formula::Ref>>(LELA_MSG("Expected a primary formula within negation"), alpha);
       }
-      return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val]() {
-        Result<Formula::Ref> alpha = alpha_a.Run();
+      return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<Formula::Ref>(LELA_MSG("Expected a primary formula within negation"), alpha);
         }
@@ -426,12 +420,12 @@ class Parser {
       if (!alpha) {
         return Error<Action<Formula::Ref>>(LELA_MSG("Expected primary formula within quantifier"), alpha);
       }
-      return Success<Action<Formula::Ref>>([this, ex, x_a = x.val, alpha_a = alpha.val]() {
-        Result<Term> x = x_a.Run();
+      return Success<Action<Formula::Ref>>([this, ex, x_a = x.val, alpha_a = alpha.val](Context* ctx) {
+        Result<Term> x = x_a.Run(ctx);
         if (!x.val.variable()) {
           return Error<Formula::Ref>(LELA_MSG("Expected variable in quantifier"), x);
         }
-        Result<Formula::Ref> alpha = alpha_a.Run();
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<Formula::Ref>(LELA_MSG("Expected primary formula within quantifier"), alpha);
         }
@@ -460,8 +454,8 @@ class Parser {
       if (!alpha) {
         return Error<Action<Formula::Ref>>(LELA_MSG("Expected primary formula within modality"), alpha);
       }
-      return Success<Action<Formula::Ref>>([this, know, k, alpha_a = alpha.val]() {
-        Result<Formula::Ref> alpha = alpha_a.Run();
+      return Success<Action<Formula::Ref>>([this, know, k, alpha_a = alpha.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
         }
@@ -508,12 +502,12 @@ class Parser {
       if (!beta) {
         return Error<Action<Formula::Ref>>(LELA_MSG("Expected primary formula within modality"), beta);
       }
-      return Success<Action<Formula::Ref>>([this, k, l, alpha_a = alpha.val, beta_a = beta.val]() {
-        Result<Formula::Ref> alpha = alpha_a.Run();
+      return Success<Action<Formula::Ref>>([this, k, l, alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
         }
-        Result<Formula::Ref> beta = beta_a.Run();
+        Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
           return Error<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), beta);
         }
@@ -530,8 +524,8 @@ class Parser {
         return Error<Action<Formula::Ref>>(LELA_MSG("Expected closing right parenthesis ')'"));
       }
       Advance();
-      return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val]() {
-        Result<Formula::Ref> alpha = alpha_a.Run();
+      return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<Formula::Ref>(LELA_MSG("Expected formula within brackets"), alpha);
         }
@@ -542,19 +536,19 @@ class Parser {
         !(Is(Tok(1), Token::kLeftParen) || Is(Tok(1), Token::kEquality) || Is(Tok(1), Token::kInequality))) {
       std::string id = Tok().val.str();
       Advance();
-      return Success<Action<Formula::Ref>>([this, id]() {
-        if (!ctx_->IsRegisteredFormula(id)) {
+      return Success<Action<Formula::Ref>>([this, id](Context* ctx) {
+        if (!ctx->IsRegisteredFormula(id)) {
           return Error<Formula::Ref>(LELA_MSG("Undefined formula abbreviation "+ id));
         }
-        return Success(ctx_->LookupFormula(id).Clone());
+        return Success(ctx->LookupFormula(id).Clone());
       });
     }
     Result<Action<std::unique_ptr<Literal>>> a = literal();
     if (!a) {
       return Error<Action<Formula::Ref>>(LELA_MSG("Expected literal"), a);
     }
-    return Success<Action<Formula::Ref>>([this, a_a = a.val]() {
-      Result<std::unique_ptr<Literal>> a = a_a.Run();
+    return Success<Action<Formula::Ref>>([this, a_a = a.val](Context* ctx) {
+      Result<std::unique_ptr<Literal>> a = a_a.Run(ctx);
       if (!a) {
         return Error<Formula::Ref>(LELA_MSG("Expected literal"), a);
       }
@@ -574,12 +568,12 @@ class Parser {
       if (!beta) {
         return Error<Action<Formula::Ref>>(LELA_MSG("Expected left conjunctive formula"), beta);
       }
-      alpha = Success<Action<Formula::Ref>>([alpha_a = alpha.val, beta_a = beta.val]() {
-        Result<Formula::Ref> alpha = alpha_a.Run();
+      alpha = Success<Action<Formula::Ref>>([alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<Formula::Ref>(LELA_MSG("Expected left conjunctive formula"), alpha);
         }
-        Result<Formula::Ref> beta = beta_a.Run();
+        Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
           return Error<Formula::Ref>(LELA_MSG("Expected right conjunctive formula"), beta);
         }
@@ -602,12 +596,12 @@ class Parser {
       if (!beta) {
         return Error<Action<Formula::Ref>>(LELA_MSG("Expected right argument conjunctive formula"), beta);
       }
-      alpha = Success<Action<Formula::Ref>>([alpha_a = alpha.val, beta_a = beta.val]() {
-        Result<Formula::Ref> alpha = alpha_a.Run();
+      alpha = Success<Action<Formula::Ref>>([alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<Formula::Ref>(LELA_MSG("Expected left argument conjunctive formula"), alpha);
         }
-        Result<Formula::Ref> beta = beta_a.Run();
+        Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
           return Error<Formula::Ref>(LELA_MSG("Expected right argument conjunctive formula"), beta);
         }
@@ -630,12 +624,12 @@ class Parser {
       if (!beta) {
         return Error<Action<Formula::Ref>>(LELA_MSG("Expected right argument disjunctive formula"), beta);
       }
-      alpha = Success<Action<Formula::Ref>>([this, alpha_a = alpha.val, beta_a = beta.val]() {
-        Result<Formula::Ref> alpha = alpha_a.Run();
+      alpha = Success<Action<Formula::Ref>>([this, alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<Formula::Ref>(LELA_MSG("Expected left argument disjunctive formula"), alpha);
         }
-        Result<Formula::Ref> beta = beta_a.Run();
+        Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
           return Error<Formula::Ref>(LELA_MSG("Expected right argument disjunctive formula"), beta);
         }
@@ -658,12 +652,12 @@ class Parser {
       if (!beta) {
         return Error<Action<Formula::Ref>>(LELA_MSG("Expected right argument implication formula"), beta);
       }
-      alpha = Success<Action<Formula::Ref>>([alpha_a = alpha.val, beta_a = beta.val]() {
-        Result<Formula::Ref> alpha = alpha_a.Run();
+      alpha = Success<Action<Formula::Ref>>([alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<Formula::Ref>(LELA_MSG("Expected left argument implication formula"), alpha);
         }
-        Result<Formula::Ref> beta = beta_a.Run();
+        Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
           return Error<Formula::Ref>(LELA_MSG("Expected right argument implication formula"), beta);
         }
@@ -700,12 +694,12 @@ class Parser {
     if (!alpha) {
       return Error<Action<>>(LELA_MSG("Expected formula"), alpha);
     }
-    return Success<Action<>>([this, id, alpha_a = alpha.val]() {
-      Result<Formula::Ref> alpha = alpha_a.Run();
+    return Success<Action<>>([this, id, alpha_a = alpha.val](Context* ctx) {
+      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
       if (!alpha) {
         return Error<>(LELA_MSG("Expected formula"), alpha);
       }
-      ctx_->RegisterFormula(id, *alpha.val);
+      ctx->RegisterFormula(id, *alpha.val);
       return Success<>();
     });
   }
@@ -724,12 +718,12 @@ class Parser {
     if (!alpha) {
       return Error<Action<>>(LELA_MSG("Expected KB formula"), alpha);
     }
-    return Success<Action<>>([this, alpha_a = alpha.val]() {
-      Result<Formula::Ref> alpha = alpha_a.Run();
+    return Success<Action<>>([this, alpha_a = alpha.val](Context* ctx) {
+      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
       if (!alpha) {
         return Error<>(LELA_MSG("Expected KB formula"), alpha);
       }
-      if (ctx_->AddToKb(*alpha.val)) {
+      if (ctx->AddToKb(*alpha.val)) {
         return Success<>();
       } else {
         return Error<>(LELA_MSG("Couldn't add formula to KB; is it proper+ "
@@ -744,8 +738,8 @@ class Parser {
     if (!alpha) {
       return Error<Action<Formula::Ref>>(LELA_MSG("Expected subjective formula"), alpha);
     }
-    return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val]() {
-      Result<Formula::Ref> alpha = alpha_a.Run();
+    return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val](Context* ctx) {
+      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
       if (!alpha) {
         return Error<Formula::Ref>(LELA_MSG("Expected subjective formula"), alpha);
       }
@@ -776,12 +770,12 @@ class Parser {
     if (!alpha) {
       return Error<Action<>>(LELA_MSG("Expected query/assertion/refutation subjective_formula"), alpha);
     }
-    return Success<Action<>>([this, alpha_a = alpha.val, is_query, is_assert]() {
-      Result<Formula::Ref> alpha = alpha_a.Run();
+    return Success<Action<>>([this, alpha_a = alpha.val, is_query, is_assert](Context* ctx) {
+      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
       if (!alpha) {
         return Error<>(LELA_MSG("Expected query/assertion/refutation subjective_formula"), alpha);
       }
-      const bool r = ctx_->Query(*alpha.val);
+      const bool r = ctx->Query(*alpha.val);
       if (is_query) {
         return Success<>();
       } else if (r == is_assert) {
@@ -792,57 +786,79 @@ class Parser {
     });
   }
 
-#if 0
-  // if_conditional --> If formula block
-  Result<bool> if_conditional() {
+  // if_else --> If formula block [ Else block ]
+  Result<Action<>> if_else() {
     if (!Is(Tok(), Token::kIf)) {
-      return Unapplicable<bool>(LELA_MSG("Expected 'Query', 'Assert', or 'Refute'"));
+      return Unapplicable<Action<>>(LELA_MSG("Expected 'If'"));
     }
     Advance();
-    Result<Formula::Ref> alpha = formula();
+    Result<Action<Formula::Ref>> alpha = formula();
     if (!alpha) {
-      return Error<bool>(LELA_MSG("Expected formula in if_conditional"), alpha);
+      return Error<Action<>>(LELA_MSG("Expected formula in if_else"), alpha);
     }
-    Result<bool> r = block();
-    if (!r) {
-      return Error<bool>(LELA_MSG("Expected block in if_conditional"), r);
+    Result<Action<>> if_block = block();
+    if (!if_block) {
+      return Error<Action<>>(LELA_MSG("Expected if block in if_else"), if_block);
     }
-    return Success(true);
+    Result<Action<>> else_block;
+    if (Is(Tok(), Token::kElse)) {
+      Advance();
+      else_block = block();
+      if (!else_block) {
+        return Error<Action<>>(LELA_MSG("Expected else block in if_else"), else_block);
+      }
+    } else {
+      else_block = Success<Action<>>([](Context* ctx) { return Success<>(); });
+    }
+    return Success<Action<>>([this, alpha_a = alpha.val, if_block_a = if_block.val,
+                              else_block_a = else_block.val](Context* ctx) {
+      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+      if (!alpha) {
+        return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+      }
+      const bool r = ctx->Query(*alpha.val);
+      if (r) {
+        return if_block_a.Run(ctx);
+      } else {
+        return else_block_a.Run(ctx);
+      }
+    });
   }
 
   // block --> Begin branch* End
   Result<Action<>> block() {
     if (!Is(Tok(), Token::kBegin)) {
-      Result<bool> r = branch();
+      Result<Action<>> r = branch();
       if (!r) {
-        return Error<bool>(LELA_MSG("Expected branch in block"), r);
+        return Error<Action<>>(LELA_MSG("Expected branch in block"), r);
       }
       return r;
     } else {
       Advance();
       const size_t n_blocks = n_blocks_;
       ++n_blocks_;
+      Action<> a;
       while (n_blocks_ > n_blocks) {
         if (Is(Tok(), Token::kEnd)) {
           Advance();
           --n_blocks_;
         } else {
-          Result<bool> r = branch();
+          Result<Action<>> r = branch();
           if (!r) {
-            return Error<bool>(LELA_MSG("Expected branch in block"), r);
+            return Error<Action<>>(LELA_MSG("Expected branch in block"), r);
           }
+          a += r.val;
         }
       }
-      return Success(true);
+      return Success<Action<>>(std::move(a));
     }
   }
-#endif
 
   // branch --> [ declarations | kb_formula | abbreviation | query ]
   Result<Action<>> branch() {
     typedef Result<Action<>> (Parser::*Rule)();
-    std::list<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation, &Parser::query};
-                             //&Parser::if_conditional/*, &Parser::while_loop, &Parser::for_loop, &Parser::call*/};
+    std::vector<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation, &Parser::query,
+                               &Parser::if_else/*, &Parser::while_loop, &Parser::for_loop, &Parser::call*/};
     for (Rule rule : rules) {
       Result<Action<>> r = (this->*rule)();
       if (r) {
@@ -892,7 +908,6 @@ class Parser {
   void Advance(size_t n = 1) {
     begin_plus_ += n;
   }
-#endif
 
   iterator begin() const {
     while (begin_plus_ > 0) {
@@ -916,19 +931,17 @@ class Parser {
   mutable size_t begin_plus_ = 0;  // begin_plus_ instead of begin_; use begin() to obtain the incremented iterator.
   iterator end_;
   size_t n_blocks_ = 0;
-  Context<LogPredicate>* ctx_;
-  LogPredicate log_;
 };
 
 
-template<typename ForwardIt, typename LogPredicate>
-const std::string Parser<ForwardIt, LogPredicate>::kUnapplicableLabel = std::string("Unappl.: ");
+template<typename ForwardIt, typename Context>
+const std::string Parser<ForwardIt, Context>::kUnapplicableLabel = std::string("Unappl.: ");
 
-template<typename ForwardIt, typename LogPredicate>
-const std::string Parser<ForwardIt, LogPredicate>::kErrorLabel        = std::string("Failure: ");
+template<typename ForwardIt, typename Context>
+const std::string Parser<ForwardIt, Context>::kErrorLabel        = std::string("Failure: ");
 
-template<typename ForwardIt, typename LogPredicate>
-const std::string Parser<ForwardIt, LogPredicate>::kCausesLabel       = std::string(" causes: ");
+template<typename ForwardIt, typename Context>
+const std::string Parser<ForwardIt, Context>::kCausesLabel       = std::string(" causes: ");
 
 }  // namespace pdl
 }  // namespace format

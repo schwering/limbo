@@ -35,16 +35,16 @@ static void lex(ForwardIt begin, ForwardIt end) {
 }
 #endif
 
-template<typename ForwardIt, typename LogPredicate>
-static bool parse(ForwardIt begin, ForwardIt end, lela::format::pdl::Context<LogPredicate>* ctx) {
-  typedef lela::format::pdl::Parser<ForwardIt, LogPredicate> Parser;
-  Parser parser(begin, end, ctx);
+template<typename ForwardIt, typename Context>
+static bool parse(ForwardIt begin, ForwardIt end, Context* ctx) {
+  typedef lela::format::pdl::Parser<ForwardIt, Context> Parser;
+  Parser parser(begin, end);
   auto parse_result = parser.Parse();
   if (!parse_result) {
     std::cout << parse_result.str() << std::endl;
     return false;
   }
-  auto exec_result = parse_result.val.Run();
+  auto exec_result = parse_result.val.Run(ctx);
   if (!exec_result) {
     std::cout << exec_result.str() << std::endl;
     return false;
