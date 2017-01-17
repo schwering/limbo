@@ -48,20 +48,20 @@ class Parser {
   template<typename T = Void>
   struct Result {
     typedef T type;
-    enum Kind { kSuccess, kUnapplicable, kError };
+    enum Type { kSuccess, kUnapplicable, kError };
 
     Result() = default;
     Result(Result&&) = default;
     Result& operator=(Result&&) = default;
 
-    explicit Result(T&& val) : val(std::forward<T>(val)), kind_(kSuccess) {}
+    explicit Result(T&& val) : val(std::forward<T>(val)), type_(kSuccess) {}
 
-    Result(Kind kind, const std::string& msg, ForwardIt begin = ForwardIt(), ForwardIt end = ForwardIt(), T&& val = T())
-        : val(std::forward<T>(val)), kind_(kind), msg_(msg), begin_(begin), end_(end) {}
+    Result(Type type, const std::string& msg, ForwardIt begin = ForwardIt(), ForwardIt end = ForwardIt(), T&& val = T())
+        : val(std::forward<T>(val)), type_(type), msg_(msg), begin_(begin), end_(end) {}
 
-    explicit operator bool() const { return kind_ == kSuccess; }
-    bool successful() const { return kind_ == kSuccess; }
-    bool applied() const { return kind_ != kUnapplicable; }
+    explicit operator bool() const { return type_ == kSuccess; }
+    bool successful() const { return type_ == kSuccess; }
+    bool applied() const { return type_ != kUnapplicable; }
 
     const std::string& msg() const { return msg_; }
 
@@ -84,7 +84,7 @@ class Parser {
     T val;
 
    private:
-    bool kind_;
+    Type type_;
     std::string msg_;
 
     ForwardIt begin_;
@@ -290,6 +290,8 @@ class Parser {
             return Error<Term>(LELA_MSG("Wrong number of arguments for "+ id));
           }
           return Success(ctx->tf()->CreateTerm(f));
+        } else if (ctx->IsRegisteredMetaVariable(id)) {
+          return Success(ctx->LookupMetaVariable(id));
         } else {
           return Error<Term>(LELA_MSG("Error in atomic_term"));
         }
@@ -346,6 +348,8 @@ class Parser {
             }
           }
           return Success(ctx->tf()->CreateTerm(f, args));
+        } else if (ctx->IsRegisteredMetaVariable(id)) {
+          return Success(ctx->LookupMetaVariable(id));
         } else {
           return Error<Term>(LELA_MSG("Error in term"));
         }
@@ -816,12 +820,91 @@ class Parser {
       if (!alpha) {
         return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
       }
-      const bool r = ctx->Query(*alpha.val);
-      if (r) {
-        return if_block_a.Run(ctx);
-      } else {
-        return else_block_a.Run(ctx);
+      Result<> r = ctx->Query(*alpha.val) ? if_block_a.Run(ctx) : else_block_a.Run(ctx);
+      if (!r) {
+        return Error<>(LELA_MSG("Expected block in if_else"), r);
       }
+      return r;
+    });
+  }
+
+  // while_loop --> While formula block
+  Result<Action<>> while_loop() {
+    if (!Is(Tok(), Token::kWhile)) {
+      return Unapplicable<Action<>>(LELA_MSG("Expected 'While'"));
+    }
+    Advance();
+    Result<Action<Formula::Ref>> alpha = formula();
+    if (!alpha) {
+      return Error<Action<>>(LELA_MSG("Expected formula in while_loop"), alpha);
+    }
+    Result<Action<>> while_block = block();
+    if (!while_block) {
+      return Error<Action<>>(LELA_MSG("Expected block in while_loop"), while_block);
+    }
+    return Success<Action<>>([this, alpha_a = alpha.val, while_block_a = while_block.val](Context* ctx) {
+      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+      if (!alpha) {
+        return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+      }
+      while (ctx->Query(*alpha.val)) {
+        Result<> r = while_block_a.Run(ctx);
+        if (!r) {
+          return Error<>(LELA_MSG("Expected block in while_loop"), r);
+        }
+      }
+      return Success<>();
+    });
+  }
+
+  // for_loop --> While formula block
+  Result<Action<>> for_loop() {
+    if (!Is(Tok(), Token::kFor)) {
+      return Unapplicable<Action<>>(LELA_MSG("Expected 'For'"));
+    }
+    Advance();
+    if (!Is(Tok(), Token::kIdentifier)) {
+      return Error<Action<>>(LELA_MSG("Expected meta variable in for_loop"));
+    }
+    const std::string id = Tok().val.str();
+    Advance();
+    if (!Is(Tok(), Token::kIn)) {
+      return Unapplicable<Action<>>(LELA_MSG("Expected 'In'"));
+    }
+    std::vector<Action<Term>> ts;
+    do {
+      Advance();
+      Result<Action<Term>> t = term();
+      if (!t) {
+        return Error<Action<>>(LELA_MSG("Expected term (list) in for_loop"), t);
+      }
+      ts.emplace_back(std::move(t.val));
+    } while (Is(Tok(), Token::kComma));
+    Result<Action<>> for_block = block();
+    if (!for_block) {
+      return Error<Action<>>(LELA_MSG("Expected block in for_loop"), for_block);
+    }
+    return Success<Action<>>([this, id, ts_as = ts, for_block_a = for_block.val](Context* ctx) {
+      if (ctx->IsRegisteredTerm(id)) {
+        return Error<>(LELA_MSG("Term "+ id +" is already registered"));
+      }
+      std::vector<Term> ts;
+      for (const Action<Term>& t_a : ts_as) {
+        Result<Term> t = t_a.Run(ctx);
+        if (!t) {
+          return Error<>(LELA_MSG("Expected condition subjective_formula"), t);
+        }
+        ts.push_back(t.val);
+      }
+      for (Term t : ts) {
+        ctx->RegisterMetaVariable(id, t);
+        Result<> r = for_block_a.Run(ctx);
+        if (!r) {
+          return Error<>(LELA_MSG("Expected block in for_loop"), r);
+        }
+        ctx->UnregisterMetaVariable(id);
+      }
+      return Success<>();
     });
   }
 
@@ -858,7 +941,7 @@ class Parser {
   Result<Action<>> branch() {
     typedef Result<Action<>> (Parser::*Rule)();
     std::vector<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation, &Parser::query,
-                               &Parser::if_else/*, &Parser::while_loop, &Parser::for_loop, &Parser::call*/};
+                               &Parser::if_else, &Parser::while_loop, &Parser::for_loop/*, &Parser::call*/};
     for (Rule rule : rules) {
       Result<Action<>> r = (this->*rule)();
       if (r) {

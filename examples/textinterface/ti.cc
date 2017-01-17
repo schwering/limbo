@@ -109,15 +109,18 @@ class multi_pass_iterator {
 };
 
 struct Logger : public lela::format::pdl::Logger {
-  void operator()(const LogData&)                const { std::cerr << "Unknown log data" << std::endl; }
-  void operator()(const RegisterData& d)         const { std::cerr << "Registered " << d.id << std::endl; }
-  void operator()(const RegisterSortData& d)     const { std::cerr << "Registered sort " << d.id << std::endl; }
-  void operator()(const RegisterVariableData& d) const { std::cerr << "Registered variable " << d.id << " of sort " << d.sort_id << std::endl; }
-  void operator()(const RegisterNameData& d)     const { std::cerr << "Registered name " << d.id << " of sort " << d.sort_id << std::endl; }
-  void operator()(const RegisterFunctionData& d) const { std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl; }
-  void operator()(const RegisterFormulaData& d)  const { std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl; }
-  void operator()(const AddToKbData& d)          const { std::cerr << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
-  void operator()(const QueryData& d)            const {
+  void operator()(const LogData&)                      const { std::cerr << "Unknown log data" << std::endl; }
+  void operator()(const RegisterData& d)               const { std::cerr << "Registered " << d.id << std::endl; }
+  void operator()(const RegisterSortData& d)           const { std::cerr << "Registered sort " << d.id << std::endl; }
+  void operator()(const RegisterVariableData& d)       const { std::cerr << "Registered variable " << d.id << " of sort " << d.sort_id << std::endl; }
+  void operator()(const RegisterNameData& d)           const { std::cerr << "Registered name " << d.id << " of sort " << d.sort_id << std::endl; }
+  void operator()(const RegisterFunctionData& d)       const { std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl; }
+  void operator()(const RegisterMetaVariableData& d)   const { std::cerr << "Registered meta variable " << d.id << " for " << d.term << std::endl; }
+  void operator()(const RegisterFormulaData& d)        const { std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl; }
+  void operator()(const UnregisterData& d)             const { std::cerr << "Unregistered " << d.id << std::endl; }
+  void operator()(const UnregisterMetaVariableData& d) const { std::cerr << "Unregistered meta variable " << d.id << std::endl; }
+  void operator()(const AddToKbData& d)                const { std::cerr << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
+  void operator()(const QueryData& d)                  const {
     for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
       std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
     }

@@ -55,9 +55,23 @@ struct Logger {
     const std::string sort_id;
   };
 
+  struct RegisterMetaVariableData : public RegisterData {
+    RegisterMetaVariableData(const std::string& id, const Term t) : RegisterData(id), term(t) {}
+    const Term term;
+  };
+
   struct RegisterFormulaData : public RegisterData {
     RegisterFormulaData(const std::string& id, const Formula& phi) : RegisterData(id), phi(phi.Clone()) {}
     const Formula::Ref phi;
+  };
+
+  struct UnregisterData {
+    explicit UnregisterData(const std::string& id) : id(id) {}
+    const std::string id;
+  };
+
+  struct UnregisterMetaVariableData : public UnregisterData {
+    UnregisterMetaVariableData(const std::string& id) : UnregisterData(id) {}
   };
 
   struct AddToKbData : public LogData {
@@ -96,16 +110,18 @@ class Context {
   bool IsRegisteredVariable(const std::string& id) const { return vars_.Registered(id); }
   bool IsRegisteredName(const std::string& id) const { return names_.Registered(id); }
   bool IsRegisteredFunction(const std::string& id) const { return funs_.Registered(id); }
+  bool IsRegisteredMetaVariable(const std::string& id) const { return meta_vars_.Registered(id); }
   bool IsRegisteredFormula(const std::string& id) const { return formulas_.Registered(id); }
   bool IsRegisteredTerm(const std::string& id) const {
-    return IsRegisteredVariable(id) || IsRegisteredName(id) || IsRegisteredFunction(id);
+    return IsRegisteredVariable(id) || IsRegisteredName(id) || IsRegisteredFunction(id) || IsRegisteredMetaVariable(id);
   }
   bool IsRegisteredCallback(const std::string& id) const { return callbacks_.Register(id); }
 
   Symbol::Sort LookupSort(const std::string& id) const { return sorts_.Find(id); }
   Term LookupVariable(const std::string& id) const { return vars_.Find(id); }
   Term LookupName(const std::string& id) const { return names_.Find(id); }
-  const Symbol& LookupFunction(const std::string& id) const { return funs_.Find(id); }
+  Symbol LookupFunction(const std::string& id) const { return funs_.Find(id); }
+  Term LookupMetaVariable(const std::string& id) const { return meta_vars_.Find(id); }
   const Formula& LookupFormula(const std::string& id) const { return *formulas_.Find(id); }
 
   void RegisterSort(const std::string& id) {
@@ -145,6 +161,13 @@ class Context {
     logger_(Logger::RegisterFunctionData(id, arity, sort_id));
   }
 
+  void RegisterMetaVariable(const std::string& id, Term t) {
+    if (IsRegisteredMetaVariable(id))
+      throw std::domain_error(id);
+    meta_vars_.Register(id, t);
+    logger_(Logger::RegisterMetaVariableData(id, t));
+  }
+
   void RegisterFormula(const std::string& id, const Formula& phi) {
     formulas_.Register(id, phi.Clone());
     logger_(Logger::RegisterFormulaData(id, phi));
@@ -155,6 +178,13 @@ class Context {
       throw std::domain_error(id);
     }
     callbacks_.Register(id, cb);
+  }
+
+  void UnregisterMetaVariable(const std::string& id) {
+    if (!IsRegisteredMetaVariable(id))
+      throw std::domain_error(id);
+    meta_vars_.Unregister(id);
+    logger_(Logger::UnregisterMetaVariableData(id));
   }
 
   bool AddToKb(const Formula& alpha) {
@@ -198,6 +228,7 @@ class Context {
   Registry<Term>         vars_;
   Registry<Term>         names_;
   Registry<Symbol>       funs_;
+  Registry<Term>         meta_vars_;
   Registry<Formula::Ref> formulas_;
   Registry<Callback*>    callbacks_;
   Symbol::Factory        sf_;
