@@ -679,35 +679,6 @@ class Parser {
     return equivalence_formula();
   }
 
-  // abbreviation --> let identifier := formula
-  Result<Action<>> abbreviation() {
-    if (!Is(Tok(), Token::kLet)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected abbreviation operator 'let'"));
-    }
-    Advance();
-    if (!Is(Tok(), Token::kIdentifier)) {
-      return Error<Action<>>(LELA_MSG("Expected fresh identifier"));
-    }
-    const std::string id = Tok().val.str();
-    Advance();
-    if (!Is(Tok(), Token::kAssign)) {
-      return Error<Action<>>(LELA_MSG("Expected assignment operator ':='"));
-    }
-    Advance();
-    Result<Action<Formula::Ref>> alpha = formula();
-    if (!alpha) {
-      return Error<Action<>>(LELA_MSG("Expected formula"), alpha);
-    }
-    return Success<Action<>>([this, id, alpha_a = alpha.val](Context* ctx) {
-      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
-      if (!alpha) {
-        return Error<>(LELA_MSG("Expected formula"), alpha);
-      }
-      ctx->RegisterFormula(id, *alpha.val);
-      return Success<>();
-    });
-  }
-
   // kb_formula --> KB : formula
   Result<Action<>> kb_formula() {
     if (!Is(Tok(), Token::kKB)) {
@@ -908,6 +879,35 @@ class Parser {
     });
   }
 
+  // abbreviation --> let identifier := formula
+  Result<Action<>> abbreviation() {
+    if (!Is(Tok(), Token::kLet)) {
+      return Unapplicable<Action<>>(LELA_MSG("Expected abbreviation operator 'let'"));
+    }
+    Advance();
+    if (!Is(Tok(), Token::kIdentifier)) {
+      return Error<Action<>>(LELA_MSG("Expected fresh identifier"));
+    }
+    const std::string id = Tok().val.str();
+    Advance();
+    if (!Is(Tok(), Token::kAssign)) {
+      return Error<Action<>>(LELA_MSG("Expected assignment operator ':='"));
+    }
+    Advance();
+    Result<Action<Formula::Ref>> alpha = formula();
+    if (!alpha) {
+      return Error<Action<>>(LELA_MSG("Expected formula"), alpha);
+    }
+    return Success<Action<>>([this, id, alpha_a = alpha.val](Context* ctx) {
+      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+      if (!alpha) {
+        return Error<>(LELA_MSG("Expected formula"), alpha);
+      }
+      ctx->RegisterFormula(id, *alpha.val);
+      return Success<>();
+    });
+  }
+
   // call --> Call id
   Result<Action<>> call() {
     if (!Is(Tok(), Token::kCall)) {
@@ -943,9 +943,6 @@ class Parser {
     }
     Advance();
     return Success<Action<>>([this, id, ts_as = ts](Context* ctx) {
-      if (!ctx->IsRegisteredCallback(id)) {
-        return Error<>(LELA_MSG("Callback "+ id +" is not registered"));
-      }
       std::vector<Term> ts;
       for (const Action<Term>& t_a : ts_as) {
         Result<Term> t = t_a.Run(ctx);
@@ -954,7 +951,7 @@ class Parser {
         }
         ts.push_back(t.val);
       }
-      ctx->LookupCallback(id)(ctx, ts);
+      ctx->Call(id, ts);
       return Success<>();
     });
   }
@@ -988,7 +985,7 @@ class Parser {
     }
   }
 
-  // branch --> [ declarations | kb_formula | abbreviation | query ]
+  // branch --> [ declarations | kb_formula | query | abbreviation | load_calls | call ]
   Result<Action<>> branch() {
     typedef Result<Action<>> (Parser::*Rule)();
     std::vector<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation, &Parser::query,

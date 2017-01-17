@@ -4,9 +4,9 @@
 // Context objects store and create symbols, terms, and allow for textual
 // representation, and encapsulate a Solver object.
 //
-// Results are announced through the LogPredicate functor, which needs to
-// implement operator() for the structs defined in Logger. Logger itself is a
-// minimal implementation of a LogPredicate, which ignores all log data.
+// Results are announced through the Logger functor, which needs to implement
+// operator() for the structs defined in Logger. Logger itself is a minimal
+// implementation of a Logger, which ignores all log data.
 
 #ifndef LELA_FORMAT_PDL_CONTEXT_H_
 #define LELA_FORMAT_PDL_CONTEXT_H_
@@ -26,7 +26,7 @@ namespace lela {
 namespace format {
 namespace pdl {
 
-struct Logger {
+struct DefaultLogger {
   struct LogData {};
 
   struct RegisterData {
@@ -92,12 +92,19 @@ struct Logger {
   void operator()(const LogData& d) const {}
 };
 
-template<typename LogPredicate>
+struct DefaultCallback {
+  template<typename T>
+  void operator()(T* ctx, const std::string& proc, const std::vector<Term>& args) const {}
+};
+
+template<typename Logger = DefaultLogger, typename Callback = DefaultCallback>
 class Context {
  public:
-  explicit Context(LogPredicate p = LogPredicate()) : logger_(p), kb_(&sf_, &tf_) {}
+  explicit Context(Logger p = Logger(), Callback c = Callback()) : logger_(p), callback_(c), kb_(&sf_, &tf_) {}
 
-  typedef std::function<void(Context* ctx, const std::vector<Term>& args)> Callback;
+  void Call(const std::string& proc, const std::vector<Term>& args) {
+    callback_(this, proc, args);
+  }
 
   Symbol::Sort CreateSort() { return sf()->CreateSort(); }
   Term CreateVariable(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateVariable(sort)); }
@@ -110,7 +117,6 @@ class Context {
   bool IsRegisteredFunction(const std::string& id) const { return funs_.Registered(id); }
   bool IsRegisteredMetaVariable(const std::string& id) const { return meta_vars_.Registered(id); }
   bool IsRegisteredFormula(const std::string& id) const { return formulas_.Registered(id); }
-  bool IsRegisteredCallback(const std::string& id) const { return callbacks_.Registered(id); }
   bool IsRegisteredTerm(const std::string& id) const {
     return IsRegisteredVariable(id) || IsRegisteredName(id) || IsRegisteredFunction(id) || IsRegisteredMetaVariable(id);
   }
@@ -121,13 +127,12 @@ class Context {
   Symbol LookupFunction(const std::string& id) const { return funs_.Find(id); }
   Term LookupMetaVariable(const std::string& id) const { return meta_vars_.Find(id); }
   const Formula& LookupFormula(const std::string& id) const { return *formulas_.Find(id); }
-  Callback LookupCallback(const std::string& id) const { return callbacks_.Find(id); }
 
   void RegisterSort(const std::string& id) {
     const Symbol::Sort sort = CreateSort();
     lela::format::output::RegisterSort(sort, "");
     sorts_.Register(id, sort);
-    logger_(Logger::RegisterSortData(id));
+    logger_(DefaultLogger::RegisterSortData(id));
   }
 
   void RegisterVariable(const std::string& id, const std::string& sort_id) {
@@ -137,7 +142,7 @@ class Context {
     const Term var = CreateVariable(sort);
     vars_.Register(id, var);
     lela::format::output::RegisterSymbol(var.symbol(), id);
-    logger_(Logger::RegisterVariableData(id, sort_id));
+    logger_(DefaultLogger::RegisterVariableData(id, sort_id));
   }
 
   void RegisterName(const std::string& id, const std::string& sort_id) {
@@ -147,7 +152,7 @@ class Context {
     const Term name = CreateName(sort);
     names_.Register(id, name);
     lela::format::output::RegisterSymbol(name.symbol(), id);
-    logger_(Logger::RegisterNameData(id, sort_id));
+    logger_(DefaultLogger::RegisterNameData(id, sort_id));
   }
 
   void RegisterFunction(const std::string& id, int arity, const std::string& sort_id) {
@@ -157,44 +162,37 @@ class Context {
     const Symbol fun = CreateFunction(sort, arity);
     funs_.Register(id, fun);
     lela::format::output::RegisterSymbol(fun, id);
-    logger_(Logger::RegisterFunctionData(id, arity, sort_id));
+    logger_(DefaultLogger::RegisterFunctionData(id, arity, sort_id));
   }
 
   void RegisterMetaVariable(const std::string& id, Term t) {
     if (IsRegisteredMetaVariable(id))
       throw std::domain_error(id);
     meta_vars_.Register(id, t);
-    logger_(Logger::RegisterMetaVariableData(id, t));
+    logger_(DefaultLogger::RegisterMetaVariableData(id, t));
   }
 
   void RegisterFormula(const std::string& id, const Formula& phi) {
     formulas_.Register(id, phi.Clone());
-    logger_(Logger::RegisterFormulaData(id, phi));
-  }
-
-  void RegisterCallback(const std::string& id, Callback cb) {
-    if (IsRegisteredCallback(id)) {
-      throw std::domain_error(id);
-    }
-    callbacks_.Register(id, cb);
+    logger_(DefaultLogger::RegisterFormulaData(id, phi));
   }
 
   void UnregisterMetaVariable(const std::string& id) {
     if (!IsRegisteredMetaVariable(id))
       throw std::domain_error(id);
     meta_vars_.Unregister(id);
-    logger_(Logger::UnregisterMetaVariableData(id));
+    logger_(DefaultLogger::UnregisterMetaVariableData(id));
   }
 
   bool AddToKb(const Formula& alpha) {
     const bool ok = kb_.Add(alpha);
-    logger_(Logger::AddToKbData(alpha, ok));
+    logger_(DefaultLogger::AddToKbData(alpha, ok));
     return ok;
   }
 
   bool Query(const Formula& alpha) {
     const bool yes = kb_.Entails(alpha, assume_consistent_);
-    logger()(Logger::QueryData(kb_, alpha, assume_consistent_, yes));
+    logger()(DefaultLogger::QueryData(kb_, alpha, assume_consistent_, yes));
     return yes;
   }
 
@@ -207,7 +205,7 @@ class Context {
   Symbol::Factory* sf() { return &sf_; }
   Term::Factory* tf() { return &tf_; }
 
-  const LogPredicate& logger() const { return logger_; }
+  const Logger& logger() const { return logger_; }
 
  private:
   template<typename T>
@@ -222,14 +220,14 @@ class Context {
     std::map<std::string, T> r_;
   };
 
-  LogPredicate           logger_;
+  Logger                 logger_;
+  Callback               callback_;
   Registry<Symbol::Sort> sorts_;
   Registry<Term>         vars_;
   Registry<Term>         names_;
   Registry<Symbol>       funs_;
   Registry<Term>         meta_vars_;
   Registry<Formula::Ref> formulas_;
-  Registry<Callback>     callbacks_;
   Symbol::Factory        sf_;
   Term::Factory          tf_;
   KnowledgeBase          kb_;

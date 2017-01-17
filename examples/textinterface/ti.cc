@@ -17,23 +17,9 @@
 #include <lela/format/pdl/context.h>
 #include <lela/format/pdl/parser.h>
 
+#include "battleship.h"
+
 using lela::format::output::operator<<;
-
-#if 0
-#include "lexer.h"
-
-template<typename ForwardIt>
-static void lex(ForwardIt begin, ForwardIt end) {
-  Lexer<ForwardIt> lexer(begin, end);
-  for (const Token& t : lexer) {
-    if (t.id() == Token::kError) {
-      std::cout << "ERROR ";
-    }
-    //std::cout << t.str() << " ";
-    std::cout << t << " ";
-  }
-}
-#endif
 
 template<typename ForwardIt, typename Context>
 static bool parse(ForwardIt begin, ForwardIt end, Context* ctx) {
@@ -108,7 +94,7 @@ class multi_pass_iterator {
   size_t index_ = 0;
 };
 
-struct Logger : public lela::format::pdl::Logger {
+struct Logger : public lela::format::pdl::DefaultLogger {
   void operator()(const LogData&)                      const { std::cerr << "Unknown log data" << std::endl; }
   void operator()(const RegisterData& d)               const { std::cerr << "Registered " << d.id << std::endl; }
   void operator()(const RegisterSortData& d)           const { std::cerr << "Registered sort " << d.id << std::endl; }
@@ -127,6 +113,13 @@ struct Logger : public lela::format::pdl::Logger {
     std::cout << "Query: " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl;
     std::cout << std::endl;
     std::cout << std::endl;
+  }
+};
+
+struct Callback : public lela::format::pdl::DefaultCallback {
+  template<typename T>
+  void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) const {
+    // TODO
   }
 };
 
@@ -160,7 +153,7 @@ int main(int argc, char** argv) {
 
   std::ios_base::sync_with_stdio(true);
   bool succ = true;
-  lela::format::pdl::Context<Logger> ctx;
+  lela::format::pdl::Context<Logger, Callback> ctx;
   for (const std::string& arg : args) {
     if (!succ) {
       break;

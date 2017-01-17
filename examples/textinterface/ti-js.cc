@@ -27,7 +27,7 @@ inline std::string to_string(const T& x) {
 }
 
 inline void parse(const char* c_str) {
-  struct Logger : public lela::format::pdl::Logger {
+  struct Logger : public lela::format::pdl::DefaultLogger {
     void operator()(const LogData&)                      const { std::cout << "Unknown log data" << std::endl; }
     void operator()(const RegisterData& d)               const { std::cout << "Registered " << d.id << std::endl; }
     void operator()(const RegisterSortData& d)           const { std::cout << "Registered sort " << d.id << std::endl; }
