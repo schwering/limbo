@@ -715,7 +715,7 @@ class Parser {
     }
     Advance();
     if (!Is(Tok(), Token::kColon)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected ':'"));
+      return Error<Action<>>(LELA_MSG("Expected ':'"));
     }
     Advance();
     Result<Action<Formula::Ref>> alpha = formula();
@@ -869,7 +869,7 @@ class Parser {
     const std::string id = Tok().val.str();
     Advance();
     if (!Is(Tok(), Token::kIn)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected 'In'"));
+      return Error<Action<>>(LELA_MSG("Expected 'In'"));
     }
     std::vector<Action<Term>> ts;
     do {
@@ -892,7 +892,7 @@ class Parser {
       for (const Action<Term>& t_a : ts_as) {
         Result<Term> t = t_a.Run(ctx);
         if (!t) {
-          return Error<>(LELA_MSG("Expected condition subjective_formula"), t);
+          return Error<>(LELA_MSG("Expected for_loop term"), t);
         }
         ts.push_back(t.val);
       }
@@ -904,6 +904,57 @@ class Parser {
         }
         ctx->UnregisterMetaVariable(id);
       }
+      return Success<>();
+    });
+  }
+
+  // call --> Call id
+  Result<Action<>> call() {
+    if (!Is(Tok(), Token::kCall)) {
+      return Unapplicable<Action<>>(LELA_MSG("Expected 'Call'"));
+    }
+    Advance();
+    if (!Is(Tok(), Token::kColon)) {
+      return Error<Action<>>(LELA_MSG("Expected ':'"));
+    }
+    Advance();
+    if (!Is(Tok(), Token::kIdentifier)) {
+      return Error<Action<>>(LELA_MSG("Expected meta variable in for_loop"));
+    }
+    const std::string id = Tok().val.str();
+    Advance();
+    if (!Is(Tok(), Token::kLeftParen)) {
+      return Error<Action<>>(LELA_MSG("Expected opening parentheses '('"));
+    }
+    std::vector<Action<Term>> ts;
+    do {
+      Advance();
+      if (Is(Tok(), Token::kRightParen)) {
+        break;
+      }
+      Result<Action<Term>> t = term();
+      if (!t) {
+        return Error<Action<>>(LELA_MSG("Expected argument term"), t);
+      }
+      ts.emplace_back(std::move(t.val));
+    } while (Is(Tok(), Token::kComma));
+    if (!Is(Tok(), Token::kRightParen)) {
+      return Error<Action<>>(LELA_MSG("Expected closing parentheses '('"));
+    }
+    Advance();
+    return Success<Action<>>([this, id, ts_as = ts](Context* ctx) {
+      if (!ctx->IsRegisteredCallback(id)) {
+        return Error<>(LELA_MSG("Callback "+ id +" is not registered"));
+      }
+      std::vector<Term> ts;
+      for (const Action<Term>& t_a : ts_as) {
+        Result<Term> t = t_a.Run(ctx);
+        if (!t) {
+          return Error<>(LELA_MSG("Expected argument term"), t);
+        }
+        ts.push_back(t.val);
+      }
+      ctx->LookupCallback(id)(ctx, ts);
       return Success<>();
     });
   }
@@ -941,7 +992,7 @@ class Parser {
   Result<Action<>> branch() {
     typedef Result<Action<>> (Parser::*Rule)();
     std::vector<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation, &Parser::query,
-                               &Parser::if_else, &Parser::while_loop, &Parser::for_loop/*, &Parser::call*/};
+                               &Parser::if_else, &Parser::while_loop, &Parser::for_loop, &Parser::call};
     for (Rule rule : rules) {
       Result<Action<>> r = (this->*rule)();
       if (r) {

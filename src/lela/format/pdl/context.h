@@ -65,7 +65,7 @@ struct Logger {
     const Formula::Ref phi;
   };
 
-  struct UnregisterData {
+  struct UnregisterData : public LogData {
     explicit UnregisterData(const std::string& id) : id(id) {}
     const std::string id;
   };
@@ -97,9 +97,7 @@ class Context {
  public:
   explicit Context(LogPredicate p = LogPredicate()) : logger_(p), kb_(&sf_, &tf_) {}
 
-  struct Callback {
-    virtual void operator()(const std::vector<Term>& args) const = 0;
-  };
+  typedef std::function<void(Context* ctx, const std::vector<Term>& args)> Callback;
 
   Symbol::Sort CreateSort() { return sf()->CreateSort(); }
   Term CreateVariable(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateVariable(sort)); }
@@ -112,10 +110,10 @@ class Context {
   bool IsRegisteredFunction(const std::string& id) const { return funs_.Registered(id); }
   bool IsRegisteredMetaVariable(const std::string& id) const { return meta_vars_.Registered(id); }
   bool IsRegisteredFormula(const std::string& id) const { return formulas_.Registered(id); }
+  bool IsRegisteredCallback(const std::string& id) const { return callbacks_.Registered(id); }
   bool IsRegisteredTerm(const std::string& id) const {
     return IsRegisteredVariable(id) || IsRegisteredName(id) || IsRegisteredFunction(id) || IsRegisteredMetaVariable(id);
   }
-  bool IsRegisteredCallback(const std::string& id) const { return callbacks_.Register(id); }
 
   Symbol::Sort LookupSort(const std::string& id) const { return sorts_.Find(id); }
   Term LookupVariable(const std::string& id) const { return vars_.Find(id); }
@@ -123,6 +121,7 @@ class Context {
   Symbol LookupFunction(const std::string& id) const { return funs_.Find(id); }
   Term LookupMetaVariable(const std::string& id) const { return meta_vars_.Find(id); }
   const Formula& LookupFormula(const std::string& id) const { return *formulas_.Find(id); }
+  Callback LookupCallback(const std::string& id) const { return callbacks_.Find(id); }
 
   void RegisterSort(const std::string& id) {
     const Symbol::Sort sort = CreateSort();
@@ -173,7 +172,7 @@ class Context {
     logger_(Logger::RegisterFormulaData(id, phi));
   }
 
-  void RegisterCallback(const std::string& id, const Callback* cb) {
+  void RegisterCallback(const std::string& id, Callback cb) {
     if (IsRegisteredCallback(id)) {
       throw std::domain_error(id);
     }
@@ -230,7 +229,7 @@ class Context {
   Registry<Symbol>       funs_;
   Registry<Term>         meta_vars_;
   Registry<Formula::Ref> formulas_;
-  Registry<Callback*>    callbacks_;
+  Registry<Callback>     callbacks_;
   Symbol::Factory        sf_;
   Term::Factory          tf_;
   KnowledgeBase          kb_;
