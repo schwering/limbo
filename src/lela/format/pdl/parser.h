@@ -165,7 +165,7 @@ class Parser {
   Result<T> Unapplicable(const std::string& msg) const {
     std::stringstream ss;
     ss << kUnapplicableLabel << msg;
-    return Result<T>(Result<T>::kUnapplicable, "\t" + msg, begin().char_iter(), end().char_iter());
+    return Result<T>(Result<T>::kUnapplicable, ss.str(), begin().char_iter(), end().char_iter());
   }
 
   // declaration --> sort <sort-id> [ , <sort-id>]*
@@ -289,7 +289,7 @@ class Parser {
           if (f.arity() != 0) {
             return Error<Term>(LELA_MSG("Wrong number of arguments for "+ id));
           }
-          return Success(ctx->tf()->CreateTerm(f));
+          return Success(ctx->CreateTerm(f));
         } else if (ctx->IsRegisteredMetaVariable(id)) {
           return Success(ctx->LookupMetaVariable(id));
         } else {
@@ -347,7 +347,7 @@ class Parser {
               return Error<Term>(LELA_MSG("Expected argument term"), t);
             }
           }
-          return Success(ctx->tf()->CreateTerm(f, args));
+          return Success(ctx->CreateTerm(f, args));
         } else if (ctx->IsRegisteredMetaVariable(id)) {
           return Success(ctx->LookupMetaVariable(id));
         } else {

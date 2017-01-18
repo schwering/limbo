@@ -110,6 +110,7 @@ class Context {
   Term CreateVariable(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateVariable(sort)); }
   Term CreateName(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateName(sort)); }
   Symbol CreateFunction(Symbol::Sort sort, Symbol::Arity arity) { return sf()->CreateFunction(sort, arity); }
+  Term CreateTerm(Symbol symbol, const std::vector<Term>& args) { return tf()->CreateTerm(symbol, args); }
 
   bool IsRegisteredSort(const std::string& id) const { return sorts_.Registered(id); }
   bool IsRegisteredVariable(const std::string& id) const { return vars_.Registered(id); }

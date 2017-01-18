@@ -180,8 +180,8 @@ class Lexer {
     lexemes_.emplace_back(Token::kWhile,        [](Word w) { return IsPrefix(w, {"While", "while"}); });
     lexemes_.emplace_back(Token::kFor,          [](Word w) { return IsPrefix(w, {"For", "for"}); });
     lexemes_.emplace_back(Token::kIn,           [](Word w) { return IsPrefix(w, {"In", "in"}); });
-    lexemes_.emplace_back(Token::kBegin,        [](Word w) { return IsPrefix(w, {"Begin", "begin"}); });
-    lexemes_.emplace_back(Token::kEnd,          [](Word w) { return IsPrefix(w, {"End", "end"}); });
+    lexemes_.emplace_back(Token::kBegin,        [](Word w) { return IsPrefix(w, {"Begin", "begin", "{"}); });
+    lexemes_.emplace_back(Token::kEnd,          [](Word w) { return IsPrefix(w, {"End", "end", "}"}); });
     lexemes_.emplace_back(Token::kCall,         [](Word w) { return IsPrefix(w, {"Call", "call"}); });
     lexemes_.emplace_back(Token::kComment,      [](Word w) { return IsPrefix(w, "//"); });
     lexemes_.emplace_back(Token::kUint,
