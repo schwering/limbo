@@ -28,7 +28,7 @@ class Token {
   enum Id { kError, kSort, kVar, kName, kFun, kSlash, kKB, kLet, kQuery, kAssert, kRefute, kColon, kComma, kLess,
     kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow, kDoubleRArrow, kLeftParen,
     kRightParen, kKnow, kCons, kBel, kAssign, kIf, kElse, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment, kUint,
-    kIdentifier };
+    kString, kIdentifier };
 
   Token() : id_(kError) {}
   explicit Token(Id id) : id_(id) {}
@@ -191,6 +191,12 @@ class Lexer {
                                                std::all_of(w.begin(), w.end(), [](char c) { return IsDigit(c); })
                                                   ? kFullMatch
                                                   : kMismatch; });
+    lexemes_.emplace_back(Token::kString,
+                          [](Word w) { return w.begin() == w.end()
+                                                  ? kPrefixMatch :
+                                              *w.begin() == '"' || *w.begin() == '\''
+                                                  ? (*w.begin() == *w.end() ? kFullMatch : kPrefixMatch)
+                                                  : kMismatch; });
     lexemes_.emplace_back(Token::kIdentifier,
                           [](Word w) { return w.begin() == w.end()
                                                   ? kPrefixMatch :
@@ -277,6 +283,7 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kCall:         return os << "Call";
     case Token::kComment:      return os << "//";
     case Token::kUint:         return os << "<uint>";
+    case Token::kString:       return os << "<string>";
     case Token::kIdentifier:   return os << "<identifier>";
     case Token::kError:        return os << "<ERROR>";
   }

@@ -1,0 +1,75 @@
+Sort BOOL
+Name T -> BOOL
+
+Sort X
+Name x0, x1, x2, x3 -> X
+Var x -> X
+Fun ea/1 -> X
+Fun we/1 -> X
+
+              KB: ea(x1)=x0 KB: ea(x2)=x1 KB: ea(x3)=x2
+KB: we(x0)=x1 KB: we(x1)=x2 KB: we(x2)=x3
+
+
+Sort Y
+Name y0, y1, y2, y3 -> Y
+Var y -> Y
+Fun no/1 -> Y
+Fun so/1 -> Y
+
+              KB: so(y1)=y0 KB: so(y2)=y1 KB: so(y3)=y2
+KB: no(y0)=y1 KB: no(y1)=y2 KB: no(y2)=y3
+
+
+Sort SHIP
+Name two, three -> SHIP
+Var s -> SHIP
+Fun xpos/1 -> X
+Fun ypos/1 -> Y
+Fun hori/1 -> BOOL
+
+Fun water/2 -> BOOL
+
+// The fields of a ship are no water.
+KB:                                                     water(            xpos(s),                  ypos(s)    ) /= T
+KB: hori(s)  = T                                     -> water(         ea(xpos(s)),                 ypos(s)    ) /= T
+KB: hori(s)  = T ^ s /= two                          -> water(      ea(ea(xpos(s))),                ypos(s)    ) /= T
+KB: hori(s) /= T                                     -> water(            xpos(s),               so(ypos(s))   ) /= T
+KB: hori(s) /= T ^ s /= two                          -> water(            xpos(s),            so(so(ypos(s)))  ) /= T
+
+// // Around a ship there's only water.
+// KB: hori(s)  = T                                     -> water(                xpos(s)     , no(            ypos(s)     )) = T
+// KB: hori(s)  = T                                     -> water(                xpos(s)     , so(            ypos(s)     )) = T
+// KB: hori(s)  = T                                     -> water(             ea(xpos(s))    , no(            ypos(s)     )) = T
+// KB: hori(s)  = T                                     -> water(             ea(xpos(s))    , so(            ypos(s)     )) = T
+// KB: hori(s)  = T ^ s /= two                          -> water(          ea(ea(xpos(s)))   , no(            ypos(s)     )) = T
+// KB: hori(s)  = T ^ s /= two                          -> water(          ea(ea(xpos(s)))   , so(            ypos(s)     )) = T
+// KB: hori(s)  = T                                     -> water(             we(xpos(s))    ,                ypos(s)      ) = T
+// KB: hori(s)  = T ^ s = two                           -> water(          ea(ea(xpos(s)))   ,                ypos(s)      ) = T
+// KB: hori(s)  = T ^ s = three                         -> water(       ea(ea(ea(xpos(s))))  ,                ypos(s)      ) = T
+// 
+// // Around a ship there's only water.
+// KB: hori(s) /= T                                     -> water(we(            xpos(s)     ),                ypos(s)      ) = T
+// KB: hori(s) /= T                                     -> water(ea(            xpos(s)     ),                ypos(s)      ) = T
+// KB: hori(s) /= T                                     -> water(ea(            xpos(s)     ),             so(ypos(s))     ) = T
+// KB: hori(s) /= T                                     -> water(we(            xpos(s)     ),             so(ypos(s))     ) = T
+// KB: hori(s) /= T ^ s /= two                          -> water(ea(            xpos(s)     ),          so(so(ypos(s)))    ) = T
+// KB: hori(s) /= T ^ s /= two                          -> water(we(            xpos(s)     ),          so(so(ypos(s)))    ) = T
+// KB: hori(s) /= T                                     -> water(               xpos(s)      ,             no(ypos(s))     ) = T
+// KB: hori(s) /= T ^ s = two                           -> water(               xpos(s)      ,          so(so(ypos(s)))    ) = T
+// KB: hori(s) /= T ^ s = three                         -> water(               xpos(s)      ,       so(so(so(ypos(s))))   ) = T
+
+Call: bs_init()
+Call: bs_register_x(x0,x1,x2,x3)
+Call: bs_register_y(y0,y1,y2,y3)
+Call: bs_print()
+Call: print()
+
+//While Ex s ((s = two v s = three v s = four v s = five) ^ ~Ex x Ex y K<0> (xpos(five) = x ^ ypos(five) = y))
+//Begin
+//  
+//End
+
+Call: bs_fire_random()
+Call: bs_print()
+

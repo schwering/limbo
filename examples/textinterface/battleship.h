@@ -47,29 +47,29 @@ std::ostream& operator<<(std::ostream& os, const Point& p) {
   return os << "(" << p.x << " | " << p.y << ")";
 }
 
-class Game {
+class BattleshipGame {
  public:
-  Game(size_t width, size_t height, size_t n_ships = 1, size_t seed = 0)
-      : width_(std::max(width, height)),
-        height_(std::min(width, height)),
-        n_ships_(n_ships),
-        seed_(seed),
-        distribution_(0, n_fields() - 1) {
+  BattleshipGame(size_t width, size_t height, const std::vector<size_t>& ships, size_t seed = 0) :
+      width_(std::max(width, height)),
+      height_(std::min(width, height)),
+      seed_(seed),
+      distribution_(0, n_fields() - 1) {
     fired_.resize(n_fields(), false);
     ships_.resize(n_fields(), false);
-    generator_.seed(n_fields() * n_ships + seed);
-    for (size_t i = 0; i < n_ships; ++i) {
-      PlaceRandom(5);
-      PlaceRandom(4);
-      PlaceRandom(3);
-      PlaceRandom(2);
+    neighbors_.resize(n_fields());
+    generator_.seed(n_fields() + seed);
+    for (size_t i = 0; i < ships.size(); ++i) {
+      const size_t ship_size = i + 1;
+      const size_t n_ships = ships[i];
+      for (size_t j = 0; j < n_ships; ++j) {
+        PlaceRandom(ship_size);
+      }
     }
   }
 
   size_t n_fields() const { return width_ * height_; }
   size_t width() const { return width_; }
   size_t height() const { return height_; }
-  size_t n_ships() const { return n_ships_; }
 
   const std::vector<Point>& neighbors_of(Point p) const {
     std::vector<Point>& vec = neighbors_[to_index(p)];
@@ -89,6 +89,10 @@ class Game {
     return vec;
   }
 
+  Point RandomPoint() {
+    return to_point(distribution_(generator_));
+  }
+
   Point to_point(size_t index) const {
     Point p(index / height_, index % height_);
     assert(to_index(p) == index);
@@ -104,6 +108,7 @@ class Game {
   }
 
   bool ship(const size_t index) const {
+    assert(index < ships_.size());
     return ships_[index];
   }
 
@@ -113,6 +118,7 @@ class Game {
   }
 
   bool fired(const size_t index) const {
+    assert(index < fired_.size());
     return fired_[index];
   }
 
@@ -143,15 +149,20 @@ class Game {
 
  private:
   void PlaceRandom(size_t n) {
-try_again:
-    bool hori = distribution_(generator_) % 2 == 0;
-    Point head = RandomPoint();
     std::vector<Point> ps;
+    bool hori;
+    Point head;
+try_again:
+    hori = distribution_(generator_) % 2 == 0;
+    ps.clear();
     for (size_t i = 0; i < n; ++i) {
-      size_t x0 = hori ? i : 0;
-      size_t y0 = hori ? 0 : i;
-      Point p(head.x + x0, head.y + y0);
+      const size_t x0 = hori ? i : 0;
+      const size_t y0 = hori ? 0 : i;
+      const Point p = i == 0 ? RandomPoint() : Point(ps[0].x + x0, ps[0].y + y0);
       ps.push_back(p);
+      if (!valid(p)) {
+        goto try_again;
+      }
       if (ship(p)) {
         goto try_again;
       }
@@ -166,10 +177,6 @@ try_again:
     }
   }
 
-  Point RandomPoint() {
-    return to_point(distribution_(generator_));
-  }
-
   void set_ship(Point p) {
     assert(!ships_[to_index(p)]);
     ships_[to_index(p)] = true;
@@ -177,7 +184,6 @@ try_again:
 
   const size_t width_;
   const size_t height_;
-  const size_t n_ships_;
   const size_t seed_;
   std::vector<bool> ships_;
   std::vector<bool> fired_;
@@ -186,7 +192,7 @@ try_again:
   std::uniform_int_distribution<size_t> distribution_;
 };
 
-std::ostream& operator<<(std::ostream& os, const Game& g) {
+std::ostream& operator<<(std::ostream& os, const BattleshipGame& g) {
   const int width = 3;
   os << std::setw(width) << "";
   for (size_t x = 0; x < g.width(); ++x) {
@@ -210,7 +216,7 @@ std::ostream& operator<<(std::ostream& os, const Game& g) {
     os << std::endl;
   }
   return os;
-};
+}
 
 #endif  // EXAMPLES_MINESWEEPER_GAME_H_
 

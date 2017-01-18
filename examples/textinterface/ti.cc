@@ -118,9 +118,47 @@ struct Logger : public lela::format::pdl::DefaultLogger {
 
 struct Callback : public lela::format::pdl::DefaultCallback {
   template<typename T>
-  void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) const {
-    // TODO
+  void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
+    using lela::format::output::operator<<;
+    std::cerr << "Calling " << proc;
+    lela::format::output::print_range(std::cout, args, "(", ")", ",");
+    std::cout << std::endl;
+    if (proc == "print") {
+      for (lela::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
+        std::cout << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p).setup() << std::endl;
+      }
+    } else if (proc == "bs_init" && !bs_) {
+      bs_ = std::make_shared<BattleshipGame>(4, 4, std::vector<size_t>{0, 1, 1});
+    } else if (bs_ && proc == "bs_print") {
+      std::cout << *bs_ << std::endl;
+    } else if (bs_ && proc == "bs_register_x" && args.size() == bs_->width()) {
+      xs_ = args;
+    } else if (bs_ && proc == "bs_register_y" && args.size() == bs_->height()) {
+      ys_ = args;
+    } else if (bs_ && proc == "bs_fire" && args.size() == 2) {
+      size_t x = lookup(xs_, args[0]);
+      size_t y = lookup(ys_, args[0]);
+      bs_->Fire(Point(x, y));
+    } else if (bs_ && proc == "bs_fire_random") {
+      bs_->Fire(bs_->RandomPoint());
+    } else {
+      std::cerr << proc << " failed" << std::endl;
+    }
   }
+
+ private:
+  static size_t lookup(const std::vector<lela::Term>& ts, lela::Term t) {
+    for (size_t i = 0; i < ts.size(); ++i) {
+      if (ts[i] == t) {
+        return i;
+      }
+    }
+    return ts.size();
+  }
+
+  std::shared_ptr<BattleshipGame> bs_;
+  std::vector<lela::Term> xs_;
+  std::vector<lela::Term> ys_;
 };
 
 int main(int argc, char** argv) {

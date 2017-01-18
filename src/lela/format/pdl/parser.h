@@ -847,9 +847,9 @@ class Parser {
       Advance();
       Result<Action<Term>> t = term();
       if (!t) {
-        return Error<Action<>>(LELA_MSG("Expected term (list) in for_loop"), t);
+        return Error<Action<>>(LELA_MSG("Expected argument term"), t);
       }
-      ts.emplace_back(std::move(t.val));
+      ts.push_back(std::move(t.val));
     } while (Is(Tok(), Token::kComma));
     Result<Action<>> for_block = block();
     if (!for_block) {
@@ -934,9 +934,9 @@ class Parser {
       }
       Result<Action<Term>> t = term();
       if (!t) {
-        return Error<Action<>>(LELA_MSG("Expected argument term"), t);
+        return Error<Action<>>(LELA_MSG("Expected argument"), t);
       }
-      ts.emplace_back(std::move(t.val));
+      ts.push_back(std::move(t.val));
     } while (Is(Tok(), Token::kComma));
     if (!Is(Tok(), Token::kRightParen)) {
       return Error<Action<>>(LELA_MSG("Expected closing parentheses '('"));
@@ -944,11 +944,8 @@ class Parser {
     Advance();
     return Success<Action<>>([this, id, ts_as = ts](Context* ctx) {
       std::vector<Term> ts;
-      for (const Action<Term>& t_a : ts_as) {
-        Result<Term> t = t_a.Run(ctx);
-        if (!t) {
-          return Error<>(LELA_MSG("Expected argument term"), t);
-        }
+      for (const Action<Term>& arg_a : ts_as) {
+        Result<Term> t = arg_a.Run(ctx);
         ts.push_back(t.val);
       }
       ctx->Call(id, ts);
