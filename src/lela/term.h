@@ -13,6 +13,9 @@
 // facilitate extremely fast copying and comparison. Internally, a term is
 // represented by a memory address where its structure is stored. Creating a
 // second term of the same structure yields the same memory address.
+//
+// Comparison of terms is based on their memory addresses, which makes it
+// nondeterministic wrt different program executions.
 
 #ifndef LELA_TERM_H_
 #define LELA_TERM_H_

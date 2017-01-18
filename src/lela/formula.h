@@ -282,7 +282,7 @@ class Formula::Atomic : public Formula {
     TermMap term_to_var;
     for (Literal a : queue) {
       if (!a.pos() && a.lhs().function() && a.rhs().variable()) {
-        term_to_var[a.rhs()] = a.lhs();
+        term_to_var[a.lhs()] = a.rhs();
       }
     }
     LiteralSet lits;
@@ -293,20 +293,21 @@ class Formula::Atomic : public Formula {
       queue.erase(it);
       if (a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function())) {
         lits.insert(a);
-      } else if (a.rhs().function()) {
+      } else if (a.rhs().function() &&
+                 (!a.pos() || std::all_of(queue.begin(), queue.end(), [](Literal a) { return a.pos(); }))) {
         assert(a.lhs().function());
-        Term old_rhs = a.rhs();
-        Term new_rhs;
-        TermMap::const_iterator it = term_to_var.find(old_rhs);
+        Term old_t = a.lhs().arity() < a.rhs().arity() ? a.lhs() : a.rhs();
+        Term new_t;
+        TermMap::const_iterator it = term_to_var.find(old_t);
         if (it != term_to_var.end()) {
-          new_rhs = it->second;
+          new_t = it->second;
         } else {
-          new_rhs = tf->CreateTerm(sf->CreateVariable(old_rhs.sort()));
-          term_to_var[old_rhs] = new_rhs;
-          vars.append_exists(new_rhs);
+          new_t = tf->CreateTerm(sf->CreateVariable(old_t.sort()));
+          term_to_var[old_t] = new_t;
+          vars.append_exists(new_t);
         }
-        Literal new_a = a.Substitute(Term::SingleSubstitution(old_rhs, new_rhs), tf);
-        Literal new_b = Literal::Neq(new_rhs, old_rhs);
+        Literal new_a = a.Substitute(Term::SingleSubstitution(old_t, new_t), tf);
+        Literal new_b = Literal::Neq(new_t, old_t);
         queue.insert(new_a);
         queue.insert(new_b);
       } else {
@@ -327,6 +328,7 @@ class Formula::Atomic : public Formula {
             Literal new_b = Literal::Neq(new_arg, old_arg);
             queue.insert(new_a);
             queue.insert(new_b);
+            break;
           }
         }
       }
