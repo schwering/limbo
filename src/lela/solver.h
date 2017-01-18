@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014--2016 Christoph Schwering
+// Copyright 2016 Christoph Schwering
 //
 // Solver implements limited belief implications. The key methods are Entails()
 // and Consistent(), which determine whether the knowledge base consisting of

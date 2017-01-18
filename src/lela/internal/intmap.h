@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014--2016 Christoph Schwering
+// Copyright 2016 Christoph Schwering
 //
 // A map from positive integers to some other type. The key integers are assumed
 // to be small and sparse, as their size corresponds to the size of the

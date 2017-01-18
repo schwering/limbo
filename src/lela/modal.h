@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014--2016 Christoph Schwering
+// Copyright 2016 Christoph Schwering
 
 #ifndef LELA_MODAL_H_
 #define LELA_MODAL_H_

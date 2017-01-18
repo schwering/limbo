@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014--2016 Christoph Schwering
+// Copyright 2014 Christoph Schwering
 //
 // A clause is a set of literals. Clauses are immutable.
 //

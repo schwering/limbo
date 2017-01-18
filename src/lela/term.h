@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014--2016 Christoph Schwering
+// Copyright 2016 Christoph Schwering
 //
 // Symbols are the non-logical symbols of the language: variables, standard
 // names, and function symbols, which are sorted. Symbols are immutable.
