@@ -110,7 +110,7 @@ struct Logger : public lela::format::pdl::DefaultLogger {
     //for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
     //  std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
     //}
-    std::cout << "Query: " << *d.phi << "  =  " << std::boolalpha << d.yes << std::endl;
+    std::cerr << "Query: " << *d.phi << "  =  " << std::boolalpha << d.yes << std::endl;
     //std::cout << std::endl;
     //std::cout << std::endl;
   }
@@ -123,59 +123,78 @@ struct Callback : public lela::format::pdl::DefaultCallback {
     std::cerr << "Calling " << proc;
     lela::format::output::print_range(std::cerr, args, "(", ")", ",");
     std::cerr << std::endl;
-    if (proc == "print") {
+    if (proc == "print_kb") {
       for (lela::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
         std::cout << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p).setup() << std::endl;
       }
+    } else if (proc == "print") {
+      lela::format::output::print_range(std::cout, args, "", "", " ");
+      std::cout << std::endl;
     } else if (proc == "bs_init" && !bs_) {
       bs_ = std::make_shared<BattleshipGame>(1, 4, std::vector<size_t>{0, 0, 1});
     } else if (bs_ && proc == "bs_print") {
       std::cout << *bs_ << std::endl;
-    } else if (bs_ && proc == "bs_register_x" && args.size() == bs_->width()) {
-      xs_ = args;
-    } else if (bs_ && proc == "bs_register_y" && args.size() == bs_->height()) {
-      ys_ = args;
+//    } else if (bs_ && proc == "bs_register_x" && args.size() == bs_->width()) {
+//      xs_ = args;
+//    } else if (bs_ && proc == "bs_register_y" && args.size() == bs_->height()) {
+//      ys_ = args;
     } else if (bs_ && proc == "bs_register_p" && args.size() == bs_->n_fields()) {
       ps_ = args;
-    } else if (bs_ && proc == "bs_fire" && args.size() == 2) {
-      const lela::Term x = args[0];
-      const lela::Term y = args[1];
-      const bool is_water = !bs_->Fire(Point(lookup(xs_, x), lookup(ys_, y)));
-      const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {x, y});
-      const lela::Term True = ctx->LookupName("T");
-      lela::Clause c{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)};
-      ctx->kb()->Add(c);
+//    } else if (bs_ && proc == "bs_fire" && args.size() == 2) {
+//      const lela::Term x = args[0];
+//      const lela::Term y = args[1];
+//      const bool is_water = !bs_->Fire(Point(lookup(xs_, x), lookup(ys_, y)));
+//      const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {x, y});
+//      const lela::Term True = ctx->LookupName("T");
+//      lela::Clause c{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)};
+//      ctx->kb()->Add(c);
     } else if (bs_ && proc == "bs_fire" && args.size() == 1) {
-      const lela::Term p = args[0];
-      const bool is_water = !bs_->Fire(lookup(ps_, p));
-      const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {p});
-      const lela::Term True = ctx->LookupName("T");
-      lela::Clause c{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)};
-      ctx->kb()->Add(c);
+      Fire(ctx, Lookup(args[0]));
     } else if (bs_ && proc == "bs_fire_random") {
-      bs_->Fire(bs_->RandomPoint());
+      for (;;) {
+        const Point p = bs_->RandomPoint();
+        if (!bs_->fired(p)) {
+          Fire(ctx, bs_->RandomPoint());
+          break;
+        }
+      }
     } else {
       std::cerr << "Calling " << proc;
       lela::format::output::print_range(std::cerr, args, "(", ")", ",");
       std::cerr << " failed" << std::endl;
-      std::cout << args.size() << std::endl;
-      std::cout << bs_->n_fields() << std::endl;
+      std::cerr << args.size() << std::endl;
+      std::cerr << bs_->n_fields() << std::endl;
     }
   }
 
  private:
-  static size_t lookup(const std::vector<lela::Term>& ts, lela::Term t) {
-    for (size_t i = 0; i < ts.size(); ++i) {
-      if (ts[i] == t) {
-        return i;
+  template<typename T>
+  void Fire(T* ctx, Point p) {
+    const lela::Term t = Lookup(p);
+    const bool is_water = !bs_->Fire(p);
+    const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {t});
+    const lela::Term Fired = ctx->CreateTerm(ctx->LookupFunction("fired"), {t});
+    const lela::Term True = ctx->LookupName("T");
+    ctx->kb()->Add(lela::Clause{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)});
+    ctx->kb()->Add(lela::Clause{lela::Literal::Eq(Fired, True)});
+  }
+
+  Point Lookup(lela::Term t) {
+    for (size_t i = 0; i < ps_.size(); ++i) {
+      if (ps_[i] == t) {
+        return bs_->to_point(i);
       }
     }
-    return ts.size();
+    throw;
+  }
+
+  lela::Term Lookup(Point p) {
+    return ps_[bs_->to_index(p)];
   }
 
   std::shared_ptr<BattleshipGame> bs_;
-  std::vector<lela::Term> xs_;
-  std::vector<lela::Term> ys_;
+//  std::vector<lela::Term> xs_;
+//  std::vector<lela::Term> ys_;
   std::vector<lela::Term> ps_;
 };
 

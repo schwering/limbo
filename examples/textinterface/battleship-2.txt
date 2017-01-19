@@ -99,7 +99,7 @@ Query: K<1>  water(p32)=T
 Query: K<1> ~water(p32)=T
 //Query: K<1>  water(p33)=T
 //Query: K<1> ~water(p33)=T
-Call: print()
+Call: print_kb()
 
 // while Ex p (~K<1> water(p)=T ^ ~K<1> ~water(p)=T) {
 //     Call: bs_print()
