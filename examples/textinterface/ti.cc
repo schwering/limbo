@@ -131,23 +131,14 @@ struct Callback : public lela::format::pdl::DefaultCallback {
       lela::format::output::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
     } else if (proc == "bs_init" && !bs_) {
-      bs_ = std::make_shared<BattleshipGame>(1, 4, std::vector<size_t>{0, 0, 1});
+      if (args.size() == 4) {
+        bs_ = std::make_shared<BattleshipGame>(1, 4, std::vector<size_t>{0, 0, 1});
+      } else if (args.size() == 4*4) {
+        bs_ = std::make_shared<BattleshipGame>(4, 4, std::vector<size_t>{0, 1, 1});
+      }
+      ps_ = args;
     } else if (bs_ && proc == "bs_print") {
       std::cout << *bs_ << std::endl;
-//    } else if (bs_ && proc == "bs_register_x" && args.size() == bs_->width()) {
-//      xs_ = args;
-//    } else if (bs_ && proc == "bs_register_y" && args.size() == bs_->height()) {
-//      ys_ = args;
-    } else if (bs_ && proc == "bs_register_p" && args.size() == bs_->n_fields()) {
-      ps_ = args;
-//    } else if (bs_ && proc == "bs_fire" && args.size() == 2) {
-//      const lela::Term x = args[0];
-//      const lela::Term y = args[1];
-//      const bool is_water = !bs_->Fire(Point(lookup(xs_, x), lookup(ys_, y)));
-//      const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {x, y});
-//      const lela::Term True = ctx->LookupName("T");
-//      lela::Clause c{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)};
-//      ctx->kb()->Add(c);
     } else if (bs_ && proc == "bs_fire" && args.size() == 1) {
       Fire(ctx, Lookup(args[0]));
     } else if (bs_ && proc == "bs_fire_random") {

@@ -36,8 +36,8 @@ Fun fired/1 -> BOOL
 
 KB: s(head(three))=body(three)
 KB: s(body(three))=tail(three)
-// KB: head(three)=n(body(three))
-// KB: body(three)=n(tail(three))
+KB: s(body(three))=tail(three)
+KB: n(tail(three))=body(three)
 
 Assert: K<2> s(head(three))=body(three)
 Assert: K<2> head(three)=n(body(three))
@@ -49,8 +49,11 @@ KB: ~water(tail(three))=T
 KB: water(n(head(three)))=T
 KB: water(s(tail(three)))=T
 
-KB: head(three)=p v body(three)=p v tail(three)=p v water(p)=T
 KB: p=p1 v p=p2 v p=p3 v p=p4 v water(p)=T
+// We don't need the following in the KB. If we do have it, however,
+// split level 1 suffices for the assertions below.
+// KB: head(three)=p v body(three)=p v tail(three)=p v water(p)=T
+Assert: K<2> (head(three)=p v body(three)=p v tail(three)=p v water(p)=T)
 
 Call: bs_init()
 Call: bs_register_p(p1, p2, p3, p4)
@@ -61,14 +64,14 @@ Call: bs_fire(p3)
 Call: bs_print()
 Assert: K<1> ~water(p1)=T
 Assert: K<1> ~water(p3)=T
-Assert: K<1>  head(three)=p1
-Assert: K<1>  body(three)=p2
-Assert: K<1>  tail(three)=p3
-Refute: K<1> (body(three)=p2 ^ body(three)/=p2)
+Assert: K<2>  head(three)=p1
+Assert: K<2>  body(three)=p2
+Assert: K<2>  tail(three)=p3
+Refute: K<2> (body(three)=p2 ^ body(three)/=p2)
 Assert: K<1>  water(p0)=T
 Assert: K<1> ~water(p1)=T
-Assert: K<1> ~water(p2)=T
+Assert: K<2> ~water(p2)=T
 Assert: K<1> ~water(p3)=T
-Assert: K<1>  water(p4)=T
+Assert: K<2>  water(p4)=T
 Assert: K<1>  water(p5)=T
 
