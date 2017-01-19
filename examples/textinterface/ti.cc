@@ -107,12 +107,12 @@ struct Logger : public lela::format::pdl::DefaultLogger {
   void operator()(const UnregisterMetaVariableData& d) const { std::cerr << "Unregistered meta variable " << d.id << std::endl; }
   void operator()(const AddToKbData& d)                const { std::cerr << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
   void operator()(const QueryData& d)                  const {
-    for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
-      std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
-    }
-    std::cout << "Query: " << *d.phi << ") = " << std::boolalpha << d.yes << std::endl;
-    std::cout << std::endl;
-    std::cout << std::endl;
+    //for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
+    //  std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
+    //}
+    std::cout << "Query: " << *d.phi << "  =  " << std::boolalpha << d.yes << std::endl;
+    //std::cout << std::endl;
+    //std::cout << std::endl;
   }
 };
 
@@ -121,28 +121,45 @@ struct Callback : public lela::format::pdl::DefaultCallback {
   void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
     using lela::format::output::operator<<;
     std::cerr << "Calling " << proc;
-    lela::format::output::print_range(std::cout, args, "(", ")", ",");
-    std::cout << std::endl;
+    lela::format::output::print_range(std::cerr, args, "(", ")", ",");
+    std::cerr << std::endl;
     if (proc == "print") {
       for (lela::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
         std::cout << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p).setup() << std::endl;
       }
     } else if (proc == "bs_init" && !bs_) {
-      bs_ = std::make_shared<BattleshipGame>(4, 4, std::vector<size_t>{0, 1, 1});
+      bs_ = std::make_shared<BattleshipGame>(1, 4, std::vector<size_t>{0, 0, 1});
     } else if (bs_ && proc == "bs_print") {
       std::cout << *bs_ << std::endl;
     } else if (bs_ && proc == "bs_register_x" && args.size() == bs_->width()) {
       xs_ = args;
     } else if (bs_ && proc == "bs_register_y" && args.size() == bs_->height()) {
       ys_ = args;
+    } else if (bs_ && proc == "bs_register_p" && args.size() == bs_->n_fields()) {
+      ps_ = args;
     } else if (bs_ && proc == "bs_fire" && args.size() == 2) {
-      size_t x = lookup(xs_, args[0]);
-      size_t y = lookup(ys_, args[0]);
-      bs_->Fire(Point(x, y));
+      const lela::Term x = args[0];
+      const lela::Term y = args[1];
+      const bool is_water = !bs_->Fire(Point(lookup(xs_, x), lookup(ys_, y)));
+      const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {x, y});
+      const lela::Term True = ctx->LookupName("T");
+      lela::Clause c{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)};
+      ctx->kb()->Add(c);
+    } else if (bs_ && proc == "bs_fire" && args.size() == 1) {
+      const lela::Term p = args[0];
+      const bool is_water = !bs_->Fire(lookup(ps_, p));
+      const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {p});
+      const lela::Term True = ctx->LookupName("T");
+      lela::Clause c{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)};
+      ctx->kb()->Add(c);
     } else if (bs_ && proc == "bs_fire_random") {
       bs_->Fire(bs_->RandomPoint());
     } else {
-      std::cerr << proc << " failed" << std::endl;
+      std::cerr << "Calling " << proc;
+      lela::format::output::print_range(std::cerr, args, "(", ")", ",");
+      std::cerr << " failed" << std::endl;
+      std::cout << args.size() << std::endl;
+      std::cout << bs_->n_fields() << std::endl;
     }
   }
 
@@ -159,6 +176,7 @@ struct Callback : public lela::format::pdl::DefaultCallback {
   std::shared_ptr<BattleshipGame> bs_;
   std::vector<lela::Term> xs_;
   std::vector<lela::Term> ys_;
+  std::vector<lela::Term> ps_;
 };
 
 int main(int argc, char** argv) {

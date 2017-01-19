@@ -36,6 +36,19 @@ Else
     Assert: true
   End
 
+If false
+  Begin
+    Refute: true
+  End
+Else If false
+  Begin
+    Assert: false
+  End
+Else
+  Begin
+    Assert: n = n
+  End
+
 For X In n, m
   Begin
     Assert: X = X

@@ -70,7 +70,7 @@ For more theoretical background see the papers linked below.
 * Actions from [3] are not yet implemented. The plan is to keep actions and
   projection separate from the core reasoner and implement them as a
   preprocessing step.
-* Nested beliefs from [4] are not yet implemented.
+* Consistency guarantees need to be extended.
 * If time permits, I'll rewrite the whole system in Rust. First results (cf.
   'rust' branch) indicate it's faster. And it's actually fun!
 

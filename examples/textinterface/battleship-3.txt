@@ -1,0 +1,95 @@
+Sort BOOL
+Name T -> BOOL
+
+Sort POS
+Name p0, p1, p2, p3, p4, p5 -> POS
+Var p, q -> POS
+Fun n/1, s/1 -> POS
+
+KB: n(s(p))=p
+KB: s(n(p))=p
+KB: ~n(p)=p
+KB: ~s(p)=p
+
+KB: n(p1)=p0
+KB: n(p2)=p1
+KB: n(p3)=p2
+KB: n(p4)=p3
+KB: n(p5)=p4
+
+//KB: p=n(q) -> s(p)=p
+
+KB: s(p0)=p1
+KB: s(p1)=p2
+KB: s(p2)=p3
+KB: s(p3)=p4
+KB: s(p4)=p5
+
+Sort SHIP
+Name three -> SHIP
+Var x, y -> SHIP
+Fun head/1 -> POS
+Fun body/1 -> POS
+Fun tail/1 -> POS
+Fun water/1 -> BOOL
+
+KB: s(head(three))=body(three)
+KB: s(body(three))=tail(three)
+//KB: head(three)=n(body(three))
+//KB: body(three)=n(tail(three))
+
+KB: ~water(head(three))=T
+KB: ~water(body(three))=T
+KB: ~water(tail(three))=T
+
+KB: water(n(head(three)))=T
+KB: water(s(tail(three)))=T
+
+KB: head(three)=p v body(three)=p v tail(three)=p v water(p)=T
+KB: water(p0)=T
+KB: water(p5)=T
+
+Call: bs_init()
+Call: bs_register_p(p1, p2, p3, p4)
+Call: bs_print()
+Call: bs_fire(p1)
+Call: bs_fire(p3)
+Call: bs_print()
+
+//KB: head(three)=p3
+
+Assert: K<1> ~water(p1)=T
+Assert: K<1> ~water(p3)=T
+Assert: K<1>  head(three)=p1
+Assert: K<1>  body(three)=p2
+Assert: K<1>  tail(three)=p3
+Refute: K<1> (body(three)=p2 ^ body(three)/=p2)
+Assert: K<1>  water(p0)=T
+Assert: K<1> ~water(p1)=T
+Assert: K<1> ~water(p2)=T
+Assert: K<1> ~water(p3)=T
+Assert: K<1>  water(p4)=T
+Assert: K<1>  water(p5)=T
+
+Call: print()
+
+// while Ex p (~K<1> water(p)=T ^ ~K<1> ~water(p)=T) {
+//     Call: bs_print()
+//     if Ex p K<1> ~water(p)=T {
+//         for P in p11, p12, p13, p14, p21, p22, p23, p24, p31, p32, p33, p34, p41, p42, p43, p44 {
+//             if K<1> water(P)=T {
+//                 Call: bs_fire(P)
+//             }
+//         }
+//     } else if Ex p (~K<1> ~water(p)=T ^ M<1> water(p)=T) {
+//         for P in p11, p12, p13, p14, p21, p22, p23, p24, p31, p32, p33, p34, p41, p42, p43, p44 {
+//             if K<1> water(P)=T {
+//                 Call: bs_fire(P)
+//             }
+//         }
+//     } else {
+//         Call: bs_fire_random()
+//     }
+//     Call: bs_print()
+// }
+

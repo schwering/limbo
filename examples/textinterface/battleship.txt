@@ -81,7 +81,7 @@ Call: print()
 
 //While Ex s ((s = two v s = three v s = four v s = five) ^ ~Ex x Ex y K<0> (xpos(five) = x ^ ypos(five) = y))
 //Begin
-//  
+//
 //End
 
 Call: bs_fire_random()

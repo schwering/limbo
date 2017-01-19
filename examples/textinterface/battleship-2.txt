@@ -1,75 +1,123 @@
 Sort BOOL
 Name T -> BOOL
 
-Sort X
-Name x0, x1, x2, x3 -> X
-Var x -> X
-Fun ea/1 -> X
-Fun we/1 -> X
+Sort POS
+Name p11, p12, p13, p14,
+     p21, p22, p23, p24,
+     p31, p32, p33, p34,
+     p41, p42, p43, p44 -> POS
+Var p, q -> POS
+Fun n/1, e/1, s/1, w/1, ne/1, se/1, sw/1, nw/1 -> POS
 
-              KB: ea(x1)=x0 KB: ea(x2)=x1 KB: ea(x3)=x2
-KB: we(x0)=x1 KB: we(x1)=x2 KB: we(x2)=x3
+KB: n(p12)=p11 KB: n(p22)=p21 KB: n(p32)=p31 KB: n(p42)=p41
+KB: n(p13)=p12 KB: n(p23)=p22 KB: n(p33)=p32 KB: n(p43)=p42
+KB: n(p14)=p13 KB: n(p24)=p23 KB: n(p34)=p33 KB: n(p44)=p43
 
+KB: e(p11)=p21 KB: e(p21)=p31 KB: e(p31)=p41
+KB: e(p12)=p22 KB: e(p22)=p32 KB: e(p32)=p42
+KB: e(p13)=p23 KB: e(p23)=p33 KB: e(p33)=p43
+KB: e(p14)=p24 KB: e(p24)=p34 KB: e(p34)=p44
 
-Sort Y
-Name y0, y1, y2, y3 -> Y
-Var y -> Y
-Fun no/1 -> Y
-Fun so/1 -> Y
+KB: s(p11)=p12 KB: s(p21)=p22 KB: s(p31)=p32 KB: s(p41)=p42
+KB: s(p12)=p13 KB: s(p22)=p23 KB: s(p32)=p33 KB: s(p42)=p43
+KB: s(p13)=p14 KB: s(p23)=p24 KB: s(p33)=p34 KB: s(p43)=p44
 
-              KB: so(y1)=y0 KB: so(y2)=y1 KB: so(y3)=y2
-KB: no(y0)=y1 KB: no(y1)=y2 KB: no(y2)=y3
+KB: w(p21)=p11 KB: w(p31)=p21 KB: w(p41)=p31
+KB: w(p22)=p12 KB: w(p32)=p22 KB: w(p42)=p32
+KB: w(p23)=p13 KB: w(p33)=p23 KB: w(p43)=p33
+KB: w(p24)=p14 KB: w(p34)=p24 KB: w(p44)=p34
+
+KB: ne(p12)=p21 KB: ne(p22)=p31 KB: ne(p32)=p41
+KB: ne(p13)=p22 KB: ne(p23)=p32 KB: ne(p33)=p42
+KB: ne(p14)=p23 KB: ne(p24)=p33 KB: ne(p34)=p43
+
+KB: se(p11)=p22 KB: se(p21)=p32 KB: se(p31)=p42
+KB: se(p12)=p23 KB: se(p22)=p33 KB: se(p32)=p43
+KB: se(p13)=p24 KB: se(p23)=p34 KB: se(p33)=p44
+
+KB: sw(p21)=p12 KB: sw(p31)=p22 KB: sw(p41)=p32
+KB: sw(p22)=p13 KB: sw(p32)=p23 KB: sw(p42)=p33
+KB: sw(p23)=p14 KB: sw(p33)=p24 KB: sw(p43)=p34
+
+KB: nw(p22)=p11 KB: nw(p32)=p21 KB: nw(p42)=p31
+KB: nw(p23)=p12 KB: nw(p33)=p22 KB: nw(p43)=p32
+KB: nw(p24)=p13 KB: nw(p34)=p23 KB: nw(p44)=p33
 
 
 Sort SHIP
 Name two, three -> SHIP
-Var s -> SHIP
-Fun xpos/1 -> X
-Fun ypos/1 -> Y
-Fun hori/1 -> BOOL
+Var x, y -> SHIP
+Fun head/1 -> POS
+Fun body/1 -> POS
+Fun tail/1 -> POS
+Fun water/1 -> BOOL
 
-Fun water/2 -> BOOL
+KB: s(head(two)) = body(two)
+KB: s(head(three)) = body(three)
+KB: s(body(three)) = tail(three)
 
-// The fields of a ship are no water.
-KB:                                                     water(            xpos(s),                  ypos(s)    ) /= T
-KB: hori(s)  = T                                     -> water(         ea(xpos(s)),                 ypos(s)    ) /= T
-KB: hori(s)  = T ^ s /= two                          -> water(      ea(ea(xpos(s))),                ypos(s)    ) /= T
-KB: hori(s) /= T                                     -> water(            xpos(s),               so(ypos(s))   ) /= T
-KB: hori(s) /= T ^ s /= two                          -> water(            xpos(s),            so(so(ypos(s)))  ) /= T
+KB: ~water(head(two))=T
+KB: ~water(tail(two))=T
 
-// // Around a ship there's only water.
-// KB: hori(s)  = T                                     -> water(                xpos(s)     , no(            ypos(s)     )) = T
-// KB: hori(s)  = T                                     -> water(                xpos(s)     , so(            ypos(s)     )) = T
-// KB: hori(s)  = T                                     -> water(             ea(xpos(s))    , no(            ypos(s)     )) = T
-// KB: hori(s)  = T                                     -> water(             ea(xpos(s))    , so(            ypos(s)     )) = T
-// KB: hori(s)  = T ^ s /= two                          -> water(          ea(ea(xpos(s)))   , no(            ypos(s)     )) = T
-// KB: hori(s)  = T ^ s /= two                          -> water(          ea(ea(xpos(s)))   , so(            ypos(s)     )) = T
-// KB: hori(s)  = T                                     -> water(             we(xpos(s))    ,                ypos(s)      ) = T
-// KB: hori(s)  = T ^ s = two                           -> water(          ea(ea(xpos(s)))   ,                ypos(s)      ) = T
-// KB: hori(s)  = T ^ s = three                         -> water(       ea(ea(ea(xpos(s))))  ,                ypos(s)      ) = T
-// 
-// // Around a ship there's only water.
-// KB: hori(s) /= T                                     -> water(we(            xpos(s)     ),                ypos(s)      ) = T
-// KB: hori(s) /= T                                     -> water(ea(            xpos(s)     ),                ypos(s)      ) = T
-// KB: hori(s) /= T                                     -> water(ea(            xpos(s)     ),             so(ypos(s))     ) = T
-// KB: hori(s) /= T                                     -> water(we(            xpos(s)     ),             so(ypos(s))     ) = T
-// KB: hori(s) /= T ^ s /= two                          -> water(ea(            xpos(s)     ),          so(so(ypos(s)))    ) = T
-// KB: hori(s) /= T ^ s /= two                          -> water(we(            xpos(s)     ),          so(so(ypos(s)))    ) = T
-// KB: hori(s) /= T                                     -> water(               xpos(s)      ,             no(ypos(s))     ) = T
-// KB: hori(s) /= T ^ s = two                           -> water(               xpos(s)      ,          so(so(ypos(s)))    ) = T
-// KB: hori(s) /= T ^ s = three                         -> water(               xpos(s)      ,       so(so(so(ypos(s))))   ) = T
+KB: ~water(head(three))=T
+KB: ~water(body(three))=T
+KB: ~water(tail(three))=T
+
+KB: water(n(head(two)))=T
+KB: water(ne(head(two)))=T
+KB: water(nw(head(two)))=T
+
+KB: water(s(tail(two)))=T
+KB: water(se(tail(two)))=T
+KB: water(sw(tail(two)))=T
+
+KB: water(n(head(three)))=T
+KB: water(ne(head(three)))=T
+KB: water(nw(head(three)))=T
+
+KB: water(e(body(three)))=T
+KB: water(w(body(three)))=T
+
+KB: water(s(tail(three)))=T
+KB: water(se(tail(three)))=T
+KB: water(sw(tail(three)))=T
 
 Call: bs_init()
-Call: bs_register_x(x0,x1,x2,x3)
-Call: bs_register_y(y0,y1,y2,y3)
+Call: bs_register_p(p11, p12, p13, p14,
+                    p21, p22, p23, p24,
+                    p31, p32, p33, p34,
+                    p41, p42, p43, p44)
 Call: bs_print()
+Call: bs_fire(p31)
+Call: bs_fire(p33)
+Call: bs_print()
+
+
+Query: K<1>  water(p31)=T
+Query: K<1> ~water(p31)=T
+Query: K<1>  water(p32)=T
+Query: K<1> ~water(p32)=T
+//Query: K<1>  water(p33)=T
+//Query: K<1> ~water(p33)=T
 Call: print()
 
-//While Ex s ((s = two v s = three v s = four v s = five) ^ ~Ex x Ex y K<0> (xpos(five) = x ^ ypos(five) = y))
-//Begin
-//  
-//End
-
-Call: bs_fire_random()
-Call: bs_print()
+// while Ex p (~K<1> water(p)=T ^ ~K<1> ~water(p)=T) {
+//     Call: bs_print()
+//     if Ex p K<1> ~water(p)=T {
+//         for P in p11, p12, p13, p14, p21, p22, p23, p24, p31, p32, p33, p34, p41, p42, p43, p44 {
+//             if K<1> water(P)=T {
+//                 Call: bs_fire(P)
+//             }
+//         }
+//     } else if Ex p (~K<1> ~water(p)=T ^ M<1> water(p)=T) {
+//         for P in p11, p12, p13, p14, p21, p22, p23, p24, p31, p32, p33, p34, p41, p42, p43, p44 {
+//             if K<1> water(P)=T {
+//                 Call: bs_fire(P)
+//             }
+//         }
+//     } else {
+//         Call: bs_fire_random()
+//     }
+//     Call: bs_print()
+// }
 

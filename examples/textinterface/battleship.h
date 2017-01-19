@@ -50,8 +50,8 @@ std::ostream& operator<<(std::ostream& os, const Point& p) {
 class BattleshipGame {
  public:
   BattleshipGame(size_t width, size_t height, const std::vector<size_t>& ships, size_t seed = 0) :
-      width_(std::max(width, height)),
-      height_(std::min(width, height)),
+      width_(width),
+      height_(height),
       seed_(seed),
       distribution_(0, n_fields() - 1) {
     fired_.resize(n_fields(), false);
@@ -127,13 +127,14 @@ class BattleshipGame {
     return fired(to_index(p));
   }
 
-  void Fire(const size_t index) {
+  bool Fire(const size_t index) {
     fired_[index] = true;
+    return ships_[index];
   }
 
-  void Fire(const Point p) {
+  bool Fire(const Point p) {
     assert(valid(p));
-    Fire(to_index(p));
+    return Fire(to_index(p));
   }
 
   size_t seed() const { return seed_; }
@@ -153,7 +154,7 @@ class BattleshipGame {
     bool hori;
     Point head;
 try_again:
-    hori = distribution_(generator_) % 2 == 0;
+    hori = false;// distribution_(generator_) % 2 == 0;
     ps.clear();
     for (size_t i = 0; i < n; ++i) {
       const size_t x0 = hori ? i : 0;
@@ -196,11 +197,11 @@ std::ostream& operator<<(std::ostream& os, const BattleshipGame& g) {
   const int width = 3;
   os << std::setw(width) << "";
   for (size_t x = 0; x < g.width(); ++x) {
-    os << std::setw(width) << x;
+    os << std::setw(width) << (x+1);
   }
   os << std::endl;
   for (size_t y = 0; y < g.height(); ++y) {
-    os << std::setw(width) << y;
+    os << std::setw(width) << (y+1);
     for (size_t x = 0; x < g.width(); ++x) {
       Point p(x, y);
       char label = ' ';

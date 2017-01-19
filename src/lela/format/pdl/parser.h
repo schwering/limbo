@@ -289,7 +289,7 @@ class Parser {
           if (f.arity() != 0) {
             return Error<Term>(LELA_MSG("Wrong number of arguments for "+ id));
           }
-          return Success(ctx->CreateTerm(f));
+          return Success(ctx->CreateTerm(f, {}));
         } else if (ctx->IsRegisteredMetaVariable(id)) {
           return Success(ctx->LookupMetaVariable(id));
         } else {
@@ -756,7 +756,10 @@ class Parser {
       } else if (r == is_assert) {
         return Success<>();
       } else {
-        return Error<>(LELA_MSG("Assertion/refutation failed"));
+        std::stringstream ss;
+        using lela::format::output::operator<<;
+        ss << (is_assert ? "Assertion" : "Refutation") << " of " << *alpha.val << " failed";
+        return Error<>(LELA_MSG(ss.str()));
       }
     });
   }
