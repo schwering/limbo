@@ -77,7 +77,7 @@ class KnowledgeBase {
   }
 
   sphere_index n_spheres() const { return spheres_.size(); }
-  Solver& sphere(sphere_index p) { return spheres_[p]; }
+  Solver* sphere(sphere_index p) { return &spheres_[p]; }
   const Solver& sphere(sphere_index p) const { return spheres_[p]; }
   const std::vector<Solver>& spheres() const { return spheres_; }
 

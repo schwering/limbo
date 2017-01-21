@@ -1,14 +1,28 @@
 // A 4x4-battleship game with a 3-ship and a 2-ship.
 
+Sort BOOL
+Name T -> BOOL
+
 Sort POS
-Name p00, p01, p02, p03, p04, p05,
-     p10, p11, p12, p13, p14, p15,
-     p20, p21, p22, p23, p24, p25,
-     p30, p31, p32, p33, p34, p35,
-     p40, p41, p42, p43, p44, p45,
-     p50, p51, p52, p53, p54, p55 -> POS
+Name p00, p10, p20, p30, p40, p50,
+     p01, p11, p21, p31, p41, p51,
+     p02, p12, p22, p32, p42, p52,
+     p03, p13, p23, p33, p43, p53,
+     p04, p14, p24, p34, p44, p54,
+     p05, p15, p25, p35, p45, p55 -> POS
 Var p, q -> POS
+Fun field/1 -> BOOL
 Fun n/1, e/1, s/1, w/1, ne/1, se/1, sw/1, nw/1 -> POS
+
+KB: p=p11 v p=p21 v p=p31 v p=p41 v
+    p=p12 v p=p22 v p=p32 v p=p42 v
+    p=p13 v p=p23 v p=p33 v p=p43 v
+    p=p14 v p=p24 v p=p34 v p=p44 v ~field(p)=T
+
+KB: field(p11)=T KB: field(p21)=T KB: field(p31)=T KB: field(p41)=T
+KB: field(p12)=T KB: field(p22)=T KB: field(p32)=T KB: field(p42)=T
+KB: field(p13)=T KB: field(p23)=T KB: field(p33)=T KB: field(p43)=T
+KB: field(p14)=T KB: field(p24)=T KB: field(p34)=T KB: field(p44)=T
 
 KB: n(p01)=p00 KB: n(p11)=p10 KB: n(p21)=p20 KB: n(p31)=p30 KB: n(p41)=p40 KB: n(p51)=p50 
 KB: n(p02)=p01 KB: n(p12)=p11 KB: n(p22)=p21 KB: n(p32)=p31 KB: n(p42)=p41 KB: n(p52)=p51 
@@ -67,10 +81,23 @@ Fun head/1 -> POS
 Fun body/1 -> POS
 Fun tail/1 -> POS
 
-Sort BOOL
-Name T -> BOOL
+Fun ship/1 -> BOOL
+Fun part/2 -> BOOL
 Fun water/1 -> BOOL
 Fun fired/1 -> BOOL
+
+//KB: ship(two)=T
+//KB: ship(three)=T
+//KB: x=two v ~x=three v ~ship(x)=T
+//
+//KB: part(two,head(two))=T
+//KB: part(two,tail(two))=T
+//KB: x=head(two) v x=tail(two) v ~part(two,x)=T
+//
+//KB: part(three,head(three))=T
+//KB: part(three,body(three))=T
+//KB: part(three,tail(three))=T
+//KB: x=head(three) v x=body(three) v x=tail(three) v ~part(three,x)=T
 
 KB: s(head(two))=body(two)
 KB: n(tail(two))=head(two)
@@ -105,10 +132,10 @@ KB: water(s(tail(three)))=T
 KB: water(se(tail(three)))=T
 KB: water(sw(tail(three)))=T
 
-KB: p=p11 v p=p12 v p=p13 v p=p14 v
-    p=p21 v p=p22 v p=p23 v p=p24 v
-    p=p31 v p=p32 v p=p33 v p=p34 v
-    p=p41 v p=p42 v p=p43 v p=p44 v
+KB: p=p11 v p=p21 v p=p31 v p=p41 v
+    p=p12 v p=p22 v p=p32 v p=p42 v
+    p=p13 v p=p23 v p=p33 v p=p43 v
+    p=p14 v p=p24 v p=p34 v p=p44 v
     water(p)=T
 // Is the next needed? Cf. 1x4.
 KB: head(two)=p v tail(two)=p v head(three)=p v body(three)=p v tail(three)=p v water(p)=T
@@ -118,30 +145,49 @@ Call: bs_init(p11, p12, p13, p14,
               p31, p32, p33, p34,
               p41, p42, p43, p44)
 
-while Ex p (~K<1> water(p)=T ^ ~K<1> ~water(p)=T) {
-    if Ex p (~K<0> fired(p)=T ^ K<2> ~water(p)=T) {
-        for P in p11, p12, p13, p14,
-                 p21, p22, p23, p24,
-                 p31, p32, p33, p34,
-                 p41, p42, p43, p44 {
-            if ~K<0> fired(P)=T ^ K<2> ~water(P)=T {
-                Call: bs_fire(P)
-                Call: print(P, p1)
-            }
-        }
-    } else if Ex p (K<1> ~fired(p)=T ^ ~K<1> ~water(p)=T ^ M<1> water(p)=T) {
-        for P in p11, p12, p13, p14,
-                 p21, p22, p23, p24,
-                 p31, p32, p33, p34,
-                 p41, p42, p43, p44 {
-            if ~K<0> fired(P)=T ^ ~K<1> ~water(P)=T ^ M<1> water(P)=T {
-                Call: bs_fire(P)
-                Call: print(P, p2)
-            }
-        }
-    } else {
-        Call: bs_fire_random()
-        Call: print(p00)
+
+// while Ex p (~K<1> water(p)=T ^ ~K<1> ~water(p)=T) {
+//     for P -> POS
+//         ~K<0> fired(P)=T ^ K<1> ~water(P)=T {
+//         Call: bs_fire(P)
+//         Call: print(P)
+//     }
+// 
+// //    } else if Ex p (K<1> ~fired(p)=T ^ ~K<1> ~water(p)=T ^ M<1> water(p)=T) {
+// //        for P in p1, p2, p3, p4 {
+// //            if ~K<0> fired(P)=T ^ ~K<1> ~water(P)=T ^ M<1> water(P)=T {
+// //                Call: bs_fire(P)
+// //                Call: print(P)
+// //            }
+// //        }
+// 
+//     if Ex p (~K<1> water(p)=T ^ ~K<1> ~water(p)=T) {
+//         if ~K<0> fired(p1)=T {
+//             Call: bs_fire(p1)
+//         } else if ~K<0> fired(p2)=T {
+//             Call: bs_fire(p2)
+//         } else if ~K<0> fired(p3)=T {
+//             Call: bs_fire(p3)
+//         } else if ~K<0> fired(p4)=T {
+//             Call: bs_fire(p4)
+//         }
+//     }
+//     Call: bs_print()
+// }
+
+while Ex p (~K<0> fired(p)=T ^ ~K<2> water(p)=T) {
+    for P in p11, p12, p13, p14,
+             p21, p22, p23, p24,
+             p31, p32, p33, p34,
+             p41, p42, p43, p44 -> POS    ~K<0> fired(P)=T ^ K<2> ~water(P)=T {
+        Call: bs_fire(P)
+        Call: print(P)
+    } else if P in p11, p12, p13, p14,
+                   p21, p22, p23, p24,
+                   p31, p32, p33, p34,
+                   p41, p42, p43, p44 -> POS   (~K<0> fired(P)=T ^ ~K<2> water(P)=T ^ ~K<2> ~water(P)=T) {
+        Call: bs_fire(P)
+        Call: print(P,P)
     }
     Call: bs_print()
 }

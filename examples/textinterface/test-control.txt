@@ -27,30 +27,34 @@ Else
     Refute: true
   End
 
-If false
-  Begin
-    Refute: true
-  End
-Else
-  Begin
-    Assert: true
-  End
+if false {
+  Refute: true
+} else {
+  Assert: true
+}
 
-If false
-  Begin
+if false {
     Refute: true
-  End
-Else If false
-  Begin
+} else if false {
     Assert: false
-  End
-Else
-  Begin
+} else {
     Assert: n = n
-  End
+}
 
-For X In n, m
-  Begin
-    Assert: X = X
-  End
+for X in n, m -> OBJ
+    true {
+  Assert: X = X
+}
+
+for Y in n -> OBJ
+    true {
+  Assert: Y = Y
+}
+
+KB: p(n)=T
+
+for Z in n,m -> OBJ
+    K<0> p(Z)=T {
+  Assert: Z = Z
+}
 

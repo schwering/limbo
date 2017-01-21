@@ -9,8 +9,8 @@ se (x,y) = (x+1,y+1)
 nw (x,y) = (x-1,y-1)
 sw (x,y) = (x-1,y+1)
 
-xrange = [0..5]
-yrange = [0..5]
+xrange = [1..4]
+yrange = [1..4]
 
 valid (x,y) = x `elem` xrange && y `elem` yrange
 

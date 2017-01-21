@@ -5,11 +5,14 @@ Var p, q -> POS
 Name p0, p1, p2, p3, p4, p5 -> POS
 Fun n/1, s/1 -> POS
 
-KB: n(p1)=p0
-KB: n(p2)=p1
-KB: n(p3)=p2
-KB: n(p4)=p3
-KB: n(p5)=p4
+KB:  n(p1)=p0
+KB:  n(p2)=p1
+KB:  n(p3)=p2
+KB:  n(p4)=p3
+KB:  n(p5)=p4
+
+// KB: ~n(p1)=p4
+// KB: ~s(p4)=p3
 
 KB: n(s(p))=p
 KB: s(n(p))=p
@@ -55,34 +58,16 @@ Assert: K<2> (head(three)=p v body(three)=p v tail(three)=p v water(p)=T)
 Call: bs_init(p1, p2, p3, p4)
 Call: bs_print()
 
-while Ex p (~K<1> water(p)=T ^ ~K<1> ~water(p)=T) {
-    if Ex p (~K<0> fired(p)=T ^ K<2> ~water(p)=T) {
-        for P in p1, p2, p3, p4 {
-            if ~K<0> fired(P)=T ^ K<2> ~water(P)=T {
-                Call: bs_fire(P)
-                Call: print(P, p1)
-            }
-        }
-    } else if Ex p (K<1> ~fired(p)=T ^ ~K<1> ~water(p)=T ^ M<1> water(p)=T) {
-        for P in p1, p2, p3, p4 {
-            if ~K<0> fired(P)=T ^ ~K<1> ~water(P)=T ^ M<1> water(P)=T {
-                Call: bs_fire(P)
-                Call: print(P, p2)
-            }
-        }
-    } else if ~K<0> fired(p1)=T {
-        Call: bs_fire(p1)
-        Call: print(p1)
-    } else if ~K<0> fired(p2)=T {
-        Call: bs_fire(p2)
-        Call: print(p2)
-    } else if ~K<0> fired(p3)=T {
-        Call: bs_fire(p3)
-        Call: print(p3)
-    } else if ~K<0> fired(p4)=T {
-        Call: bs_fire(p4)
-        Call: print(p4)
+
+while Ex p (~K<0> fired(p)=T ^ ~K<2> water(p)=T) {
+    for P -> POS    ~K<0> fired(P)=T ^ K<2> ~water(P)=T {
+        Call: bs_fire(P)
+        Call: print(P)
+    } else if P -> POS   (~K<0> fired(P)=T ^ ~K<2> water(P)=T ^ ~K<2> ~water(P)=T) {
+       Call: bs_fire(P)
+       Call: print(P,P)
     }
     Call: bs_print()
 }
+
 

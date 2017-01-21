@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <lela/formula.h>
+#include <lela/grounder.h>
 #include <lela/setup.h>
 #include <lela/format/output.h>
 #include <lela/format/pdl/lexer.h>
@@ -221,7 +222,7 @@ class Parser {
                 return Error<>(LELA_MSG("Term "+ id +" is already registered"));
               }
             } else {
-              return Error<>(LELA_MSG("Sort "+ sort +" is already registered"));
+              return Error<>(LELA_MSG("Sort "+ sort +" is not registered"));
             }
           };
         }
@@ -260,7 +261,7 @@ class Parser {
                 return Error<>(LELA_MSG("Term "+ id +" is already registered"));
               }
             } else {
-              return Error<>(LELA_MSG("Sort "+ sort +" is already registered"));
+              return Error<>(LELA_MSG("Sort "+ sort +" is not registered"));
             }
           };
         }
@@ -764,12 +765,73 @@ class Parser {
     });
   }
 
+  typedef std::pair<std::string, std::vector<Term>> IdTerms;
+
+  // bind_meta_variables --> [ identifier [ in term [, term]* ] -> sort-id ]?
+  Result<Action<IdTerms>> bind_meta_variables() {
+    if (!Is(Tok(0), Token::kIdentifier) ||
+        !(Is(Tok(1), Token::kIn) || Is(Tok(1), Token::kRArrow))) {
+      return Success<Action<IdTerms>>([](Context* ctx) {
+        return Success<IdTerms>();
+      });
+    }
+    const std::string id = Tok().val.str();
+    Advance();
+    std::vector<Action<Term>> ts;
+    if (Is(Tok(), Token::kIn)) {
+      do {
+        Advance();
+        Result<Action<Term>> t = term();
+        if (!t) {
+          return Error<Action<IdTerms>>(LELA_MSG("Expected argument term"), t);
+        }
+        ts.push_back(std::move(t.val));
+      } while (Is(Tok(), Token::kComma));
+    }
+    if (!Is(Tok(), Token::kRArrow)) {
+      return Error<Action<IdTerms>>(LELA_MSG("Expected right arrow '->'"));
+    }
+    Advance();
+    if (!Is(Tok(), Token::kIdentifier)) {
+      return Error<Action<IdTerms>>(LELA_MSG("Expected sort identifier"));
+    }
+    const std::string sort = Tok().val.str();
+    Advance();
+    return Success<Action<IdTerms>>([this, id, sort_id = sort, ts_a = ts](Context* ctx) {
+      if (!ctx->IsRegisteredSort(sort_id)) {
+        return Error<IdTerms>(LELA_MSG("Sort "+ sort_id +" is not registered"));
+      }
+      Symbol::Sort sort = ctx->LookupSort(sort_id);
+      std::vector<Term> ts;
+      if (ts_a.empty()) {
+        Grounder::TermSet tss = ctx->kb()->sphere(0)->grounder()->Names()[sort];
+        ts.insert(ts.end(), tss.begin(), tss.end());
+      } else {
+        for (const Action<Term>& t_a : ts_a) {
+          Result<Term> t = t_a.Run(ctx);
+          if (!t) {
+            return Error<IdTerms>(LELA_MSG("Expected term in range"), t);
+          }
+          if (t.val.sort() != sort) {
+            return Error<IdTerms>(LELA_MSG("Term in range is not of sort "+ sort_id));
+          }
+          ts.push_back(t.val);
+        }
+      }
+      return Success<IdTerms>(std::make_pair(id, ts));
+    });
+  }
+
   // if_else --> If formula block [ Else block ]
   Result<Action<>> if_else() {
     if (!Is(Tok(), Token::kIf)) {
       return Unapplicable<Action<>>(LELA_MSG("Expected 'If'"));
     }
     Advance();
+    Result<Action<IdTerms>> bind = bind_meta_variables();
+    if (!bind) {
+      return Error<Action<>>(LELA_MSG("Expected bind_meta_variables"), bind);
+    }
     Result<Action<Formula::Ref>> alpha = formula();
     if (!alpha) {
       return Error<Action<>>(LELA_MSG("Expected formula in if_else"), alpha);
@@ -788,13 +850,41 @@ class Parser {
     } else {
       else_block = Success<Action<>>([](Context* ctx) { return Success<>(); });
     }
-    return Success<Action<>>([this, alpha_a = alpha.val, if_block_a = if_block.val,
+    return Success<Action<>>([this, bind_a = bind.val, alpha_a = alpha.val, if_block_a = if_block.val,
                               else_block_a = else_block.val](Context* ctx) {
-      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
-      if (!alpha) {
-        return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+      Result<IdTerms> bind = bind_a.Run(ctx);
+      const std::string id = bind.val.first;
+      bool cond;
+      if (!id.empty()) {
+        cond = false;
+        for (Term t : bind.val.second) {
+          ctx->RegisterMetaVariable(id, t);
+          Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+          if (!alpha) {
+            return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+          }
+          if (ctx->Query(*alpha.val)) {
+            cond = true;
+            break;
+          }
+          ctx->UnregisterMetaVariable(id);
+        }
+      } else {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+        if (!alpha) {
+          return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+        }
+        cond = ctx->Query(*alpha.val);
       }
-      Result<> r = ctx->Query(*alpha.val) ? if_block_a.Run(ctx) : else_block_a.Run(ctx);
+      Result<> r;
+      if (cond) {
+        r = if_block_a.Run(ctx);
+        if (!id.empty()) {
+          ctx->UnregisterMetaVariable(id);
+        }
+      } else {
+        r = else_block_a.Run(ctx);
+      }
       if (!r) {
         return Error<>(LELA_MSG("Expected block in if_else"), r);
       }
@@ -802,27 +892,77 @@ class Parser {
     });
   }
 
-  // while_loop --> While formula block
+  // while_loop --> While formula block [ Else block ]
   Result<Action<>> while_loop() {
     if (!Is(Tok(), Token::kWhile)) {
       return Unapplicable<Action<>>(LELA_MSG("Expected 'While'"));
     }
     Advance();
+    Result<Action<IdTerms>> bind = bind_meta_variables();
+    if (!bind) {
+      return Error<Action<>>(LELA_MSG("Expected bind_meta_variables"), bind);
+    }
     Result<Action<Formula::Ref>> alpha = formula();
     if (!alpha) {
       return Error<Action<>>(LELA_MSG("Expected formula in while_loop"), alpha);
     }
     Result<Action<>> while_block = block();
     if (!while_block) {
-      return Error<Action<>>(LELA_MSG("Expected block in while_loop"), while_block);
+      return Error<Action<>>(LELA_MSG("Expected if block in while_else"), while_block);
     }
-    return Success<Action<>>([this, alpha_a = alpha.val, while_block_a = while_block.val](Context* ctx) {
-      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
-      if (!alpha) {
-        return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+    Result<Action<>> else_block;
+    if (Is(Tok(), Token::kElse)) {
+      Advance();
+      else_block = block();
+      if (!else_block) {
+        return Error<Action<>>(LELA_MSG("Expected else block in while_loop"), else_block);
       }
-      while (ctx->Query(*alpha.val)) {
-        Result<> r = while_block_a.Run(ctx);
+    } else {
+      else_block = Success<Action<>>([](Context* ctx) { return Success<>(); });
+    }
+    return Success<Action<>>([this, bind_a = bind.val, alpha_a = alpha.val, while_block_a = while_block.val,
+                              else_block_a = else_block.val](Context* ctx) {
+      Result<IdTerms> bind = bind_a.Run(ctx);
+      const std::string id = bind.val.first;
+      bool once = false;
+      for (;;) {
+        bool cond;
+        if (!id.empty()) {
+          cond = false;
+          for (Term t : bind.val.second) {
+            ctx->RegisterMetaVariable(id, t);
+            Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+            if (!alpha) {
+              return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+            }
+            if (ctx->Query(*alpha.val)) {
+              cond = true;
+              break;
+            }
+            ctx->UnregisterMetaVariable(id);
+          }
+        } else {
+          Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+          if (!alpha) {
+            return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+          }
+          cond = ctx->Query(*alpha.val);
+        }
+        if (cond) {
+          once = true;
+          Result<> r = while_block_a.Run(ctx);
+          if (!id.empty()) {
+            ctx->UnregisterMetaVariable(id);
+          }
+          if (!r) {
+            return Error<>(LELA_MSG("Expected block in while_loop"), r);
+          }
+        } else {
+          break;
+        }
+      }
+      if (!once) {
+        Result<> r = else_block_a.Run(ctx);
         if (!r) {
           return Error<>(LELA_MSG("Expected block in while_loop"), r);
         }
@@ -831,52 +971,63 @@ class Parser {
     });
   }
 
-  // for_loop --> While formula block
+  // for_loop --> For formula block [ Else block ]
   Result<Action<>> for_loop() {
     if (!Is(Tok(), Token::kFor)) {
       return Unapplicable<Action<>>(LELA_MSG("Expected 'For'"));
     }
     Advance();
-    if (!Is(Tok(), Token::kIdentifier)) {
-      return Error<Action<>>(LELA_MSG("Expected meta variable in for_loop"));
+    Result<Action<IdTerms>> bind = bind_meta_variables();
+    if (!bind) {
+      return Error<Action<>>(LELA_MSG("Expected bind_meta_variables"), bind);
     }
-    const std::string id = Tok().val.str();
-    Advance();
-    if (!Is(Tok(), Token::kIn)) {
-      return Error<Action<>>(LELA_MSG("Expected 'In'"));
+    Result<Action<Formula::Ref>> alpha = formula();
+    if (!alpha) {
+      return Error<Action<>>(LELA_MSG("Expected formula in for_loop"), alpha);
     }
-    std::vector<Action<Term>> ts;
-    do {
-      Advance();
-      Result<Action<Term>> t = term();
-      if (!t) {
-        return Error<Action<>>(LELA_MSG("Expected argument term"), t);
-      }
-      ts.push_back(std::move(t.val));
-    } while (Is(Tok(), Token::kComma));
     Result<Action<>> for_block = block();
     if (!for_block) {
-      return Error<Action<>>(LELA_MSG("Expected block in for_loop"), for_block);
+      return Error<Action<>>(LELA_MSG("Expected if block in for_else"), for_block);
     }
-    return Success<Action<>>([this, id, ts_as = ts, for_block_a = for_block.val](Context* ctx) {
-      if (ctx->IsRegisteredTerm(id)) {
-        return Error<>(LELA_MSG("Term "+ id +" is already registered"));
+    Result<Action<>> else_block;
+    if (Is(Tok(), Token::kElse)) {
+      Advance();
+      else_block = block();
+      if (!else_block) {
+        return Error<Action<>>(LELA_MSG("Expected else block in for_loop"), else_block);
       }
-      std::vector<Term> ts;
-      for (const Action<Term>& t_a : ts_as) {
-        Result<Term> t = t_a.Run(ctx);
-        if (!t) {
-          return Error<>(LELA_MSG("Expected for_loop term"), t);
-        }
-        ts.push_back(t.val);
+    } else {
+      else_block = Success<Action<>>([](Context* ctx) { return Success<>(); });
+    }
+    return Success<Action<>>([this, bind_a = bind.val, alpha_a = alpha.val, for_block_a = for_block.val,
+                             else_block_a = else_block.val](Context* ctx) {
+      Result<IdTerms> bind = bind_a.Run(ctx);
+      const std::string id = bind.val.first;
+      if (id.empty()) {
+        return Error<>(LELA_MSG("Expected meta variable id"));
       }
-      for (Term t : ts) {
+      bool once = false;
+      for (Term t : bind.val.second) {
         ctx->RegisterMetaVariable(id, t);
-        Result<> r = for_block_a.Run(ctx);
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+        if (!alpha) {
+          return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+        }
+        if (ctx->Query(*alpha.val)) {
+          once = true;
+          Result<> r = for_block_a.Run(ctx);
+          if (!r) {
+            ctx->UnregisterMetaVariable(id);
+            return Error<>(LELA_MSG("Expected block in for_loop"), r);
+          }
+        }
+        ctx->UnregisterMetaVariable(id);
+      }
+      if (!once) {
+        Result<> r = else_block_a.Run(ctx);
         if (!r) {
           return Error<>(LELA_MSG("Expected block in for_loop"), r);
         }
-        ctx->UnregisterMetaVariable(id);
       }
       return Success<>();
     });

@@ -119,13 +119,9 @@ struct Logger : public lela::format::pdl::DefaultLogger {
 struct Callback : public lela::format::pdl::DefaultCallback {
   template<typename T>
   void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
-    using lela::format::output::operator<<;
-    std::cerr << "Calling " << proc;
-    lela::format::output::print_range(std::cerr, args, "(", ")", ",");
-    std::cerr << std::endl;
     if (proc == "print_kb") {
       for (lela::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
-        std::cout << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p).setup() << std::endl;
+        std::cout << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p)->setup() << std::endl;
       }
     } else if (proc == "print") {
       lela::format::output::print_range(std::cout, args, "", "", " ");

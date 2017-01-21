@@ -178,7 +178,7 @@ struct PrintSymbolComparator {
 struct PrintTermComparator {
   typedef Term value_type;
 
-  bool operator()(Term t1, Term t2) const;
+  inline bool operator()(Term t1, Term t2) const;
 };
 
 inline bool PrintTermComparator::operator()(Term t1, Term t2) const {
