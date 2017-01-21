@@ -102,13 +102,18 @@ Also have a look at the <a href="../minesweeper/" target="_blank">the other demo
 <p>
 Load an example:
 <select id="examples">
-<option id="example-sonny" value="example-father-of-sonny.txt">Example: Unknown Father</option>
-<option id="example-siblings" value="example-siblings.txt">Example: Siblings</option>
-<option id="example-veggie" value="example-veggie.txt">Example: Veggie</option>
-<option id="example-propositions" value="test-propositions.txt">Test: Propositions</option>
-<option id="example-functions" value="test-functions.txt">Test: Constants</option>
-<option id="example-introspection" value="test-introspection.txt">Test: Introspection</option>
-<option id="example-none" value="" style="color: #666;">none</option>
+<option value="example-father-of-sonny">Example: Unknown Father</option>
+<option value="example-siblings">Example: Siblings</option>
+<option value="example-veggie">Example: Veggie</option>
+<option value="example-battleship-1x4">Example: Battleship 1x4</option>
+<option value="example-battleship-4x4">Example: Battleship 4x4</option>
+<option value="test-propositions">Test: Propositions</option>
+<option value="test-functions">Test: Constants</option>
+<option value="test-introspection">Test: Introspection</option>
+<option value="test-introspection-2">Test: Introspection 2</option>
+<option value="test-battleship-1x4">Test: Battleship 1x4</option>
+<option value="test-control">Test: Control</option>
+<option value="" style="color: #666;">none</option>
 </select> <br />
 If you like, you can edit the text. For help on the syntax, see <a href="#syntax">below</a>.
 </p>
@@ -126,9 +131,8 @@ $(document).ready(function() {
     
     var select_ex = getParameterByName('ex');
     if (select_ex) {
-        select_ex = 'example-' + select_ex;
-        $('#examples option').filter(function(){
-            return this.id === select_ex
+        $('#examples option').filter(function() {
+            return $(this).val.indexOf(select_ex) != -1;
         }).prop('selected', true);
     }
 
@@ -138,7 +142,7 @@ $(document).ready(function() {
         $('#examples option:selected').each(function() { file = $(this).val(); });
         if (file) {
             $.ajax({
-                url : file,
+                url : file + '.lela',
                 dataType: 'text',
                 success: function(data) {
                     $('#parse-text').val(data.trim());

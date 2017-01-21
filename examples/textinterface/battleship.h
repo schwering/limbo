@@ -219,5 +219,62 @@ std::ostream& operator<<(std::ostream& os, const BattleshipGame& g) {
   return os;
 }
 
+struct BattleshipCallbacks {
+  template<typename T>
+  bool operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
+    if (proc == "bs_init" && !bs_) {
+      if (args.size() == 4) {
+        bs_ = std::make_shared<BattleshipGame>(1, 4, std::vector<size_t>{0, 0, 1});
+      } else if (args.size() == 4*4) {
+        bs_ = std::make_shared<BattleshipGame>(4, 4, std::vector<size_t>{0, 1, 1});
+      }
+      ps_ = args;
+    } else if (bs_ && proc == "bs_print") {
+      std::cout << *bs_ << std::endl;
+    } else if (bs_ && proc == "bs_fire" && args.size() == 1) {
+      Fire(ctx, Lookup(args[0]));
+    } else if (bs_ && proc == "bs_fire_random") {
+      for (;;) {
+        const Point p = bs_->RandomPoint();
+        if (!bs_->fired(p)) {
+          Fire(ctx, bs_->RandomPoint());
+          break;
+        }
+      }
+    } else {
+      return false;
+    }
+    return true;
+  }
+
+ private:
+  template<typename T>
+  void Fire(T* ctx, Point p) {
+    const lela::Term t = Lookup(p);
+    const bool is_water = !bs_->Fire(p);
+    const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {t});
+    const lela::Term Fired = ctx->CreateTerm(ctx->LookupFunction("fired"), {t});
+    const lela::Term True = ctx->LookupName("T");
+    ctx->kb()->Add(lela::Clause{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)});
+    ctx->kb()->Add(lela::Clause{lela::Literal::Eq(Fired, True)});
+  }
+
+  Point Lookup(lela::Term t) {
+    for (size_t i = 0; i < ps_.size(); ++i) {
+      if (ps_[i] == t) {
+        return bs_->to_point(i);
+      }
+    }
+    throw;
+  }
+
+  lela::Term Lookup(Point p) {
+    return ps_[bs_->to_index(p)];
+  }
+
+  std::shared_ptr<BattleshipGame> bs_;
+  std::vector<lela::Term> ps_;
+};
+
 #endif  // EXAMPLES_MINESWEEPER_GAME_H_
 

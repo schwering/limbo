@@ -126,63 +126,17 @@ struct Callback : public lela::format::pdl::DefaultCallback {
     } else if (proc == "print") {
       lela::format::output::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
-    } else if (proc == "bs_init" && !bs_) {
-      if (args.size() == 4) {
-        bs_ = std::make_shared<BattleshipGame>(1, 4, std::vector<size_t>{0, 0, 1});
-      } else if (args.size() == 4*4) {
-        bs_ = std::make_shared<BattleshipGame>(4, 4, std::vector<size_t>{0, 1, 1});
-      }
-      ps_ = args;
-    } else if (bs_ && proc == "bs_print") {
-      std::cout << *bs_ << std::endl;
-    } else if (bs_ && proc == "bs_fire" && args.size() == 1) {
-      Fire(ctx, Lookup(args[0]));
-    } else if (bs_ && proc == "bs_fire_random") {
-      for (;;) {
-        const Point p = bs_->RandomPoint();
-        if (!bs_->fired(p)) {
-          Fire(ctx, bs_->RandomPoint());
-          break;
-        }
-      }
+    } else if (bs_(ctx, proc, args)) {
+      // it's a call for Battleship
     } else {
       std::cerr << "Calling " << proc;
       lela::format::output::print_range(std::cerr, args, "(", ")", ",");
       std::cerr << " failed" << std::endl;
-      std::cerr << args.size() << std::endl;
-      std::cerr << bs_->n_fields() << std::endl;
     }
   }
 
  private:
-  template<typename T>
-  void Fire(T* ctx, Point p) {
-    const lela::Term t = Lookup(p);
-    const bool is_water = !bs_->Fire(p);
-    const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {t});
-    const lela::Term Fired = ctx->CreateTerm(ctx->LookupFunction("fired"), {t});
-    const lela::Term True = ctx->LookupName("T");
-    ctx->kb()->Add(lela::Clause{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)});
-    ctx->kb()->Add(lela::Clause{lela::Literal::Eq(Fired, True)});
-  }
-
-  Point Lookup(lela::Term t) {
-    for (size_t i = 0; i < ps_.size(); ++i) {
-      if (ps_[i] == t) {
-        return bs_->to_point(i);
-      }
-    }
-    throw;
-  }
-
-  lela::Term Lookup(Point p) {
-    return ps_[bs_->to_index(p)];
-  }
-
-  std::shared_ptr<BattleshipGame> bs_;
-//  std::vector<lela::Term> xs_;
-//  std::vector<lela::Term> ys_;
-  std::vector<lela::Term> ps_;
+  BattleshipCallbacks bs_;
 };
 
 int main(int argc, char** argv) {
