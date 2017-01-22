@@ -18,6 +18,7 @@
 #include <lela/format/pdl/parser.h>
 
 #include "battleship.h"
+#include "sudoku.h"
 
 using lela::format::output::operator<<;
 
@@ -126,8 +127,14 @@ struct Callback : public lela::format::pdl::DefaultCallback {
     } else if (proc == "print") {
       lela::format::output::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
+    } else if (proc == "guarantee_consistency") {
+      ctx->assume_consistent(true);
+    } else if (proc == "unguarantee_consistency") {
+      ctx->assume_consistent(false);
     } else if (bs_(ctx, proc, args)) {
       // it's a call for Battleship
+    } else if (su_(ctx, proc, args)) {
+      // it's a call for Sudoku
     } else {
       std::cerr << "Calling " << proc;
       lela::format::output::print_range(std::cerr, args, "(", ")", ",");
@@ -137,6 +144,7 @@ struct Callback : public lela::format::pdl::DefaultCallback {
 
  private:
   BattleshipCallbacks bs_;
+  SudokuCallbacks su_;
 };
 
 int main(int argc, char** argv) {

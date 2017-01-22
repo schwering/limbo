@@ -1,0 +1,275 @@
+Sort BOOL
+Name T -> BOOL
+
+Sort NAME
+Name n1, n2, n3, n4, n5, n6, n7, n8, n9 -> NAME
+Var n, x, y -> NAME
+
+// val(x,y)=n is the number at a coordinate.
+Fun val/2 -> NAME
+
+Let true := n1=n1
+
+for X in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  true
+    for Y in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  true
+        for Y' in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  Y/=Y'
+            KB: ~val(X,Y)=val(X,Y')
+
+for Y in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  true
+    for X in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  true
+        for X' in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  X/=X'
+            KB: ~val(X,Y)=val(X',Y)
+
+for X in n1,n2,n3 -> NAME  true
+    for X' in n1,n2,n3 -> NAME  X/=X' {
+        for Y in n1,n2,n3 -> NAME  true
+            for Y' in n1,n2,n3 -> NAME  Y/=Y'
+                KB: ~val(X,Y)=val(X',Y')
+        for Y in n4,n5,n6 -> NAME  true
+            for Y' in n4,n5,n6 -> NAME  Y/=Y'
+                KB: ~val(X,Y)=val(X',Y')
+        for Y in n7,n8,n9 -> NAME  true
+            for Y' in n7,n8,n9 -> NAME  Y/=Y'
+                KB: ~val(X,Y)=val(X',Y')
+    }
+for X in n4,n5,n6 -> NAME  true
+    for X' in n4,n5,n6 -> NAME  X/=X' {
+        for Y in n1,n2,n3 -> NAME  true
+            for Y' in n1,n2,n3 -> NAME  Y/=Y'
+                KB: ~val(X,Y)=val(X',Y')
+        for Y in n4,n5,n6 -> NAME  true
+            for Y' in n4,n5,n6 -> NAME  Y/=Y'
+                KB: ~val(X,Y)=val(X',Y')
+        for Y in n7,n8,n9 -> NAME  true
+            for Y' in n7,n8,n9 -> NAME  Y/=Y'
+                KB: ~val(X,Y)=val(X',Y')
+    }
+for X in n7,n8,n9 -> NAME  true
+    for X' in n7,n8,n9 -> NAME  X/=X' {
+        for Y in n1,n2,n3 -> NAME  true
+            for Y' in n1,n2,n3 -> NAME  Y/=Y'
+                KB: ~val(X,Y)=val(X',Y')
+        for Y in n4,n5,n6 -> NAME  true
+            for Y' in n4,n5,n6 -> NAME  Y/=Y'
+                KB: ~val(X,Y)=val(X',Y')
+        for Y in n7,n8,n9 -> NAME  true
+            for Y' in n7,n8,n9 -> NAME  Y/=Y'
+                KB: ~val(X,Y)=val(X',Y')
+    }
+
+KB: val(x,y)=n1 v val(x,y)=n2 v val(x,y)=n3 v
+    val(x,y)=n4 v val(x,y)=n5 v val(x,y)=n6 v
+    val(x,y)=n7 v val(x,y)=n8 v val(x,y)=n9
+
+// A Sudoku game from Wikipedia article:
+// KB: val(n1,n1)=n5
+// KB: val(n1,n2)=n6
+// KB: val(n1,n4)=n8
+// KB: val(n1,n5)=n4
+// KB: val(n1,n6)=n7
+// KB: val(n2,n1)=n3
+// KB: val(n2,n3)=n9
+// KB: val(n2,n7)=n6
+// KB: val(n3,n3)=n8
+// KB: val(n4,n2)=n1
+// KB: val(n4,n5)=n8
+// KB: val(n4,n8)=n4
+// KB: val(n5,n1)=n7
+// KB: val(n5,n2)=n9
+// KB: val(n5,n4)=n6
+// KB: val(n5,n6)=n2
+// KB: val(n5,n8)=n1
+// KB: val(n5,n9)=n8
+// KB: val(n6,n2)=n5
+// KB: val(n6,n5)=n3
+// KB: val(n6,n8)=n9
+// KB: val(n7,n7)=n2
+// KB: val(n8,n3)=n6
+// KB: val(n8,n7)=n8
+// KB: val(n8,n9)=n7
+// KB: val(n9,n4)=n3
+// KB: val(n9,n5)=n1
+// KB: val(n9,n6)=n6
+// KB: val(n9,n8)=n5
+// KB: val(n9,n9)=n9
+
+// Sudoku from http://mathoverflow.net/questions/27361/do-actual-sudoku-puzzles-have-a-unique-rational-solution
+// KB: val(n1,n1)=n3
+// KB: val(n1,n2)=n6
+// KB: val(n1,n3)=n4
+// KB: val(n1,n4)=n7
+// KB: val(n1,n5)=n8
+// KB: val(n1,n6)=n5
+// KB: val(n1,n7)=n1
+// KB: val(n1,n8)=n9
+// KB: val(n1,n9)=n2
+// KB: val(n2,n1)=n7
+// KB: val(n2,n2)=n9
+// KB: val(n2,n5)=n4
+// KB: val(n2,n6)=n3
+// KB: val(n2,n7)=n6
+// KB: val(n2,n8)=n8
+// KB: val(n2,n9)=n5
+// KB: val(n3,n1)=n8
+// KB: val(n3,n3)=n5
+// KB: val(n3,n4)=n9
+// KB: val(n3,n6)=n6
+// KB: val(n3,n7)=n3
+// KB: val(n3,n8)=n4
+// KB: val(n3,n9)=n7
+// KB: val(n4,n1)=n6
+// KB: val(n4,n3)=n9
+// KB: val(n4,n4)=n5
+// KB: val(n4,n5)=n7
+// KB: val(n4,n6)=n8
+// KB: val(n4,n7)=n2
+// KB: val(n4,n9)=n4
+// KB: val(n5,n1)=n4
+// KB: val(n5,n2)=n7
+// KB: val(n5,n4)=n3
+// KB: val(n5,n6)=n9
+// KB: val(n5,n7)=n5
+// KB: val(n5,n9)=n8
+// KB: val(n6,n1)=n5
+// KB: val(n6,n3)=n8
+// KB: val(n6,n6)=n4
+// KB: val(n6,n7)=n7
+// KB: val(n6,n9)=n9
+// KB: val(n7,n1)=n1
+// KB: val(n7,n2)=n4
+// KB: val(n7,n3)=n3
+// KB: val(n7,n4)=n8
+// KB: val(n7,n5)=n5
+// KB: val(n7,n6)=n2
+// KB: val(n7,n7)=n9
+// KB: val(n7,n8)=n7
+// KB: val(n7,n9)=n6
+// KB: val(n8,n1)=n2
+// KB: val(n8,n2)=n8
+// KB: val(n8,n3)=n7
+// KB: val(n8,n4)=n6
+// KB: val(n8,n5)=n9
+// KB: val(n8,n6)=n1
+// KB: val(n8,n7)=n4
+// KB: val(n8,n8)=n5
+// KB: val(n8,n9)=n3
+// KB: val(n9,n1)=n9
+// KB: val(n9,n2)=n5
+// KB: val(n9,n3)=n6
+// KB: val(n9,n4)=n4
+// KB: val(n9,n5)=n3
+// KB: val(n9,n6)=n7
+// KB: val(n9,n7)=n8
+// KB: val(n9,n8)=n2
+// KB: val(n9,n9)=n1
+
+// Sudoku from http://mathoverflow.net/questions/27361/do-actual-sudoku-puzzles-have-a-unique-rational-solution
+// KB: val(n1,n1)=n1
+// KB: val(n1,n5)=n6
+// KB: val(n2,n2)=n5
+// KB: val(n2,n3)=n6
+// KB: val(n2,n6)=n4
+// KB: val(n2,n8)=n1
+// KB: val(n3,n4)=n2
+// KB: val(n3,n8)=n3
+// KB: val(n3,n9)=n7
+// KB: val(n4,n1)=n8
+// KB: val(n4,n2)=n6
+// KB: val(n4,n5)=n4
+// KB: val(n4,n9)=n5
+// KB: val(n5,n3)=n4
+// KB: val(n5,n7)=n1
+// KB: val(n6,n1)=n7
+// KB: val(n6,n5)=n3
+// KB: val(n6,n8)=n6
+// KB: val(n6,n9)=n4
+// KB: val(n7,n1)=n5
+// KB: val(n7,n2)=n9
+// KB: val(n7,n6)=n1
+// KB: val(n8,n2)=n7
+// KB: val(n8,n4)=n6
+// KB: val(n8,n7)=n5
+// KB: val(n8,n8)=n9
+// KB: val(n9,n9)=n1
+
+// Sudoku from a database:
+// KB: val(n1,n5)=n5
+// KB: val(n1,n6)=n1
+// KB: val(n2,n9)=n9
+// KB: val(n3,n1)=n1
+// KB: val(n3,n3)=n6
+// KB: val(n3,n8)=n2
+// KB: val(n4,n1)=n9
+// KB: val(n4,n2)=n4
+// KB: val(n4,n4)=n3
+// KB: val(n4,n7)=n2
+// KB: val(n5,n5)=n9
+// KB: val(n5,n6)=n7
+// KB: val(n6,n5)=n2
+// KB: val(n6,n8)=n7
+// KB: val(n7,n1)=n3
+// KB: val(n7,n2)=n8
+// KB: val(n7,n5)=n6
+// KB: val(n8,n1)=n4
+// KB: val(n8,n4)=n9
+// KB: val(n8,n9)=n6
+// KB: val(n9,n1)=n6
+// KB: val(n9,n3)=n1
+// KB: val(n9,n4)=n4
+// KB: val(n9,n5)=n8
+// KB: val(n9,n9)=n5
+
+// Sudoku Top 1465 Number 77
+KB: val(n1,n1)=n7
+KB: val(n2,n2)=n2
+KB: val(n2,n5)=n6
+KB: val(n2,n8)=n3
+KB: val(n3,n3)=n3
+KB: val(n3,n6)=n1
+KB: val(n3,n9)=n9
+KB: val(n4,n4)=n5
+KB: val(n4,n7)=n3
+KB: val(n5,n2)=n7
+KB: val(n5,n5)=n2
+KB: val(n5,n8)=n4
+KB: val(n6,n3)=n8
+KB: val(n6,n6)=n7
+KB: val(n6,n9)=n1
+KB: val(n7,n1)=n4
+KB: val(n7,n4)=n3
+KB: val(n7,n7)=n9
+KB: val(n8,n2)=n8
+KB: val(n8,n5)=n9
+KB: val(n8,n8)=n6
+KB: val(n9,n3)=n9
+KB: val(n9,n6)=n6
+KB: val(n9,n9)=n5
+
+Call: print_kb()
+
+Call: su_init(n1,n2,n3,n4,n5,n6,n7,n8,n9)
+Call: su_print()
+
+while Ex x Ex y Fa n ~K<0> val(x,y)=n {
+    for X in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  true {
+        for Y in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  Fa n ~K<0> val(X,Y)=n {
+            if N in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  K<1> val(X,Y)=N {
+                Call: print(X,Y,N)
+                KB: val(X,Y)=N
+                Call: su_print()
+            }
+        }
+    }
+    Call: su_print()
+    for X in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  true {
+        for Y in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  Fa n ~K<0> val(X,Y)=n {
+            if N in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  K<2> val(X,Y)=N {
+                Call: print(X,Y,N)
+                KB: val(X,Y)=N
+                Call: su_print()
+            }
+        }
+    }
+    Call: su_print()
+}
+

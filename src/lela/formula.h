@@ -35,11 +35,11 @@ class Formula {
 
   class Factory {
    public:
-    Factory() = default;
+    Factory() = delete;
     Factory(const Factory&) = delete;
     Factory& operator=(const Factory&) = delete;
-    Factory(Factory&&) = default;
-    Factory& operator=(Factory&&) = default;
+    Factory(Factory&&) = delete;
+    Factory& operator=(Factory&&) = delete;
 
     inline static Ref Atomic(const Clause& c);
     inline static Ref Not(Ref alpha);
