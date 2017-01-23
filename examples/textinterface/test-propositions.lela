@@ -1,0 +1,28 @@
+// Simulate propositions with boolean functions.
+
+Sort BOOL
+
+Name T -> BOOL
+Fun p/0 -> BOOL
+Fun q/0 -> BOOL
+
+Let P := p == T
+Let Q := q == T
+// Now we can use P and Q like propositional atoms in our query.
+
+Refute: Know<2> !P
+Refute: Know<2> P
+Assert: Know<1> (P || !P)
+Refute: Know<0> (P || !P)
+
+Let phi := (P || !P) && (Q || !Q)
+Assert: Know<1> phi // because the conjunction is resolved before splitting
+Assert: Know<2> phi
+
+Let phi := P &&  Q ||
+           P && !Q ||
+          !P &&  Q ||
+          !P && !Q
+Refute: Know<1> phi
+Assert: Know<2> phi
+

@@ -1,0 +1,32 @@
+// Tests introspection with KB: p(c).
+
+Sort OBJ
+Var x -> OBJ
+Name n -> OBJ
+Fun c/0 -> OBJ
+
+Sort BOOL
+Fun p/1 -> BOOL
+Name T -> BOOL
+
+KB: p(c) = T
+
+Refute: K<0> Ex x p(x) = T
+Refute: M<0> Ex x p(x) = T
+Assert: K<1> Ex x p(x) = T
+Assert: M<1> Ex x p(x) = T
+
+Refute: Ex x K<0> p(x) = T
+Refute: Ex x M<0> p(x) = T
+Refute: Ex x K<1> p(x) = T
+Assert: Ex x M<1> p(x) = T
+
+Assert: Fa x ~ K<1> p(x) = T
+Assert: Fa x   M<1> p(x) = T
+Assert: Fa x ~ K<1> p(x) /= T
+Assert: Fa x   M<1> p(x) /= T
+
+Assert: K<1> Ex x (p(x) = T ^ M<1> p(x) /= T)
+Assert: K<1> Fa x (p(x) = T -> M<1> p(x) /= T)
+Assert: K<1> Ex x (p(x) = T ^ ~K<1>~ p(x) = T)
+

@@ -1,0 +1,80 @@
+Sort OBJ, BOOL
+Var x -> OBJ
+Name n -> OBJ
+Name m -> OBJ
+Name T -> BOOL
+Fun p/1 -> BOOL
+
+Let true := T = T
+Let false := ~true
+
+If true
+  Begin
+    Assert: true
+  End
+
+If false
+  Begin
+    Refute: true
+  End
+
+If true
+  Begin
+    Assert: true
+  End
+Else
+  Begin
+    Refute: true
+  End
+
+if false {
+  Refute: true
+} else {
+  Assert: true
+}
+
+if false {
+    Refute: true
+} else if false {
+    Assert: false
+} else {
+    Assert: n = n
+}
+
+for X in n, m -> OBJ
+    true {
+  Assert: X = X
+} else {
+  Assert: false
+}
+
+for Y in n -> OBJ
+    true {
+  Assert: Y = Y
+} else {
+  Assert: false
+}
+
+KB: p(n)=T
+
+for Z -> OBJ
+    K<0> p(Z)=T {
+  Assert: Z /= n v Z /= m
+} else {
+  Assert: false
+}
+
+for Z -> OBJ
+    K<0> p(Z)=T {
+  Assert: Z /= n v Z /= m
+} else {
+  Assert: false
+}
+
+for Z -> OBJ
+    K<0> ~p(Z)=T {
+  Assert: false
+} else {
+  Assert: true
+}
+

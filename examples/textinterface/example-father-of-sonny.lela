@@ -1,0 +1,39 @@
+// Who's Sonny's father, Frank or Fred?
+
+Sort HUMAN
+Sort BOOL
+
+Variable x -> HUMAN
+Variable y -> HUMAN
+
+Name Mary -> HUMAN
+Name Frank -> HUMAN
+Name Fred -> HUMAN
+Name Sonny -> HUMAN
+Name True -> BOOL
+
+Function fatherOf/1 -> HUMAN
+Function motherOf/1 -> HUMAN
+
+KB: motherOf(Sonny) == Mary
+KB: fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred
+
+Query: Know<0> (fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred)
+
+Let phi := Ex x (x == fatherOf(Sonny))
+Query: Know<0> phi
+Query: Know<1> phi
+
+Let phi := Frank == fatherOf(Sonny)
+Query: Cons<0> phi
+Query: Cons<1> phi
+
+Query: Know<0> (Fred == fatherOf(Sonny) && Frank == fatherOf(Sonny) || Fred == fatherOf(Sonny))
+
+Let phi := motherOf(Sonny) == fatherOf(Sonny)
+Query: Know<0> phi
+Query: Cons<0> phi
+Query: Know<0> !phi
+Query: Cons<0> !phi
+Query: Cons<1> !phi
+
