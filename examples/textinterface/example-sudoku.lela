@@ -1,3 +1,8 @@
+// A simple Sudoku agent.
+// The output of the game is very limited; sorry for that.
+
+Call: disable_query_logging()
+
 Sort BOOL
 Name T -> BOOL
 
@@ -246,7 +251,7 @@ KB: val(n9,n9)=n5
 // KB: val(n9,n6)=n6
 // KB: val(n9,n9)=n5
 
-Call: print_kb()
+// Call: print_kb()
 
 Call: su_init(n1,n2,n3,n4,n5,n6,n7,n8,n9)
 

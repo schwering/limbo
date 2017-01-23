@@ -509,6 +509,11 @@ Additionally, terms are flattened so that no two function symbols occur in a any
 For instance, a disjunction <span class="code">KB:&nbsp;<span class="metavariable">literal<sub>1</sub></span> || <span class="metavariable">...</span> || <span class="metavariable">literal<sub>k</sub></span></span> meets this requirement trivially.
 Implications are also allowed, provided that the negation of the antecedent as well as the consequent meet above form, as does <span class="code">KB:&nbsp;Ex <span class="metavariable">x</span> (<span class="metavariable">literal<sub>1</sub></span> &amp;&amp; <span class="metavariable">literal<sub>2</sub></span>) -&gt; (<span class="metavariable">literal<sub>3</sub></span> || <span class="metavariable">literal<sub>4</sub></span>)</span>.
 </p>
+<p>
+By default, the reasoner assumes the knowledge base to be consistent, which speeds up the reasoning process.
+This assumption can be lifted with <span class="code">Call:&nbsp;unguarantee_kb_consistency()</span>.
+Consistency can again be guaranteed with the instruction <span class="code">Call:&nbsp;guarantee_kb_consistency()</span>.
+</p>
 
 <p>
 Queries are of the form:
@@ -521,6 +526,22 @@ Queries are of the form:
 <p>
 where <span class="metavariable">formula</span> is subjective, which means functions must not occur outside of modal operators (but variables, names, quantifiers, etc. may).
 The <span class="code">Assert</span> and <span class="code">Refute</span> versions differ from the <span class="code">Query</span> version in that they yield a error when the query does not come out true or false, respectively; this is useful for automated testing.
+</p>
+
+<p>
+Procedure calls are of the form <span class="code">Call:&nbsp;<span class="metavariable">proc</span>(<span class="metavariable">arg<sub>1</sub></span>,<span class="metavariable">...</span>,<span class="metavariable">arg<sub>k</sub></span>)</span>.
+In particular, they include:
+</p>
+<ul class="grammar">
+    <li><span class="code">Call:&nbsp;guarantee_kb_consistency()</span> and <span class="code">Call:&nbsp;unguarantee_kb_consistency()</span> to (un)guarantee consistency of the knowledge base (enabled by default)</li>
+    <li><span class="code">Call:&nbsp;enable_query_logging()</span> and <span class="code">Call:&nbsp;disable_query_logging()</span> to disable logging of evaluated queries in the main output</li>
+    <li><span class="code">Call:&nbsp;print_kb()</span> to print the current setups to debug output</li>
+    <li><span class="code">Call:&nbsp;print(<span class="metavariable">t<sub>1</sub></span>,<span class="metavariable">...</span>,<span class="metavariable">t<sub>k</sub></span>)</span> to print terms to main output</li>
+</ul>
+
+<p>
+Furthermore simple control structures are allowed: if-then-else, while-loops, and for-loops.
+See the Battleship and Sudoku code for examples.
 </p>
 
 <p>

@@ -1,4 +1,7 @@
 // A 1x4-battleship game with a 3-ship.
+// The output of the game is very limited; sorry for that.
+
+Call: disable_query_logging()
 
 Sort POS
 Var p, q -> POS

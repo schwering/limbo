@@ -1,3 +1,5 @@
+// Tests the control structures: if, while, for.
+
 Sort OBJ, BOOL
 Var x -> OBJ
 Name n -> OBJ

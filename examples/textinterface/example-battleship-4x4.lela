@@ -1,4 +1,7 @@
 // A 4x4-battleship game with a 3-ship and a 2-ship.
+// The output of the game is very limited; sorry for that.
+
+Call: disable_query_logging()
 
 Sort BOOL
 Name T -> BOOL

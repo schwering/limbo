@@ -111,10 +111,13 @@ struct Logger : public lela::format::pdl::DefaultLogger {
     //for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
     //  std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
     //}
-    std::cerr << "Query: " << *d.phi << "  =  " << std::boolalpha << d.yes << std::endl;
+    if (print_queries) {
+      std::cerr << "Query: " << *d.phi << "  =  " << std::boolalpha << d.yes << std::endl;
+    }
     //std::cout << std::endl;
     //std::cout << std::endl;
   }
+  bool print_queries = true;
 };
 
 struct Callback : public lela::format::pdl::DefaultCallback {
@@ -122,15 +125,19 @@ struct Callback : public lela::format::pdl::DefaultCallback {
   void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
     if (proc == "print_kb") {
       for (lela::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
-        std::cout << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p)->setup() << std::endl;
+        std::cerr << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p)->setup() << std::endl;
       }
     } else if (proc == "print") {
       lela::format::output::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
-    } else if (proc == "guarantee_consistency") {
-      ctx->assume_consistent(true);
-    } else if (proc == "unguarantee_consistency") {
-      ctx->assume_consistent(false);
+    } else if (proc == "guarantee_kb_consistency") {
+      ctx->guarantee_kb_consistency(true);
+    } else if (proc == "unguarantee_kb_consistency") {
+      ctx->guarantee_kb_consistency(false);
+    } else if (proc == "enable_query_logging") {
+      ctx->logger()->print_queries = true;
+    } else if (proc == "disable_query_logging") {
+      ctx->logger()->print_queries = false;
     } else if (bs_(ctx, proc, args)) {
       // it's a call for Battleship
     } else if (su_(ctx, proc, args)) {

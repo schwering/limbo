@@ -47,10 +47,13 @@ struct Logger : public lela::format::pdl::DefaultLogger {
     //}
     const std::string phi_str = to_string(*d.phi);
     std::cerr << "Query: " << phi_str << " = " << std::boolalpha << d.yes << std::endl;
-    EM_ASM_({
-      announceQuery(Pointer_stringify($0), $1);
-    }, phi_str.c_str(), d.yes);
+    if (print_queries) {
+      EM_ASM_({
+        announceQuery(Pointer_stringify($0), $1);
+      }, phi_str.c_str(), d.yes);
+    }
   }
+  bool print_queries = true;
 };
 
 struct Callback : public lela::format::pdl::DefaultCallback {
@@ -63,6 +66,14 @@ struct Callback : public lela::format::pdl::DefaultCallback {
     } else if (proc == "print") {
       lela::format::output::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
+    } else if (proc == "guarantee_kb_consistency") {
+      ctx->guarantee_kb_consistency(true);
+    } else if (proc == "unguarantee_kb_consistency") {
+      ctx->guarantee_kb_consistency(false);
+    } else if (proc == "enable_query_logging") {
+      ctx->logger()->print_queries = true;
+    } else if (proc == "disable_query_logging") {
+      ctx->logger()->print_queries = false;
     } else if (bs_(ctx, proc, args)) {
       // it's a call for Battleship
     } else if (su_(ctx, proc, args)) {

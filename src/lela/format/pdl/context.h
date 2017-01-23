@@ -193,12 +193,12 @@ class Context {
 
   bool Query(const Formula& alpha) {
     const bool yes = kb_.Entails(alpha, assume_consistent_);
-    logger()(DefaultLogger::QueryData(kb_, alpha, assume_consistent_, yes));
+    logger_(DefaultLogger::QueryData(kb_, alpha, assume_consistent_, yes));
     return yes;
   }
 
-  bool assume_consistent() const { return assume_consistent_; }
-  void assume_consistent(bool b) { assume_consistent_ = b; }
+  bool guarantee_kb_consistency() const { return assume_consistent_; }
+  void guarantee_kb_consistency(bool b) { assume_consistent_ = b; }
 
   KnowledgeBase* kb() { return &kb_; }
   const KnowledgeBase& kb() const { return kb_; }
@@ -207,6 +207,10 @@ class Context {
   Term::Factory* tf() { return &tf_; }
 
   const Logger& logger() const { return logger_; }
+        Logger* logger()       { return &logger_; }
+
+  const Callback& callback() const { return &callback_; }
+        Callback* callback()       { return &callback_; }
 
  private:
   template<typename T>
