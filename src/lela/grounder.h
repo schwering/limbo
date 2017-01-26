@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <list>
+#include <memory>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
@@ -37,6 +38,7 @@
 #include <lela/clause.h>
 #include <lela/formula.h>
 #include <lela/setup.h>
+#include <lela/internal/hash.h>
 #include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 
@@ -127,18 +129,19 @@ class Grounder {
       // Re-ground all clauses, i.e., all clauses are considered unprocessed and all old setups are forgotten.
       unprocessed_clauses_.splice(unprocessed_clauses_.begin(), processed_clauses_);
       setups_.clear();
+      split_setups_.clear();
       assert(processed_clauses_.empty());
       assert(setups_.empty());
     }
     if (!unprocessed_clauses_.empty() || setups_.empty()) {
       // Ground the unprocessed clauses in a new setup, which inherits from the last setup for efficiency.
-      Setup* parent = !setups_.empty() ? &setups_.front() : nullptr;
+      Setup* parent = !setups_.empty() ? setups_.back().get() : nullptr;
       if (!parent) {
-        setups_.push_front(Setup());
+        setups_.push_back(std::unique_ptr<Setup>(new Setup()));
       } else {
-        setups_.push_front(parent->Spawn());
+        setups_.push_back(std::unique_ptr<Setup>(new Setup(parent->Spawn())));
       }
-      Setup* s = &setups_.front();
+      Setup* s = setups_.back().get();
       assert(s != parent);
       for (const Clause& c : unprocessed_clauses_) {
         if (c.ground()) {
@@ -158,10 +161,11 @@ class Grounder {
         }
       }
       processed_clauses_.splice(processed_clauses_.begin(), unprocessed_clauses_);
+      split_setups_.clear();
       names_changed_ = false;
     }
     assert(!setups_.empty());
-    return setups_.front();
+    return *setups_.back();
   }
 
   const SortedTermSet& Names() const {
@@ -211,6 +215,20 @@ class Grounder {
       }
     }
     return splits;
+  }
+
+  const Setup& Split(const Setup& s, Literal a) {
+    auto it = split_setups_.find(std::make_pair(&s, a));
+    if (it != split_setups_.end()) {
+      assert(it != split_setups_.end());
+      return *it->second;
+    } else {
+      std::unique_ptr<Setup> ptr = std::unique_ptr<Setup>(new Setup(s.Spawn()));
+      ptr->AddClause(Clause{a});
+      const Setup& ss = *ptr;
+      split_setups_.insert(std::make_pair(std::make_pair(&s, a), std::move(ptr)));
+      return ss;
+    }
   }
 
   std::list<LiteralSet> AssignLiterals() const {
@@ -343,6 +361,12 @@ class Grounder {
   };
 
   typedef internal::IntMap<Symbol::Sort, std::size_t> PlusMap;
+
+  struct PairHasher {
+    std::size_t operator()(const std::pair<const Setup*, Literal>& p) const {
+      return internal::fnv1a_hash(p.first) ^ p.second.hash();
+    }
+  };
 
   template<typename Needle, typename Collection, typename Haystack, typename UnaryPredicate>
   static Collection Mentioned(const UnaryPredicate p, const Haystack& obj) {
@@ -549,7 +573,8 @@ class Grounder {
   std::list<Clause> processed_clauses_;
   std::list<Clause> unprocessed_clauses_;
   SortedTermSet owned_names_;
-  std::list<Setup> setups_;
+  std::vector<std::unique_ptr<Setup>> setups_;
+  std::unordered_map<std::pair<const Setup*, Literal>, std::unique_ptr<Setup>, PairHasher> split_setups_;
 };
 
 }  // namespace lela

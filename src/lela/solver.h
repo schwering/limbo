@@ -171,9 +171,7 @@ class Solver {
         const TermSet& ns = names[t.sort()];
         assert(!ns.empty());
         return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &phi, t](Term n) {
-          Setup ss = s.Spawn();
-          ss.AddClause(Clause{Literal::Eq(t, n)});
-          return Split(ss, split_terms, names, k-1, phi);
+          return Split(grounder_.Split(s, Literal::Eq(t, n)), split_terms, names, k-1, phi);
         });
       });
     } else {

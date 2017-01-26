@@ -45,7 +45,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(n1,n1)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [n1=n1]. The clause is valid and hence skipped.
     EXPECT_EQ(length(s.clauses()), 0);
     EXPECT_TRUE(s.Consistent());
@@ -54,7 +54,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(n1,n1)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
     // down to [].
     EXPECT_EQ(length(s.clauses()), 1);
@@ -64,7 +64,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(x1, x1)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [n1=n1]. The clause is valid and hence skipped.
     EXPECT_EQ(length(s.clauses()), 0);
     EXPECT_TRUE(s.Consistent());
@@ -73,7 +73,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(x1, x1)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
     // down to [].
     EXPECT_EQ(length(s.clauses()), 1);
@@ -83,7 +83,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(n1, x1)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [n1=n1], [n3=n1]. The first clause is valid and
     // hence skipped. The second is invalid and hence boiled down to [].
     EXPECT_EQ(length(s.clauses()), 1);
@@ -93,7 +93,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(n1, x1)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [n1/=n1], [n3/=n1]. The second clause is valid and
     // hence skipped. The first is invalid and hence boiled down to [].
     EXPECT_EQ(length(s.clauses()), 1);
@@ -103,7 +103,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(x1, x2)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [n1=n1], [n3=2], [n1=n3], [n3=n1]. The former two
     // clauses are valid and hence skipped. The latter ones are invalid and
     // hence boiled down to [].
@@ -114,7 +114,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(x1, x1)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
     // down to [].
     EXPECT_EQ(length(s.clauses()), 1);
@@ -125,7 +125,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(a, {}), x1)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [a=n1].
     EXPECT_EQ(length(s.clauses()), 1);
     EXPECT_FALSE(s.Consistent());
@@ -134,7 +134,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(f, {n1}), x1)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [f(n1)=n1)], [f(n1)=n3]. The clauses unify and
     // yield [].
     EXPECT_EQ(length(s.clauses()), 1);
@@ -144,7 +144,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(tf.CreateTerm(f, {n1}), x2)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [f(n1)/=n1)], [f(n1)/=n3].
     EXPECT_EQ(length(s.clauses()), 3);
     EXPECT_TRUE(s.Consistent());
@@ -153,7 +153,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(h, {n1,x2}), x3)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=4,5. The clauses
     // unify and yield [].
     EXPECT_EQ(length(s.clauses()), 1);
@@ -163,7 +163,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(tf.CreateTerm(h, {n1,x2}), x3)}));
-    lela::Setup s = g.Ground();
+    const lela::Setup& s = g.Ground();
     // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=4,5.
     EXPECT_EQ(length(s.clauses()), 3*2);
     EXPECT_TRUE(s.Consistent());
@@ -176,7 +176,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 //    g.PrepareForQuery(Formula::Factory::Exists(x2, *Formula::Factory::Atomic({Literal::Eq(x2, x2)}))->NF(&sf, &tf));
 //    g.PrepareForQuery(Formula::Factory::Exists(x3, *Formula::Factory::Atomic({Literal::Eq(x3, x3)}))->NF(&sf, &tf));
 //    g.PrepareForQuery(Formula::Factory::Exists(x4, *Formula::Factory::Atomic({Literal::Eq(x4, x4)}))->NF(&sf, &tf));
-//    lela::Setup s = g.Ground();
+//    const lela::Setup& s = g.Ground();
 //    EXPECT_EQ(length(s.clauses()), 2);
 //  }
 

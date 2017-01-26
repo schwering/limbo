@@ -102,7 +102,7 @@
 </p>
 
 <p>
-Also have a look at the <a href="../minesweeper/" target="_blank">the other demo: minesweeper</a>.
+Also have a look at the <a href="../minesweeper/mw-js.html" target="_blank">the other demo: minesweeper</a>.
 </p>
 
 <h2>Problem Description</h2>
@@ -122,6 +122,8 @@ Load an example:
 <option value="test-introspection-2">Test: Introspection 2</option>
 <option value="test-battleship-1x4">Test: Battleship 1x4</option>
 <option value="test-control">Test: Control</option>
+<option value="test-siblings">Test: Siblings</option>
+<option value="test-veggie">Test: Veggie</option>
 <option value="" style="color: #666;">none</option>
 </select> <br />
 If you like, you can edit the text. For help on the syntax, see <a href="#syntax">below</a>.
@@ -139,7 +141,8 @@ $(document).ready(function() {
     var select_ex = getParameterByName('ex');
     if (select_ex) {
         $('#examples option').filter(function() {
-            return $(this).val.indexOf(select_ex) != -1;
+            alert($(this).val() +" contains "+ select_ex +"?");
+            return $(this).val().indexOf(select_ex) != -1;
         }).prop('selected', true);
     }
 
