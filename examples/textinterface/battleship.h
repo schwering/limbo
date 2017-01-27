@@ -1,8 +1,8 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2017 Christoph Schwering
 
-#ifndef EXAMPLES_BATTLESHIP_GAME_H_
-#define EXAMPLES_BATTLESHIP_GAME_H_
+#ifndef EXAMPLES_TEXTINTERFACE_BATTLESHIP_H_
+#define EXAMPLES_TEXTINTERFACE_BATTLESHIP_H_
 
 #include <cassert>
 #include <cmath>
@@ -280,5 +280,5 @@ struct BattleshipCallbacks {
   std::vector<lela::Term> ps_;
 };
 
-#endif  // EXAMPLES_BATTLESHIP_GAME_H_
+#endif  // EXAMPLES_TEXTINTERFACE_BATTLESHIP_H_
 
