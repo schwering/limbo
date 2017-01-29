@@ -69,9 +69,11 @@ for X in n7,n8,n9 -> NAME  true {
                 KB: ~val(X,Y)=val(X',Y')
     }
 }
-KB: val(x,y)=n1 v val(x,y)=n2 v val(x,y)=n3 v
-    val(x,y)=n4 v val(x,y)=n5 v val(x,y)=n6 v
-    val(x,y)=n7 v val(x,y)=n8 v val(x,y)=n9
+for X in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  true
+    for Y in n1,n2,n3,n4,n5,n6,n7,n8,n9 -> NAME  true
+        KB: val(X,Y)=n1 v val(X,Y)=n2 v val(X,Y)=n3 v
+            val(X,Y)=n4 v val(X,Y)=n5 v val(X,Y)=n6 v
+            val(X,Y)=n7 v val(X,Y)=n8 v val(X,Y)=n9
 
 
 

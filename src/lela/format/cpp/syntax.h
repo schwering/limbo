@@ -87,6 +87,13 @@ class Context {
     return HiSymbol(tf(), sf()->CreateFunction(sort, arity));
   }
 
+  void AddClause(const Formula& phi) {
+    Formula::Ref psi = phi.NF(sf(), tf());
+    internal::Maybe<Clause> c = psi->AsUnivClause();
+    assert(c);
+    solver_.AddClause(c.val);
+  }
+
   void AddClause(const Clause& c) {
     solver_.AddClause(c);
   }
