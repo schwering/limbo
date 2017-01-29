@@ -54,7 +54,7 @@
 </p>
 
 <p>
-Also have a look at the <a href="../textinterface/ti-js.html" target="_blank">the other demo: text interface</a>.
+Also have a look at the other demos: <a href="../textinterface/ti-js.html" target="_blank">text interface</a> and <a href="../sudoku/sudoku-js.html" target="_blank">Sudoku</a>.
 </p>
 
 <h2>Game Configuration</h2>
@@ -106,10 +106,10 @@ function play() {
     var seed = document.getElementById('seed').value;
     if (seed == null) n_mines = 0;
     var max_k = document.getElementById('max_k').value;
-    if (max_k == null) n_mines = 0;
+    if (max_k == null) max_k = 0;
 
     t0 = performance.now();
-    Module.ccall('lela_init', 'void', ['number', 'number', 'number', 'numer', 'numer'], [width, height, n_mines, seed, max_k]);
+    Module.ccall('lela_init', 'void', ['number', 'number', 'number', 'number', 'number'], [width, height, n_mines, seed, max_k]);
     playTurn();
     setTimeout(function() { scrollDown(); }, 50);
     setTimeout(function() { scrollDown(); }, 100);

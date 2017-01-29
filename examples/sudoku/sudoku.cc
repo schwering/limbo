@@ -35,7 +35,7 @@ inline void Play(const char* cfg, int max_k, const Colors& colors, std::ostream*
     *os << std::endl;
     printer.Print(g);
     *os << std::endl;
-    //*os << "Last move took " << std::fixed << t.duration() << ", queries took " << std::fixed << kb.timer().duration() << " / " << std::setw(4) << kb.timer().rounds() << " = " << std::fixed << kb.timer().avg_duration() << std::endl;
+    *os << "Last move took " << std::fixed << t.duration() << std::endl;
     kb.ResetTimer();
   } while (!g.solved() && cont);
   t.stop();
