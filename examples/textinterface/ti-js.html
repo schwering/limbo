@@ -85,12 +85,36 @@
 
     <script src="jquery-3.1.1.min.js"></script>
     <script>
-    var Module = {
-        'print': function(msg) { printMsg(msg); },
-        'printErr': function(msg) { printDebug(msg); }
-    };
+    function getParameterByName(name) {
+        var url = window.location.href;
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+    }
+
+    var Module = null;
+
+    function loadEmscripten(mem) {
+        if (!mem) {
+            mem = getParameterByName('mem');
+        }
+        if (!mem) {
+            mem = 16;
+        }
+        mem *= 1024*1024;
+        Module = {
+            'print': function(msg) { printMsg(msg); },
+            'printErr': function(msg) { printDebug(msg); },
+            'TOTAL_MEMORY': mem,
+        };
+        src = 'ti-js.js';
+        $('script[src="' + src + '"]').remove();
+        $('<script>').attr('src', src).appendTo('head');
+    }
     </script>
-    <script src="ti-js.js"></script>
 </head>
 
 <body>
@@ -136,12 +160,13 @@ If you like, you can edit the text. For help on the syntax, see <a href="#syntax
 
 <script>
 $(document).ready(function() {
-    $('#debug-toggle').click(function(){ $('#debug-div').toggle(); return false; });
-    
+    loadEmscripten();
+    $('#debug-toggle').click(function() { $('#debug-div').toggle(); return false; });
+    $('#enlarge-memory').click(function() { loadEmscripten(128); return false; });
+
     var select_ex = getParameterByName('ex');
     if (select_ex) {
         $('#examples option').filter(function() {
-            alert($(this).val() +" contains "+ select_ex +"?");
             return $(this).val().indexOf(select_ex) != -1;
         }).prop('selected', true);
     }
@@ -172,16 +197,6 @@ $(document).ready(function() {
         parse();
     });
 });
-
-function getParameterByName(name) {
-    var url = window.location.href;
-    name = name.replace(/[\[\]]/g, "\\$&");
-    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
-        results = regex.exec(url);
-    if (!results) return null;
-    if (!results[2]) return '';
-    return decodeURIComponent(results[2].replace(/\+/g, " "));
-}
 
 function scrollToBottom(e) {
     var wHeight = $(window).height();
@@ -262,7 +277,10 @@ Note that the reasoner brings the query formulas into a normal form (similar to 
 <ul id="parse-output">
 </ul>
 
-<p><a href="#debug-toggle" id="debug-toggle">Click here</a> to display/hide debug output.</p>
+<p>
+<a href="#debug-toggle" id="debug-toggle">Click here</a> to display/hide debug output.
+If more memory is needed (e.g., for some Sudokus), <a href="#enlarge-memory" id="enlarge-memory">click here</a> to enlarge 
+</p>
 
 
 <div id="debug-div" style="display: none;">

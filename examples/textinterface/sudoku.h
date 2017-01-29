@@ -52,12 +52,12 @@ struct SudokuCallbacks {
       }
       std::cout << n_known << " cells known";
       if (timer_.started()) {
-        std::cout << "("
+        std::cout << " ("
                   << timer_.duration() << "s elapsed, "
                   << timer_.avg_duration() << "s on average over "
-                  << timer_.rounds() << " moves"
-                  << ")" << std::endl;
+                  << timer_.rounds() << " moves)";
       }
+      std::cout << std::endl;
       timer_.start();
     } else {
       return false;

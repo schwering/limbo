@@ -161,7 +161,6 @@ class Grounder {
         }
       }
       processed_clauses_.splice(processed_clauses_.begin(), unprocessed_clauses_);
-      split_setups_.clear();
       names_changed_ = false;
     }
     assert(!setups_.empty());
