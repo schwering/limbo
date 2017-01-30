@@ -12,14 +12,14 @@
 class Agent {
  public:
   virtual ~Agent() {}
-  virtual bool Explore() = 0;
+  virtual int Explore() = 0;
 };
 
 class KnowledgeBaseAgent : public Agent {
  public:
   explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb, std::ostream* os) : g_(g), kb_(kb), os_(os) {}
 
-  bool Explore() override {
+  int Explore() override {
     for (int k = 0; k <= kb_->max_k(); ++k) {
       for (std::size_t x = 0; x < 9; ++x) {
         for (std::size_t y = 0; y < 9; ++y) {
@@ -30,13 +30,13 @@ class KnowledgeBaseAgent : public Agent {
               *os_ << p << " = " << r.val << " found at split level " << k << std::endl;
               kb_->Add(p, r.val);
               g_->set(p, r.val);
-              return true;
+              return k;
             }
           }
         }
       }
     }
-    return false;
+    return -1;
   }
 
  private:

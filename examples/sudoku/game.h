@@ -37,11 +37,12 @@ std::ostream& operator<<(std::ostream& os, const Point& p) {
 
 class Game {
  public:
-  explicit Game(const char* cfg) {
+  explicit Game(const std::string& cfg) {
     for (int i = 0; i < 9*9; ++i) {
-      int x = i % 9;
-      int y = i / 9;
-      cells_[x][y] = '1' <= cfg[i] && cfg[i] <= '9' ? cfg[i] - '1' + 1 : 0;
+      const char c = i < cfg.length() ? cfg.at(i) : 0;
+      const int x = i % 9;
+      const int y = i / 9;
+      cells_[x][y] = '1' <= c && c <= '9' ? c - '1' + 1 : 0;
     }
   }
 
