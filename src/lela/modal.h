@@ -12,6 +12,9 @@
 #include <lela/formula.h>
 #include <lela/solver.h>
 
+#include <iostream>
+#include <lela/format/output.h>
+
 namespace lela {
 
 class KnowledgeBase {
@@ -175,7 +178,13 @@ class KnowledgeBase {
           // The above calls to ResConsistent() and ResEntails() are potentially
           // very expensive, so we should abort this loop when the subsequent
           // spheres are clearly irrelevant.
+          if (consistent.back()->trivially_invalid()) {
+            using lela::format::output::operator<<;
+            std::cerr << "SPHERE #" << p << " of " << n_spheres() << " is NOT consistent with antecedent " << *ante << std::endl;
+          }
           if (consistent.back()->trivially_valid()) {
+            using lela::format::output::operator<<;
+            std::cerr << "SPHERE #" << p << " of " << n_spheres() << " is consistent with antecedent " << *ante << std::endl;
             break;
           }
         }
