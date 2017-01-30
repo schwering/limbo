@@ -126,7 +126,7 @@
 </p>
 
 <p>
-Also have a look at the other demos: <a href="../sudoku/sudoku-js.html" target="_blank">Sudoku</a> and <a href="../minesweeper/mw-js.html" target="_blank">Minesweeper</a>.
+For further demos and details on the reasoner, <a href="../">click here</a>.
 </p>
 
 <h2>Problem Description</h2>
@@ -137,7 +137,7 @@ Load an example:
 <option value="example-father-of-sonny">Example: Unknown Father</option>
 <option value="example-siblings">Example: Siblings</option>
 <option value="example-veggie">Example: Veggie</option>
-<option value="example-sudoku">Example: Sudoku</option>
+<!-- <option value="example-sudoku">Example: Sudoku</option> -->
 <option value="example-battleship-1x4">Example: Battleship 1x4</option>
 <option value="example-battleship-4x4">Example: Battleship 4x4</option>
 <option value="test-propositions">Test: Propositions</option>
@@ -291,33 +291,6 @@ If more memory is needed (e.g., for some Sudokus), <a href="#enlarge-memory" id=
 <ul id="debug-output">
 </ul>
 </div>
-
-
-
-<h2>About the Reasoner</h2>
-
-<p>
-The logical language features functions and equality, first-order quantification, standard names, and sorts.
-(Predicates are not built-in but can be simulated with no overhead using boolean functions.)
-Knowledge bases are restricted to be in clausal form with only universally quantified variables &ndash; these KBs are called proper<sup>+</sup>.
-(Existentially quantified variables in the knowledge base can be simulated with functions.)
-Queries are not subject to any syntactic restriction.
-</p>
-
-<p>
-The addition of situation calculus-style actions [KR-2014] is future work.
-</p>
-
-<p>
-The reasoner is written in C++.
-The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
-This demo is compiled by <a href="http://emscripten.org">emscripten</a>, which translates C++ to Javascript.
-On my computer, the Javascript is 1.5&times; to 5&times; slower than the native binary.
-</p>
-
-<p>
-Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.edu.au</a>.
-</p>
 
 
 
@@ -568,25 +541,6 @@ See the Battleship and Sudoku code for examples.
 <p>
 C-style single line comments are supported as well: <span class="code">//&nbsp;<span class="metavariable">rest of line is comment</span></span>.
 </p>
-
-<h2>References</h2>
-<ul>
-    <li>
-        Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief with Function Symbols. KR 2016.
-        <a href="https://kbsg.rwth-aachen.de/sites/kbsg/files/LakemeyerLevesque2016.pdf">PDF</a></li>
-    <li>
-        Schwering and Lakemeyer. Decidable Reasoning in a First-Order Logic of Limited Conditional Belief. ECAI 2016.
-        <a href="https://kbsg.rwth-aachen.de/sites/kbsg/files/SchweringLakemeyer2016.pdf">PDF</a>
-    </li>
-    <li>
-        Lakemeyer and Levesque. Decidable Reasoning in a Fragment of the Epistemic Situation Calculus. KR 2014.
-        <a href="https://pdfs.semanticscholar.org/8ac9/a2955895cd391ec2b62d8210ee8206979f4a.pdf">PDF</a>
-    </li>
-    <li>
-        Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals. IJCAI 2013.
-        <a href="https://pdfs.semanticscholar.org/387c/951016c68aaf8ce36bb87e5ea4d1ef42405d.pdf">PDF</a>
-    </li>
-</ul>
 
 </body>
 </html>

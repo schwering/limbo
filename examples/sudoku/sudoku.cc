@@ -15,14 +15,16 @@
 #include "printer.h"
 #include "timer.h"
 
-inline void Play(const char* cfg, int max_k, const Colors& colors, std::ostream* os) {
+inline void Play(const std::string& cfg, int max_k, const Colors& colors, std::ostream* os) {
   Timer t;
   Game g(cfg);
   KnowledgeBase kb(&g, max_k);
   KnowledgeBaseAgent agent(&g, &kb, os);
   SimplePrinter printer(&colors, os);
+  std::vector<int> split_counts;
+  split_counts.resize(max_k + 1);
   t.start();
-  bool cont;
+  int k;
   *os << "Initial Sudoku:" << std::endl;
   *os << std::endl;
   printer.Print(g);
@@ -30,17 +32,26 @@ inline void Play(const char* cfg, int max_k, const Colors& colors, std::ostream*
   do {
     Timer t;
     t.start();
-    cont = agent.Explore();
+    k = agent.Explore();
     t.stop();
+    //++split_counts[k];
     *os << std::endl;
     printer.Print(g);
     *os << std::endl;
     *os << "Last move took " << std::fixed << t.duration() << std::endl;
     kb.ResetTimer();
-  } while (!g.solved() && cont);
+  } while (!g.solved() && k >= 0);
   t.stop();
-  *os << "Solution is " << (g.legal_solution() ? "" : "il") << "legal" << std::endl;
-  *os << std::endl;
+  if (g.solved() && g.legal_solution()) {
+    std::cout << colors.green() << "Solution is legal";
+  } else {
+    std::cout << colors.red() << "Solution is illegal";
+  }
+  std::cout << "  [max-k: " << kb.max_k() << "; ";
+  for (int k = 0; k < split_counts.size(); ++k) {
+    std::cout << split_counts[k] << " splits at level " << k << "; ";
+  }
+  std::cout << "runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
 }
 
 int main(int argc, char *argv[]) {

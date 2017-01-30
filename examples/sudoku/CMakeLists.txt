@@ -11,7 +11,7 @@ if (EMCC)
 
                 separate_arguments(FLAGS UNIX_COMMAND "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE}")
                 add_custom_command (OUTPUT sudoku-js.js sudoku-js.js.mem
-                        COMMAND ${EMCC} ${FLAGS} -I../../src sudoku-js.cc -o sudoku-js.js -s EXPORTED_FUNCTIONS=['_lela_init','_lela_play_turn']
+                    COMMAND ${EMCC} ${FLAGS} -I../../src sudoku-js.cc -o sudoku-js.js -s EXPORTED_FUNCTIONS=['_lela_init','_lela_play_turn']
                         VERBATIM)
 
                 add_custom_target (sudoku-js
