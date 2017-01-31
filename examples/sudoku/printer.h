@@ -69,30 +69,33 @@ class Printer {
   virtual ~Printer() = default;
 
   void Print(const Game& g) {
+    const std::string DASH = "\u2550";
+    const std::string PIPE = "\u2551";
+    const std::string CROSS = "\u256c";
     *os_ << colors_->fill(3);
-    for (size_t x = 0; x < 9; ++x) {
-      *os_ << colors_->dim() << colors_->dim() << colors_->fill(1) << (x+1) << colors_->fill(1) << colors_->reset();
-      if (x == 2 || x == 5) {
+    for (size_t x = 1; x <= 9; ++x) {
+      *os_ << colors_->dim() << colors_->dim() << colors_->fill(1) << x << colors_->fill(1) << colors_->reset();
+      if (x == 3 || x == 6) {
         *os_ << colors_->dim() << colors_->fill(1) << colors_->reset();
       }
     }
     *os_ << std::endl;
-    for (size_t y = 0; y < 9; ++y) {
-      *os_ << colors_->dim() << colors_->fill(1) << (y+1) << colors_->fill(1) << colors_->reset();
-      for (size_t x = 0; x < 9; ++x) {
+    for (size_t y = 1; y <= 9; ++y) {
+      *os_ << colors_->dim() << colors_->fill(1) << y << colors_->fill(1) << colors_->reset();
+      for (size_t x = 1; x <= 9; ++x) {
         Label l = label(g, Point(x, y));
         *os_ << colors_->fill(1) << l << colors_->fill(1);
-        if (x == 2 || x == 5) {
-          *os_ << colors_->dim() << "|" << colors_->reset();
+        if (x == 3 || x == 6) {
+          *os_ << colors_->dim() << PIPE << colors_->reset();
         }
       }
       *os_ << std::endl;
-      if (y == 2 || y == 5) {
+      if (y == 3 || y == 6) {
         *os_ << colors_->fill(1) << colors_->dim() << colors_->fill(2);
-        for (size_t x = 0; x < 9; ++x) {
-          *os_ << "---";
-          if (x == 2 || x == 5) {
-            *os_ << "+";
+        for (size_t x = 1; x <= 9; ++x) {
+          *os_ << DASH << DASH << DASH;
+          if (x == 3 || x == 6) {
+            *os_ << CROSS;
           }
         }
         *os_ << colors_->reset() << std::endl;

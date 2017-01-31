@@ -9,6 +9,8 @@
 #include <iostream>
 #include <string>
 
+#include <lela/internal/maybe.h>
+
 #include "agent.h"
 #include "game.h"
 #include "kb.h"
@@ -19,12 +21,12 @@ inline void Play(const std::string& cfg, int max_k, const Colors& colors, std::o
   Timer t;
   Game g(cfg);
   KnowledgeBase kb(&g, max_k);
-  KnowledgeBaseAgent agent(&g, &kb, os);
+  KnowledgeBaseAgent agent(&g, &kb);
   SimplePrinter printer(&colors, os);
   std::vector<int> split_counts;
   split_counts.resize(max_k + 1);
   t.start();
-  int k;
+  lela::internal::Maybe<Agent::Result> r;
   *os << "Initial Sudoku:" << std::endl;
   *os << std::endl;
   printer.Print(g);
@@ -32,15 +34,18 @@ inline void Play(const std::string& cfg, int max_k, const Colors& colors, std::o
   do {
     Timer t;
     t.start();
-    k = agent.Explore();
+    r = agent.Explore();
     t.stop();
-    //++split_counts[k];
+    if (r) {
+      ++split_counts[r.val.k];
+      *os << r.val.p << " = " << r.val.n << " found at split level " << r.val.k << std::endl;
+    }
     *os << std::endl;
     printer.Print(g);
     *os << std::endl;
     *os << "Last move took " << std::fixed << t.duration() << std::endl;
     kb.ResetTimer();
-  } while (!g.solved() && k >= 0);
+  } while (!g.solved() && r);
   t.stop();
   if (g.solved() && g.legal_solution()) {
     std::cout << colors.green() << "Solution is legal";
@@ -49,7 +54,10 @@ inline void Play(const std::string& cfg, int max_k, const Colors& colors, std::o
   }
   std::cout << "  [max-k: " << kb.max_k() << "; ";
   for (int k = 0; k < split_counts.size(); ++k) {
-    std::cout << split_counts[k] << " splits at level " << k << "; ";
+    const int n = split_counts[k];
+    if (n > 0) {
+      std::cout << "level " << k << ": " << n << "; ";
+    }
   }
   std::cout << "runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
 }

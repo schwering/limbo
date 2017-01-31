@@ -25,36 +25,36 @@ class KnowledgeBase {
     lela::format::output::RegisterSort(VAL_, "");
     lela::format::output::RegisterSymbol(val_, "val");
     using namespace lela::format::cpp;
-    for (std::size_t i = 0; i < 9; ++i) {
+    for (std::size_t i = 1; i <= 9; ++i) {
       vals_.push_back(ctx_.CreateName(VAL_));
       std::stringstream ss;
-      ss << i + 1;
+      ss << i;
       lela::format::output::RegisterSymbol(vals_.back().symbol(), ss.str());
     }
-    for (std::size_t x = 0; x < 9; ++x) {
-      for (std::size_t y = 0; y < 9; ++y) {
-        for (std::size_t yy = 0; yy < 9; ++yy) {
+    for (std::size_t x = 1; x <= 9; ++x) {
+      for (std::size_t y = 1; y <= 9; ++y) {
+        for (std::size_t yy = 1; yy <= 9; ++yy) {
           if (y != yy) {
             ctx_.AddClause(val(x, y) != val(x, yy));
           }
         }
       }
     }
-    for (std::size_t x = 0; x < 9; ++x) {
-      for (std::size_t xx = 0; xx < 9; ++xx) {
-        for (std::size_t y = 0; y < 9; ++y) {
+    for (std::size_t x = 1; x <= 9; ++x) {
+      for (std::size_t xx = 1; xx <= 9; ++xx) {
+        for (std::size_t y = 1; y <= 9; ++y) {
           if (x != xx) {
             ctx_.AddClause(val(x, y) != val(xx, y));
           }
         }
       }
     }
-    for (std::size_t i = 0; i < 3; ++i) {
-      for (std::size_t j = 0; j < 3; ++j) {
-        for (std::size_t x = 3*i; x < 3*i+3; ++x) {
-          for (std::size_t xx = 3*i; xx < 3*i+3; ++xx) {
-            for (std::size_t y = 3*j; y < 3*j+3; ++y) {
-              for (std::size_t yy = 3*j; yy < 3*j+3; ++yy) {
+    for (std::size_t i = 1; i <= 3; ++i) {
+      for (std::size_t j = 1; j <= 3; ++j) {
+        for (std::size_t x = 3*i-2; x <= 3*i; ++x) {
+          for (std::size_t xx = 3*i-2; xx <= 3*i; ++xx) {
+            for (std::size_t y = 3*j-2; y <= 3*j; ++y) {
+              for (std::size_t yy = 3*j-2; yy <= 3*j; ++yy) {
                 if (x != xx || y != yy) {
                   ctx_.AddClause(val(x, y) != val(xx, yy));
                 }
@@ -64,20 +64,20 @@ class KnowledgeBase {
         }
       }
     }
-    for (std::size_t x = 0; x < 9; ++x) {
-      for (std::size_t y = 0; y < 9; ++y) {
+    for (std::size_t x = 1; x <= 9; ++x) {
+      for (std::size_t y = 1; y <= 9; ++y) {
         std::vector<lela::Literal> lits;
-        for (std::size_t i = 0; i < 9; ++i) {
+        for (std::size_t i = 1; i <= 9; ++i) {
           lits.push_back(lela::Literal::Eq(val(x, y), n(i)));
         }
         ctx_.AddClause(lela::Clause(lits.begin(), lits.end()));
       }
     }
-    for (std::size_t x = 0; x < 9; ++x) {
-      for (std::size_t y = 0; y < 9; ++y) {
+    for (std::size_t x = 1; x <= 9; ++x) {
+      for (std::size_t y = 1; y <= 9; ++y) {
         int i = g->get(Point(x, y));
         if (i != 0) {
-          ctx_.AddClause(val(x, y) == n(i-1));
+          ctx_.AddClause(val(x, y) == n(i));
         }
       }
     }
@@ -90,16 +90,16 @@ class KnowledgeBase {
   const lela::Setup& setup() const { return solver().setup(); }
 
   void Add(Point p, int i) {
-    ctx_.AddClause(val(p) == n(i-1));
+    ctx_.AddClause(val(p) == n(i));
   }
 
   lela::internal::Maybe<int> Val(Point p, int k) {
     t_.start();
-    for (std::size_t i = 0; i < 9; ++i) {
+    for (std::size_t i = 1; i <= 9; ++i) {
       //using lela::format::output::operator<<;
       //std::cout << "Entails(" << k << ", " << *(val(p) == n(i)) << ")?" << std::endl;
       if (solver()->Entails(k, val(p) == n(i))) {
-        return lela::internal::Just(i+1);
+        return lela::internal::Just(i);
       }
     }
     t_.stop();
@@ -111,7 +111,7 @@ class KnowledgeBase {
 
  private:
   lela::format::cpp::HiTerm n(std::size_t n) const {
-    return vals_[n];
+    return vals_[n-1];
   }
 
   lela::format::cpp::HiTerm val(Point p) const {
@@ -119,7 +119,7 @@ class KnowledgeBase {
   }
 
   lela::format::cpp::HiTerm val(std::size_t x, std::size_t y) const {
-    return val_(vals_[x], vals_[y]);
+    return val_(vals_[x-1], vals_[y-1]);
   }
 
   int max_k_;
