@@ -38,10 +38,11 @@ tests/syntax
 tests/term
 examples/minesweeper/mw
 examples/minesweeper/mw-js.js*
-examples/minesweeper/jquery-*.min.js
 examples/textinterface/ti
 examples/textinterface/ti-js.js*
-examples/textinterface/jquery-*.min.js
+examples/sudoku/sudoku
+examples/sudoku/sudoku-js.js*
+examples/*/jquery-*.min.js
 
 callgrind.*
 

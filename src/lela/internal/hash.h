@@ -26,25 +26,6 @@ hash_t fnv1a_hash(const T& x) {
   return h;
 }
 
-#if 0
-template<>
-hash_t fnv1a_hash(const std::uint64_t& x) {
-  constexpr hash_t kOffsetBasis = 0xcbf29ce484222325;
-  constexpr hash_t kMagicPrime = 0x00000100000001b3;
-  return
-      ((((((((((((((((
-        kOffsetBasis
-        ^ ((x >>  0) & 0xFF)) * kMagicPrime)
-        ^ ((x >>  8) & 0xFF)) * kMagicPrime)
-        ^ ((x >> 16) & 0xFF)) * kMagicPrime)
-        ^ ((x >> 24) & 0xFF)) * kMagicPrime)
-        ^ ((x >> 32) & 0xFF)) * kMagicPrime)
-        ^ ((x >> 40) & 0xFF)) * kMagicPrime)
-        ^ ((x >> 48) & 0xFF)) * kMagicPrime)
-        ^ ((x >> 56) & 0xFF)) * kMagicPrime);
-}
-#endif
-
 }  // namespace internal
 }  // namespace lela
 
