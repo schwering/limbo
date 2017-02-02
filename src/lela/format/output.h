@@ -28,6 +28,7 @@
 #include <lela/solver.h>
 #endif
 #include <lela/term.h>
+#include <lela/internal/hashset.h>
 #include <lela/internal/maybe.h>
 
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
@@ -120,6 +121,9 @@ std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>&
 
 template<typename K, typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map);
+
+template<typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set);
 
 template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m);
@@ -423,6 +427,12 @@ std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>&
 template<typename K, typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map) {
   print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
+  return os;
+}
+
+template<typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set) {
+  print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
   return os;
 }
 

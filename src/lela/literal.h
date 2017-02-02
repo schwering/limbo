@@ -35,7 +35,7 @@ class Literal {
   static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
   static Literal Neq(Term lhs, Term rhs) { return Literal(false, lhs, rhs); }
 
-  Literal() = delete;
+  Literal() = default;
 
   Term lhs() const { return lhs_; }
   bool pos() const { return eq_; }

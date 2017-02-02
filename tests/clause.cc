@@ -152,7 +152,9 @@ TEST(ClauseTest, Subsumes) {
   {
     Clause c1({Literal::Eq(f4,n3), Literal::Eq(f2,n3)});
     EXPECT_TRUE(c1.size() == 2);
+    std::cout << c1 << std::endl;
     c1 = c1.Substitute(EqSubstitute(f1, n2), &tf);
+    std::cout << c1 << std::endl;
     EXPECT_TRUE(c1.size() == 2);
     EXPECT_TRUE(!c1.ground());
     c1 = c1.Substitute(EqSubstitute(x2, n2), &tf);
