@@ -17,7 +17,7 @@
 #include "printer.h"
 #include "timer.h"
 
-inline void Play(const std::string& cfg, int max_k, const Colors& colors, std::ostream* os) {
+inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::ostream* os) {
   Timer t;
   Game g(cfg);
   KnowledgeBase kb(&g, max_k);
@@ -47,11 +47,8 @@ inline void Play(const std::string& cfg, int max_k, const Colors& colors, std::o
     kb.ResetTimer();
   } while (!g.solved() && r);
   t.stop();
-  if (g.solved() && g.legal_solution()) {
-    std::cout << colors.green() << "Solution is legal";
-  } else {
-    std::cout << colors.red() << "Solution is illegal";
-  }
+  const bool solved = g.solved() && g.legal_solution();
+  std::cout << (solved ? colors.green() : colors.red()) << "Solution is " << (solved ? "" : "il") << "legal";
   std::cout << "  [max-k: " << kb.max_k() << "; ";
   for (int k = 0; k < split_counts.size(); ++k) {
     const int n = split_counts[k];
@@ -60,20 +57,21 @@ inline void Play(const std::string& cfg, int max_k, const Colors& colors, std::o
     }
   }
   std::cout << "runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
+  return solved;
 }
 
 int main(int argc, char *argv[]) {
   if (argc < 3) {
     std::cout << "Usage: " << argv[0] << " <cfg> <max-k>" << std::endl;
-    return 1;
+    return 2;
   }
   if (std::strlen(argv[1]) != 9*9) {
     std::cerr << "Config '" << argv[1] << "' is not 9*9 but " << std::strlen(argv[1]) << " characters long" << std::endl;
-    return 2;
+    return 3;
   }
   const char* cfg = argv[1];
   int max_k = atoi(argv[2]);
-  Play(cfg, max_k, TerminalColors(), &std::cout);
-  return 0;
+  bool solved = Play(cfg, max_k, TerminalColors(), &std::cout);
+  return solved ? 0 : 1;
 }
 
