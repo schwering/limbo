@@ -113,23 +113,8 @@ class Symbol {
   const Arity arity_;
 };
 
-struct Symbol::Comparator {
-  typedef Symbol value_type;
-
-  bool operator()(value_type a, value_type b) const {
-    return comp(a.id_, a.sort_, a.arity_,
-                b.id_, b.sort_, b.arity_);
-  }
-
- private:
-  internal::LexicographicComparator<internal::LessComparator<Id>,
-                                    internal::LessComparator<Sort>,
-                                    internal::LessComparator<Arity>> comp;
-};
-
 class Term {
  public:
-  struct Comparator;
   typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
 
   class Factory;
@@ -169,7 +154,6 @@ class Term {
 
  private:
   struct Data {
-    struct DeepComparator;
     Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args), hash_(calc_hash()) {}
 
     bool operator==(const Data& d) const { return symbol_ == d.symbol_ && args_ == d.args_; }
@@ -197,30 +181,6 @@ class Term {
   const Data* data_;
 };
 
-struct Term::Comparator {
-  typedef Term value_type;
-
-  bool operator()(value_type a, value_type b) const {
-    return comp(a.data_, b.data_);
-  }
-
- private:
-  internal::LessComparator<const Data*> comp;
-};
-
-struct Term::Data::DeepComparator {
-  typedef const Term::Data* value_type;
-
-  bool operator()(value_type a, value_type b) const {
-    return comp(a->symbol_, a->args_,
-                b->symbol_, b->args_);
-  }
-
- private:
-  internal::LexicographicComparator<Symbol::Comparator,
-                                    internal::LexicographicContainerComparator<Vector, Term::Comparator>> comp;
-};
-
 class Term::Factory {
  public:
   Factory() = default;
@@ -231,6 +191,7 @@ class Term::Factory {
 
   ~Factory() {
     for (const DataPtrSet& set : memory_.values()) {
+      std::cout << set.size() << " terms of sort" << std::endl;
       for (Data* data : set) {
         delete data;
       }
@@ -322,13 +283,6 @@ struct equal_to<lela::Symbol> {
 };
 
 template<>
-struct less<lela::Symbol> {
-  bool operator()(const lela::Symbol a, const lela::Symbol b) const { return comp_(a, b); }
- private:
-  lela::Symbol::Comparator comp_;
-};
-
-template<>
 struct hash<lela::Term> {
   std::size_t operator()(const lela::Term t) const { return t.hash(); }
 };
@@ -336,13 +290,6 @@ struct hash<lela::Term> {
 template<>
 struct equal_to<lela::Term> {
   bool operator()(const lela::Term a, const lela::Term b) const { return a == b; }
-};
-
-template<>
-struct less<lela::Term> {
-  bool operator()(const lela::Term a, const lela::Term b) const { return comp_(a, b); }
- private:
-  lela::Term::Comparator comp_;
 };
 
 }  // namespace std

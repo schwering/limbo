@@ -37,8 +37,8 @@ namespace lela {
 namespace format {
 namespace output {
 
-typedef std::map<Symbol::Sort, std::string> SortMap;
-typedef std::map<Symbol, std::string, Symbol::Comparator> SymbolMap;
+typedef std::unordered_map<Symbol::Sort, std::string> SortMap;
+typedef std::unordered_map<Symbol, std::string> SymbolMap;
 
 inline SortMap* sort_map() {
   static SortMap map;
@@ -173,10 +173,8 @@ struct PrintSymbolComparator {
     return n1 && n2  ? n1.val < n2.val :
            n1 && !n2 ? true :
            !n1 && n2 ? false :
-                       comp(s1, s2);
+                       s1.hash() < s2.hash();
   }
-
-  Symbol::Comparator comp;
 };
 
 struct PrintTermComparator {

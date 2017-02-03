@@ -66,7 +66,7 @@ TEST(TermTest, general) {
   EXPECT_EQ(f3.symbol().id(), 1);
   EXPECT_EQ(f4.symbol().id(), 2);
 
-  typedef std::set<Term, Term::Comparator> TermSet;
+  typedef std::unordered_set<Term> TermSet;
   TermSet terms;
 
   terms.clear();

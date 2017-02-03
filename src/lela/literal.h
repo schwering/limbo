@@ -29,7 +29,6 @@ namespace lela {
 
 class Literal {
  public:
-  struct Comparator;
   struct LhsHasher;
 
   static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
@@ -123,20 +122,6 @@ class Literal {
   Term rhs_;
 };
 
-struct Literal::Comparator {
-  typedef Literal value_type;
-
-  bool operator()(value_type a, value_type b) const {
-    return comp(a.lhs_, a.rhs_, a.eq_,
-                b.lhs_, b.rhs_, b.eq_);
-  }
-
- private:
-  internal::LexicographicComparator<Term::Comparator,
-                                    Term::Comparator,
-                                    internal::LessComparator<bool>> comp;
-};
-
 struct Literal::LhsHasher {
   std::size_t operator()(const Literal a) const { return a.lhs().hash(); }
 };
@@ -154,13 +139,6 @@ struct hash<lela::Literal> {
 template<>
 struct equal_to<lela::Literal> {
   bool operator()(const lela::Literal a, const lela::Literal b) const { return a == b; }
-};
-
-template<>
-struct less<lela::Literal> {
-  bool operator()(const lela::Literal a, const lela::Literal b) const { return comp_(a, b); }
- private:
-  lela::Literal::Comparator comp_;
 };
 
 }  // namespace std
