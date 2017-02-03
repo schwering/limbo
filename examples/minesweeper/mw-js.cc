@@ -80,6 +80,7 @@ static KnowledgeBaseAgent* agent = nullptr;
 static Timer* timer_overall = nullptr;
 static SimplePrinter* printer = nullptr;
 static OmniscientPrinter* final_printer = nullptr;
+static std::vector<int>* split_counts = nullptr;
 
 void Finalize() {
   if (game)
@@ -94,6 +95,8 @@ void Finalize() {
     delete printer;
   if (final_printer)
     delete final_printer;
+  if (split_counts)
+    delete split_counts;
 }
 
 void Init(size_t width, size_t height, size_t n_mines, size_t seed, int max_k) {
@@ -104,13 +107,18 @@ void Init(size_t width, size_t height, size_t n_mines, size_t seed, int max_k) {
   agent = new KnowledgeBaseAgent(game, kb, &std::cout);
   printer = new SimplePrinter(&colors, &std::cout);
   final_printer = new OmniscientPrinter(&colors, &std::cout);
+  split_counts = new std::vector<int>();
+  split_counts->resize(max_k + 2);  // last one is for guesses
 }
 
 bool PlayTurn() {
   timer_overall->start();
   Timer timer_turn;
   timer_turn.start();
-  agent->Explore();
+  const int k = agent->Explore();
+  if (k >= 0) {
+    ++(*split_counts)[k];
+  }
   timer_turn.stop();
   std::cout << std::endl;
   printer->Print(*game);
@@ -131,7 +139,18 @@ bool PlayTurn() {
     } else {
       std::cout << colors.red() << "You loose :-(";
     }
-    std::cout << "  [width: " << game->width() << ", height: " << game->height() << ", height: " << game->n_mines() << ", seed: " << game->seed() << ", max-k: " << kb->max_k() << ", runtime: " << timer_overall->duration() << " seconds]" << colors.reset() << std::endl;
+    std::cout << "  [width: " << game->width() << "; height: " << game->height() << "; height: " << game->n_mines() << "; seed: " << game->seed() << "; max-k: " << kb->max_k() << "; ";
+    for (int k = 0; k < split_counts->size(); ++k) {
+      const int n = (*split_counts)[k];
+      if (n > 0) {
+        if (k == kb->max_k() + 1) {
+          std::cout << "guesses: " << n << "; ";
+        } else {
+          std::cout << "level " << k << ": " << n << "; ";
+        }
+      }
+    }
+    std::cout << "runtime: " << timer_overall->duration() << " seconds]" << colors.reset() << std::endl;
   }
 
   return game_over;

@@ -22,11 +22,16 @@ inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, int m
   KnowledgeBaseAgent agent(&g, &kb, os);
   SimplePrinter printer(&colors, os);
   OmniscientPrinter final_printer(&colors, os);
+  std::vector<int> split_counts;
+  split_counts.resize(max_k + 2);  // last one is for guesses
   t.start();
   do {
     Timer t;
     t.start();
-    agent.Explore();
+    const int k = agent.Explore();
+    if (k >= 0) {
+      ++split_counts[k];
+    }
     t.stop();
     *os << std::endl;
     printer.Print(g);
@@ -45,7 +50,18 @@ inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, int m
   } else {
     *os << colors.red() << "You loose :-(";
   }
-  *os << "  [width: " << g.width() << ", height: " << g.height() << ", height: " << g.n_mines() << ", seed: " << g.seed() << ", max-k: " << max_k << ", runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
+  *os << "  [width: " << g.width() << "; height: " << g.height() << "; height: " << g.n_mines() << "; seed: " << g.seed() << "; max-k: " << max_k << "; ";
+  for (int k = 0; k < split_counts.size(); ++k) {
+    const int n = split_counts[k];
+    if (n > 0) {
+      if (k == max_k + 1) {
+        std::cout << "guesses: " << n << "; ";
+      } else {
+        std::cout << "level " << k << ": " << n << "; ";
+      }
+    }
+  }
+  *os << "runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
   return win;
 }
 
