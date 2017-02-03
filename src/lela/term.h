@@ -191,7 +191,6 @@ class Term::Factory {
 
   ~Factory() {
     for (const DataPtrSet& set : memory_.values()) {
-      std::cout << set.size() << " terms of sort" << std::endl;
       for (Data* data : set) {
         delete data;
       }
