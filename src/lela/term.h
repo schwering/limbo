@@ -36,7 +36,7 @@ namespace lela {
 
 class Symbol {
  public:
-  typedef int Id;
+  typedef std::int32_t Id;
   typedef std::int8_t Sort;
   typedef std::int8_t Arity;
   struct Comparator;
@@ -124,7 +124,7 @@ struct Symbol::Comparator {
  private:
   internal::LexicographicComparator<internal::LessComparator<Id>,
                                     internal::LessComparator<Sort>,
-                                    internal::LessComparator<int>> comp;
+                                    internal::LessComparator<Arity>> comp;
 };
 
 class Term {
@@ -144,7 +144,8 @@ class Term {
   bool operator<(Term t)  const { return data_ < t.data_; }
   bool operator>(Term t)  const { return data_ > t.data_; }
 
-  internal::hash_t hash() const { return internal::fnv1a_hash(reinterpret_cast<std::uintptr_t>(data_)); }
+  internal::hash_t hash() const { return data_->hash_; }
+  //internal::hash_t hash() const { return internal::fnv1a_hash(reinterpret_cast<std::uintptr_t>(data_)); }
 
   template<typename UnaryFunction>
   Term Substitute(UnaryFunction theta, Factory* tf) const;
@@ -169,21 +170,23 @@ class Term {
  private:
   struct Data {
     struct DeepComparator;
-    Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args) {}
+    Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args), hash_(calc_hash()) {}
 
     bool operator==(const Data& d) const { return symbol_ == d.symbol_ && args_ == d.args_; }
     bool operator!=(const Data& s) const { return !(*this == s); }
 
-    internal::hash_t hash() const {
+    Symbol symbol_;
+    Vector args_;
+    internal::hash_t hash_;
+
+   private:
+    internal::hash_t calc_hash() const {
       internal::hash_t h = symbol_.hash();
       for (const lela::Term t : args_) {
         h ^= t.hash();
       }
       return h;
     }
-
-    Symbol symbol_;
-    Vector args_;
   };
 
   explicit Term(Data* data) : data_(data) {}
@@ -254,7 +257,7 @@ class Term::Factory {
   }
 
  private:
-  struct DataPtrHash   { std::size_t operator()(const Term::Data* d) const { return d->hash(); } };
+  struct DataPtrHash   { std::size_t operator()(const Term::Data* d) const { return d->hash_; } };
   struct DataPtrEquals { std::size_t operator()(const Term::Data* a, const Term::Data* b) const { return *a == *b; } };
 
   typedef std::unordered_set<Data*, DataPtrHash, DataPtrEquals> DataPtrSet;

@@ -28,7 +28,6 @@
 
 #include <lela/literal.h>
 #include <lela/internal/bloom.h>
-#include <lela/internal/iter.h>
 #include <lela/internal/hashset.h>
 #include <lela/internal/maybe.h>
 #include <lela/internal/traits.h>
@@ -51,10 +50,9 @@ class Clause {
   const_iterator begin() const { return lits_.begin(); }
   const_iterator end()   const { return lits_.end(); }
 
-  Literal head() const { return *begin(); }
-
   bool        empty() const { return lits_.empty(); }
   bool        unit()  const { return size() == 1; }
+  Literal     head()  const { return *begin(); }
   std::size_t size()  const { return lits_.size(); }
 
   bool valid()   const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
