@@ -15,8 +15,8 @@ template<typename T>
 size_t length(T r) { return std::distance(r.begin(), r.end()); }
 
 TEST(GrounderTest, Ground_SplitTerms_Names) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();                  RegisterSort(s1, "");
   const Symbol::Sort s2 = sf.CreateSort();                  RegisterSort(s2, "");
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n1.symbol(), "n1");
@@ -320,8 +320,8 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 }
 
 TEST(GrounderTest, Assignments) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();                  RegisterSort(s1, "");
   const Symbol::Sort s2 = sf.CreateSort();                  RegisterSort(s2, "");
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n1.symbol(), "n1");
@@ -386,8 +386,8 @@ TEST(GrounderTest, Assignments) {
 }
 
 TEST(GrounderTest, Ground_SplitNames) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort Bool = sf.CreateSort();                            RegisterSort(Bool, "");
   const Symbol::Sort Human = sf.CreateSort();                           RegisterSort(Human, "");
   const Symbol::Sort Animal = sf.CreateSort();                          RegisterSort(Animal, "");
@@ -447,8 +447,8 @@ TEST(GrounderTest, Ground_SplitNames) {
 }
 
 TEST(GrounderTest, Ground_SplitNames_iterated) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort Bool = sf.CreateSort();                            RegisterSort(Bool, "");
   const Symbol::Sort Human = sf.CreateSort();                           RegisterSort(Human, "");
   const Symbol::Sort Animal = sf.CreateSort();                          RegisterSort(Animal, "");

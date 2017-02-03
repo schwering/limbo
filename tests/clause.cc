@@ -21,8 +21,8 @@ struct EqSubstitute {
 };
 
 TEST(ClauseTest, valid_invalid) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
@@ -60,8 +60,8 @@ TEST(ClauseTest, valid_invalid) {
 
 
 TEST(ClauseTest, Subsumes) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
@@ -165,8 +165,8 @@ TEST(ClauseTest, Subsumes) {
 
 
 TEST(ClauseTest, Subsumes2) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   //const Symbol::Sort s2 = sf.CreateSort();
   const Term n = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
@@ -185,8 +185,8 @@ TEST(ClauseTest, Subsumes2) {
 }
 
 TEST(ClauseTest, Subsumes3) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort Bool = sf.CreateSort();
   const Term T = tf.CreateTerm(sf.CreateName(Bool));
   const Term F = tf.CreateTerm(sf.CreateName(Bool));

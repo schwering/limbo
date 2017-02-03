@@ -22,13 +22,12 @@
 #include <cassert>
 
 #include <algorithm>
-#include <initializer_list>
 #include <utility>
 #include <vector>
 
 #include <lela/literal.h>
 #include <lela/internal/bloom.h>
-#include <lela/internal/hashset.h>
+#include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 #include <lela/internal/traits.h>
 
@@ -36,23 +35,23 @@ namespace lela {
 
 class Clause {
  public:
-  typedef internal::HashSet<Literal, Literal::LhsHasher> LiteralSet;
-  typedef LiteralSet::const_iterator const_iterator;
+  typedef std::vector<Literal>::const_iterator const_iterator;
 
   Clause() = default;
   Clause(std::initializer_list<Literal> lits) : lits_(lits) { Minimize(); }
-  template<typename ForwardIt>
-  Clause(ForwardIt begin, ForwardIt end) : lits_(begin, end) { Minimize(); }
+  template<typename InputIt>
+  Clause(InputIt begin, InputIt end) : lits_(begin, end) { Minimize(); }
 
-  bool operator==(const Clause& c) const { return lhs_bloom_ == c.lhs_bloom_ && Subsumes(c) && c.Subsumes(*this); }
+  bool operator==(const Clause& c) const { return lhs_bloom_ == c.lhs_bloom_ && lits_ == c.lits_; }
   bool operator!=(const Clause& c) const { return !(*this == c); }
 
   const_iterator begin() const { return lits_.begin(); }
   const_iterator end()   const { return lits_.end(); }
 
+  Literal head() const { return lits_[0]; }
+
   bool        empty() const { return lits_.empty(); }
   bool        unit()  const { return size() == 1; }
-  Literal     head()  const { return *begin(); }
   std::size_t size()  const { return lits_.size(); }
 
   bool valid()   const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
@@ -64,13 +63,8 @@ class Clause {
     assert(primitive());
     assert(c.primitive());
     return lhs_bloom_.PossiblySubsetOf(c.lhs_bloom_) &&
-        std::all_of(begin(), end(),
-                    [&c](const Literal a) {
-                      return std::any_of(c.lits_.bucket_begin(a), c.lits_.bucket_end(),
-                                         [a](const Literal b) {
-                                           return a.Subsumes(b);
-                                         });
-                    });
+        std::all_of(begin(), end(), [&c](const Literal a) {
+                    return std::any_of(c.begin(), c.end(), [a](const Literal b) { return a.Subsumes(b); }); });
   }
 
   internal::Maybe<Clause> PropagateUnit(Literal a) const {
@@ -79,20 +73,10 @@ class Clause {
     assert(a.lhs().function());
     if (!lhs_bloom_.PossiblyContains(a.lhs())) {
       return internal::Nothing;
-    } else {
-      Clause c = *this;
-      for (auto it = c.lits_.bucket_begin(a), jt = c.lits_.bucket_end(); it != jt; ++it) {
-        if (Literal::Complementary(a, *it)) {
-          c.lits_.Remove(it);
-        }
-      }
-      if (c.lits_.size() != size()) {
-        c.InitBloom();
-        return internal::Just(c);
-      } else {
-        return internal::Nothing;
-      }
     }
+    auto r = internal::filter_range(begin(), end(), [a](Literal b) { return !Literal::Complementary(a, b); });
+    Clause c(r.begin(), r.end());
+    return c.size() != size() ? internal::Just(c) : internal::Nothing;
   }
 
   bool ground()         const { return std::all_of(begin(), end(), [](Literal a) { return a.ground(); }); }
@@ -125,23 +109,20 @@ class Clause {
 
  private:
   void Minimize() {
-    for (auto it = lits_.begin(), jt = lits_.end(); it != jt; ++it) {
-      if (it->invalid()) {
-        lits_.Remove(it);
-      }
-    }
+    lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.invalid(); }), lits_.end());
+    std::sort(lits_.begin(), lits_.end(), [](Literal a, Literal b) { return a.hash() < b.hash(); });
+    lits_.erase(std::unique(lits_.begin(), lits_.end()), lits_.end());
     InitBloom();
   }
 
   void InitBloom() {
-    lhs_bloom_.Clear();
     for (Literal a : *this) {
       lhs_bloom_.Add(a.lhs());
     }
   }
 
   internal::BloomSet<Term> lhs_bloom_;
-  LiteralSet lits_;
+  std::vector<Literal> lits_;
 };
 
 }  // namespace lela

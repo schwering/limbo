@@ -11,8 +11,8 @@ namespace lela {
 using namespace lela::format::output;
 
 TEST(LiteralTest, general) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));

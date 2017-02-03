@@ -21,8 +21,8 @@ inline void RegisterSymbol(Term t, const std::string& n) {
 typedef Formula::Factory F;
 
 TEST(FormulaTest, substitution) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));

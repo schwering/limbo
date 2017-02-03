@@ -36,34 +36,34 @@ class Literal {
 
   Literal() = default;
 
-  Term lhs() const { return lhs_; }
-  bool pos() const { return eq_; }
-  Term rhs() const { return rhs_; }
+  Term lhs() const { return Term(std::uint32_t(data_ >> 32)); }
+  bool pos() const { return (data_ >> 31) & 1; }
+  Term rhs() const { return Term(data_ & ((std::uint64_t(1) << 31) - 1)); }
 
-  bool ground()         const { return lhs_.ground() && rhs_.ground(); }
-  bool primitive()      const { return lhs_.primitive() && rhs_.name(); }
-  bool quasiprimitive() const { return lhs_.quasiprimitive() && (rhs_.name() || rhs_.variable()); }
+  bool ground()         const { return lhs().ground() && rhs().ground(); }
+  bool primitive()      const { return lhs().primitive() && rhs().name(); }
+  bool quasiprimitive() const { return lhs().quasiprimitive() && (rhs().name() || rhs().variable()); }
 
-  Literal flip() const { return Literal(!eq_, lhs_, rhs_); }
-  Literal dual() const { return Literal(eq_, rhs_, lhs_); }
+  Literal flip() const { return Literal(!pos(), lhs(), rhs()); }
+  Literal dual() const { return Literal(pos(), rhs(), lhs()); }
 
-  bool operator==(Literal a) const { return eq_ == a.eq_ && lhs_ == a.lhs_ && rhs_ == a.rhs_; }
+  bool operator==(Literal a) const { return pos() == a.pos() && lhs() == a.lhs() && rhs() == a.rhs(); }
   bool operator!=(Literal a) const { return !(*this == a); }
 
-  internal::hash_t hash() const { return eq_ ^ lhs_.hash() ^ rhs_.hash(); }
+  internal::hash_t hash() const { return data_; }
 
   // valid() holds for (t = t) and (n1 != n2) and (t1 != t2) if t1, t2 have different sorts.
   bool valid() const {
-    return (eq_ && lhs_ == rhs_) ||
-           (!eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_) ||
-           (!eq_ && lhs_.sort() != rhs_.sort());
+    return (pos() && lhs() == rhs()) ||
+           (!pos() && lhs().name() && rhs().name() && lhs() != rhs()) ||
+           (!pos() && lhs().sort() != rhs().sort());
   }
 
   // invalid() holds for (t != t) and (n1 = n2) and (t1 = t2) if t1, t2 have different sorts.
   bool invalid() const {
-    return (!eq_ && lhs_ == rhs_) ||
-           (eq_ && lhs_.name() && rhs_.name() && lhs_ != rhs_) ||
-           (eq_ && lhs_.sort() != rhs_.sort());
+    return (!pos() && lhs() == rhs()) ||
+           (pos() && lhs().name() && rhs().name() && lhs() != rhs()) ||
+           (pos() && lhs().sort() != rhs().sort());
   }
 
   // Complementary(a, b) holds when a, b match one of the following:
@@ -73,9 +73,9 @@ class Literal {
   static bool Complementary(Literal a, Literal b) {
     assert(a.primitive());
     assert(b.primitive());
-    return a.lhs_ == b.lhs_ &&
-        ((a.eq_ != b.eq_ && a.rhs_ == b.rhs_) ||
-         (a.eq_ && b.eq_ && a.rhs_.name() && b.rhs_.name() && a.rhs_ != b.rhs_));
+    return a.lhs() == b.lhs() &&
+        ((a.pos() != b.pos() && a.rhs() == b.rhs()) ||
+         (a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
   }
 
   // Subsumes(a, b) holds when a, b match one of the following:
@@ -84,9 +84,9 @@ class Literal {
   static bool Subsumes(Literal a, Literal b) {
     assert(a.primitive());
     assert(b.primitive());
-    return a.lhs_ == b.lhs_ &&
-        ((a.eq_ == b.eq_ && a.rhs_ == b.rhs_) ||
-         (a.eq_ && !b.eq_ && a.rhs_.name() && b.rhs_.name() && a.rhs_ != b.rhs_));
+    return a.lhs() == b.lhs() &&
+        ((a.pos() == b.pos() && a.rhs() == b.rhs()) ||
+         (a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
   }
 
   bool Subsumes(Literal b) const {
@@ -95,31 +95,37 @@ class Literal {
 
   template<typename UnaryFunction>
   Literal Substitute(UnaryFunction theta, Term::Factory* tf) const {
-    return Literal(eq_, lhs_.Substitute(theta, tf), rhs_.Substitute(theta, tf));
+    return Literal(pos(), lhs().Substitute(theta, tf), rhs().Substitute(theta, tf));
   }
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const {
-    lhs_.Traverse(f);
-    rhs_.Traverse(f);
+    lhs().Traverse(f);
+    rhs().Traverse(f);
   }
 
  private:
-  Literal(bool sign, Term lhs, Term rhs) :
-      eq_(sign),
-      lhs_(lhs < rhs ? lhs : rhs),
-      rhs_(lhs < rhs ? rhs : lhs) {
-    assert(!lhs_.null());
-    assert(!rhs_.null());
-    if (!lhs_.function() && rhs_.function()) {
-      std::swap(lhs_, rhs_);
+  Literal(bool pos, Term lhs, Term rhs) {
+    assert(!lhs.null());
+    assert(!rhs.null());
+    if (!(lhs < rhs)) {
+      Term tmp = lhs;
+      lhs = rhs;
+      rhs = tmp;
     }
-    assert(!rhs_.function() || lhs_.function());
+    if (!lhs.function() && rhs.function()) {
+      Term tmp = lhs;
+      lhs = rhs;
+      rhs = tmp;
+    }
+    assert(!rhs.function() || lhs.function());
+    data_ = (std::uint64_t(lhs.index()) << 32) | std::uint64_t(rhs.index()) | (std::uint64_t(pos) << 31);
+    assert(this->lhs() == lhs);
+    assert(this->rhs() == rhs);
+    assert(this->pos() == pos);
   }
 
-  bool eq_;
-  Term lhs_;
-  Term rhs_;
+  std::uint64_t data_;
 };
 
 struct Literal::LhsHasher {

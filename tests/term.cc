@@ -20,8 +20,8 @@ struct EqSubstitute {
 };
 
 TEST(TermTest, general) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   const Symbol::Sort s2 = sf.CreateSort();
   EXPECT_EQ(s1, s1);

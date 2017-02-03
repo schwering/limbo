@@ -13,8 +13,8 @@ namespace internal {
 using namespace lela::format;
 
 TEST(BloomFilterTest, Subset_Contains) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
