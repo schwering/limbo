@@ -36,10 +36,11 @@ class Literal {
 
   Literal() = default;
 
-  Term lhs() const { return Term(std::uint32_t(data_ >> 32)); }
-  bool pos() const { return (data_ >> 31) & 1; }
-  Term rhs() const { return Term(data_ & ((std::uint64_t(1) << 31) - 1)); }
+  Term lhs() const { return Term(data_ & ~std::uint32_t(0)); }
+  bool pos() const { return (data_ >> 63) & 1; }
+  Term rhs() const { return Term(std::uint32_t(data_ >> 32) & ~(std::uint32_t(1) << 31)); }
 
+  bool null()           const { return data_ == 0; }
   bool ground()         const { return lhs().ground() && rhs().ground(); }
   bool primitive()      const { return lhs().primitive() && rhs().name(); }
   bool quasiprimitive() const { return lhs().quasiprimitive() && (rhs().name() || rhs().variable()); }
@@ -119,7 +120,7 @@ class Literal {
       rhs = tmp;
     }
     assert(!rhs.function() || lhs.function());
-    data_ = (std::uint64_t(lhs.index()) << 32) | std::uint64_t(rhs.index()) | (std::uint64_t(pos) << 31);
+    data_ = (std::uint64_t(rhs.index()) << 32) | std::uint64_t(lhs.index()) | (std::uint64_t(pos) << 63);
     assert(this->lhs() == lhs);
     assert(this->rhs() == rhs);
     assert(this->pos() == pos);

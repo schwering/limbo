@@ -35,7 +35,8 @@ namespace lela {
 
 class Clause {
  public:
-  typedef std::vector<Literal>::const_iterator const_iterator;
+  struct IsNull { bool operator()(Literal a) { return !a.null(); } };
+  typedef internal::filter_iterator<std::vector<Literal>::const_iterator, IsNull> const_iterator;
 
   Clause() = default;
   Clause(std::initializer_list<Literal> lits) : lits_(lits) { Minimize(); }
@@ -45,8 +46,8 @@ class Clause {
   bool operator==(const Clause& c) const { return lhs_bloom_ == c.lhs_bloom_ && lits_ == c.lits_; }
   bool operator!=(const Clause& c) const { return !(*this == c); }
 
-  const_iterator begin() const { return lits_.begin(); }
-  const_iterator end()   const { return lits_.end(); }
+  const_iterator begin() const { return const_iterator(lits_.begin(), lits_.end()); }
+  const_iterator end()   const { return const_iterator(lits_.end(), lits_.end()); }
 
   Literal head() const { return lits_[0]; }
 
@@ -54,8 +55,8 @@ class Clause {
   bool        unit()  const { return size() == 1; }
   std::size_t size()  const { return lits_.size(); }
 
-  bool valid()   const { return std::any_of(begin(), end(), [](const Literal a) { return a.valid(); }); }
-  bool invalid() const { return std::all_of(begin(), end(), [](const Literal a) { return a.invalid(); }); }
+  bool valid()   const { return any_of([](const Literal a) { return a.valid(); }); }
+  bool invalid() const { return all_of([](const Literal a) { return a.invalid(); }); }
 
   internal::BloomSet<Term> lhs_bloom() const { return lhs_bloom_; }
 
@@ -63,8 +64,7 @@ class Clause {
     assert(primitive());
     assert(c.primitive());
     return lhs_bloom_.PossiblySubsetOf(c.lhs_bloom_) &&
-        std::all_of(begin(), end(), [&c](const Literal a) {
-                    return std::any_of(c.begin(), c.end(), [a](const Literal b) { return a.Subsumes(b); }); });
+        all_of([&c](const Literal a) { return c.any_of([a](const Literal b) { return a.Subsumes(b); }); });
   }
 
   internal::Maybe<Clause> PropagateUnit(Literal a) const {
@@ -74,17 +74,38 @@ class Clause {
     if (!lhs_bloom_.PossiblyContains(a.lhs())) {
       return internal::Nothing;
     }
-    auto r = internal::filter_range(begin(), end(), [a](Literal b) { return !Literal::Complementary(a, b); });
+    auto r = internal::filter_range(lits_.begin(), lits_.end(),
+                                    [a](Literal b) { return !b.null() && !Literal::Complementary(a, b); });
     Clause c(r.begin(), r.end());
     return c.size() != size() ? internal::Just(c) : internal::Nothing;
   }
 
-  bool ground()         const { return std::all_of(begin(), end(), [](Literal a) { return a.ground(); }); }
-  bool primitive()      const { return std::all_of(begin(), end(), [](Literal a) { return a.primitive(); }); }
-  bool quasiprimitive() const { return std::all_of(begin(), end(), [](Literal a) { return a.quasiprimitive(); }); }
+  bool ground()         const { return all_of([](Literal a) { return a.ground(); }); }
+  bool primitive()      const { return all_of([](Literal a) { return a.primitive(); }); }
+  bool quasiprimitive() const { return all_of([](Literal a) { return a.quasiprimitive(); }); }
 
   bool MentionsLhs(Term t) const {
-    return lhs_bloom_.PossiblyContains(t) && std::any_of(begin(), end(), [t](Literal a) { return a.lhs() == t; });
+    return lhs_bloom_.PossiblyContains(t) && any_of([t](Literal a) { return a.lhs() == t; });
+  }
+
+  template<typename UnaryPredicate>
+  bool any_of(UnaryPredicate p) const {
+    for (Literal a : lits_) {
+      if (!a.null() && p(a)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  template<typename UnaryPredicate>
+  bool all_of(UnaryPredicate p) const {
+    for (Literal a : lits_) {
+      if (!a.null() && !p(a)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   template<typename UnaryFunction>
@@ -109,15 +130,19 @@ class Clause {
 
  private:
   void Minimize() {
-    lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.invalid(); }), lits_.end());
+    lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.null() || a.invalid(); }),
+                lits_.end());
     std::sort(lits_.begin(), lits_.end(), [](Literal a, Literal b) { return a.hash() < b.hash(); });
     lits_.erase(std::unique(lits_.begin(), lits_.end()), lits_.end());
     InitBloom();
   }
 
   void InitBloom() {
-    for (Literal a : *this) {
-      lhs_bloom_.Add(a.lhs());
+    lhs_bloom_.Clear();
+    for (Literal a : lits_) {
+      if (!a.null()) {
+        lhs_bloom_.Add(a.lhs());
+      }
     }
   }
 
