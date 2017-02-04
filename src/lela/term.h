@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -34,6 +35,14 @@
 
 namespace lela {
 
+template<typename T>
+struct Singleton {
+  static std::unique_ptr<T> instance_;
+};
+
+template<typename T>
+std::unique_ptr<T> Singleton<T>::instance_;
+
 class Symbol {
  public:
   typedef std::int32_t Id;
@@ -41,9 +50,16 @@ class Symbol {
   typedef std::int8_t Arity;
   struct Comparator;
 
-  class Factory {
+  class Factory : private Singleton<Factory> {
    public:
-    static Factory* Instance() { return &instance_; }
+    static Factory* Instance() {
+      if (instance_ == nullptr) {
+        instance_ = std::unique_ptr<Factory>(new Factory());
+      }
+      return instance_.get();
+    }
+
+    static void Reset() { instance_ = nullptr; }
 
     static Symbol CreateName(Id id, Sort sort) {
       assert(id > 0);
@@ -73,8 +89,6 @@ class Symbol {
     Factory& operator=(const Factory&) = delete;
     Factory(Factory&&) = delete;
     Factory& operator=(Factory&&) = delete;
-
-    static Factory instance_;
 
     Sort last_sort_ = 0;
     Id last_function_ = 0;
@@ -190,9 +204,16 @@ class Term {
   std::uint32_t index_;
 };
 
-class Term::Factory {
+class Term::Factory : private Singleton<Factory> {
  public:
-  static Factory* Instance() { return &instance_; }
+  static Factory* Instance() {
+    if (instance_ == nullptr) {
+      instance_ = std::unique_ptr<Factory>(new Factory());
+    }
+    return instance_.get();
+  }
+
+  static void Reset() { instance_ = nullptr; }
 
   ~Factory() {
     for (Data* data : heap_) {
@@ -223,17 +244,15 @@ class Term::Factory {
 
   const Data* get(std::uint32_t index) const { return heap_[index - 1]; }
 
+  Factory() = default;
  private:
   struct DataPtrHash   { std::size_t operator()(const Term::Data* d) const { return d->hash_; } };
   struct DataPtrEquals { std::size_t operator()(const Term::Data* a, const Term::Data* b) const { return *a == *b; } };
 
-  Factory() = default;
   Factory(const Factory&) = delete;
   Factory& operator=(const Factory&) = delete;
   Factory(Factory&&) = delete;
   Factory& operator=(Factory&&) = delete;
-
-  static Factory instance_;
 
   typedef std::unordered_map<Data*, std::uint32_t, DataPtrHash, DataPtrEquals> DataPtrSet;
   internal::IntMap<Symbol::Sort, DataPtrSet> memory_;

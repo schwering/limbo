@@ -35,8 +35,7 @@ namespace lela {
 
 class Clause {
  public:
-  struct IsNull { bool operator()(Literal a) { return !a.null(); } };
-  typedef internal::filter_iterator<std::vector<Literal>::const_iterator, IsNull> const_iterator;
+  typedef std::vector<Literal>::const_iterator const_iterator;
 
   Clause() = default;
   Clause(std::initializer_list<Literal> lits) : lits_(lits) { Minimize(); }
@@ -46,8 +45,8 @@ class Clause {
   bool operator==(const Clause& c) const { return lhs_bloom_ == c.lhs_bloom_ && lits_ == c.lits_; }
   bool operator!=(const Clause& c) const { return !(*this == c); }
 
-  const_iterator begin() const { return const_iterator(lits_.begin(), lits_.end()); }
-  const_iterator end()   const { return const_iterator(lits_.end(), lits_.end()); }
+  const_iterator begin() const { return lits_.begin(); }
+  const_iterator end()   const { return lits_.end(); }
 
   Literal head() const { return lits_[0]; }
 
@@ -74,8 +73,7 @@ class Clause {
     if (!lhs_bloom_.PossiblyContains(a.lhs())) {
       return internal::Nothing;
     }
-    auto r = internal::filter_range(lits_.begin(), lits_.end(),
-                                    [a](Literal b) { return !b.null() && !Literal::Complementary(a, b); });
+    auto r = internal::filter_range(begin(), end(), [a](Literal b) { return !Literal::Complementary(a, b); });
     Clause c(r.begin(), r.end());
     return c.size() != size() ? internal::Just(c) : internal::Nothing;
   }
@@ -130,8 +128,7 @@ class Clause {
 
  private:
   void Minimize() {
-    lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.null() || a.invalid(); }),
-                lits_.end());
+    lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.invalid(); }), lits_.end());
     std::sort(lits_.begin(), lits_.end(), [](Literal a, Literal b) { return a.hash() < b.hash(); });
     lits_.erase(std::unique(lits_.begin(), lits_.end()), lits_.end());
     InitBloom();

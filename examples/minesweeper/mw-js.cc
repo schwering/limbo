@@ -83,6 +83,8 @@ static OmniscientPrinter* final_printer = nullptr;
 static std::vector<int>* split_counts = nullptr;
 
 void Finalize() {
+  lela::Symbol::Factory::Reset();
+  lela::Term::Factory::Reset();
   if (game)
     delete game;
   if (kb)

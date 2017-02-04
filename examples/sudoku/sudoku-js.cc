@@ -84,6 +84,8 @@ static SimplePrinter* printer = nullptr;
 static std::vector<int>* split_counts = nullptr;
 
 void Finalize() {
+  lela::Symbol::Factory::Reset();
+  lela::Term::Factory::Reset();
   if (agent)
     delete agent;
   if (kb)

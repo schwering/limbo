@@ -62,12 +62,12 @@ class KnowledgeBaseAgent : public Agent {
     // First look for a field which is known not to be a mine.
     for (int k = 0; k <= kb_->max_k(); ++k) {
       std::vector<bool> inspected(g_->n_fields(), false);
-      const std::size_t max_radius = std::max(last_point_.x, g_->width() - last_point_.x) +
-                                     std::max(last_point_.y, g_->height() - last_point_.y);
+      const std::size_t max_radius = std::max(std::max(last_point_.x, g_->width() - last_point_.x),
+                                              std::max(last_point_.y, g_->height() - last_point_.y));
       for (std::size_t radius = 0; radius <= max_radius; ++radius) {
-        std::vector<bool> on_circle = Circle(last_point_, radius);
+        std::vector<bool> on_rectangle = Rectangle(last_point_, radius);
         for (std::size_t i = 0; i < g_->n_fields(); ++i) {
-          if (inspected[i] || !on_circle[i]) {
+          if (inspected[i] || !on_rectangle[i]) {
             continue;
           }
           const Point p = g_->to_point(i);
@@ -111,41 +111,24 @@ class KnowledgeBaseAgent : public Agent {
   }
 
  private:
-  std::vector<bool> Circle(Point p, int radius) {
+  std::vector<bool> Rectangle(Point p, int radius) {
     const int x0 = p.x;
     const int y0 = p.y;
-    std::vector<bool> circle(g_->n_fields());
-    int x = radius;
-    int y = 0;
-    int err = 0;
-    while (x >= y) {
-      set_circle(&circle, x0 + x, y0 + y);
-      set_circle(&circle, x0 + y, y0 + x);
-      set_circle(&circle, x0 - y, y0 + x);
-      set_circle(&circle, x0 - x, y0 + y);
-      set_circle(&circle, x0 - x, y0 - y);
-      set_circle(&circle, x0 - y, y0 - x);
-      set_circle(&circle, x0 + y, y0 - x);
-      set_circle(&circle, x0 + x, y0 - y);
-      if (err <= 0) {
-        y += 1;
-        err += 2*y + 1;
-      }
-      if (err > 0) {
-        x -= 1;
-        err -= 2*x + 1;
-      }
+    std::vector<bool> rectangle(g_->n_fields());
+    for (int x = -radius; x <= radius; ++x) {
+      set_rectangle(&rectangle, x0 + x, y0 + radius);
+      set_rectangle(&rectangle, x0 + x, y0 - radius);
     }
-    return circle;
+    for (int y = -radius; y <= radius; ++y) {
+      set_rectangle(&rectangle, x0 + radius, y0 - y);
+      set_rectangle(&rectangle, x0 - radius, y0 - y);
+    }
+    return rectangle;
   }
 
-  void set_circle(std::vector<bool>* circle, int xx, int yy) {
-    for (int x = xx-1; x <= xx+1; ++x) {
-      for (int y = yy-1; y <= yy+1; ++y) {
-        if (0 <= x && x <= g_->width() && 0 <= y && y <= g_->height()) {
-          (*circle)[g_->to_index(Point(x, y))] = true;
-        }
-      }
+  void set_rectangle(std::vector<bool>* rectangle, int x, int y) {
+    if (0 <= x && x <= g_->width() && 0 <= y && y <= g_->height()) {
+      (*rectangle)[g_->to_index(Point(x, y))] = true;
     }
   }
 
