@@ -63,19 +63,17 @@ class Symbol {
 
     static Symbol CreateName(Id id, Sort sort) {
       assert(id > 0);
-      return Symbol(id, sort, 0);
+      return Symbol((id << 2) | 0, sort, 0);
     }
 
     static Symbol CreateVariable(Id id, Sort sort) {
       assert(id > 0);
-      id = -1 * (2 * id);
-      return Symbol(id, sort, 0);
+      return Symbol((id << 2) | 1, sort, 0);
     }
 
     static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
       assert(id > 0);
-      id = -1 * (2 * id + 1);
-      return Symbol(id, sort, arity);
+      return Symbol((id << 2) | 2, sort, arity);
     }
 
     Sort   CreateSort()                           { return last_sort_++; }
@@ -104,18 +102,11 @@ class Symbol {
 
   internal::hash_t hash() const { return internal::fnv1a_hash(id_); }
 
-  bool name()     const { return id_ > 0; }
-  bool variable() const { return id_ < 0 && ((-id_) % 2) == 0; }
-  bool function() const { return id_ < 0 && ((-id_) % 2) != 0; }
+  bool name()     const { return (id_ & (0 | 1 | 2)) == 0; }
+  bool variable() const { return (id_ & (0 | 1 | 2)) == 1; }
+  bool function() const { return (id_ & (0 | 1 | 2)) == 2; }
 
-  Id id() const {
-    assert(function() || name() || variable());
-    if (name())           return id_;
-    else if (variable())  return (-1 * id_) / 2;
-    else if (function())  return (-1 * id_ - 1) / 2;
-    else                  return 0;
-  }
-
+  Id id() const { return id_ >> 2; }
   Sort sort() const { return sort_; }
   Arity arity() const { return arity_; }
 
@@ -134,9 +125,9 @@ class Symbol {
 class Term {
  public:
   typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
-
   class Factory;
-  struct SingleSubstitution;
+  struct Substitution;
+  enum UnificationType { kTwoWay, kLeftOnly, kRightOnly };
 
   Term() = default;
 
@@ -149,11 +140,9 @@ class Term {
 
   internal::hash_t hash() const { return index_; }
 
-  template<typename UnaryFunction>
-  Term Substitute(UnaryFunction theta, Factory* tf) const;
-
-  Symbol symbol()      const { return data()->symbol_; }
-  const Vector& args() const { return data()->args_; }
+  Symbol symbol()         const { return data()->symbol_; }
+  Term arg(std::size_t i) const { return data()->args_[i]; }
+  const Vector& args()    const { return data()->args_; }
 
   Symbol::Sort sort()   const { return data()->symbol_.sort(); }
   bool name()           const { return data()->symbol_.name(); }
@@ -165,6 +154,17 @@ class Term {
   bool ground()         const { return name() || (function() && all_args([](Term t) { return t.ground(); })); }
   bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
   bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
+
+  bool Mentions(Term t) const { return *this == t || any_arg([t](Term tt) { return t == tt; }); }
+
+  template<typename UnaryFunction>
+  Term Substitute(UnaryFunction theta, Factory* tf) const;
+
+  template<Term::UnificationType = Term::kTwoWay>
+  static bool Unify(Term l, Term r, Substitution* sub);
+
+  template<Term::UnificationType = Term::kTwoWay>
+  static internal::Maybe<Substitution> Unify(Term l, Term r);
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
@@ -200,6 +200,9 @@ class Term {
 
   template<typename UnaryPredicate>
   bool all_args(UnaryPredicate p) const { return std::all_of(data()->args_.begin(), data()->args_.end(), p); }
+
+  template<typename UnaryPredicate>
+  bool any_arg(UnaryPredicate p) const { return std::any_of(data()->args_.begin(), data()->args_.end(), p); }
 
   std::uint32_t index_;
 };
@@ -259,16 +262,30 @@ class Term::Factory : private Singleton<Factory> {
   std::vector<Data*> heap_;
 };
 
-struct Term::SingleSubstitution {
-  SingleSubstitution(Term old, Term rev) : old_(old), rev_(rev) {}
+struct Term::Substitution {
+  Substitution() = default;
+  Substitution(Term old, Term rev) { Add(old, rev); }
+
+  bool Add(Term old, Term rev) {
+    if (!operator()(old)) {
+      subs_.push_back(std::make_pair(old, rev));
+      return true;
+    } else {
+      return false;
+    }
+  }
 
   internal::Maybe<Term> operator()(const Term t) const {
-    return t == old_ ? internal::Just(rev_) : internal::Nothing;
+    for (auto p : subs_) {
+      if (p.first == t) {
+        return internal::Just(p.second);
+      }
+    }
+    return internal::Nothing;
   }
 
  private:
-  const Term old_;
-  const Term rev_;
+  std::vector<std::pair<Term, Term>> subs_;
 };
 
 inline const Term::Data* Term::data() const { return Factory::Instance()->get(index_); }
@@ -292,6 +309,39 @@ Term Term::Substitute(UnaryFunction theta, Factory* tf) const {
   } else {
     return *this;
   }
+}
+
+template<Term::UnificationType direction>
+bool Term::Unify(Term l, Term r, Substitution* sub) {
+  if (l == r) {
+    return true;
+  }
+  internal::Maybe<Term> u;
+  l = (u = (*sub)(l)) ? u.val : l;
+  r = (u = (*sub)(r)) ? u.val : r;
+  if (l.sort() != r.sort()) {
+    return false;
+  }
+  if (l.symbol() == r.symbol()) {
+    for (std::size_t i = 0; i < l.arity(); ++i) {
+      if (!Unify(l.arg(i), r.arg(i), sub)) {
+        return false;
+      }
+    }
+    return true;
+  } else if (l.variable() && direction != kRightOnly && sub->Add(l, r)) {
+    return true;
+  } else if (r.variable() && direction != kLeftOnly && sub->Add(r, l)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+template<Term::UnificationType direction>
+internal::Maybe<Term::Substitution> Term::Unify(Term l, Term r) {
+  Substitution sub;
+  return Unify(l, r, &sub) ? internal::Just(sub) : internal::Nothing;
 }
 
 template<typename UnaryFunction>

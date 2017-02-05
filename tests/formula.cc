@@ -39,12 +39,12 @@ TEST(FormulaTest, substitution) {
   auto phi = [x1,f1,f2](Term x, Term t) { return F::Not(F::Exists(x1, F::Atomic(Clause{Literal::Eq(x,t), Literal::Neq(f1,f2)}))); };
 
   EXPECT_NE(*phi(x1,n1), *phi(x2,n2));
-  { auto psi = phi(x1,n2); psi->SubstituteFree(Term::SingleSubstitution(n2,n1), &tf); EXPECT_EQ(*psi, *phi(x1,n1)); }
-  { auto psi = phi(x1,f3); psi->SubstituteFree(Term::SingleSubstitution(f3,n1), &tf); EXPECT_EQ(*psi, *phi(x1,n1)); }
-  { auto psi = phi(x1,f2); psi->SubstituteFree(Term::SingleSubstitution(x1,x3), &tf); EXPECT_EQ(*psi, *phi(x1,f2)); }
-  { auto psi = phi(x1,f2); psi->SubstituteFree(Term::SingleSubstitution(x1,n1), &tf); EXPECT_EQ(*psi, *phi(x1,f2)); }
-  { auto psi = phi(x1,f2); psi->SubstituteFree(Term::SingleSubstitution(x1,n1), &tf); EXPECT_NE(*psi, *phi(n1,f2)); }
-  { auto psi = phi(x3,f2); psi->SubstituteFree(Term::SingleSubstitution(x3,n1), &tf); EXPECT_EQ(*psi, *phi(n1,f2)); }
+  { auto psi = phi(x1,n2); psi->SubstituteFree(Term::Substitution(n2,n1), &tf); EXPECT_EQ(*psi, *phi(x1,n1)); }
+  { auto psi = phi(x1,f3); psi->SubstituteFree(Term::Substitution(f3,n1), &tf); EXPECT_EQ(*psi, *phi(x1,n1)); }
+  { auto psi = phi(x1,f2); psi->SubstituteFree(Term::Substitution(x1,x3), &tf); EXPECT_EQ(*psi, *phi(x1,f2)); }
+  { auto psi = phi(x1,f2); psi->SubstituteFree(Term::Substitution(x1,n1), &tf); EXPECT_EQ(*psi, *phi(x1,f2)); }
+  { auto psi = phi(x1,f2); psi->SubstituteFree(Term::Substitution(x1,n1), &tf); EXPECT_NE(*psi, *phi(n1,f2)); }
+  { auto psi = phi(x3,f2); psi->SubstituteFree(Term::Substitution(x3,n1), &tf); EXPECT_EQ(*psi, *phi(n1,f2)); }
 }
 
 TEST(Formula, NF) {

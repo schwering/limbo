@@ -88,6 +88,7 @@ class KnowledgeBase {
     Formula::Ref ante;
     Clause not_ante_or_conse;
   };
+  typedef Grounder::TermSet TermSet;
   typedef Grounder::SortedTermSet SortedTermSet;
 
   void BuildSpheres() {
@@ -238,7 +239,7 @@ class KnowledgeBase {
   template<typename BinaryPredicate>
   Formula::Ref ResName(sphere_index p, Formula::Ref phi, Term x, Term n, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
     // (x == n -> RES(p, phi^x_n)) in clausal form
-    phi->SubstituteFree(Term::SingleSubstitution(x, n), tf_);
+    phi->SubstituteFree(Term::Substitution(x, n), tf_);
     phi = Res(p, std::move(phi), names, if_no_free_vars);
     Literal if_not = Literal::Neq(x, n);
     return Formula::Factory::Or(Formula::Factory::Atomic(Clause({if_not})), std::move(phi));
@@ -248,13 +249,13 @@ class KnowledgeBase {
   Formula::Ref ResOtherName(sphere_index p, Formula::Ref phi, Term x, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
     // (x != n1 && ... && x != nK -> RES(p, phi^x_n0)^n0_x) in clausal form
     Term n0 = spheres_[p].grounder()->CreateName(x.sort());
-    phi->SubstituteFree(Term::SingleSubstitution(x, n0), tf_);
+    phi->SubstituteFree(Term::Substitution(x, n0), tf_);
     names->insert(n0);
     phi = Res(p, std::move(phi), names, if_no_free_vars);
     names->erase(n0);
-    phi->SubstituteFree(Term::SingleSubstitution(n0, x), tf_);
+    phi->SubstituteFree(Term::Substitution(n0, x), tf_);
     spheres_[p].grounder()->ReturnName(n0);
-    const SortedTermSet::value_type& ns = (*names)[x.sort()];
+    const TermSet& ns = (*names)[x.sort()];
     const auto if_not = internal::transform_range(ns.begin(), ns.end(), [x](Term n) { return Literal::Eq(x, n); });
     return Formula::Factory::Or(Formula::Factory::Atomic(Clause(if_not.begin(), if_not.end())), std::move(phi));
   }

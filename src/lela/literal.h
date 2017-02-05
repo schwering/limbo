@@ -2,6 +2,8 @@
 // Copyright 2014 Christoph Schwering
 //
 // A literal is an (in)equality expression of two terms. Literals are immutable.
+// If one of either terms in a literal is a function, then the left-hand side
+// is a function.
 //
 // The most important operations are Complementary() and Subsumes() checks,
 // which are only defined for primitive literals. Note that the operations
@@ -97,6 +99,13 @@ class Literal {
   template<typename UnaryFunction>
   Literal Substitute(UnaryFunction theta, Term::Factory* tf) const {
     return Literal(pos(), lhs().Substitute(theta, tf), rhs().Substitute(theta, tf));
+  }
+
+  template<Term::UnificationType direction = Term::kTwoWay>
+  static internal::Maybe<Term::Substitution> Unify(Literal a, Literal b) {
+    Term::Substitution sub;
+    bool ok = Term::Unify(a.lhs(), b.lhs(), &sub) && Term::Unify(a.rhs(), b.rhs(), &sub);
+    return ok ? internal::Just(sub) : internal::Nothing;
   }
 
   template<typename UnaryFunction>

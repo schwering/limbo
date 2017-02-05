@@ -306,7 +306,7 @@ class Formula::Atomic : public Formula {
           term_to_var[old_t] = new_t;
           vars.append_exists(new_t);
         }
-        Literal new_a = a.Substitute(Term::SingleSubstitution(old_t, new_t), tf);
+        Literal new_a = a.Substitute(Term::Substitution(old_t, new_t), tf);
         Literal new_b = Literal::Neq(new_t, old_t);
         queue.insert(new_a);
         queue.insert(new_b);
@@ -324,7 +324,7 @@ class Formula::Atomic : public Formula {
               term_to_var[old_arg] = new_arg;
               vars.append_exists(new_arg);
             }
-            Literal new_a = a.Substitute(Term::SingleSubstitution(old_arg, new_arg), tf);
+            Literal new_a = a.Substitute(Term::Substitution(old_arg, new_arg), tf);
             Literal new_b = Literal::Neq(new_arg, old_arg);
             queue.insert(new_a);
             queue.insert(new_b);
