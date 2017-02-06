@@ -38,9 +38,9 @@ class Literal {
 
   Literal() = default;
 
-  Term lhs() const { return Term(data_ & ~std::uint32_t(0)); }
-  bool pos() const { return (data_ >> 63) & 1; }
-  Term rhs() const { return Term(std::uint32_t(data_ >> 32) & ~(std::uint32_t(1) << 31)); }
+  Term lhs() const { return Term(data_ & ~static_cast<std::uint32_t>(0)); }
+  bool pos() const { return ((data_ >> 63) & 1) == 1; }
+  Term rhs() const { return Term(static_cast<std::uint32_t>(data_ >> 32) & ~(static_cast<std::uint32_t>(1) << 31)); }
 
   bool null()           const { return data_ == 0; }
   bool ground()         const { return lhs().ground() && rhs().ground(); }
@@ -53,7 +53,10 @@ class Literal {
   bool operator==(Literal a) const { return pos() == a.pos() && lhs() == a.lhs() && rhs() == a.rhs(); }
   bool operator!=(Literal a) const { return !(*this == a); }
 
-  internal::hash_t hash() const { return data_; }
+  internal::hash32_t hash() const {
+    return internal::jenkins_hash(static_cast<std::uint32_t>(data_ >> 32)) ^
+           internal::jenkins_hash(static_cast<std::uint32_t>(data_));
+  }
 
   // valid() holds for (t = t) and (n1 != n2) and (t1 != t2) if t1, t2 have different sorts.
   bool valid() const {
@@ -111,8 +114,8 @@ class Literal {
 
   static internal::Maybe<Term::Substitution> Bisimilar(Literal a, Literal b) {
     Term::Substitution sub;
-    bool ok = Term::Bisimilar<config>(a.lhs(), b.lhs(), &sub) &&
-              Term::Bisimilar<config>(a.rhs(), b.rhs(), &sub);
+    bool ok = Term::Bisimilar(a.lhs(), b.lhs(), &sub) &&
+              Term::Bisimilar(a.rhs(), b.rhs(), &sub);
     return ok ? internal::Just(sub) : internal::Nothing;
   }
 
@@ -137,7 +140,9 @@ class Literal {
       rhs = tmp;
     }
     assert(!rhs.function() || lhs.function());
-    data_ = (std::uint64_t(rhs.index()) << 32) | std::uint64_t(lhs.index()) | (std::uint64_t(pos) << 63);
+    data_ = (static_cast<std::uint64_t>(rhs.index()) << 32) |
+             static_cast<std::uint64_t>(lhs.index()) |
+            (static_cast<std::uint64_t>(pos) << 63);
     assert(this->lhs() == lhs);
     assert(this->rhs() == rhs);
     assert(this->pos() == pos);
@@ -147,7 +152,7 @@ class Literal {
 };
 
 struct Literal::LhsHasher {
-  std::size_t operator()(const Literal a) const { return a.lhs().hash(); }
+  internal::hash32_t operator()(const Literal a) const { return a.lhs().hash(); }
 };
 
 }  // namespace lela

@@ -101,7 +101,7 @@ class Symbol {
   }
   bool operator!=(Symbol s) const { return !(*this == s); }
 
-  internal::hash_t hash() const { return internal::fnv1a_hash(id_); }
+  internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
   bool name()     const { return (id_ & (0 | 1 | 2)) == 0; }
   bool variable() const { return (id_ & (0 | 1 | 2)) == 1; }
@@ -146,7 +146,7 @@ class Term {
   bool operator<(Term t)  const { return index_ < t.index_; }
   bool operator>(Term t)  const { return index_ > t.index_; }
 
-  internal::hash_t hash() const { return index_; }
+  internal::hash32_t hash() const { return internal::jenkins_hash(index_); }
 
   Symbol symbol()         const { return data()->symbol_; }
   Term arg(std::size_t i) const { return data()->args_[i]; }
@@ -183,18 +183,16 @@ class Term {
   friend class Literal;
 
   struct Data {
-    Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args), hash_(calc_hash()) {}
+    Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args) {}
 
     bool operator==(const Data& d) const { return symbol_ == d.symbol_ && args_ == d.args_; }
     bool operator!=(const Data& s) const { return !(*this == s); }
 
     Symbol symbol_;
     Vector args_;
-    internal::hash_t hash_;
 
-   private:
-    internal::hash_t calc_hash() const {
-      internal::hash_t h = symbol_.hash();
+    internal::hash32_t hash() const {
+      internal::hash32_t h = symbol_.hash();
       for (const lela::Term t : args_) {
         h ^= t.hash();
       }
@@ -245,7 +243,7 @@ class Term::Factory : private Singleton<Factory> {
     auto it = s->find(d);
     if (it == s->end()) {
       heap_.push_back(d);
-      const std::uint32_t index = std::uint32_t(heap_.size());
+      const std::uint32_t index = static_cast<std::uint32_t>(heap_.size());
       s->insert(std::make_pair(d, index));
       return Term(index);
     } else {
@@ -258,8 +256,8 @@ class Term::Factory : private Singleton<Factory> {
   const Data* get(std::uint32_t index) const { return heap_[index - 1]; }
 
  private:
-  struct DataPtrHash   { std::size_t operator()(const Term::Data* d) const { return d->hash_; } };
-  struct DataPtrEquals { std::size_t operator()(const Term::Data* a, const Term::Data* b) const { return *a == *b; } };
+  struct DataPtrHash   { internal::hash32_t operator()(const Term::Data* d) const { return d->hash(); } };
+  struct DataPtrEquals { bool operator()(const Term::Data* a, const Term::Data* b) const { return *a == *b; } };
 
   Factory() = default;
   Factory(const Factory&) = delete;
@@ -393,7 +391,7 @@ namespace std {
 
 template<>
 struct hash<lela::Symbol> {
-  std::size_t operator()(const lela::Symbol s) const { return s.hash(); }
+  lela::internal::hash32_t operator()(const lela::Symbol s) const { return s.hash(); }
 };
 
 template<>
@@ -403,7 +401,7 @@ struct equal_to<lela::Symbol> {
 
 template<>
 struct hash<lela::Term> {
-  std::size_t operator()(const lela::Term t) const { return t.hash(); }
+  lela::internal::hash32_t operator()(const lela::Term t) const { return t.hash(); }
 };
 
 template<>

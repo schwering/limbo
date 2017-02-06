@@ -30,12 +30,12 @@ TEST(ClauseTest, valid_invalid) {
   //const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
   const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));
   const Symbol f = sf.CreateFunction(s1, 1);
-  const Symbol g = sf.CreateFunction(s2, 1);
+  //const Symbol g = sf.CreateFunction(s2, 1);
   const Symbol h = sf.CreateFunction(s2, 2);
   const Term f1 = tf.CreateTerm(f, {n1});
   const Term f2 = tf.CreateTerm(h, {n1,x2});
-  const Term f3 = tf.CreateTerm(g, {n1});
-  const Term f4 = tf.CreateTerm(h, {n1,f1});
+  //const Term f3 = tf.CreateTerm(g, {n1});
+  //const Term f4 = tf.CreateTerm(h, {n1,f1});
 
   EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid());
   EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid());

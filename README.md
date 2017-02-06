@@ -72,8 +72,6 @@ For more theoretical background see the papers linked below.
   projection separate from the core reasoner and implement them as a
   preprocessing step.
 * Consistency guarantees need to be extended.
-* If time permits, I'll rewrite the whole system in Rust. First results (cf.
-  'rust' branch) indicate it's faster. And it's actually fun!
 
 ## References
 

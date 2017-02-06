@@ -25,7 +25,7 @@ namespace lela {
 namespace internal {
 
 TEST(HashSetTest, main) {
-  struct Hash { internal::hash_t operator()(Value i) const { return i.x/2; } };
+  struct Hash { internal::hash32_t operator()(Value i) const { return i.x/2; } };
   struct Equal { bool operator()(Value i, Value j) const { return i.x == j.x; } };
   typedef HashSet<Value, Hash, Equal> HS;
   HS hs(10);

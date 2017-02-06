@@ -36,28 +36,28 @@ class BloomFilter {
  public:
   BloomFilter() = default;
 
-  static BloomFilter Union(const BloomFilter& a, const BloomFilter& b)        { return BloomFilter(a.mask_ | b.mask_); }
-  static BloomFilter Intersection(const BloomFilter& a, const BloomFilter& b) { return BloomFilter(a.mask_ & b.mask_); }
+  static BloomFilter Union(const BloomFilter a, const BloomFilter b)        { return BloomFilter(a.mask_ | b.mask_); }
+  static BloomFilter Intersection(const BloomFilter a, const BloomFilter b) { return BloomFilter(a.mask_ & b.mask_); }
 
-  bool operator==(const BloomFilter& b) const { return mask_ == b.mask_; }
-  bool operator!=(const BloomFilter& b) const { return !(*this == b); }
-
-  hash_t hash() const { return fnv1a_hash(mask_); }
+  bool operator==(const BloomFilter b) const { return mask_ == b.mask_; }
+  bool operator!=(const BloomFilter b) const { return !(*this == b); }
 
   void Clear() { mask_ = 0; }
 
-  void Add(const hash_t& x) {
-    mask_ |= (mask_t(1) << index<0>(x))
-          |  (mask_t(1) << index<1>(x))
-          |  (mask_t(1) << index<2>(x))
-          |  (mask_t(1) << index<3>(x));
+  template<typename HashType>
+  void Add(const HashType x) {
+    mask_ |= (static_cast<mask_t>(1) << index<0>(x))
+          |  (static_cast<mask_t>(1) << index<1>(x))
+          |  (static_cast<mask_t>(1) << index<2>(x))
+          |  (static_cast<mask_t>(1) << index<3>(x));
   }
 
-  bool Contains(const hash_t& x) const {
+  template<typename HashType>
+  bool Contains(const HashType x) const {
     return (( (mask_ >> index<0>(x))
             & (mask_ >> index<1>(x))
             & (mask_ >> index<2>(x))
-            & (mask_ >> index<3>(x))) & mask_t(1)) != 0;
+            & (mask_ >> index<3>(x))) & static_cast<mask_t>(1)) != 0;
   }
 
   void Union(const BloomFilter& b)     { mask_ |= b.mask_; }
@@ -79,9 +79,9 @@ class BloomFilter {
 
   explicit BloomFilter(const mask_t& mask) : mask_(mask) {}
 
-  template<std::size_t I>
-  static bit_index_t index(hash_t x) {
-    // index() should slice the original hash_t x into several bit_index_t,
+  template<std::size_t I, typename HashType>
+  static bit_index_t index(HashType x) {
+    // index() should slice the original HashType x into several bit_index_t,
     // whose range shall be [0 ... bits(mask_t) - 1], that is, the indices
     // of the bits in mask_t.
     //
@@ -94,7 +94,8 @@ class BloomFilter {
     // But since 63 is just binary 111111, we can simply take the six
     // right-most bits of the byte:
     constexpr bit_index_t kMaxIndex = 63;
-    static_assert((~mask_t(0) >> kMaxIndex) == 1, "mask does not cover mask_t indices");
+    static_assert((~static_cast<HashType>(0) & kMaxIndex) != 0, "HashType does not provide enough bits");
+    static_assert((~static_cast<mask_t>(0) >> kMaxIndex) == 1, "mask does not cover mask_t indices");
     return (x >> (I*8)) & kMaxIndex;
   }
 
@@ -115,8 +116,6 @@ class BloomSet {
 
   bool operator==(const BloomSet& b) const { return bf_ == b.bf_; }
   bool operator!=(const BloomSet& b) const { return !(*this == b); }
-
-  hash_t hash() const { return bf_.hash(); }
 
   void Clear()                      { bf_.Clear(); }
   void Add(const T& x)              { bf_.Add(x.hash()); }
@@ -140,18 +139,8 @@ class BloomSet {
 namespace std {
 
 template<>
-struct hash<lela::internal::BloomFilter> {
-  std::size_t operator()(const lela::internal::BloomFilter& a) const { return a.hash(); }
-};
-
-template<>
 struct equal_to<lela::internal::BloomFilter> {
   bool operator()(const lela::internal::BloomFilter& a, const lela::internal::BloomFilter& b) const { return a == b; }
-};
-
-template<typename T>
-struct hash<lela::internal::BloomSet<T>> {
-  std::size_t operator()(const lela::internal::BloomSet<T>& a) const { return a.hash(); }
 };
 
 template<typename T>

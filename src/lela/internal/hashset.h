@@ -11,8 +11,9 @@
 #include <cstring>
 
 #include <algorithm>
+#include <functional>
 #include <initializer_list>
-#include <memory>
+#include <utility>
 #include <vector>
 
 #include <lela/internal/hash.h>
@@ -24,6 +25,8 @@ namespace internal {
 template<typename T, typename Hash = std::hash<T>, typename Equal = std::equal_to<T>>
 class HashSet {
  public:
+  typedef typename std::result_of<Hash(T)>::type hash_t;
+
   struct Cell {
     Cell() = default;
     Cell(const T& val, hash_t hash) : val(val), hash(hash) {}
@@ -41,8 +44,8 @@ class HashSet {
     hash_t hash = kFresh;
 
    private:
-    static constexpr hash_t kRemoved  = hash_t(1) << (sizeof(hash_t) * 8 - 2);
-    static constexpr hash_t kFresh    = hash_t(1) << (sizeof(hash_t) * 8 - 1);
+    static constexpr hash_t kRemoved  = static_cast<hash_t>(1) << (sizeof(hash_t) * 8 - 2);
+    static constexpr hash_t kFresh    = static_cast<hash_t>(1) << (sizeof(hash_t) * 8 - 1);
   };
 
   template<typename U, typename InputIt>
