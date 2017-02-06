@@ -101,10 +101,18 @@ class Literal {
     return Literal(pos(), lhs().Substitute(theta, tf), rhs().Substitute(theta, tf));
   }
 
-  template<Term::UnificationType direction = Term::kTwoWay>
+  template<Term::UnificationConfiguration config = Term::kDefaultConfig>
   static internal::Maybe<Term::Substitution> Unify(Literal a, Literal b) {
     Term::Substitution sub;
-    bool ok = Term::Unify(a.lhs(), b.lhs(), &sub) && Term::Unify(a.rhs(), b.rhs(), &sub);
+    bool ok = Term::Unify<config>(a.lhs(), b.lhs(), &sub) &&
+              Term::Unify<config>(a.rhs(), b.rhs(), &sub);
+    return ok ? internal::Just(sub) : internal::Nothing;
+  }
+
+  static internal::Maybe<Term::Substitution> Bisimilar(Literal a, Literal b) {
+    Term::Substitution sub;
+    bool ok = Term::Bisimilar<config>(a.lhs(), b.lhs(), &sub) &&
+              Term::Bisimilar<config>(a.rhs(), b.rhs(), &sub);
     return ok ? internal::Just(sub) : internal::Nothing;
   }
 

@@ -26,6 +26,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <lela/internal/compar.h>
@@ -124,10 +125,17 @@ class Symbol {
 
 class Term {
  public:
-  typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
   class Factory;
   struct Substitution;
-  enum UnificationType { kTwoWay, kLeftOnly, kRightOnly };
+  typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
+  typedef std::uint8_t UnificationConfiguration;
+
+  static constexpr UnificationConfiguration kUnifyLeft = (1 << 0);
+  static constexpr UnificationConfiguration kUnifyRight = (1 << 1);
+  static constexpr UnificationConfiguration kUnifyVars = (1 << 2);
+  static constexpr UnificationConfiguration kOccursCheck = (1 << 4);
+  static constexpr UnificationConfiguration kUnifyTwoWay = kUnifyLeft | kUnifyRight;
+  static constexpr UnificationConfiguration kDefaultConfig = kUnifyTwoWay | kUnifyVars;
 
   Term() = default;
 
@@ -160,11 +168,13 @@ class Term {
   template<typename UnaryFunction>
   Term Substitute(UnaryFunction theta, Factory* tf) const;
 
-  template<Term::UnificationType = Term::kTwoWay>
+  template<Term::UnificationConfiguration config = Term::kDefaultConfig>
   static bool Unify(Term l, Term r, Substitution* sub);
-
-  template<Term::UnificationType = Term::kTwoWay>
+  template<Term::UnificationConfiguration config = Term::kDefaultConfig>
   static internal::Maybe<Substitution> Unify(Term l, Term r);
+
+  static bool Bisimilar(Term l, Term r, Substitution* sub);
+  static internal::Maybe<Substitution> Bisimilar(Term l, Term r);
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
@@ -247,11 +257,11 @@ class Term::Factory : private Singleton<Factory> {
 
   const Data* get(std::uint32_t index) const { return heap_[index - 1]; }
 
-  Factory() = default;
  private:
   struct DataPtrHash   { std::size_t operator()(const Term::Data* d) const { return d->hash_; } };
   struct DataPtrEquals { std::size_t operator()(const Term::Data* a, const Term::Data* b) const { return *a == *b; } };
 
+  Factory() = default;
   Factory(const Factory&) = delete;
   Factory& operator=(const Factory&) = delete;
   Factory(Factory&&) = delete;
@@ -264,14 +274,15 @@ class Term::Factory : private Singleton<Factory> {
 
 struct Term::Substitution {
   Substitution() = default;
-  Substitution(Term old, Term rev) { Add(old, rev); }
+  Substitution(Term old, Term sub) { Add(old, sub); }
 
-  bool Add(Term old, Term rev) {
-    if (!operator()(old)) {
-      subs_.push_back(std::make_pair(old, rev));
+  bool Add(Term old, Term sub) {
+    internal::Maybe<Term> bef = operator()(old);
+    if (!bef) {
+      subs_.push_back(std::make_pair(old, sub));
       return true;
     } else {
-      return false;
+      return bef.val == sub;
     }
   }
 
@@ -284,7 +295,6 @@ struct Term::Substitution {
     return internal::Nothing;
   }
 
- private:
   std::vector<std::pair<Term, Term>> subs_;
 };
 
@@ -311,7 +321,7 @@ Term Term::Substitute(UnaryFunction theta, Factory* tf) const {
   }
 }
 
-template<Term::UnificationType direction>
+template<Term::UnificationConfiguration config>
 bool Term::Unify(Term l, Term r, Substitution* sub) {
   if (l == r) {
     return true;
@@ -324,24 +334,47 @@ bool Term::Unify(Term l, Term r, Substitution* sub) {
   }
   if (l.symbol() == r.symbol()) {
     for (std::size_t i = 0; i < l.arity(); ++i) {
-      if (!Unify(l.arg(i), r.arg(i), sub)) {
+      if (!Unify<config>(l.arg(i), r.arg(i), sub)) {
         return false;
       }
     }
     return true;
-  } else if (l.variable() && direction != kRightOnly && sub->Add(l, r)) {
+  } else if (l.variable() && (config & kUnifyLeft) != 0 != 0 && sub->Add(l, r)) {
+    return (config & kOccursCheck) == 0 || !r.Mentions(l);
+  } else if (r.variable() && (config & kUnifyRight) != 0 != 0 && sub->Add(r, l)) {
+    return (config & kOccursCheck) == 0 || !l.Mentions(r);
+  } else {
+    return false;
+  }
+}
+
+template<Term::UnificationConfiguration config>
+internal::Maybe<Term::Substitution> Term::Unify(Term l, Term r) {
+  Substitution sub;
+  return Unify<config>(l, r, &sub) ? internal::Just(sub) : internal::Nothing;
+}
+
+bool Term::Bisimilar(Term l, Term r, Substitution* sub) {
+  internal::Maybe<Term> u;
+  if (l.function() && r.function() && l.symbol() == r.symbol()) {
+    for (std::size_t i = 0; i < l.arity(); ++i) {
+      if (!Bisimilar(l.arg(i), r.arg(i), sub)) {
+        return false;
+      }
+    }
     return true;
-  } else if (r.variable() && direction != kLeftOnly && sub->Add(r, l)) {
+  } else if (l.variable() && r.variable() && l.sort() == r.sort() && sub->Add(l, r) && sub->Add(r, l)) {
+    return true;
+  } else if (l.name() && r.name() && l.sort() == r.sort() && sub->Add(l, r) && sub->Add(r, l)) {
     return true;
   } else {
     return false;
   }
 }
 
-template<Term::UnificationType direction>
-internal::Maybe<Term::Substitution> Term::Unify(Term l, Term r) {
+internal::Maybe<Term::Substitution> Term::Bisimilar(Term l, Term r) {
   Substitution sub;
-  return Unify(l, r, &sub) ? internal::Just(sub) : internal::Nothing;
+  return Bisimilar(l, r, &sub) ? internal::Just(sub) : internal::Nothing;
 }
 
 template<typename UnaryFunction>

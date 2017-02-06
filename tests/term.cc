@@ -8,7 +8,7 @@
 
 namespace lela {
 
-using namespace lela::format;
+using namespace lela::format::output;
 
 struct EqSubstitute {
   EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}
@@ -80,6 +80,75 @@ TEST(TermTest, general) {
   std::set<Symbol::Sort> sorts;
   f4.Traverse([&sorts](Term t) { sorts.insert(t.symbol().sort()); return true; });
   EXPECT_TRUE(sorts == std::set<Symbol::Sort>({s1,s2}));
+}
+
+TEST(TermTest, Unify) {
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
+  const Symbol::Sort s = sf.CreateSort();
+  const Symbol::Sort ss = sf.CreateSort();
+
+  const Term n1 = tf.CreateTerm(sf.CreateName(s));
+  const Term n2 = tf.CreateTerm(sf.CreateName(s));
+  const Term nn = tf.CreateTerm(sf.CreateName(ss));
+  const Term x = tf.CreateTerm(sf.CreateVariable(s));
+  const Symbol f = sf.CreateFunction(s, 2);
+  const Term fxx = tf.CreateTerm(f, {x,x});
+  const Term fn1n1 = tf.CreateTerm(f, {n1,n1});
+  const Term fn1n2 = tf.CreateTerm(f, {n1,n2});
+  const Term fn2n1 = tf.CreateTerm(f, {n2,n1});
+  const Term fxn2 = tf.CreateTerm(f, {x,n2});
+  const Term fn1x = tf.CreateTerm(f, {n1,x});
+  const Symbol g = sf.CreateFunction(s, 1);
+  const Term y = tf.CreateTerm(sf.CreateVariable(s));
+  const Term gy = tf.CreateTerm(g, {y});
+  const Term fxy = tf.CreateTerm(f, {x,y});
+  const Term fgyx = tf.CreateTerm(f, {gy,x});
+
+  { auto u = Term::Unify<0                                     >(n1, n1); EXPECT_TRUE(u); EXPECT_EQ(n1.Substitute(u.val, &tf), n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(n1, n1); EXPECT_TRUE(u); EXPECT_EQ(n1.Substitute(u.val, &tf), n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(n1, nn); EXPECT_FALSE(u); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(n1, n2); EXPECT_FALSE(u); }
+
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(x, n2); EXPECT_TRUE(u); EXPECT_EQ(u.val(x).val, n2); EXPECT_EQ(x.Substitute(u.val, &tf), n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyLeft   | Term::kUnifyVars >(x, n2); EXPECT_TRUE(u); EXPECT_EQ(u.val(x).val, n2); EXPECT_EQ(x.Substitute(u.val, &tf), n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyRight  | Term::kUnifyVars >(x, n2); EXPECT_FALSE(u); }
+
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxx, fn1n1); EXPECT_TRUE(u); EXPECT_EQ(u.val(x).val, n1); EXPECT_EQ(fxx.Substitute(u.val, &tf), fn1n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxx, fn1n2); EXPECT_FALSE(u); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxx, fxn2); EXPECT_TRUE(u); EXPECT_EQ(u.val(x).val, n2); EXPECT_EQ(fxx.Substitute(u.val, &tf), fxn2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxx, fn1x); EXPECT_TRUE(u); EXPECT_EQ(u.val(x).val, n1); EXPECT_EQ(fxx.Substitute(u.val, &tf), fn1x.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyLeft   | Term::kUnifyVars >(fxx, fn1n1); EXPECT_TRUE(u); EXPECT_EQ(u.val(x).val, n1); EXPECT_EQ(fxx.Substitute(u.val, &tf), fn1n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyRight  | Term::kUnifyVars >(fxx, fn1n1); EXPECT_FALSE(u); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fn1n2, fn1n2); EXPECT_TRUE(u); EXPECT_EQ(fn1n2.Substitute(u.val, &tf), fn1n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fn1n2, fn2n1); EXPECT_FALSE(u); }
+
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxy, fn1n1); EXPECT_TRUE(u); EXPECT_EQ(fxy.Substitute(u.val, &tf), fn1n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxy, fn1n2); EXPECT_TRUE(u); EXPECT_EQ(fxy.Substitute(u.val, &tf), fn1n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxy, fgyx); EXPECT_TRUE(u); /* only true because of missing occurs-check */ }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars | Term::kOccursCheck>(fxy, fgyx); EXPECT_FALSE(u); }
+}
+
+TEST(TermTest, Bisimilar) {
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
+  const Symbol::Sort s = sf.CreateSort();
+
+  const Term n1 = tf.CreateTerm(sf.CreateName(s));
+  const Term n2 = tf.CreateTerm(sf.CreateName(s));
+  const Symbol f = sf.CreateFunction(s, 2);
+  const Term fn1n1 = tf.CreateTerm(f, {n1,n1});
+  const Term fn1n2 = tf.CreateTerm(f, {n1,n2});
+  const Term fn2n1 = tf.CreateTerm(f, {n2,n1});
+
+  { auto u = Term::Bisimilar(n1, n2); EXPECT_TRUE(u); EXPECT_EQ(u.val(n1).val, n2); EXPECT_EQ(n1.Substitute(u.val, &tf), n2); EXPECT_EQ(n1, n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Bisimilar(n1, n2); EXPECT_TRUE(u); EXPECT_EQ(u.val(n1).val, n2); EXPECT_EQ(n1.Substitute(u.val, &tf), n2); EXPECT_EQ(n1, n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Bisimilar(n2, n1); EXPECT_TRUE(u); EXPECT_EQ(u.val(n2).val, n1); EXPECT_EQ(n2.Substitute(u.val, &tf), n1); EXPECT_EQ(n2, n1.Substitute(u.val, &tf)); }
+
+  { auto u = Term::Bisimilar(fn1n2, fn2n1); EXPECT_TRUE(u); EXPECT_EQ(fn1n2.Substitute(u.val, &tf), fn2n1); EXPECT_EQ(fn1n2, fn2n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Bisimilar(fn2n1, fn1n2); EXPECT_TRUE(u); EXPECT_EQ(fn2n1.Substitute(u.val, &tf), fn1n2); EXPECT_EQ(fn2n1, fn1n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Bisimilar(fn1n1, fn2n1); EXPECT_FALSE(u); }
+  { auto u = Term::Bisimilar(fn2n1, fn1n1); EXPECT_FALSE(u); }
 }
 
 }  // namespace lela
