@@ -70,7 +70,7 @@ class KnowledgeBase {
   bool Entails(const Formula& sigma, bool assume_consistent = true) {
     assert(sigma.subjective());
     if (spheres_changed_) {
-      BuildSpheres();
+      BuildSpheres(assume_consistent);
       spheres_changed_ = false;
     }
     Formula::Ref sigma_nf = sigma.NF(sf_, tf_);
@@ -91,9 +91,10 @@ class KnowledgeBase {
     Formula::Ref ante;
     Clause not_ante_or_conse;
   };
+  typedef Grounder::TermSet TermSet;
   typedef Grounder::SortedTermSet SortedTermSet;
 
-  void BuildSpheres() {
+  void BuildSpheres(bool assume_consistent) {
     spheres_.clear();
     std::vector<bool> done(beliefs_.size(), false);
     bool is_plausibility_consistent = true;
@@ -114,11 +115,12 @@ class KnowledgeBase {
       for (std::size_t i = 0; is_plausibility_consistent && i < beliefs_.size(); ++i) {
         const Conditional& c = beliefs_[i];
         if (!done[i]) {
-          const bool possiblyConsistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()));
+          const bool possiblyConsistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()),
+                                                          assume_consistent);
           if (possiblyConsistent) {
             done[i] = true;
             ++n_done;
-            const bool necessarilyConsistent = sphere.Consistent(c.l, *c.ante);
+            const bool necessarilyConsistent = sphere.Consistent(c.l, *c.ante, assume_consistent);
             if (!necessarilyConsistent) {
               is_plausibility_consistent = false;
             }
@@ -216,7 +218,7 @@ class KnowledgeBase {
 
   Formula::Ref ResConsistent(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
     auto if_no_free_vars = [k, assume_consistent, this](Solver* sphere, const Formula& psi) {
-      return sphere->Consistent(k, psi/*, assume_consistent*/);  // TODO implement assume_consistent
+      return sphere->Consistent(k, psi, assume_consistent);
     };
     return Res(p, phi.Clone(), if_no_free_vars);
   }
@@ -247,7 +249,7 @@ class KnowledgeBase {
   template<typename BinaryPredicate>
   Formula::Ref ResName(sphere_index p, Formula::Ref phi, Term x, Term n, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
     // (x == n -> RES(p, phi^x_n)) in clausal form
-    phi->SubstituteFree(Term::SingleSubstitution(x, n), tf_);
+    phi->SubstituteFree(Term::Substitution(x, n), tf_);
     phi = Res(p, std::move(phi), names, if_no_free_vars);
     Literal if_not = Literal::Neq(x, n);
     return Formula::Factory::Or(Formula::Factory::Atomic(Clause({if_not})), std::move(phi));
@@ -257,13 +259,13 @@ class KnowledgeBase {
   Formula::Ref ResOtherName(sphere_index p, Formula::Ref phi, Term x, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
     // (x != n1 && ... && x != nK -> RES(p, phi^x_n0)^n0_x) in clausal form
     Term n0 = spheres_[p].grounder()->CreateName(x.sort());
-    phi->SubstituteFree(Term::SingleSubstitution(x, n0), tf_);
+    phi->SubstituteFree(Term::Substitution(x, n0), tf_);
     names->insert(n0);
     phi = Res(p, std::move(phi), names, if_no_free_vars);
     names->erase(n0);
-    phi->SubstituteFree(Term::SingleSubstitution(n0, x), tf_);
+    phi->SubstituteFree(Term::Substitution(n0, x), tf_);
     spheres_[p].grounder()->ReturnName(n0);
-    const SortedTermSet::value_type& ns = (*names)[x.sort()];
+    const TermSet& ns = (*names)[x.sort()];
     const auto if_not = internal::transform_range(ns.begin(), ns.end(), [x](Term n) { return Literal::Eq(x, n); });
     return Formula::Factory::Or(Formula::Factory::Atomic(Clause(if_not.begin(), if_not.end())), std::move(phi));
   }

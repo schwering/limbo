@@ -2,6 +2,9 @@ add_executable (sudoku sudoku.cc)
 target_link_libraries (sudoku LINK_PUBLIC lela)
 
 
+# add_test (NAME sudokus COMMAND ./test-sudokus.sh)
+
+
 find_package (Emscripten)
 if (EMCC)
         if (CMAKE_BUILD_TYPE MATCHES Release)

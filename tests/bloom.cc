@@ -13,8 +13,8 @@ namespace internal {
 using namespace lela::format;
 
 TEST(BloomFilterTest, Subset_Contains) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
@@ -90,10 +90,10 @@ TEST(BloomFilterTest, hash) {
   EXPECT_EQ(BloomFilter::index<5>(x), 0x3F);
   EXPECT_EQ(BloomFilter::index<6>(x), 0x03);
   EXPECT_EQ(BloomFilter::index<7>(x), 0x3F);
-  EXPECT_EQ(BloomFilter::index<0>(uint64_t(64)), 0);
-  EXPECT_EQ(BloomFilter::index<0>(uint64_t(63)), 63);
-  EXPECT_EQ(BloomFilter::index<7>(uint64_t(64) << (7*8)), 0);
-  EXPECT_EQ(BloomFilter::index<7>(uint64_t(63) << (7*8)), 63);
+  EXPECT_EQ(BloomFilter::index<0>(static_cast<uint64_t>(64)), 0);
+  EXPECT_EQ(BloomFilter::index<0>(static_cast<uint64_t>(63)), 63);
+  EXPECT_EQ(BloomFilter::index<7>(static_cast<uint64_t>(64) << (7*8)), 0);
+  EXPECT_EQ(BloomFilter::index<7>(static_cast<uint64_t>(63) << (7*8)), 63);
 }
 
 }  // namespace internal

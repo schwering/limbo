@@ -100,7 +100,7 @@ struct DefaultCallback {
 template<typename Logger = DefaultLogger, typename Callback = DefaultCallback>
 class Context {
  public:
-  explicit Context(Logger p = Logger(), Callback c = Callback()) : logger_(p), callback_(c), kb_(&sf_, &tf_) {}
+  explicit Context(Logger p = Logger(), Callback c = Callback()) : logger_(p), callback_(c), kb_(sf(), tf()) {}
 
   void Call(const std::string& proc, const std::vector<Term>& args) {
     callback_(this, proc, args);
@@ -198,13 +198,13 @@ class Context {
   }
 
   bool guarantee_kb_consistency() const { return assume_consistent_; }
-  void guarantee_kb_consistency(bool b) { assume_consistent_ = b; }
+  void guarantee_kb_consistency(bool b) { assume_consistent_ = b; std::cout << "assume_consistent = " << b << std::endl; }
 
   KnowledgeBase* kb() { return &kb_; }
   const KnowledgeBase& kb() const { return kb_; }
 
-  Symbol::Factory* sf() { return &sf_; }
-  Term::Factory* tf() { return &tf_; }
+  Symbol::Factory* sf() { return Symbol::Factory::Instance(); }
+  Term::Factory* tf() { return Term::Factory::Instance(); }
 
   const Logger& logger() const { return logger_; }
         Logger* logger()       { return &logger_; }
@@ -233,8 +233,6 @@ class Context {
   Registry<Symbol>       funs_;
   Registry<Term>         meta_vars_;
   Registry<Formula::Ref> formulas_;
-  Symbol::Factory        sf_;
-  Term::Factory          tf_;
   KnowledgeBase          kb_;
   bool                   assume_consistent_ = true;
 };

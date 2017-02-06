@@ -6,43 +6,52 @@
 
 #include <iostream>
 
+#include <lela/internal/maybe.h>
+
 #include "game.h"
 #include "kb.h"
 
 class Agent {
  public:
+  struct Result {
+    Result() = default;
+    Result(Point p, int n, int k) : p(p), n(n), k(k) {}
+    Point p;
+    int n;
+    int k;
+  };
+
   virtual ~Agent() {}
-  virtual int Explore() = 0;
+  virtual lela::internal::Maybe<Result> Explore() = 0;
 };
 
 class KnowledgeBaseAgent : public Agent {
  public:
-  explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb, std::ostream* os) : g_(g), kb_(kb), os_(os) {}
+  KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) {}
 
-  int Explore() override {
+  lela::internal::Maybe<Result> Explore() override {
     for (int k = 0; k <= kb_->max_k(); ++k) {
-      for (std::size_t x = 0; x < 9; ++x) {
-        for (std::size_t y = 0; y < 9; ++y) {
+      for (std::size_t x = 1; x <= 9; ++x) {
+        for (std::size_t y = 1; y <= 9; ++y) {
           Point p(x, y);
           if (g_->get(p) == 0) {
             const lela::internal::Maybe<int> r = kb_->Val(p, k);
             if (r) {
-              *os_ << p << " = " << r.val << " found at split level " << k << std::endl;
-              kb_->Add(p, r.val);
-              g_->set(p, r.val);
-              return k;
+              const int n = r.val;
+              kb_->Add(p, n);
+              g_->set(p, n);
+              return lela::internal::Just(Result(p, n, k));
             }
           }
         }
       }
     }
-    return -1;
+    return lela::internal::Nothing;
   }
 
  private:
   Game* g_;
   KnowledgeBase* kb_;
-  std::ostream* os_;
 };
 
 #endif  // EXAMPLES_SUDOKU_AGENT_H_

@@ -74,7 +74,7 @@ class Solver {
     const Setup& s = grounder_.Ground();
     TermSet split_terms =
       k == 0            ? TermSet() :
-      assume_consistent ? grounder_.RelevantSplitTerms(k, phi) :
+      assume_consistent ? grounder_.RelevantSplitTerms(phi) :
                           grounder_.SplitTerms();
     const SortedTermSet& names = grounder_.Names();
     return s.Subsumes(Clause{}) || ReduceConjunctions(s, split_terms, names, k, phi);
@@ -87,12 +87,15 @@ class Solver {
     return !Consistent(k, *psi);
   }
 
-  bool Consistent(int k, const Formula& phi) {
+  bool Consistent(int k, const Formula& phi, bool assume_consistent = true) {
     assert(phi.objective());
     assert(phi.free_vars().empty());
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
-    std::list<LiteralSet> assign_lits = k == 0 ? std::list<LiteralSet>() : grounder_.AssignLiterals();
+    LiteralAssignmentSet assign_lits =
+      k == 0            ? LiteralAssignmentSet() :
+      assume_consistent ? grounder_.RelevantLiteralAssignments(phi) :
+                          grounder_.LiteralAssignments();
     const SortedTermSet& names = grounder_.Names();
     return !s.Subsumes(Clause{}) && ReduceDisjunctions(s, assign_lits, names, k, phi);
   }
@@ -104,6 +107,7 @@ class Solver {
 
   typedef Grounder::TermSet TermSet;
   typedef Grounder::LiteralSet LiteralSet;
+  typedef Grounder::LiteralAssignmentSet LiteralAssignmentSet;
   typedef Grounder::SortedTermSet SortedTermSet;
 
   bool ReduceConjunctions(const Setup& s,
@@ -138,7 +142,7 @@ class Solver {
             const TermSet& ns = names[x.sort()];
             return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &psi, x](const Term n) {
               Formula::Ref xi = Formula::Factory::Not(psi.Clone());
-              xi->SubstituteFree(Term::SingleSubstitution(x, n), tf_);
+              xi->SubstituteFree(Term::Substitution(x, n), tf_);
               return ReduceConjunctions(s, split_terms, names, k, *xi);
             });
           }
@@ -180,7 +184,7 @@ class Solver {
   }
 
   bool ReduceDisjunctions(const Setup& s,
-                          const std::list<LiteralSet>& assign_lits,
+                          const LiteralAssignmentSet& assign_lits,
                           const SortedTermSet& names,
                           int k,
                           const Formula& phi) {
@@ -200,7 +204,7 @@ class Solver {
         const TermSet& ns = names[x.sort()];
         return std::any_of(ns.begin(), ns.end(), [this, &s, &assign_lits, &names, k, &phi, x](const Term n) {
           Formula::Ref psi = phi.as_exists().arg().Clone();
-          psi->SubstituteFree(Term::SingleSubstitution(x, n), tf_);
+          psi->SubstituteFree(Term::Substitution(x, n), tf_);
           return ReduceDisjunctions(s, assign_lits, names, k, *psi);
         });
       }
@@ -222,7 +226,7 @@ class Solver {
   }
 
   bool Assign(const Setup& s,
-              const std::list<LiteralSet>& assign_lits,
+              const LiteralAssignmentSet& assign_lits,
               const SortedTermSet& names,
               int k,
               const Formula& phi) {
@@ -240,9 +244,8 @@ class Solver {
         assert(!lits.empty());
         Setup ss = s.Spawn();
         for (Literal a : lits) {
-          Clause c{a};
-          if (!ss.Subsumes(c)) {
-            ss.AddClause(c);
+          if (!ss.Subsumes(Clause{a.flip()})) {
+            ss.AddClause(Clause{a});
           }
         }
         return Assign(ss, assign_lits, names, k-1, phi);
@@ -283,7 +286,7 @@ class Solver {
             const TermSet& ns = names[x.sort()];
             return std::all_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
               Formula::Ref xi = Formula::Factory::Not(psi.Clone());
-              xi->SubstituteFree(Term::SingleSubstitution(x, n), tf_);
+              xi->SubstituteFree(Term::Substitution(x, n), tf_);
               return Reduce(s, names, *xi);
             });
           }
@@ -306,7 +309,7 @@ class Solver {
         const TermSet& ns = names[x.sort()];
         return std::any_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
           Formula::Ref xi = psi.Clone();
-          xi->SubstituteFree(Term::SingleSubstitution(x, n), tf_);
+          xi->SubstituteFree(Term::Substitution(x, n), tf_);
           return Reduce(s, names, *xi);
         });
       }

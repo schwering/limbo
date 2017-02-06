@@ -21,8 +21,8 @@ struct EqSubstitute {
 };
 
 TEST(ClauseTest, valid_invalid) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
@@ -30,12 +30,12 @@ TEST(ClauseTest, valid_invalid) {
   //const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
   const Term x2 = tf.CreateTerm(sf.CreateVariable(s1));
   const Symbol f = sf.CreateFunction(s1, 1);
-  const Symbol g = sf.CreateFunction(s2, 1);
+  //const Symbol g = sf.CreateFunction(s2, 1);
   const Symbol h = sf.CreateFunction(s2, 2);
   const Term f1 = tf.CreateTerm(f, {n1});
   const Term f2 = tf.CreateTerm(h, {n1,x2});
-  const Term f3 = tf.CreateTerm(g, {n1});
-  const Term f4 = tf.CreateTerm(h, {n1,f1});
+  //const Term f3 = tf.CreateTerm(g, {n1});
+  //const Term f4 = tf.CreateTerm(h, {n1,f1});
 
   EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid());
   EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid());
@@ -60,8 +60,8 @@ TEST(ClauseTest, valid_invalid) {
 
 
 TEST(ClauseTest, Subsumes) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
@@ -152,7 +152,9 @@ TEST(ClauseTest, Subsumes) {
   {
     Clause c1({Literal::Eq(f4,n3), Literal::Eq(f2,n3)});
     EXPECT_TRUE(c1.size() == 2);
+    std::cout << c1 << std::endl;
     c1 = c1.Substitute(EqSubstitute(f1, n2), &tf);
+    std::cout << c1 << std::endl;
     EXPECT_TRUE(c1.size() == 2);
     EXPECT_TRUE(!c1.ground());
     c1 = c1.Substitute(EqSubstitute(x2, n2), &tf);
@@ -163,8 +165,8 @@ TEST(ClauseTest, Subsumes) {
 
 
 TEST(ClauseTest, Subsumes2) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort();
   //const Symbol::Sort s2 = sf.CreateSort();
   const Term n = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
@@ -183,8 +185,8 @@ TEST(ClauseTest, Subsumes2) {
 }
 
 TEST(ClauseTest, Subsumes3) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort Bool = sf.CreateSort();
   const Term T = tf.CreateTerm(sf.CreateName(Bool));
   const Term F = tf.CreateTerm(sf.CreateName(Bool));

@@ -202,33 +202,6 @@ A green <code style="color: green; font-weight: bold;">X</code> represents a cel
 <p>See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys).
 
 
-<h2>About the Reasoner</h2>
-
-<p>
-The logical language features functions and equality, first-order quantification, standard names, and sorts.
-(Predicates are not built-in but can be simulated with no overhead using boolean functions.)
-Knowledge bases are restricted to be in clausal form with only universally quantified variables &ndash; these KBs are called proper<sup>+</sup>.
-(Existentially quantified variables in the knowledge base can be simulated with functions.)
-Queries are not subject to any syntactic restriction.
-</p>
-
-<p>
-Decision procedures for sound entailment [KR-2016] and sound consistency [ECAI-2016] are implemented.
-Future work are the conditional beliefs [ECAI-2016] (should be easy), actions [KR-2014] [ (as a preprocessing step), and introspection [IJCAI-2013].
-</p>
-
-<p>
-The reasoner is written in C++.
-The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
-This demo is compiled by <a href="http://emscripten.org">emscripten</a>, which compiles C++ to Javascript.
-On my computer, the Javascript is 1.5&times; to 5&times; slower than the native binary.
-</p>
-
-<p>
-Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.edu.au</a>.
-</p>
-
-
 
 <h2>About Minesweeper</h2>
 
@@ -257,12 +230,11 @@ The agent is a simple C++ program that loops over all cells and uses the reasone
 </p>
 
 <p>
-For every cell <code>(x,y)</code>, we use a proposition <code>IsMine(x,y)</code>. When a cell is explored, the agent receives the information how many adjacent cells contain a mine. To reflect this
-new information, the agent adds clauses of <code>IsMine(x,y)</code>. For instance, when the agent learns that one of the eight adjacent cell contains a mine, it adds <code>IsMine(x-1,y) &or; IsMine(x-1,y+1) &or; IsMine(x,y+1) &or; IsMine(x+1,y+1) &or; IsMine(x+1,y) &or; IsMine(x+1,y-1) &or; IsMine(x,y-1) &or; IsMine(x-1,y-1)</code> to say that at least one of the neighbours contains a mine, and a few similar clauses to say that at least seven adjacent cells contain <i>no</i> mine.
+For every cell <code>(x,y)</code>, we use a proposition <code>IsMine(x,y)</code>. When a cell is explored, the agent receives the information how many adjacent cells contain a mine. To reflect this new information, the agent adds clauses of <code>IsMine(x,y)</code>. For instance, when the agent learns that one of the eight adjacent cell contains a mine, it adds <code>IsMine(x-1,y) &or; IsMine(x-1,y+1) &or; IsMine(x,y+1) &or; IsMine(x+1,y+1) &or; IsMine(x+1,y) &or; IsMine(x+1,y-1) &or; IsMine(x,y-1) &or; IsMine(x-1,y-1)</code> to say that at least one of the neighbours contains a mine, and a few similar clauses to say that at least seven adjacent cells contain <i>no</i> mine.
 </p>
 
 <p>
-On every turn, the agent checks for every cell whether it is known to contain a mine or known to contain no mine. This process is repeated for increasing slit level, until a cell which is known to be a mine or known to be safe is found: first for split level 0, then for 1, ..., until the maximum specified split level. If no cell is found, the agent guesses one randomly.
+On every turn, the agent checks for every cell whether it is known to contain a mine or known to contain no mine. This process is repeated for increasing split level, until a cell which is known to be a mine or known to be safe is found: first for split level 0, then for 1, ..., until the maximum specified split level. If no cell is found, the agent guesses one randomly.
 </p>
 
 <p>
@@ -274,27 +246,6 @@ The runtime reported by the game refers to the time the agent actually spend pla
 The actual time that passes between starting and finishing the game may be longer because the graphical display procedures take some time.
 (To be precise, the browser takes a 10 ms break between moves to remain responsive.)
 </p>
-
-
-
-<h2>References</h2>
-<ul>
-    <li>
-        Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief with Function Symbols. KR 2016.
-        <a href="https://kbsg.rwth-aachen.de/sites/kbsg/files/LakemeyerLevesque2016.pdf">PDF</a></li>
-    <li>
-        Schwering and Lakemeyer. Decidable Reasoning in a First-Order Logic of Limited Conditional Belief. ECAI 2016.
-        <a href="https://kbsg.rwth-aachen.de/sites/kbsg/files/SchweringLakemeyer2016.pdf">PDF</a>
-    </li>
-    <li>
-        Lakemeyer and Levesque. Decidable Reasoning in a Fragment of the Epistemic Situation Calculus. KR 2014.
-        <a href="https://pdfs.semanticscholar.org/8ac9/a2955895cd391ec2b62d8210ee8206979f4a.pdf">PDF</a>
-    </li>
-    <li>
-        Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals. IJCAI 2013.
-        <a href="https://pdfs.semanticscholar.org/387c/951016c68aaf8ce36bb87e5ea4d1ef42405d.pdf">PDF</a>
-    </li>
-</ul>
 
 </body>
 </html>

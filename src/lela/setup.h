@@ -172,7 +172,7 @@ class Setup {
     internal::BloomSet<Term> intersection_;
   };
 
-  typedef std::unordered_set<Literal, Literal::LhsHasher> LiteralSet;
+  typedef std::unordered_set<Literal, Literal::LhsHash> LiteralSet;
 
   explicit Setup(const Setup* parent) :
       parent_(parent),
@@ -207,7 +207,7 @@ class Setup {
 //      }
       RemoveSubsumed(i);
       if (c.unit()) {
-        const Literal a = c.get(0);
+        const Literal a = c.head();
         units_.push_back(a);
         //for (BucketIndex b : buckets()) {
           //if (bucket_union(b).PossiblyOverlaps(c.lhs_bloom())) {

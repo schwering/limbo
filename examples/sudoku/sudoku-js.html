@@ -1,0 +1,278 @@
+<!DOCTYPE HTML>
+<!-- vim:filetype=html:textwidth=200:shiftwidth=4:softtabstop=4:expandtab
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8"> 
+    <title>Limited reasoner demo</title>
+
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <style type="text/css">
+        body { font-family: 'Open Sans', sans-serif; font-size: 140%; }
+        p { text-align: justify; }
+
+        h1       { font-size: 220%; }
+        h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
+
+        form .label { display: inline-block; min-width: 7em; }
+        form input.number { width: 5em; }
+        #play-button { background-color: black; color: #eee; font-family: inherit; font-weight: bold; font-size: 100%; margin-top: 1ex; margin-left: 1em; padding-left: 3em; padding-right: 3em; padding-top: 1ex; padding-bottom: 1ex; }
+        #play-button {
+            background:
+                linear-gradient(27deg, #151515 5px, transparent 5px) 0 5px,
+                linear-gradient(207deg, #151515 5px, transparent 5px) 10px 0px,
+                linear-gradient(27deg, #222 5px, transparent 5px) 0px 10px,
+                linear-gradient(207deg, #222 5px, transparent 5px) 10px 5px,
+                linear-gradient(90deg, #1b1b1b 10px, transparent 10px),
+                linear-gradient(#1d1d1d 25%, #1a1a1a 25%, #1a1a1a 50%, transparent 50%, transparent 75%, #242424 75%, #242424);
+            background-color: #131313;
+            background-size: 20px 20px;
+        }
+
+        #output { min-width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; overflow: scroll; }
+        #output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
+        #output { font-family: monospace; font-size: 120%; line-height: 119%; }
+
+        #output span { }
+        #output span.black { color: black; }
+        #output span.dim { color: #999; }
+        #output span.reset { color: inherit; }
+        #output span.red { color: red; font-weight: bold; }
+        #output span.green { color: green; font-weight: bold; }
+    </style>
+
+    <script src="jquery-3.1.1.min.js"></script>
+    <script>
+    var Module = {
+        'TOTAL_MEMORY': 128*1024*1024,
+    };
+    </script>
+    <script src="sudoku-js.js"></script>
+</head>
+
+<body>
+
+<h1>Limited Reasoner Demo: Sudoku</h1>
+
+<p>
+<b>Quick start:</b> choose a "Game Configuration", hit the "Click me!" button, and see the agent play under "Game Output".
+</p>
+
+<p>
+For further demos and details on the reasoner, <a href="../">click here</a>.
+</p>
+
+<h2>Game Configuration</h2>
+
+<form>
+<div class="label">Game:</div>
+<select id="configs">
+
+    <option value="18........5.28691..6...4...9.6..2.4..4..175.2....4968.4...6..........751.....14.9">WashPost grade 4 (1/14/17)</option>
+    <option value="7..65.4..8........154.7.2...7..4.83.....369..4..981.........62..275..1.4.4..12..7">WashPost grade 5 (1/15/17)</option>
+    <option value="6..95.312..1.2.68....86.75..9678.24.5..146....1729..65.3.4....62.951..37174.32..8">WashPost grade 1 (1/16/17)</option>
+    <option value="..48......8.5.29.6.7...4.8.239..75617.8.51..4.45...837.9..4831....1.3.7..13..5.29">WashPost grade 2 (1/17/17)</option>
+    <option value="92.458....85.319.4...9..5..49....3....6.1.8.9...549.2..198.46.58...2549.5....3.1.">WashPost grade 3 (1/18/17)</option>
+    <option value=".9..6.85..8..712.3.31..5.....2..45..51..37......85..3.9....84...2...6....43.1962.">WashPost grade 2 (1/19/17)</option>
+    <option value=".96.51..3....93.1.3.12......684.9531.1.3.82979....5.4..53..6..41..5.......4......">WashPost grade 4 (1/20/17)</option>
+    <option value="48..6..3.......9.62.69.3.7......736...8..6..7.61.....8...2987..19.6.....852....49">WashPost grade 4 (1/21/17)</option>
+    <option value="..1..73.67...93..5...86..7..49.....2..592....32.....5..5...9.2......87..9.4.1..6.">WashPost grade 5 (1/22/17)</option>
+    <option value="34785.1.6.861739.4.9564....8.9.276...........76.....32.28..43.1.1..38269...2615..">WashPost grade 1 (1/23/17)</option>
+    <option value="67.39..42149672.53...1.4.9.8.....41.291..65...5.8..6293.74.89.191.2.7....8..3.27.">WashPost grade 2 (1/24/17)</option>
+    <option value="9.7.38..5.....59...5.7...615..187..287.2...59.......786985.....1.5.26...7.29.1586">WashPost grade 3 (1/25/17)</option>
+    <option value="6.97...4..7.1.4.6....65...9......43..6.42...5..5836.....12.8...9.7..1....2.9.57.8">WashPost grade 3 (1/26/17)</option>
+    <option value="2...86..3...2.....8..79.....9.....15.8...5.2..61..2..8...654..2.45.27.89..7...5.4">WashPost grade 4 (1/27/17)</option>
+    <option value="516.7.....948...172...5.9.41....84.3.23...8.6...7.......2.9...5.65..4........76.9">WashPost grade 4 (1/28/17)</option>
+    <option value="6..8.1....57....28..8....1..61..8.3..2.4.68.1....1...7.....21..843....79.......65">WashPost grade 5 (1/29/17)</option>
+    <option value="7.48.352...829..343.1...8..4..576...653129...179.38..2..5.1.24....35..96.1..8..7.">WashPost grade 1 (1/30/17)</option>
+    <option value=".8.759....1.....9...261478...14....62..5..3.87.5..1942.68.7.1341..3458674.3.86.59">WashPost grade 2 (1/31/17)</option>
+
+    <option value=".5.61.2..78.....9.....9...1243.6......92..........3.6.6.58..9......2.1....2..6..4">WashPost grade expert (generated)</option>
+    <option value="86....72....6..1981........2.1.368......8.4...869...3...8.4..1.47..95.8..1..67..5">WashPost grade expert (generated)</option>
+    <option value="65.2.......7..52.63......7.73....98..96.2...1..8.9....1..95...4...4.25...7...3..9">WashPost grade expert (generated)</option>
+
+    <option value="5.1.8...4.42.6.718..742..5..159...6.32..1.47..7.3.41.......834729..47...7....5..9">NYTimes grade easy (Jan 27)</option>
+    <option value=".75.1...............243..8.6..........4.71..535...46.7.....9.64....2.8....85.....">NYTimes grade medium (Jan 27)</option>
+    <option value="4..3..57......6.249....5...7..84...3.....2.9...86....2167............3.62........">NYTimes grade hard (Jan 27)</option>
+    <option value="...7.2....86...542291.8.6...1.2748..46..5.......81..93..7543..61.9....746.4..725.">NYTimes grade easy (Jan 27)</option>
+    <option value=".48.6.3..7.3....29........7.........425931.....1..........75.31...2...8.8..6...5.">NYTimes grade medium (Jan 29)</option>
+    <option value=".6.8...5.8.7.9.......3.7..8.5...924.6....1.......7.5.353.............1..9......82">NYTimes grade hard (Jan 29)</option>
+    <option value="2.8.47..11....3.98.5..8...7...67.14.6.34...2.91.3.8..6.86.52....328.67....1.3.6.2">NYTimes grade easy (Jan 30)</option>
+    <option value="...76..9....8......2...1.87.46.5...2.5....91...3..9....1...2.....2....36.....4...">NYTimes grade medium (Jan 30)</option>
+    <option value=".3.......8..9.4...9....57.26.7..3..9......1....51...3....4...2.4.98.2..7..3....6.">NYTimes grade hard (Jan 30)</option>
+    <option value=".4...52.7.95127...721....9....35.1.4.17.6.83.4.2.1...51..643......5.14.337.....51">NYTimes grade easy (Jan 31)</option>
+    <option value="...2....1..6.173..4.9...5.....4..2.8....5...45.....7..6.3........1.8..3....9.2...">NYTimes grade medium (Jan 31)</option>
+    <option value="....9.8.6.4...5.12...6......32.....86.8..3..........57.2.7.......1962...3...5...9">NYTimes grade hard (Jan 31)</option>
+    <option value="..6...134..94.8...5.3..79..2..39.41.3..2..59.98...1.23.98.6...1.3.12..46.1...53.9">NYTimes grade easy (Feb 1)</option>
+    <option value=".2.....7....58....4..71.....8.6..79..39..528........3.1..2..9........1.365.......">NYTimes grade medium (Feb 1)</option>
+    <option value=".8.4.9...2....568......8.........1.76.2.......9.8..35.7..........1...5..5.692...4">NYTimes grade hard (Feb 1)</option>
+    <option value=".4..72.1...7.1.64.192..4.8..1.5874...5.1...97..6..98.18.1.4..293.42.1....2.3....4">NYTimes grade easy (Feb 2)</option>
+    <option value="...3...6..12..6...7.3...4.59.4..32...2...83.4..1.52...............9....7....71526">NYTimes grade medium (Feb 2)</option>
+    <option value="....7.....6.93.8....18............2.856.....7...5.83.......2.5...2..4...9.3....1.">NYTimes grade hard (Feb 2)</option>
+    <option value="5..167.4..4....851231..4...69851.3..4..98.1..1...4.6.9.25..1..7.643....2...4..96.">NYTimes grade easy (Feb 3)</option>
+    <option value=".7....21..21.....3.3.....8......3.....82..6......8..25..36.2.7......18.49...54...">NYTimes grade medium (Feb 3)</option>
+    <option value=".....35...7.....81...1.89..4..92.3..7....4...1.....69.6..4.9......6....3.3....2..">NYTimes grade hard (Feb 3)</option>
+    <option value="" style="color: #666;">Custom:</option>
+
+</select>
+<input id="custom" type="text" size="81" placeholder="Line by line; dots for blanks; e.g.: 18........5.28691..6...4...9.6..2.4..4..175.2....4968.4...6..........751.....14.9" />
+<br />
+<div class="label">Max. splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
+<input id="play-button" type="button" value="Click me!" />
+</form>
+
+<script>
+$(document).ready(function() {
+    $('#play-button').click(function() { play(); });
+    $('#play-button').focus();
+    $('#configs').change(function() {
+        var config = document.getElementById('configs').value;
+        if (config) {
+            initGame();
+            $('#custom').hide();
+        } else {
+            $('#custom').show();
+        }
+    });
+    $('#custom').change(function() { initGame($('#custom').val()); }).hide();
+    setTimeout(function() { $('#configs').change(); }, 1000);
+});
+
+var t0 = null;
+
+function initGame(config, max_k) {
+    $('#output').empty();
+    if (!config) {
+        config = document.getElementById('configs').value;
+    }
+    if (!max_k) {
+        max_k = document.getElementById('max_k').value;
+    }
+    if (max_k == null) {
+        max_k = 2;
+    }
+    Module.ccall('lela_init', 'void', ['string', 'number'], [config, max_k]);
+}
+
+function play() {
+    t0 = performance.now();
+    initGame();
+    playTurn();
+    setTimeout(function() { scrollDown(); }, 50);
+    setTimeout(function() { scrollDown(); }, 100);
+}
+
+function playTurn() {
+    setTimeout(function() {
+        var game_over = Module.ccall('lela_play_turn', 'number', [], []);
+        if (!game_over) {
+            playTurn();
+        } else {
+            var t1 = performance.now();
+            console.log("Playing and printing took "+ Math.round(t1 - t0) +" milliseconds");
+        }
+    }, 10);
+}
+
+var last_str = null;
+
+function printLine(str) {
+    // The minesweeper agent prints at the end of each turn a line of the form
+    // "Last move took [...]". We use this to split up the different turns and
+    // display them individually: one div per turn, and only the last turn's
+    // div is visible.
+    if (str.length == 0) {
+        return;
+    }
+    var is_first = $('#output').children().length == 0;
+    var had_last = last_str && (last_str.indexOf('Ready') != -1 || last_str.indexOf('Last') != -1);
+    if (had_last) {
+        $('#output').children().last().hide();
+    }
+    if (is_first || had_last) {
+        $('#output').append('<div></div>');
+        $('#output').children().last().addClass('field');
+    }
+    // Hack: on iOS Safari and Chrome, double spaces are not displayed correctly sometimes;
+    // so let's use '_' as fill character and re-replace it with "&nbsp;" in the Javascript
+    // code.
+    str = str.replace(/_/g, "&nbsp;") + '<br />';
+    $('#output').children().last().append($(document.createElement('div')).html(str));
+    last_str = str;
+}
+
+function scrollDown() {
+    document.getElementById('field-next').scrollIntoView(false);
+}
+
+function showField(which) {
+    $('#output').children(':visible').each(function(i) {
+        if (which == 'prev' && $(this).prev().length) {
+            $(this).hide();
+            $(this).prev().show();
+        }
+        if (which == 'next' && $(this).next().length) {
+            $(this).hide();
+            $(this).next().show();
+        }
+    });
+}
+
+$(document).ready(function() {
+    $('#field-prev').click(function() { showField('prev'); return false; });
+    $('#field-next').click(function() { showField('next'); return false; });
+});
+$(document).keydown(function(e) {
+    switch(e.which) {
+        case 37: showField('prev'); break; // left
+        case 39: showField('next'); break; // right
+        default: return;
+    }
+    e.preventDefault();
+});
+</script>
+
+
+
+<h2>Game Output</h2>
+
+<div id="output"></div>
+
+<p>
+<b>Quick explanation:</b>
+The agent attempts to complete the field so that every row, column, and 3&times;3 box contains exactly one 1, 2, 3, 4, 5, 6, 7, 8, 9.
+</p>
+
+<p>See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys).
+
+
+
+<h2>About Sudoku</h2>
+
+<p>
+The field must be completed so that every row, column, and 3&times;3 box contains exactly one 1, 2, 3, 4, 5, 6, 7, 8, 9.
+There is only one correct solution.
+</p>
+
+
+
+
+<h2>About the Agent</h2>
+
+<p>
+The agent is a simple C++ program that loops over all cells and uses the reasoner to find out which cells are known to contain a number 1, ..., 9.
+</p>
+
+<p>
+There are two simple types of constraints to represent the game rules.
+Firstly, constraints of the form <code>val(X,Y) &ne; val(X',Y')</code> for certain values <code>X, X', Y, Y'</code> from 1, ..., 9 stipulate that in no row, column, or 3&times;3 box any number occurs twice.
+Secondly, for every cell <code>X, Y</code>there is a constraint <code>val(X,Y) = 1 &or; val(X,Y) = 2 &or; ... &or; val(X,Y) = 9</code> to indicate that its value is a number 1, ..., 9.
+</p>
+
+<p>
+On every turn, the agent checks for every cell and every value 1, ..., 9 whether the cell is known to take this value. This process is repeated for increasing split level, until a known value is found for a cell: first for split level 0, then for 1, ..., until the maximum specified split level. If no value is found for any cell, the agent admits defeat and stops.
+</p>
+
+</body>
+</html>
+

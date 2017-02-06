@@ -28,6 +28,7 @@
 #include <lela/solver.h>
 #endif
 #include <lela/term.h>
+#include <lela/internal/hashset.h>
 #include <lela/internal/maybe.h>
 
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
@@ -36,8 +37,8 @@ namespace lela {
 namespace format {
 namespace output {
 
-typedef std::map<Symbol::Sort, std::string> SortMap;
-typedef std::map<Symbol, std::string, Symbol::Comparator> SymbolMap;
+typedef std::unordered_map<Symbol::Sort, std::string> SortMap;
+typedef std::unordered_map<Symbol, std::string> SymbolMap;
 
 inline SortMap* sort_map() {
   static SortMap map;
@@ -121,6 +122,9 @@ std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>&
 template<typename K, typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map);
 
+template<typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set);
+
 template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m);
 
@@ -169,10 +173,8 @@ struct PrintSymbolComparator {
     return n1 && n2  ? n1.val < n2.val :
            n1 && !n2 ? true :
            !n1 && n2 ? false :
-                       comp(s1, s2);
+                       s1.hash() < s2.hash();
   }
-
-  Symbol::Comparator comp;
 };
 
 struct PrintTermComparator {
@@ -423,6 +425,12 @@ std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>&
 template<typename K, typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map) {
   print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
+  return os;
+}
+
+template<typename T, typename H, typename E>
+std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set) {
+  print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
   return os;
 }
 

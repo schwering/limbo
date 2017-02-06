@@ -2,8 +2,8 @@
 
 LELA (**L**imited **E**pistemic **L**ogic in **A**ction) is a C++ library for
 *decidable reasoning in first-order knowledge bases* based on the theory of
-*limited belief* from [1,2,3,4]. [Here is a
-demo](http://www.cse.unsw.edu.au/~cschwering/demo/textinterface/).
+*limited belief* from [1,2,3,4]. [Here is are some web
+demos](http://www.cse.unsw.edu.au/~cschwering/demo/).
 
 ## Features
 
@@ -48,14 +48,15 @@ For more theoretical background see the papers linked below.
   allows to define and query a knowledge base through a simple text interface.
   You can also use it from the command line; the the code is
   [here](examples/textinterface/).
+* There's are
+  [Minesweeper](http://www.cse.unsw.edu.au/~cschwering/demo/minesweeper/) and
+  [Sudoku](http://www.cse.unsw.edu.au/~cschwering/demo/sudoku/) web demos. You
+  can use them it from the command line as well; the the code is
+  [here](examples/minesweeper/) and [here](examples/sudoku/).
 * To see how the C++ API works, have a look at [this](tests/solver.cc) and
   [that](tests/modal.cc) unit tests, which contain test cases that implement
   examples from [1,2]. To reduce boiler plate code, they use a [higher-level
   API](src/lela/format/cpp/syntax.h), which overloads some C++ operators.
-* There's also [Minesweeper web
-  demo](http://www.cse.unsw.edu.au/~cschwering/demo/minesweeper/). You can use
-  it from the command line as well; the the code is
-  [here](examples/minesweeper/).
 
 ## Status
 
@@ -71,8 +72,6 @@ For more theoretical background see the papers linked below.
   projection separate from the core reasoner and implement them as a
   preprocessing step.
 * Consistency guarantees need to be extended.
-* If time permits, I'll rewrite the whole system in Rust. First results (cf.
-  'rust' branch) indicate it's faster. And it's actually fun!
 
 ## References
 

@@ -277,7 +277,7 @@ class Formula::Atomic : public Formula {
     // clause, and prepend another negation to the transformed formula.
     typedef std::unordered_set<Literal> LiteralSet;
     bool add_double_negation = nots % 2 == 1 && arg().unit();
-    const Clause c = add_double_negation ? Clause({arg().get(0).flip()}) : arg();
+    const Clause c = add_double_negation ? Clause({arg().head().flip()}) : arg();
     LiteralSet queue(c.begin(), c.end());
     TermMap term_to_var;
     for (Literal a : queue) {
@@ -306,7 +306,7 @@ class Formula::Atomic : public Formula {
           term_to_var[old_t] = new_t;
           vars.append_exists(new_t);
         }
-        Literal new_a = a.Substitute(Term::SingleSubstitution(old_t, new_t), tf);
+        Literal new_a = a.Substitute(Term::Substitution(old_t, new_t), tf);
         Literal new_b = Literal::Neq(new_t, old_t);
         queue.insert(new_a);
         queue.insert(new_b);
@@ -324,7 +324,7 @@ class Formula::Atomic : public Formula {
               term_to_var[old_arg] = new_arg;
               vars.append_exists(new_arg);
             }
-            Literal new_a = a.Substitute(Term::SingleSubstitution(old_arg, new_arg), tf);
+            Literal new_a = a.Substitute(Term::Substitution(old_arg, new_arg), tf);
             Literal new_b = Literal::Neq(new_arg, old_arg);
             queue.insert(new_a);
             queue.insert(new_b);
@@ -420,11 +420,11 @@ class Formula::Or : public Formula {
       Clause rc = rs->as_atomic().arg();
       if (!lp.even()) {
         lp.append_not();
-        lc = Clause({lc.get(0).flip()});
+        lc = Clause({lc.head().flip()});
       }
       if (!rp.even()) {
         rp.append_not();
-        rc = Clause({rc.get(0).flip()});
+        rc = Clause({rc.head().flip()});
       }
       const auto lits = internal::join_ranges(lc.begin(), lc.end(), rc.begin(), rc.end());
       return lp.PrependTo(rp.PrependTo(Factory::Atomic(Clause(lits.begin(), lits.end()))));
@@ -562,7 +562,7 @@ class Formula::Not : public Formula {
       case kAtomic: {
         const Clause& c = arg().as_atomic().arg();
         if (c.unit()) {
-          return Factory::Atomic(Clause({c.get(0).flip()}));
+          return Factory::Atomic(Clause({c.head().flip()}));
         } else {
           return Clone();
         }

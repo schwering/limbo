@@ -17,8 +17,8 @@ template<typename T>
 size_t dist(T r) { return std::distance(r.begin(), r.end()); }
 
 TEST(SetupTest, Subsumes_Consistent_clauses) {
-  Symbol::Factory sf;
-  Term::Factory tf;
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort(); RegisterSort(s1, "");
   //const Symbol::Sort s2 = sf.CreateSort();
   const Term n = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));

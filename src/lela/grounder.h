@@ -48,10 +48,34 @@ class Grounder {
  public:
   typedef Formula::split_level split_level;
   typedef Formula::TermSet TermSet;
-  typedef std::unordered_set<Literal, Literal::LhsHasher> LiteralSet;
+  typedef std::unordered_set<Literal, Literal::LhsHash> LiteralSet;
+
+  struct LhsSymbolHasher {
+    internal::hash32_t operator()(const LiteralSet& set) const {
+      assert(!set.empty());
+      assert(std::all_of(set.begin(), set.end(), [&set](Literal a) { return
+             std::all_of(set.begin(), set.end(), [](Literal b) { return
+                         a.lhs().symbol() == b.lhs().symbol(); }); }));
+      return set.begin()->lhs().symbol().hash();
+    }
+  };
+
+  struct LiteralSetHash {
+    internal::hash32_t operator()(const LiteralSet& set) const {
+      internal::hash32_t h = 0;
+      for (Literal a : set) {
+        h ^= a.hash();
+      }
+      return h;
+    }
+  };
+
+  typedef std::unordered_set<LiteralSet, LiteralSetHash> LiteralAssignmentSet;
 
   class SortedTermSet : public internal::IntMap<Symbol::Sort, TermSet> {
    public:
+    typedef TermSet::value_type value_type;
+
     using internal::IntMap<Symbol::Sort, TermSet>::IntMap;
 
     std::size_t insert(Term t) {
@@ -107,19 +131,21 @@ class Grounder {
     if (c.valid()) {
       return;
     }
-    names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, c));
+    names_changed_ |= AddMentionedNames(Mentioned<SortedTermSet>([](Term t) { return t.name(); }, c));
     names_changed_ |= AddPlusNames(PlusNames(c));
-    AddSplitTerms(Mentioned<Term, TermSet>([](Term t) { return t.quasiprimitive(); }, c));
-    AddAssignLiterals(Mentioned<Literal, LiteralSet>([](Literal a) { return a.quasiprimitive(); }, c));
+    AddSplitTerms(Mentioned<TermSet>([](Term t) { return t.quasiprimitive(); }, c));
+    AddAssignmentLiterals(Mentioned<LiteralSet>([](Literal a) { return a.quasiprimitive(); }, c));
     unprocessed_clauses_.push_front(c);
   }
 
   void PrepareForQuery(split_level k, const Formula& phi) {
     assert(phi.objective());
-    names_changed_ |= AddMentionedNames(Mentioned<Term, SortedTermSet>([](Term t) { return t.name(); }, phi));
+    names_changed_ |= AddMentionedNames(Mentioned<SortedTermSet>([](Term t) { return t.name(); }, phi));
     names_changed_ |= AddPlusNames(PlusNames(phi));
-    AddSplitTerms(SplitTerms(k, phi));
-    AddAssignLiterals(AssignLiterals(k, phi));
+    if (k > 0) {
+      AddSplitTerms(Mentioned<TermSet>([](Term t) { return t.function(); }, phi));
+      AddAssignmentLiterals(Mentioned<LiteralSet>([](Literal a) { return a.lhs().function(); }, phi));
+    }
   }
 
   const Setup& Ground() const { return const_cast<Grounder*>(this)->Ground(); }
@@ -150,7 +176,7 @@ class Grounder {
             s->AddClause(c);
           }
         } else {
-          const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, c);
+          const TermSet vars = Mentioned<TermSet>([](Term t) { return t.variable(); }, c);
           for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
             const Clause ci = c.Substitute(mapping, tf_);
             if (!ci.valid()) {
@@ -192,12 +218,12 @@ class Grounder {
     return Ground(splits_);
   }
 
-  TermSet RelevantSplitTerms(split_level k, const Formula& phi) {
+  TermSet RelevantSplitTerms(const Formula& phi) {
     assert(phi.objective());
-    PrepareForQuery(k, phi);
     const Setup& s = Ground();
     TermSet splits;
-    TermSet queue = Ground(SplitTerms(k, phi));
+    TermSet queue = Ground(Mentioned<TermSet>([](Term t) { return t.function(); }, phi));
+    std::unordered_set<Setup::ClauseIndex> done;
     while (!queue.empty()) {
       const Term t = *queue.begin();
       assert(t.primitive());
@@ -206,9 +232,10 @@ class Grounder {
       if (p.second) {
         for (Setup::ClauseIndex i : s.clauses()) {
           const Clause& c = s.clause(i);
-          if (c.MentionsLhs(t)) {
-            TermSet next = Mentioned<Term, TermSet>([](Term t) { return t.function(); }, c);
+          if (done.find(i) == done.end() && c.MentionsLhs(t)) {
+            TermSet next = Mentioned<TermSet>([](Term t) { return t.function(); }, c);
             queue.insert(next.begin(), next.end());
+            done.insert(i);
           }
         }
       }
@@ -230,13 +257,33 @@ class Grounder {
     }
   }
 
-  std::list<LiteralSet> AssignLiterals() const {
-    LiteralSet lits = PartiallyGround(assigns_);
-    auto r = internal::transform_range(lits.begin(), lits.end(), [this](Literal a) {
-      const LiteralSet singleton{a};
-      return a.ground() ? singleton : Ground(singleton);
-    });
-    return std::list<LiteralSet>(r.begin(), r.end());
+  LiteralAssignmentSet LiteralAssignments() const {
+    return LiteralAssignments(assigns_);
+  }
+
+  LiteralAssignmentSet RelevantLiteralAssignments(const Formula& phi) {
+    assert(phi.objective());
+    const Setup& s = Ground();
+    LiteralSet assigns;
+    LiteralSet queue;
+    AddAssignmentLiteralsTo(Ground(Mentioned<LiteralSet>([](Literal a) { return a.lhs().function(); }, phi)), &queue);
+    std::unordered_set<Setup::ClauseIndex> done;
+    while (!queue.empty()) {
+      const Literal a = *queue.begin();
+      assert(a.primitive());
+      queue.erase(queue.begin());
+      auto p = assigns.insert(a);
+      if (p.second) {
+        for (Setup::ClauseIndex i : s.clauses()) {
+          const Clause& c = s.clause(i);
+          if (done.find(i) == done.end() && c.MentionsLhs(a.lhs())) {
+            AddAssignmentLiteralsTo(Mentioned<LiteralSet>([](Literal a) { return a.lhs().function(); }, c), &queue);
+            done.insert(i);
+          }
+        }
+      }
+    }
+    return LiteralAssignments(assigns);
   }
 
  private:
@@ -244,6 +291,8 @@ class Grounder {
   FRIEND_TEST(GrounderTest, Ground_SplitTerms_Names);
   FRIEND_TEST(GrounderTest, Assignments);
 #endif
+
+  typedef internal::IntMap<Symbol::Sort, std::size_t> PlusMap;
 
   struct Assignments {
     struct TermRange {
@@ -359,18 +408,39 @@ class Grounder {
     const SortedTermSet* substitutes_;
   };
 
-  typedef internal::IntMap<Symbol::Sort, std::size_t> PlusMap;
-
   struct PairHasher {
-    std::size_t operator()(const std::pair<const Setup*, Literal>& p) const {
-      return internal::fnv1a_hash(p.first) ^ p.second.hash();
+    internal::hash32_t operator()(const std::pair<const Setup*, Literal>& p) const {
+      const std::uint64_t addr = reinterpret_cast<std::uint64_t>(p.first);
+      return internal::jenkins_hash(static_cast<std::uint32_t>(addr >> 32)) ^
+             internal::jenkins_hash(static_cast<std::uint32_t>(addr)) ^
+             p.second.hash();
     }
   };
 
-  template<typename Needle, typename Collection, typename Haystack, typename UnaryPredicate>
+  template<typename T, typename U>
+  void Ground(const T ungrounded, U* grounded_set) const {
+    assert(ungrounded.quasiprimitive());
+    const TermSet vars = Mentioned<TermSet>([](Term t) { return t.variable(); }, ungrounded);
+    for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
+      auto grounded = ungrounded.Substitute(mapping, tf_);
+      assert(grounded.primitive());
+      grounded_set->insert(grounded);
+    }
+  }
+
+  template<typename T>
+  T Ground(const T& ungrounded_set) const {
+    T grounded_set;
+    for (auto ungrounded : ungrounded_set) {
+      Ground(ungrounded, &grounded_set);
+    }
+    return grounded_set;
+  }
+
+  template<typename Collection, typename Haystack, typename UnaryPredicate>
   static Collection Mentioned(const UnaryPredicate p, const Haystack& obj) {
     Collection needles;
-    obj.Traverse([p, &needles](const Needle& t) {
+    obj.Traverse([p, &needles](const typename Collection::value_type& t) {
       if (p(t)) {
         needles.insert(t);
       }
@@ -381,7 +451,7 @@ class Grounder {
 
   static PlusMap PlusNames(const Clause& c) {
     PlusMap plus;
-    for (const Term var : Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, c)) {
+    for (const Term var : Mentioned<TermSet>([](Term t) { return t.variable(); }, c)) {
       ++plus[var.sort()];
     }
     // The following fixes Lemma 8 in the LBF paper. The problem is that
@@ -444,54 +514,6 @@ class Grounder {
     }
   }
 
-  TermSet SplitTerms(split_level k, const Formula& phi) {
-    assert(phi.objective());
-    if (k == 0) {
-      return TermSet();
-    }
-    return Mentioned<Term, TermSet>([](Term t) { return t.function(); }, phi);
-  }
-
-  LiteralSet AssignLiterals(split_level k, const Formula& phi) {
-    assert(phi.objective());
-    if (k == 0) {
-      return LiteralSet();
-    }
-    return Mentioned<Literal, LiteralSet>([](Literal a) {
-      return a.lhs().function() || a.rhs().function();
-    }, phi);
-  }
-
-  template<typename T, typename Hasher = std::less<T>>
-  std::unordered_set<T, Hasher> Ground(const std::unordered_set<T, Hasher>& ungrounded) const {
-    std::unordered_set<T, Hasher> grounded;
-    for (T u : ungrounded) {
-      assert(u.quasiprimitive());
-      const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, u);
-      for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
-        T g = u.Substitute(mapping, tf_);
-        assert(g.primitive());
-        grounded.insert(g);
-      }
-    }
-    return grounded;
-  }
-
-  template<typename T, typename Hasher = std::less<T>>
-  std::unordered_set<T, Hasher> PartiallyGround(const std::unordered_set<T, Hasher>& ungrounded) const {
-    std::unordered_set<T, Hasher> grounded;
-    for (T u : ungrounded) {
-      assert(u.quasiprimitive());
-      const TermSet vars = Mentioned<Term, TermSet>([](Term t) { return t.variable(); }, u);
-      for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
-        T g = u.Substitute(mapping, tf_);
-        assert(g.primitive());
-        grounded.insert(g);
-      }
-    }
-    return grounded;
-  }
-
   bool AddMentionedNames(const SortedTermSet& names) {
     const std::size_t added = names_.insert(names);
     return added > 0;
@@ -520,47 +542,79 @@ class Grounder {
     }
   }
 
-  void AddAssignLiterals(LiteralSet lits) {
+  void AddAssignmentLiteralsTo(const LiteralSet& lits, LiteralSet* assigns) {
     for (Literal a : lits) {
-      if (assigns_.bucket_count() > 0) {
-        const std::size_t b = assigns_.bucket(a);
-        for (auto it = assigns_.begin(b); it != assigns_.end(b); ++it) {
-          Literal b = *it;
-          if (a.lhs().symbol() == b.lhs().symbol() && (a.lhs() != b.lhs() || a.rhs() != b.rhs())) {
-            for (Symbol::Arity i = 0; i < a.lhs().arity(); ++i) {
-              const Term l = a.lhs().args()[i];
-              const Term r = a.lhs().args()[i];
-              if (l.sort() != r.sort()) {
-                continue;
-              }
-              if (l != r) {
-                const Term x = tf_->CreateTerm(sf_->CreateVariable(l.sort()));
-                a = a.Substitute(Term::SingleSubstitution(l, x), tf_);
-                b = b.Substitute(Term::SingleSubstitution(r, x), tf_);
-              }
+      if (!a.pos()) {
+        const Term x = tf_->CreateTerm(sf_->CreateVariable(a.rhs().sort()));
+        a = Literal::Eq(a.lhs(), x);
+      }
+      assigns->insert(a);
+    }
+  }
+
+  void AddAssignmentLiterals(const LiteralSet& lits) {
+    AddAssignmentLiteralsTo(lits, &assigns_);
+  }
+
+  LiteralAssignmentSet LiteralAssignments(const LiteralSet& assigns) const {
+    LiteralSet ground = Ground(assigns);
+    auto r = internal::transform_range(ground.begin(), ground.end(), [](Literal a) { return LiteralSet{a}; });
+    LiteralAssignmentSet sets(r.begin(), r.end());
+    for (Literal a : ground) {
+      for (auto it = sets.begin(); it != sets.end(); ) {
+        const LiteralSet& set = *it;
+        assert(!set->empty());
+        const Literal b = *set.begin();
+        if (a.lhs().symbol() == b.lhs().symbol() && set.find(a) == set.end() && Literal::Isomorphic(a, b)) {
+          if (set.size() == 1) {
+            LiteralSet new_set = set;
+            new_set.insert(a);
+            const float prev_load_factor = sets.load_factor();
+            const float prev_size = sets.size();
+            sets.insert(new_set);
+            if (sets.size() > prev_size && sets.load_factor() <= prev_load_factor) {
+              it = sets.begin();
+            } else {
+              ++it;
             }
-            if (a.rhs().sort() != b.rhs().sort()) {
-              continue;
-            }
-            if (a.rhs() != b.rhs()) {
-              const Term x = tf_->CreateTerm(sf_->CreateVariable(a.rhs().sort()));
-              a = a.Substitute(Term::SingleSubstitution(a.rhs(), x), tf_);
-            }
-            assigns_.erase(*it);
-            break;
+          } else {
+            LiteralSet new_set = set;
+            new_set.insert(a);
+            it = sets.erase(it);
+            sets.insert(new_set);
+          }
+        } else {
+          ++it;
+        }
+      }
+    }
+    return sets;
+  }
+
+#if 0
+  LiteralAssignmentSet LiteralAssignments(const LiteralSet& assigns) const {
+    LiteralSet ground = Ground(assigns);
+    auto r = internal::transform_range(ground.begin(), ground.end(), [](Literal a) { return LiteralSet{a}; });
+    LiteralAssignmentSet sets(r.begin(), r.end());
+    for (Literal a : ground) {
+      for (auto it = sets.begin(); it != sets.end(); ++it) {
+        LiteralSet* set = &*it;
+        assert(!set->empty());
+        const Literal b = *set->begin();
+        if (a.lhs().symbol() == b.lhs().symbol() && set->find(a) == set->end() && Literal::Isomorphic(a, b)) {
+          if (set->size() == 1) {
+            LiteralSet new_set = *set;
+            new_set.insert(a);
+            sets.push_back(new_set);
+          } else {
+            set->insert(a);
           }
         }
       }
-      if (!a.pos()) {
-        a = a.flip();
-        if (!a.rhs().variable()) {
-          const Term x = tf_->CreateTerm(sf_->CreateVariable(a.rhs().sort()));
-          a = a.Substitute(Term::SingleSubstitution(a.rhs(), x), tf_);
-        }
-      }
-      assigns_.insert(a);
     }
+    return sets;
   }
+#endif
 
   Symbol::Factory* const sf_;
   Term::Factory* const tf_;

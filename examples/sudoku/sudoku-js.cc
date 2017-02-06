@@ -1,5 +1,7 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2017 Christoph Schwering
+
+#include <cstring>
 
 #include <iostream>
 
@@ -79,77 +81,74 @@ static KnowledgeBase* kb = nullptr;
 static KnowledgeBaseAgent* agent = nullptr;
 static Timer* timer_overall = nullptr;
 static SimplePrinter* printer = nullptr;
-static OmniscientPrinter* final_printer = nullptr;
 static std::vector<int>* split_counts = nullptr;
 
 void Finalize() {
   lela::Symbol::Factory::Reset();
   lela::Term::Factory::Reset();
-  if (game)
-    delete game;
-  if (kb)
-    delete kb;
   if (agent)
     delete agent;
+  if (kb)
+    delete kb;
+  if (game)
+    delete game;
   if (timer_overall)
     delete timer_overall;
   if (printer)
     delete printer;
-  if (final_printer)
-    delete final_printer;
   if (split_counts)
     delete split_counts;
 }
 
-void Init(size_t width, size_t height, size_t n_mines, size_t seed, int max_k) {
+void Init(const std::string& cfg, int max_k) {
   Finalize();
-  game = new Game(width, height, n_mines, seed);
+  game = new Game(cfg);
   kb = new KnowledgeBase(game, max_k);
   timer_overall = new Timer();
-  agent = new KnowledgeBaseAgent(game, kb, &std::cout);
+  agent = new KnowledgeBaseAgent(game, kb);
   printer = new SimplePrinter(&colors, &std::cout);
-  final_printer = new OmniscientPrinter(&colors, &std::cout);
   split_counts = new std::vector<int>();
-  split_counts->resize(max_k + 2);  // last one is for guesses
+  split_counts->resize(max_k + 1);
+  std::cout << "Initial configuration:" << std::endl;
+  std::cout << std::endl;
+  printer->Print(*game);
+  std::cout << std::endl;
+  std::cout << "Ready to play" << std::endl;
 }
 
 bool PlayTurn() {
   timer_overall->start();
   Timer timer_turn;
   timer_turn.start();
-  const int k = agent->Explore();
-  if (k >= 0) {
-    ++(*split_counts)[k];
-  }
+  const lela::internal::Maybe<Agent::Result> r = agent->Explore();
   timer_turn.stop();
+  if (r) {
+    ++(*split_counts)[r.val.k];
+    std::cout << r.val.p << " = " << r.val.n << " found at split level " << r.val.k << std::endl;
+  }
   std::cout << std::endl;
   printer->Print(*game);
   std::cout << std::endl;
-  std::cout << "Last move took " << std::fixed << timer_turn.duration() << ", queries took " << std::fixed << kb->timer().duration() << " / " << std::setw(4) << kb->timer().rounds() << " = " << std::fixed << kb->timer().avg_duration() << std::endl;
+  std::cout << "Last move took " << std::fixed << timer_turn.duration() << std::endl;
   kb->ResetTimer();
-  const bool game_over = game->hit_mine() || game->all_explored();
+  const bool game_over = game->solved() || !r;
   timer_overall->stop();
 
   if (game_over) {
     std::cout << "Final board:" << std::endl;
     std::cout << std::endl;
-    final_printer->Print(*game);
+    printer->Print(*game);
     std::cout << std::endl;
-    const bool win = !game->hit_mine();
-    if (win) {
-      std::cout << colors.green() << "You win :-)";
+    if (game->solved() && game->legal_solution()) {
+      std::cout << colors.green() << "Solution is legal";
     } else {
-      std::cout << colors.red() << "You loose :-(";
+      std::cout << colors.red() << "Solution is illegal";
     }
-    std::cout << "  [width: " << game->width() << "; height: " << game->height() << "; height: " << game->n_mines() << "; seed: " << game->seed() << "; max-k: " << kb->max_k() << "; ";
+    std::cout << "  [max-k: " << kb->max_k() << "; ";
     for (int k = 0; k < split_counts->size(); ++k) {
       const int n = (*split_counts)[k];
       if (n > 0) {
-        if (k == kb->max_k() + 1) {
-          std::cout << "guesses: " << n << "; ";
-        } else {
-          std::cout << "level " << k << ": " << n << "; ";
-        }
+        std::cout << "level " << k << ": " << n << "; ";
       }
     }
     std::cout << "runtime: " << timer_overall->duration() << " seconds]" << colors.reset() << std::endl;
@@ -160,11 +159,11 @@ bool PlayTurn() {
 
 }  // namespace game
 
-extern "C" void lela_init(size_t width, size_t height, size_t n_mines, size_t seed, int max_k) {
+extern "C" void lela_init(const char* cfg, int max_k) {
   if (!logging::redirector_) {
     logging::redirector_ = new logging::StreamRedirector<logging::JsLogger>(&std::cout);
   }
-  game::Init(width, height, n_mines, seed, max_k);
+  game::Init(cfg, max_k);
 }
 
 extern "C" int lela_play_turn() {

@@ -72,7 +72,7 @@ class HiFormula {
 
 class Context {
  public:
-  Context() : solver_(&sf_, &tf_) {}
+  Context() : solver_(sf(), tf()) {}
 
   Symbol::Sort CreateSort() {
     return sf()->CreateSort();
@@ -101,12 +101,10 @@ class Context {
   Solver* solver() { return &solver_; }
   const Solver& solver() const { return solver_; }
 
-  Symbol::Factory* sf() { return &sf_; }
-  Term::Factory* tf() { return &tf_; }
+  Symbol::Factory* sf() { return Symbol::Factory::Instance(); }
+  Term::Factory* tf() { return Term::Factory::Instance(); }
 
  private:
-  Term::Factory tf_;
-  Symbol::Factory sf_;
   Solver solver_;
 };
 
