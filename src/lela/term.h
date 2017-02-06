@@ -173,8 +173,8 @@ class Term {
   template<Term::UnificationConfiguration config = Term::kDefaultConfig>
   static internal::Maybe<Substitution> Unify(Term l, Term r);
 
-  static bool Bisimilar(Term l, Term r, Substitution* sub);
-  static internal::Maybe<Substitution> Bisimilar(Term l, Term r);
+  static bool Isomorphic(Term l, Term r, Substitution* sub);
+  static internal::Maybe<Substitution> Isomorphic(Term l, Term r);
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
@@ -352,11 +352,11 @@ internal::Maybe<Term::Substitution> Term::Unify(Term l, Term r) {
   return Unify<config>(l, r, &sub) ? internal::Just(sub) : internal::Nothing;
 }
 
-bool Term::Bisimilar(Term l, Term r, Substitution* sub) {
+bool Term::Isomorphic(Term l, Term r, Substitution* sub) {
   internal::Maybe<Term> u;
   if (l.function() && r.function() && l.symbol() == r.symbol()) {
     for (std::size_t i = 0; i < l.arity(); ++i) {
-      if (!Bisimilar(l.arg(i), r.arg(i), sub)) {
+      if (!Isomorphic(l.arg(i), r.arg(i), sub)) {
         return false;
       }
     }
@@ -370,9 +370,9 @@ bool Term::Bisimilar(Term l, Term r, Substitution* sub) {
   }
 }
 
-internal::Maybe<Term::Substitution> Term::Bisimilar(Term l, Term r) {
+internal::Maybe<Term::Substitution> Term::Isomorphic(Term l, Term r) {
   Substitution sub;
-  return Bisimilar(l, r, &sub) ? internal::Just(sub) : internal::Nothing;
+  return Isomorphic(l, r, &sub) ? internal::Just(sub) : internal::Nothing;
 }
 
 template<typename UnaryFunction>

@@ -82,6 +82,10 @@ class Clause {
   bool primitive()      const { return all_of([](Literal a) { return a.primitive(); }); }
   bool quasiprimitive() const { return all_of([](Literal a) { return a.quasiprimitive(); }); }
 
+  bool Mentions(Literal a) const {
+    return lhs_bloom_.PossiblyContains(a.lhs()) && any_of([a](Literal b) { return a == b; });
+  }
+
   bool MentionsLhs(Term t) const {
     return lhs_bloom_.PossiblyContains(t) && any_of([t](Literal a) { return a.lhs() == t; });
   }

@@ -31,7 +31,7 @@ namespace lela {
 
 class Literal {
  public:
-  struct LhsHasher;
+  struct LhsHash;
 
   static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
   static Literal Neq(Term lhs, Term rhs) { return Literal(false, lhs, rhs); }
@@ -112,10 +112,10 @@ class Literal {
     return ok ? internal::Just(sub) : internal::Nothing;
   }
 
-  static internal::Maybe<Term::Substitution> Bisimilar(Literal a, Literal b) {
+  static internal::Maybe<Term::Substitution> Isomorphic(Literal a, Literal b) {
     Term::Substitution sub;
-    bool ok = Term::Bisimilar(a.lhs(), b.lhs(), &sub) &&
-              Term::Bisimilar(a.rhs(), b.rhs(), &sub);
+    bool ok = Term::Isomorphic(a.lhs(), b.lhs(), &sub) &&
+              Term::Isomorphic(a.rhs(), b.rhs(), &sub);
     return ok ? internal::Just(sub) : internal::Nothing;
   }
 
@@ -151,7 +151,7 @@ class Literal {
   std::uint64_t data_;
 };
 
-struct Literal::LhsHasher {
+struct Literal::LhsHash {
   internal::hash32_t operator()(const Literal a) const { return a.lhs().hash(); }
 };
 

@@ -198,7 +198,7 @@ class Context {
   }
 
   bool guarantee_kb_consistency() const { return assume_consistent_; }
-  void guarantee_kb_consistency(bool b) { assume_consistent_ = b; }
+  void guarantee_kb_consistency(bool b) { assume_consistent_ = b; std::cout << "assume_consistent = " << b << std::endl; }
 
   KnowledgeBase* kb() { return &kb_; }
   const KnowledgeBase& kb() const { return kb_; }

@@ -172,7 +172,7 @@ class Setup {
     internal::BloomSet<Term> intersection_;
   };
 
-  typedef std::unordered_set<Literal, Literal::LhsHasher> LiteralSet;
+  typedef std::unordered_set<Literal, Literal::LhsHash> LiteralSet;
 
   explicit Setup(const Setup* parent) :
       parent_(parent),

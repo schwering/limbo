@@ -129,7 +129,7 @@ TEST(TermTest, Unify) {
   { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars | Term::kOccursCheck>(fxy, fgyx); EXPECT_FALSE(u); }
 }
 
-TEST(TermTest, Bisimilar) {
+TEST(TermTest, Isomorphic) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s = sf.CreateSort();
@@ -141,14 +141,14 @@ TEST(TermTest, Bisimilar) {
   const Term fn1n2 = tf.CreateTerm(f, {n1,n2});
   const Term fn2n1 = tf.CreateTerm(f, {n2,n1});
 
-  { auto u = Term::Bisimilar(n1, n2); EXPECT_TRUE(u); EXPECT_EQ(u.val(n1).val, n2); EXPECT_EQ(n1.Substitute(u.val, &tf), n2); EXPECT_EQ(n1, n2.Substitute(u.val, &tf)); }
-  { auto u = Term::Bisimilar(n1, n2); EXPECT_TRUE(u); EXPECT_EQ(u.val(n1).val, n2); EXPECT_EQ(n1.Substitute(u.val, &tf), n2); EXPECT_EQ(n1, n2.Substitute(u.val, &tf)); }
-  { auto u = Term::Bisimilar(n2, n1); EXPECT_TRUE(u); EXPECT_EQ(u.val(n2).val, n1); EXPECT_EQ(n2.Substitute(u.val, &tf), n1); EXPECT_EQ(n2, n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Isomorphic(n1, n2); EXPECT_TRUE(u); EXPECT_EQ(u.val(n1).val, n2); EXPECT_EQ(n1.Substitute(u.val, &tf), n2); EXPECT_EQ(n1, n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Isomorphic(n1, n2); EXPECT_TRUE(u); EXPECT_EQ(u.val(n1).val, n2); EXPECT_EQ(n1.Substitute(u.val, &tf), n2); EXPECT_EQ(n1, n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Isomorphic(n2, n1); EXPECT_TRUE(u); EXPECT_EQ(u.val(n2).val, n1); EXPECT_EQ(n2.Substitute(u.val, &tf), n1); EXPECT_EQ(n2, n1.Substitute(u.val, &tf)); }
 
-  { auto u = Term::Bisimilar(fn1n2, fn2n1); EXPECT_TRUE(u); EXPECT_EQ(fn1n2.Substitute(u.val, &tf), fn2n1); EXPECT_EQ(fn1n2, fn2n1.Substitute(u.val, &tf)); }
-  { auto u = Term::Bisimilar(fn2n1, fn1n2); EXPECT_TRUE(u); EXPECT_EQ(fn2n1.Substitute(u.val, &tf), fn1n2); EXPECT_EQ(fn2n1, fn1n2.Substitute(u.val, &tf)); }
-  { auto u = Term::Bisimilar(fn1n1, fn2n1); EXPECT_FALSE(u); }
-  { auto u = Term::Bisimilar(fn2n1, fn1n1); EXPECT_FALSE(u); }
+  { auto u = Term::Isomorphic(fn1n2, fn2n1); EXPECT_TRUE(u); EXPECT_EQ(fn1n2.Substitute(u.val, &tf), fn2n1); EXPECT_EQ(fn1n2, fn2n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Isomorphic(fn2n1, fn1n2); EXPECT_TRUE(u); EXPECT_EQ(fn2n1.Substitute(u.val, &tf), fn1n2); EXPECT_EQ(fn2n1, fn1n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Isomorphic(fn1n1, fn2n1); EXPECT_FALSE(u); }
+  { auto u = Term::Isomorphic(fn2n1, fn1n1); EXPECT_FALSE(u); }
 }
 
 }  // namespace lela

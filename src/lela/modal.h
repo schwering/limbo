@@ -67,7 +67,7 @@ class KnowledgeBase {
   bool Entails(const Formula& sigma, bool assume_consistent = true) {
     assert(sigma.subjective());
     if (spheres_changed_) {
-      BuildSpheres();
+      BuildSpheres(assume_consistent);
       spheres_changed_ = false;
     }
     Formula::Ref sigma_nf = sigma.NF(sf_, tf_);
@@ -91,7 +91,7 @@ class KnowledgeBase {
   typedef Grounder::TermSet TermSet;
   typedef Grounder::SortedTermSet SortedTermSet;
 
-  void BuildSpheres() {
+  void BuildSpheres(bool assume_consistent) {
     spheres_.clear();
     std::vector<bool> done(beliefs_.size(), false);
     bool is_plausibility_consistent = true;
@@ -112,11 +112,12 @@ class KnowledgeBase {
       for (std::size_t i = 0; is_plausibility_consistent && i < beliefs_.size(); ++i) {
         const Conditional& c = beliefs_[i];
         if (!done[i]) {
-          const bool possiblyConsistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()));
+          const bool possiblyConsistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()),
+                                                          assume_consistent);
           if (possiblyConsistent) {
             done[i] = true;
             ++n_done;
-            const bool necessarilyConsistent = sphere.Consistent(c.l, *c.ante);
+            const bool necessarilyConsistent = sphere.Consistent(c.l, *c.ante, assume_consistent);
             if (!necessarilyConsistent) {
               is_plausibility_consistent = false;
             }
@@ -208,7 +209,7 @@ class KnowledgeBase {
 
   Formula::Ref ResConsistent(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
     auto if_no_free_vars = [k, assume_consistent, this](Solver* sphere, const Formula& psi) {
-      return sphere->Consistent(k, psi/*, assume_consistent*/);  // TODO implement assume_consistent
+      return sphere->Consistent(k, psi, assume_consistent);
     };
     return Res(p, phi.Clone(), if_no_free_vars);
   }

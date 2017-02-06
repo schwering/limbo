@@ -92,10 +92,10 @@ class Solver {
     assert(phi.free_vars().empty());
     grounder_.PrepareForQuery(k, phi);
     const Setup& s = grounder_.Ground();
-    std::list<LiteralSet> assign_lits =
-      k == 0            ? std::list<LiteralSet>() :
-      assume_consistent ? grounder_.RelevantAssignmentLiterals(phi) :
-                          grounder_.AssignmentLiterals();
+    LiteralAssignmentSet assign_lits =
+      k == 0            ? LiteralAssignmentSet() :
+      assume_consistent ? grounder_.RelevantLiteralAssignments(phi) :
+                          grounder_.LiteralAssignments();
     const SortedTermSet& names = grounder_.Names();
     return !s.Subsumes(Clause{}) && ReduceDisjunctions(s, assign_lits, names, k, phi);
   }
@@ -107,6 +107,7 @@ class Solver {
 
   typedef Grounder::TermSet TermSet;
   typedef Grounder::LiteralSet LiteralSet;
+  typedef Grounder::LiteralAssignmentSet LiteralAssignmentSet;
   typedef Grounder::SortedTermSet SortedTermSet;
 
   bool ReduceConjunctions(const Setup& s,
@@ -183,7 +184,7 @@ class Solver {
   }
 
   bool ReduceDisjunctions(const Setup& s,
-                          const std::list<LiteralSet>& assign_lits,
+                          const LiteralAssignmentSet& assign_lits,
                           const SortedTermSet& names,
                           int k,
                           const Formula& phi) {
@@ -225,7 +226,7 @@ class Solver {
   }
 
   bool Assign(const Setup& s,
-              const std::list<LiteralSet>& assign_lits,
+              const LiteralAssignmentSet& assign_lits,
               const SortedTermSet& names,
               int k,
               const Formula& phi) {
