@@ -45,9 +45,7 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
     EXPECT_EQ(dist(s0.clauses_with(fm)), 1);
 #endif
     EXPECT_TRUE(s0.Consistent());
-    EXPECT_TRUE(s0.LocallyConsistent(Clause({Literal::Eq(fm,m)})));
-    //EXPECT_TRUE(s0.LocallyConsistent(Clause({Literal::Neq(fm,m)})));
-    EXPECT_TRUE(!s0.LocallyConsistent(Clause({Literal::Eq(fn,n)})));
+    EXPECT_TRUE(s0.LocallyConsistent({fm,fn}));
     for (auto i : s0.clauses()) {
       EXPECT_TRUE(s0.Subsumes(s0.clause(i)));
     }
