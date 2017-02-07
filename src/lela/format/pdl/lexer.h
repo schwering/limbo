@@ -27,8 +27,8 @@ class Token {
  public:
   enum Id { kError, kSort, kVar, kName, kFun, kSlash, kKB, kLet, kQuery, kAssert, kRefute, kColon, kComma, kLess,
     kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow, kDoubleRArrow, kLeftParen,
-    kRightParen, kKnow, kCons, kBel, kAssign, kIf, kElse, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment, kUint,
-    kString, kIdentifier };
+    kRightParen, kKnow, kCons, kBel, kGuarantee, kAssign, kIf, kElse, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment,
+    kUint, kString, kIdentifier };
 
   Token() : id_(kError) {}
   explicit Token(Id id) : id_(id) {}
@@ -174,6 +174,7 @@ class Lexer {
     lexemes_.emplace_back(Token::kKnow,         [](Word w) { return IsPrefix(w, {"K", "Know", "know"}); });
     lexemes_.emplace_back(Token::kCons,         [](Word w) { return IsPrefix(w, {"M", "Cons", "cons"}); });
     lexemes_.emplace_back(Token::kBel,          [](Word w) { return IsPrefix(w, {"B", "Bel", "bel"}); });
+    lexemes_.emplace_back(Token::kGuarantee,    [](Word w) { return IsPrefix(w, {"G", "Gua", "gua"}); });
     lexemes_.emplace_back(Token::kAssign,       [](Word w) { return IsPrefix(w, ":="); });
     lexemes_.emplace_back(Token::kIf,           [](Word w) { return IsPrefix(w, {"If", "if"}); });
     lexemes_.emplace_back(Token::kElse,         [](Word w) { return IsPrefix(w, {"Else", "else"}); });
@@ -269,9 +270,10 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kDoubleRArrow: return os << "==>";
     case Token::kLeftParen:    return os << "(";
     case Token::kRightParen:   return os << ")";
-    case Token::kKnow:         return os << "Know";
-    case Token::kCons:         return os << "Cons";
-    case Token::kBel:          return os << "Bel";
+    case Token::kKnow:         return os << "K";
+    case Token::kCons:         return os << "M";
+    case Token::kBel:          return os << "B";
+    case Token::kGuarantee:    return os << "G";
     case Token::kAssign:       return os << ":=";
     case Token::kIf:           return os << "If";
     case Token::kElse:         return os << "Else";

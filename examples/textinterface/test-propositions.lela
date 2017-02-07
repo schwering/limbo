@@ -10,19 +10,27 @@ Let P := p == T
 Let Q := q == T
 // Now we can use P and Q like propositional atoms in our query.
 
-Refute: Know<2> !P
-Refute: Know<2> P
-Assert: Know<1> (P || !P)
-Refute: Know<0> (P || !P)
+Refute:   Know<2> !P
+Refute: G Know<2> !P
+Refute:   Know<2> P
+Refute: G Know<2> P
+Assert:   Know<1> (P || !P)
+Assert: G Know<1> (P || !P)
+Refute:   Know<0> (P || !P)
+Refute: G Know<0> (P || !P)
 
 Let phi := (P || !P) && (Q || !Q)
-Assert: Know<1> phi // because the conjunction is resolved before splitting
-Assert: Know<2> phi
+Assert:   Know<1> phi // because the conjunction is resolved before splitting
+Assert: G Know<1> phi // because the conjunction is resolved before splitting
+Assert:   Know<2> phi
+Assert: G Know<2> phi
 
 Let phi := P &&  Q ||
            P && !Q ||
           !P &&  Q ||
           !P && !Q
-Refute: Know<1> phi
-Assert: Know<2> phi
+Refute:   Know<1> phi
+Refute: G Know<1> phi
+Assert:   Know<2> phi
+Assert: G Know<2> phi
 

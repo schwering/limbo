@@ -33,7 +33,7 @@ class Formula {
   typedef std::unique_ptr<Formula> Ref;
   typedef std::unordered_set<Term> TermSet;
   typedef unsigned int split_level;
-  enum Type { kAtomic, kNot, kOr, kExists, kKnow, kCons, kBel };
+  enum Type { kAtomic, kNot, kOr, kExists, kKnow, kCons, kBel, kGuarantee };
 
   class Factory {
    public:
@@ -51,6 +51,7 @@ class Formula {
     inline static Ref Cons(split_level k, Ref alpha);
     inline static Ref Bel(split_level k, split_level l, Ref alpha, Ref beta);
     inline static Ref Bel(split_level k, split_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta);
+    inline static Ref Guarantee(Ref alpha);
   };
 
   class Atomic;
@@ -60,6 +61,7 @@ class Formula {
   class Know;
   class Cons;
   class Bel;
+  class Guarantee;
 
   Formula(const Formula&) = delete;
   Formula& operator=(const Formula&) = delete;
@@ -75,13 +77,14 @@ class Formula {
 
   Type type() const { return type_; }
 
-  inline const Atomic& as_atomic() const;
-  inline const Not&    as_not() const;
-  inline const Or&     as_or() const;
-  inline const Exists& as_exists() const;
-  inline const Know&   as_know() const;
-  inline const Cons&   as_cons() const;
-  inline const Bel&    as_bel() const;
+  inline const Atomic&    as_atomic() const;
+  inline const Not&       as_not() const;
+  inline const Or&        as_or() const;
+  inline const Exists&    as_exists() const;
+  inline const Know&      as_know() const;
+  inline const Cons&      as_cons() const;
+  inline const Bel&       as_bel() const;
+  inline const Guarantee& as_guarantee() const;
 
   const TermSet& free_vars() const {
     if (!free_vars_) {
@@ -221,7 +224,7 @@ class Formula::Atomic : public Formula {
  public:
   bool operator==(const Formula& that) const override { return type() == that.type() && c_ == that.as_atomic().c_; }
 
-  Ref Clone() const override { return Ref(new Atomic(c_)); }
+  Ref Clone() const override { return Factory::Atomic(c_); }
 
   const Clause& arg() const { return c_; }
 
@@ -580,7 +583,8 @@ class Formula::Not : public Formula {
       }
       case kKnow:
       case kCons:
-      case kBel: {
+      case kBel:
+      case kGuarantee: {
         return Factory::Not(arg().Normalize());
       }
     }
@@ -703,7 +707,9 @@ class Formula::Bel : public Formula {
         *not_antecedent_or_consequent_ == *that.as_bel().not_antecedent_or_consequent_;
   }
 
-  Ref Clone() const override { return Factory::Bel(k_, l_, antecedent_->Clone(), consequent_->Clone()); }
+  Ref Clone() const override {
+    return Factory::Bel(k_, l_, antecedent_->Clone(), consequent_->Clone(), not_antecedent_or_consequent_->Clone());
+  }
 
   split_level k() const { return k_; }
   split_level l() const { return l_; }
@@ -779,6 +785,53 @@ class Formula::Bel : public Formula {
   Ref not_antecedent_or_consequent_;
 };
 
+class Formula::Guarantee : public Formula {
+ public:
+  bool operator==(const Formula& that) const override {
+    return type() == that.type() && *alpha_ == *that.as_guarantee().alpha_;
+  }
+
+  Ref Clone() const override { return Factory::Guarantee(alpha_->Clone()); }
+
+  const Formula& arg() const { return *alpha_; }
+
+  bool objective() const override { return alpha_->objective(); }
+  bool subjective() const override { return alpha_->subjective(); }
+  bool quantified_in() const override { return alpha_->quantified_in(); }
+  bool trivially_valid() const override { return alpha_->trivially_valid(); }
+  bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
+
+ protected:
+  friend class Factory;
+
+  Guarantee(Ref alpha) :
+      Formula(kGuarantee),
+      alpha_(std::move(alpha)) {}
+
+  TermSet FreeVars() const override { return alpha_->FreeVars(); }
+
+  void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
+  void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
+
+  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
+
+  std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+    return std::make_pair(QuantifierPrefix(), this);
+  }
+
+  Ref Normalize() const override { return Factory::Guarantee(alpha_->Normalize()); }
+
+  Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Guarantee(alpha_->Flatten(nots, sf, tf));
+  }
+
+  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
+
+ private:
+  Ref alpha_;
+};
+
 Formula::Ref Formula::Factory::Atomic(const Clause& c)   { return Ref(new class Atomic(c)); }
 Formula::Ref Formula::Factory::Not(Ref alpha)            { return Ref(new class Not(std::move(alpha))); }
 Formula::Ref Formula::Factory::Or(Ref lhs, Ref rhs)    { return Ref(new class Or(std::move(lhs), std::move(rhs))); }
@@ -791,6 +844,7 @@ Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref 
 Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta) {
   return Ref(new class Bel(k, l, std::move(alpha), std::move(beta), std::move(not_alpha_or_beta)));
 }
+Formula::Ref Formula::Factory::Guarantee(Ref alpha) { return Ref(new class Guarantee(std::move(alpha))); }
 
 inline const class Formula::Atomic& Formula::as_atomic() const {
   assert(type_ == kAtomic);
@@ -819,6 +873,10 @@ inline const class Formula::Cons& Formula::as_cons() const {
 inline const class Formula::Bel& Formula::as_bel() const {
   assert(type_ == kBel);
   return *dynamic_cast<const class Bel*>(this);
+}
+inline const class Formula::Guarantee& Formula::as_guarantee() const {
+  assert(type_ == kGuarantee);
+  return *dynamic_cast<const class Guarantee*>(this);
 }
 
 }  // namespace lela

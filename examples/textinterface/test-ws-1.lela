@@ -1,0 +1,52 @@
+// Which party is more plausible?
+// Author: Denis Golovin
+
+Sort PARTY
+Sort BOOL
+
+Variable x -> PARTY
+
+Name partyA -> PARTY
+Name partyB -> PARTY
+
+Name T -> BOOL
+
+Let false := T /= T
+Let true := ~false
+
+Function zoomed/1 -> BOOL
+Function zoom/1 -> BOOL
+Function go_fast/1 -> BOOL
+Function car/1 -> BOOL
+Function going_fast/1 -> BOOL
+Function travel_rapidly/1 -> BOOL
+Function hurry/1 -> BOOL
+KB: G B<1,1> (~zoomed(partyA) == T) ==> (~true) //extracted from WS sentence
+KB: G B<1,1> (zoomed(partyA) == T) ==> (zoom(partyA) == T) //zoomed-RelatedTo-> zoom
+KB: G B<1,1> (zoom(partyA) == T) ==> (zoomed(partyA) == T) //see above
+KB: G B<1,1> (zoomed(partyB) == T) ==> (zoom(partyB) == T) //zoomed-RelatedTo-> zoom
+KB: G B<1,1> (zoom(partyB) == T) ==> (zoomed(partyB) == T) //see above
+KB: G B<1,1> (zoom(partyA) == T) ==> (travel_rapidly(partyA) == T) //zoom -IsA-> travel_rapidly
+KB: G B<1,1> (zoom(partyB) == T) ==> (travel_rapidly(partyB) == T) //zoom -IsA-> travel_rapidly
+KB: G B<1,1> (true) ==> (hurry(x) == T -> travel_rapidly(x) == T) //hurry -Synonym-> travel_rapidly
+KB: G B<1,1> (true) ==> (travel_rapidly(x) == T -> hurry(x) == T) //hurry -Synonym-> travel_rapidly
+KB: G B<1,1> (true) ==> (go_fast(x) == T -> hurry(x) == T) //go_fast -Synonym-> hurry
+KB: G B<1,1> (true) ==> (hurry(x) == T -> go_fast(x) == T) //go_fast -Synonym-> hurry
+KB: G B<1,1> (go_fast(partyA) == T) ==> (car(partyA) == T) //go_fast -IsA-> car
+KB: G B<1,1> (go_fast(partyB) == T) ==> (car(partyB) == T) //go_fast -IsA-> car
+KB: G B<1,1> (car(partyA) == T) ==> (going_fast(partyA) == T) //car -UsedFor-> going_fast
+KB: G B<1,1> (car(partyB) == T) ==> (going_fast(partyB) == T) //car -UsedFor-> going_fast
+KB: G B<1,1> (true) ==> (zoomed(x) == T -> zoom(x) == T) //zoomed -FormOf-> zoom
+KB: G B<1,1> (true) ==> (zoom(x) == T -> zoomed(x) == T) //zoomed -FormOf-> zoom
+
+Assert: G B<1,1> (going_fast(partyA) == T v going_fast(partyB) == T) ==> (going_fast(partyA) == T)
+Refute: G B<1,1> (going_fast(partyA) == T v going_fast(partyB) == T) ==> (going_fast(partyB) == T)
+
+Refute: B<1,1> (going_fast(partyA) == T v going_fast(partyB) == T) ==> (going_fast(partyA) == T)
+Assert: B<1,2> (going_fast(partyA) == T v going_fast(partyB) == T) ==> (going_fast(partyA) == T)
+Refute: B<1,2> (going_fast(partyA) == T v going_fast(partyB) == T) ==> (going_fast(partyB) == T)
+Refute: B<4,4> (going_fast(partyA) == T v going_fast(partyB) == T) ==> (going_fast(partyB) == T)
+
+Assert: G B<1,1> (going_fast(partyA) == T v going_fast(partyB) == T) ==> (going_fast(partyA) == T) ^
+        ~ B<1,1> (going_fast(partyA) == T v going_fast(partyB) == T) ==> (going_fast(partyA) == T)
+

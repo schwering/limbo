@@ -66,10 +66,6 @@ struct Callback : public lela::format::pdl::DefaultCallback {
     } else if (proc == "print") {
       lela::format::output::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
-    } else if (proc == "guarantee_kb_consistency") {
-      ctx->guarantee_kb_consistency(true);
-    } else if (proc == "unguarantee_kb_consistency") {
-      ctx->guarantee_kb_consistency(false);
     } else if (proc == "enable_query_logging") {
       ctx->logger()->print_queries = true;
     } else if (proc == "disable_query_logging") {

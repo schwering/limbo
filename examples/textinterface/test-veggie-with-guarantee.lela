@@ -43,12 +43,8 @@ KB: G Bel<1,1> ~Fa x ((Veggie == T && Meat(x) == T) -> Eats(x) != T) ==> falsum
 // The question is now:
 // If she's not Italian, is she a Vegetarian?
 // We find that out at belief levels 1, 1.
-Query:   Bel<0,0> Italian != T ==> Veggie != T
-Query: G Bel<0,0> Italian != T ==> Veggie != T
-Query:   Bel<0,1> Italian != T ==> Veggie != T
-Query: G Bel<0,1> Italian != T ==> Veggie != T
-Query:   Bel<1,0> Italian != T ==> Veggie != T
-Query: G Bel<1,0> Italian != T ==> Veggie != T
-Query:   Bel<1,1> Italian != T ==> Veggie != T
-Query: G Bel<1,1> Italian != T ==> Veggie != T
+Refute: G Bel<0,0> Italian != T ==> Veggie != T
+Refute: G Bel<0,1> Italian != T ==> Veggie != T
+Refute: G Bel<1,0> Italian != T ==> Veggie != T
+Assert: G Bel<1,1> Italian != T ==> Veggie != T
 

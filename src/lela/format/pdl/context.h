@@ -81,11 +81,10 @@ struct DefaultLogger {
   };
 
   struct QueryData : public LogData {
-    QueryData(const KnowledgeBase& kb, const Formula& phi, bool assume_consistent, bool yes) :
-        kb(kb), phi(phi.Clone()), assume_consistent(assume_consistent), yes(yes) {}
+    QueryData(const KnowledgeBase& kb, const Formula& phi, bool yes) :
+        kb(kb), phi(phi.Clone()), yes(yes) {}
     const KnowledgeBase& kb;
     const Formula::Ref phi;
-    const bool assume_consistent;
     const bool yes;
   };
 
@@ -192,13 +191,10 @@ class Context {
   }
 
   bool Query(const Formula& alpha) {
-    const bool yes = kb_.Entails(alpha, assume_consistent_);
-    logger_(DefaultLogger::QueryData(kb_, alpha, assume_consistent_, yes));
+    const bool yes = kb_.Entails(alpha);
+    logger_(DefaultLogger::QueryData(kb_, alpha, yes));
     return yes;
   }
-
-  bool guarantee_kb_consistency() const { return assume_consistent_; }
-  void guarantee_kb_consistency(bool b) { assume_consistent_ = b; std::cout << "assume_consistent = " << b << std::endl; }
 
   KnowledgeBase* kb() { return &kb_; }
   const KnowledgeBase& kb() const { return kb_; }
@@ -234,7 +230,6 @@ class Context {
   Registry<Term>         meta_vars_;
   Registry<Formula::Ref> formulas_;
   KnowledgeBase          kb_;
-  bool                   assume_consistent_ = true;
 };
 
 }  // namespace pdl

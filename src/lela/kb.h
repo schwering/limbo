@@ -37,27 +37,24 @@ class KnowledgeBase {
     c.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
   }
 
-  void Add(Formula::split_level k, Formula::split_level l,
-           const Formula& antecedent, const Clause& not_antecedent_or_consequent) {
-    beliefs_.push_back(Conditional{k, l, antecedent.Clone(), not_antecedent_or_consequent});
-    spheres_changed_ = true;
-    antecedent.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
-    not_antecedent_or_consequent.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
-  }
-
   bool Add(const Formula& alpha) {
-    Formula::Ref psi = alpha.NF(sf_, tf_);
-    if (psi->type() == Formula::kBel) {
-      const Formula::split_level k = psi->as_bel().k();
-      const Formula::split_level l = psi->as_bel().l();
-      const Formula& ante = psi->as_bel().antecedent();
-      internal::Maybe<Clause> not_ante_or_conse = psi->as_bel().not_antecedent_or_consequent().AsUnivClause();
+    Formula::Ref beta = alpha.NF(sf_, tf_);
+    bool assume_consistent = false;
+    if (beta->type() == Formula::kGuarantee) {
+      beta = beta->as_guarantee().arg().Clone();
+      assume_consistent = true;
+    }
+    if (beta->type() == Formula::kBel) {
+      const Formula::split_level k = beta->as_bel().k();
+      const Formula::split_level l = beta->as_bel().l();
+      const Formula& ante = beta->as_bel().antecedent();
+      internal::Maybe<Clause> not_ante_or_conse = beta->as_bel().not_antecedent_or_consequent().AsUnivClause();
       if (not_ante_or_conse) {
-        Add(k, l, ante, not_ante_or_conse.val);
+        Add(k, l, ante, not_ante_or_conse.val, assume_consistent);
         return true;
       }
     } else {
-      internal::Maybe<Clause> c = (psi->type() == Formula::kKnow ? psi->as_know().arg() : *psi).AsUnivClause();
+      internal::Maybe<Clause> c = (beta->type() == Formula::kKnow ? beta->as_know().arg() : *beta).AsUnivClause();
       if (c) {
         Add(c.val);
         return true;
@@ -66,16 +63,16 @@ class KnowledgeBase {
     return false;
   }
 
-  bool Entails(const Formula& sigma, bool assume_consistent = true) {
+  bool Entails(const Formula& sigma) {
     assert(sigma.subjective());
     if (spheres_changed_) {
-      BuildSpheres(assume_consistent);
+      BuildSpheres();
       spheres_changed_ = false;
     }
     Formula::Ref sigma_nf = sigma.NF(sf_, tf_);
-    Formula::Ref phi = ReduceModalities(*sigma_nf, assume_consistent);
+    Formula::Ref phi = ReduceModalities(*sigma_nf, false);
     assert(phi->objective());
-    return objective_.Entails(0, *phi);
+    return objective_.Entails(0, *phi, false);
   }
 
   sphere_index n_spheres() const { return spheres_.size(); }
@@ -89,11 +86,20 @@ class KnowledgeBase {
     Formula::split_level l;
     Formula::Ref ante;
     Clause not_ante_or_conse;
+    bool assume_consistent;
   };
   typedef Grounder::TermSet TermSet;
   typedef Grounder::SortedTermSet SortedTermSet;
 
-  void BuildSpheres(bool assume_consistent) {
+  void Add(Formula::split_level k, Formula::split_level l,
+           const Formula& antecedent, const Clause& not_antecedent_or_consequent, bool assume_consistent) {
+    beliefs_.push_back(Conditional{k, l, antecedent.Clone(), not_antecedent_or_consequent, assume_consistent});
+    spheres_changed_ = true;
+    antecedent.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
+    not_antecedent_or_consequent.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
+  }
+
+  void BuildSpheres() {
     spheres_.clear();
     std::vector<bool> done(beliefs_.size(), false);
     bool is_plausibility_consistent = true;
@@ -116,11 +122,11 @@ class KnowledgeBase {
         const Conditional& c = beliefs_[i];
         if (!done[i]) {
           const bool possibly_consistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()),
-                                                           assume_consistent);
+                                                           c.assume_consistent);
           if (possibly_consistent) {
             done[i] = true;
             ++n_done;
-            const bool necessarilyConsistent = sphere.Consistent(c.l, *c.ante, assume_consistent);
+            const bool necessarilyConsistent = sphere.Consistent(c.l, *c.ante, c.assume_consistent);
             if (!necessarilyConsistent) {
               next_is_plausibility_consistent = false;
             }
@@ -196,6 +202,10 @@ class KnowledgeBase {
           }
         }
         return phi;
+      }
+      case Formula::kGuarantee: {
+        assume_consistent = true;
+        return ReduceModalities(alpha.as_guarantee().arg(), assume_consistent);
       }
     }
     throw;

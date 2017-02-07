@@ -393,9 +393,10 @@ class Parser {
   // primary_formula --> ! primary_formula
   //                  |  Ex atomic_term primary_formula
   //                  |  Fa atomic_term primary_formula
-  //                  |  Know k : primary_formula
-  //                  |  Cons k : primary_formula
-  //                  |  Bel k l : primary_formula => primary_formula
+  //                  |  Know < k > primary_formula
+  //                  |  Cons < k > primary_formula
+  //                  |  Bel < k , l > primary_formula => primary_formula
+  //                  |  Guarantee primary_formula
   //                  |  ( formula )
   //                  |  abbreviation
   //                  |  literal
@@ -517,6 +518,20 @@ class Parser {
           return Error<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), beta);
         }
         return Success(Formula::Factory::Bel(k, l, std::move(alpha.val), std::move(beta.val)));
+      });
+    }
+    if (Is(Tok(), Token::kGuarantee)) {
+      Advance();
+      Result<Action<Formula::Ref>> alpha = primary_formula();
+      if (!alpha) {
+        return Error<Action<Formula::Ref>>(LELA_MSG("Expected primary formula within modality"), alpha);
+      }
+      return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+        if (!alpha) {
+          return Error<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
+        }
+        return Success(Formula::Factory::Guarantee(std::move(alpha.val)));
       });
     }
     if (Is(Tok(), Token::kLeftParen)) {

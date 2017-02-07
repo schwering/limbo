@@ -42,12 +42,18 @@ KB: siblings(Mia, Frank) == T || siblings(Mary, Fred) == T
 // mother must be Mary. Mary is also Sonny's mother, so they're siblings.
 // If Mary and Fred are siblings, they cannot have Sonny together, so Sonny's
 // father must be Frank. Frank is also Sally's father, so they're siblings.
-Refute: Know<0> siblings(Sally, Sonny) == T
-Assert: Know<1> siblings(Sally, Sonny) == T
+Refute:   Know<0> siblings(Sally, Sonny) == T
+Refute: G Know<0> siblings(Sally, Sonny) == T
+Assert:   Know<1> siblings(Sally, Sonny) == T
+Assert: G Know<1> siblings(Sally, Sonny) == T
 
-Assert: Know<0> Fa x siblings(motherOf(x), fatherOf(x)) != T
-Assert: Know<0> ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(y,z) != T)
+Assert:   Know<0> Fa x siblings(motherOf(x), fatherOf(x)) != T
+Assert: G Know<0> Fa x siblings(motherOf(x), fatherOf(x)) != T
+Assert:   Know<0> ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(y,z) != T)
+Assert: G Know<0> ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(y,z) != T)
 // Requires reflexivity of siblings/2:
-Refute: Know<0> ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(z,y) != T)
-Assert: Know<1> ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(z,y) != T)
+Refute:   Know<0> ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(z,y) != T)
+Refute: G Know<0> ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(z,y) != T)
+Assert:   Know<1> ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(z,y) != T)
+Assert: G Know<1> ~ Ex x ~ Fa y Fa z (motherOf(x) == y && fatherOf(x) == z -> siblings(z,y) != T)
 

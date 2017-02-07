@@ -40,10 +40,10 @@ TEST(SolverTest, Entails) {
       solver.AddClause(( Mother(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
       solver.AddClause(( Mother(Sonny) == Mary ).as_clause());
       auto phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
-      EXPECT_TRUE(solver.Entails(0, *phi));
-      EXPECT_TRUE(solver.Entails(1, *phi));
-      EXPECT_TRUE(solver.Entails(0, *phi));
-      EXPECT_TRUE(solver.Entails(1, *phi));
+      EXPECT_TRUE(solver.Entails(0, *phi, Solver::kConsistencyGuarantee));
+      EXPECT_TRUE(solver.Entails(1, *phi, Solver::kConsistencyGuarantee));
+      EXPECT_TRUE(solver.Entails(0, *phi, Solver::kConsistencyGuarantee));
+      EXPECT_TRUE(solver.Entails(1, *phi, Solver::kConsistencyGuarantee));
     }
   }
 
@@ -66,10 +66,10 @@ TEST(SolverTest, Entails) {
       solver.AddClause(( Father(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
       solver.AddClause(( Father(Sonny) == Mary || Father(Sonny) == Fred ).as_clause());
       auto phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
-      EXPECT_FALSE(solver.Entails(0, *phi));
-      EXPECT_TRUE(solver.Entails(1, *phi));
-      EXPECT_FALSE(solver.Entails(0, *phi));
-      EXPECT_TRUE(solver.Entails(1, *phi));
+      EXPECT_FALSE(solver.Entails(0, *phi, Solver::kConsistencyGuarantee));
+      EXPECT_TRUE(solver.Entails(1, *phi, Solver::kConsistencyGuarantee));
+      EXPECT_FALSE(solver.Entails(0, *phi, Solver::kConsistencyGuarantee));
+      EXPECT_TRUE(solver.Entails(1, *phi, Solver::kConsistencyGuarantee));
     }
   }
 
@@ -93,8 +93,8 @@ TEST(SolverTest, Entails) {
       solver.AddClause(( Father(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
       solver.AddClause(( Father(Sonny) == Mary || Father(Sonny) == Fred || Father(Sonny) == Fox ).as_clause());
       auto phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
-      EXPECT_FALSE(solver.Entails(0, *phi));
-      EXPECT_TRUE(solver.Entails(1, *phi));
+      EXPECT_FALSE(solver.Entails(0, *phi, Solver::kConsistencyGuarantee));
+      EXPECT_TRUE(solver.Entails(1, *phi, Solver::kConsistencyGuarantee));
     }
   }
 }
@@ -118,10 +118,10 @@ TEST(SolverTest, Consistent) {
       solver.AddClause(( Mother(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
       solver.AddClause(( Mother(Sonny) == Mary ).as_clause());
       auto phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
-      EXPECT_TRUE(solver.EntailsComplete(0, *phi));
-      EXPECT_TRUE(solver.EntailsComplete(1, *phi));
-      EXPECT_TRUE(solver.EntailsComplete(0, *phi));
-      EXPECT_TRUE(solver.EntailsComplete(1, *phi));
+      EXPECT_TRUE(solver.EntailsComplete(0, *phi, Solver::kNoConsistencyGuarantee));
+      EXPECT_TRUE(solver.EntailsComplete(1, *phi, Solver::kNoConsistencyGuarantee));
+      EXPECT_TRUE(solver.EntailsComplete(0, *phi, Solver::kNoConsistencyGuarantee));
+      EXPECT_TRUE(solver.EntailsComplete(1, *phi, Solver::kNoConsistencyGuarantee));
     }
   }
 }
@@ -146,9 +146,9 @@ TEST(SolverTest, KR2016) {
   // the query already comes out true at belief level 0.
   //std::cout << *Formula::Factory::Atomic(Clause{father(bestFriend(mary)) == george}) << std::endl;
   //std::cout << *Formula::Factory::Atomic(Clause{father(bestFriend(mary)) == george})->NF(ctx.sf(), ctx.tf()) << std::endl;
-  //EXPECT_FALSE(solver.Entails(0, *Formula::Factory::Atomic(Clause{father(bestFriend(mary)) == george})->NF(ctx.sf(), ctx.tf())));
-  EXPECT_TRUE(solver.Entails(0, *(father(bestFriend(mary)) == george)->NF(ctx.sf(), ctx.tf())));
-  EXPECT_TRUE(solver.Entails(1, *(father(bestFriend(mary)) == george)->NF(ctx.sf(), ctx.tf())));
+  //EXPECT_FALSE(solver.Entails(0, *Formula::Factory::Atomic(Clause{father(bestFriend(mary)) == george})->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_TRUE(solver.Entails(0, *(father(bestFriend(mary)) == george)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_TRUE(solver.Entails(1, *(father(bestFriend(mary)) == george)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
 }
 
 TEST(SolverTest, ECAI2016Sound) {
@@ -171,8 +171,8 @@ TEST(SolverTest, ECAI2016Sound) {
   solver.AddClause(( Aussie == T ||  Italian == T ).as_clause());
   solver.AddClause(( Aussie != T ||  Eats(roo) == T ).as_clause());
   solver.AddClause(( Italian == T ||  Veggie == T ).as_clause());
-  EXPECT_FALSE(solver.Entails(0, *(Aussie != T)->NF(ctx.sf(), ctx.tf())));
-  EXPECT_TRUE(solver.Entails(1, *(Aussie != T)->NF(ctx.sf(), ctx.tf())));
+  EXPECT_FALSE(solver.Entails(0, *(Aussie != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_TRUE(solver.Entails(1, *(Aussie != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
 }
 
 TEST(SolverTest, ECAI2016Complete) {
@@ -195,10 +195,14 @@ TEST(SolverTest, ECAI2016Complete) {
   solver.AddClause(( Aussie == T || Italian == T ).as_clause());
   solver.AddClause(( Aussie != T || Eats(roo) == T ).as_clause());
   solver.AddClause(( Italian == T || Veggie == T ).as_clause());
-  EXPECT_TRUE(solver.EntailsComplete(0, *(Italian != T)->NF(ctx.sf(), ctx.tf())));
-  EXPECT_FALSE(solver.EntailsComplete(1, *(Italian != T)->NF(ctx.sf(), ctx.tf())));
-  EXPECT_FALSE(solver.Consistent(0, *(Italian == T)->NF(ctx.sf(), ctx.tf())));
-  EXPECT_TRUE(solver.Consistent(1, *(Italian == T)->NF(ctx.sf(), ctx.tf())));
+  EXPECT_TRUE(solver.EntailsComplete(0, *(Italian != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_TRUE(solver.EntailsComplete(0, *(Italian != T)->NF(ctx.sf(), ctx.tf()), Solver::kNoConsistencyGuarantee));
+  EXPECT_FALSE(solver.EntailsComplete(1, *(Italian != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_FALSE(solver.EntailsComplete(1, *(Italian != T)->NF(ctx.sf(), ctx.tf()), Solver::kNoConsistencyGuarantee));
+  EXPECT_FALSE(solver.Consistent(0, *(Italian == T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_FALSE(solver.Consistent(0, *(Italian == T)->NF(ctx.sf(), ctx.tf()), Solver::kNoConsistencyGuarantee));
+  EXPECT_TRUE(solver.Consistent(1, *(Italian == T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_TRUE(solver.Consistent(1, *(Italian == T)->NF(ctx.sf(), ctx.tf()), Solver::kNoConsistencyGuarantee));
 }
 
 TEST(SolverTest, Bool) {
@@ -208,14 +212,14 @@ TEST(SolverTest, Bool) {
   auto T = ctx.CreateName(BOOL);
   auto P = ctx.CreateFunction(BOOL, 0)();
   {
-    EXPECT_FALSE(solver.Entails(0, *(P == T)->NF(ctx.sf(), ctx.tf())));
-    EXPECT_FALSE(solver.Entails(1, *(P == T)->NF(ctx.sf(), ctx.tf())));
-    EXPECT_FALSE(solver.Entails(0, *(P != T)->NF(ctx.sf(), ctx.tf())));
-    EXPECT_FALSE(solver.Entails(1, *(P != T)->NF(ctx.sf(), ctx.tf())));
-    EXPECT_FALSE(solver.Entails(0, *(P == T)->NF(ctx.sf(), ctx.tf())));
-    EXPECT_FALSE(solver.Entails(1, *(P == T)->NF(ctx.sf(), ctx.tf())));
-    EXPECT_FALSE(solver.Entails(0, *(P != T)->NF(ctx.sf(), ctx.tf())));
-    EXPECT_FALSE(solver.Entails(1, *(P != T)->NF(ctx.sf(), ctx.tf())));
+    EXPECT_FALSE(solver.Entails(0, *(P == T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+    EXPECT_FALSE(solver.Entails(1, *(P == T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+    EXPECT_FALSE(solver.Entails(0, *(P != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+    EXPECT_FALSE(solver.Entails(1, *(P != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+    EXPECT_FALSE(solver.Entails(0, *(P == T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+    EXPECT_FALSE(solver.Entails(1, *(P == T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+    EXPECT_FALSE(solver.Entails(0, *(P != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+    EXPECT_FALSE(solver.Entails(1, *(P != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
   }
 }
 
@@ -229,8 +233,8 @@ TEST(SolverTest, Constants) {
   {
     for (int i = 0; i < 2; ++i) {
       for (int k = 0; k <= 3; ++k) {
-        EXPECT_FALSE(solver.Entails(k, *(a == b)->NF(ctx.sf(), ctx.tf())));
-        EXPECT_FALSE(solver.Entails(k, *(a != b)->NF(ctx.sf(), ctx.tf())));
+        EXPECT_FALSE(solver.Entails(k, *(a == b)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+        EXPECT_FALSE(solver.Entails(k, *(a != b)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
       }
     }
   }

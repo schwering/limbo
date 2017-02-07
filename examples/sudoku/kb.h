@@ -96,9 +96,7 @@ class KnowledgeBase {
   lela::internal::Maybe<int> Val(Point p, int k) {
     t_.start();
     for (std::size_t i = 1; i <= 9; ++i) {
-      //using lela::format::output::operator<<;
-      //std::cout << "Entails(" << k << ", " << *(val(p) == n(i)) << ")?" << std::endl;
-      if (solver()->Entails(k, val(p) == n(i))) {
+      if (solver()->Entails(k, val(p) == n(i), lela::Solver::kConsistencyGuarantee)) {
         return lela::internal::Just(i);
       }
     }

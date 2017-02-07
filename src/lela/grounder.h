@@ -514,6 +514,7 @@ class Grounder {
       case Formula::kKnow:
       case Formula::kCons:
       case Formula::kBel:
+      case Formula::kGuarantee:
         break;
     }
   }

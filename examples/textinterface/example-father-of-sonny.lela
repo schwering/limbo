@@ -18,22 +18,22 @@ Function motherOf/1 -> HUMAN
 KB: motherOf(Sonny) == Mary
 KB: fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred
 
-Query: Know<0> (fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred)
+Query: G Know<0> (fatherOf(Sonny) == Frank || fatherOf(Sonny) == Fred)
 
 Let phi := Ex x (x == fatherOf(Sonny))
-Query: Know<0> phi
-Query: Know<1> phi
+Query: G Know<0> phi
+Query: G Know<1> phi
 
 Let phi := Frank == fatherOf(Sonny)
-Query: Cons<0> phi
-Query: Cons<1> phi
+Query: G Cons<0> phi
+Query: G Cons<1> phi
 
-Query: Know<0> (Fred == fatherOf(Sonny) && Frank == fatherOf(Sonny) || Fred == fatherOf(Sonny))
+Query: G Know<0> (Fred == fatherOf(Sonny) && Frank == fatherOf(Sonny) || Fred == fatherOf(Sonny))
 
 Let phi := motherOf(Sonny) == fatherOf(Sonny)
-Query: Know<0> phi
-Query: Cons<0> phi
-Query: Know<0> !phi
-Query: Cons<0> !phi
-Query: Cons<1> !phi
+Query: G Know<0> phi
+Query: G Cons<0> phi
+Query: G Know<0> !phi
+Query: G Cons<0> !phi
+Query: G Cons<1> !phi
 

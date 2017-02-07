@@ -178,17 +178,17 @@ Call: bs_init(p11, p12, p13, p14,
 //     Call: bs_print()
 // }
 
-while Ex p (~K<0> fired(p)=T ^ ~K<2> water(p)=T) {
+while G Ex p (~K<0> fired(p)=T ^ ~K<2> water(p)=T) {
     for P in p11, p12, p13, p14,
              p21, p22, p23, p24,
              p31, p32, p33, p34,
-             p41, p42, p43, p44 -> POS    ~K<0> fired(P)=T ^ K<2> ~water(P)=T {
+             p41, p42, p43, p44 -> POS    G (~K<0> fired(P)=T ^ K<2> ~water(P)=T) {
         Call: bs_fire(P)
         Call: print(P)
     } else if P in p11, p12, p13, p14,
                    p21, p22, p23, p24,
                    p31, p32, p33, p34,
-                   p41, p42, p43, p44 -> POS   (~K<0> fired(P)=T ^ ~K<2> water(P)=T ^ ~K<2> ~water(P)=T) {
+                   p41, p42, p43, p44 -> POS   G (~K<0> fired(P)=T ^ ~K<2> water(P)=T ^ ~K<2> ~water(P)=T) {
         Call: bs_fire(P)
         Call: print(P,P)
     }

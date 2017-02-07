@@ -417,6 +417,13 @@ The following constructs are well-formed formulas:
             <span class="code">B&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span>
         </div>
     </li>
+    <li><div class="label">guarantee-consistency modality:</div>
+        <div class="body">
+            <span class="code">Guarantee <span class="metavariable">formula</span></span>
+            &nbsp;&nbsp;or&nbsp;&nbsp;
+            <span class="code">G <span class="metavariable">formula</span></span>
+        </div>
+    </li>
     <li><div class="label">override operator precedence:</div>
         <div class="body">
             <span class="code">(<span class="metavariable">formula</span>)</span>
@@ -460,6 +467,9 @@ The <span class="metavariable">split-level</span> can have two different meaning
 The one within <span class="code">Know</span> and the first parameter of <span class="code">Bel</span> specify how many terms may be split.
 A split means to select a term <span class="code">f(n<sub>1</sub>,...,n<sub>l</sub>)</span> and consider all possible denotations of that term; that is, the reasoner tests all (relevant) assignments for these terms.
 The <span class="metavariable">split-level</span> in <span class="code">Cons</span> and the second parameter of <span class="code">Bel</span>, on the other hand, specify how many terms can be freely assigned a value, which means to select a (possibly non-ground) term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix its denotation.
+</p>
+<p>
+Within the scope of the <span class="code">Guarantee</span> modality the reasoner is allowed to assume the knowledge base is consistent, which may improve performance because it limits the splitting search space.
 </p>
 <p>
 Operator precedence is as follows: 

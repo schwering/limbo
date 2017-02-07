@@ -55,6 +55,9 @@ class Solver {
  public:
   typedef Formula::split_level split_level;
 
+  static constexpr bool kConsistencyGuarantee = true;
+  static constexpr bool kNoConsistencyGuarantee = true;
+
   Solver(Symbol::Factory* sf, Term::Factory* tf) : tf_(tf), grounder_(sf, tf) {}
   Solver(const Solver&) = delete;
   Solver& operator=(const Solver&) = delete;
@@ -67,7 +70,7 @@ class Solver {
 
   Grounder* grounder() { return &grounder_; }
 
-  bool Entails(int k, const Formula& phi, bool assume_consistent = true) {
+  bool Entails(int k, const Formula& phi, bool assume_consistent) {
     assert(phi.objective());
     assert(phi.free_vars().empty());
     grounder_.PrepareForQuery(k, phi);
@@ -80,14 +83,14 @@ class Solver {
     return s.Subsumes(Clause{}) || ReduceConjunctions(s, split_terms, names, k, phi);
   }
 
-  bool EntailsComplete(int k, const Formula& phi) {
+  bool EntailsComplete(int k, const Formula& phi, bool assume_consistent) {
     assert(phi.objective());
     assert(phi.free_vars().empty());
     Formula::Ref psi = Formula::Factory::Not(phi.Clone());
-    return !Consistent(k, *psi);
+    return !Consistent(k, *psi, assume_consistent);
   }
 
-  bool Consistent(int k, const Formula& phi, bool assume_consistent = true) {
+  bool Consistent(int k, const Formula& phi, bool assume_consistent) {
     assert(phi.objective());
     assert(phi.free_vars().empty());
     grounder_.PrepareForQuery(k, phi);
@@ -226,6 +229,7 @@ class Solver {
       case Formula::kKnow:
       case Formula::kCons:
       case Formula::kBel:
+      case Formula::kGuarantee:
         assert(false);
         return false;
     }
@@ -306,6 +310,7 @@ class Solver {
           case Formula::kKnow:
           case Formula::kCons:
           case Formula::kBel:
+          case Formula::kGuarantee:
             assert(false);
             break;
         }
@@ -329,6 +334,7 @@ class Solver {
       case Formula::kKnow:
       case Formula::kCons:
       case Formula::kBel:
+      case Formula::kGuarantee:
         assert(false);
         return false;
     }
