@@ -19,7 +19,7 @@
 
 #include <lela/term.h>
 #include <lela/formula.h>
-#include <lela/modal.h>
+#include <lela/kb.h>
 #include <lela/format/output.h>
 
 namespace lela {

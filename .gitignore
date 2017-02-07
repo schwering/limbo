@@ -27,6 +27,7 @@ tests/clause
 tests/formula
 tests/grounder
 tests/hash
+tests/hashset
 tests/intmap
 tests/iter
 tests/literal

@@ -111,17 +111,18 @@ class KnowledgeBase {
           sphere.AddClause(c.not_ante_or_conse);
         }
       }
-      for (size_t i = 0; is_plausibility_consistent && i < beliefs_.size(); ++i) {
+      bool next_is_plausibility_consistent = true;
+      for (size_t i = 0; i < beliefs_.size(); ++i) {
         const Conditional& c = beliefs_[i];
         if (!done[i]) {
-          const bool possiblyConsistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()),
-                                                          assume_consistent);
-          if (possiblyConsistent) {
+          const bool possibly_consistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()),
+                                                           assume_consistent);
+          if (possibly_consistent) {
             done[i] = true;
             ++n_done;
             const bool necessarilyConsistent = sphere.Consistent(c.l, *c.ante, assume_consistent);
             if (!necessarilyConsistent) {
-              is_plausibility_consistent = false;
+              next_is_plausibility_consistent = false;
             }
           }
         }
@@ -129,10 +130,8 @@ class KnowledgeBase {
       if (is_plausibility_consistent || n_done == last_n_done) {
         spheres_.push_back(std::move(sphere));
       }
+      is_plausibility_consistent = next_is_plausibility_consistent;
     } while (n_done > last_n_done);
-#ifndef NDEBUG
-    spheres_changed_ = true;
-#endif
   }
 
   Formula::Ref ReduceModalities(const Formula& alpha, bool assume_consistent) {
