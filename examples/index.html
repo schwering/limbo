@@ -37,15 +37,15 @@ Queries are not subject to any syntactic restriction.
 </p>
 
 <p>
-Decision procedures for sound entailment [KR-2016] and sound consistency [ECAI-2016] are implemented.
-Future work are the conditional beliefs [ECAI-2016] (should be easy), actions [KR-2014] [ (as a preprocessing step), and introspection [IJCAI-2013].
+Decision procedures for sound entailment [KR-2016] and sound consistency [ECAI-2016] are implemented, including conditional beliefs [ECAI-2016] and introspection [IJCAI-2013].
+Adding situation calculus-style actions [KR-2014] is future work.
 </p>
 
 <p>
 The reasoner is written in C++.
 The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
 This demo is compiled to Javascript by <a href="http://emscripten.org">emscripten</a>.
-On my computer, the Javascript is 1.5&times; to 5&times; slower than the native binary.
+On my computer, the Javascript is usually about 1.5&times; slower than the native binary.
 </p>
 
 <p>

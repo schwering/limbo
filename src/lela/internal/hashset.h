@@ -6,7 +6,6 @@
 #ifndef LELA_INTERNAL_HASHSET_H_
 #define LELA_INTERNAL_HASHSET_H_
 
-#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
@@ -17,6 +16,7 @@
 #include <vector>
 
 #include <lela/internal/hash.h>
+#include <lela/internal/ints.h>
 #include <lela/internal/iter.h>
 
 namespace lela {
@@ -144,7 +144,7 @@ class HashSet {
   typedef BucketIterator<T,       typename std::vector<Cell>::iterator>       bucket_iterator;
   typedef BucketIterator<const T, typename std::vector<Cell>::const_iterator> const_bucket_iterator;
 
-  explicit HashSet(std::size_t capacity = 0, Hash hash = Hash(), Equal equal = Equal()) :
+  explicit HashSet(size_t capacity = 0, Hash hash = Hash(), Equal equal = Equal()) :
       hash_(hash),
       equal_(equal),
       vec_(Capacity(capacity)) {}
@@ -196,15 +196,15 @@ class HashSet {
   }
   const_bucket_iterator bucket_end() const { return const_bucket_iterator(vec_.end()); }
 
-  std::size_t capacity() const { return vec_.size(); }
-  std::size_t size()     const { return size_; }
-  bool        empty()    const { return size_ == 0; }
+  size_t capacity() const { return vec_.size(); }
+  size_t size()     const { return size_; }
+  bool   empty()    const { return size_ == 0; }
 
   bool Add(const T& val) {
     Rehash(size_ + 1);
     const hash_t h = hash(val);
     hash_t i = h % capacity();
-    std::size_t c = capacity();
+    size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
       if (h == vec_[i].hash && equal_(vec_[i].val, val)) {
         return false;
@@ -221,7 +221,7 @@ class HashSet {
     Rehash(size_ + 1);
     const hash_t h = hash(val);
     hash_t i = h % capacity();
-    std::size_t c = capacity();
+    size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
       if (h == vec_[i].hash && equal_(vec_[i].val, val)) {
         return false;
@@ -237,7 +237,7 @@ class HashSet {
   bool Remove(const T& val) {
     const hash_t h = hash(val);
     hash_t i = h % capacity();
-    std::size_t c = capacity();
+    size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
       if (h == vec_[i].hash && equal_(vec_[i].val, val)) {
         vec_[i].MarkRemoved();
@@ -258,7 +258,7 @@ class HashSet {
   bool RemoveHash(hash_t h) {
     h = Cell::mask(h);
     hash_t i = h % capacity();
-    std::size_t c = capacity();
+    size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
       if (h == vec_[i].hash) {
         vec_[i].MarkRemoved();
@@ -274,7 +274,7 @@ class HashSet {
   void RemoveAllHashes(hash_t h) {
     h = Cell::mask(h);
     hash_t i = h % capacity();
-    std::size_t c = capacity();
+    size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
       if (h == vec_[i].hash) {
         vec_[i].MarkRemoved();
@@ -288,7 +288,7 @@ class HashSet {
   bool Contains(const T& val) const {
     const hash_t h = hash(val);
     hash_t i = h % capacity();
-    std::size_t c = capacity();
+    size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
       if (h == vec_[i].hash && equal_(val, vec_[i].val)) {
         return true;
@@ -302,7 +302,7 @@ class HashSet {
   bool ContainsHash(hash_t h) const {
     h = Cell::mask(h);
     hash_t i = h % capacity();
-    std::size_t c = capacity();
+    size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
       if (h == vec_[i].hash) {
         return true;
@@ -316,12 +316,12 @@ class HashSet {
  private:
   hash_t hash(const T& val) const { return Cell::mask(hash_(val)); }
 
-  static std::size_t Capacity(std::size_t cap) {
-    static const std::size_t primes[] = { 3, 7, 11, 23, 31, 73, 151, 313, 643, 1291, 2593, 5233, 10501, 21013, 42073,
+  static size_t Capacity(size_t cap) {
+    static const size_t primes[] = { 3, 7, 11, 23, 31, 73, 151, 313, 643, 1291, 2593, 5233, 10501, 21013, 42073,
       84181, 168451, 337219, 674701, 1349473, 2699299, 5398891, 10798093, 21596719, 43193641, 86387383, 172775299,
       345550609, 691101253 };
-    static const std::size_t n_primes = sizeof(primes) / sizeof(primes[0]);
-    for (std::size_t i = 1; i < n_primes; ++i) {
+    static const size_t n_primes = sizeof(primes) / sizeof(primes[0]);
+    for (size_t i = 1; i < n_primes; ++i) {
       if (cap + cap / 2 <= primes[i]) {
         return primes[i];
       }
@@ -329,12 +329,12 @@ class HashSet {
     return primes[n_primes - 1];
   }
 
-  void Rehash(std::size_t cap) {
+  void Rehash(size_t cap) {
     cap = Capacity(cap);
     if (cap > capacity()) {
       std::vector<Cell> old(cap);
       std::swap(vec_, old);
-      for (std::size_t i = 0; i < old.size(); ++i) {
+      for (size_t i = 0; i < old.size(); ++i) {
         if (old[i].occupied()) {
           Add(std::forward<T>(old[i].val));
         }
@@ -344,7 +344,7 @@ class HashSet {
 
   Hash hash_;
   Equal equal_;
-  std::size_t size_ = 0;
+  size_t size_ = 0;
   std::vector<Cell> vec_;
 };
 

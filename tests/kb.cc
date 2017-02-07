@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/modal.h>
+#include <lela/kb.h>
 #include <lela/format/output.h>
 #include <lela/format/cpp/syntax.h>
 
@@ -18,7 +18,7 @@ inline void RegisterSymbol(Term t, const std::string& n) {
   RegisterSymbol(t.symbol(), n);
 }
 
-TEST(SolverTest, ECAI2016Sound) {
+TEST(KnowledgeBaseTest, ECAI2016Sound) {
   Context ctx;
   KnowledgeBase kb(ctx.sf(), ctx.tf());
   auto Bool = ctx.CreateSort();                   RegisterSort(Bool, "");

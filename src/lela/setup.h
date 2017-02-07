@@ -56,12 +56,14 @@
 
 #include <lela/clause.h>
 #include <lela/internal/intmap.h>
+#include <lela/internal/ints.h>
 #include <lela/internal/iter.h>
 
 namespace lela {
 
 class Setup {
  public:
+  typedef internal::size_t size_t;
   typedef unsigned int ClauseIndex;
 
   Setup() = default;
@@ -270,7 +272,7 @@ class Setup {
     //}
     for (const Literal a : lits) {
       assert(lits.bucket_count() > 0);
-      std::size_t b = lits.bucket(a);
+      size_t b = lits.bucket(a);
       auto begin = lits.begin(b);
       auto end   = lits.end(b);
       for (auto it = begin; it != end; ++it) {

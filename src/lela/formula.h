@@ -22,12 +22,14 @@
 
 #include <lela/clause.h>
 #include <lela/internal/iter.h>
+#include <lela/internal/ints.h>
 #include <lela/internal/maybe.h>
 
 namespace lela {
 
 class Formula {
  public:
+  typedef internal::size_t size_t;
   typedef std::unique_ptr<Formula> Ref;
   typedef std::unordered_set<Term> TermSet;
   typedef unsigned int split_level;
@@ -196,7 +198,7 @@ class Formula {
 
   virtual Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const = 0;
 
-  virtual internal::Maybe<Clause> AsUnivClause(std::size_t nots) const = 0;
+  virtual internal::Maybe<Clause> AsUnivClause(size_t nots) const = 0;
 
  private:
   Type type_;
@@ -347,7 +349,7 @@ class Formula::Atomic : public Formula {
     }
   }
 
-  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+  internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 != 0 ||
         !std::all_of(c_.begin(), c_.end(), [](Literal a) {
                      return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); })) {
@@ -437,7 +439,7 @@ class Formula::Or : public Formula {
     return Factory::Or(alpha_->Flatten(nots, sf, tf), beta_->Flatten(nots, sf, tf));
   }
 
-  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+  internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 != 0) {
       return internal::Nothing;
     }
@@ -510,7 +512,7 @@ class Formula::Exists : public Formula {
     return Factory::Exists(x_, alpha_->Flatten(nots, sf, tf));
   }
 
-  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+  internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 == 0) {
       return internal::Nothing;
     }
@@ -589,7 +591,7 @@ class Formula::Not : public Formula {
     return Factory::Not(alpha_->Flatten(nots + 1, sf, tf));
   }
 
-  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override {
+  internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     return alpha_->AsUnivClause(nots + 1);
   }
 
@@ -638,7 +640,7 @@ class Formula::Know : public Formula {
     return Factory::Know(k_, std::move(alpha));
   }
 
-  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
+  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
   split_level k_;
@@ -686,7 +688,7 @@ class Formula::Cons : public Formula {
     return Factory::Cons(k_, std::move(alpha));
   }
 
-  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
+  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
   split_level k_;
@@ -759,7 +761,7 @@ class Formula::Bel : public Formula {
     return Factory::Bel(k_, l_, std::move(ante), std::move(conse), std::move(not_ante_or_conse));
   }
 
-  internal::Maybe<Clause> AsUnivClause(std::size_t nots) const override { return internal::Nothing; }
+  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
   Bel(split_level k, split_level l, Ref antecedent, Ref consequent, Ref not_antecedent_or_consequent) :

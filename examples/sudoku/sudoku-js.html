@@ -14,7 +14,7 @@
         h1       { font-size: 220%; }
         h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
 
-        form .label { display: inline-block; min-width: 7em; }
+        form .label { display: inline-block; min-width: 13em; }
         form input.number { width: 5em; }
         #play-button { background-color: black; color: #eee; font-family: inherit; font-weight: bold; font-size: 100%; margin-top: 1ex; margin-left: 1em; padding-left: 3em; padding-right: 3em; padding-top: 1ex; padding-bottom: 1ex; }
         #play-button {
@@ -65,7 +65,7 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 <h2>Game Configuration</h2>
 
 <form>
-<div class="label">Game:</div>
+<div class="label">Sudoku game:</div>
 <select id="configs">
 
     <option value="18........5.28691..6...4...9.6..2.4..4..175.2....4968.4...6..........751.....14.9">WashPost grade 4 (1/14/17)</option>
@@ -117,7 +117,7 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 </select>
 <input id="custom" type="text" size="81" placeholder="Line by line; dots for blanks; e.g.: 18........5.28691..6...4...9.6..2.4..4..175.2....4968.4...6..........751.....14.9" />
 <br />
-<div class="label">Max. splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
+<div class="label">Max. number of case splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
 <input id="play-button" type="button" value="Click me!" />
 </form>
 
@@ -243,7 +243,7 @@ $(document).keydown(function(e) {
 The agent attempts to complete the field so that every row, column, and 3&times;3 box contains exactly one 1, 2, 3, 4, 5, 6, 7, 8, 9.
 </p>
 
-<p>See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys).
+<p>See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys &#x21e6; &#x21e8;).
 
 
 
@@ -270,7 +270,20 @@ Secondly, for every cell <code>X, Y</code>there is a constraint <code>val(X,Y) =
 </p>
 
 <p>
-On every turn, the agent checks for every cell and every value 1, ..., 9 whether the cell is known to take this value. This process is repeated for increasing split level, until a known value is found for a cell: first for split level 0, then for 1, ..., until the maximum specified split level. If no value is found for any cell, the agent admits defeat and stops.
+On every turn, the agent checks for every cell and every value 1, ..., 9 whether the cell is known to take this value.
+This process is repeated for increasing split level, until a known value is found for a cell: first for split level 0, then for 1, ..., until the maximum specified split level.
+If no value is found for any cell, the agent admits defeat and stops.
+</p>
+
+<p>
+Note the agent's actions are not represented in the knowledge base &ndash; it's just hard-coded in C++.
+Extending the knowledge base to a basic action theory that also represents the agent's actions would be the next step.
+</p>
+
+<p>
+The runtime reported by the game refers to the time the agent actually spend playing.
+The actual time that passes between starting and finishing the game may be longer because the graphical display procedures take some time.
+(To be precise, the browser takes a 10 ms break between moves to remain responsive.)
 </p>
 
 </body>

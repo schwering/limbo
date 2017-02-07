@@ -9,13 +9,21 @@
 //
 // Terms can be built from symbols as usual. Terms are immutable.
 //
-// The implementation aims to keep terms as lightweight as possible to
-// facilitate extremely fast copying and comparison. Internally, a term is
-// represented by a memory address where its structure is stored. Creating a
-// second term of the same structure yields the same memory address.
+// The implementation aims to keep Terms as lightweight as possible to
+// facilitate extremely fast copying and comparison. For that reason, Terms
+// are interned and represented only with an index in the heap structure.
+// Creating a Term a second time yields the same index.
 //
-// Comparison of terms is based on their memory addresses, which makes it
-// nondeterministic wrt different program executions.
+// Using an index as opposed to a memory address gives us more control over how
+// the representation of the Term looks like. In particular, it gets us the
+// following advantages: fast yet deterministic (wrt multiple executions)
+// hashing; smaller representation (31 bit); possibility to represent
+// information in the index.
+//
+// Literal is a friend class of Term and builds on the memory layout of Term.
+// In particular, exploits that Term::name() is encoded in Term::id(). That way
+// certain operations on Terms and Literals can be expressed as bitwise
+// operations on their integer representations.
 
 #ifndef LELA_TERM_H_
 #define LELA_TERM_H_
@@ -29,9 +37,9 @@
 #include <utility>
 #include <vector>
 
-#include <lela/internal/compar.h>
 #include <lela/internal/hash.h>
 #include <lela/internal/intmap.h>
+#include <lela/internal/ints.h>
 #include <lela/internal/maybe.h>
 
 namespace lela {
@@ -46,10 +54,9 @@ std::unique_ptr<T> Singleton<T>::instance_;
 
 class Symbol {
  public:
-  typedef std::int32_t Id;
-  typedef std::int8_t Sort;
-  typedef std::int8_t Arity;
-  struct Comparator;
+  typedef internal::i32 Id;
+  typedef internal::i8 Sort;
+  typedef internal::i8 Arity;
 
   class Factory : private Singleton<Factory> {
    public:
@@ -125,10 +132,11 @@ class Symbol {
 
 class Term {
  public:
+
   class Factory;
   struct Substitution;
   typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
-  typedef std::uint8_t UnificationConfiguration;
+  typedef internal::i8 UnificationConfiguration;
 
   static constexpr UnificationConfiguration kUnifyLeft = (1 << 0);
   static constexpr UnificationConfiguration kUnifyRight = (1 << 1);
@@ -139,26 +147,26 @@ class Term {
 
   Term() = default;
 
-  bool operator==(Term t) const { return index_ == t.index_; }
-  bool operator!=(Term t) const { return index_ != t.index_; }
-  bool operator<=(Term t) const { return index_ <= t.index_; }
-  bool operator>=(Term t) const { return index_ >= t.index_; }
-  bool operator<(Term t)  const { return index_ < t.index_; }
-  bool operator>(Term t)  const { return index_ > t.index_; }
+  bool operator==(Term t) const { return id_ == t.id_; }
+  bool operator!=(Term t) const { return id_ != t.id_; }
+  bool operator<=(Term t) const { return id_ <= t.id_; }
+  bool operator>=(Term t) const { return id_ >= t.id_; }
+  bool operator<(Term t)  const { return id_ < t.id_; }
+  bool operator>(Term t)  const { return id_ > t.id_; }
 
-  internal::hash32_t hash() const { return internal::jenkins_hash(index_); }
+  internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
-  Symbol symbol()         const { return data()->symbol_; }
-  Term arg(std::size_t i) const { return data()->args_[i]; }
-  const Vector& args()    const { return data()->args_; }
+  Symbol symbol()      const { return data()->symbol_; }
+  Term arg(size_t i)   const { return data()->args_[i]; }
+  const Vector& args() const { return data()->args_; }
 
   Symbol::Sort sort()   const { return data()->symbol_.sort(); }
-  bool name()           const { return data()->symbol_.name(); }
+  bool name()           const { assert(data()->symbol_.name() == (id_ & 1)); return (id_ & 1) == 1; }
   bool variable()       const { return data()->symbol_.variable(); }
   bool function()       const { return data()->symbol_.function(); }
   Symbol::Arity arity() const { return data()->symbol_.arity(); }
 
-  bool null()           const { return index_ == 0; }
+  bool null()           const { return id_ == 0; }
   bool ground()         const { return name() || (function() && all_args([](Term t) { return t.ground(); })); }
   bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
   bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
@@ -182,6 +190,8 @@ class Term {
  private:
   friend class Literal;
 
+  typedef internal::u32 u32;
+
   struct Data {
     Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args) {}
 
@@ -200,11 +210,11 @@ class Term {
     }
   };
 
-  explicit Term(std::uint32_t index) : index_(index) {}
+  explicit Term(u32 id) : id_(id) {}
 
   inline const Data* data() const;
 
-  std::uint32_t index() const { return index_; }
+  u32 id() const { return id_; }
 
   template<typename UnaryPredicate>
   bool all_args(UnaryPredicate p) const { return std::all_of(data()->args_.begin(), data()->args_.end(), p); }
@@ -212,7 +222,7 @@ class Term {
   template<typename UnaryPredicate>
   bool any_arg(UnaryPredicate p) const { return std::any_of(data()->args_.begin(), data()->args_.end(), p); }
 
-  std::uint32_t index_;
+  u32 id_;
 };
 
 class Term::Factory : private Singleton<Factory> {
@@ -227,7 +237,10 @@ class Term::Factory : private Singleton<Factory> {
   static void Reset() { instance_ = nullptr; }
 
   ~Factory() {
-    for (Data* data : heap_) {
+    for (Data* data : name_heap_) {
+      delete data;
+    }
+    for (Data* data : variable_and_function_heap_) {
       delete data;
     }
   }
@@ -242,18 +255,25 @@ class Term::Factory : private Singleton<Factory> {
     DataPtrSet* s = &memory_[symbol.sort()];
     auto it = s->find(d);
     if (it == s->end()) {
-      heap_.push_back(d);
-      const std::uint32_t index = static_cast<std::uint32_t>(heap_.size());
-      s->insert(std::make_pair(d, index));
-      return Term(index);
+      std::vector<Data*>* heap = symbol.name() ? &name_heap_ : &variable_and_function_heap_;
+      heap->push_back(d);
+      const u32 id = (static_cast<u32>(heap->size()) << 1) | static_cast<u32>(symbol.name());
+      s->insert(std::make_pair(d, id));
+      return Term(id);
     } else {
-      const std::uint32_t index = it->second;
+      const u32 id = it->second;
       delete d;
-      return Term(index);
+      return Term(id);
     }
   }
 
-  const Data* get(std::uint32_t index) const { return heap_[index - 1]; }
+  const Data* get(u32 id) const {
+    if ((id & 1) == 1) {
+      return name_heap_[(id >> 1) - 1];
+    } else {
+      return variable_and_function_heap_[(id >> 1) - 1];
+    }
+  }
 
  private:
   struct DataPtrHash   { internal::hash32_t operator()(const Term::Data* d) const { return d->hash(); } };
@@ -265,9 +285,10 @@ class Term::Factory : private Singleton<Factory> {
   Factory(Factory&&) = delete;
   Factory& operator=(Factory&&) = delete;
 
-  typedef std::unordered_map<Data*, std::uint32_t, DataPtrHash, DataPtrEquals> DataPtrSet;
+  typedef std::unordered_map<Data*, u32, DataPtrHash, DataPtrEquals> DataPtrSet;
   internal::IntMap<Symbol::Sort, DataPtrSet> memory_;
-  std::vector<Data*> heap_;
+  std::vector<Data*> name_heap_;
+  std::vector<Data*> variable_and_function_heap_;
 };
 
 struct Term::Substitution {
@@ -296,7 +317,7 @@ struct Term::Substitution {
   std::vector<std::pair<Term, Term>> subs_;
 };
 
-inline const Term::Data* Term::data() const { return Factory::Instance()->get(index_); }
+inline const Term::Data* Term::data() const { return Factory::Instance()->get(id_); }
 
 template<typename UnaryFunction>
 Term Term::Substitute(UnaryFunction theta, Factory* tf) const {
@@ -331,7 +352,7 @@ bool Term::Unify(Term l, Term r, Substitution* sub) {
     return false;
   }
   if (l.symbol() == r.symbol()) {
-    for (std::size_t i = 0; i < l.arity(); ++i) {
+    for (size_t i = 0; i < l.arity(); ++i) {
       if (!Unify<config>(l.arg(i), r.arg(i), sub)) {
         return false;
       }
@@ -355,7 +376,7 @@ internal::Maybe<Term::Substitution> Term::Unify(Term l, Term r) {
 bool Term::Isomorphic(Term l, Term r, Substitution* sub) {
   internal::Maybe<Term> u;
   if (l.function() && r.function() && l.symbol() == r.symbol()) {
-    for (std::size_t i = 0; i < l.arity(); ++i) {
+    for (size_t i = 0; i < l.arity(); ++i) {
       if (!Isomorphic(l.arg(i), r.arg(i), sub)) {
         return false;
       }

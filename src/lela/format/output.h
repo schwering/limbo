@@ -28,6 +28,7 @@
 #include <lela/solver.h>
 #endif
 #include <lela/term.h>
+#include <lela/internal/compar.h>
 #include <lela/internal/hashset.h>
 #include <lela/internal/maybe.h>
 
