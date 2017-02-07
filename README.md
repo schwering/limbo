@@ -2,7 +2,7 @@
 
 LELA (**L**imited **E**pistemic **L**ogic in **A**ction) is a C++ library for
 *decidable reasoning in first-order knowledge bases* based on the theory of
-*limited belief* from [1,2,3,4]. [Here is are some web
+*limited belief* from [1,2,3,4]. [Here are some web
 demos](http://www.cse.unsw.edu.au/~cschwering/demo/).
 
 ## Features
@@ -65,13 +65,12 @@ For more theoretical background see the papers linked below.
   of splitting is "deterministic", whereas [1] allows splitting at any stage
   during the proof.
 * The complete but unsound entailment check (or, equivalently, sound
-  consistency check) from [2] is implemented as well. Conditional belief from
-  [2] still needs to be implemented, which should be easy. The belief and
-  knowledge modalities should be made explicit then.
+  consistency check) as well as conditional beliefs from [2] are implemented
+  as well.
+* Introspection is implemented using the representation theorem.
 * Actions from [3] are not yet implemented. The plan is to keep actions and
   projection separate from the core reasoner and implement them as a
   preprocessing step.
-* Consistency guarantees need to be extended.
 
 ## References
 
