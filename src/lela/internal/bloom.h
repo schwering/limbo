@@ -23,11 +23,10 @@
 #ifndef LELA_INTERNAL_BLOOM_H_
 #define LELA_INTERNAL_BLOOM_H_
 
-#include <cstdint>
-
 #include <functional>
 
 #include <lela/internal/hash.h>
+#include <lela/internal/ints.h>
 
 namespace lela {
 namespace internal {
@@ -74,12 +73,12 @@ class BloomFilter {
   FRIEND_TEST(BloomFilterTest, hash);
 #endif
 
-  typedef std::uint64_t bit_index_t;
-  typedef std::uint64_t mask_t;
+  typedef internal::u64 bit_index_t;
+  typedef internal::u64 mask_t;
 
   explicit BloomFilter(const mask_t& mask) : mask_(mask) {}
 
-  template<std::size_t I, typename HashType>
+  template<size_t I, typename HashType>
   static bit_index_t index(HashType x) {
     // index() should slice the original HashType x into several bit_index_t,
     // whose range shall be [0 ... bits(mask_t) - 1], that is, the indices

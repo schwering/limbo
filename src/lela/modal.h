@@ -11,12 +11,14 @@
 
 #include <lela/formula.h>
 #include <lela/solver.h>
+#include <lela/internal/ints.h>
 
 namespace lela {
 
 class KnowledgeBase {
  public:
-  typedef std::size_t sphere_index;
+  typedef internal::size_t size_t;
+  typedef size_t sphere_index;
 
   KnowledgeBase(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf), objective_(sf, tf) {
     spheres_.push_back(Solver(sf, tf));
@@ -95,21 +97,21 @@ class KnowledgeBase {
     spheres_.clear();
     std::vector<bool> done(beliefs_.size(), false);
     bool is_plausibility_consistent = true;
-    std::size_t n_done = 0;
-    std::size_t last_n_done;
+    size_t n_done = 0;
+    size_t last_n_done;
     do {
       last_n_done = n_done;
       Solver sphere(sf_, tf_);
       for (const Clause& c : knowledge_) {
         sphere.AddClause(c);
       }
-      for (std::size_t i = 0; i < beliefs_.size(); ++i) {
+      for (size_t i = 0; i < beliefs_.size(); ++i) {
         const Conditional& c = beliefs_[i];
         if (!done[i]) {
           sphere.AddClause(c.not_ante_or_conse);
         }
       }
-      for (std::size_t i = 0; is_plausibility_consistent && i < beliefs_.size(); ++i) {
+      for (size_t i = 0; is_plausibility_consistent && i < beliefs_.size(); ++i) {
         const Conditional& c = beliefs_[i];
         if (!done[i]) {
           const bool possiblyConsistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()),

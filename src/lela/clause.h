@@ -27,6 +27,7 @@
 
 #include <lela/literal.h>
 #include <lela/internal/bloom.h>
+#include <lela/internal/ints.h>
 #include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 #include <lela/internal/traits.h>
@@ -35,6 +36,7 @@ namespace lela {
 
 class Clause {
  public:
+  typedef internal::size_t size_t;
   typedef std::vector<Literal>::const_iterator const_iterator;
 
   Clause() = default;
@@ -50,9 +52,9 @@ class Clause {
 
   Literal head() const { return lits_[0]; }
 
-  bool        empty() const { return lits_.empty(); }
-  bool        unit()  const { return size() == 1; }
-  std::size_t size()  const { return lits_.size(); }
+  bool   empty() const { return lits_.empty(); }
+  bool   unit()  const { return size() == 1; }
+  size_t size()  const { return lits_.size(); }
 
   bool valid()   const { return any_of([](const Literal a) { return a.valid(); }); }
   bool invalid() const { return all_of([](const Literal a) { return a.invalid(); }); }

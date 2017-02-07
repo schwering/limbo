@@ -39,6 +39,7 @@
 #include <lela/formula.h>
 #include <lela/setup.h>
 #include <lela/internal/hash.h>
+#include <lela/internal/ints.h>
 #include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 
@@ -46,6 +47,7 @@ namespace lela {
 
 class Grounder {
  public:
+  typedef internal::size_t size_t;
   typedef Formula::split_level split_level;
   typedef Formula::TermSet TermSet;
   typedef std::unordered_set<Literal, Literal::LhsHash> LiteralSet;
@@ -54,7 +56,7 @@ class Grounder {
     internal::hash32_t operator()(const LiteralSet& set) const {
       assert(!set.empty());
       assert(std::all_of(set.begin(), set.end(), [&set](Literal a) { return
-             std::all_of(set.begin(), set.end(), [](Literal b) { return
+             std::all_of(set.begin(), set.end(), [a](Literal b) { return
                          a.lhs().symbol() == b.lhs().symbol(); }); }));
       return set.begin()->lhs().symbol().hash();
     }
@@ -78,7 +80,7 @@ class Grounder {
 
     using internal::IntMap<Symbol::Sort, TermSet>::IntMap;
 
-    std::size_t insert(Term t) {
+    size_t insert(Term t) {
       auto p = (*this)[t.sort()].insert(t);
       return p.second ? 1 : 0;
     }
@@ -87,16 +89,16 @@ class Grounder {
       (*this)[t.sort()].erase(t);
     }
 
-    std::size_t insert(const TermSet& terms) {
-      std::size_t n = 0;
+    size_t insert(const TermSet& terms) {
+      size_t n = 0;
       for (Term t : terms) {
         n += insert(t);
       }
       return n;
     }
 
-    std::size_t insert(const SortedTermSet& terms) {
-      std::size_t n = 0;
+    size_t insert(const SortedTermSet& terms) {
+      size_t n = 0;
       for (const TermSet& set : terms.values()) {
         for (Term t : set) {
           n += insert(t);
@@ -270,7 +272,7 @@ class Grounder {
     std::unordered_set<Setup::ClauseIndex> done;
     while (!queue.empty()) {
       const Literal a = *queue.begin();
-      assert(a.primitive());
+      assert(a.quasiprimitive());
       queue.erase(queue.begin());
       auto p = assigns.insert(a);
       if (p.second) {
@@ -292,7 +294,7 @@ class Grounder {
   FRIEND_TEST(GrounderTest, Assignments);
 #endif
 
-  typedef internal::IntMap<Symbol::Sort, std::size_t> PlusMap;
+  typedef internal::IntMap<Symbol::Sort, size_t> PlusMap;
 
   struct Assignments {
     struct TermRange {
@@ -410,9 +412,11 @@ class Grounder {
 
   struct PairHasher {
     internal::hash32_t operator()(const std::pair<const Setup*, Literal>& p) const {
-      const std::uint64_t addr = reinterpret_cast<std::uint64_t>(p.first);
-      return internal::jenkins_hash(static_cast<std::uint32_t>(addr >> 32)) ^
-             internal::jenkins_hash(static_cast<std::uint32_t>(addr)) ^
+      typedef internal::uptr_t uptr_t;
+      typedef internal::u32 u32;
+      const uptr_t addr = reinterpret_cast<uptr_t>(p.first);
+      return internal::jenkins_hash(static_cast<u32>(addr)) ^
+             internal::jenkins_hash(static_cast<u32>(addr >> 32)) ^
              p.second.hash();
     }
   };
@@ -463,7 +467,7 @@ class Grounder {
     // is the number of variables in that clause.
     PlusMap plus_one;
     c.Traverse([&plus_one](Term t) { plus_one[t.sort()] = 1; return true; });
-    return PlusMap::Zip(plus, plus_one, [](std::size_t lp, std::size_t rp) { return lp + rp; });
+    return PlusMap::Zip(plus, plus_one, [](size_t lp, size_t rp) { return lp + rp; });
   }
 
   static PlusMap PlusNames(const Formula& phi) {
@@ -494,9 +498,9 @@ class Grounder {
         PlusMap rcur, rmax;
         PlusNames(phi.as_or().lhs(), &lcur, &lmax);
         PlusNames(phi.as_or().rhs(), &rcur, &rmax);
-        *cur = PlusMap::Zip(lcur, rcur, [](std::size_t lp, std::size_t rp) { return lp + rp; });
-        *max = PlusMap::Zip(lmax, rmax, [](std::size_t lp, std::size_t rp) { return std::max(lp, rp); });
-        *max = PlusMap::Zip(*max, *cur, [](std::size_t mp, std::size_t cp) { return std::max(mp, cp); });
+        *cur = PlusMap::Zip(lcur, rcur, [](size_t lp, size_t rp) { return lp + rp; });
+        *max = PlusMap::Zip(lmax, rmax, [](size_t lp, size_t rp) { return std::max(lp, rp); });
+        *max = PlusMap::Zip(*max, *cur, [](size_t mp, size_t cp) { return std::max(mp, cp); });
         break;
       }
       case Formula::kExists: {
@@ -515,15 +519,15 @@ class Grounder {
   }
 
   bool AddMentionedNames(const SortedTermSet& names) {
-    const std::size_t added = names_.insert(names);
+    const size_t added = names_.insert(names);
     return added > 0;
   }
 
   bool AddPlusNames(const PlusMap& plus) {
-    std::size_t added = 0;
+    size_t added = 0;
     for (const Symbol::Sort sort : plus.keys()) {
-      std::size_t m = plus_[sort];
-      std::size_t n = plus[sort];
+      size_t m = plus_[sort];
+      size_t n = plus[sort];
       if (n > m) {
         plus_[sort] = n;
         n -= m;
@@ -536,7 +540,7 @@ class Grounder {
   }
 
   void AddSplitTerms(const TermSet& terms) {
-    std::size_t added = 0;
+    size_t added = 0;
     for (Term t : terms) {
       added += splits_.insert(t).second ? 1 : 0;
     }
@@ -563,7 +567,7 @@ class Grounder {
     for (Literal a : ground) {
       for (auto it = sets.begin(); it != sets.end(); ) {
         const LiteralSet& set = *it;
-        assert(!set->empty());
+        assert(!set.empty());
         const Literal b = *set.begin();
         if (a.lhs().symbol() == b.lhs().symbol() && set.find(a) == set.end() && Literal::Isomorphic(a, b)) {
           if (set.size() == 1) {

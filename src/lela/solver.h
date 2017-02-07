@@ -235,7 +235,7 @@ class Solver {
       return false;
     } else if (k > 0) {
       if (assign_lits.empty()) {
-        assert(s.Consistent() && (phi.trivially_valid() || phi.trivially_invalid()));
+        assert(phi.trivially_valid() || phi.trivially_invalid());
         return phi.trivially_valid();
       }
       assert(!assign_lits.empty());

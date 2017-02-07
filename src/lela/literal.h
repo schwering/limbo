@@ -18,19 +18,21 @@
 #define LELA_LITERAL_H_
 
 #include <cassert>
-#include <cstdint>
 
 #include <algorithm>
 #include <functional>
 #include <utility>
 
 #include <lela/term.h>
-#include <lela/internal/compar.h>
+#include <lela/internal/ints.h>
 
 namespace lela {
 
 class Literal {
  public:
+  typedef internal::size_t size_t;
+  typedef internal::u32 u32;
+  typedef internal::u64 u64;
   struct LhsHash;
 
   static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
@@ -38,9 +40,9 @@ class Literal {
 
   Literal() = default;
 
-  Term lhs() const { return Term(data_ & ~static_cast<std::uint32_t>(0)); }
-  bool pos() const { return ((data_ >> 63) & 1) == 1; }
-  Term rhs() const { return Term(static_cast<std::uint32_t>(data_ >> 32) & ~(static_cast<std::uint32_t>(1) << 31)); }
+  Term lhs() const { return Term(static_cast<u32>(data_)); }
+  bool pos() const { return (data_ >> 63) == 1; }
+  Term rhs() const { return Term(static_cast<u32>(data_ >> 32) & ~static_cast<u32>(1 << 31)); }
 
   bool null()           const { return data_ == 0; }
   bool ground()         const { return lhs().ground() && rhs().ground(); }
@@ -54,8 +56,8 @@ class Literal {
   bool operator!=(Literal a) const { return !(*this == a); }
 
   internal::hash32_t hash() const {
-    return internal::jenkins_hash(static_cast<std::uint32_t>(data_ >> 32)) ^
-           internal::jenkins_hash(static_cast<std::uint32_t>(data_));
+    return internal::jenkins_hash(static_cast<u32>(data_ >> 32)) ^
+           internal::jenkins_hash(static_cast<u32>(data_));
   }
 
   // valid() holds for (t = t) and (n1 != n2) and (t1 != t2) if t1, t2 have different sorts.
@@ -79,9 +81,18 @@ class Literal {
   static bool Complementary(Literal a, Literal b) {
     assert(a.primitive());
     assert(b.primitive());
-    return a.lhs() == b.lhs() &&
-        ((a.pos() != b.pos() && a.rhs() == b.rhs()) ||
-         (a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
+    const u64 x = a.data_;
+    const u64 y = b.data_;
+    static constexpr u64 LHS = (static_cast<u64>(1) << 32) - 1;
+    static constexpr u64 RHS = ~((static_cast<u64>(1) << 63) | ((static_cast<u64>(1) << 32) - 1));
+    static constexpr u64 RHS_NAME = static_cast<u64>(1) << 32;
+    static constexpr u64 POS = static_cast<u64>(1) << 63;
+    assert(((x ^ y) == POS) ==
+           (a.lhs() == b.lhs() && a.rhs() == b.rhs() && a.pos() != b.pos()));
+    assert((((x ^ y) & LHS) == 0 && (x & y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0) ==
+           (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
+    return (x ^ y) == POS ||
+           (((x ^ y) & LHS) == 0 && (x & y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0);
   }
 
   // Subsumes(a, b) holds when a, b match one of the following:
@@ -90,9 +101,18 @@ class Literal {
   static bool Subsumes(Literal a, Literal b) {
     assert(a.primitive());
     assert(b.primitive());
-    return a.lhs() == b.lhs() &&
-        ((a.pos() == b.pos() && a.rhs() == b.rhs()) ||
-         (a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
+    const u64 x = a.data_;
+    const u64 y = b.data_;
+    static constexpr u64 LHS = (static_cast<u64>(1) << 32) - 1;
+    static constexpr u64 RHS = ~((static_cast<u64>(1) << 63) | ((static_cast<u64>(1) << 32) - 1));
+    static constexpr u64 RHS_NAME = static_cast<u64>(1) << 32;
+    static constexpr u64 POS = static_cast<u64>(1) << 63;
+    assert(((x ^ y) == 0) ==
+           (a.lhs() == b.lhs() && a.pos() == b.pos() && a.rhs() == b.rhs()));
+    assert((((x ^ y) & LHS) == 0 && (x & ~y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0) ==
+           (a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
+    return (x ^ y) == 0 ||
+           (((x ^ y) & LHS) == 0 && (x & ~y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0);
   }
 
   bool Subsumes(Literal b) const {
@@ -140,15 +160,15 @@ class Literal {
       rhs = tmp;
     }
     assert(!rhs.function() || lhs.function());
-    data_ = (static_cast<std::uint64_t>(rhs.index()) << 32) |
-             static_cast<std::uint64_t>(lhs.index()) |
-            (static_cast<std::uint64_t>(pos) << 63);
+    data_ = (static_cast<u64>(rhs.id()) << 32) |
+             static_cast<u64>(lhs.id()) |
+            (static_cast<u64>(pos) << 63);
     assert(this->lhs() == lhs);
     assert(this->rhs() == rhs);
     assert(this->pos() == pos);
   }
 
-  std::uint64_t data_;
+  u64 data_;
 };
 
 struct Literal::LhsHash {
@@ -162,7 +182,7 @@ namespace std {
 
 template<>
 struct hash<lela::Literal> {
-  std::size_t operator()(const lela::Literal a) const { return a.hash(); }
+  size_t operator()(const lela::Literal a) const { return a.hash(); }
 };
 
 template<>

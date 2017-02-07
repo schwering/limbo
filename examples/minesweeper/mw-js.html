@@ -14,7 +14,7 @@
         h1       { font-size: 220%; }
         h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
 
-        form .label { display: inline-block; min-width: 7em; }
+        form .label { display: inline-block; min-width: 13em; }
         form input.number { width: 5em; }
         #play-button { background-color: black; color: #eee; font-family: inherit; font-weight: bold; font-size: 100%; margin-top: 1ex; margin-left: 1em; padding-left: 3em; padding-right: 3em; padding-top: 1ex; padding-bottom: 1ex; }
         #play-button {
@@ -67,12 +67,12 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 </p>
 
 <form>
-<div class="label">Width:</div> <input type="number" id="width" min="0" class="number"><br />
-<div class="label">Height:</div> <input type="number" id="height" min="0" class="number"><br />
-<div class="label">Mines:</div> <input type="number" id="n_mines" min="0" class="number"><br />
+<div class="label">Field width:</div> <input type="number" id="width" min="0" class="number"><br />
+<div class="label">Field weight:</div> <input type="number" id="height" min="0" class="number"><br />
+<div class="label">Number of mines:</div> <input type="number" id="n_mines" min="0" class="number"><br />
 <div style="height: 1ex;"></div>
-<div class="label">Max. splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
-<div class="label">Seed:</div> <input type="number" id="seed" min="0" value="0" class="number"><br />
+<div class="label">Max. number of case splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
+<div class="label">Mine placement seed:</div> <input type="number" id="seed" min="0" value="0" class="number"> (modify for different mine placement)<br />
 <input id="play-button" type="button" value="Click me!" />
 </form>
 
@@ -199,7 +199,7 @@ This number is displayed in every cell (except for <code>0</code>, which instead
 A green <code style="color: green; font-weight: bold;">X</code> represents a cell the agent has reasoned out to contain a mine.
 </p>
 
-<p>See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys).
+<p>See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys &#x21e6; &#x21e8;).
 
 
 
@@ -230,15 +230,22 @@ The agent is a simple C++ program that loops over all cells and uses the reasone
 </p>
 
 <p>
-For every cell <code>(x,y)</code>, we use a proposition <code>IsMine(x,y)</code>. When a cell is explored, the agent receives the information how many adjacent cells contain a mine. To reflect this new information, the agent adds clauses of <code>IsMine(x,y)</code>. For instance, when the agent learns that one of the eight adjacent cell contains a mine, it adds <code>IsMine(x-1,y) &or; IsMine(x-1,y+1) &or; IsMine(x,y+1) &or; IsMine(x+1,y+1) &or; IsMine(x+1,y) &or; IsMine(x+1,y-1) &or; IsMine(x,y-1) &or; IsMine(x-1,y-1)</code> to say that at least one of the neighbours contains a mine, and a few similar clauses to say that at least seven adjacent cells contain <i>no</i> mine.
+For every cell <code>(x,y)</code>, we use a proposition <code>IsMine(x,y)</code>.
+When a cell is explored, the agent receives the information how many adjacent cells contain a mine.
+To reflect this new information, the agent adds clauses of <code>IsMine(x,y)</code>.
+For instance, when the agent learns that one of the eight adjacent cell contains a mine, it adds <code>IsMine(x-1,y) &or; IsMine(x-1,y+1) &or; IsMine(x,y+1) &or; IsMine(x+1,y+1) &or; IsMine(x+1,y) &or; IsMine(x+1,y-1) &or; IsMine(x,y-1) &or; IsMine(x-1,y-1)</code> to say that at least one of the neighbours contains a mine, and a few similar clauses to say that at least seven adjacent cells contain <i>no</i> mine.
 </p>
 
 <p>
-On every turn, the agent checks for every cell whether it is known to contain a mine or known to contain no mine. This process is repeated for increasing split level, until a cell which is known to be a mine or known to be safe is found: first for split level 0, then for 1, ..., until the maximum specified split level. If no cell is found, the agent guesses one randomly.
+On every turn, the agent checks for every cell whether it is known to contain a mine or known to contain no mine.
+(As a simple heuristic, the agent starts with cells in the neighbourhood of the cell selected in the last move.)
+This process is repeated for increasing split level, until a cell which is known to be a mine or known to be safe is found: first for split level 0, then for 1, ..., until the maximum specified split level.
+If no cell is found, the agent guesses one randomly.
 </p>
 
 <p>
-Note the agent's actions are not represented in the knowledge base &ndash; it's just hard-coded in C++. Extending the knowledge base to a basic action theory that also represents the agent's actions would be the next step.
+Note the agent's actions are not represented in the knowledge base &ndash; it's just hard-coded in C++.
+Extending the knowledge base to a basic action theory that also represents the agent's actions would be the next step.
 </p>
 
 <p>
