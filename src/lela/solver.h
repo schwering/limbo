@@ -96,8 +96,12 @@ class Solver {
       k == 0            ? LiteralAssignmentSet() :
       assume_consistent ? grounder_.RelevantLiteralAssignments(phi) :
                           grounder_.LiteralAssignments();
+    TermSet relevant_terms =
+      assume_consistent ? grounder_.RelevantSplitTerms(phi) :
+                          TermSet();
     const SortedTermSet& names = grounder_.Names();
-    return !s.Subsumes(Clause{}) && ReduceDisjunctions(s, assign_lits, names, k, phi);
+    return !s.Subsumes(Clause{}) &&
+           ReduceDisjunctions(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
   }
 
  private:
@@ -121,7 +125,7 @@ class Solver {
         switch (phi.as_not().arg().type()) {
           case Formula::kAtomic: {
             const Clause c = phi.as_not().arg().as_atomic().arg();
-            return std::all_of(c.begin(), c.end(), [this, &s, &split_terms, &names, k](Literal a) {
+            return std::all_of(c.begin(), c.end(), [&, this](Literal a) {
               a = a.flip();
               Formula::Ref psi = Formula::Factory::Atomic(Clause{a});
               return ReduceConjunctions(s, split_terms, names, k, *psi);
@@ -140,7 +144,7 @@ class Solver {
             const Term x = phi.as_not().arg().as_exists().x();
             const Formula& psi = phi.as_not().arg().as_exists().arg();
             const TermSet& ns = names[x.sort()];
-            return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &psi, x](const Term n) {
+            return std::all_of(ns.begin(), ns.end(), [&, this](const Term n) {
               Formula::Ref xi = Formula::Factory::Not(psi.Clone());
               xi->SubstituteFree(Term::Substitution(x, n), tf_);
               return ReduceConjunctions(s, split_terms, names, k, *xi);
@@ -171,10 +175,10 @@ class Solver {
         return phi.trivially_valid();
       }
       assert(!split_terms.empty());
-      return std::any_of(split_terms.begin(), split_terms.end(), [this, &s, &split_terms, &names, k, &phi](Term t) {
+      return std::any_of(split_terms.begin(), split_terms.end(), [&, this](Term t) {
         const TermSet& ns = names[t.sort()];
         assert(!ns.empty());
-        return std::all_of(ns.begin(), ns.end(), [this, &s, &split_terms, &names, k, &phi, t](Term n) {
+        return std::all_of(ns.begin(), ns.end(), [&, this](Term n) {
           return Split(grounder_.Split(s, Literal::Eq(t, n)), split_terms, names, k-1, phi);
         });
       });
@@ -187,33 +191,36 @@ class Solver {
                           const LiteralAssignmentSet& assign_lits,
                           const SortedTermSet& names,
                           int k,
-                          const Formula& phi) {
+                          const Formula& phi,
+                          bool assume_consistent,
+                          const TermSet& relevant_terms) {
     assert(phi.objective());
     switch (phi.type()) {
       case Formula::kAtomic: {
-        return Assign(s, assign_lits, names, k, phi);
+        return Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
       }
       case Formula::kOr: {
         const Formula& left = phi.as_or().lhs();
         const Formula& right = phi.as_or().rhs();
-        return ReduceDisjunctions(s, assign_lits, names, k, left) ||
-               ReduceDisjunctions(s, assign_lits, names, k, right);
+        return ReduceDisjunctions(s, assign_lits, names, k, left, assume_consistent, relevant_terms) ||
+               ReduceDisjunctions(s, assign_lits, names, k, right, assume_consistent, relevant_terms);
       }
       case Formula::kExists: {
         const Term x = phi.as_exists().x();
         const TermSet& ns = names[x.sort()];
-        return std::any_of(ns.begin(), ns.end(), [this, &s, &assign_lits, &names, k, &phi, x](const Term n) {
+        return std::any_of(ns.begin(), ns.end(), [&, this](const Term n) {
           Formula::Ref psi = phi.as_exists().arg().Clone();
           psi->SubstituteFree(Term::Substitution(x, n), tf_);
-          return ReduceDisjunctions(s, assign_lits, names, k, *psi);
+          return ReduceDisjunctions(s, assign_lits, names, k, *psi, assume_consistent, relevant_terms);
         });
       }
       case Formula::kNot: {
         switch (phi.as_not().arg().type()) {
           case Formula::kNot:
-            return ReduceDisjunctions(s, assign_lits, names, k, phi.as_not().arg().as_not().arg());
+            return ReduceDisjunctions(s, assign_lits, names, k, phi.as_not().arg().as_not().arg(), assume_consistent,
+                                      relevant_terms);
           default:
-            return !phi.trivially_invalid() && Assign(s, assign_lits, names, k, phi);
+            return !phi.trivially_invalid() && Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
         }
       }
       case Formula::kKnow:
@@ -229,7 +236,9 @@ class Solver {
               const LiteralAssignmentSet& assign_lits,
               const SortedTermSet& names,
               int k,
-              const Formula& phi) {
+              const Formula& phi,
+              bool assume_consistent,
+              const TermSet&  relevant_terms) {
     assert(phi.objective());
     if (s.Subsumes(Clause{}) || phi.trivially_invalid()) {
       return false;
@@ -239,8 +248,7 @@ class Solver {
         return phi.trivially_valid();
       }
       assert(!assign_lits.empty());
-      return std::any_of(assign_lits.begin(), assign_lits.end(),
-                         [this, &s, &assign_lits, &names, k, &phi](const LiteralSet& lits) {
+      return std::any_of(assign_lits.begin(), assign_lits.end(), [&,this](const LiteralSet& lits) {
         assert(!lits.empty());
         Setup ss = s.Spawn();
         for (Literal a : lits) {
@@ -248,10 +256,15 @@ class Solver {
             ss.AddClause(Clause{a});
           }
         }
-        return Assign(ss, assign_lits, names, k-1, phi);
+        return !ss.Subsumes({}) && Assign(ss, assign_lits, names, k-1, phi, assume_consistent, relevant_terms);
       });
     } else {
-      return s.Consistent() && Reduce(s, names, phi);
+      if (!assume_consistent && !s.Consistent()) {
+        return false;
+      } else if (assume_consistent && !s.LocallyConsistent(relevant_terms)) {
+        return false;
+      }
+      return Reduce(s, names, phi);
     }
   }
 

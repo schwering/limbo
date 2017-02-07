@@ -13,8 +13,10 @@
 // behaviour is undefined.
 //
 // Consistent() and LocallyConsistent() perform a sound but incomplete
-// consistency checks. The former only investigates clauses that share a
-// literal and the transitive closure thereof.
+// consistency checks. The former only investigates clauses that share a one
+// of a given set of primitive terms. Typically one wants this set of terms
+// to be transitively closed under the terms occurring in setup clauses. It
+// is the users responsibility to make sure this condition holds.
 //
 // Subsumes() checks whether the clause is subsumed by any clause in the setup
 // after doing unit propagation; it is hence a sound but incomplete test for
@@ -65,6 +67,7 @@ class Setup {
  public:
   typedef internal::size_t size_t;
   typedef unsigned int ClauseIndex;
+  typedef std::unordered_set<Term> TermSet;
 
   Setup() = default;
   Setup(const Setup&) = delete;
@@ -108,30 +111,37 @@ class Setup {
     if (contains_empty_clause_) {
       return false;
     }
-    std::unordered_set<Term> primitive_terms;
+    LiteralSet lits;
     for (ClauseIndex i : clauses()) {
       if (enabled(i)) {
-        for (Literal a : clause(i)) {
-          primitive_terms.insert(a.lhs());
-        }
+        const Clause& c = clause(i);
+        lits.insert(c.begin(), c.end());
       }
     }
-    return std::all_of(primitive_terms.begin(), primitive_terms.end(), [this](Term t) { return LocallyConsistent(t); });
+    return ConsistentSet(lits);
   }
 
-  bool LocallyConsistent(Literal a) const {
+  bool LocallyConsistent(const TermSet& ts) const {
     assert(!contains_empty_clause_);
-    if (a.invalid()) {
-      return false;
+    internal::BloomSet<Term> bs;
+    for (Term t : ts) {
+      assert(t.primitive());
+      bs.Add(t);
     }
-    if (a.valid()) {
-      return true;
-    }
-    return LocallyConsistent(a.lhs(), LiteralSet{a});
-  }
-
-  bool LocallyConsistent(const Clause& c) const {
-    return std::any_of(c.begin(), c.end(), [this](Literal a) { return LocallyConsistent(a); });
+    LiteralSet lits;
+    //for (BucketIndex b : buckets()) {
+      //if (bucket_union(b).PossiblyOverlaps(bs)) {
+        //for (ClauseIndex i : bucket_clauses(b)) {
+        for (ClauseIndex i : clauses()) {
+          const Clause& c = clause(i);
+          if (enabled(i) && bs.PossiblyOverlaps(c.lhs_bloom()) &&
+              std::any_of(c.begin(), c.end(), [&ts](Literal a) { return ts.find(a.lhs()) != ts.end(); })) {
+            lits.insert(c.begin(), c.end());
+          }
+        }
+      //}
+    //}
+    return ConsistentSet(lits);
   }
 
 
@@ -253,23 +263,7 @@ class Setup {
   }
 
 
-  bool LocallyConsistent(Term t, LiteralSet lits = LiteralSet()) const {
-    internal::BloomSet<Term> bs;
-    bs.Add(t);
-    //for (BucketIndex b : buckets()) {
-      //if (bucket_union(b).PossiblyOverlaps(bs)) {
-        //for (ClauseIndex i : bucket_clauses(b)) {
-        for (ClauseIndex i : clauses()) {
-          if (enabled(i)) {
-            for (Literal a : clause(i)) {
-              if (t == a.lhs()) {
-                lits.insert(a);
-              }
-            }
-          }
-        }
-      //}
-    //}
+  static bool ConsistentSet(const LiteralSet& lits) {
     for (const Literal a : lits) {
       assert(lits.bucket_count() > 0);
       size_t b = lits.bucket(a);
