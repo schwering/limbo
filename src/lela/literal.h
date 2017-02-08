@@ -182,7 +182,7 @@ namespace std {
 
 template<>
 struct hash<lela::Literal> {
-  size_t operator()(const lela::Literal a) const { return a.hash(); }
+  lela::internal::hash32_t operator()(const lela::Literal a) const { return a.hash(); }
 };
 
 template<>

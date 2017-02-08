@@ -30,7 +30,7 @@ hash64_t fnv1a_hash(const T& x, hash64_t seed = 0) {
   constexpr hash64_t kMagicPrime = 0x00000100000001b3;
   hash64_t h = seed ^ kOffsetBasis;
   for (size_t i = 0; i < sizeof(x); ++i) {
-    const std::uint8_t b = reinterpret_cast<const std::uint8_t*>(&x)[i];
+    const u8 b = reinterpret_cast<const u8*>(&x)[i];
     h ^= b;
     h *= kMagicPrime;
   }
