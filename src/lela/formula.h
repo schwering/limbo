@@ -499,8 +499,10 @@ class Formula::Exists : public Formula {
       const Term new_x = tf->CreateTerm(sf->CreateVariable(old_x.sort()));
       tm->insert(it, std::make_pair(old_x, new_x));
       x_ = new_x;
-      alpha_->Rectify(tm, sf, tf);
+    } else {
+      tm->insert(it, std::make_pair(x_, x_));
     }
+    alpha_->Rectify(tm, sf, tf);
   }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
@@ -734,10 +736,7 @@ class Formula::Bel : public Formula {
       consequent_(consequent->Clone()),
       not_antecedent_or_consequent_(Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
 
-  TermSet FreeVars() const override {
-    assert(antecedent_->FreeVars() == not_antecedent_or_consequent_->FreeVars());
-    return not_antecedent_or_consequent_->FreeVars();
-  }
+  TermSet FreeVars() const override { return not_antecedent_or_consequent_->FreeVars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
     antecedent_->ISubstitute(theta, tf);
