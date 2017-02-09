@@ -6,10 +6,26 @@ Fun a/0 -> OBJECT
 Fun b/0 -> OBJECT
 Fun f/1 -> OBJECT
 Fun g/1 -> OBJECT
+Fun h/2 -> OBJECT
+Name m, n, o -> OBJECT
+Var x, y, z -> OBJECT
 
 Refute: Know<3> a == b
 Refute: Know<3> f(a) == g(a)
 Refute: Know<3> f(a) == g(b)
 Refute: Know<3> f(a) == g(a)
 Refute: Know<3> f(a) == g(b)
+
+Refute: Know<0> (a == n v a != n)
+Assert: Know<1> (a == n v a != n)
+
+Refute: Know<0> Ex x a == x
+Assert: Know<1> Ex x a == x
+
+Refute: Know<1> Fa x f(x) == x
+Refute: Know<1> Ex x f(x) != x
+
+Refute: Know<1> (Fa x Fa y h(x,y) == x || Ex x Ex y h(x,y) != y)
+Refute: Know<1> (Fa x Fa y f(x) == y || Ex y f(y) != y)
+Refute: Know<1> (Fa x Fa y f(x) == y || Ex z f(z) != z)
 

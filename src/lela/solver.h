@@ -244,7 +244,7 @@ class Solver {
               bool assume_consistent,
               const TermSet&  relevant_terms) {
     assert(phi.objective());
-    if (s.Subsumes(Clause{}) || phi.trivially_invalid()) {
+    if ((!assume_consistent && s.Subsumes(Clause{})) || phi.trivially_invalid()) {
       return false;
     } else if (k > 0) {
       if (assign_lits.empty()) {
@@ -260,7 +260,7 @@ class Solver {
             ss.AddClause(Clause{a});
           }
         }
-        return !ss.Subsumes({}) && Assign(ss, assign_lits, names, k-1, phi, assume_consistent, relevant_terms);
+        return Assign(ss, assign_lits, names, k-1, phi, assume_consistent, relevant_terms);
       });
     } else {
       if (!assume_consistent && !s.Consistent()) {

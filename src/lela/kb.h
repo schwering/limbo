@@ -65,6 +65,7 @@ class KnowledgeBase {
 
   bool Entails(const Formula& sigma) {
     assert(sigma.subjective());
+    assert(sigma.free_vars().empty());
     if (spheres_changed_) {
       BuildSpheres();
       spheres_changed_ = false;
