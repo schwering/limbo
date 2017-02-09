@@ -98,7 +98,7 @@ class Setup {
       //if (bucket_intersection(b).PossiblySubsetOf(c.lhs_bloom())) {
         //for (ClauseIndex i : bucket_clauses(b)) {
         for (ClauseIndex i : clauses()) {
-          if (enabled(i) && clause(i).Subsumes(c)) {
+          if (clause(i).Subsumes(c)) {
             return true;
           }
         }
@@ -113,16 +113,13 @@ class Setup {
     }
     LiteralSet lits;
     for (ClauseIndex i : clauses()) {
-      if (enabled(i)) {
-        const Clause& c = clause(i);
-        lits.insert(c.begin(), c.end());
-      }
+      const Clause& c = clause(i);
+      lits.insert(c.begin(), c.end());
     }
     return ConsistentSet(lits);
   }
 
   bool LocallyConsistent(const TermSet& ts) const {
-    assert(!contains_empty_clause_);
     internal::BloomSet<Term> bs;
     for (Term t : ts) {
       assert(t.primitive());
@@ -134,7 +131,7 @@ class Setup {
         //for (ClauseIndex i : bucket_clauses(b)) {
         for (ClauseIndex i : clauses()) {
           const Clause& c = clause(i);
-          if (enabled(i) && bs.PossiblyOverlaps(c.lhs_bloom()) &&
+          if (bs.PossiblyOverlaps(c.lhs_bloom()) &&
               std::any_of(c.begin(), c.end(), [&ts](Literal a) { return ts.find(a.lhs()) != ts.end(); })) {
             lits.insert(c.begin(), c.end());
           }
@@ -225,11 +222,9 @@ class Setup {
           //if (bucket_union(b).PossiblyOverlaps(c.lhs_bloom())) {
             //for (ClauseIndex j : bucket_clauses(b)) {
             for (ClauseIndex j : clauses()) {
-              if (enabled(j)) {
-                const internal::Maybe<Clause> d = clause(j).PropagateUnit(a);
-                if (d) {
-                  AddUnprocessedClause(d.val);
-                }
+              const internal::Maybe<Clause> d = clause(j).PropagateUnit(a);
+              if (d) {
+                AddUnprocessedClause(d.val);
               }
             //}
           //}
@@ -244,7 +239,7 @@ class Setup {
       //if (c.lhs_bloom().PossiblySubsetOf(bucket_union(b))) {
         //for (ClauseIndex j : bucket_clauses(b)) {
         for (ClauseIndex j : clauses()) {
-          if (enabled(j) && i != j && c.Subsumes(clause(j))) {
+          if (i != j && c.Subsumes(clause(j))) {
             Disable(j);
           }
         }
