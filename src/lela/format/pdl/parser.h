@@ -428,7 +428,7 @@ class Parser {
       }
       return Success<Action<Formula::Ref>>([this, ex, x_a = x.val, alpha_a = alpha.val](Context* ctx) {
         Result<Term> x = x_a.Run(ctx);
-        if (!x.val.variable()) {
+        if (!x || !x.val.variable()) {
           return Error<Formula::Ref>(LELA_MSG("Expected variable in quantifier"), x);
         }
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
