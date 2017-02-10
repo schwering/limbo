@@ -54,6 +54,7 @@ class Literal {
 
   bool operator==(Literal a) const { return pos() == a.pos() && lhs() == a.lhs() && rhs() == a.rhs(); }
   bool operator!=(Literal a) const { return !(*this == a); }
+  bool operator<(Literal a) const { return lhs() < a.lhs() || (lhs() == a.lhs() && data_ < a.data_); }
 
   internal::hash32_t hash() const {
     return internal::jenkins_hash(static_cast<u32>(data_ >> 32)) ^
@@ -78,9 +79,13 @@ class Literal {
   // (t1 = t2), (t1 != t2)
   // (t1 != t2), (t1 = t2)
   // (t = n1), (t = n2) for distinct n1, n2.
-  static bool Complementary(Literal a, Literal b) {
+  inline static bool Complementary(const Literal a, const Literal b) {
     assert(a.primitive());
     assert(b.primitive());
+#if 1
+    return (a.lhs() == b.lhs() && a.rhs() == b.rhs() && a.pos() != b.pos()) ||
+           (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
+#else
     const u64 x = a.data_;
     const u64 y = b.data_;
     static constexpr u64 LHS = (static_cast<u64>(1) << 32) - 1;
@@ -93,6 +98,7 @@ class Literal {
            (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
     return (x ^ y) == POS ||
            (((x ^ y) & LHS) == 0 && (x & y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0);
+#endif
   }
 
   // Subsumes(a, b) holds when a, b match one of the following:
@@ -101,6 +107,10 @@ class Literal {
   static bool Subsumes(Literal a, Literal b) {
     assert(a.primitive());
     assert(b.primitive());
+#if 1
+    return (a.lhs() == b.lhs() && a.pos() == b.pos() && a.rhs() == b.rhs()) ||
+           (a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
+#else
     const u64 x = a.data_;
     const u64 y = b.data_;
     static constexpr u64 LHS = (static_cast<u64>(1) << 32) - 1;
@@ -113,6 +123,7 @@ class Literal {
            (a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
     return (x ^ y) == 0 ||
            (((x ^ y) & LHS) == 0 && (x & ~y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0);
+#endif
   }
 
   bool Subsumes(Literal b) const {
