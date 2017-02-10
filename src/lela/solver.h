@@ -103,7 +103,7 @@ class Solver {
       assume_consistent ? grounder_.RelevantSplitTerms(phi) :
                           TermSet();
     const SortedTermSet& names = grounder_.Names();
-    return !s.Subsumes(Clause{}) &&
+    return !s.Subsumes(Clause()) &&
            ReduceDisjunctions(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
   }
 
@@ -252,7 +252,7 @@ class Solver {
         return phi.trivially_valid();
       }
       assert(!assign_lits.empty());
-      return std::any_of(assign_lits.begin(), assign_lits.end(), [&,this](const LiteralSet& lits) {
+      return std::any_of(assign_lits.begin(), assign_lits.end(), [&](const LiteralSet& lits) {
         assert(!lits.empty());
         Setup ss = s.Spawn();
         for (Literal a : lits) {

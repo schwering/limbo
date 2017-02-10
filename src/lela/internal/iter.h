@@ -13,6 +13,7 @@
 #include <type_traits>
 #include <utility>
 
+#include <lela/internal/ints.h>
 #include <lela/internal/traits.h>
 
 namespace lela {
@@ -30,7 +31,7 @@ struct iterator_proxy {
   pointer operator->() const { return &v_; }
 
  private:
-  mutable value_type v_;
+  mutable typename std::remove_const<value_type>::type v_;
 };
 
 struct Identity {
@@ -91,6 +92,46 @@ inline int_iterators<T, UnaryFunction> int_range(T begin,
                                                  UnaryFunction func2 = UnaryFunction()) {
   return int_iterators<T, UnaryFunction>(begin, end, func1, func2);
 }
+
+template<typename T, typename U>
+struct array_iterator {
+  typedef std::ptrdiff_t difference_type;
+  typedef U value_type;
+  typedef value_type* pointer;
+  typedef value_type& reference;
+  typedef std::random_access_iterator_tag iterator_category;
+  typedef internal::iterator_proxy<array_iterator> proxy;
+
+  array_iterator() = default;
+  explicit array_iterator(T* array, size_t i) : array_(array), index_(i) {}
+
+  bool operator==(array_iterator it) const { return index_ == it.index_; }
+  bool operator!=(array_iterator it) const { return !(*this == it); }
+
+  reference operator*() const { return (*array_)[index_]; }
+  array_iterator& operator++() { ++index_; return *this; }
+  array_iterator& operator--() { --index_; return *this; }
+
+  proxy operator->() const { return proxy(operator*()); }
+  proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
+  proxy operator--(int) { proxy p(operator*()); operator--(); return p; }
+
+  array_iterator& operator+=(difference_type n) { index_ += n; return *this; }
+  array_iterator& operator-=(difference_type n) { index_ -= n; return *this; }
+  friend array_iterator operator+(array_iterator it, difference_type n) { it += n; return it; }
+  friend array_iterator operator+(difference_type n, array_iterator it) { it += n; return it; }
+  friend array_iterator operator-(array_iterator it, difference_type n) { it -= n; return it; }
+  friend difference_type operator-(array_iterator a, array_iterator b) { return a.index_ - b.index_; }
+  reference operator[](difference_type n) const { return *(*this + n); }
+  bool operator<(array_iterator it) const { return it - *this < 0; }
+  bool operator>(array_iterator it) const { return *this < it; }
+  bool operator<=(array_iterator it) const { return !(*this > it); }
+  bool operator>=(array_iterator it) const { return !(*this < it); }
+
+ private:
+  T* array_;
+  size_t index_;
+};
 
 // Expects an iterator over containers, and iterates over the containers' elements.
 template<typename OuterInputIt,

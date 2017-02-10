@@ -376,7 +376,7 @@ internal::Maybe<Term::Substitution> Term::Unify(Term l, Term r) {
 bool Term::Isomorphic(Term l, Term r, Substitution* sub) {
   internal::Maybe<Term> u;
   if (l.function() && r.function() && l.symbol() == r.symbol()) {
-    for (size_t i = 0; i < l.arity(); ++i) {
+    for (Symbol::Arity i = 0; i < l.arity(); ++i) {
       if (!Isomorphic(l.arg(i), r.arg(i), sub)) {
         return false;
       }

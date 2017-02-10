@@ -106,8 +106,8 @@ TEST(ClauseTest, Subsumes) {
   }
 
   {
-    Clause c1({Literal::Eq(f1,n1), Literal::Neq(n1,n1)});
-    Clause c2({Literal::Eq(f1,n1)});
+    const Clause c1({Literal::Eq(f1,n1), Literal::Neq(n1,n1)});
+    const Clause c2({Literal::Eq(f1,n1)});
     EXPECT_TRUE(c1.Subsumes(c2));
     EXPECT_TRUE(c2.Subsumes(c1));
     EXPECT_TRUE(c1 == c2); // because of minimization, n1 != n1 is removed
@@ -152,9 +152,7 @@ TEST(ClauseTest, Subsumes) {
   {
     Clause c1({Literal::Eq(f4,n3), Literal::Eq(f2,n3)});
     EXPECT_TRUE(c1.size() == 2);
-    std::cout << c1 << std::endl;
     c1 = c1.Substitute(EqSubstitute(f1, n2), &tf);
-    std::cout << c1 << std::endl;
     EXPECT_TRUE(c1.size() == 2);
     EXPECT_TRUE(!c1.ground());
     c1 = c1.Substitute(EqSubstitute(x2, n2), &tf);

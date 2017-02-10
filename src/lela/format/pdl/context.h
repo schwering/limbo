@@ -16,6 +16,7 @@
 #include <string>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 #include <lela/term.h>
 #include <lela/formula.h>

@@ -20,10 +20,10 @@
 #define LELA_CLAUSE_H_
 
 #include <cassert>
+#include <cstring>
 
 #include <algorithm>
-#include <utility>
-#include <vector>
+#include <memory>
 
 #include <lela/literal.h>
 #include <lela/internal/bloom.h>
@@ -37,27 +37,86 @@ namespace lela {
 class Clause {
  public:
   typedef internal::size_t size_t;
-  typedef std::vector<Literal>::const_iterator const_iterator;
+  typedef internal::array_iterator<const Clause, const Literal> const_iterator;
 
   Clause() = default;
-  Clause(std::initializer_list<Literal> lits) : lits_(lits) { Minimize(); }
-  template<typename InputIt>
-  Clause(InputIt begin, InputIt end) : lits_(begin, end) { Minimize(); }
 
-  bool operator==(const Clause& c) const { return lhs_bloom_ == c.lhs_bloom_ && lits_ == c.lits_; }
+  explicit Clause(const Literal a) : size_(1) { lits1_[0] = a; Minimize(); }
+
+  Clause(std::initializer_list<Literal> lits) : Clause(lits.size(), lits.begin(), lits.end()) {}
+
+  template<typename ForwardIt>
+  Clause(ForwardIt begin, ForwardIt end) : Clause(std::distance(begin, end), begin, end) {}
+
+  template<typename InputIt>
+  Clause(size_t size, InputIt begin, InputIt end) : size_(size) {
+    auto it = begin;
+    for (size_t i = 0; it != end && i < kArraySize; ) {
+      lits1_[i++] = *it++;
+    }
+    if (size_ > kArraySize) {
+      lits2_ = std::unique_ptr<Literal[]>(new Literal[size2()]);
+      for (size_t i = 0; it != end; ) {
+        lits2_[i++] = *it++;
+      }
+    }
+    Minimize();
+  }
+
+  Clause(const Clause& c) : size_(c.size_), lhs_bloom_(c.lhs_bloom_) {
+    std::memcpy(lits1_, c.lits1_, size1() * sizeof(Literal));
+    if (size_ > kArraySize) {
+      lits2_ = std::unique_ptr<Literal[]>(new Literal[size2()]);
+      std::memcpy(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal));
+    }
+    assert(!any([](Literal a) { return a.invalid(); }));
+    assert(*this == c);
+  }
+
+  Clause& operator=(const Clause& c) {
+    const size_t old_size = c.size_;
+    size_ = c.size_;
+    lhs_bloom_ = c.lhs_bloom_;
+    std::memcpy(lits1_, c.lits1_, size1() * sizeof(Literal));
+    if (size_ > kArraySize) {
+      if (size_ > old_size) {
+        lits2_ = std::unique_ptr<Literal[]>(new Literal[size2()]);
+      }
+      std::memcpy(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal));
+    }
+    assert(!any([](Literal a) { return a.invalid(); }));
+    return *this;
+  }
+
+  Clause(Clause&&) = default;
+  Clause& operator=(Clause&&) = default;
+
+  bool operator==(const Clause& c) const {
+    return size_ == c.size_ &&
+           lhs_bloom_ == c.lhs_bloom_ &&
+           std::memcmp(lits1_, c.lits1_, size1() * sizeof(Literal)) == 0 &&
+           (size2() == 0 || std::memcmp(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal)) == 0);
+  }
   bool operator!=(const Clause& c) const { return !(*this == c); }
 
-  const_iterator begin() const { return lits_.begin(); }
-  const_iterator end()   const { return lits_.end(); }
+  const_iterator cbegin() const { return const_iterator(this, 0); }
+  const_iterator cend()   const { return const_iterator(this, size_); }
 
-  Literal head() const { return lits_[0]; }
+  const_iterator begin() const { return cbegin(); }
+  const_iterator end()   const { return cend(); }
 
-  bool   empty() const { return lits_.empty(); }
+  Literal head() const { return lits1_[0]; }
+  const Literal& operator[](size_t i) const {
+    assert(i <= size_);
+    return i < kArraySize ? lits1_[i] : lits2_[i - kArraySize];
+  }
+
+  bool   empty() const { return size_ == 0; }
   bool   unit()  const { return size() == 1; }
-  size_t size()  const { return lits_.size(); }
+  size_t size()  const { return size_; }
 
-  bool valid()   const { return any_of([](const Literal a) { return a.valid(); }); }
-  bool invalid() const { return all_of([](const Literal a) { return a.invalid(); }); }
+  bool valid()   const { return any([](const Literal a) { return a.valid(); }); }
+  bool invalid() const { return empty(); }
 
   internal::BloomSet<Term> lhs_bloom() const { return lhs_bloom_; }
 
@@ -65,7 +124,7 @@ class Clause {
     assert(primitive());
     assert(c.primitive());
     return lhs_bloom_.PossiblySubsetOf(c.lhs_bloom_) &&
-        all_of([&c](const Literal a) { return c.any_of([a](const Literal b) { return a.Subsumes(b); }); });
+        all([&c](const Literal a) { return c.any([a](const Literal b) { return a.Subsumes(b); }); });
   }
 
   internal::Maybe<Clause> PropagateUnit(Literal a) const {
@@ -80,22 +139,22 @@ class Clause {
     return c.size() != size() ? internal::Just(c) : internal::Nothing;
   }
 
-  bool ground()         const { return all_of([](Literal a) { return a.ground(); }); }
-  bool primitive()      const { return all_of([](Literal a) { return a.primitive(); }); }
-  bool quasiprimitive() const { return all_of([](Literal a) { return a.quasiprimitive(); }); }
+  bool ground()         const { return all([](Literal a) { return a.ground(); }); }
+  bool primitive()      const { return all([](Literal a) { return a.primitive(); }); }
+  bool quasiprimitive() const { return all([](Literal a) { return a.quasiprimitive(); }); }
 
   bool Mentions(Literal a) const {
-    return lhs_bloom_.PossiblyContains(a.lhs()) && any_of([a](Literal b) { return a == b; });
+    return lhs_bloom_.PossiblyContains(a.lhs()) && any([a](Literal b) { return a == b; });
   }
 
   bool MentionsLhs(Term t) const {
-    return lhs_bloom_.PossiblyContains(t) && any_of([t](Literal a) { return a.lhs() == t; });
+    return lhs_bloom_.PossiblyContains(t) && any([t](Literal a) { return a.lhs() == t; });
   }
 
   template<typename UnaryPredicate>
-  bool any_of(UnaryPredicate p) const {
-    for (Literal a : lits_) {
-      if (!a.null() && p(a)) {
+  bool any(UnaryPredicate p) const {
+    for (Literal a : *this) {
+      if (p(a)) {
         return true;
       }
     }
@@ -103,9 +162,9 @@ class Clause {
   }
 
   template<typename UnaryPredicate>
-  bool all_of(UnaryPredicate p) const {
-    for (Literal a : lits_) {
-      if (!a.null() && !p(a)) {
+  bool all(UnaryPredicate p) const {
+    for (Literal a : *this) {
+      if (!p(a)) {
         return false;
       }
     }
@@ -133,24 +192,41 @@ class Clause {
   }
 
  private:
+  friend struct internal::array_iterator<Clause, Literal>;
+  typedef internal::array_iterator<Clause, Literal> iterator;
+  static constexpr size_t kArraySize = 5;
+
+  size_t size1() const { return size_ < kArraySize ? size_ : kArraySize; }
+  size_t size2() const { return size_ < kArraySize ? 0 : (size_ - kArraySize); }
+
+  Literal& operator[](size_t i) {
+    assert(i <= size_);
+    return i < kArraySize ? lits1_[i] : lits2_[i - kArraySize];
+  }
+
+  iterator begin() { return iterator(this, 0); }
+  iterator end()   { return iterator(this, size_); }
+
   void Minimize() {
-    lits_.erase(std::remove_if(lits_.begin(), lits_.end(), [](const Literal a) { return a.invalid(); }), lits_.end());
-    std::sort(lits_.begin(), lits_.end(), [](Literal a, Literal b) { return a.hash() < b.hash(); });
-    lits_.erase(std::unique(lits_.begin(), lits_.end()), lits_.end());
+    iterator new_end = std::remove_if(begin(), end(), [](const Literal a) { return a.invalid(); });
+    std::sort(begin(), new_end, [](Literal a, Literal b) { return a.hash() < b.hash(); });
+    new_end = std::unique(begin(), new_end);
+    size_ = new_end - begin();
     InitBloom();
+    assert(!any([](Literal a) { return a.invalid(); }));
   }
 
   void InitBloom() {
     lhs_bloom_.Clear();
-    for (Literal a : lits_) {
-      if (!a.null()) {
-        lhs_bloom_.Add(a.lhs());
-      }
+    for (Literal a : *this) {
+      lhs_bloom_.Add(a.lhs());
     }
   }
 
+  size_t size_ = 0;
   internal::BloomSet<Term> lhs_bloom_;
-  std::vector<Literal> lits_;
+  Literal lits1_[kArraySize];
+  std::unique_ptr<Literal[]> lits2_;
 };
 
 }  // namespace lela

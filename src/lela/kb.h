@@ -1,8 +1,8 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2016 Christoph Schwering
 
-#ifndef LELA_MODAL_H_
-#define LELA_MODAL_H_
+#ifndef LELA_KB_H_
+#define LELA_KB_H_
 
 #include <cassert>
 
@@ -255,7 +255,7 @@ class KnowledgeBase {
     phi->SubstituteFree(Term::Substitution(x, n), tf_);
     phi = Res(p, std::move(phi), names, if_no_free_vars);
     Literal if_not = Literal::Neq(x, n);
-    return Formula::Factory::Or(Formula::Factory::Atomic(Clause({if_not})), std::move(phi));
+    return Formula::Factory::Or(Formula::Factory::Atomic(Clause(if_not)), std::move(phi));
   }
 
   template<typename BinaryPredicate>
@@ -274,7 +274,7 @@ class KnowledgeBase {
   }
 
   static Formula::Ref bool_to_formula(bool b) {
-    Formula::Ref falsum = Formula::Factory::Atomic(Clause({}));
+    Formula::Ref falsum = Formula::Factory::Atomic(Clause());
     return b ? Formula::Factory::Not(std::move(falsum)) : std::move(falsum);
   }
 
@@ -290,5 +290,5 @@ class KnowledgeBase {
 
 }  // namespace lela
 
-#endif  // LELA_MODAL_H_
+#endif  // LELA_KB_H_
 
