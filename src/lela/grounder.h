@@ -33,7 +33,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include <vector>
 
 #include <lela/clause.h>
 #include <lela/formula.h>
@@ -235,7 +234,7 @@ class Grounder {
             continue;
           }
           const Clause c = s.clause(i);
-          if (c.unit() && c.head().pos()) {
+          if (c.unit() && c.first().pos()) {
             continue;
           }
           if (c.MentionsLhs(t)) {
@@ -278,7 +277,7 @@ class Grounder {
             continue;
           }
           const Clause c = s.clause(i);
-          if (c.unit() && c.head().pos()) {
+          if (c.unit() && c.first().pos()) {
             continue;
           }
           if (c.MentionsLhs(a.lhs())) {

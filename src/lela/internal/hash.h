@@ -15,13 +15,13 @@ typedef u32 hash32_t;
 typedef u64 hash64_t;
 
 hash32_t jenkins_hash(u32 x) {
-   x = (x+0x7ed55d16) + (x<<12);
-   x = (x^0xc761c23c) ^ (x>>19);
-   x = (x+0x165667b1) + (x<<5);
-   x = (x+0xd3a2646c) ^ (x<<9);
-   x = (x+0xfd7046c5) + (x<<3);
-   x = (x^0xb55a4f09) ^ (x>>16);
-   return x;
+  x = (x + 0x7ed55d16) + (x << 12);
+  x = (x ^ 0xc761c23c) ^ (x >> 19);
+  x = (x + 0x165667b1) + (x << 5);
+  x = (x + 0xd3a2646c) ^ (x << 9);
+  x = (x + 0xfd7046c5) + (x << 3);
+  x = (x ^ 0xb55a4f09) ^ (x >> 16);
+  return x;
 }
 
 template<typename T>

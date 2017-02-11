@@ -282,7 +282,7 @@ class Formula::Atomic : public Formula {
     // clause, and prepend another negation to the transformed formula.
     typedef std::unordered_set<Literal> LiteralSet;
     bool add_double_negation = nots % 2 == 1 && arg().unit();
-    const Clause c = add_double_negation ? Clause(arg().head().flip()) : arg();
+    const Clause c = add_double_negation ? Clause(arg().first().flip()) : arg();
     LiteralSet queue(c.begin(), c.end());
     TermMap term_to_var;
     for (Literal a : queue) {
@@ -425,11 +425,11 @@ class Formula::Or : public Formula {
       Clause rc = rs->as_atomic().arg();
       if (!lp.even()) {
         lp.append_not();
-        lc = Clause(lc.head().flip());
+        lc = Clause(lc.first().flip());
       }
       if (!rp.even()) {
         rp.append_not();
-        rc = Clause(rc.head().flip());
+        rc = Clause(rc.first().flip());
       }
       const auto lits = internal::join_ranges(lc.cbegin(), lc.cend(), rc.cbegin(), rc.cend());
       return lp.PrependTo(rp.PrependTo(Factory::Atomic(Clause(lits.begin(), lits.end()))));
@@ -569,7 +569,7 @@ class Formula::Not : public Formula {
       case kAtomic: {
         const Clause& c = arg().as_atomic().arg();
         if (c.unit()) {
-          return Factory::Atomic(Clause(c.head().flip()));
+          return Factory::Atomic(Clause(c.first().flip()));
         } else {
           return Clone();
         }
@@ -803,7 +803,7 @@ class Formula::Guarantee : public Formula {
  protected:
   friend class Factory;
 
-  Guarantee(Ref alpha) :
+  explicit Guarantee(Ref alpha) :
       Formula(kGuarantee),
       alpha_(std::move(alpha)) {}
 

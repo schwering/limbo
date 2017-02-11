@@ -23,9 +23,11 @@
 #include <cstring>
 
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <set>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <lela/literal.h>
@@ -132,8 +134,8 @@ class Clause {
     return i < kArraySize ? lits1_[i] : lits2_[i - kArraySize];
   }
 
-  Literal head() const { return lits1_[0]; }
-  Literal last() const { return operator[](size() - 1); }
+  Literal first() const { return lits1_[0]; }
+  Literal last()  const { return operator[](size() - 1); }
 
   bool   empty() const { return size_ == 0; }
   bool   unit()  const { return size() == 1; }
@@ -214,7 +216,7 @@ next:
       assert(!c.all([&d](const Literal a) { return d.any([a](const Literal b) { return a.Subsumes(b); }); }));
       return false;
 next:
-      ;
+      {}
     }
     assert(c.all([&d](const Literal a) { return d.any([a](const Literal b) { return a.Subsumes(b); }); }));
     return true;

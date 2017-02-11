@@ -103,9 +103,6 @@ class Parser {
     template<typename NullaryFunction>
     Action(NullaryFunction func) : base::shared_ptr(new function(func)) {}
 
-    //template<typename NullaryFunction>
-    //Action(NullaryFunction&& func) : base::shared_ptr(new function(std::forward<NullaryFunction>(func))) {}
-
     Result<T> Run(Context* ctx) const {
       function* f = base::get();
       if (f) {
@@ -436,8 +433,8 @@ class Parser {
           return Error<Formula::Ref>(LELA_MSG("Expected primary formula within quantifier"), alpha);
         }
         return Success(ex ? Formula::Factory::Exists(x.val, std::move(alpha.val))
-                          : Formula::Factory::Not(Formula::Factory::Exists(x.val,
-                                                                           Formula::Factory::Not(std::move(alpha.val)))));
+                          : Formula::Factory::Not(
+                              Formula::Factory::Exists(x.val, Formula::Factory::Not(std::move(alpha.val)))));
       });
     }
     if (Is(Tok(), Token::kKnow) || Is(Tok(), Token::kCons)) {
@@ -1219,9 +1216,9 @@ class Parser {
     return end_;
   }
 
-  static const std::string kUnapplicableLabel;
-  static const std::string kErrorLabel;
-  static const std::string kCausesLabel;
+  static const char* kUnapplicableLabel;
+  static const char* kErrorLabel;
+  static const char* kCausesLabel;
 
   Lex lexer_;
   mutable iterator begin_;  // don't use begin_ directly: to avoid the stream blocking us, Advance() actually increments
@@ -1232,13 +1229,13 @@ class Parser {
 
 
 template<typename ForwardIt, typename Context>
-const std::string Parser<ForwardIt, Context>::kUnapplicableLabel = std::string("Unappl.: ");
+const char* Parser<ForwardIt, Context>::kUnapplicableLabel = "Unappl.: ";
 
 template<typename ForwardIt, typename Context>
-const std::string Parser<ForwardIt, Context>::kErrorLabel        = std::string("Failure: ");
+const char* Parser<ForwardIt, Context>::kErrorLabel        = "Failure: ";
 
 template<typename ForwardIt, typename Context>
-const std::string Parser<ForwardIt, Context>::kCausesLabel       = std::string(" causes: ");
+const char* Parser<ForwardIt, Context>::kCausesLabel       = " causes: ";
 
 }  // namespace pdl
 }  // namespace format

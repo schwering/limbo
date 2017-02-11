@@ -182,7 +182,7 @@ class Solver {
         const TermSet& ns = names[t.sort()];
         assert(!ns.empty());
         return std::all_of(ns.begin(), ns.end(), [&, this](Term n) {
-          Setup::WeakCopy split = s.weak_copy();
+          Setup::ShallowCopy split = s.shallow_copy();
           split.AddUnit(Literal::Eq(t, n));
           return Split(split.setup(), split_terms, names, k-1, phi);
         });
@@ -256,7 +256,7 @@ class Solver {
       assert(!assign_lits.empty());
       return std::any_of(assign_lits.begin(), assign_lits.end(), [&](const LiteralSet& lits) {
         assert(!lits.empty());
-        Setup::WeakCopy split = s.weak_copy();
+        Setup::ShallowCopy split = s.shallow_copy();
         for (Literal a : lits) {
           if (!split.setup().Subsumes(Clause{a.flip()})) {
             split.AddUnit(a);

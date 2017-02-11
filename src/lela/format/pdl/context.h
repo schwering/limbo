@@ -72,7 +72,7 @@ struct DefaultLogger {
   };
 
   struct UnregisterMetaVariableData : public UnregisterData {
-    UnregisterMetaVariableData(const std::string& id) : UnregisterData(id) {}
+    explicit UnregisterMetaVariableData(const std::string& id) : UnregisterData(id) {}
   };
 
   struct AddToKbData : public LogData {

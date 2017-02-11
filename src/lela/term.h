@@ -132,7 +132,6 @@ class Symbol {
 
 class Term {
  public:
-
   class Factory;
   struct Substitution;
   typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before

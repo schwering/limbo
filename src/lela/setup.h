@@ -54,6 +54,7 @@
 
 #include <algorithm>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <lela/clause.h>
@@ -61,51 +62,38 @@
 #include <lela/internal/ints.h>
 #include <lela/internal/iter.h>
 
-#include <iostream>
-
 namespace lela {
-
-namespace format {
-namespace output {
-std::ostream& operator<<(std::ostream& os, const Literal a);
-std::ostream& operator<<(std::ostream& os, const Clause& c);
-}
-}
 
 class Setup {
  public:
   typedef internal::size_t size_t;
-  enum AddResult { kOK, kSubsumed, kInconsistent };
 
-  struct State {
-   private:
-    friend Setup;
+  enum Result { kOK, kSubsumed, kInconsistent };
 
-    State(bool empty_clause, size_t n_clauses, size_t n_units) :
-        empty_clause(empty_clause),
-        n_clauses(n_clauses),
-        n_units(n_units) {}
-
-    bool empty_clause;
-    size_t n_clauses;
-    size_t n_units;
-  };
-
-  struct WeakCopy {
-    ~WeakCopy() { const_cast<Setup&>(setup_).Restore(state_); }
+  struct ShallowCopy {
+    explicit ShallowCopy(Setup& s) : setup_(s) {}
+    ShallowCopy(const ShallowCopy&) = delete;
+    ShallowCopy& operator=(const ShallowCopy&) = delete;
+    ShallowCopy(ShallowCopy&&) = default;
+    ShallowCopy& operator=(ShallowCopy&&) = default;
+    ~ShallowCopy() { Restore(); }
 
     const Setup& setup() const { return setup_; }
     operator const Setup&() const { return setup_; }
-
-    AddResult AddUnit(Literal a) { return const_cast<Setup&>(setup_).AddUnit(a); }
+    Result AddUnit(Literal a) { return const_cast<Setup&>(setup_).AddUnit(a); }
 
    private:
-    friend Setup;
+    void Restore() {
+      setup_.empty_clause_ = empty_clause_;
+      setup_.units_.Resize(n_units_);
+      setup_.clauses_.Resize(n_clauses_);
+      assert(setup_.saved_-- > 0);
+    }
 
-    explicit WeakCopy(const Setup& setup) : setup_(setup) {}
-
-    const Setup& setup_;
-    State state_ = setup_.Save();
+    Setup& setup_;
+    bool empty_clause_ = setup_.empty_clause_;
+    size_t n_clauses_ = setup_.clauses_.size();
+    size_t n_units_ = setup_.units_.size();
   };
 
   Setup() = default;
@@ -114,19 +102,7 @@ class Setup {
   Setup(Setup&&) = default;
   Setup& operator=(Setup&&) = default;
 
-  State Save() const {
-    assert(++saved_ > 0);
-    return State(empty_clause_, clauses_.size(), units_.size());
-  }
-
-  void Restore(State s) {
-    empty_clause_ = s.empty_clause;
-    units_.Resize(s.n_units);
-    clauses_.Resize(s.n_clauses);
-    assert(saved_-- > 0);
-  }
-
-  WeakCopy weak_copy() const { return WeakCopy(*this); }
+  ShallowCopy shallow_copy() const { return ShallowCopy(const_cast<Setup&>(*this)); }
 
   void Minimize() {
     assert(saved_ == 0);
@@ -139,7 +115,7 @@ class Setup {
       Literal a = units_[i];
       if (!a.pos()) {
         units_.Erase(i);
-        AddResult r = units_.Add(a);
+        Result r = units_.Add(a);
         assert(r != kInconsistent);
       }
     }
@@ -149,16 +125,16 @@ class Setup {
       c.PropagateUnits(units_.set());
       assert(!c.empty());
       assert(c.size() >= 2 ||
-             any_of(units_.vec().begin(), units_.vec().end(), [&c](Literal a) { return a.Subsumes(c.head()); }));
+             any_of(units_.vec().begin(), units_.vec().end(), [&c](Literal a) { return a.Subsumes(c.first()); }));
       clauses_.Erase(i - 1);
       if (c.size() >= 2 && !Subsumes(c)) {
         clauses_.Add(c);
       }
     }
-    units_.SealOriginalUnits();  // units_.set() has been eliminated from all clauses, no need to be considered in AddUnit()
+    units_.SealOriginalUnits();  // units_.set() have been eliminated from all clauses, so not needed in AddUnit()
   }
 
-  AddResult AddClause(Clause c) {
+  Result AddClause(Clause c) {
     assert(saved_ == 0);
     units_.UnsealOriginalUnits();  // undo units_.SealOriginalUnits() called by Minimize()
     c.PropagateUnits(units_.set());
@@ -166,7 +142,7 @@ class Setup {
       empty_clause_ = true;
       return kInconsistent;
     } else if (c.size() == 1) {
-      AddResult r = AddUnit(c.head());
+      Result r = AddUnit(c.first());
       empty_clause_ |= r == kInconsistent;
       return r;
     } else {
@@ -175,9 +151,9 @@ class Setup {
     }
   }
 
-  AddResult AddUnit(Literal a) {
+  Result AddUnit(Literal a) {
     size_t n_propagated = units_.size();
-    AddResult r = units_.Add(a);
+    Result r = units_.Add(a);
     empty_clause_ |= r == kInconsistent;
     for (; n_propagated < units_.size() && !empty_clause_; ++n_propagated) {
       a = units_[n_propagated];
@@ -189,10 +165,10 @@ class Setup {
           if (c.size() == 0) {
             empty_clause_ = true;
           } else if (c.size() == 1) {
-            r = units_.Add(c.head());
+            r = units_.Add(c.first());
             empty_clause_ |= r == kInconsistent;
           } else {
-            clauses_.Watch(i, c.head(), c.last());
+            clauses_.Watch(i, c.first(), c.last());
           }
         }
       }
@@ -212,7 +188,7 @@ class Setup {
         return true;
       }
     }
-    if (d.unit() && d.head().pos()) {
+    if (d.unit() && d.first().pos()) {
       return false;
     }
     return ClausesSubsume(d);
@@ -281,17 +257,18 @@ class Setup {
   }
 
  private:
+  friend ShallowCopy;
+
   struct Watched {
     Watched() = default;
     Watched(Literal a, Literal b) : a(a), b(b) { assert(a < b); }
-    Watched(const Clause& c) : Watched(c.head(), c.last()) { assert(c.size() >= 2); }
+
     Literal a;
     Literal b;
   };
 
   class Clauses {
    public:
-
     const Clause& operator[](size_t i) const { return clauses_[i]; }
     Clause& operator[](size_t i) { return clauses_[i]; }
 
@@ -300,14 +277,14 @@ class Setup {
 
     void Add(const Clause& c) {
       assert(c.size() >= 2);
+      watched_.push_back(Watched(c.first(), c.last()));
       clauses_.push_back(c);
-      watched_.push_back(c);
     }
 
     void Add(Clause&& c) {
       assert(c.size() >= 2);
+      watched_.push_back(Watched(c.first(), c.last()));
       clauses_.push_back(std::forward<Clause>(c));
-      watched_.push_back(clauses_.back());
     }
 
     void Watch(size_t i, Literal a, Literal b) {
@@ -345,7 +322,7 @@ class Setup {
       return vec_.size();
     }
 
-    AddResult Add(Literal a) {
+    Result Add(Literal a) {
       auto orig_end = vec_.begin() + n_orig_;
       auto orig_begin = std::lower_bound(vec_.begin(), orig_end, Literal::Min(a.lhs()));
       for (auto it = orig_begin; it != orig_end && a.lhs() == it->lhs(); ++it) {
@@ -433,7 +410,7 @@ class Setup {
   };
 
   bool ClausesSubsume(const Clause& d) const {
-    assert(d.size() >= 1 && (d.size() >= 2 || !d.head().pos()));
+    assert(d.size() >= 1 && (d.size() >= 2 || !d.first().pos()));
     for (size_t i = 0; i < clauses_.size(); ++i) {
       if (Clause::Subsumes(clauses_.watched(i).a, clauses_.watched(i).b, d)) {
         Clause c = clauses_[i];
