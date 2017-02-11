@@ -172,7 +172,7 @@ class Solver {
     assert(phi.objective());
     if (s.Subsumes(Clause{}) || phi.trivially_valid()) {
       return true;
-    } else if (k > 0) {
+    } else if (k > 0 && !split_terms.empty()) {
       if (split_terms.empty()) {
         assert(phi.trivially_invalid());
         return phi.trivially_valid();
@@ -248,7 +248,7 @@ class Solver {
     assert(phi.objective());
     if ((!assume_consistent && s.Subsumes(Clause{})) || phi.trivially_invalid()) {
       return false;
-    } else if (k > 0) {
+    } else if (k > 0 && !assign_lits.empty()) {
       if (assign_lits.empty()) {
         assert(phi.trivially_valid() || phi.trivially_invalid());
         return phi.trivially_valid();

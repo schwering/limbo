@@ -56,6 +56,8 @@ class Literal {
   bool operator!=(Literal a) const { return !(*this == a); }
   bool operator<(Literal a) const { return lhs() < a.lhs() || (lhs() == a.lhs() && data_ < a.data_); }
 
+  static Literal Min(Term lhs) { return Literal(lhs); }
+
   internal::hash32_t hash() const {
     return internal::jenkins_hash(static_cast<u32>(data_ >> 32)) ^
            internal::jenkins_hash(static_cast<u32>(data_));
@@ -127,6 +129,14 @@ class Literal {
   }
 
  private:
+  explicit Literal(Term lhs) {
+    // Shall be the operator<-minimum of all Literals with lhs.
+    data_ = static_cast<u64>(lhs.id());
+    assert(this->lhs() == lhs);
+    assert(this->rhs().null());
+    assert(!this->pos());
+  }
+
   Literal(bool pos, Term lhs, Term rhs) {
     assert(!lhs.null());
     assert(!rhs.null());
@@ -141,9 +151,9 @@ class Literal {
       rhs = tmp;
     }
     assert(!rhs.function() || lhs.function());
-    data_ = (static_cast<u64>(rhs.id()) << 32) |
-             static_cast<u64>(lhs.id()) |
-            (static_cast<u64>(pos) << 63);
+    data_ = static_cast<u64>(lhs.id()) |
+           (static_cast<u64>(pos) << 63) |
+           (static_cast<u64>(rhs.id()) << 32);
     assert(this->lhs() == lhs);
     assert(this->rhs() == rhs);
     assert(this->pos() == pos);

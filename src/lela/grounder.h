@@ -216,6 +216,13 @@ class Grounder {
     const Setup& s = Ground();
     TermSet splits;
     TermSet queue = Ground(Mentioned<TermSet>([](Term t) { return t.function(); }, phi));
+    for (auto it = queue.begin(); it != queue.end(); ) {
+      if (s.Determines(*it)) {
+        it = queue.erase(it);
+      } else {
+        ++it;
+      }
+    }
     std::unordered_set<size_t> done;
     while (!queue.empty()) {
       const Term t = *queue.begin();
@@ -228,6 +235,9 @@ class Grounder {
             continue;
           }
           const Clause c = s.clause(i);
+          if (c.unit() && c.head().pos()) {
+            continue;
+          }
           if (c.MentionsLhs(t)) {
             TermSet next = Mentioned<TermSet>([](Term t) { return t.function(); }, c);
             queue.insert(next.begin(), next.end());
@@ -249,6 +259,13 @@ class Grounder {
     LiteralSet assigns;
     LiteralSet queue;
     AddAssignmentLiteralsTo(Ground(Mentioned<LiteralSet>([](Literal a) { return a.lhs().function(); }, phi)), &queue);
+    for (auto it = queue.begin(); it != queue.end(); ) {
+      if (s.Determines(it->lhs())) {
+        it = queue.erase(it);
+      } else {
+        ++it;
+      }
+    }
     std::unordered_set<size_t> done;
     while (!queue.empty()) {
       const Literal a = *queue.begin();
@@ -261,6 +278,9 @@ class Grounder {
             continue;
           }
           const Clause c = s.clause(i);
+          if (c.unit() && c.head().pos()) {
+            continue;
+          }
           if (c.MentionsLhs(a.lhs())) {
             AddAssignmentLiteralsTo(Mentioned<LiteralSet>([](Literal a) { return a.lhs().function(); }, c), &queue);
             done.insert(i);

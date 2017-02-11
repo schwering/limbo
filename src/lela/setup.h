@@ -123,8 +123,8 @@ class Setup {
 
   void Restore(State s) {
     empty_clause_ = s.empty_clause;
-    units_.resize(s.n_units);
-    clauses_.resize(s.n_clauses);
+    units_.Resize(s.n_units);
+    clauses_.Resize(s.n_clauses);
     assert(saved_-- > 0);
   }
 
@@ -133,15 +133,15 @@ class Setup {
   void Minimize() {
     assert(saved_ == 0);
     if (empty_clause_) {
-      clauses_.resize(0);
-      units_.resize(0);
+      clauses_.Resize(0);
+      units_.Resize(0);
       return;
     }
     for (size_t i = 0; i < units_.size(); ++i) {
       Literal a = units_[i];
       if (!a.pos()) {
-        units_.erase(i);
-        AddResult r = units_.push_back(a);
+        units_.Erase(i);
+        AddResult r = units_.Add(a);
         assert(r != kInconsistent);
       }
     }
@@ -152,17 +152,17 @@ class Setup {
       assert(!c.empty());
       assert(c.size() >= 2 ||
              any_of(units_.vec().begin(), units_.vec().end(), [&c](Literal a) { return a.Subsumes(c.head()); }));
-      clauses_.erase(i - 1);
+      clauses_.Erase(i - 1);
       if (c.size() >= 2 && !Subsumes(c)) {
-        clauses_.push_back(c);
+        clauses_.Add(c);
       }
     }
-    units_.seal_original();  // units_.set() has been eliminated from all clauses, no need to be considered in AddUnit()
+    units_.SealOriginalUnits();  // units_.set() has been eliminated from all clauses, no need to be considered in AddUnit()
   }
 
   AddResult AddClause(Clause c) {
     assert(saved_ == 0);
-    units_.unseal_original();  // undo units_.seal_original() called by Minimize()
+    units_.UnsealOriginalUnits();  // undo units_.SealOriginalUnits() called by Minimize()
     c.PropagateUnits(units_.set());
     if (c.size() == 0) {
       empty_clause_ = true;
@@ -172,14 +172,14 @@ class Setup {
       empty_clause_ |= r == kInconsistent;
       return r;
     } else {
-      clauses_.push_back(c);
+      clauses_.Add(c);
       return kOK;
     }
   }
 
   AddResult AddUnit(Literal a) {
     size_t n_propagated = units_.size();
-    AddResult r = units_.push_back(a);
+    AddResult r = units_.Add(a);
     empty_clause_ |= r == kInconsistent;
     for (; n_propagated < units_.size() && !empty_clause_; ++n_propagated) {
       a = units_[n_propagated];
@@ -191,10 +191,10 @@ class Setup {
           if (c.size() == 0) {
             empty_clause_ = true;
           } else if (c.size() == 1) {
-            r = units_.push_back(c.head());
+            r = units_.Add(c.head());
             empty_clause_ |= r == kInconsistent;
           } else {
-            clauses_.watch(i, c.head(), c.last());
+            clauses_.Watch(i, c.head(), c.last());
           }
         }
       }
@@ -228,6 +228,7 @@ class Setup {
     return true;
   }
 
+  bool Determines(Term lhs) const { return units_.Determines(lhs); }
 
   const std::vector<Literal> units() const { return units_.vec(); }
 
@@ -273,19 +274,19 @@ class Setup {
     Watched watched(size_t i) const { return watched_[i]; }
     Watched& watched(size_t i) { return watched_[i]; }
 
-    void push_back(const Clause& c) {
+    void Add(const Clause& c) {
       assert(c.size() >= 2);
       clauses_.push_back(c);
       watched_.push_back(c);
     }
 
-    void push_back(Clause&& c) {
+    void Add(Clause&& c) {
       assert(c.size() >= 2);
       clauses_.push_back(std::forward<Clause>(c));
       watched_.push_back(clauses_.back());
     }
 
-    void watch(size_t i, Literal a, Literal b) {
+    void Watch(size_t i, Literal a, Literal b) {
       assert(a < b);
       watched_[i] = Watched(a, b);
     }
@@ -295,13 +296,13 @@ class Setup {
       return clauses_.size();
     }
 
-    void erase(size_t i) {
+    void Erase(size_t i) {
       std::swap(clauses_[i], clauses_.back());
       std::swap(watched_[i], watched_.back());
-      resize(clauses_.size() - 1);
+      Resize(clauses_.size() - 1);
     }
 
-    void resize(size_t n) {
+    void Resize(size_t n) {
       clauses_.resize(n);
       watched_.resize(n);
     }
@@ -320,9 +321,9 @@ class Setup {
       return vec_.size();
     }
 
-    AddResult push_back(Literal a) {
+    AddResult Add(Literal a) {
       auto orig_end = vec_.begin() + n_orig_;
-      auto orig_begin = std::lower_bound(vec_.begin(), orig_end, a);
+      auto orig_begin = std::lower_bound(vec_.begin(), orig_end, Literal::Min(a.lhs()));
       for (auto it = orig_begin; it != orig_end && a.lhs() == it->lhs(); ++it) {
         if (Literal::Complementary(a, *it)) {
           return kInconsistent;
@@ -349,7 +350,7 @@ class Setup {
       return kOK;
     }
 
-    void resize(size_t n) {
+    void Resize(size_t n) {
       assert(n >= n_orig_);
       for (size_t i = n; i < vec_.size(); ++i) {
         set_.erase(vec_[i]);
@@ -357,25 +358,45 @@ class Setup {
       vec_.resize(n);
     }
 
-    void erase(size_t i) {
+    void Erase(size_t i) {
       assert(n_orig_ == 0);
       set_.erase(vec_[i]);
       std::swap(vec_[i], vec_.back());
       vec_.resize(vec_.size() - 1);
     }
 
-    void unseal_original() {
+    void SealOriginalUnits() {
+      std::sort(vec_.begin(), vec_.end());
+      vec_.erase(std::unique(vec_.begin(), vec_.end()), vec_.end());
+      n_orig_ = vec_.size();
+      set_.clear();
+    }
+
+    void UnsealOriginalUnits() {
       for (size_t i = 0; i < n_orig_; ++i) {
         set_.insert(vec_[i]);
       }
       n_orig_ = 0;
     }
 
-    void seal_original() {
-      std::sort(vec_.begin(), vec_.end());
-      vec_.erase(std::unique(vec_.begin(), vec_.end()), vec_.end());
-      n_orig_ = vec_.size();
-      set_.clear();
+    bool Determines(Term t) const {
+      assert(t.primitive());
+      auto orig_end = vec_.begin() + n_orig_;
+      auto orig_begin = std::lower_bound(vec_.begin(), orig_end, Literal::Min(t));
+      for (auto it = orig_begin; it != orig_end && t == it->lhs(); ++it) {
+        if (it->pos()) {
+          return true;
+        }
+      }
+      if (set_.bucket_count() > 0) {
+        auto bucket = set_.bucket(Literal::Min(t));
+        for (auto it = set_.begin(bucket), end = set_.end(bucket); it != end; ++it) {
+          if (it->pos()) {
+            return true;
+          }
+        }
+      }
+      return false;
     }
 
     const std::vector<Literal>&                          vec() const { return vec_; }
