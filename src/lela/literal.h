@@ -82,23 +82,8 @@ class Literal {
   inline static bool Complementary(const Literal a, const Literal b) {
     assert(a.primitive());
     assert(b.primitive());
-#if 1
     return (a.lhs() == b.lhs() && a.rhs() == b.rhs() && a.pos() != b.pos()) ||
            (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
-#else
-    const u64 x = a.data_;
-    const u64 y = b.data_;
-    static constexpr u64 LHS = (static_cast<u64>(1) << 32) - 1;
-    static constexpr u64 RHS = ~((static_cast<u64>(1) << 63) | ((static_cast<u64>(1) << 32) - 1));
-    static constexpr u64 RHS_NAME = static_cast<u64>(1) << 32;
-    static constexpr u64 POS = static_cast<u64>(1) << 63;
-    assert(((x ^ y) == POS) ==
-           (a.lhs() == b.lhs() && a.rhs() == b.rhs() && a.pos() != b.pos()));
-    assert((((x ^ y) & LHS) == 0 && (x & y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0) ==
-           (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
-    return (x ^ y) == POS ||
-           (((x ^ y) & LHS) == 0 && (x & y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0);
-#endif
   }
 
   // Subsumes(a, b) holds when a, b match one of the following:
@@ -107,23 +92,8 @@ class Literal {
   static bool Subsumes(Literal a, Literal b) {
     assert(a.primitive());
     assert(b.primitive());
-#if 1
     return (a.lhs() == b.lhs() && a.pos() == b.pos() && a.rhs() == b.rhs()) ||
            (a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
-#else
-    const u64 x = a.data_;
-    const u64 y = b.data_;
-    static constexpr u64 LHS = (static_cast<u64>(1) << 32) - 1;
-    static constexpr u64 RHS = ~((static_cast<u64>(1) << 63) | ((static_cast<u64>(1) << 32) - 1));
-    static constexpr u64 RHS_NAME = static_cast<u64>(1) << 32;
-    static constexpr u64 POS = static_cast<u64>(1) << 63;
-    assert(((x ^ y) == 0) ==
-           (a.lhs() == b.lhs() && a.pos() == b.pos() && a.rhs() == b.rhs()));
-    assert((((x ^ y) & LHS) == 0 && (x & ~y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0) ==
-           (a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs()));
-    return (x ^ y) == 0 ||
-           (((x ^ y) & LHS) == 0 && (x & ~y & POS) == POS && (x & y & RHS_NAME) == RHS_NAME && ((x ^ y) & RHS) != 0);
-#endif
   }
 
   bool Subsumes(Literal b) const {

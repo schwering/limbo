@@ -94,16 +94,21 @@ class Setup {
     if (c.invalid()) {
       return contains_empty_clause_;
     }
-    //for (BucketIndex b : buckets()) {
-      //if (bucket_intersection(b).PossiblySubsetOf(c.lhs_bloom())) {
-        //for (ClauseIndex i : bucket_clauses(b)) {
-        for (ClauseIndex i : clauses()) {
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+    for (BucketIndex b : buckets()) {
+      if (bucket_intersection(b).PossiblySubsetOf(c.lhs_bloom())) {
+        for (ClauseIndex i : bucket_clauses(b)) {
+#else
+      for (ClauseIndex i : clauses()) {
+#endif
           if (clause(i).Subsumes(c)) {
             return true;
           }
         }
-      //}
-    //}
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+      }
+    }
+#endif
     return false;
   }
 
@@ -126,18 +131,26 @@ class Setup {
       bs.Add(t);
     }
     LiteralSet lits;
-    //for (BucketIndex b : buckets()) {
-      //if (bucket_union(b).PossiblyOverlaps(bs)) {
-        //for (ClauseIndex i : bucket_clauses(b)) {
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+    for (BucketIndex b : buckets()) {
+      if (bucket_union(b).PossiblyOverlaps(bs)) {
+        for (ClauseIndex i : bucket_clauses(b)) {
+#else
         for (ClauseIndex i : clauses()) {
+#endif
           const Clause& c = clause(i);
-          if (bs.PossiblyOverlaps(c.lhs_bloom()) &&
+          if (
+#if defined(BLOOM)
+              bs.PossiblyOverlaps(c.lhs_bloom()) &&
+#endif
               std::any_of(c.begin(), c.end(), [&ts](Literal a) { return ts.find(a.lhs()) != ts.end(); })) {
             lits.insert(c.begin(), c.end());
           }
         }
-      //}
-    //}
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+      }
+    }
+#endif
     return ConsistentSet(lits);
   }
 
@@ -209,25 +222,32 @@ class Setup {
       if (c.empty()) {
         contains_empty_clause_ = true;
       }
-//      if (clause_bucket(i) >= last_bucket()) {
-//        buckets_.resize(buckets_.size() + 1, Bucket(c.lhs_bloom()));
-//      } else {
-//        buckets_.back().Add(c.lhs_bloom());
-//      }
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+      if (clause_bucket(i) >= last_bucket()) {
+        buckets_.resize(buckets_.size() + 1, Bucket(c.lhs_bloom()));
+      } else {
+        buckets_.back().Add(c.lhs_bloom());
+      }
+#endif
       RemoveSubsumed(i);
       if (c.unit()) {
         const Literal a = c.head();
         units_.push_back(a);
-        //for (BucketIndex b : buckets()) {
-          //if (bucket_union(b).PossiblyOverlaps(c.lhs_bloom())) {
-            //for (ClauseIndex j : bucket_clauses(b)) {
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+        for (BucketIndex b : buckets()) {
+          if (bucket_union(b).PossiblyOverlaps(c.lhs_bloom())) {
+            for (ClauseIndex j : bucket_clauses(b)) {
+#else
             for (ClauseIndex j : clauses()) {
+#endif
               const internal::Maybe<Clause> d = clause(j).PropagateUnit(a);
               if (d) {
                 AddUnprocessedClause(d.val);
               }
-            //}
-          //}
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+            }
+          }
+#endif
         }
       }
     }
@@ -235,16 +255,21 @@ class Setup {
 
   void RemoveSubsumed(const ClauseIndex i) {
     const Clause& c = clause(i);
-    //for (BucketIndex b : buckets()) {
-      //if (c.lhs_bloom().PossiblySubsetOf(bucket_union(b))) {
-        //for (ClauseIndex j : bucket_clauses(b)) {
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+    for (BucketIndex b : buckets()) {
+      if (c.lhs_bloom().PossiblySubsetOf(bucket_union(b))) {
+        for (ClauseIndex j : bucket_clauses(b)) {
+#else
         for (ClauseIndex j : clauses()) {
+#endif
           if (i != j && c.Subsumes(clause(j))) {
             Disable(j);
           }
         }
-      //}
-    //}
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+      }
+    }
+#endif
   }
 
   Clause PropagateUnits(Clause c) {
@@ -282,8 +307,10 @@ class Setup {
   UnitIndex first_unit() const { return first_unit_; }
   UnitIndex last_unit()  const { return first_unit_ + units_.size(); }
 
-//  BucketIndex first_bucket() const { return first_bucket_; }
-//  BucketIndex last_bucket()  const { return first_bucket_ + buckets_.size(); }
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+  BucketIndex first_bucket() const { return first_bucket_; }
+  BucketIndex last_bucket()  const { return first_bucket_ + buckets_.size(); }
+#endif
 
   void Disable(ClauseIndex i) { assert(0 <= i && i < last_clause()); del_[i] = true; }
   bool enabled(ClauseIndex i) const { assert(0 <= i && i < last_clause()); return !del_[i]; }
@@ -310,53 +337,55 @@ class Setup {
   }
 
 
-//  internal::int_iterators<BucketIndex> buckets() const { return internal::int_range(0u, last_bucket()); }
-//
-//  const internal::BloomSet<Term>& bucket_union(BucketIndex i) const {
-//    assert(0 <= i && i < last_bucket());
-//    const Setup* s = this;
-//    while (i < s->first_bucket()) {
-//      assert(s->parent_);
-//      s = s->parent_;
-//    }
-//    assert(s->first_bucket() <= i && i < s->last_bucket());
-//    return s->buckets_[i - s->first_bucket()].union_;
-//  }
-//
-//  const internal::BloomSet<Term>& bucket_intersection(BucketIndex i) const {
-//    assert(0 <= i && i < last_bucket());
-//    const Setup* s = this;
-//    while (i < s->first_bucket()) {
-//      assert(s->parent_);
-//      s = s->parent_;
-//    }
-//    assert(s->first_bucket() <= i && i < s->last_bucket());
-//    return s->buckets_[i - s->first_bucket()].intersection_;
-//  }
-//
-//  ClauseRange bucket_clauses(BucketIndex i) const {
-//    assert(0 <= i && i < last_bucket());
-//    const Setup* s = this;
-//    while (i < s->first_bucket()) {
-//      assert(s->parent_);
-//      s = s->parent_;
-//    }
-//    assert(s->first_bucket() <= i && i < s->last_bucket());
-//    const ClauseIndex first = s->first_clause() + (i - s->first_bucket()) * kBucketSize;
-//    const ClauseIndex last  = std::min(first + kBucketSize, s->last_clause());
-//    return mk_clause_range(first, last);
-//  }
-//
-//  BucketIndex clause_bucket(ClauseIndex i) const {
-//    assert(0 <= i && i < last_clause());
-//    const Setup* s = this;
-//    while (i < s->first_clause()) {
-//      assert(s->parent_);
-//      s = s->parent_;
-//    }
-//    assert(s->first_clause() <= i && i < s->last_clause());
-//    return s->first_bucket() + (i - s->first_clause()) / kBucketSize;
-//  }
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+  internal::int_iterators<BucketIndex> buckets() const { return internal::int_range(0u, last_bucket()); }
+
+  const internal::BloomSet<Term>& bucket_union(BucketIndex i) const {
+    assert(0 <= i && i < last_bucket());
+    const Setup* s = this;
+    while (i < s->first_bucket()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_bucket() <= i && i < s->last_bucket());
+    return s->buckets_[i - s->first_bucket()].union_;
+  }
+
+  const internal::BloomSet<Term>& bucket_intersection(BucketIndex i) const {
+    assert(0 <= i && i < last_bucket());
+    const Setup* s = this;
+    while (i < s->first_bucket()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_bucket() <= i && i < s->last_bucket());
+    return s->buckets_[i - s->first_bucket()].intersection_;
+  }
+
+  ClauseRange bucket_clauses(BucketIndex i) const {
+    assert(0 <= i && i < last_bucket());
+    const Setup* s = this;
+    while (i < s->first_bucket()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_bucket() <= i && i < s->last_bucket());
+    const ClauseIndex first = s->first_clause() + (i - s->first_bucket()) * kBucketSize;
+    const ClauseIndex last  = std::min(first + kBucketSize, s->last_clause());
+    return mk_clause_range(first, last);
+  }
+
+  BucketIndex clause_bucket(ClauseIndex i) const {
+    assert(0 <= i && i < last_clause());
+    const Setup* s = this;
+    while (i < s->first_clause()) {
+      assert(s->parent_);
+      s = s->parent_;
+    }
+    assert(s->first_clause() <= i && i < s->last_clause());
+    return s->first_bucket() + (i - s->first_clause()) / kBucketSize;
+  }
+#endif
 
   const Setup* parent_ = nullptr;
 
@@ -372,9 +401,11 @@ class Setup {
   std::vector<Literal> units_;
   UnitIndex first_unit_ = parent_ != nullptr ? parent_->last_unit() : 0;
 
-//  std::vector<Bucket> buckets_;
-//  BucketIndex first_bucket_ = parent_ != nullptr ? parent_->last_bucket() : 0;
-//  static constexpr BucketIndex kBucketSize = 128;
+#if defined(BLOOM) && defined(BLOOM_INDEX)
+  std::vector<Bucket> buckets_;
+  BucketIndex first_bucket_ = parent_ != nullptr ? parent_->last_bucket() : 0;
+  static constexpr BucketIndex kBucketSize = 128;
+#endif
 
 #ifndef NDEBUG
   mutable bool spawned_ = false;

@@ -336,7 +336,7 @@ class Parser {
           return Success<Term>(ctx->LookupName(id));
         } else if (ctx->IsRegisteredFunction(id)) {
           Symbol f = ctx->LookupFunction(id);
-          if (f.arity() != args_a.size()) {
+          if (static_cast<size_t>(f.arity()) != args_a.size()) {
             return Error<Term>(LELA_MSG("Wrong number of arguments for "+ id));
           }
           Term::Vector args;

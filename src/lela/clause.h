@@ -41,7 +41,12 @@ class Clause {
 
   Clause() = default;
 
-  explicit Clause(const Literal a) : size_(!a.invalid() ? 1 : 0) { lits1_[0] = a; InitBloom(); }
+  explicit Clause(const Literal a) : size_(!a.invalid() ? 1 : 0) {
+    lits1_[0] = a;
+#if defined(BLOOM)
+    InitBloom();
+#endif
+  }
 
   Clause(std::initializer_list<Literal> lits) : Clause(lits.size(), lits.begin(), lits.end()) {}
 
@@ -58,7 +63,9 @@ class Clause {
       lits2_[i++] = *it++;
     }
     Minimize();
+#if defined(BLOOM)
     InitBloom();
+#endif
   }
 
   Clause(const Clause& c) : Clause(c.size_) {
@@ -66,7 +73,9 @@ class Clause {
     if (size2() > 0) {
       std::memcpy(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal));
     }
+#if defined(BLOOM)
     lhs_bloom_ = c.lhs_bloom_;
+#endif
     assert(!any([](Literal a) { return a.invalid(); }));
     assert(*this == c);
   }
@@ -81,7 +90,9 @@ class Clause {
       }
       std::memcpy(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal));
     }
+#if defined(BLOOM)
     lhs_bloom_ = c.lhs_bloom_;
+#endif
     assert(!any([](Literal a) { return a.invalid(); }));
     return *this;
   }
@@ -91,7 +102,9 @@ class Clause {
 
   bool operator==(const Clause& c) const {
     return size_ == c.size_ &&
+#if defined(BLOOM)
            lhs_bloom_ == c.lhs_bloom_ &&
+#endif
            std::memcmp(lits1_, c.lits1_, size1() * sizeof(Literal)) == 0 &&
            (size2() == 0 || std::memcmp(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal)) == 0);
   }
@@ -116,7 +129,9 @@ class Clause {
   bool valid()   const { return any([](const Literal a) { return a.valid(); }); }
   bool invalid() const { return empty(); }
 
+#if defined(BLOOM)
   internal::BloomSet<Term> lhs_bloom() const { return lhs_bloom_; }
+#endif
 
   bool Subsumes(const Clause& c) const {
     return Subsumes(*this, c);
@@ -125,9 +140,11 @@ class Clause {
   static bool Subsumes(const Clause& c, const Clause& d) {
     assert(c.primitive());
     assert(d.primitive());
+#if defined(BLOOM)
     if (!c.lhs_bloom_.PossiblySubsetOf(d.lhs_bloom_)) {
       return false;
     }
+#endif
     size_t i = 0;
     size_t j = 0;
     for (; i < c.size(); ++i) {
@@ -150,9 +167,11 @@ next:
   internal::Maybe<Clause> PropagateUnit(const Literal b) const {
     assert(primitive());
     assert(b.primitive());
+#if defined(BLOOM)
     if (!lhs_bloom_.PossiblyContains(b.lhs())) {
       return internal::Nothing;
     }
+#endif
     Clause c(size());
     c.size_ = 0;
     for (size_t i = 0; i < size(); ++i) {
@@ -161,7 +180,9 @@ next:
         c[c.size_++] = a;
       }
     }
+#if defined(BLOOM)
     c.InitBloom();
+#endif
     return c.size() != size() ? internal::Just(c) : internal::Nothing;
   }
 
@@ -186,7 +207,9 @@ next:
 next:
       ;
     }
+#if defined(BLOOM)
     c.InitBloom();
+#endif
     return c.size() != size() ? internal::Just(c) : internal::Nothing;
   }
 
@@ -195,11 +218,19 @@ next:
   bool quasiprimitive() const { return all([](Literal a) { return a.quasiprimitive(); }); }
 
   bool Mentions(Literal a) const {
-    return lhs_bloom_.PossiblyContains(a.lhs()) && any([a](Literal b) { return a == b; });
+    return
+#if defined(BLOOM)
+        lhs_bloom_.PossiblyContains(a.lhs()) &&
+#endif
+        any([a](Literal b) { return a == b; });
   }
 
   bool MentionsLhs(Term t) const {
-    return lhs_bloom_.PossiblyContains(t) && any([t](Literal a) { return a.lhs() == t; });
+    return
+#if defined(BLOOM)
+        lhs_bloom_.PossiblyContains(t) &&
+#endif
+        any([t](Literal a) { return a.lhs() == t; });
   }
 
   template<typename UnaryPredicate>
@@ -272,15 +303,19 @@ next:
     assert(!any([](Literal a) { return a.invalid(); }));
   }
 
+#if defined(BLOOM)
   void InitBloom() {
     lhs_bloom_.Clear();
     for (size_t i = 0; i < size(); ++i) {
       lhs_bloom_.Add((*this)[i].lhs());
     }
   }
+#endif
 
   size_t size_ = 0;
+#if defined(BLOOM)
   internal::BloomSet<Term> lhs_bloom_;
+#endif
   Literal lits1_[kArraySize];
   std::unique_ptr<Literal[]> lits2_;
 };
