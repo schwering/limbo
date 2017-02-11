@@ -108,8 +108,6 @@ class Setup {
     State state_ = setup_.Save();
   };
 
-  typedef std::unordered_set<Term> TermSet;
-
   Setup() = default;
   Setup(const Setup&) = delete;
   Setup& operator=(const Setup&) = delete;
@@ -221,11 +219,37 @@ class Setup {
   }
 
   bool Consistent() const {
-    return true;
+    if (empty_clause_) {
+      return false;
+    }
+    std::unordered_set<Literal, Literal::LhsHash> lits;
+    for (size_t i : clauses()) {
+      const Clause c = clause(i);
+      lits.insert(c.begin(), c.end());
+    }
+    return ConsistentSet(lits);
   }
 
-  bool LocallyConsistent(const TermSet& ts) const {
-    return true;
+  bool LocallyConsistent(const std::unordered_set<Term>& ts) const {
+#if defined(BLOOM)
+    internal::BloomSet<Term> bs;
+    for (Term t : ts) {
+      assert(t.primitive());
+      bs.Add(t);
+    }
+#endif
+    std::unordered_set<Literal, Literal::LhsHash> lits;
+    for (size_t i : clauses()) {
+      const Clause c = clause(i);
+      if (
+#if defined(BLOOM)
+          bs.PossiblyOverlaps(c.lhs_bloom()) &&
+#endif
+          std::any_of(c.begin(), c.end(), [&ts](Literal a) { return ts.find(a.lhs()) != ts.end(); })) {
+        lits.insert(c.begin(), c.end());
+      }
+    }
+    return ConsistentSet(lits);
   }
 
   bool Determines(Term lhs) const { return units_.Determines(lhs); }
@@ -420,6 +444,23 @@ class Setup {
       }
     }
     return false;
+  }
+
+  static bool ConsistentSet(const std::unordered_set<Literal, Literal::LhsHash>& lits) {
+    for (const Literal a : lits) {
+      assert(lits.bucket_count() > 0);
+      size_t b = lits.bucket(a);
+      auto begin = lits.begin(b);
+      auto end   = lits.end(b);
+      for (auto it = begin; it != end; ++it) {
+        const Literal b = *it;
+        assert(Literal::Complementary(a, b) == Literal::Complementary(b, a));
+        if (Literal::Complementary(a, b)) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   bool empty_clause_ = false;

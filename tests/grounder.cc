@@ -151,7 +151,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     const lela::Setup& s = g.Ground();
     // Grounding should be [a=n1].
     EXPECT_EQ(unique_length(s), 1);
-    EXPECT_FALSE(s.Consistent());
+    EXPECT_TRUE(s.Consistent());
   }
 
   {
