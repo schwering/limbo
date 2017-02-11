@@ -182,7 +182,9 @@ class Solver {
         const TermSet& ns = names[t.sort()];
         assert(!ns.empty());
         return std::all_of(ns.begin(), ns.end(), [&, this](Term n) {
-          return Split(grounder_.Split(s, Literal::Eq(t, n)), split_terms, names, k-1, phi);
+          Setup::WeakCopy split = s.weak_copy();
+          split.AddUnit(Literal::Eq(t, n));
+          return Split(split.setup(), split_terms, names, k-1, phi);
         });
       });
     } else {
@@ -254,13 +256,13 @@ class Solver {
       assert(!assign_lits.empty());
       return std::any_of(assign_lits.begin(), assign_lits.end(), [&](const LiteralSet& lits) {
         assert(!lits.empty());
-        Setup ss = s.Spawn();
+        Setup::WeakCopy split = s.weak_copy();
         for (Literal a : lits) {
-          if (!ss.Subsumes(Clause{a.flip()})) {
-            ss.AddClause(Clause{a});
+          if (!split.setup().Subsumes(Clause{a.flip()})) {
+            split.AddUnit(a);
           }
         }
-        return Assign(ss, assign_lits, names, k-1, phi, assume_consistent, relevant_terms);
+        return Assign(split.setup(), assign_lits, names, k-1, phi, assume_consistent, relevant_terms);
       });
     } else {
       if (!assume_consistent && !s.Consistent()) {

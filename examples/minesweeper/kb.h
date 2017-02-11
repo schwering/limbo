@@ -50,7 +50,7 @@ std::set<Container> Subsets(const Container& s, size_t n) {
 
 class KnowledgeBase {
  public:
-  KnowledgeBase(const Game* g, int max_k)
+  KnowledgeBase(const Game* g, size_t max_k)
       : g_(g),
         max_k_(max_k),
         Bool(ctx_.CreateSort()),
@@ -80,7 +80,7 @@ class KnowledgeBase {
     processed_.resize(g_->n_fields(), false);
   }
 
-  int max_k() const { return max_k_; }
+  size_t max_k() const { return max_k_; }
 
   lela::Solver* solver() { return ctx_.solver(); }
   const lela::Solver& solver() const { return ctx_.solver(); }
@@ -178,7 +178,7 @@ class KnowledgeBase {
   }
 
   const Game* g_;
-  int max_k_;
+  size_t max_k_;
 
   lela::format::cpp::Context ctx_;
 

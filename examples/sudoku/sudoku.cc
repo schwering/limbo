@@ -50,7 +50,7 @@ inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::o
   const bool solved = g.solved() && g.legal_solution();
   std::cout << (solved ? colors.green() : colors.red()) << "Solution is " << (solved ? "" : "il") << "legal";
   std::cout << "  [max-k: " << kb.max_k() << "; ";
-  for (int k = 0; k < split_counts.size(); ++k) {
+  for (size_t k = 0; k < split_counts.size(); ++k) {
     const int n = split_counts[k];
     if (n > 0) {
       std::cout << "level " << k << ": " << n << "; ";

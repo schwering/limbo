@@ -20,6 +20,19 @@ struct EqSubstitute {
   const Term post_;
 };
 
+static internal::Maybe<Clause> PropagateUnit(const Clause& c, Literal a) {
+  Clause cc = c;
+  cc.PropagateUnit(a);
+  return c != cc ? internal::Just(cc) : internal::Nothing;
+}
+
+template<typename T>
+static internal::Maybe<Clause> PropagateUnits(const Clause& c, const T& lits) {
+  Clause cc = c;
+  cc.PropagateUnits(lits);
+  return c != cc ? internal::Just(cc) : internal::Nothing;
+}
+
 TEST(ClauseTest, valid_invalid) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
@@ -116,37 +129,183 @@ TEST(ClauseTest, Subsumes) {
   {
     Clause c1({Literal::Eq(f1,n1), Literal::Neq(n1,n1)});
     internal::Maybe<Clause> c2;
-    c2 = c1.PropagateUnit(Literal::Neq(f1,n1));
+    c2 = PropagateUnit(c1, Literal::Neq(f1,n1));
+    EXPECT_TRUE(bool(c2));
     EXPECT_TRUE(c2 && c2.val.empty());
     EXPECT_TRUE(c2.val.Subsumes(c1));
     EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
-    c2 = c1.PropagateUnit(Literal::Eq(f1,n2));
+    c2 = PropagateUnit(c1, Literal::Eq(f1,n2));
     EXPECT_TRUE(c2 && c2.val.empty());
     EXPECT_TRUE(c2.val.Subsumes(c1));
     EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
-    c2 = c1.PropagateUnit(Literal::Eq(f1,n1));
+    c2 = PropagateUnit(c1, Literal::Eq(f1,n1));
     EXPECT_FALSE(c2);
   }
 
   {
     Clause c1({Literal::Eq(f1,n1), Literal::Neq(f3,n1)});
     internal::Maybe<Clause> c2;
-    c2 = c1.PropagateUnit(Literal::Neq(f1,n1));
+    c2 = PropagateUnit(c1, Literal::Neq(f1,n1));
     EXPECT_TRUE(bool(c2));
     EXPECT_TRUE(c2.val.Subsumes(c1));
     EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
-    c2 = c1.PropagateUnit(Literal::Eq(f1,n2));
+    c2 = PropagateUnit(c1, Literal::Eq(f1,n2));
     EXPECT_TRUE(bool(c2));
     EXPECT_TRUE(c2.val.Subsumes(c1));
     EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
-    c2 = c1.PropagateUnit(Literal::Eq(f1,n1));
+    c2 = PropagateUnit(c1, Literal::Eq(f1,n1));
     EXPECT_FALSE(bool(c2));
-    c2 = c1.PropagateUnit(Literal::Eq(f3,n1));
+    c2 = PropagateUnit(c1, Literal::Eq(f3,n1));
     EXPECT_TRUE(bool(c2));
     EXPECT_TRUE(c2.val.Subsumes(c1));
     EXPECT_EQ(c2.val, Clause{Literal::Eq(f1,n1)});
-    c2 = c1.PropagateUnit(Literal::Eq(f3,n2));
+    c2 = PropagateUnit(c1, Literal::Eq(f3,n2));
     EXPECT_FALSE(c2);
+  }
+
+  {
+    Clause c1({Literal::Eq(f1,n1), Literal::Neq(n1,n1)});
+    internal::Maybe<Clause> c2;
+    c2 = PropagateUnits(c1, std::vector<Literal>{Literal::Neq(f1,n1)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2 && c2.val.empty());
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
+    c2 = PropagateUnits(c1, std::vector<Literal>{Literal::Eq(f1,n2)});
+    EXPECT_TRUE(c2 && c2.val.empty());
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
+    c2 = PropagateUnits(c1, std::vector<Literal>{Literal::Eq(f1,n1)});
+    EXPECT_FALSE(c2);
+  }
+
+  {
+    Clause c1({Literal::Eq(f1,n1), Literal::Neq(n1,n1)});
+    internal::Maybe<Clause> c2;
+    c2 = PropagateUnits(c1, std::set<Literal>{Literal::Neq(f1,n1)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2 && c2.val.empty());
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
+    c2 = PropagateUnits(c1, std::set<Literal>{Literal::Eq(f1,n2)});
+    EXPECT_TRUE(c2 && c2.val.empty());
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
+    c2 = PropagateUnits(c1, std::set<Literal>{Literal::Eq(f1,n1)});
+    EXPECT_FALSE(c2);
+  }
+
+  {
+    Clause c1({Literal::Eq(f1,n1), Literal::Neq(n1,n1)});
+    internal::Maybe<Clause> c2;
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>{Literal::Neq(f1,n1)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2 && c2.val.empty());
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>{Literal::Eq(f1,n2)});
+    EXPECT_TRUE(c2 && c2.val.empty());
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(n1,n1)});
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>{Literal::Eq(f1,n1)});
+    EXPECT_FALSE(c2);
+  }
+
+  {
+    Clause c1({Literal::Eq(f1,n1), Literal::Neq(f3,n1)});
+    internal::Maybe<Clause> c2;
+    c2 = PropagateUnits(c1, std::vector<Literal>{Literal::Neq(f1,n1)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
+    c2 = PropagateUnits(c1, std::set<Literal>{Literal::Neq(f1,n1)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>{Literal::Neq(f1,n1)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
+    c2 = PropagateUnits(c1, std::vector<Literal>{Literal::Eq(f1,n2)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
+    c2 = PropagateUnits(c1, std::set<Literal>{Literal::Eq(f1,n2)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>{Literal::Eq(f1,n2)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Neq(f3,n1)});
+    c2 = PropagateUnits(c1, std::vector<Literal>{Literal::Eq(f1,n1)});
+    EXPECT_FALSE(bool(c2));
+    c2 = PropagateUnits(c1, std::set<Literal>{Literal::Eq(f1,n1)});
+    EXPECT_FALSE(bool(c2));
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>{Literal::Eq(f1,n1)});
+    EXPECT_FALSE(bool(c2));
+    c2 = PropagateUnits(c1, std::vector<Literal>{Literal::Eq(f3,n1)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Eq(f1,n1)});
+    c2 = PropagateUnits(c1, std::set<Literal>{Literal::Eq(f3,n1)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Eq(f1,n1)});
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>{Literal::Eq(f3,n1)});
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_EQ(c2.val, Clause{Literal::Eq(f1,n1)});
+    c2 = PropagateUnits(c1, std::vector<Literal>{Literal::Eq(f3,n2)});
+    EXPECT_FALSE(c2);
+    c2 = PropagateUnits(c1, std::set<Literal>{Literal::Eq(f3,n2)});
+    EXPECT_FALSE(c2);
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>{Literal::Eq(f3,n2)});
+    EXPECT_FALSE(c2);
+  }
+
+  {
+    std::vector<Literal> lits{Literal::Eq(f1,n2), Literal::Eq(f3,n1)};
+    Clause c1({Literal::Eq(f1,n1), Literal::Neq(f3,n1)});
+    internal::Maybe<Clause> c2;
+    c2 = PropagateUnits(c1, std::set<Literal>(lits.begin(), lits.end()));
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_TRUE(c2.val.empty());
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>(lits.begin(), lits.end()));
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_TRUE(c2.val.empty());
+    c2 = PropagateUnits(c1, std::vector<Literal>(lits.begin(), lits.end()));
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_TRUE(c2.val.empty());
+    c2 = PropagateUnits(c1, std::vector<Literal>(lits.begin(), lits.end()));
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_TRUE(c2.val.empty());
+  }
+
+  {
+    std::vector<Literal> lits{Literal::Eq(f1,n2), Literal::Eq(f3,n1), Literal::Eq(f3,n3), Literal::Neq(f3,n1), Literal::Eq(f1,n2)};
+    Clause c1({Literal::Eq(f1,n1), Literal::Neq(f3,n1)});
+    internal::Maybe<Clause> c2;
+    c2 = PropagateUnits(c1, lits);
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_TRUE(c2.val.empty());
+    c2 = PropagateUnits(c1, std::unordered_set<Literal, Literal::LhsHash>(lits.begin(), lits.end()));
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_TRUE(c2.val.empty());
+    c2 = PropagateUnits(c1, std::vector<Literal>(lits.begin(), lits.end()));
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_TRUE(c2.val.empty());
+    c2 = PropagateUnits(c1, std::vector<Literal>(lits.begin(), lits.end()));
+    EXPECT_TRUE(bool(c2));
+    EXPECT_TRUE(c2.val.Subsumes(c1));
+    EXPECT_TRUE(c2.val.empty());
   }
 
   {

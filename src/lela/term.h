@@ -54,9 +54,9 @@ std::unique_ptr<T> Singleton<T>::instance_;
 
 class Symbol {
  public:
-  typedef internal::i32 Id;
-  typedef internal::i8 Sort;
-  typedef internal::i8 Arity;
+  typedef internal::u32 Id;
+  typedef internal::u8 Sort;
+  typedef internal::u8 Arity;
 
   class Factory : private Singleton<Factory> {
    public:
@@ -358,9 +358,9 @@ bool Term::Unify(Term l, Term r, Substitution* sub) {
       }
     }
     return true;
-  } else if (l.variable() && (config & kUnifyLeft) != 0 != 0 && sub->Add(l, r)) {
+  } else if (l.variable() && (config & kUnifyLeft) != 0 && sub->Add(l, r)) {
     return (config & kOccursCheck) == 0 || !r.Mentions(l);
-  } else if (r.variable() && (config & kUnifyRight) != 0 != 0 && sub->Add(r, l)) {
+  } else if (r.variable() && (config & kUnifyRight) != 0 && sub->Add(r, l)) {
     return (config & kOccursCheck) == 0 || !l.Mentions(r);
   } else {
     return false;

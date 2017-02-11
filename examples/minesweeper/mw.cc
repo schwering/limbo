@@ -14,7 +14,7 @@
 #include "printer.h"
 #include "timer.h"
 
-inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, int max_k,
+inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, size_t max_k,
                  const Colors& colors, std::ostream* os) {
   Timer t;
   Game g(width, height, n_mines, seed);
@@ -51,7 +51,7 @@ inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, int m
     *os << colors.red() << "You loose :-(";
   }
   *os << "  [width: " << g.width() << "; height: " << g.height() << "; height: " << g.n_mines() << "; seed: " << g.seed() << "; max-k: " << max_k << "; ";
-  for (int k = 0; k < split_counts.size(); ++k) {
+  for (size_t k = 0; k < split_counts.size(); ++k) {
     const int n = split_counts[k];
     if (n > 0) {
       if (k == max_k + 1) {

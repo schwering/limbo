@@ -60,7 +60,7 @@ class KnowledgeBaseAgent : public Agent {
     }
 
     // First look for a field which is known not to be a mine.
-    for (int k = 0; k <= kb_->max_k(); ++k) {
+    for (size_t k = 0; k <= kb_->max_k(); ++k) {
       std::vector<bool> inspected(g_->n_fields(), false);
       const std::size_t max_radius = std::max(std::max(last_point_.x, g_->width() - last_point_.x),
                                               std::max(last_point_.y, g_->height() - last_point_.y));
@@ -127,7 +127,7 @@ class KnowledgeBaseAgent : public Agent {
   }
 
   void set_rectangle(std::vector<bool>* rectangle, int x, int y) {
-    if (0 <= x && x <= g_->width() && 0 <= y && y <= g_->height()) {
+    if (0 <= x && x < static_cast<int>(g_->width()) && 0 <= y && y < static_cast<int>(g_->height())) {
       (*rectangle)[g_->to_index(Point(x, y))] = true;
     }
   }

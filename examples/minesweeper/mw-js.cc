@@ -101,7 +101,7 @@ void Finalize() {
     delete split_counts;
 }
 
-void Init(size_t width, size_t height, size_t n_mines, size_t seed, int max_k) {
+void Init(size_t width, size_t height, size_t n_mines, size_t seed, size_t max_k) {
   Finalize();
   game = new Game(width, height, n_mines, seed);
   kb = new KnowledgeBase(game, max_k);
@@ -142,7 +142,7 @@ bool PlayTurn() {
       std::cout << colors.red() << "You loose :-(";
     }
     std::cout << "  [width: " << game->width() << "; height: " << game->height() << "; height: " << game->n_mines() << "; seed: " << game->seed() << "; max-k: " << kb->max_k() << "; ";
-    for (int k = 0; k < split_counts->size(); ++k) {
+    for (size_t k = 0; k < split_counts->size(); ++k) {
       const int n = (*split_counts)[k];
       if (n > 0) {
         if (k == kb->max_k() + 1) {

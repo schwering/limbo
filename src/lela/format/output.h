@@ -30,6 +30,7 @@
 #include <lela/term.h>
 #include <lela/internal/compar.h>
 #include <lela/internal/hashset.h>
+#include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
@@ -207,16 +208,6 @@ struct PrintLiteralComparator {
       internal::LessComparator<bool>> comp;
 };
 
-struct PrintClauseComparator {
-  typedef Clause value_type;
-
-  bool operator()(const Clause& c1, const Clause& c2) const {
-    return comp(c1, c2);
-  }
-
-  internal::LexicographicContainerComparator<Clause, PrintLiteralComparator> comp;
-};
-
 std::ostream& operator<<(std::ostream& os, const Literal a) {
   os << a.lhs() << ' ' << (a.pos() ? "\u003D" : "\u2260") << ' ' << a.rhs();
   return os;
@@ -225,47 +216,13 @@ std::ostream& operator<<(std::ostream& os, const Literal a) {
 std::ostream& operator<<(std::ostream& os, const Clause& c) {
   std::vector<Literal> vec(c.begin(), c.end());
   std::sort(vec.begin(), vec.end(), PrintLiteralComparator());
-  print_range(os, vec, "[", "]", " \u2228 ");
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const std::vector<Literal>& c) {
-  std::vector<Literal> vec(c.begin(), c.end());
-  std::sort(vec.begin(), vec.end(), PrintLiteralComparator());
-  print_range(os, vec, "[", "]", " \u2228 ");
-  return os;
+  return print_range(os, vec, "[", "]", " \u2228 ");
 }
 
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
-  struct Get {
-    explicit Get(const Setup* owner) : owner_(owner) {}
-    std::vector<Literal> operator()(const Setup::ClauseIndex i) const {
-      // Sort here already so that the sorting of the clauses operators on
-      // sorted clauses. Do not use Clause here, because that class will change
-      // the ordering.
-      const Clause& c = owner_->clause(i);
-      std::vector<Literal> vec(c.begin(), c.end());
-      std::sort(vec.begin(), vec.end(), PrintLiteralComparator());
-      return vec;
-    }
-   private:
-    const Setup* owner_;
-  };
-  struct Comp {
-    bool operator()(const std::vector<Literal>& vec1, const std::vector<Literal>& vec2) const {
-      return comp(vec1.size(), vec1, vec2.size(), vec2);
-    }
-
-    internal::LexicographicComparator<
-        internal::LessComparator<size_t>,
-        internal::LexicographicContainerComparator<std::vector<Literal>, PrintLiteralComparator>> comp;
-  };
-  auto cs = s.clauses();
-  auto r = internal::transform_range(cs.begin(), cs.end(), Get(&s));
-  std::vector<std::vector<Literal>> vec(r.begin(), r.end());
-  std::sort(vec.begin(), vec.end(), Comp());
-  print_range(os, vec, "{ ", "\n}", "\n, ");
-  return os;
+  auto is = s.clauses();
+  auto cs = internal::transform_range(is.begin(), is.end(), [&s](size_t i) { return s.clause(i); });
+  return print_range(os, cs, "{ ", "\n}", "\n, ");
 }
 
 #if 0

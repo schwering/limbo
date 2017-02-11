@@ -24,6 +24,9 @@
 
 #include <algorithm>
 #include <memory>
+#include <set>
+#include <unordered_set>
+#include <vector>
 
 #include <lela/literal.h>
 #include <lela/internal/bloom.h>
@@ -110,17 +113,27 @@ class Clause {
   }
   bool operator!=(const Clause& c) const { return !(*this == c); }
 
+  internal::hash32_t hash() const {
+    internal::hash32_t h = 0;
+    for (size_t i = 0; i < size(); ++i) {
+      h ^= (*this)[i].hash();
+    }
+    return h;
+  }
+
   const_iterator cbegin() const { return const_iterator(this, 0); }
   const_iterator cend()   const { return const_iterator(this, size_); }
 
   const_iterator begin() const { return cbegin(); }
   const_iterator end()   const { return cend(); }
 
-  Literal head() const { return lits1_[0]; }
   const Literal& operator[](size_t i) const {
     assert(i <= size_);
     return i < kArraySize ? lits1_[i] : lits2_[i - kArraySize];
   }
+
+  Literal head() const { return lits1_[0]; }
+  Literal last() const { return operator[](size() - 1); }
 
   bool   empty() const { return size_ == 0; }
   bool   unit()  const { return size() == 1; }
@@ -133,8 +146,51 @@ class Clause {
   internal::BloomSet<Term> lhs_bloom() const { return lhs_bloom_; }
 #endif
 
-  bool Subsumes(const Clause& c) const {
-    return Subsumes(*this, c);
+  static bool Subsumes(const Literal a, const Clause c) {
+    assert(a.primitive());
+    assert(c.primitive());
+#if defined(BLOOM)
+    if (!c.lhs_bloom_.PossiblyContains(a.lhs())) {
+      return false;
+    }
+#endif
+    size_t i = 0;
+    for (; i < c.size() && a.lhs() > c[i].lhs(); ++i) {
+    }
+    for (; i < c.size() && a.lhs() == c[i].lhs(); ++i) {
+      if (a.Subsumes(c[i])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool Subsumes(const Literal a, const Literal b, const Clause c) {
+    assert(a < b);
+    assert(c.primitive());
+#if defined(BLOOM)
+    if (!c.lhs_bloom_.PossiblyContains(a.lhs()) || !c.lhs_bloom_.PossiblyContains(b.lhs())) {
+      return false;
+    }
+#endif
+    size_t i = 0;
+    for (; i < c.size() && a.lhs() > c[i].lhs(); ++i) {
+    }
+    for (; i < c.size() && a.lhs() == c[i].lhs(); ++i) {
+      if (a.Subsumes(c[i])) {
+        goto next;
+      }
+    }
+    return false;
+next:
+    for (; i < c.size() && b.lhs() > c[i].lhs(); ++i) {
+    }
+    for (; i < c.size() && b.lhs() == c[i].lhs(); ++i) {
+      if (b.Subsumes(c[i])) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static bool Subsumes(const Clause& c, const Clause& d) {
@@ -150,7 +206,7 @@ class Clause {
     for (; i < c.size(); ++i) {
       for (; j < d.size() && c[i].lhs() > d[j].lhs(); ++j) {
       }
-      for (auto k = j; k < d.size() && c[i].lhs() == d[k].lhs(); ++k) {
+      for (size_t k = j; k < d.size() && c[i].lhs() == d[k].lhs(); ++k) {
         if (c[i].Subsumes(d[k])) {
           goto next;
         }
@@ -164,53 +220,90 @@ next:
     return true;
   }
 
-  internal::Maybe<Clause> PropagateUnit(const Literal b) const {
+  bool Subsumes(const Clause& c) const { return Subsumes(*this, c); }
+
+  void PropagateUnit(const Literal b) {
     assert(primitive());
     assert(b.primitive());
 #if defined(BLOOM)
     if (!lhs_bloom_.PossiblyContains(b.lhs())) {
-      return internal::Nothing;
+      return;
     }
 #endif
-    Clause c(size());
-    c.size_ = 0;
     for (size_t i = 0; i < size(); ++i) {
       const Literal a = (*this)[i];
-      if (!Literal::Complementary(a, b)) {
-        c[c.size_++] = a;
+      if (Literal::Complementary(a, b)) {
+        Nullify(i);
       }
     }
+    RemoveNulls();
 #if defined(BLOOM)
-    c.InitBloom();
+    InitBloom();
 #endif
-    return c.size() != size() ? internal::Just(c) : internal::Nothing;
   }
 
-  template<typename ForwardIt>
-  internal::Maybe<Clause> PropagateUnits(ForwardIt unit_begin, ForwardIt unit_end) const {
+  void PropagateUnits(const std::set<Literal>& units) {
     assert(primitive());
-    auto it = unit_begin;
-    auto end = unit_end;
-    Clause c(size());
-    c.size_ = 0;
+    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
+    auto it = units.begin();
+    auto end = units.end();
     for (size_t i = 0; i < size(); ++i) {
       const Literal a = (*this)[i];
-      for (; it != end && a.lhs() > it->lhs(); ++it) {
-        assert(a.primitive());
-      }
+      for (; it != end && a.lhs() > it->lhs(); ++it) {}
       for (auto jt = it; jt != end && a.lhs() == jt->lhs(); ++jt) {
         if (Literal::Complementary(a, *jt)) {
-          goto next;
+          Nullify(i);
+          break;
         }
       }
-      c[c.size_++] = a;
-next:
-      ;
     }
+    RemoveNulls();
 #if defined(BLOOM)
-    c.InitBloom();
+    InitBloom();
 #endif
-    return c.size() != size() ? internal::Just(c) : internal::Nothing;
+  }
+
+  void PropagateUnits(const std::unordered_set<Literal, Literal::LhsHash>& units) {
+    assert(primitive());
+    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
+    for (size_t i = 0; i < size(); ++i) {
+      const Literal a = (*this)[i];
+      if (units.bucket_count() > 0) {
+        auto bucket = units.bucket(a);
+        for (auto it = units.begin(bucket), end = units.end(bucket); it != end; ++it) {
+          if (Literal::Complementary(a, *it)) {
+            Nullify(i);
+            break;
+          }
+        }
+      }
+    }
+    RemoveNulls();
+#if defined(BLOOM)
+    InitBloom();
+#endif
+  }
+
+  void PropagateUnits(const std::vector<Literal>& units) {
+    assert(primitive());
+    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
+    for (Literal b : units) {
+#if defined(BLOOM)
+      if (!lhs_bloom_.PossiblyContains(b.lhs())) {
+        continue;
+      }
+#endif
+      for (size_t i = 0; i < size(); ++i) {
+        const Literal a = (*this)[i];
+        if (!a.null() && Literal::Complementary(a, b)) {
+          Nullify(i);
+        }
+      }
+    }
+    RemoveNulls();
+#if defined(BLOOM)
+    InitBloom();
+#endif
   }
 
   bool ground()         const { return all([](Literal a) { return a.ground(); }); }
@@ -295,9 +388,19 @@ next:
   iterator begin() { return iterator(this, 0); }
   iterator end()   { return iterator(this, size_); }
 
+  void Nullify(size_t i) {
+    (*this)[i] = Literal();
+  }
+
+  void RemoveNulls() {
+    iterator new_end = std::remove_if(begin(), end(), [](const Literal a) { return a.null(); });
+    size_ = new_end - begin();
+    assert(!any([](Literal a) { return a.null(); }));
+  }
+
   void Minimize() {
     iterator new_end = std::remove_if(begin(), end(), [](const Literal a) { return a.invalid(); });
-    std::sort(begin(), new_end, [](Literal a, Literal b) { return a < b; });
+    std::sort(begin(), new_end);
     new_end = std::unique(begin(), new_end);
     size_ = new_end - begin();
     assert(!any([](Literal a) { return a.invalid(); }));
@@ -321,6 +424,21 @@ next:
 };
 
 }  // namespace lela
+
+
+namespace std {
+
+template<>
+struct hash<lela::Clause> {
+  lela::internal::hash32_t operator()(const lela::Clause& a) const { return a.hash(); }
+};
+
+template<>
+struct equal_to<lela::Clause> {
+  bool operator()(const lela::Clause& a, const lela::Clause& b) const { return a == b; }
+};
+
+}  // namespace std
 
 #endif  // LELA_CLAUSE_H_
 

@@ -355,39 +355,42 @@ filter_range(Range r, UnaryPredicate pred) {
 }
 
 template<typename InputIt1, typename InputIt2>
+struct joined_iterator {
+  typedef std::ptrdiff_t difference_type;
+  typedef typename InputIt1::value_type value_type;
+  typedef typename InputIt1::pointer pointer;
+  typedef typename InputIt1::reference reference;
+  typedef typename std::conditional<
+      std::is_convertible<typename InputIt1::iterator_category, std::forward_iterator_tag>::value &&
+      std::is_convertible<typename InputIt2::iterator_category, std::forward_iterator_tag>::value,
+      std::forward_iterator_tag, std::input_iterator_tag>::type iterator_category;
+  typedef iterator_proxy<InputIt1> proxy;
+
+  joined_iterator() = default;
+  joined_iterator(InputIt1 it1, InputIt1 end1, InputIt2 it2) : it1_(it1), end1_(end1), it2_(it2) {}
+
+  bool operator==(const joined_iterator& it) const { return it1_ == it.it1_ && it2_ == it.it2_; }
+  bool operator!=(const joined_iterator& it) const { return !(*this == it); }
+
+  reference operator*() const { return it1_ != end1_ ? *it1_ : *it2_; }
+  joined_iterator& operator++() {
+    if (it1_ != end1_)  ++it1_;
+    else                ++it2_;
+    return *this;
+  }
+
+  pointer operator->() const { return it1_ != end1_ ? it1_.operator->() : it2_.operator->(); }
+  proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
+
+ private:
+  InputIt1 it1_;
+  InputIt1 end1_;
+  InputIt2 it2_;
+};
+
+template<typename InputIt1, typename InputIt2>
 struct joined_iterators {
-  struct iterator {
-    typedef std::ptrdiff_t difference_type;
-    typedef typename InputIt1::value_type value_type;
-    typedef typename InputIt1::pointer pointer;
-    typedef typename InputIt1::reference reference;
-    typedef typename std::conditional<
-        std::is_convertible<typename InputIt1::iterator_category, std::forward_iterator_tag>::value &&
-        std::is_convertible<typename InputIt2::iterator_category, std::forward_iterator_tag>::value,
-        std::forward_iterator_tag, std::input_iterator_tag>::type iterator_category;
-    typedef iterator_proxy<InputIt1> proxy;
-
-    iterator() = default;
-    iterator(InputIt1 it1, InputIt1 end1, InputIt2 it2) : it1_(it1), end1_(end1), it2_(it2) {}
-
-    bool operator==(const iterator& it) const { return it1_ == it.it1_ && it2_ == it.it2_; }
-    bool operator!=(const iterator& it) const { return !(*this == it); }
-
-    reference operator*() const { return it1_ != end1_ ? *it1_ : *it2_; }
-    iterator& operator++() {
-      if (it1_ != end1_)  ++it1_;
-      else                ++it2_;
-      return *this;
-    }
-
-    pointer operator->() const { return it1_ != end1_ ? it1_.operator->() : it2_.operator->(); }
-    proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
-
-   private:
-    InputIt1 it1_;
-    InputIt1 end1_;
-    InputIt2 it2_;
-  };
+  typedef joined_iterator<InputIt1, InputIt2> iterator;
 
   joined_iterators(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2) :
       begin1_(begin1), end1_(end1), begin2_(begin2), end2_(end2) {}

@@ -145,7 +145,7 @@ bool PlayTurn() {
       std::cout << colors.red() << "Solution is illegal";
     }
     std::cout << "  [max-k: " << kb->max_k() << "; ";
-    for (int k = 0; k < split_counts->size(); ++k) {
+    for (size_t k = 0; k < split_counts->size(); ++k) {
       const int n = (*split_counts)[k];
       if (n > 0) {
         std::cout << "level " << k << ": " << n << "; ";

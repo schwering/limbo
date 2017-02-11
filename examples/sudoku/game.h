@@ -39,7 +39,7 @@ class Game {
  public:
   explicit Game(const std::string& cfg) {
     for (int i = 0; i < 9*9; ++i) {
-      const char c = i < cfg.length() ? cfg.at(i) : 0;
+      const char c = i < static_cast<int>(cfg.length()) ? cfg.at(i) : 0;
       const char n = '1' <= c && c <= '9' ? c - '1' + 1 : 0;
       const int x = (i % 9) + 1;
       const int y = (i / 9) + 1;

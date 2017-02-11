@@ -61,12 +61,53 @@
 #include <lela/internal/ints.h>
 #include <lela/internal/iter.h>
 
+#include <iostream>
+
 namespace lela {
+
+namespace format {
+namespace output {
+std::ostream& operator<<(std::ostream& os, const Literal a);
+std::ostream& operator<<(std::ostream& os, const Clause& c);
+}
+}
 
 class Setup {
  public:
   typedef internal::size_t size_t;
-  typedef unsigned int ClauseIndex;
+  enum AddResult { kOK, kSubsumed, kInconsistent };
+
+  struct State {
+   private:
+    friend Setup;
+
+    State(bool empty_clause, size_t n_clauses, size_t n_units) :
+        empty_clause(empty_clause),
+        n_clauses(n_clauses),
+        n_units(n_units) {}
+
+    bool empty_clause;
+    size_t n_clauses;
+    size_t n_units;
+  };
+
+  struct WeakCopy {
+    ~WeakCopy() { const_cast<Setup&>(setup_).Restore(state_); }
+
+    const Setup& setup() const { return setup_; }
+    operator const Setup&() const { return setup_; }
+
+    AddResult AddUnit(Literal a) { return const_cast<Setup&>(setup_).AddUnit(a); }
+
+   private:
+    friend Setup;
+
+    explicit WeakCopy(const Setup& setup) : setup_(setup) {}
+
+    const Setup& setup_;
+    State state_ = setup_.Save();
+  };
+
   typedef std::unordered_set<Term> TermSet;
 
   Setup() = default;
@@ -75,340 +116,296 @@ class Setup {
   Setup(Setup&&) = default;
   Setup& operator=(Setup&&) = default;
 
-  Setup Spawn() const { return Setup(this); }
-
-  const Setup* parent() const { return parent_; }
-
-  void AddClause(const Clause& c) {
-#ifndef NDEBUG
-    assert(!spawned_);
-#endif
-    AddUnprocessedClause(c);
-    ProcessClauses();
+  State Save() const {
+    assert(++saved_ > 0);
+    return State(empty_clause_, clauses_.size(), units_.size());
   }
 
-  bool Subsumes(const Clause& c) const {
-    if (contains_empty_clause_ || c.valid()) {
-      return true;
+  void Restore(State s) {
+    empty_clause_ = s.empty_clause;
+    units_.resize(s.n_units);
+    clauses_.resize(s.n_clauses);
+    assert(saved_-- > 0);
+  }
+
+  WeakCopy weak_copy() const { return WeakCopy(*this); }
+
+  void Minimize() {
+    assert(saved_ == 0);
+    if (empty_clause_) {
+      clauses_.resize(0);
+      units_.resize(0);
+      return;
     }
-    if (c.invalid()) {
-      return contains_empty_clause_;
-    }
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-    for (BucketIndex b : buckets()) {
-      if (bucket_intersection(b).PossiblySubsetOf(c.lhs_bloom())) {
-        for (ClauseIndex i : bucket_clauses(b)) {
-#else
-      for (ClauseIndex i : clauses()) {
-#endif
-          if (clause(i).Subsumes(c)) {
-            return true;
-          }
-        }
-#if defined(BLOOM) && defined(BLOOM_INDEX)
+    for (size_t i = 0; i < units_.size(); ++i) {
+      Literal a = units_[i];
+      if (!a.pos()) {
+        units_.erase(i);
+        AddResult r = units_.push_back(a);
+        assert(r != kInconsistent);
       }
     }
-#endif
-    return false;
+    for (size_t i = clauses_.size(); i > 0; --i) {
+      Clause c;
+      std::swap(c, clauses_[i - 1]);
+      c.PropagateUnits(units_.set());
+      assert(!c.empty());
+      assert(c.size() >= 2 ||
+             any_of(units_.vec().begin(), units_.vec().end(), [&c](Literal a) { return a.Subsumes(c.head()); }));
+      clauses_.erase(i - 1);
+      if (c.size() >= 2 && !Subsumes(c)) {
+        clauses_.push_back(c);
+      }
+    }
+    units_.seal_original();  // units_.set() has been eliminated from all clauses, no need to be considered in AddUnit()
+  }
+
+  AddResult AddClause(Clause c) {
+    assert(saved_ == 0);
+    units_.unseal_original();  // undo units_.seal_original() called by Minimize()
+    c.PropagateUnits(units_.set());
+    if (c.size() == 0) {
+      empty_clause_ = true;
+      return kInconsistent;
+    } else if (c.size() == 1) {
+      AddResult r = AddUnit(c.head());
+      empty_clause_ |= r == kInconsistent;
+      return r;
+    } else {
+      clauses_.push_back(c);
+      return kOK;
+    }
+  }
+
+  AddResult AddUnit(Literal a) {
+    size_t n_propagated = units_.size();
+    AddResult r = units_.push_back(a);
+    empty_clause_ |= r == kInconsistent;
+    for (; n_propagated < units_.size() && !empty_clause_; ++n_propagated) {
+      a = units_[n_propagated];
+      for (size_t i = 0; i < clauses_.size() && !empty_clause_; ++i) {
+        if (Literal::Complementary(clauses_.watched(i).a, a) ||
+            Literal::Complementary(clauses_.watched(i).b, a)) {
+          Clause c = clauses_[i];
+          c.PropagateUnits(units_.set());
+          if (c.size() == 0) {
+            empty_clause_ = true;
+          } else if (c.size() == 1) {
+            r = units_.push_back(c.head());
+            empty_clause_ |= r == kInconsistent;
+          } else {
+            clauses_.watch(i, c.head(), c.last());
+          }
+        }
+      }
+    }
+    return r;
+  }
+
+  bool Subsumes(const Clause& d) const {
+    if (empty_clause_) {
+      return true;
+    }
+    if (d.empty()) {
+      return empty_clause_;
+    }
+    for (size_t i = 0; i < units_.size(); ++i) {
+      if (Clause::Subsumes(units_[i], d)) {
+        return true;
+      }
+    }
+    if (d.unit() && d.head().pos()) {
+      return false;
+    }
+    return ClausesSubsume(d);
   }
 
   bool Consistent() const {
-    if (contains_empty_clause_) {
-      return false;
-    }
-    LiteralSet lits;
-    for (ClauseIndex i : clauses()) {
-      const Clause& c = clause(i);
-      lits.insert(c.begin(), c.end());
-    }
-    return ConsistentSet(lits);
+    return true;
   }
 
   bool LocallyConsistent(const TermSet& ts) const {
-    internal::BloomSet<Term> bs;
-    for (Term t : ts) {
-      assert(t.primitive());
-      bs.Add(t);
-    }
-    LiteralSet lits;
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-    for (BucketIndex b : buckets()) {
-      if (bucket_union(b).PossiblyOverlaps(bs)) {
-        for (ClauseIndex i : bucket_clauses(b)) {
-#else
-        for (ClauseIndex i : clauses()) {
-#endif
-          const Clause& c = clause(i);
-          if (
-#if defined(BLOOM)
-              bs.PossiblyOverlaps(c.lhs_bloom()) &&
-#endif
-              std::any_of(c.begin(), c.end(), [&ts](Literal a) { return ts.find(a.lhs()) != ts.end(); })) {
-            lits.insert(c.begin(), c.end());
-          }
-        }
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-      }
-    }
-#endif
-    return ConsistentSet(lits);
-  }
-
-
-  struct EnabledClause {
-    explicit EnabledClause(const Setup* owner) : owner_(owner) {}
-    bool operator()(ClauseIndex i) const { return owner_->enabled(i); }
-   private:
-    const Setup* owner_;
-  };
-
-  typedef internal::filter_iterators<internal::int_iterator<ClauseIndex>, EnabledClause> ClauseRange;
-
-  ClauseRange clauses() const { return mk_clause_range(0, last_clause()); }
-
-  const Clause& clause(ClauseIndex i) const {
-    assert(0 <= i && i < last_clause());
-    const Setup* s = this;
-    while (i < s->first_clause()) {
-      assert(s->parent_);
-      s = s->parent_;
-    }
-    assert(s->first_clause() <= i && i < s->last_clause());
-    return s->clauses_[i - s->first_clause()];
-  }
-
-
- private:
-  typedef unsigned int UnitIndex;
-  typedef unsigned int BucketIndex;
-
-  struct Bucket {
-    explicit Bucket(internal::BloomSet<Term> b) : union_(b), intersection_(b) {}
-
-    void Add(internal::BloomSet<Term> b) {
-      union_.Union(b);
-      intersection_.Intersect(b);
-    }
-
-    internal::BloomSet<Term> union_;
-    internal::BloomSet<Term> intersection_;
-  };
-
-  typedef std::unordered_set<Literal, Literal::LhsHash> LiteralSet;
-
-  explicit Setup(const Setup* parent) :
-      parent_(parent),
-      contains_empty_clause_(parent_->contains_empty_clause_),
-      del_(parent_->del_) {
-#ifndef NDEBUG
-    parent->spawned_ = true;
-#endif
-  }
-
-  void AddUnprocessedClause(const Clause& c) { unprocessed_clauses_.push_back(c); }
-
-  void ProcessClauses() {
-    while (!unprocessed_clauses_.empty()) {
-      Clause c = unprocessed_clauses_.back();
-      unprocessed_clauses_.pop_back();
-      if (Subsumes(c)) {
-        continue;
-      }
-      c = PropagateUnits(c);
-      clauses_.push_back(c);
-      const ClauseIndex i = last_clause() - 1;
-      assert(c.primitive());
-      assert(clause(i) == c);
-      if (c.empty()) {
-        contains_empty_clause_ = true;
-      }
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-      if (clause_bucket(i) >= last_bucket()) {
-        buckets_.resize(buckets_.size() + 1, Bucket(c.lhs_bloom()));
-      } else {
-        buckets_.back().Add(c.lhs_bloom());
-      }
-#endif
-      RemoveSubsumed(i);
-      if (c.unit()) {
-        const Literal a = c.head();
-        units_.push_back(a);
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-        for (BucketIndex b : buckets()) {
-          if (bucket_union(b).PossiblyOverlaps(c.lhs_bloom())) {
-            for (ClauseIndex j : bucket_clauses(b)) {
-#else
-            for (ClauseIndex j : clauses()) {
-#endif
-              const internal::Maybe<Clause> d = clause(j).PropagateUnit(a);
-              if (d) {
-                AddUnprocessedClause(d.val);
-              }
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-            }
-          }
-#endif
-        }
-      }
-    }
-  }
-
-  void RemoveSubsumed(const ClauseIndex i) {
-    const Clause& c = clause(i);
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-    for (BucketIndex b : buckets()) {
-      if (c.lhs_bloom().PossiblySubsetOf(bucket_union(b))) {
-        for (ClauseIndex j : bucket_clauses(b)) {
-#else
-        for (ClauseIndex j : clauses()) {
-#endif
-          if (i != j && c.Subsumes(clause(j))) {
-            Disable(j);
-          }
-        }
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-      }
-    }
-#endif
-  }
-
-  Clause PropagateUnits(Clause c) {
-    for (UnitIndex u : units()) {
-      internal::Maybe<Clause> d = c.PropagateUnit(unit(u));
-      if (d) {
-        c = d.val;
-      }
-    }
-    return c;
-  }
-
-
-  static bool ConsistentSet(const LiteralSet& lits) {
-    for (const Literal a : lits) {
-      assert(lits.bucket_count() > 0);
-      size_t b = lits.bucket(a);
-      auto begin = lits.begin(b);
-      auto end   = lits.end(b);
-      for (auto it = begin; it != end; ++it) {
-        const Literal b = *it;
-        assert(Literal::Complementary(a, b) == Literal::Complementary(b, a));
-        if (Literal::Complementary(a, b)) {
-          return false;
-        }
-      }
-    }
     return true;
   }
 
 
-  ClauseIndex first_clause() const { return first_clause_; }
-  ClauseIndex last_clause()  const { return first_clause_ + clauses_.size(); }
+  const std::vector<Literal> units() const { return units_.vec(); }
 
-  UnitIndex first_unit() const { return first_unit_; }
-  UnitIndex last_unit()  const { return first_unit_ + units_.size(); }
+  struct clause_range {
+    explicit clause_range(const Setup& s) : end_((s.empty_clause_ ? 1 : 0) + s.units_.size() + s.clauses_.size()) {}
+    internal::int_iterator<size_t> begin() const { return internal::int_iterator<size_t>(0); }
+    internal::int_iterator<size_t> end()   const { return internal::int_iterator<size_t>(end_); }
+   private:
+    size_t end_;
+  };
 
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-  BucketIndex first_bucket() const { return first_bucket_; }
-  BucketIndex last_bucket()  const { return first_bucket_ + buckets_.size(); }
-#endif
+  clause_range clauses() const { return clause_range(*this); }
 
-  void Disable(ClauseIndex i) { assert(0 <= i && i < last_clause()); del_[i] = true; }
-  bool enabled(ClauseIndex i) const { assert(0 <= i && i < last_clause()); return !del_[i]; }
-
-
-  ClauseRange mk_clause_range(ClauseIndex first, ClauseIndex last) const {
-    return internal::filter_range(internal::int_iterator<ClauseIndex>(first),
-                                  internal::int_iterator<ClauseIndex>(last),
-                                  EnabledClause(this));
-  }
-
-
-  internal::int_iterators<UnitIndex> units() const { return internal::int_range(0u, last_unit()); }
-
-  Literal unit(UnitIndex i) const {
-    assert(0 <= i && i < last_unit());
-    const Setup* s = this;
-    while (i < s->first_unit()) {
-      assert(s->parent_);
-      s = s->parent_;
+  Clause clause(size_t i) const {
+    if (i == 0 && empty_clause_) {
+      return Clause();
     }
-    assert(s->first_unit() <= i && i < s->last_unit());
-    return s->units_[i - s->first_unit()];
-  }
-
-
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-  internal::int_iterators<BucketIndex> buckets() const { return internal::int_range(0u, last_bucket()); }
-
-  const internal::BloomSet<Term>& bucket_union(BucketIndex i) const {
-    assert(0 <= i && i < last_bucket());
-    const Setup* s = this;
-    while (i < s->first_bucket()) {
-      assert(s->parent_);
-      s = s->parent_;
+    i -= empty_clause_ ? 1 : 0;
+    if (i < units_.size()) {
+      return Clause(units_[i]);
     }
-    assert(s->first_bucket() <= i && i < s->last_bucket());
-    return s->buckets_[i - s->first_bucket()].union_;
+    i -= units_.size();
+    Clause c = clauses_[i];
+    c.PropagateUnits(units_.set());
+    return c;
   }
 
-  const internal::BloomSet<Term>& bucket_intersection(BucketIndex i) const {
-    assert(0 <= i && i < last_bucket());
-    const Setup* s = this;
-    while (i < s->first_bucket()) {
-      assert(s->parent_);
-      s = s->parent_;
+ private:
+  struct Watched {
+    Watched() = default;
+    Watched(Literal a, Literal b) : a(a), b(b) { assert(a < b); }
+    Watched(const Clause& c) : Watched(c.head(), c.last()) { assert(c.size() >= 2); }
+    Literal a;
+    Literal b;
+  };
+
+  class Clauses {
+   public:
+
+    const Clause& operator[](size_t i) const { return clauses_[i]; }
+    Clause& operator[](size_t i) { return clauses_[i]; }
+
+    Watched watched(size_t i) const { return watched_[i]; }
+    Watched& watched(size_t i) { return watched_[i]; }
+
+    void push_back(const Clause& c) {
+      assert(c.size() >= 2);
+      clauses_.push_back(c);
+      watched_.push_back(c);
     }
-    assert(s->first_bucket() <= i && i < s->last_bucket());
-    return s->buckets_[i - s->first_bucket()].intersection_;
-  }
 
-  ClauseRange bucket_clauses(BucketIndex i) const {
-    assert(0 <= i && i < last_bucket());
-    const Setup* s = this;
-    while (i < s->first_bucket()) {
-      assert(s->parent_);
-      s = s->parent_;
+    void push_back(Clause&& c) {
+      assert(c.size() >= 2);
+      clauses_.push_back(std::forward<Clause>(c));
+      watched_.push_back(clauses_.back());
     }
-    assert(s->first_bucket() <= i && i < s->last_bucket());
-    const ClauseIndex first = s->first_clause() + (i - s->first_bucket()) * kBucketSize;
-    const ClauseIndex last  = std::min(first + kBucketSize, s->last_clause());
-    return mk_clause_range(first, last);
-  }
 
-  BucketIndex clause_bucket(ClauseIndex i) const {
-    assert(0 <= i && i < last_clause());
-    const Setup* s = this;
-    while (i < s->first_clause()) {
-      assert(s->parent_);
-      s = s->parent_;
+    void watch(size_t i, Literal a, Literal b) {
+      assert(a < b);
+      watched_[i] = Watched(a, b);
     }
-    assert(s->first_clause() <= i && i < s->last_clause());
-    return s->first_bucket() + (i - s->first_clause()) / kBucketSize;
+
+    size_t size() const {
+      assert(clauses_.size() == watched_.size());
+      return clauses_.size();
+    }
+
+    void erase(size_t i) {
+      std::swap(clauses_[i], clauses_.back());
+      std::swap(watched_[i], watched_.back());
+      resize(clauses_.size() - 1);
+    }
+
+    void resize(size_t n) {
+      clauses_.resize(n);
+      watched_.resize(n);
+    }
+
+   private:
+    std::vector<Clause> clauses_;
+    std::vector<Watched> watched_;
+  };
+
+  class Units {
+   public:
+    Literal operator[](size_t i) const { return vec_[i]; }
+
+    size_t size() const {
+      assert(vec_.size() >= set_.size());
+      return vec_.size();
+    }
+
+    AddResult push_back(Literal a) {
+      auto orig_end = vec_.begin() + n_orig_;
+      auto orig_begin = std::lower_bound(vec_.begin(), orig_end, a);
+      for (auto it = orig_begin; it != orig_end && a.lhs() == it->lhs(); ++it) {
+        if (Literal::Complementary(a, *it)) {
+          return kInconsistent;
+        }
+        if (it->Subsumes(a)) {
+          return kSubsumed;
+        }
+      }
+      if (set_.bucket_count() > 0) {
+        auto bucket = set_.bucket(a);
+        for (auto it = set_.begin(bucket), end = set_.end(bucket); it != end; ++it) {
+          if (Literal::Complementary(a, *it)) {
+            return kInconsistent;
+          }
+          if (it->Subsumes(a)) {
+            return kSubsumed;
+          }
+        }
+      }
+      assert(set_.find(a) == set_.end());
+      assert(std::find(vec_.begin(), vec_.end(), a) == vec_.end());
+      set_.insert(a);
+      vec_.push_back(a);
+      return kOK;
+    }
+
+    void resize(size_t n) {
+      assert(n >= n_orig_);
+      for (size_t i = n; i < vec_.size(); ++i) {
+        set_.erase(vec_[i]);
+      }
+      vec_.resize(n);
+    }
+
+    void erase(size_t i) {
+      assert(n_orig_ == 0);
+      set_.erase(vec_[i]);
+      std::swap(vec_[i], vec_.back());
+      vec_.resize(vec_.size() - 1);
+    }
+
+    void unseal_original() {
+      for (size_t i = 0; i < n_orig_; ++i) {
+        set_.insert(vec_[i]);
+      }
+      n_orig_ = 0;
+    }
+
+    void seal_original() {
+      std::sort(vec_.begin(), vec_.end());
+      vec_.erase(std::unique(vec_.begin(), vec_.end()), vec_.end());
+      n_orig_ = vec_.size();
+      set_.clear();
+    }
+
+    const std::vector<Literal>&                          vec() const { return vec_; }
+    const std::unordered_set<Literal, Literal::LhsHash>& set() const { return set_; }
+
+   private:
+    std::vector<Literal> vec_;
+    std::unordered_set<Literal, Literal::LhsHash> set_;
+    size_t n_orig_ = 0;
+  };
+
+  bool ClausesSubsume(const Clause& d) const {
+    assert(d.size() >= 1 && (d.size() >= 2 || !d.head().pos()));
+    for (size_t i = 0; i < clauses_.size(); ++i) {
+      if (Clause::Subsumes(clauses_.watched(i).a, clauses_.watched(i).b, d)) {
+        Clause c = clauses_[i];
+        c.PropagateUnits(units_.set());
+        if (Clause::Subsumes(c, d)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
-#endif
 
-  const Setup* parent_ = nullptr;
-
-  bool contains_empty_clause_ = false;
-
-  std::vector<Clause> clauses_;
-  ClauseIndex first_clause_ = parent_ != nullptr ? parent_->last_clause() : 0;
-
-  std::vector<Clause> unprocessed_clauses_;
-
-  internal::IntMap<ClauseIndex, bool> del_;
-
-  std::vector<Literal> units_;
-  UnitIndex first_unit_ = parent_ != nullptr ? parent_->last_unit() : 0;
-
-#if defined(BLOOM) && defined(BLOOM_INDEX)
-  std::vector<Bucket> buckets_;
-  BucketIndex first_bucket_ = parent_ != nullptr ? parent_->last_bucket() : 0;
-  static constexpr BucketIndex kBucketSize = 128;
-#endif
-
+  bool empty_clause_ = false;
+  Units units_;
+  Clauses clauses_;
 #ifndef NDEBUG
-  mutable bool spawned_ = false;
+  mutable size_t saved_ = 0;
 #endif
 };
 
