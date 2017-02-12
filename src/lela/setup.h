@@ -152,21 +152,25 @@ class Setup {
   }
 
   Result AddUnit(Literal a) {
+    if (empty_clause_) {
+      return kInconsistent;
+    }
     size_t n_propagated = units_.size();
     Result r = units_.Add(a);
-    empty_clause_ |= r == kInconsistent;
-    for (; n_propagated < units_.size() && !empty_clause_; ++n_propagated) {
+    empty_clause_ = r == kInconsistent;
+    for (; n_propagated < units_.size() && r != kInconsistent; ++n_propagated) {
       a = units_[n_propagated];
-      for (size_t i = 0; i < clauses_.size() && !empty_clause_; ++i) {
+      for (size_t i = 0; i < clauses_.size() && r != kInconsistent; ++i) {
         if (Literal::Complementary(clauses_.watched(i).a, a) ||
             Literal::Complementary(clauses_.watched(i).b, a)) {
           Clause c = clauses_[i];
           c.PropagateUnits(units_.set());
           if (c.size() == 0) {
+            r = kInconsistent;
             empty_clause_ = true;
           } else if (c.size() == 1) {
             r = units_.Add(c.first());
-            empty_clause_ |= r == kInconsistent;
+            empty_clause_ = r == kInconsistent;
           } else {
             clauses_.Watch(i, c.first(), c.last());
           }
@@ -227,6 +231,8 @@ class Setup {
     }
     return ConsistentSet(lits);
   }
+
+  bool contains_empty_clause() const { return empty_clause_; }
 
   bool Determines(Term lhs) const { return units_.Determines(lhs); }
 

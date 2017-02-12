@@ -53,7 +53,7 @@ class KnowledgeBaseAgent : public Agent {
       do {
         p = g_->RandomPoint();
       } while (g_->neighbors_of(p).size() < 8);
-      *os_ << "Exploring X and Y coordinates: " << p.x << " " << p.y << " chosen at random" << std::endl;
+      *os_ << "Exploring " << p << ", chosen at random." << std::endl;
       g_->OpenWithFrontier(p);
       last_point_ = p;
       return -1;
@@ -77,10 +77,10 @@ class KnowledgeBaseAgent : public Agent {
           const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
           if (r.yes) {
             if (r.val) {
-              *os_ << "Flagging X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
+              *os_ << "Flagging " << p << ", found at split level " << k << "." << std::endl;
               g_->Flag(p);
             } else {
-              *os_ << "Exploring X and Y coordinates: " << p.x << " " << p.y << " found at split level " << k << std::endl;
+              *os_ << "Exploring " << p << ", found at split level " << k << "." << std::endl;
               g_->OpenWithFrontier(p);
             }
             last_point_ = p;
@@ -97,7 +97,7 @@ class KnowledgeBaseAgent : public Agent {
       if (g_->opened(p) || g_->flagged(p)) {
         continue;
       }
-      *os_ << "Exploring X and Y coordinates: " << p.x << " " << p.y << ", which is just a guess." << std::endl;
+      *os_ << "Exploring " << p << ", which is just a guess." << std::endl;
       g_->OpenWithFrontier(p);
       last_point_ = p;
       return kb_->max_k() + 1;

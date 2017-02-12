@@ -43,6 +43,7 @@
 
 #include <cassert>
 
+#include <iterator>
 #include <list>
 
 #include <lela/grounder.h>
@@ -169,24 +170,53 @@ class Solver {
              const SortedTermSet& names,
              int k,
              const Formula& phi) {
+    return Split(s, split_terms.begin(), split_terms.end(), split_terms.size(), names, k, phi);
+  }
+
+  bool Split(const Setup& s,
+             const TermSet::const_iterator split_terms_begin,
+             const TermSet::const_iterator split_terms_end,
+             const internal::size_t n_split_terms,
+             const SortedTermSet& names,
+             int k,
+             const Formula& phi) {
     assert(phi.objective());
-    if (s.Subsumes(Clause{}) || phi.trivially_valid()) {
+    if (s.contains_empty_clause() || phi.trivially_valid()) {
       return true;
-    } else if (k > 0 && !split_terms.empty()) {
-      if (split_terms.empty()) {
+    } else if (k > 0 && n_split_terms > 0) {
+      if (split_terms_begin == split_terms_end) {
         assert(phi.trivially_invalid());
         return phi.trivially_valid();
       }
-      assert(!split_terms.empty());
-      return std::any_of(split_terms.begin(), split_terms.end(), [&, this](Term t) {
+      internal::size_t n_split_terms_left = n_split_terms;
+      bool recursed = false;
+      for (auto it = split_terms_begin; it != split_terms_end; ) {
+        if (n_split_terms >= k && n_split_terms_left < k-1) {
+          break;
+        }
+        const Term t = *it++;
+        if (s.Determines(t)) {
+          continue;
+        }
         const TermSet& ns = names[t.sort()];
+        --n_split_terms_left;
         assert(!ns.empty());
-        return std::all_of(ns.begin(), ns.end(), [&, this](Term n) {
+        for (const Term n : ns) {
           Setup::ShallowCopy split = s.shallow_copy();
-          split.AddUnit(Literal::Eq(t, n));
-          return Split(split.setup(), split_terms, names, k-1, phi);
-        });
-      });
+          const Setup::Result r = split.AddUnit(Literal::Eq(t, n));
+          if (r == Setup::kInconsistent) {
+            continue;
+          }
+          if (!Split(split.setup(), it, split_terms_end, n_split_terms_left, names, k-1, phi)) {
+            goto next_split;
+          }
+          recursed = true;
+        }
+        return true;
+next_split:
+        {}
+      }
+      return recursed ? false : Reduce(s, names, phi);
     } else {
       return Reduce(s, names, phi);
     }
