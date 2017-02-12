@@ -1,7 +1,7 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2017 Christoph Schwering
 //
-// Hash set.
+// A closed hash set.
 
 #ifndef LELA_INTERNAL_HASHSET_H_
 #define LELA_INTERNAL_HASHSET_H_

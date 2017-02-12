@@ -1,16 +1,25 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 Christoph Schwering
 //
-// Setups are collections of primitive clauses. Setups are immutable except
-// for AddClause().
+// Setups are collections of primitive clauses, which are added with
+// AddClause() and AddUnit(), where the former is more lightweight.
+// A setup is not automatically minimal wrt unit propagation and subsumption;
+// to ensure minimality, call Minimize().
 //
 // The typical lifecycle is to create a Setup object, use AddClause() to
 // populate it, evaluate queries with Subsumes(), Consistent(), and
-// LocallyConsistent(), and possibly Spawn() new setups.
+// LocallyConsistent().
 //
-// AddClause() ensures that the setup is closed under unit propagation and
-// minimized under subsumption. If AddClause() is called after Spawn(), the
-// behaviour is undefined.
+// Additionally, shallow_copy() can be used to add further clauses or unit
+// clauses which are automatically removed once the lifecycle of ShallowCopy
+// ends. This allows for very cheap backtracking. Note that anything that is
+// added to a WeakCopy also occurs in the original Setup. During the lifecycle
+// of any WeakCopies, Minimize() must not be called, as it leads to undefined
+// behaviour.
+//
+// Subsumes() checks whether the clause is subsumed by any clause in the setup
+// after doing unit propagation; it is hence a sound but incomplete test for
+// entailment.
 //
 // Consistent() and LocallyConsistent() perform a sound but incomplete
 // consistency checks. The former only investigates clauses that share a one
@@ -18,30 +27,23 @@
 // to be transitively closed under the terms occurring in setup clauses. It
 // is the users responsibility to make sure this condition holds.
 //
-// Subsumes() checks whether the clause is subsumed by any clause in the setup
-// after doing unit propagation; it is hence a sound but incomplete test for
-// entailment.
-//
-// Spawn() creates a new copy of the setup. The clone is lightweight and its
-// livetime is limited by its parent's lifetime. If AddClause() is called after
-// Spawn(), the behaviour is undefined.
-//
-// A Setup consists of a list of clauses, a list of unit clauses, a list of
-// buckets, and a list of bits. The bits indicate which elements of the list
-// of clauses are marked as deleted (because they are subsumed by another
-// clause). A list of unit clauses is managed additionally to the general list
-// of clauses to speed up unit propagation. A bucket groups a subsequences of
-// a fixed length of the clause list and combines their BloomSets. Iterating
-// over the bucket list instead of the clause list thus allows to soundly
-// filter non-candidates for unit propagation, subsumption, and similar tasks.
-//
-// To facilitate fast cloning, every setup is linked to its ancestor. For the
-// lists of clauses, unit clauses, and buckets, a child setup only stores its
-// difference (that is, its suffix it adds over its parent). Indices for these
-// lists hence need to be seen global, not just for the respective suffix
-// locally stored in a Setup object. By contrast to these three lists, the bit
-// list that masks, which clauses are deleted, is copied for every child setup
-// (because the child may remove clauses of their ancestors).
+// The setup is implemented using watched literals: the empty clause and unit
+// clauses are stored separately from clauses with >= 2 literals, and for each
+// of these non-degenerated clauses two literals that are not subsumed by any
+// unit clause are watched. The watched-literals scheme has two advantages.
+// Firstly, it facilitates lazy unit propagation: a new literal is only tested
+// to be complementary to either of the watched literals, for only in this case
+// the clause can reduce to a unit clause after propagation. Only when the
+// clause reduces to a unit clause after propagation with all unit clauses, the
+// resulting unit clause is stored -- all non-unit results of unit propagation
+// are not stored and re-computed later on demand. The second advantage is that
+// since no clause added with AddClause() or AddUnit() is deleted during unit
+// propagation, backtracking can be implemented very cheaply: we just need to
+// adjust the pointers the last unit clause and the last clause to remove all
+// clauses that were added after the point we want to backtrack to. Note that
+// the watched literals may have been adjusted after this point; however, they
+// in particular satisfy their invariant of not being subsumed by any unit
+// clause at this earlier point, so we do not need to adjust them.
 //
 // The copy constructor and assignment operators are deleted, not for technical
 // reasons, but because it may likely lead to complications with the linked
