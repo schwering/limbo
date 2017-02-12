@@ -25,6 +25,15 @@ class Colors {
   virtual Color green() const = 0;
 };
 
+class NoColors : public Colors {
+ public:
+  Color reset() const override { return ""; }
+  Color dim()   const override { return ""; }
+  Color black() const override { return ""; }
+  Color red()   const override { return ""; }
+  Color green() const override { return ""; }
+};
+
 class TerminalColors : public Colors {
  public:
   Color reset() const override { return s(0); }
@@ -70,10 +79,37 @@ class Printer {
     std::string text;
   };
 
-  Printer(const Colors* colors, std::ostream* os) : colors_(colors), os_(os) {}
+  Printer(std::ostream* os) : colors_(nullptr), os_(os), plain_(true) {}
+  Printer(const Colors* colors, std::ostream* os) : colors_(colors), os_(os), plain_(false) {}
   virtual ~Printer() = default;
 
+  void set_plain(bool plain) { plain_ = plain; }
+
   void Print(const Game& g) {
+    if (plain_) {
+      PrintPlain(g);
+    } else {
+      PrintFull(g);
+    }
+  }
+
+  virtual Label label(const Game&, Point) = 0;
+
+ protected:
+  const Colors* colors_;
+  std::ostream* os_;
+
+ private:
+  void PrintPlain(const Game& g) {
+    for (size_t y = 0; y < g.height(); ++y) {
+      for (size_t x = 0; x < g.width(); ++x) {
+        Label l = label(g, Point(x, y));
+        *os_ << l.text;
+      }
+    }
+  }
+
+  void PrintFull(const Game& g) {
     const int width = 3;
     *os_ << std::setw(width) << "";
     for (size_t x = 0; x < g.width(); ++x) {
@@ -90,11 +126,7 @@ class Printer {
     }
   }
 
-  virtual Label label(const Game&, Point) = 0;
-
- protected:
-  const Colors* colors_;
-  std::ostream* os_;
+  bool plain_;
 };
 
 class OmniscientPrinter : public Printer {
@@ -104,7 +136,7 @@ class OmniscientPrinter : public Printer {
   Label label(const Game& g, const Point p) {
     assert(g.valid(p));
     switch (g.state(p)) {
-      case Game::UNEXPLORED: return Label(colors_->reset(), g.mine(p) ? "X" : "");
+      case Game::UNEXPLORED: return Label(colors_->reset(), g.mine(p) ? "X" : " ");
       case Game::FLAGGED:    return Label(colors_->green(), "X");
       case Game::HIT_MINE:   return Label(colors_->red(), "X");
       case 0:                return Label(colors_->reset(), ".");
@@ -125,7 +157,7 @@ class SimplePrinter : public Printer {
   Label label(const Game& g, const Point p) override {
     assert(g.valid(p));
     switch (g.state(p)) {
-      case Game::UNEXPLORED: return Label(colors_->reset(), "");
+      case Game::UNEXPLORED: return Label(colors_->reset(), " ");
       case Game::FLAGGED:    return Label(colors_->green(), "X");
       case Game::HIT_MINE:   return Label(colors_->red(), "X");
       case 0:                return Label(colors_->reset(), ".");

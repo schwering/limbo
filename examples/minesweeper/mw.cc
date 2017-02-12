@@ -14,12 +14,14 @@
 #include "printer.h"
 #include "timer.h"
 
+struct Logger { void operator()(const std::string& str) const { std::cout << str << std::endl; } };
+
 inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, size_t max_k,
                  const Colors& colors, std::ostream* os) {
   Timer overall_timer;
   Game g(width, height, n_mines, seed);
   KnowledgeBase kb(&g, max_k);
-  KnowledgeBaseAgent agent(&g, &kb, os);
+  Agent<Logger> agent(&g, &kb);
   SimplePrinter printer(&colors, os);
   OmniscientPrinter final_printer(&colors, os);
   std::vector<int> split_counts;

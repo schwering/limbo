@@ -2,6 +2,7 @@
 // Copyright 2016 Christoph Schwering
 
 #include <iostream>
+#include <sstream>
 
 #include <emscripten.h>
 
@@ -11,75 +12,27 @@
 #include "printer.h"
 #include "timer.h"
 
-namespace logging {
-
-template<typename TernaryPredicate, class CharT = char, class Traits = std::char_traits<CharT>>
-class StreamRedirector : public std::basic_streambuf<CharT, Traits> {
- public:
-  StreamRedirector(std::ostream* stream, TernaryPredicate writer = TernaryPredicate())
-      : stream_(stream), writer_(writer) {
-    old_buf_ = stream_->rdbuf(this);
-  }
-
-  ~StreamRedirector() { stream_->rdbuf(old_buf_); }
-
-  std::streamsize xsputn(const CharT* ptr, std::streamsize count) {
-    writer_(ptr, count);
-    return count;
-  }
-
-  typename Traits::int_type overflow(typename Traits::int_type i) {
-    CharT c = Traits::to_char_type(i);
-    writer_(&c, 1);
-    return Traits::not_eof(i);
-  }
-
- private:
-  std::basic_ostream<CharT, Traits>* stream_;
-  std::streambuf* old_buf_;
-  TernaryPredicate writer_;
-};
-
-struct JsLogger {
-  void operator()(const char* buf, std::streamsize n) {
-    bool lf = false;
-    for (std::streamsize i = 0; i < n; ++i) {
-      if (buf[i] == '\r' || buf[i] == '\n') {
-        lf = true;
-      }
-    }
-    buf_ += std::string(buf, n);
-    if (lf) {
-      flush();
-    }
-  }
-
-  void flush() {
-    EM_ASM_({
-      printLine(Pointer_stringify($0));
-    }, buf_.c_str());
-    buf_ = std::string();
-  }
-
- private:
-  std::string buf_;
-};
-
-static StreamRedirector<JsLogger>* redirector_ = nullptr;
-
-}  // namespace logging
-
-
 namespace game {
 
-static HtmlColors colors;
+struct Logger {
+  void operator()(const std::string& str) { str_ = str; UpdateStatus(); }
+  void Log(const std::string& str) { str_ = str; UpdateStatus(); }
+  void Append(const std::string& str) { str_ += str; UpdateStatus(); }
+
+ private:
+  void UpdateStatus() {
+    EM_ASM_({
+      updateStatus(Pointer_stringify($0));
+    }, str_.c_str());
+  }
+
+  std::string str_ = "";
+};
 
 static Game* game = nullptr;
 static KnowledgeBase* kb = nullptr;
-static KnowledgeBaseAgent* agent = nullptr;
+static Agent<Logger>* agent = nullptr;
 static Timer* timer_overall = nullptr;
-static SimplePrinter* printer = nullptr;
-static OmniscientPrinter* final_printer = nullptr;
 static std::vector<int>* split_counts = nullptr;
 
 void Finalize() {
@@ -93,10 +46,6 @@ void Finalize() {
     delete agent;
   if (timer_overall)
     delete timer_overall;
-  if (printer)
-    delete printer;
-  if (final_printer)
-    delete final_printer;
   if (split_counts)
     delete split_counts;
 }
@@ -106,54 +55,73 @@ void Init(size_t width, size_t height, size_t n_mines, size_t seed, size_t max_k
   game = new Game(width, height, n_mines, seed);
   kb = new KnowledgeBase(game, max_k);
   timer_overall = new Timer();
-  agent = new KnowledgeBaseAgent(game, kb, &std::cout);
-  printer = new SimplePrinter(&colors, &std::cout);
-  final_printer = new OmniscientPrinter(&colors, &std::cout);
+  agent = new Agent<Logger>(game, kb);
   split_counts = new std::vector<int>();
   split_counts->resize(max_k + 2);  // last one is for guesses
 }
 
+void DisplayGame(const Game& g, bool omniscient = false) {
+  std::stringstream ss;
+  if (!omniscient) {
+    SimplePrinter(&ss).Print(*game);
+  } else {
+    OmniscientPrinter(&ss).Print(*game);
+  }
+  EM_ASM_({
+    displayGame(Pointer_stringify($0));
+  }, ss.str().c_str());
+}
+
 bool PlayTurn() {
-  Timer timer_turn;
-  timer_turn.start();
+  //Timer timer_turn;
+  //timer_turn.start();
   timer_overall->start();
   const int k = agent->Explore();
   timer_overall->stop();
-  timer_turn.stop();
+  //timer_turn.stop();
   if (k >= 0) {
     ++(*split_counts)[k];
   }
-  std::cout << std::endl;
-  printer->Print(*game);
-  std::cout << std::endl;
-  std::cout << "Last move took " << std::fixed << timer_turn.duration() << ", queries took " << std::fixed << kb->timer().duration() << " / " << std::setw(4) << kb->timer().rounds() << " = " << std::fixed << kb->timer().avg_duration() << std::endl;
-  kb->ResetTimer();
+  DisplayGame(*game);
+#if 0
+  {
+    std::stringstream str;
+    str << " in " << std::fixed << timer_turn.duration() << " s";
+    agent->logger().Append(str.str());
+  }
+  //kb->ResetTimer();
+#endif
   const bool game_over = game->hit_mine() || game->all_explored();
 
+#if 0
   if (game_over) {
-    std::cout << "Final board:" << std::endl;
-    std::cout << std::endl;
-    final_printer->Print(*game);
-    std::cout << std::endl;
+    HtmlColors colors;
+    std::stringstream str;
+    str << "Final board:" << std::endl;
+    str << std::endl;
+    DisplayGame(*game, true);
+    str << std::endl;
     const bool win = !game->hit_mine();
     if (win) {
-      std::cout << colors.green() << "You win :-)";
+      str << colors.green() << "You win :-)";
     } else {
-      std::cout << colors.red() << "You loose :-(";
+      str << colors.red() << "You loose :-(";
     }
-    std::cout << "  [width: " << game->width() << "; height: " << game->height() << "; height: " << game->n_mines() << "; seed: " << game->seed() << "; max-k: " << kb->max_k() << "; ";
+    str << "  [width: " << game->width() << "; height: " << game->height() << "; height: " << game->n_mines() << "; seed: " << game->seed() << "; max-k: " << kb->max_k() << "; ";
     for (size_t k = 0; k < split_counts->size(); ++k) {
       const int n = (*split_counts)[k];
       if (n > 0) {
         if (k == kb->max_k() + 1) {
-          std::cout << "guesses: " << n << "; ";
+          str << "guesses: " << n << "; ";
         } else {
-          std::cout << "level " << k << ": " << n << "; ";
+          str << "level " << k << ": " << n << "; ";
         }
       }
     }
-    std::cout << "runtime: " << timer_overall->duration() << " seconds]" << colors.reset() << std::endl;
+    str << "runtime: " << timer_overall->duration() << " seconds]" << colors.reset() << std::endl;
+    agent->logger().Log(str.str());
   }
+#endif
 
   return game_over;
 }
@@ -161,9 +129,6 @@ bool PlayTurn() {
 }  // namespace game
 
 extern "C" void lela_init(size_t width, size_t height, size_t n_mines, size_t seed, int max_k) {
-  if (!logging::redirector_) {
-    logging::redirector_ = new logging::StreamRedirector<logging::JsLogger>(&std::cout);
-  }
   game::Init(width, height, n_mines, seed, max_k);
 }
 

@@ -6,7 +6,7 @@
     <meta charset="UTF-8"> 
     <title>Limited reasoner demo</title>
 
-    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <!-- <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet"> -->
     <style type="text/css">
         body { font-family: 'Open Sans', sans-serif; font-size: 140%; }
         p { text-align: justify; }
@@ -29,9 +29,15 @@
             background-size: 20px 20px;
         }
 
-        #output { min-width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; overflow: scroll; }
-        #output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
-        #output { font-family: monospace; font-size: 110%; }
+        #output #status { }
+        div.table { display: table; overflow: scroll; }
+        div.table div.row { display: table-row; }
+        div.table div.row div.header,
+        div.table div.row div.cell { display: table-cell; width: 2em; min-width: 2em; height: 2em; text-align: center; vertical-align: middle; padding: 0; margin: 0; overflow: hidden; }
+        div.table div.row div.header { background-color: #cecece; }
+        div.table div.row div.cell { border: 1px solid black; border-bottom: 2px solid black; }
+        div.table div.row div.cell.new { font-weight: bold; }
+        div.table div.row div.cell.mistake { color: red; font-weight: bold; }
 
         #output span { }
         #output span.black { color: black; }
@@ -68,35 +74,39 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 
 <form>
 <div class="label">Field width:</div> <input type="number" id="width" min="0" class="number"><br />
-<div class="label">Field weight:</div> <input type="number" id="height" min="0" class="number"><br />
+<div class="label">Field height:</div> <input type="number" id="height" min="0" class="number"><br />
 <div class="label">Number of mines:</div> <input type="number" id="n_mines" min="0" class="number"><br />
 <div style="height: 1ex;"></div>
 <div class="label">Max. number of case splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
-<div class="label">Mine placement seed:</div> <input type="number" id="seed" min="0" value="0" class="number"> (modify for different mine placement)<br />
+<div class="label">Mine placement seed:</div> <input type="number" id="seed" min="0" value="1" class="number"> (modify for different mine placement)<br />
 <input id="play-button" type="button" value="Click me!" />
 </form>
 
 <script>
 $(document).ready(function() {
-    $('#config-small').click(function(){ setConfig(8, 8, 10); return false; }).click();
-    $('#config-medium').click(function(){ setConfig(16, 16, 40); return false; });
-    $('#config-large').click(function(){ setConfig(16, 32, 99); return false; });
-    $('#config-huge').click(function(){ setConfig(32, 64, 320); return false; });
+    $('#config-small').click(function() { setConfig(8, 8, 10); return false; }).click();
+    $('#config-medium').click(function() { setConfig(16, 16, 40); return false; });
+    $('#config-large').click(function() { setConfig(32, 16, 99); return false; });
+    $('#config-huge').click(function() { setConfig(64, 32, 320); return false; });
     $('#play-button').click(function() { play(); });
     $('#play-button').focus();
+    $('#width').change(function() { initDisplay(); });
+    $('#height').change(function() { initDisplay(); });
+    $('#different-seed').click(function() { $('#seed').val(parseInt($('#seed').val()) + 1); return true; });
+    $('#different-seed-msg').hide();
+    initDisplay();
 });
 
 function setConfig(width, height, n_mines) {
     document.getElementById('width').value = width;
     document.getElementById('height').value = height;
     document.getElementById('n_mines').value = n_mines;
+    initDisplay();
 }
 
 var t0 = null;
 
 function play() {
-    $('#output').empty();
-
     var width = document.getElementById('width').value;
     if (width == null) width = 8;
     var height = document.getElementById('height').value;
@@ -121,64 +131,125 @@ function playTurn() {
         if (!game_over) {
             playTurn();
         } else {
+            updateStatusGameOver();
             var t1 = performance.now();
             console.log("Playing and printing took "+ Math.round(t1 - t0) +" milliseconds");
         }
-    }, 10);
+    }, 0);
 }
 
-var last_str = null;
+function cellId(x, y) {
+    return 'cell_'+ x +'_'+ y;
+}
 
-function printLine(str) {
-    // The minesweeper agent prints at the end of each turn a line of the form
-    // "Last move took [...]". We use this to split up the different turns and
-    // display them individually: one div per turn, and only the last turn's
-    // div is visible.
-    if (str.length == 0) {
-        return;
+var width = -1;
+var height = -1;
+var games = [];
+var current_game = -1;
+
+function cell(x, y) {
+    return $('#'+ cellId(x, y));
+}
+
+function initDisplay() {
+    width = document.getElementById('width').value;
+    if (width == null) width = 8;
+    height = document.getElementById('height').value;
+    if (height == null) height = 8;
+
+    var output = $('#output');
+    output.empty();
+    games = [];
+    current_game = -1;
+
+    output.append('<div class="table"></div>');
+    var table = $('#output').children().last();
+    {
+        table.append('<div class="row"></div>');
+        var row = table.children().last();
+        row.append('<div class="header">&nbsp;</div>');
+        var x;
+        for (x = 0; x < width; ++x) {
+            row.append('<div class="header">'+ x +'</div>');
+        }
     }
-    var is_first = $('#output').children().length == 0;
-    var had_last = last_str && last_str.indexOf('Last') != -1;
-    if (had_last) {
-        $('#output').children().last().hide();
+    var y;
+    for (y = 0; y < height; ++y) {
+        table.append('<div class="row"></div>');
+        var row = table.children().last();
+        row.append('<div class="header">'+ y +'</div>');
+        var x;
+        for (x = 0; x < width; ++x) {
+            row.append('<div id="'+ cellId(x, y) +'" class="cell">&nbsp;</div>');
+        }
     }
-    if (is_first || had_last) {
-        $('#output').append('<div></div>');
-        $('#output').children().last().addClass('field');
+}
+
+function updateStatus(msg) {
+    $('#status').html(msg);
+    $('#different-seed-msg').hide();
+}
+
+function updateStatusGameOver() {
+    if (games[current_game].indexOf(' ') == -1) {
+        updateStatus('<span style="color: green; font-weight: bold;">We won :-)</span>');
+        $('#different-seed-msg').show();
+    } else {
+        displayGame(current_game, true);
+        updateStatus('<span style="color: red; font-weight: bold;">We lost :-(</span>');
+        $('#different-seed-msg').show();
     }
-    // Hack: on iOS Safari and Chrome, double spaces are not displayed correctly sometimes;
-    // so let's use '_' as fill character and re-replace it with "&nbsp;" in the Javascript
-    // code.
-    str = str.replace(/_/g, "&nbsp;") + '<br />';
-    $('#output').children().last().append($(document.createElement('div')).html(str));
-    last_str = str;
+}
+
+function displayGame(arg, mistake) {
+    if (typeof arg === 'string') {
+        games.push(arg);
+        current_game = games.length - 1;
+    } else if (typeof arg === 'number') {
+        current_game = arg;
+        if (current_game < 0) {
+            current_game = 0;
+        }
+        if (current_game >= games.length) {
+            current_game = games.length - 1;
+        }
+    }
+    var p = current_game > 0 ? games[current_game - 1] : null;
+    var g = games[current_game];
+    var i;
+    for (i = 0; i < g.length; ++i) {
+        var c = g[i];
+        if (c == ' ') { c = "&nbsp;" }
+        if (c == '.') { c = "&middot;" }
+        var x = i % width;
+        var y = Math.floor(i / width);
+        cell(x, y).html(c);
+        if (p != null && p[i] != g[i]) {
+            var x = i % width;
+            var y = Math.floor(i / width);
+            cell(x, y).addClass('new');
+            if (mistake) {
+                cell(x, y).addClass('mistake');
+            }
+        } else {
+            cell(x, y).removeClass('new');
+            cell(x, y).removeClass('mistake');
+        }
+    }
 }
 
 function scrollDown() {
     document.getElementById('field-next').scrollIntoView(false);
 }
 
-function showField(which) {
-    $('#output').children(':visible').each(function(i) {
-        if (which == 'prev' && $(this).prev().length) {
-            $(this).hide();
-            $(this).prev().show();
-        }
-        if (which == 'next' && $(this).next().length) {
-            $(this).hide();
-            $(this).next().show();
-        }
-    });
-}
-
 $(document).ready(function() {
-    $('#field-prev').click(function() { showField('prev'); return false; });
-    $('#field-next').click(function() { showField('next'); return false; });
+    $('#field-prev').click(function() { displayGame(current_game - 1); return false; });
+    $('#field-next').click(function() { displayGame(current_game + 1); return false; });
 });
 $(document).keydown(function(e) {
     switch(e.which) {
-        case 37: showField('prev'); break; // left
-        case 39: showField('next'); break; // right
+        case 37: displayGame(current_game - 1); break; // left
+        case 39: displayGame(current_game + 1); break; // right
         default: return;
     }
     e.preventDefault();
@@ -188,6 +259,11 @@ $(document).keydown(function(e) {
 
 
 <h2>Game Output</h2>
+
+<p>
+<div id="status" style="display: inline;">Ready to play!</div>
+<div id="different-seed-msg" style="padding-left: 1ex; display: inline;">Would you like to try again? Change the <a id="different-seed" href="#play-button" style="display: inline;">mine placement seed</a> or the <a href="#config-small">field size</a>!</div>
+</p>
 
 <div id="output"></div>
 
@@ -251,7 +327,6 @@ Extending the knowledge base to a basic action theory that also represents the a
 <p>
 The runtime reported by the game refers to the time the agent actually spend playing.
 The actual time that passes between starting and finishing the game may be longer because the graphical display procedures take some time.
-(To be precise, the browser takes a 10 ms break between moves to remain responsive.)
 </p>
 
 </body>

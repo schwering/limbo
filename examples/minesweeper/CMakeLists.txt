@@ -12,7 +12,8 @@ if (EMCC)
                 separate_arguments(FLAGS UNIX_COMMAND "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE}")
                 add_custom_command (OUTPUT mw-js.js mw-js.js.mem
                         COMMAND ${EMCC} ${FLAGS} -I../../src mw-js.cc -o mw-js.js
-                                -s EXPORTED_FUNCTIONS=['_lela_init','_lela_play_turn'] -s ALLOW_MEMORY_GROWTH=1
+                                -s EXPORTED_FUNCTIONS=['_lela_init','_lela_play_turn']
+                                -s TOTAL_MEMORY=67108864
                         VERBATIM)
 
                 add_custom_target (mw-js

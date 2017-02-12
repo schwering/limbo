@@ -171,7 +171,7 @@ function playTurn() {
             var t1 = performance.now();
             console.log("Playing and printing took "+ Math.round(t1 - t0) +" milliseconds");
         }
-    }, 10);
+    }, 0);
 }
 
 var last_str = null;
@@ -282,8 +282,7 @@ Extending the knowledge base to a basic action theory that also represents the a
 
 <p>
 The runtime reported by the game refers to the time the agent actually spend playing.
-The actual time that passes between starting and finishing the game may be longer because the graphical display procedures take some time.
-(To be precise, the browser takes a 10 ms break between moves to remain responsive.)
+The actual time that passes between starting and finishing the game may be longer because the graphical display procedures take quite some time (they are a bit hacky).
 </p>
 
 </body>

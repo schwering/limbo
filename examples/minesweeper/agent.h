@@ -5,46 +5,17 @@
 #define EXAMPLES_MINESWEEPER_AGENT_H_
 
 #include <algorithm>
-#include <iostream>
+#include <sstream>
 
 #include "game.h"
 #include "kb.h"
 
+template<typename Logger>
 class Agent {
  public:
-  virtual ~Agent() {}
-  virtual int Explore() = 0;
-};
+  explicit Agent(Game* g, KnowledgeBase* kb, Logger log = Logger()) : g_(g), kb_(kb), log_(log) {}
 
-class HumanAgent : public Agent {
- public:
-  explicit HumanAgent(Game* g, std::ostream* os, std::istream* is) : g_(g), os_(os), is_(is) {}
-
-  int Explore() override {
-    for (;;) {
-      Point p;
-      *os_ << "Exploring X and Y coordinates: ";
-      *is_ >> p.x >> p.y;
-      if (!g_->valid(p) || g_->opened(p)) {
-        std::cout << "Invalid coordinates, repeat" << std::endl;
-        continue;
-      }
-      g_->OpenWithFrontier(p);
-      return 0;
-    }
-  }
-
- private:
-  Game* g_;
-  std::ostream* os_;
-  std::istream* is_;
-};
-
-class KnowledgeBaseAgent : public Agent {
- public:
-  explicit KnowledgeBaseAgent(Game* g, KnowledgeBase* kb, std::ostream* os) : g_(g), kb_(kb), os_(os) {}
-
-  int Explore() override {
+  int Explore() {
     kb_->Sync();
 
     // First open a random point which is not at the edge of the field.
@@ -53,7 +24,9 @@ class KnowledgeBaseAgent : public Agent {
       do {
         p = g_->RandomPoint();
       } while (g_->neighbors_of(p).size() < 8);
-      *os_ << "Exploring " << p << ", chosen at random." << std::endl;
+      std::stringstream ss;
+      ss << "Exploring " << p << ", chosen at random.";
+      log_(ss.str());
       g_->OpenWithFrontier(p);
       last_point_ = p;
       return -1;
@@ -77,10 +50,14 @@ class KnowledgeBaseAgent : public Agent {
           const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
           if (r.yes) {
             if (r.val) {
-              *os_ << "Flagging " << p << ", found at split level " << k << "." << std::endl;
+              std::stringstream ss;
+              ss << "Flagging " << p << ", found at split level " << k;
+              log_(ss.str());
               g_->Flag(p);
             } else {
-              *os_ << "Exploring " << p << ", found at split level " << k << "." << std::endl;
+              std::stringstream ss;
+              ss << "Exploring " << p << ", found at split level " << k;
+              log_(ss.str());
               g_->OpenWithFrontier(p);
             }
             last_point_ = p;
@@ -97,7 +74,9 @@ class KnowledgeBaseAgent : public Agent {
       if (g_->opened(p) || g_->flagged(p)) {
         continue;
       }
-      *os_ << "Exploring " << p << ", which is just a guess." << std::endl;
+      std::stringstream ss;
+      ss << "Exploring " << p << ", which is just a guess";
+      log_(ss.str());
       g_->OpenWithFrontier(p);
       last_point_ = p;
       return kb_->max_k() + 1;
@@ -105,10 +84,15 @@ class KnowledgeBaseAgent : public Agent {
 
     // That's weird, this case should never occur, because our reasoning should
     // be correct.
-    std::cerr << __FILE__ << ":" << __LINE__ << ": Why didn't we choose a point?" << std::endl;
+    std::stringstream ss;
+    ss << __FILE__ << ":" << __LINE__ << ": Why didn't we choose a point?";
+    log_(ss.str());
     assert(false);
     return -2;
   }
+
+  Logger& logger() { return log_; }
+  const Logger& logger() const { return log_; }
 
  private:
   std::vector<bool> Rectangle(Point p, int radius) {
@@ -134,7 +118,7 @@ class KnowledgeBaseAgent : public Agent {
 
   Game* g_;
   KnowledgeBase* kb_;
-  std::ostream* os_;
+  Logger log_;
   Point last_point_;
 };
 
