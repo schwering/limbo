@@ -181,6 +181,7 @@ class Solver {
              int k,
              const Formula& phi) {
     assert(phi.objective());
+    assert(std::distance(split_terms_begin, split_terms_end) == n_split_terms);
     if (s.contains_empty_clause() || phi.trivially_valid()) {
       return true;
     } else if (k > 0 && n_split_terms > 0) {
@@ -195,11 +196,11 @@ class Solver {
           break;
         }
         const Term t = *it++;
+        --n_split_terms_left;
         if (s.Determines(t)) {
           continue;
         }
         const TermSet& ns = names[t.sort()];
-        --n_split_terms_left;
         assert(!ns.empty());
         for (const Term n : ns) {
           Setup::ShallowCopy split = s.shallow_copy();

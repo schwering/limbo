@@ -114,21 +114,21 @@ void Init(size_t width, size_t height, size_t n_mines, size_t seed, size_t max_k
 }
 
 bool PlayTurn() {
-  timer_overall->start();
   Timer timer_turn;
   timer_turn.start();
+  timer_overall->start();
   const int k = agent->Explore();
+  timer_overall->stop();
+  timer_turn.stop();
   if (k >= 0) {
     ++(*split_counts)[k];
   }
-  timer_turn.stop();
   std::cout << std::endl;
   printer->Print(*game);
   std::cout << std::endl;
   std::cout << "Last move took " << std::fixed << timer_turn.duration() << ", queries took " << std::fixed << kb->timer().duration() << " / " << std::setw(4) << kb->timer().rounds() << " = " << std::fixed << kb->timer().avg_duration() << std::endl;
   kb->ResetTimer();
   const bool game_over = game->hit_mine() || game->all_explored();
-  timer_overall->stop();
 
   if (game_over) {
     std::cout << "Final board:" << std::endl;

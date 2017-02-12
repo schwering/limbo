@@ -29,6 +29,10 @@ class HashSet {
 
   struct Cell {
     Cell() = default;
+    Cell(const Cell&) = default;
+    Cell& operator=(const Cell&) = default;
+    Cell(Cell&&) = default;
+    Cell& operator=(Cell&&) = default;
     Cell(const T& val, hash_t hash) : val(val), hash(hash) {}
     Cell(T&& val, hash_t hash) : val(std::forward<T>(val)), hash(hash) {}
 
@@ -177,11 +181,6 @@ class HashSet {
   const_iterator begin() const { return const_iterator(vec_.begin(), vec_.end()); }
   const_iterator end()   const { return const_iterator(vec_.end()); }
 
-  bucket_iterator bucket(hash_t h) {
-    h = Cell::mask(h);
-    return bucket_iterator(h, vec_.begin() + (h % capacity()), vec_.begin(), vec_.end());
-  }
-
   bucket_iterator bucket_begin(const T& val) { return bucket_begin(hash(val)); }
   bucket_iterator bucket_begin(hash_t h) {
     h = Cell::mask(h);
@@ -206,7 +205,7 @@ class HashSet {
     hash_t i = h % capacity();
     size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
-      if (h == vec_[i].hash && equal_(vec_[i].val, val)) {
+      if (vec_[i].occupied() && h == vec_[i].hash && equal_(vec_[i].val, val)) {
         return false;
       }
       ++i;
@@ -217,29 +216,12 @@ class HashSet {
     return true;
   }
 
-  bool Add(T&& val) {
-    Rehash(size_ + 1);
-    const hash_t h = hash(val);
-    hash_t i = h % capacity();
-    size_t c = capacity();
-    while (!vec_[i].fresh() && c-- > 0) {
-      if (h == vec_[i].hash && equal_(vec_[i].val, val)) {
-        return false;
-      }
-      ++i;
-      i %= capacity();
-    }
-    vec_[i] = Cell(std::forward<T>(val), h);
-    ++size_;
-    return true;
-  }
-
   bool Remove(const T& val) {
     const hash_t h = hash(val);
     hash_t i = h % capacity();
     size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
-      if (h == vec_[i].hash && equal_(vec_[i].val, val)) {
+      if (vec_[i].occupied() && h == vec_[i].hash && equal_(vec_[i].val, val)) {
         vec_[i].MarkRemoved();
         --size_;
         return true;
@@ -260,7 +242,7 @@ class HashSet {
     hash_t i = h % capacity();
     size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
-      if (h == vec_[i].hash) {
+      if (vec_[i].occupied() && h == vec_[i].hash) {
         vec_[i].MarkRemoved();
         --size_;
         return true;
@@ -276,7 +258,7 @@ class HashSet {
     hash_t i = h % capacity();
     size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
-      if (h == vec_[i].hash) {
+      if (vec_[i].occupied() && h == vec_[i].hash) {
         vec_[i].MarkRemoved();
         --size_;
       }
@@ -285,13 +267,27 @@ class HashSet {
     }
   }
 
+  void Clear() {
+    for (size_t i = 0; i < vec_.size(); ++i) {
+      vec_[i] = Cell();
+    }
+  }
+
   bool Contains(const T& val) const {
     const hash_t h = hash(val);
     hash_t i = h % capacity();
+    hash_t p = i;
     size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
-      if (h == vec_[i].hash && equal_(val, vec_[i].val)) {
-        return true;
+      if (vec_[i].occupied()) {
+        if (h == vec_[i].hash && equal_(val, vec_[i].val)) {
+          if (p != i) {
+            std::swap(vec_[p], vec_[i]);
+          }
+          return true;
+        }
+      } else {
+        p = i;
       }
       ++i;
       i %= capacity();
@@ -302,10 +298,19 @@ class HashSet {
   bool ContainsHash(hash_t h) const {
     h = Cell::mask(h);
     hash_t i = h % capacity();
+    hash_t p = i;
     size_t c = capacity();
     while (!vec_[i].fresh() && c-- > 0) {
-      if (h == vec_[i].hash) {
-        return true;
+      if (vec_[i].occupied()) {
+        if (h == vec_[i].hash) {
+          if (p != i) {
+            assert(vec_[p].removed());
+            std::swap(vec_[p], vec_[i]);
+          }
+          return true;
+        }
+      } else {
+        p = i;
       }
       ++i;
       i %= capacity();
@@ -345,7 +350,7 @@ class HashSet {
   Hash hash_;
   Equal equal_;
   size_t size_ = 0;
-  std::vector<Cell> vec_;
+  mutable std::vector<Cell> vec_;
 };
 
 }  // namespace internal

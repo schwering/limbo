@@ -16,7 +16,7 @@
 
 inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, size_t max_k,
                  const Colors& colors, std::ostream* os) {
-  Timer t;
+  Timer overall_timer;
   Game g(width, height, n_mines, seed);
   KnowledgeBase kb(&g, max_k);
   KnowledgeBaseAgent agent(&g, &kb, os);
@@ -24,22 +24,22 @@ inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, size_
   OmniscientPrinter final_printer(&colors, os);
   std::vector<int> split_counts;
   split_counts.resize(max_k + 2);  // last one is for guesses
-  t.start();
   do {
-    Timer t;
-    t.start();
+    Timer turn_timer;
+    turn_timer.start();
+    overall_timer.start();
     const int k = agent.Explore();
+    overall_timer.stop();
+    turn_timer.stop();
     if (k >= 0) {
       ++split_counts[k];
     }
-    t.stop();
     *os << std::endl;
     printer.Print(g);
     *os << std::endl;
-    *os << "Last move took " << std::fixed << t.duration() << ", queries took " << std::fixed << kb.timer().duration() << " / " << std::setw(4) << kb.timer().rounds() << " = " << std::fixed << kb.timer().avg_duration() << std::endl;
+    *os << "Last move took " << std::fixed << turn_timer.duration() << ", queries took " << std::fixed << kb.timer().duration() << " / " << std::setw(4) << kb.timer().rounds() << " = " << std::fixed << kb.timer().avg_duration() << std::endl;
     kb.ResetTimer();
   } while (!g.hit_mine() && !g.all_explored());
-  t.stop();
   *os << "Final board:" << std::endl;
   *os << std::endl;
   final_printer.Print(g);
@@ -61,7 +61,7 @@ inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, size_
       }
     }
   }
-  *os << "runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
+  *os << "runtime: " << overall_timer.duration() << " seconds]" << colors.reset() << std::endl;
   return win;
 }
 

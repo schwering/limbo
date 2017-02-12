@@ -117,10 +117,11 @@ void Init(const std::string& cfg, int max_k) {
 }
 
 bool PlayTurn() {
-  timer_overall->start();
   Timer timer_turn;
   timer_turn.start();
+  timer_overall->start();
   const lela::internal::Maybe<Agent::Result> r = agent->Explore();
+  timer_overall->stop();
   timer_turn.stop();
   if (r) {
     ++(*split_counts)[r.val.k];
@@ -132,7 +133,6 @@ bool PlayTurn() {
   std::cout << "Last move took " << std::fixed << timer_turn.duration() << std::endl;
   kb->ResetTimer();
   const bool game_over = game->solved() || !r;
-  timer_overall->stop();
 
   if (game_over) {
     std::cout << "Final board:" << std::endl;

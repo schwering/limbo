@@ -18,24 +18,25 @@
 #include "timer.h"
 
 inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::ostream* os) {
-  Timer t;
+  Timer timer_overall;
   Game g(cfg);
   KnowledgeBase kb(&g, max_k);
   KnowledgeBaseAgent agent(&g, &kb);
   SimplePrinter printer(&colors, os);
   std::vector<int> split_counts;
   split_counts.resize(max_k + 1);
-  t.start();
   lela::internal::Maybe<Agent::Result> r;
   *os << "Initial Sudoku:" << std::endl;
   *os << std::endl;
   printer.Print(g);
   *os << std::endl;
   do {
-    Timer t;
-    t.start();
+    Timer timer_turn;
+    timer_turn.start();
+    timer_overall.start();
     r = agent.Explore();
-    t.stop();
+    timer_overall.stop();
+    timer_turn.stop();
     if (r) {
       ++split_counts[r.val.k];
       *os << r.val.p << " = " << r.val.n << " found at split level " << r.val.k << std::endl;
@@ -43,10 +44,9 @@ inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::o
     *os << std::endl;
     printer.Print(g);
     *os << std::endl;
-    *os << "Last move took " << std::fixed << t.duration() << std::endl;
+    *os << "Last move took " << std::fixed << timer_turn.duration() << std::endl;
     kb.ResetTimer();
   } while (!g.solved() && r);
-  t.stop();
   const bool solved = g.solved() && g.legal_solution();
   std::cout << (solved ? colors.green() : colors.red()) << "Solution is " << (solved ? "" : "il") << "legal";
   std::cout << "  [max-k: " << kb.max_k() << "; ";
@@ -56,7 +56,7 @@ inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::o
       std::cout << "level " << k << ": " << n << "; ";
     }
   }
-  std::cout << "runtime: " << t.duration() << " seconds]" << colors.reset() << std::endl;
+  std::cout << "runtime: " << timer_overall.duration() << " seconds]" << colors.reset() << std::endl;
   return solved;
 }
 

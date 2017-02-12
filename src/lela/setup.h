@@ -71,29 +71,40 @@ class Setup {
   enum Result { kOK, kSubsumed, kInconsistent };
 
   struct ShallowCopy {
-    explicit ShallowCopy(Setup& s) : setup_(s) {}
+    explicit ShallowCopy(Setup& s) : setup_(&s) { Save(); }
     ShallowCopy(const ShallowCopy&) = delete;
     ShallowCopy& operator=(const ShallowCopy&) = delete;
     ShallowCopy(ShallowCopy&&) = default;
     ShallowCopy& operator=(ShallowCopy&&) = default;
     ~ShallowCopy() { Restore(); }
 
-    const Setup& setup() const { return setup_; }
-    operator const Setup&() const { return setup_; }
-    Result AddUnit(Literal a) { return const_cast<Setup&>(setup_).AddUnit(a); }
+    const Setup& setup() const { return *setup_; }
+    operator const Setup&() const { return *setup_; }
+    Result AddUnit(Literal a) { return const_cast<Setup&>(*setup_).AddUnit(a); }
 
    private:
-    void Restore() {
-      setup_.empty_clause_ = empty_clause_;
-      setup_.units_.Resize(n_units_);
-      setup_.clauses_.Resize(n_clauses_);
-      assert(setup_.saved_-- > 0);
+    void Save() {
+      if (setup_) {
+        empty_clause_ = setup_->empty_clause_;
+        n_units_ = setup_->units_.size();
+        n_clauses_ = setup_->clauses_.size();
+        assert(++setup_->saved_ > 0);
+      }
     }
 
-    Setup& setup_;
-    bool empty_clause_ = setup_.empty_clause_;
-    size_t n_clauses_ = setup_.clauses_.size();
-    size_t n_units_ = setup_.units_.size();
+    void Restore() {
+      if (setup_) {
+        setup_->empty_clause_ = empty_clause_;
+        setup_->units_.Resize(n_units_);
+        setup_->clauses_.Resize(n_clauses_);
+        assert(setup_->saved_-- > 0);
+      }
+    }
+
+    Setup* setup_;
+    bool empty_clause_;
+    size_t n_clauses_;
+    size_t n_units_;
   };
 
   Setup() = default;
