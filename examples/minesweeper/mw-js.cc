@@ -15,18 +15,17 @@
 namespace game {
 
 struct Logger {
-  void operator()(const std::string& str) { str_ = str; UpdateStatus(); }
-  void Log(const std::string& str) { str_ = str; UpdateStatus(); }
-  void Append(const std::string& str) { str_ += str; UpdateStatus(); }
-
- private:
-  void UpdateStatus() {
+  void explored(Point p, int k) const {
     EM_ASM_({
-      updateStatus(Pointer_stringify($0));
-    }, str_.c_str());
+      updateMessage(0, $0, $1, $2);
+    }, p.x, p.y, k);
   }
 
-  std::string str_ = "";
+  void flagged(Point p, int k) const {
+    EM_ASM_({
+      updateMessage(1, $0, $1, $2);
+    }, p.x, p.y, k);
+  }
 };
 
 static Game* game = nullptr;
@@ -68,61 +67,25 @@ void DisplayGame(const Game& g, bool omniscient = false) {
     OmniscientPrinter(&ss).Print(*game);
   }
   EM_ASM_({
+    if ($1) {
+      updateMessageGameOver();
+    }
     displayGame(Pointer_stringify($0));
-  }, ss.str().c_str());
+  }, ss.str().c_str(), omniscient);
 }
 
 bool PlayTurn() {
-  //Timer timer_turn;
-  //timer_turn.start();
   timer_overall->start();
   const int k = agent->Explore();
   timer_overall->stop();
-  //timer_turn.stop();
   if (k >= 0) {
     ++(*split_counts)[k];
   }
   DisplayGame(*game);
-#if 0
-  {
-    std::stringstream str;
-    str << " in " << std::fixed << timer_turn.duration() << " s";
-    agent->logger().Append(str.str());
-  }
-  //kb->ResetTimer();
-#endif
   const bool game_over = game->hit_mine() || game->all_explored();
-
-#if 0
   if (game_over) {
-    HtmlColors colors;
-    std::stringstream str;
-    str << "Final board:" << std::endl;
-    str << std::endl;
     DisplayGame(*game, true);
-    str << std::endl;
-    const bool win = !game->hit_mine();
-    if (win) {
-      str << colors.green() << "You win :-)";
-    } else {
-      str << colors.red() << "You loose :-(";
-    }
-    str << "  [width: " << game->width() << "; height: " << game->height() << "; height: " << game->n_mines() << "; seed: " << game->seed() << "; max-k: " << kb->max_k() << "; ";
-    for (size_t k = 0; k < split_counts->size(); ++k) {
-      const int n = (*split_counts)[k];
-      if (n > 0) {
-        if (k == kb->max_k() + 1) {
-          str << "guesses: " << n << "; ";
-        } else {
-          str << "level " << k << ": " << n << "; ";
-        }
-      }
-    }
-    str << "runtime: " << timer_overall->duration() << " seconds]" << colors.reset() << std::endl;
-    agent->logger().Log(str.str());
   }
-#endif
-
   return game_over;
 }
 

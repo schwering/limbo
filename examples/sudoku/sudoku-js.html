@@ -158,8 +158,7 @@ function play() {
     t0 = performance.now();
     initGame();
     playTurn();
-    setTimeout(function() { scrollDown(); }, 50);
-    setTimeout(function() { scrollDown(); }, 100);
+    setTimeout(function() { scrollToShow('#output'); }, 50);
 }
 
 function playTurn() {
@@ -201,8 +200,29 @@ function printLine(str) {
     last_str = str;
 }
 
-function scrollDown() {
-    document.getElementById('field-next').scrollIntoView(false);
+function scrollToShow(e) {
+    var currentTop = $(document).scrollTop();
+    var currentBottom = $(document).scrollTop() + $(window).height();
+    var goalTop = $(e).offset().top;
+    var goalBottom = $(e).offset().top + $(e).outerHeight();
+    var inDisplay = function(pos) { return currentTop <= pos && pos <= currentBottom; };
+    var topOfScreen = function(pos) { return pos < currentTop; };
+    var belowOfScreen = function(pos) { return pos > currentBottom; };
+    var fitsIntoScreen = $(e).outerHeight() <= $(window).height();
+    var goal;
+    var timeout = 200;
+    if (inDisplay(goalTop) && inDisplay(goalBottom)) {
+        // No need to scroll.
+    } else if (!inDisplay(goalTop) && belowOfScreen(goalTop) && fitsIntoScreen) {
+        // Scroll so that bottom of element aligns with bottom of window.
+        $('html, body').animate({ scrollTop: goalBottom - $(window).height() }, timeout);
+    } else if (!inDisplay(goalTop)) {
+        // Scroll so that top of element aligns with top of window.
+        $('html, body').animate({ scrollTop: goalTop }, timeout);
+    } else if (!inDisplay(goalBottom)) {
+        // Scroll so that bottom of element aligns with bottom of window.
+        $('html, body').animate({ scrollTop: goalBottom - $(window).height() }, timeout);
+    }
 }
 
 function showField(which) {
@@ -276,7 +296,7 @@ If no value is found for any cell, the agent admits defeat and stops.
 </p>
 
 <p>
-Note the agent's actions are not represented in the knowledge base &ndash; it's just hard-coded in C++.
+Note the agent's actions are not represented in the knowledge base&mdash;it's just hard-coded in C++.
 Extending the knowledge base to a basic action theory that also represents the agent's actions would be the next step.
 </p>
 

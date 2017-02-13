@@ -182,7 +182,7 @@ $(document).ready(function() {
                 success: function(data) {
                     $('#parse-text').val(data.trim());
                     if (!justLoaded) {
-                        scrollToBottom($('#parse-button'));
+                        scrollToShow($('#parse-button'));
                         $('#parse-button').focus();
                     }
                     justLoaded = false;
@@ -198,11 +198,29 @@ $(document).ready(function() {
     });
 });
 
-function scrollToBottom(e) {
-    var wHeight = $(window).height();
-    var eOffset = $(e).offset().top;
-    var eHeight = $(e).outerHeight();
-    $('html, body').animate({ scrollTop: eOffset - wHeight + eHeight }, 200);
+function scrollToShow(e) {
+    var currentTop = $(document).scrollTop();
+    var currentBottom = $(document).scrollTop() + $(window).height();
+    var goalTop = $(e).offset().top;
+    var goalBottom = $(e).offset().top + $(e).outerHeight();
+    var inDisplay = function(pos) { return currentTop <= pos && pos <= currentBottom; };
+    var topOfScreen = function(pos) { return pos < currentTop; };
+    var belowOfScreen = function(pos) { return pos > currentBottom; };
+    var fitsIntoScreen = $(e).outerHeight() <= $(window).height();
+    var goal;
+    var timeout = 200;
+    if (inDisplay(goalTop) && inDisplay(goalBottom)) {
+        // No need to scroll.
+    } else if (!inDisplay(goalTop) && belowOfScreen(goalTop) && fitsIntoScreen) {
+        // Scroll so that bottom of element aligns with bottom of window.
+        $('html, body').animate({ scrollTop: goalBottom - $(window).height() }, timeout);
+    } else if (!inDisplay(goalTop)) {
+        // Scroll so that top of element aligns with top of window.
+        $('html, body').animate({ scrollTop: goalTop }, timeout);
+    } else if (!inDisplay(goalBottom)) {
+        // Scroll so that bottom of element aligns with bottom of window.
+        $('html, body').animate({ scrollTop: goalBottom - $(window).height() }, timeout);
+    }
 }
 
 var last_is_console = false;
@@ -215,7 +233,7 @@ function parse() {
     Module.ccall('lela_parse', 'void', ['string'], [text]);
     var t1 = performance.now();
     printDebug("Parsing and reasoning took "+ Math.round(t1 - t0) +" milliseconds");
-    scrollToBottom($('#parse-output'));
+    scrollToShow($('#parse-output'));
 }
 
 function resultClass(r) { return r ? 'success' : 'failure'; }

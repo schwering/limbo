@@ -78,6 +78,9 @@ class Game {
 #endif
   }
 
+  Game(const Game&) = delete;
+  Game& operator=(const Game&) = delete;
+
   size_t n_fields() const { return width_ * height_; }
   size_t width() const { return width_; }
   size_t height() const { return height_; }
@@ -270,7 +273,7 @@ class Game {
   size_t n_flags() const { return n_flags_; }
   size_t seed() const { return seed_; }
   bool hit_mine() const { return hit_mine_; }
-  bool all_explored() const { return n_opens() + n_mines_ == n_fields(); }
+  bool all_explored() const { return n_opens() + n_flags() == n_fields(); }
 
  private:
   const size_t width_;

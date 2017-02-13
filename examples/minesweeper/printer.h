@@ -79,7 +79,7 @@ class Printer {
     std::string text;
   };
 
-  Printer(std::ostream* os) : colors_(nullptr), os_(os), plain_(true) {}
+  Printer(std::ostream* os) : colors_(&no_colors_), os_(os), plain_(true) {}
   Printer(const Colors* colors, std::ostream* os) : colors_(colors), os_(os), plain_(false) {}
   virtual ~Printer() = default;
 
@@ -113,11 +113,11 @@ class Printer {
     const int width = 3;
     *os_ << std::setw(width) << "";
     for (size_t x = 0; x < g.width(); ++x) {
-      *os_ << colors_->dim() << std::setw(width) << x << colors_->reset();
+      *os_ << colors_->dim() << std::setw(width) << x+1 << colors_->reset();
     }
     *os_ << std::endl;
     for (size_t y = 0; y < g.height(); ++y) {
-      *os_ << colors_->dim() << std::setw(width) << y << colors_->reset();
+      *os_ << colors_->dim() << std::setw(width) << y+1 << colors_->reset();
       for (size_t x = 0; x < g.width(); ++x) {
         Label l = label(g, Point(x, y));
         *os_ << l.color << std::setw(width) << l.text << colors_->reset();
@@ -126,6 +126,7 @@ class Printer {
     }
   }
 
+  NoColors no_colors_;
   bool plain_;
 };
 

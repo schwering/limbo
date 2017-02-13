@@ -5,7 +5,7 @@
 #define EXAMPLES_MINESWEEPER_AGENT_H_
 
 #include <algorithm>
-#include <sstream>
+#include <iostream>
 
 #include "game.h"
 #include "kb.h"
@@ -13,7 +13,7 @@
 template<typename Logger>
 class Agent {
  public:
-  explicit Agent(Game* g, KnowledgeBase* kb, Logger log = Logger()) : g_(g), kb_(kb), log_(log) {}
+  explicit Agent(Game* g, KnowledgeBase* kb, Logger logger = Logger()) : g_(g), kb_(kb), logger_(logger) {}
 
   int Explore() {
     kb_->Sync();
@@ -24,9 +24,7 @@ class Agent {
       do {
         p = g_->RandomPoint();
       } while (g_->neighbors_of(p).size() < 8);
-      std::stringstream ss;
-      ss << "Exploring " << p << ", chosen at random.";
-      log_(ss.str());
+      logger_.explored(p, -1);
       g_->OpenWithFrontier(p);
       last_point_ = p;
       return -1;
@@ -50,14 +48,10 @@ class Agent {
           const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
           if (r.yes) {
             if (r.val) {
-              std::stringstream ss;
-              ss << "Flagging " << p << ", found at split level " << k;
-              log_(ss.str());
+              logger_.flagged(p, k);
               g_->Flag(p);
             } else {
-              std::stringstream ss;
-              ss << "Exploring " << p << ", found at split level " << k;
-              log_(ss.str());
+              logger_.explored(p, k);
               g_->OpenWithFrontier(p);
             }
             last_point_ = p;
@@ -74,9 +68,7 @@ class Agent {
       if (g_->opened(p) || g_->flagged(p)) {
         continue;
       }
-      std::stringstream ss;
-      ss << "Exploring " << p << ", which is just a guess";
-      log_(ss.str());
+      logger_.explored(p, -1);
       g_->OpenWithFrontier(p);
       last_point_ = p;
       return kb_->max_k() + 1;
@@ -84,15 +76,13 @@ class Agent {
 
     // That's weird, this case should never occur, because our reasoning should
     // be correct.
-    std::stringstream ss;
-    ss << __FILE__ << ":" << __LINE__ << ": Why didn't we choose a point?";
-    log_(ss.str());
+    std::cerr << __FILE__ << ":" << __LINE__ << ": Why didn't we choose a point?" << std::endl;
     assert(false);
     return -2;
   }
 
-  Logger& logger() { return log_; }
-  const Logger& logger() const { return log_; }
+  Logger& logger() { return logger_; }
+  const Logger& logger() const { return logger_; }
 
  private:
   std::vector<bool> Rectangle(Point p, int radius) {
@@ -118,7 +108,7 @@ class Agent {
 
   Game* g_;
   KnowledgeBase* kb_;
-  Logger log_;
+  Logger logger_;
   Point last_point_;
 };
 

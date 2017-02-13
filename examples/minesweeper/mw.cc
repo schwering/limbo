@@ -14,7 +14,33 @@
 #include "printer.h"
 #include "timer.h"
 
-struct Logger { void operator()(const std::string& str) const { std::cout << str << std::endl; } };
+struct Logger {
+  void explored(Point p, int k) const {
+    std::cout << "Exploring";
+    Rest(p, k);
+  }
+
+  void flagged(Point p, int k) const {
+    std::cout << "Flagging";
+    Rest(p, k);
+  }
+
+ private:
+  void Rest(Point p, int k) const {
+    std::cout << " " << Point(p.x+1, p.y+1);
+    if (first_ && k == -1) {
+      std::cout << ", chosen at random.";
+    } else if (k == -1) {
+      using lela::format::output::operator<<;
+      std::cout << ", which is just a guess.";
+    } else {
+      std::cout << ", found at split level " << k << ".";
+    }
+    first_ = false;
+  }
+
+  mutable bool first_ = false;
+};
 
 inline bool Play(size_t width, size_t height, size_t n_mines, size_t seed, size_t max_k,
                  const Colors& colors, std::ostream* os) {
