@@ -7,8 +7,8 @@
 // to ensure minimality, call Minimize().
 //
 // The typical lifecycle is to create a Setup object, use AddClause() to
-// populate it, evaluate queries with Subsumes(), Consistent(), and
-// LocallyConsistent().
+// populate it, evaluate queries with Subsumes(), Determines(), Consistent(),
+// and LocallyConsistent().
 //
 // Additionally, shallow_copy() can be used to add further clauses or unit
 // clauses which are automatically removed once the lifecycle of ShallowCopy
@@ -20,6 +20,11 @@
 // Subsumes() checks whether the clause is subsumed by any clause in the setup
 // after doing unit propagation; it is hence a sound but incomplete test for
 // entailment.
+//
+// Determines() returns for a given term t a name n such that the setup
+// entails [t=n], if such a name exists. In case the setup contains the empty
+// clause, the null term is returned, that is, n.null() holds, to indicate
+// that the setup entails [t=n] for arbitrary n.
 //
 // Consistent() and LocallyConsistent() perform a sound but incomplete
 // consistency checks. The former only investigates clauses that share a one
@@ -148,6 +153,7 @@ class Setup {
   }
 
   Result AddClause(Clause c) {
+    assert(c.primitive());
     assert(saved_ == 0);
     units_.UnsealOriginalUnits();  // undo units_.SealOriginalUnits() called by Minimize()
     c.PropagateUnits(units_.set());
@@ -165,6 +171,7 @@ class Setup {
   }
 
   Result AddUnit(Literal a) {
+    assert(a.primitive());
     if (empty_clause_) {
       return kInconsistent;
     }
@@ -194,6 +201,7 @@ class Setup {
   }
 
   bool Subsumes(const Clause& d) const {
+    assert(d.primitive());
     if (empty_clause_) {
       return true;
     }
@@ -247,9 +255,12 @@ class Setup {
 
   bool contains_empty_clause() const { return empty_clause_; }
 
-  bool Determines(Term lhs) const { return units_.Determines(lhs); }
-
   const std::vector<Literal> units() const { return units_.vec(); }
+
+  internal::Maybe<Term> Determines(Term lhs) const {
+    assert(lhs.primitive());
+    return empty_clause_ ? internal::Just(Term()) : units_.Determines(lhs);
+  }
 
   struct clause_range {
     explicit clause_range(const Setup& s) : end_((s.empty_clause_ ? 1 : 0) + s.units_.size() + s.clauses_.size()) {}
@@ -399,24 +410,24 @@ class Setup {
       n_orig_ = 0;
     }
 
-    bool Determines(Term t) const {
+    internal::Maybe<Term> Determines(Term t) const {
       assert(t.primitive());
       auto orig_end = vec_.begin() + n_orig_;
       auto orig_begin = std::lower_bound(vec_.begin(), orig_end, Literal::Min(t));
       for (auto it = orig_begin; it != orig_end && t == it->lhs(); ++it) {
         if (it->pos()) {
-          return true;
+          return internal::Just(it->rhs());
         }
       }
       if (set_.bucket_count() > 0) {
         auto bucket = set_.bucket(Literal::Min(t));
         for (auto it = set_.begin(bucket), end = set_.end(bucket); it != end; ++it) {
-          if (it->pos()) {
-            return true;
+          if (it->lhs() == t && it->pos()) {
+            return internal::Just(it->rhs());
           }
         }
       }
-      return false;
+      return internal::Nothing;
     }
 
     const std::vector<Literal>&                          vec() const { return vec_; }
