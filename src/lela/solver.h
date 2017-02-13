@@ -97,21 +97,17 @@ class Solver {
       assume_consistent ? grounder_.RelevantSplitTerms(lhs) :
                           grounder_.SplitTerms();
     const SortedTermSet& names = grounder_.Names();
-    internal::Maybe<Term> r = s.Determines(lhs);
-    if (r) {
-      return r;
-    }
     internal::Maybe<Term> inconsistent_result = internal::Just(Term());
     internal::Maybe<Term> unsuccessful_result = internal::Nothing;
-    return Split(s, split_terms, names, k,
-                 [this, &names, lhs](const Setup& s) { return s.Determines(lhs); },
-                 [](internal::Maybe<Term> r1, internal::Maybe<Term> r2) {
-                   return r1 == r2                     ? r1 :
-                          r1 && r2 && r1.val.null()    ? r2 :
-                          r1 && r2 && r2.val.null()    ? r1 :
-                                                         internal::Nothing;
-                 },
-                 inconsistent_result, unsuccessful_result);
+    return Split<true>(s, split_terms, names, k,
+                       [this, &names, lhs](const Setup& s) { return s.Determines(lhs); },
+                       [](internal::Maybe<Term> r1, internal::Maybe<Term> r2) {
+                         return r1 && r2 && r1.val == r2.val ? r1 :
+                                r1 && r2 && r1.val.null()    ? r2 :
+                                r1 && r2 && r2.val.null()    ? r1 :
+                                                               internal::Nothing;
+                       },
+                       inconsistent_result, unsuccessful_result);
   }
 
   bool EntailsComplete(int k, const Formula& phi, bool assume_consistent) {
@@ -192,10 +188,10 @@ class Solver {
         if (phi.trivially_valid()) {
           return true;
         }
-        return Split(s, split_terms, names, k,
-                     [this, &names, &phi](const Setup& s) { return Reduce(s, names, phi); },
-                     [](bool r1, bool r2) { return r1 && r2; },
-                     true, false);
+        return Split<false>(s, split_terms, names, k,
+                            [this, &names, &phi](const Setup& s) { return Reduce(s, names, phi); },
+                            [](bool r1, bool r2) { return r1 && r2; },
+                            true, false);
       }
     }
     throw;
@@ -316,7 +312,7 @@ class Solver {
     throw;
   }
 
-  template<typename T, typename GoalPredicate, typename MergeResultPredicate>
+  template<bool split_order_matters, typename T, typename GoalPredicate, typename MergeResultPredicate>
   T Split(const Setup& s,
           const TermSet& split_terms,
           const SortedTermSet& names,
@@ -325,11 +321,11 @@ class Solver {
           MergeResultPredicate merge,
           T inconsistent_result,
           T unsuccessful_result) {
-    return Split(s, split_terms.begin(), split_terms.end(), split_terms.size(), names, k, goal, merge,
-                 inconsistent_result, unsuccessful_result);
+    return Split<split_order_matters>(s, split_terms.begin(), split_terms.end(), split_terms.size(), names, k,
+                                      goal, merge, inconsistent_result, unsuccessful_result);
   }
 
-  template<typename T, typename GoalPredicate, typename MergeResultPredicate>
+  template<bool split_order_matters, typename T, typename GoalPredicate, typename MergeResultPredicate>
   T Split(const Setup& s,
           const TermSet::const_iterator split_terms_begin,
           const TermSet::const_iterator split_terms_end,
@@ -340,6 +336,34 @@ class Solver {
           MergeResultPredicate merge,
           T inconsistent_result,
           T unsuccessful_result) {
+    // For Determines(), the split order matters, for Entails() it does not.
+    // Suppose we have two split terms t1, t2, t3 and two names n1, n2, and
+    // a query term t and two candidate names n, n' for t.
+    //
+    // Let us assume that for all combinations of t1=N*, t3=N**, the reasoner
+    // finds that t=n. 
+    //
+    // The reasoner splits t1 at the first level, and after setting t1=n1 it
+    // descends to the next split level, where it successfully splits t2, which
+    // obtains t=n' as binding for t. Back at split level one, the reasoner now
+    // considers the case t1=n2, again descends to the next level, where it
+    // splits, say, t3, and obtains t=n.
+    //
+    // Back at split level one, the reasoner sees that t=n' and t=n are
+    // incompatible and hence proceeds by splitting t2, which does not succeed.
+    // In a way, t=n' found with t2 after t1=n1 blocks the real solution.
+    //
+    // Again at level one, the reasoner splits t3. If the order does not
+    // matter, it will not descend to any further split level, since all
+    // unordered combinations of t1, t2, t3 have been tested already.
+    //
+    // If the order does matter, however, it does descend to the next level.
+    // There it will split t1: even if it picks t2 before t1, t2 will prove
+    // incompatible with t3 (*). And once it splits t1 at level two, it will
+    // find t=n, which this time is not blocked by t=n'.
+    //
+    // (*) This holds under the assumption that the KB is consistent.
+    // If the KB is not consistent, could split terms 'block' each other?
     assert(std::distance(split_terms_begin, split_terms_end) == n_split_terms);
     if (s.contains_empty_clause()) {
       return unsuccessful_result;
@@ -370,8 +394,16 @@ class Solver {
             recursed = true;
             continue;
           }
-          auto split_result = Split(split.setup(), it, split_terms_end, n_split_terms_left, names, k-1, goal, merge,
-                                    inconsistent_result, unsuccessful_result);
+          auto split_result = Split<split_order_matters>(split.setup(),
+                                                         split_order_matters ? split_terms_begin : it,
+                                                         split_terms_end,
+                                                         split_order_matters ? n_split_terms : n_split_terms_left,
+                                                         names,
+                                                         k - 1,
+                                                         goal,
+                                                         merge,
+                                                         inconsistent_result,
+                                                         unsuccessful_result);
           if (!split_result) {
             goto next_split;
           }

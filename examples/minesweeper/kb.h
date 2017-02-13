@@ -100,10 +100,21 @@ class KnowledgeBase {
     // field is T or F, it would be fine.
     lela::internal::Maybe<lela::Term> is_mine = solver()->Determines(k, Mine(p), lela::Solver::kConsistencyGuarantee);
     assert(!is_mine || is_mine.val == T || is_mine.val == F);
+    assert(solver()->Determines(k, Mine(p), lela::Solver::kNoConsistencyGuarantee) == is_mine);
     assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(true, p)}),
-                             lela::Solver::kConsistencyGuarantee) == (is_mine && is_mine.val == T));
+                             lela::Solver::kConsistencyGuarantee) ==
+           (is_mine && is_mine.val == T));
+    assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(true, p)}),
+                             lela::Solver::kConsistencyGuarantee) ==
+           solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(true, p)}),
+                             lela::Solver::kNoConsistencyGuarantee));
     assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(false, p)}),
-                             lela::Solver::kConsistencyGuarantee) == (is_mine && is_mine.val == F));
+                             lela::Solver::kConsistencyGuarantee) ==
+           solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(false, p)}),
+                             lela::Solver::kNoConsistencyGuarantee));
+    assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(false, p)}),
+                             lela::Solver::kConsistencyGuarantee) ==
+           (is_mine && is_mine.val == F));
     if (is_mine) {
       assert(!is_mine.val.null());
       r = lela::internal::Just(is_mine.val == T);
@@ -150,7 +161,7 @@ class KnowledgeBase {
   lela::Literal MineLit(bool is, Point p) const {
     lela::Term t = Mine(p);
 #ifdef USE_DETERMINES
-    return is ? lela::Literal::Eq(t, T) : lela::Literal::Eq(t, F);
+    return lela::Literal::Eq(t, is ? T : F);
 #else
     return is ? lela::Literal::Eq(t, T) : lela::Literal::Neq(t, T);
 #endif
