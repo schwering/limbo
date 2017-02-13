@@ -12,6 +12,7 @@
 #include <lela/formula.h>
 #include <lela/solver.h>
 #include <lela/internal/ints.h>
+#include <lela/internal/maybe.h>
 
 namespace lela {
 
@@ -213,6 +214,29 @@ class KnowledgeBase {
   }
 
   Formula::Ref ResEntails(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
+    // If phi is just a literal (t = n) or (t = x) for primitive t, we can use Solver::Determines to speed things up.
+    if (phi.type() == Formula::kAtomic) {
+      const Clause& c = phi.as_atomic().arg();
+      if (c.unit()) {
+        Literal a = c.first();
+        if (a.lhs().primitive() && a.pos()) {
+          internal::Maybe<Term> r = spheres_[p].Determines(k, a.lhs(), assume_consistent);
+          if (a.rhs().name()) {
+            return bool_to_formula(r && (r.val.null() || r.val == a.rhs()));
+          } else if (a.rhs().variable()) {
+            if (r) {
+              if (r.val.null()) {
+                return bool_to_formula(true);
+              } else {
+                return Formula::Factory::Atomic(Clause(Literal::Eq(a.rhs(), r.val)));
+              }
+            } else {
+              return bool_to_formula(false);
+            }
+          }
+        }
+      }
+    }
     auto if_no_free_vars = [k, assume_consistent, this](Solver* sphere, const Formula& psi) {
       return sphere->Entails(k, psi, assume_consistent);
     };

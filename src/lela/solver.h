@@ -1,22 +1,26 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2016 Christoph Schwering
 //
-// Solver implements limited belief implications. The key methods are Entails()
-// and Consistent(), which determine whether the knowledge base consisting of
-// the clauses added with AddClause() entails a query or is consistent with it,
-// respectively. Entails() and Consistent() both are sound but incomplete: if
-// they return true, this answer is correct with respect to classical logic;
-// if they return false, this may not be correct and should be rather
-// interpreted as "don't know." The method EntailsComplete() uses Consistent()
-// to implement a complete but unsound entailment relation. It is safe to call
-// AddClause() between evaluating queries with Entails(), EntailsComplete(), or
-// Consistent().
+// Solver implements limited belief implications. The key methods are Entails(),
+// Determines(), and Consistent(), which determine whether the knowledge base
+// consisting of the clauses added with AddClause() entails a query, determines
+// a terms's denotation or is consistent with it, respectively. They are are
+// sound but incomplete: if they return true, this answer is correct with
+// respect to classical logic; if they return false, this may not be correct
+// and should be rather interpreted as "don't know." The method
+// EntailsComplete() uses Consistent() to implement a complete but unsound
+// entailment relation. It is safe to call AddClause() between evaluating
+// queries with Entails(), Determines(), EntailsComplete(), or Consistent().
 //
 // Splitting and assigning is done at a deterministic point, namely after
 // reducing the outermost logical operators with conjunctive meaning (negated
 // disjunction, double negation, negated existential). This is opposed to the
 // original semantics from the KR-2016 paper where splitting can be done at any
 // point during the reduction.
+//
+// Note that in the special case that the set of clauses can be shown to be
+// inconsistent after the splits, Determines() returns the null term to indicate
+// that [t=n] is entailed by the clauses for arbitrary n.
 //
 // In the original semantics, when a split sets (t = n), we also substitute n
 // for t in the query to deal with nested terms. But since we often split before
@@ -197,6 +201,121 @@ class Solver {
     throw;
   }
 
+  bool ReduceDisjunctions(const Setup& s,
+                          const LiteralAssignmentSet& assign_lits,
+                          const SortedTermSet& names,
+                          int k,
+                          const Formula& phi,
+                          bool assume_consistent,
+                          const TermSet& relevant_terms) {
+    assert(phi.objective());
+    switch (phi.type()) {
+      case Formula::kAtomic: {
+        return Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
+      }
+      case Formula::kOr: {
+        const Formula& left = phi.as_or().lhs();
+        const Formula& right = phi.as_or().rhs();
+        return ReduceDisjunctions(s, assign_lits, names, k, left, assume_consistent, relevant_terms) ||
+               ReduceDisjunctions(s, assign_lits, names, k, right, assume_consistent, relevant_terms);
+      }
+      case Formula::kExists: {
+        const Term x = phi.as_exists().x();
+        const TermSet& ns = names[x.sort()];
+        return std::any_of(ns.begin(), ns.end(), [&, this](const Term n) {
+          Formula::Ref psi = phi.as_exists().arg().Clone();
+          psi->SubstituteFree(Term::Substitution(x, n), tf_);
+          return ReduceDisjunctions(s, assign_lits, names, k, *psi, assume_consistent, relevant_terms);
+        });
+      }
+      case Formula::kNot: {
+        switch (phi.as_not().arg().type()) {
+          case Formula::kNot:
+            return ReduceDisjunctions(s, assign_lits, names, k, phi.as_not().arg().as_not().arg(), assume_consistent,
+                                      relevant_terms);
+          default:
+            return !phi.trivially_invalid() && Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
+        }
+      }
+      case Formula::kKnow:
+      case Formula::kCons:
+      case Formula::kBel:
+      case Formula::kGuarantee:
+        assert(false);
+        return false;
+    }
+    throw;
+  }
+
+  bool Reduce(const Setup& s, const SortedTermSet& names, const Formula& phi) {
+    assert(phi.objective());
+    switch (phi.type()) {
+      case Formula::kAtomic: {
+        const Clause c = phi.as_atomic().arg();
+        return c.valid() || (c.primitive() && s.Subsumes(c));
+      }
+      case Formula::kNot: {
+        switch (phi.as_not().arg().type()) {
+          case Formula::kAtomic: {
+            const Clause c = phi.as_not().arg().as_atomic().arg();
+            return std::all_of(c.begin(), c.end(), [this, &s, &names](Literal a) {
+              Formula::Ref psi = Formula::Factory::Atomic(Clause{a.flip()});
+              return Reduce(s, names, *psi);
+            });
+          }
+          case Formula::kNot: {
+            return Reduce(s, names, phi.as_not().arg().as_not().arg());
+          }
+          case Formula::kOr: {
+            Formula::Ref left = Formula::Factory::Not(phi.as_not().arg().as_or().lhs().Clone());
+            Formula::Ref right = Formula::Factory::Not(phi.as_not().arg().as_or().rhs().Clone());
+            return Reduce(s, names, *left) &&
+                   Reduce(s, names, *right);
+          }
+          case Formula::kExists: {
+            const Term x = phi.as_not().arg().as_exists().x();
+            const Formula& psi = phi.as_not().arg().as_exists().arg();
+            const TermSet& ns = names[x.sort()];
+            return std::all_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
+              Formula::Ref xi = Formula::Factory::Not(psi.Clone());
+              xi->SubstituteFree(Term::Substitution(x, n), tf_);
+              return Reduce(s, names, *xi);
+            });
+          }
+          case Formula::kKnow:
+          case Formula::kCons:
+          case Formula::kBel:
+          case Formula::kGuarantee:
+            assert(false);
+            break;
+        }
+      }
+      case Formula::kOr: {
+        const Formula& left = phi.as_or().lhs();
+        const Formula& right = phi.as_or().rhs();
+        return Reduce(s, names, left) ||
+               Reduce(s, names, right);
+      }
+      case Formula::kExists: {
+        const Term x = phi.as_exists().x();
+        const Formula& psi = phi.as_exists().arg();
+        const TermSet& ns = names[x.sort()];
+        return std::any_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
+          Formula::Ref xi = psi.Clone();
+          xi->SubstituteFree(Term::Substitution(x, n), tf_);
+          return Reduce(s, names, *xi);
+        });
+      }
+      case Formula::kKnow:
+      case Formula::kCons:
+      case Formula::kBel:
+      case Formula::kGuarantee:
+        assert(false);
+        return false;
+    }
+    throw;
+  }
+
   template<typename T, typename GoalPredicate, typename MergeResultPredicate>
   T Split(const Setup& s,
           const TermSet& split_terms,
@@ -272,52 +391,6 @@ next_split:
     }
   }
 
-  bool ReduceDisjunctions(const Setup& s,
-                          const LiteralAssignmentSet& assign_lits,
-                          const SortedTermSet& names,
-                          int k,
-                          const Formula& phi,
-                          bool assume_consistent,
-                          const TermSet& relevant_terms) {
-    assert(phi.objective());
-    switch (phi.type()) {
-      case Formula::kAtomic: {
-        return Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
-      }
-      case Formula::kOr: {
-        const Formula& left = phi.as_or().lhs();
-        const Formula& right = phi.as_or().rhs();
-        return ReduceDisjunctions(s, assign_lits, names, k, left, assume_consistent, relevant_terms) ||
-               ReduceDisjunctions(s, assign_lits, names, k, right, assume_consistent, relevant_terms);
-      }
-      case Formula::kExists: {
-        const Term x = phi.as_exists().x();
-        const TermSet& ns = names[x.sort()];
-        return std::any_of(ns.begin(), ns.end(), [&, this](const Term n) {
-          Formula::Ref psi = phi.as_exists().arg().Clone();
-          psi->SubstituteFree(Term::Substitution(x, n), tf_);
-          return ReduceDisjunctions(s, assign_lits, names, k, *psi, assume_consistent, relevant_terms);
-        });
-      }
-      case Formula::kNot: {
-        switch (phi.as_not().arg().type()) {
-          case Formula::kNot:
-            return ReduceDisjunctions(s, assign_lits, names, k, phi.as_not().arg().as_not().arg(), assume_consistent,
-                                      relevant_terms);
-          default:
-            return !phi.trivially_invalid() && Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
-        }
-      }
-      case Formula::kKnow:
-      case Formula::kCons:
-      case Formula::kBel:
-      case Formula::kGuarantee:
-        assert(false);
-        return false;
-    }
-    throw;
-  }
-
   bool Assign(const Setup& s,
               const LiteralAssignmentSet& assign_lits,
               const SortedTermSet& names,
@@ -352,75 +425,6 @@ next_split:
       }
       return Reduce(s, names, phi);
     }
-  }
-
-  bool Reduce(const Setup& s, const SortedTermSet& names, const Formula& phi) {
-    assert(phi.objective());
-    switch (phi.type()) {
-      case Formula::kAtomic: {
-        const Clause c = phi.as_atomic().arg();
-        return c.valid() || (c.primitive() && s.Subsumes(c));
-      }
-      case Formula::kNot: {
-        switch (phi.as_not().arg().type()) {
-          case Formula::kAtomic: {
-            const Clause c = phi.as_not().arg().as_atomic().arg();
-            return std::all_of(c.begin(), c.end(), [this, &s, &names](Literal a) {
-              Formula::Ref psi = Formula::Factory::Atomic(Clause{a.flip()});
-              return Reduce(s, names, *psi);
-            });
-          }
-          case Formula::kNot: {
-            return Reduce(s, names, phi.as_not().arg().as_not().arg());
-          }
-          case Formula::kOr: {
-            Formula::Ref left = Formula::Factory::Not(phi.as_not().arg().as_or().lhs().Clone());
-            Formula::Ref right = Formula::Factory::Not(phi.as_not().arg().as_or().rhs().Clone());
-            return Reduce(s, names, *left) &&
-                   Reduce(s, names, *right);
-          }
-          case Formula::kExists: {
-            const Term x = phi.as_not().arg().as_exists().x();
-            const Formula& psi = phi.as_not().arg().as_exists().arg();
-            const TermSet& ns = names[x.sort()];
-            return std::all_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
-              Formula::Ref xi = Formula::Factory::Not(psi.Clone());
-              xi->SubstituteFree(Term::Substitution(x, n), tf_);
-              return Reduce(s, names, *xi);
-            });
-          }
-          case Formula::kKnow:
-          case Formula::kCons:
-          case Formula::kBel:
-          case Formula::kGuarantee:
-            assert(false);
-            break;
-        }
-      }
-      case Formula::kOr: {
-        const Formula& left = phi.as_or().lhs();
-        const Formula& right = phi.as_or().rhs();
-        return Reduce(s, names, left) ||
-               Reduce(s, names, right);
-      }
-      case Formula::kExists: {
-        const Term x = phi.as_exists().x();
-        const Formula& psi = phi.as_exists().arg();
-        const TermSet& ns = names[x.sort()];
-        return std::any_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
-          Formula::Ref xi = psi.Clone();
-          xi->SubstituteFree(Term::Substitution(x, n), tf_);
-          return Reduce(s, names, *xi);
-        });
-      }
-      case Formula::kKnow:
-      case Formula::kCons:
-      case Formula::kBel:
-      case Formula::kGuarantee:
-        assert(false);
-        return false;
-    }
-    throw;
   }
 
   Term::Factory* tf_;
