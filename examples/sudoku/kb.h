@@ -95,9 +95,16 @@ class KnowledgeBase {
 
   lela::internal::Maybe<int> Val(Point p, int k) {
     t_.start();
-    for (std::size_t i = 1; i <= 9; ++i) {
-      if (solver()->Entails(k, val(p) == n(i), lela::Solver::kConsistencyGuarantee)) {
-        return lela::internal::Just(i);
+    const lela::internal::Maybe<lela::Term> r = solver()->Determines(k, val(p), lela::Solver::kConsistencyGuarantee);
+    assert(std::all_of(lela::internal::int_iterator<size_t>(1), lela::internal::int_iterator<size_t>(9),
+           [&](size_t i) { return solver()->Entails(k, val(p) == n(i), lela::Solver::kConsistencyGuarantee) ==
+                                  (r && r.val == n(i)); }));
+    if (r) {
+      assert(!r.val.null());
+      for (std::size_t i = 1; i <= 9; ++i) {
+        if (r.val.null() || r.val == n(i)) {
+          return lela::internal::Just(i);
+        }
       }
     }
     t_.stop();

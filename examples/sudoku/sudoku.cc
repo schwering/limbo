@@ -46,8 +46,8 @@ inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::o
     *os << std::endl;
     *os << "Last move took " << std::fixed << timer_turn.duration() << std::endl;
     kb.ResetTimer();
-  } while (!g.solved() && r);
-  const bool solved = g.solved() && g.legal_solution();
+  } while (!g.solved() && g.legal() && r);
+  const bool solved = g.solved() && g.legal();
   std::cout << (solved ? colors.green() : colors.red()) << "Solution is " << (solved ? "" : "il") << "legal";
   std::cout << "  [max-k: " << kb.max_k() << "; ";
   for (size_t k = 0; k < split_counts.size(); ++k) {

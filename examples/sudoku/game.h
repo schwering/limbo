@@ -64,11 +64,11 @@ class Game {
     return true;
   }
 
-  bool legal_solution() const {
+  bool legal() const {
     for (std::size_t x = 1; x <= 9; ++x) {
       for (std::size_t y = 1; y <= 9; ++y) {
         for (std::size_t yy = 1; yy <= 9; ++yy) {
-          if (y != yy && get(x, y) == get(x, yy)) {
+          if (y != yy && get(x, y) != 0 && get(x, yy) != 0 && get(x, y) == get(x, yy)) {
             return false;
           }
         }
@@ -77,7 +77,7 @@ class Game {
     for (std::size_t x = 1; x <= 9; ++x) {
       for (std::size_t xx = 1; xx <= 9; ++xx) {
         for (std::size_t y = 1; y <= 9; ++y) {
-          if (x != xx && get(x, y) == get(xx, y)) {
+          if (x != xx && get(x, y) != 0 && get(xx, y) != 0 && get(x, y) == get(xx, y)) {
             return false;
           }
         }
@@ -89,7 +89,7 @@ class Game {
           for (std::size_t xx = 3*i-2; xx <= 3*i; ++xx) {
             for (std::size_t y = 3*j-2; y <= 3*j; ++y) {
               for (std::size_t yy = 3*j-2; yy <= 3*j; ++yy) {
-                if ((x != xx || y != yy) && get(x, y) == get(xx, yy)) {
+                if ((x != xx || y != yy) && get(x, y) != 0 && get(xx, yy) != 0 && get(x, y) == get(xx, yy)) {
                   return false;
                 }
               }
@@ -100,7 +100,7 @@ class Game {
     }
     for (std::size_t x = 1; x <= 9; ++x) {
       for (std::size_t y = 1; y <= 9; ++y) {
-        if (get(x, y) < 1 || get(x, y) > 9) {
+        if (get(x, y) != 0 && (get(x, y) < 1 || get(x, y) > 9)) {
           return false;
         }
       }
