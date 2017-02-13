@@ -139,7 +139,7 @@ bool PlayTurn() {
     std::cout << std::endl;
     printer->Print(*game);
     std::cout << std::endl;
-    if (game->solved() && game->legal_solution()) {
+    if (game->solved() && game->legal()) {
       std::cout << colors.green() << "Solution is legal";
     } else {
       std::cout << colors.red() << "Solution is illegal";

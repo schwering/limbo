@@ -57,12 +57,18 @@ class KnowledgeBase {
         XPos(ctx_.CreateSort()),
         YPos(ctx_.CreateSort()),
         T(ctx_.CreateName(Bool)),
-        Mine(ctx_.CreateFunction(Bool, 2)) {
+#ifdef USE_DETERMINES
+        F(ctx_.CreateName(Bool)),
+#endif
+        MineF(ctx_.CreateFunction(Bool, 2)) {
     lela::format::output::RegisterSort(Bool, "");
     lela::format::output::RegisterSort(XPos, "");
     lela::format::output::RegisterSort(YPos, "");
     lela::format::output::RegisterSymbol(T.symbol(), "T");
-    lela::format::output::RegisterSymbol(Mine, "Mine");
+#ifdef USE_DETERMINES
+    lela::format::output::RegisterSymbol(F.symbol(), "F");
+#endif
+    lela::format::output::RegisterSymbol(MineF, "Mine");
     X.resize(g_->width());
     for (size_t i = 0; i < g_->width(); ++i) {
       X[i] = ctx_.CreateName(XPos);
@@ -82,13 +88,28 @@ class KnowledgeBase {
 
   size_t max_k() const { return max_k_; }
 
-  lela::Solver* solver() { return ctx_.solver(); }
   const lela::Solver& solver() const { return ctx_.solver(); }
   const lela::Setup& setup() const { return solver().setup(); }
 
   lela::internal::Maybe<bool> IsMine(Point p, int k) {
     t_.start();
     lela::internal::Maybe<bool> r = lela::internal::Nothing;
+#ifdef USE_DETERMINES
+    // Doesn't work because we represent 'false' with "/= T".
+    // If we used a second name, "F", and constraints that every
+    // field is T or F, it would be fine.
+    lela::internal::Maybe<lela::Term> is_mine = solver()->Determines(k, Mine(p), lela::Solver::kConsistencyGuarantee);
+    assert(!is_mine || is_mine.val == T || is_mine.val == F);
+    assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(true, p)}),
+                             lela::Solver::kConsistencyGuarantee) == (is_mine && is_mine.val == T));
+    assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(false, p)}),
+                             lela::Solver::kConsistencyGuarantee) == (is_mine && is_mine.val == F));
+    if (is_mine) {
+      assert(!is_mine.val.null());
+      r = lela::internal::Just(is_mine.val == T);
+      assert(g_->mine(p) == r.val);
+    }
+#else
     lela::Formula::Ref yes_mine = lela::Formula::Factory::Atomic(lela::Clause{MineLit(true, p)});
     lela::Formula::Ref no_mine = lela::Formula::Factory::Atomic(lela::Clause{MineLit(false, p)});
     if (solver()->Entails(k, *yes_mine, lela::Solver::kConsistencyGuarantee)) {
@@ -98,6 +119,7 @@ class KnowledgeBase {
       assert(!g_->mine(p));
       r = lela::internal::Just(false);
     }
+#endif
     t_.stop();
     return r;
   }
@@ -121,9 +143,17 @@ class KnowledgeBase {
   void ResetTimer() { t_.reset(); }
 
  private:
+  lela::Term Mine(Point p) const {
+    return MineF(X[p.x], Y[p.y]);
+  }
+
   lela::Literal MineLit(bool is, Point p) const {
-    lela::Term t = Mine(X[p.x], Y[p.y]);
+    lela::Term t = Mine(p);
+#ifdef USE_DETERMINES
+    return is ? lela::Literal::Eq(t, T) : lela::Literal::Eq(t, F);
+#else
     return is ? lela::Literal::Eq(t, T) : lela::Literal::Neq(t, T);
+#endif
   }
 
   lela::Clause MineClause(bool sign, const std::vector<Point> ns) const {
@@ -139,23 +169,23 @@ class KnowledgeBase {
         return false;
       }
       case Game::FLAGGED: {
-        solver()->AddClause(lela::Clause{MineLit(true, p)});
+        AddClause(lela::Clause{MineLit(true, p)});
         return true;
       }
       case Game::HIT_MINE: {
-        solver()->AddClause(lela::Clause{MineLit(true, p)});
+        AddClause(lela::Clause{MineLit(true, p)});
         return true;
       }
       default: {
         const std::vector<Point>& ns = g_->neighbors_of(p);
         const int n = ns.size();
         for (const std::vector<Point>& ps : util::Subsets(ns, n - m + 1)) {
-          solver()->AddClause(MineClause(true, ps));
+          AddClause(MineClause(true, ps));
         }
         for (const std::vector<Point>& ps : util::Subsets(ns, m + 1)) {
-          solver()->AddClause(MineClause(false, ps));
+          AddClause(MineClause(false, ps));
         }
-        solver()->AddClause(lela::Clause{MineLit(false, p)});
+        AddClause(lela::Clause{MineLit(false, p)});
         return true;
       }
     }
@@ -170,12 +200,27 @@ class KnowledgeBase {
       }
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, n - m + 1)) {
-      solver()->AddClause(MineClause(true, ps));
+      AddClause(MineClause(true, ps));
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, m + 1)) {
-      solver()->AddClause(MineClause(false, ps));
+      AddClause(MineClause(false, ps));
     }
   }
+
+  void AddClause(const lela::Clause& c) {
+#ifdef USE_DETERMINES
+    for (lela::Literal a : c) {
+      lela::Term t = a.lhs();
+      if (closure_added_.find(t) == closure_added_.end()) {
+        solver()->AddClause(lela::Clause{lela::Literal::Eq(t, T), lela::Literal::Eq(t, F)});
+        closure_added_.insert(t);
+      }
+    }
+#endif
+    solver()->AddClause(c);
+  }
+
+  lela::Solver* solver() { return ctx_.solver(); }
 
   const Game* g_;
   size_t max_k_;
@@ -186,9 +231,16 @@ class KnowledgeBase {
   lela::Symbol::Sort XPos;
   lela::Symbol::Sort YPos;
   lela::format::cpp::HiTerm T;               // name for positive truth value
+#ifdef USE_DETERMINES
+  lela::format::cpp::HiTerm F;               // name for negative truth value
+#endif
   std::vector<lela::format::cpp::HiTerm> X;  // names for X positions
   std::vector<lela::format::cpp::HiTerm> Y;  // names for Y positions
-  lela::format::cpp::HiSymbol Mine;
+  lela::format::cpp::HiSymbol MineF;
+
+#ifdef USE_DETERMINES
+  std::unordered_set<lela::Term> closure_added_;
+#endif
 
   std::vector<bool> processed_;
   size_t n_rem_mines_ = 11;

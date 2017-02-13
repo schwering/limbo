@@ -1,6 +1,7 @@
 add_executable (mw mw.cc)
 target_link_libraries (mw LINK_PUBLIC lela)
 
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_DETERMINES")
 
 find_package (Emscripten)
 if (EMCC)
