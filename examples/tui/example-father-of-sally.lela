@@ -1,0 +1,34 @@
+// Is Sally's father rich?
+
+Sort HUMAN
+Sort BOOL
+
+Variable x -> HUMAN
+Variable y -> HUMAN
+Variable z -> HUMAN
+
+Name Frank -> HUMAN
+Name Fred -> HUMAN
+Name Sally -> HUMAN
+Name T -> BOOL
+
+Function fatherOf/1 -> HUMAN
+Function rich/1 -> BOOL
+
+KB: rich(fatherOf(Sally)) = T
+KB: fatherOf(Sally) = Frank v fatherOf(Sally) = Fred
+
+Assert: K<0> (fatherOf(Sally) = Frank -> rich(Frank) = T)
+Assert: K<0> (fatherOf(Sally) = Fred  -> rich(Fred) = T)
+Refute: K<0> (fatherOf(Sally) = Frank -> rich(Fred) = T)
+Refute: K<0> (rich(Frank) = T v rich(Fred) = T)
+Assert: K<1> (rich(Frank) = T v rich(Fred) = T)
+
+Refute: M<0> (fatherOf(Sally) = Frank)
+Refute: M<0> (fatherOf(Sally) = Fred)
+Assert: M<1> (fatherOf(Sally) = Frank)
+Assert: M<1> (fatherOf(Sally) = Fred)
+Refute: M<0> (rich(Frank) = T)
+Assert: M<1> (rich(Frank) = T)
+Assert: M<1> (rich(Frank) = T)
+

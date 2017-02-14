@@ -6,6 +6,12 @@
 
 *.pyc
 
+*.log
+
+callgrind.*
+
+bla*
+
 cpplint.py
 
 CMakeCache.txt
@@ -37,13 +43,13 @@ tests/setup
 tests/solver
 tests/syntax
 tests/term
-examples/minesweeper/mw
-examples/minesweeper/mw-js.js*
-examples/textinterface/ti
-examples/textinterface/ti-js.js*
+examples/minesweeper/minesweeper
+examples/minesweeper/minesweeper-js.js*
+examples/tui/tui
+examples/tui/tui-js.js*
 examples/sudoku/sudoku
 examples/sudoku/sudoku-js.js*
+examples/jquery-*.min.js
 examples/*/jquery-*.min.js
-
-callgrind.*
+examples/demo.*
 

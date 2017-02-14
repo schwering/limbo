@@ -259,6 +259,16 @@ class Game {
     return adjacent_mines;
   }
 
+  int opened_neighbors(Point p) const {
+    int n = 0;
+    for (const Point q : neighbors_of(p)) {
+      if (opened(q)) {
+        ++n;
+      }
+    }
+    return n;
+  }
+
   int unopened_unflagged_neighbors(Point p) const {
     int n = 0;
     for (const Point q : neighbors_of(p)) {

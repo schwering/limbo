@@ -4,13 +4,21 @@
     <meta charset="UTF-8"> 
     <title>Limited reasoner demo</title>
 
-    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <!--<link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">-->
     <style type="text/css">
         body { font-family: 'Open Sans', sans-serif; font-size: 140%; }
         p { text-align: justify; }
 
         h1       { font-size: 220%; }
         h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
+
+        ul.demos { font-size: 110%; line-height: 170%; }
+        ul.demos a { font-weight: bold; }
+
+        .logic     { font-family: serif; }
+        .logic b   { font-weight: bold; font-style: normal; }
+        .logic i   { font-weight: normal; font-style: normal; font-size: 75%; line-height: 0; position: relative; vertical-align: baseline; bottom: -0.5ex; }
+        div.logic  { width: 100%; text-align: center; }
     </style>
 </head>
 
@@ -18,8 +26,9 @@
 
 <h1>Limited Reasoner Demos</h1>
 
-<ul style="font-size: 110%; line-height: 170%;">
-    <li> <a href="textinterface/ti-js.html">Text interface</a> demo</li>
+<p>Available demos:</p>
+<ul class="demos">
+    <li> <a href="tui/tui-js.html">Textual user interface</a> demo</li>
     <li> <a href="minesweeper/mw-js.html">Minesweeper</a> demo</li>
     <li> <a href="sudoku/sudoku-js.html">Sudoku</a> demo</li>
 </ul>
@@ -28,51 +37,55 @@
 
 <h2>About the Reasoner</h2>
 
+<h3>Representation</h3>
+
 <p>
-The logical language features functions and equality, first-order quantification, standard names, and sorts.
-(Predicates are not built-in but can be simulated with no overhead using boolean functions.)
-Knowledge bases are restricted to be in clausal form with only universally quantified variables &ndash; these KBs are called proper<sup>+</sup>.
-(Existentially quantified variables in the knowledge base can be simulated with functions.)
-Queries are not subject to any syntactic restriction.
+The reasoner uses a first-order modal logic as representation language.
+In their most basic form, formulas are about the equality of terms&mdash;functions, variables, or standard names.
+For instance, we could say <span class="logic">fatherOf(Sally) = x</span>, where <span class="logic">fatherOf</span> is a unary function, <span class="logic">x</span> is a variable, and <span class="logic">Sally</span> is a standard name (it denotes one specific individual).
+Predicates are not an explicit part of the language, but can be easily simulated with functions and a special standard name <span class="logic">T</span> that indicates truth: <span class="logic">rich(x) = T</span> would represent the <span class="logic">x</span> is in the relation <span class="logic">rich</span>.
+Such literals can be used to form more complex formulas using logical connectives such as logical negation, disjunction/conjunction, and existential/universal quantification.
+For example, <span class="logic">&exist;x (fatherOf(Sally) = x &and; rich(x) = T)</span> means Sally's father is rich.
+Finally, modal operators allow to expressly refer to what is known or considered possible.
+These modal operators are indexed with a natural number that indicates how much reasoning effort is put into proving the formula in its scope.
+A statement such as "I know Sally's father is rich, but I don't know him personally" could be formulised as follows:
+</p>
+<div class="logic"><b>K</b><i>1</i> &exist;x (fatherOf(Sally) = x &and; rich(x) = T &and; <b>M</b><i>1</i> fatherOf(Sally) &ne; x)</div>
+
+<p>
+The above example is a typical query.
+As for knowledge bases, we make a syntactic restriction to so-called proper<sup>+</sup> formulas: knowledge bases need to be conjunctions of clauses without existential quantifiers.
+Note that every knowledge base can be brought into proper<sup>+</sup> form by converting it into prenex-CNF and Skolemizing the existentialy quantified variables.
+Furthermore, knowledge bases are assumed have no nested modal operators.
 </p>
 
 <p>
-Decision procedures for sound entailment [KR-2016] and sound consistency [ECAI-2016] are implemented, including conditional beliefs [ECAI-2016] and introspection [IJCAI-2013].
-Adding situation calculus-style actions [KR-2014] is future work.
+To help the reasoner optimise query evaluation, the user provide a guarantee that the knowledge base is consistent with a special modal operator: <span class="logic"><b>G</b> &alpha;</span> indicates that when evaluating <span class="logic">&alpha;</span>, the knowledge base can be assumed to be consistent.
 </p>
 
 <p>
-The reasoner is written in C++.
-The code is available at <a href="https://www.github.com/schwering/lela">github.com/schwering/lela</a>.
+The language furthermore comprises conditional belief to refer to differently plausible beliefs.
+For instance, we could write <span class="logic"><b>B</b> fatherOf(Sally) = Frank &#x27F9; rich(Frank) = T</span> to say that we believe that if Frank is Sally's father, he most presumably is rich.
+</p>
+
+<h3>Reasoning</h3>
+
+<p>
+Reasoning in this language is fundamentally based on case splitting&mdash;that is, by testing all possible denotations of a term like <span class="logic">fatherOf(Sally)</span>&mdash;and on unit propagation and subsumption.
+The reasoning procedures are sound with respect to classical first-order logic, but sacrifice completeness for the sake of decidability.
+This means that whenever <span class="logic"><b>K</b><i>k</i> &alpha;</span> can be inferred from a knowledge base, then <span class="logic"><b>K</b> &alpha;</span> holds in the classical semantics, that is, &alpha; follows from the knowledge base.
+Analogously, whenever <span class="logic"><b>M</b><i>k</i> &alpha;</span> can be inferred from a knowledge base, then <span class="logic"><b>M</b> &alpha;</span> holds in the classical semantics, that is, &alpha; is consistent with the knowledge base.
+</p>
+
+<p>
+The reasoner is implemented in C++ and will be available as open source.
 This demo is compiled to Javascript by <a href="http://emscripten.org">emscripten</a>.
-As a rule of thumb, the execution time of the Javascript is about 200%&ndash;400% of the comparable native binary on my computer&mdash;this varies however depending on the browser or Javascript engine and the demo.
+As a rule of thumb, the execution of the Javascript takes about 200%&ndash;400% of the native binary's execution time&mdash;this may however vary depending on the computer, browser or Javascript engine, and the demo.
 </p>
 
 <p>
-Please report bugs to <a href="mailto:c.schwering@unsw.edu.au">c.schwering@unsw.edu.au</a>.
+For future work, we plan to integrate sutation calculus-style actions.
 </p>
-
-
-
-<h2>References</h2>
-<ul>
-    <li>
-        Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief with Function Symbols. KR 2016.
-        <a href="https://kbsg.rwth-aachen.de/sites/kbsg/files/LakemeyerLevesque2016.pdf">PDF</a></li>
-    <li>
-        Schwering and Lakemeyer. Decidable Reasoning in a First-Order Logic of Limited Conditional Belief. ECAI 2016.
-        <a href="https://kbsg.rwth-aachen.de/sites/kbsg/files/SchweringLakemeyer2016.pdf">PDF</a>
-    </li>
-    <li>
-        Lakemeyer and Levesque. Decidable Reasoning in a Fragment of the Epistemic Situation Calculus. KR 2014.
-        <a href="https://pdfs.semanticscholar.org/8ac9/a2955895cd391ec2b62d8210ee8206979f4a.pdf">PDF</a>
-    </li>
-    <li>
-        Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals. IJCAI 2013.
-        <a href="https://pdfs.semanticscholar.org/387c/951016c68aaf8ce36bb87e5ea4d1ef42405d.pdf">PDF</a>
-    </li>
-</ul>
-
 
 </body>
 </html>

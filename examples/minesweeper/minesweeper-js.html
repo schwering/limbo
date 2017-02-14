@@ -6,7 +6,7 @@
     <meta charset="UTF-8"> 
     <title>Limited reasoner demo</title>
 
-    <!-- <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet"> -->
+    <!--<link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">-->
     <style type="text/css">
         body { font-family: 'Open Sans', sans-serif; font-size: 140%; }
         p { text-align: justify; }
@@ -37,13 +37,15 @@
         div.table div.row div.cell.new { font-weight: bold; }
         div.table div.row div.cell.flag { background-image: url("flag.svg"); background-size: 60% 80%; background-position: center; background-repeat: no-repeat; }
         div.table div.row div.cell.mine { background-image: url("mine.svg"); background-size: 80% 80%; background-position: center; background-repeat: no-repeat; }
-        div.table div.row div.cell.mistake { background-color: red; font-weight: bold; }
-        div.table div.row div.cell.revealed { background-color: orange; font-weight: bold; }
+        div.table div.row div.cell.mistake { background-color: #ffee00; font-weight: bold; }
+        div.table div.row div.cell.revealed { font-weight: bold; }
+        div.table div.row div.cell.revealed,
         div.table div.row div.cell:empty { background-color: #efefef; }
     </style>
 
-    <script src="jquery-3.1.1.min.js"></script>
-    <script src="mw-js.js"></script>
+    <script src="../jquery-3.1.1.min.js"></script>
+    <script>window.jQuery || document.write('<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js">\x3C/script>')</script>
+    <script src="minesweeper-js.js"></script>
 </head>
 
 <body>
@@ -93,7 +95,7 @@ $(document).ready(function() {
     $('#scale-field').change(function() { scaleField(); });
     $('#different-seed').click(function() { $('#seed').val(parseInt($('#seed').val()) + 1); scrollToShow('#play-button'); return false; });
     $('#different-field-size').click(function() { scrollToShow('#config-small'); return false; });
-    $('#different-seed-msg').hide();
+    $('#play-again-msg').hide();
     initDisplay();
 });
 
@@ -231,10 +233,10 @@ function updateMessage(arg1, arg2, arg3, arg4) {
     var msg = messages[currentMessage];
     if (gameOver && currentMessage == messages.length - 1) {
         $('#messages').html(msg);
-        $('#different-seed-msg').show();
+        $('#play-again-msg').show();
     } else {
         $('#messages').html(msg);
-        $('#different-seed-msg').hide();
+        $('#play-again-msg').hide();
     }
 }
 
@@ -329,8 +331,8 @@ function showMove(i) {
 }
 
 $(document).ready(function() {
-    $('#field-prev').click(function() { showMove(currentGame - 1); return false; });
-    $('#field-next').click(function() { showMove(currentGame + 1); return false; });
+    $('.field-prev').click(function() { showMove(currentGame - 1); return false; });
+    $('.field-next').click(function() { showMove(currentGame + 1); return false; });
 });
 $(document).keydown(function(e) {
     switch(e.which) {
@@ -348,9 +350,9 @@ $(document).keydown(function(e) {
 
 <p>
 <div id="messages" style="display: inline;">Ready to play!</div>
-<div id="different-seed-msg" style="padding-left: 1ex; display: inline;">
-    To flip through the agent's moves, use the arrow  keys <a href="#field-prev" id="field-prev" style="text-decoration: none;">&#x21e6;</a>  <a href="#field-next" id="field-next" style="text-decoration: none;">&#x21e8;</a>.
-    To play another game, change the <a id="different-seed" href="#">mine placement seed</a> or the <a id="different-field-size" href="#">field size</a>.
+<div id="play-again-msg" style="font-size: 80%; padding-left: 1ex; display: inline;">
+    To flip through the agent's moves, use the arrow  keys <a href="#" class="field-prev" style="text-decoration: none;">&#x21e6;</a>  <a href="#" class="field-next" style="text-decoration: none;">&#x21e8;</a>.
+    To play another round, you could change the <a id="different-seed" href="#">seed</a> or the <a id="different-field-size" href="#">field size</a> to get a new mine placement.
 </div>
 </p>
 
@@ -367,7 +369,7 @@ Known mines are flagged dangerous with a red flag symbol.
 </p>
 
 <p>
-See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys &#x21e6; &#x21e8;).
+See <a href="#" class="field-prev">previous</a> / <a href="#" class="field-next">next</a> turn (or use arrow keys <a href="#" class="field-prev" style="text-decoration: none;">&#x21e6;</a> <a href="#" class="field-next" style="text-decoration: none;">&#x21e8;</a>).
 </p>
 
 

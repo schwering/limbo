@@ -6,7 +6,7 @@
     <meta charset="UTF-8"> 
     <title>Limited reasoner demo</title>
 
-    <link href="//fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <!--<link href="//fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">-->
     <style type="text/css">
         body { font-family: 'Open Sans', sans-serif; font-size: 140%; }
         p { text-align: justify; }
@@ -83,7 +83,8 @@
         .metavariable { font-family: monospace; font-weight: normal; color: #800080; }
     </style>
 
-    <script src="jquery-3.1.1.min.js"></script>
+    <script src="../jquery-3.1.1.min.js"></script>
+    <script>window.jQuery || document.write('<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js">\x3C/script>')</script>
     <script>
     function getParameterByName(name) {
         var url = window.location.href;
@@ -94,7 +95,18 @@
         if (!results[2]) return '';
         return decodeURIComponent(results[2].replace(/\+/g, " "));
     }
+    </script>
 
+    <script>
+    Module = {
+        'print': function(msg) { printMsg(msg); },
+        'printErr': function(msg) { printDebug(msg); },
+    };
+    </script>
+    <script src="tui-js.js"></script>
+
+    <script>
+    /*
     var Module = null;
 
     function loadEmscripten(mem) {
@@ -110,16 +122,17 @@
             'printErr': function(msg) { printDebug(msg); },
             'TOTAL_MEMORY': mem,
         };
-        src = 'ti-js.js';
+        src = 'tui-js.js';
         $('script[src="' + src + '"]').remove();
         $('<script>').attr('src', src).appendTo('head');
     }
+    */
     </script>
 </head>
 
 <body>
 
-<h1>Limited Reasoner Demo: Text Interface</h1>
+<h1>Limited Reasoner Demo: Textual User Interface</h1>
 
 <p>
 <b>Quick start:</b> have a look at the "Problem Description", hit the "Click me!" button, and check the output under "Reasoning Results".
@@ -134,6 +147,7 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 <p>
 Load an example:
 <select id="examples">
+<option value="example-father-of-sally">Example: Rich Father</option>
 <option value="example-father-of-sonny">Example: Unknown Father</option>
 <option value="example-siblings">Example: Siblings</option>
 <option value="example-veggie">Example: Veggie</option>
@@ -142,12 +156,15 @@ Load an example:
 <option value="example-battleship-4x4">Example: Battleship 4x4</option>
 <option value="test-propositions">Test: Propositions</option>
 <option value="test-functions">Test: Constants</option>
-<option value="test-introspection">Test: Introspection</option>
-<option value="test-introspection-2">Test: Introspection 2</option>
+<option value="test-introspection-disjunction">Test: Introspection 1</option>
+<option value="test-introspection-existential">Test: Introspection 2</option>
+<option value="test-introspection-constant">Test: Introspection 3</option>
+<option value="test-control">Test: Propositions</option>
 <option value="test-battleship-1x4">Test: Battleship 1x4</option>
 <option value="test-control">Test: Control</option>
 <option value="test-siblings">Test: Siblings</option>
-<option value="test-veggie">Test: Veggie</option>
+<option value="test-veggie">Test: Veggie 1</option>
+<option value="test-veggie-with-guarantee">Test: Veggie 2</option>
 <option value="" style="color: #666;">none</option>
 </select> <br />
 If you like, you can edit the text. For help on the syntax, see <a href="#syntax">below</a>.
@@ -160,9 +177,9 @@ If you like, you can edit the text. For help on the syntax, see <a href="#syntax
 
 <script>
 $(document).ready(function() {
-    loadEmscripten();
+    //loadEmscripten();
     $('#debug-toggle').click(function() { $('#debug-div').toggle(); return false; });
-    $('#enlarge-memory').click(function() { loadEmscripten(128); return false; });
+    //$('#enlarge-memory').click(function() { loadEmscripten(128); return false; });
 
     var select_ex = getParameterByName('ex');
     if (select_ex) {
@@ -297,7 +314,7 @@ Note that the reasoner brings the query formulas into a normal form (similar to 
 
 <p>
 <a href="#debug-toggle" id="debug-toggle">Click here</a> to display/hide debug output.
-If more memory is needed (e.g., for some Sudokus), <a href="#enlarge-memory" id="enlarge-memory">click here</a> to enlarge 
+<!--If more memory is needed (e.g., for some Sudokus), <a href="#enlarge-memory" id="enlarge-memory">click here</a> to enlarge.-->
 </p>
 
 

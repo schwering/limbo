@@ -1,4 +1,5 @@
 // If she's not Italian, is she a Vegatarian?
+// With consistency guarantee.
 
 Sort FOOD
 Sort BOOL
@@ -24,27 +25,27 @@ Let truth := ~falsum
 // less work to implement.
 
 // Most Aussies are not Italian, and vice-versa.
-KB: Bel<1,1> Aussie = T ==> Italian != T
-KB: Bel<1,1> Italian = T ==> Aussie != T
+KB: G Bel<1,1> Aussie = T ==> Italian != T
+KB: G Bel<1,1> Italian = T ==> Aussie != T
 
 // Most Aussies eat Kangaroo meat.
-KB: Bel<1,1> Aussie = T ==> Eats(roo) = T
+KB: G Bel<1,1> Aussie = T ==> Eats(roo) = T
 
 // She's presumably Italian or a Vegetarian, and
 // if she's not Italian, she's probably Australian.
-KB: Bel<1,1> truth ==> (Italian = T || Veggie = T)
-KB: Bel<1,1> Italian != T ==> Aussie = T
+KB: G Bel<1,1> truth ==> (Italian = T || Veggie = T)
+KB: G Bel<1,1> Italian != T ==> Aussie = T
 
 // Kangaroo is definitely meat, and Vegetarians don't eat meat.
-KB: Bel<1,1> Meat(roo) != T ==> falsum
-KB: Bel<1,1> ~Fa x ((Veggie == T && Meat(x) == T) -> Eats(x) != T) ==> falsum
+KB: G Bel<1,1> Meat(roo) != T ==> falsum
+KB: G Bel<1,1> ~Fa x ((Veggie == T && Meat(x) == T) -> Eats(x) != T) ==> falsum
 
 
 // The question is now:
 // If she's not Italian, is she a Vegetarian?
 // We find that out at belief levels 1, 1.
-Refute: Bel<0,0> Italian != T ==> Veggie != T
-Refute: Bel<0,1> Italian != T ==> Veggie != T
-Refute: Bel<1,0> Italian != T ==> Veggie != T
-Assert: Bel<1,1> Italian != T ==> Veggie != T
+Refute: G Bel<0,0> Italian != T ==> Veggie != T
+Refute: G Bel<0,1> Italian != T ==> Veggie != T
+Refute: G Bel<1,0> Italian != T ==> Veggie != T
+Assert: G Bel<1,1> Italian != T ==> Veggie != T
 
