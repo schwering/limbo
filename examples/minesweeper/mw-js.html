@@ -28,24 +28,18 @@
             background-size: 20px 20px;
         }
 
-        #output #messages { }
         div.table { display: table; overflow: scroll; border-collapse: collapse; }
         div.table div.row { display: table-row; }
         div.table div.row div.header,
-        div.table div.row div.cell { display: table-cell; width: 2em; min-width: 2em; height: 2em; text-align: center; vertical-align: middle; padding: 0; margin: 0; overflow: hidden; }
+        div.table div.row div.cell { display: table-cell; width: 2em; min-width: 2em; max-width: 2em; height: 2em; min-height: 2em; max-height: 2em; text-align: center; vertical-align: middle; padding: 0; margin: 0; overflow: hidden; }
         div.table div.row div.header { background-color: #cecece; }
         div.table div.row div.cell { border: 1px solid black; }
         div.table div.row div.cell.new { font-weight: bold; }
+        div.table div.row div.cell.flag { background-image: url("flag.svg"); background-size: 60% 80%; background-position: center; background-repeat: no-repeat; }
+        div.table div.row div.cell.mine { background-image: url("mine.svg"); background-size: 80% 80%; background-position: center; background-repeat: no-repeat; }
         div.table div.row div.cell.mistake { background-color: red; font-weight: bold; }
-        div.table div.row div.cell.real { background-color: orange; font-weight: bold; }
+        div.table div.row div.cell.revealed { background-color: orange; font-weight: bold; }
         div.table div.row div.cell:empty { background-color: #efefef; }
-
-        #output span { }
-        #output span.black { color: black; }
-        #output span.dim { color: #999; }
-        #output span.reset { color: inherit; }
-        #output span.red { color: red; font-weight: bold; }
-        #output span.green { color: green; font-weight: bold; }
     </style>
 
     <script src="jquery-3.1.1.min.js"></script>
@@ -57,7 +51,7 @@
 <h1>Limited Reasoner Demo: Minesweeper</h1>
 
 <p>
-<b>Quick start:</b> hit the "Click me to play Minesweeper!" button and see the agent play under "Game Output".
+<b>Quick start:</b> hit the "Click to play Minesweeper!" button and see the agent play under "Game Output".
 </p>
 
 <p>
@@ -79,10 +73,12 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 <div style="display: table-row;"><div style="display: table-cell;">Field height:</div><div style="display: table-cell;"><input type="number" id="height" min="0" class="number"></div></div>
 <div style="display: table-row;"><div style="display: table-cell;">Number of mines:</div><div style="display: table-cell;"><input type="number" id="n_mines" min="0" class="number"></div></div>
 <div style="display: table-row; height: 1ex;"></div>
+<div style="display: table-row;"><div style="display: table-cell;">Scale field to window:</div><div style="display: table-cell;"><input type="checkbox" id="scale-field" value="1" checked></div></div>
+<div style="display: table-row; height: 1ex;"></div>
 <div style="display: table-row;"><div style="display: table-cell; padding-right: 1ex;">Max. number of case splits:</div><div style="display: table-cell;"><input type="number" id="max_k" min="0" value="2" class="number"></div></div>
 <div style="display: table-row;"><div style="display: table-cell;">Mine placement seed:</div><div style="display: table-cell;"><input type="number" id="seed" min="0" value="1" class="number"> (modify for different mine placement)</div></div>
 </div>
-<input id="play-button" type="button" value="Click me to play Minesweeper!" />
+<input id="play-button" type="button" value="Click to play Minesweeper!" />
 </form>
 
 <script>
@@ -94,6 +90,7 @@ $(document).ready(function() {
     $('#play-button').click(function() { play(); }).focus();
     $('#width').change(function() { initDisplay(); });
     $('#height').change(function() { initDisplay(); });
+    $('#scale-field').change(function() { scaleField(); });
     $('#different-seed').click(function() { $('#seed').val(parseInt($('#seed').val()) + 1); scrollToShow('#play-button'); return false; });
     $('#different-field-size').click(function() { scrollToShow('#config-small'); return false; });
     $('#different-seed-msg').hide();
@@ -111,18 +108,18 @@ var timerOverall = 0;
 var timerTurn = null;
 
 function play() {
-    var width = document.getElementById('width').value;
+    var width = parseInt(document.getElementById('width').value);
     if (width == null) width = 8;
-    var height = document.getElementById('height').value;
+    var height = parseInt(document.getElementById('height').value);
     if (height == null) height = 8;
-    var n_mines = document.getElementById('n_mines').value;
+    var n_mines = parseInt(document.getElementById('n_mines').value);
     if (n_mines == null) n_mines = 10;
-    var seed = document.getElementById('seed').value;
+    var seed = parseInt(document.getElementById('seed').value);
     if (seed == null) n_mines = 0;
-    var max_k = document.getElementById('max_k').value;
+    var max_k = parseInt(document.getElementById('max_k').value);
     if (max_k == null) max_k = 0;
 
-    initDisplay();
+    resetGameVariables();
     timerOverall = 0;
     scrollToShow('#output');
     Module.ccall('lela_init', 'void', ['number', 'number', 'number', 'number', 'number'], [width, height, n_mines, seed, max_k]);
@@ -158,20 +155,22 @@ function cell(x, y) {
     return $('#'+ cellId(x, y));
 }
 
-function initDisplay() {
-    width = document.getElementById('width').value;
-    if (width == null) width = 8;
-    height = document.getElementById('height').value;
-    if (height == null) height = 8;
-
-    var output = $('#output');
-    output.empty();
+function resetGameVariables() {
     games = [];
     messages = [];
     currentGame = -1;
     currentMessage = -1;
     gameOver = false;
+}
 
+function initDisplay() {
+    width = parseInt(document.getElementById('width').value);
+    if (width == null) width = 8;
+    height = parseInt(document.getElementById('height').value);
+    if (height == null) height = 8;
+
+    var output = $('#output');
+    output.empty();
     output.append('<div class="table"></div>');
     var table = $('#output').children().last();
     {
@@ -193,6 +192,22 @@ function initDisplay() {
             row.append('<div id="'+ cellId(x, y) +'" class="cell"></div>');
         }
     }
+
+    scaleField();
+}
+
+function scaleField() {
+    var w = '2em';
+    if ($('#scale-field').prop('checked')) {
+        var totalNeededWidth = $('#output').children().last().width();
+        var windowWidth = $(window).width();
+        if (totalNeededWidth > windowWidth) {
+            w = $(window).width() / (width + 2);
+            w = Math.floor(w) +'px';
+        }
+    }
+    $('#output .cell').css({ width: w, minWidth: w, maxWidth: w, height: w, minHeight: w, maxHeight: w});
+    $('#output .header').css({ width: w, minWidth: w, maxWidth: w, height: w, minHeight: w, maxHeight: w});
 }
 
 function updateMessage(arg1, arg2, arg3, arg4) {
@@ -229,7 +244,7 @@ function updateMessageGameOver() {
     if (games[currentGame].indexOf(' ') == -1) {
         msg = '<div style="display: inline; color: green; font-weight: bold;">We won &#9786;</div> <div style="display: inline; padding-left: 1ex;">It took '+ Math.ceil(timerOverall)/1000 +'&nbsp;seconds.</div>';
     } else {
-        msg = '<div style="display: inline; color: red; font-weight: bold;">We hit a mine &#9785;</div> <div style="display: inline; padding-left: 1ex;">It took '+ Math.ceil(timerOverall)/1000 +'&nbsp;seconds.</div>';
+        msg = '<div style="display: inline; color: red; font-weight: bold;">We lost &#9785;</div> <div style="display: inline; padding-left: 1ex;">It took '+ Math.ceil(timerOverall)/1000 +'&nbsp;seconds.</div>';
     }
     updateMessage(msg);
 }
@@ -245,31 +260,33 @@ function displayGame(arg) {
     var lastLegal = currentGame > 1 ? games[currentGame - 2] : null;
     var lastMove = currentGame > 0 ? games[currentGame - 1] : null;
     var g = games[currentGame];
-    var gameOverAndFinalDisplay = gameOver && currentGame == games.length - 1;
-    var didMistake = gameOverAndFinalDisplay && lastMove != g;
+    var finalDisplay = gameOver && currentGame == games.length - 1;
+    var madeMistake = gameOver && games.length >= 2 && games[games.length - 2] != games[games.length - 1];
     var i;
     for (i = 0; i < g.length; ++i) {
         var c = g[i];
-        if (c == ' ') { c = "" }
-        if (c == '.') { c = "&middot;" }
+        var isMine = false;
+        if (c == ' ') { c = ""; }
+        if (c == '.') { c = "0"; }
+        if (c == 'X') { c = "&nbsp;"; isMine = true; }
         var x = i % width;
         var y = Math.floor(i / width);
         var e = cell(x, y);
+        var mistake = isMine && gameOver && games.length >= 3 && games[games.length - 3][i] != games[games.length - 2][i] && madeMistake;
+        var revealed = isMine && gameOver && games.length >= 2 && games[games.length - 2][i] != games[games.length - 1][i];
         e.html(c);
         e.removeClass('new');
         e.removeClass('mistake');
-        e.removeClass('real');
-        if (gameOverAndFinalDisplay) {
-            if (lastLegal != null && lastLegal[i] != lastMove[i] && didMistake) {
-                e.addClass('new');
+        e.removeClass('revealed');
+        e.removeClass('flag');
+        e.removeClass('mine');
+        if (isMine) {
+            e.addClass(mistake ? 'mine' : revealed ? 'mine' : 'flag');
+            if (mistake) {
                 e.addClass('mistake');
-            } else if (lastMove != null && lastMove[i] != g[i]) {
-                e.addClass('new');
-                e.addClass('real');
             }
-        } else {
-            if (lastMove != null && lastMove[i] != g[i]) {
-                e.addClass('new');
+            if (revealed) {
+                e.addClass('revealed');
             }
         }
     }
@@ -331,7 +348,10 @@ $(document).keydown(function(e) {
 
 <p>
 <div id="messages" style="display: inline;">Ready to play!</div>
-<div id="different-seed-msg" style="padding-left: 1ex; display: inline;">Would you like to try again? Change the <a id="different-seed" href="#">mine placement seed</a> or the <a id="different-field-size" href="#">field size</a>!</div>
+<div id="different-seed-msg" style="padding-left: 1ex; display: inline;">
+    To flip through the agent's moves, use the arrow  keys <a href="#field-prev" id="field-prev" style="text-decoration: none;">&#x21e6;</a>  <a href="#field-next" id="field-next" style="text-decoration: none;">&#x21e8;</a>.
+    To play another game, change the <a id="different-seed" href="#">mine placement seed</a> or the <a id="different-field-size" href="#">field size</a>.
+</div>
 </p>
 
 <div id="output"></div>
@@ -339,12 +359,16 @@ $(document).keydown(function(e) {
 <p>
 <b>Quick explanation:</b>
 The agent aims to explore the field without hitting a mine.
+When it explores a cell with a mine, the game is lost.
 When it opens a mine-free cell, it learns how many adjacent cells contain a mine.
-This number is displayed in every cell (except for <code>0</code>, which instead is visualised by a dot).
-A green <code style="color: green; font-weight: bold;">X</code> represents a cell the agent has reasoned out to contain a mine.
+This number is displayed in every cell.
+From this information, the agent tries to infer which adjacent cells are safe or contain a mine.
+Known mines are flagged dangerous with a red flag symbol.
 </p>
 
-<p>See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys &#x21e6; &#x21e8;).
+<p>
+See <a href="#field-prev" id="field-prev">previous</a> / <a href="#field-next" id="field-next">next</a> turn (or use arrow keys &#x21e6; &#x21e8;).
+</p>
 
 
 
@@ -355,15 +379,20 @@ Among the <code>width</code> &times; <code>height</code> cells on the field, <co
 </p>
 
 <p>
-On every turn, the player selects a cell and either explores it or flags it as mine.
-Exploring a cell tells the agent how many adjacent cells (0 &le; N &le; 8) contain mines.
-(When N = 0, the adjacent cells are explored immediately.)
-Flagging a cell does not tell the agent anything, it's more of a mental note not to explore the cell.
-Explored fields are visualized as their number <code>N</code> or by a <code>.</code> symbol when N = 0; flagged cells are marked by a <code style="color: green; font-weight: bold;">X</code> symbol.
+The goal state is to explore all cells that contain no mine, and to flag all cells contain a mine.
 </p>
 
 <p>
-The game is won when all non-mine fields are explored and all mine cells are flagged. The game is lost when the agent explores a mine cell.
+On every turn, the player selects a cell and either explores it or flags it as mine.
+When a cell that contains a mine is explored, the game is lost.
+When the cell contains no mine, the agent learns how many adjacent cells (0 &le; N &le; 8) contain mines.
+(When N = 0, the adjacent cells are explored immediately.)
+When a cell is known to contain a mine, it can be flagged as such, as a mental note not to consider it for future exploration.
+Explored cells are visualized as their number <code>N</code>, or a mine symbol when they contain a mine (in which case the game is lost), and flagged cells are marked by a red flag.
+</p>
+
+<p>
+The game is won when all non-mine cells are explored and all mine cells are flagged. The game is lost when the agent explores a mine cell.
 </p>
 
 
@@ -385,7 +414,20 @@ For instance, when the agent learns that one of the eight adjacent cell contains
 On every turn, the agent checks for every cell whether it is known to contain a mine or known to contain no mine.
 (As a simple heuristic, the agent starts with cells in the neighbourhood of the cell selected in the last move.)
 This process is repeated for increasing split level, until a cell which is known to be a mine or known to be safe is found: first for split level 0, then for 1, ..., until the maximum specified split level.
-If no cell is found, the agent guesses one randomly.
+If no cell is found, the agent guesses one randomly, with preference to non-frontier node.
+</p>
+
+<p>
+During the end game, the number of remaining mines may also become relevant to making one's pick.
+For that reason, once less than 10 mines and less than 10 open fields are left, the reasoner adds clauses that represent the possible distributions of the remaining mines over the remaining fields.
+</p>
+
+<p>
+The <code>IsMine(x,y)</code> propositions mentioned above are actually represented as literals of the form <code>IsMine(x,y) = T</code>, as the reasoner does not support boolean propsitions; they must be simulated with functions and using a dummy standard name <code>T</code>.
+To represent that the no mine is present at <code>(x,y)</code>, the reasoner could use <code>IsMine(x,y)&ne;T</code>.
+Alternatively, a second name <code>F</code> can be introduced and <code>IsMine(x,y) = F</code> can be used together with a clause 
+<code>IsMine(x,y) = T &lor; IsMine(x,y) = F</code>.
+It turns out that due to some optimisations, the latter method is actually slightly faster (about 5%): queries can be of the form <code>IsMine(x,y) = b</code> for a variable <code>b</code>, instead of of two queries, <code>IsMine(x,y) = T</code> and <code>IsMine(x,y) &ne; T</code>.
 </p>
 
 <p>

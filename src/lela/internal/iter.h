@@ -105,7 +105,7 @@ struct array_iterator {
   array_iterator() = default;
   explicit array_iterator(T* array, size_t i) : array_(array), index_(i) {}
 
-  bool operator==(array_iterator it) const { return index_ == it.index_; }
+  bool operator==(array_iterator it) const { assert(array_ == it.array_); return index_ == it.index_; }
   bool operator!=(array_iterator it) const { return !(*this == it); }
 
   reference operator*() const { return (*array_)[index_]; }

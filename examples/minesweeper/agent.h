@@ -62,7 +62,17 @@ class Agent {
       }
     }
 
-    // Didn't find any reliable action, so we need to guess.
+    // Didn't find any reliable action, so we need to guess. Non-frontier cells are preferred.
+    for (std::size_t i = 0; i < g_->n_fields(); ++i) {
+      const Point p = g_->to_point(i);
+      if (g_->opened(p) || g_->flagged(p) || g_->frontier(p)) {
+        continue;
+      }
+      logger_.explored(p, -1);
+      g_->OpenWithFrontier(p);
+      last_point_ = p;
+      return kb_->max_k() + 1;
+    }
     for (std::size_t i = 0; i < g_->n_fields(); ++i) {
       const Point p = g_->to_point(i);
       if (g_->opened(p) || g_->flagged(p)) {
