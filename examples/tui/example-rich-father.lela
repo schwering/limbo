@@ -1,0 +1,40 @@
+// Are Frank or Fred rich?
+
+Sort HUMAN
+Sort BOOL
+
+Variable x -> HUMAN
+Variable y -> HUMAN
+Variable z -> HUMAN
+
+Name Frank -> HUMAN
+Name Fred -> HUMAN
+Name Sally -> HUMAN
+Name T -> BOOL
+
+Function fatherOf/1 -> HUMAN
+Function rich/1 -> BOOL
+
+KB: rich(fatherOf(Sally)) = T
+KB: fatherOf(Sally) = Frank v fatherOf(Sally) = Fred
+
+// It's explicit knowledge that Frank/Fred is the father, then Frank/Fred is rich.
+Query: K<0> (fatherOf(Sally) = Frank -> rich(Frank) = T)
+Query: K<0> (fatherOf(Sally) = Fred  -> rich(Fred) = T)
+Query: K<0> (fatherOf(Sally) = Frank -> rich(Fred) = T)
+
+// At split level 1, it is believed that that Frank or Fred are rich
+Query: K<0> (rich(Frank) = T v rich(Fred) = T)
+Query: K<1> (rich(Frank) = T v rich(Fred) = T)
+
+// At split level 1, it is considered possible that Frank or Fred is the father.
+Query: M<0> (fatherOf(Sally) = Frank)
+Query: M<0> (fatherOf(Sally) = Fred)
+Query: M<1> (fatherOf(Sally) = Frank)
+Query: M<1> (fatherOf(Sally) = Fred)
+
+// At split level 1, it is considered possible that Frank/Fred is rich.
+Query: M<0> (rich(Frank) = T)
+Query: M<1> (rich(Frank) = T)
+Query: M<1> (rich(Fred) = T)
+

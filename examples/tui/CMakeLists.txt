@@ -2,7 +2,7 @@ add_executable (tui tui.cc)
 target_link_libraries (tui LINK_PUBLIC lela)
 
 
-file (GLOB tests RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "test*.lela")
+file (GLOB tests RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.lela")
 foreach (test ${tests})
     add_test (NAME ${test} COMMAND ./tui ${test})
 endforeach ()

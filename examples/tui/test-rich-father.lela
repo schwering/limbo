@@ -1,4 +1,4 @@
-// Is Sally's father rich?
+// Are Frank or Fred rich?
 
 Sort HUMAN
 Sort BOOL
@@ -18,17 +18,23 @@ Function rich/1 -> BOOL
 KB: rich(fatherOf(Sally)) = T
 KB: fatherOf(Sally) = Frank v fatherOf(Sally) = Fred
 
+// It's explicit knowledge that Frank/Fred is the father, then Frank/Fred is rich.
 Assert: K<0> (fatherOf(Sally) = Frank -> rich(Frank) = T)
 Assert: K<0> (fatherOf(Sally) = Fred  -> rich(Fred) = T)
 Refute: K<0> (fatherOf(Sally) = Frank -> rich(Fred) = T)
+
+// At split level 1, it is believed that that Frank or Fred are rich
 Refute: K<0> (rich(Frank) = T v rich(Fred) = T)
 Assert: K<1> (rich(Frank) = T v rich(Fred) = T)
 
+// At split level 1, it is considered possible that Frank or Fred is the father.
 Refute: M<0> (fatherOf(Sally) = Frank)
 Refute: M<0> (fatherOf(Sally) = Fred)
 Assert: M<1> (fatherOf(Sally) = Frank)
 Assert: M<1> (fatherOf(Sally) = Fred)
+
+// At split level 1, it is considered possible that Frank/Fred is rich.
 Refute: M<0> (rich(Frank) = T)
 Assert: M<1> (rich(Frank) = T)
-Assert: M<1> (rich(Frank) = T)
+Assert: M<1> (rich(Fred) = T)
 

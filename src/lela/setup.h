@@ -134,7 +134,7 @@ class Setup {
       if (!a.pos()) {
         units_.Erase(i);
         Result r = units_.Add(a);
-        assert(r != kInconsistent);
+        assert(r != kInconsistent), (void) r;
       }
     }
     for (size_t i = clauses_.size(); i > 0; --i) {

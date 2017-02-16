@@ -123,8 +123,8 @@ struct array_iterator {
   friend array_iterator operator-(array_iterator it, difference_type n) { it -= n; return it; }
   friend difference_type operator-(array_iterator a, array_iterator b) { return a.index_ - b.index_; }
   reference operator[](difference_type n) const { return *(*this + n); }
-  bool operator<(array_iterator it) const { return it - *this < 0; }
-  bool operator>(array_iterator it) const { return *this < it; }
+  bool operator<(array_iterator it) const { return index_ < it.index_; }
+  bool operator>(array_iterator it) const { return index_ > it.index_; }
   bool operator<=(array_iterator it) const { return !(*this > it); }
   bool operator>=(array_iterator it) const { return !(*this < it); }
 
@@ -242,7 +242,7 @@ struct transform_iterator {
   friend transform_iterator operator-(transform_iterator it, difference_type n) { it -= n; return it; }
   friend difference_type operator-(transform_iterator a, transform_iterator b) { return a.iter_ - b.iter_; }
   reference operator[](difference_type n) const { return *(*this + n); }
-  bool operator<(transform_iterator it) const { return it - *this < 0; }
+  bool operator<(transform_iterator it) const { return *this - it < 0; }
   bool operator>(transform_iterator it) const { return *this < it; }
   bool operator<=(transform_iterator it) const { return !(*this > it); }
   bool operator>=(transform_iterator it) const { return !(*this < it); }
