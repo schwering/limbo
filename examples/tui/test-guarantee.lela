@@ -1,0 +1,32 @@
+Sort BOOL
+Fun a/0, b/0 -> BOOL
+Fun p/0, q/0 -> BOOL
+Name T -> BOOL
+
+Let true := T=T
+Let false := ~true
+
+KB: a=T v b=T
+KB: a=T v ~b=T
+KB: ~a=T v b=T
+KB: ~a=T v ~b=T
+
+KB: p=T v q=T
+
+Assert: K<0> true
+
+Refute: K<0> false
+Assert: K<1> false
+Assert: K<1> G false
+
+Refute: G K<1> false
+Refute: G K<2> false
+Assert: ~ G K<2> false
+
+Assert: K<0> (p=T v q=T)
+Refute: K<0> ((p=T v q=T) ^ M<2> p=T)
+Assert: K<0> ((p=T v q=T) ^ G M<2> p=T)
+Assert: G K<0> ((p=T v q=T) ^ M<2> p=T)
+Assert: G K<0> ((p=T v q=T) ^ G M<2> p=T)
+Refute: ~ G K<0> ((p=T v q=T) ^ G M<2> p=T)
+

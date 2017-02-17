@@ -3,7 +3,7 @@ do
     echo "File: $F"
 
     echo -n "Solved: "
-    python -c "print $(grep -v '^#' $F | grep "You" | grep win | wc -l).0 / $(grep -v '^#' $F | grep "You" | wc -l)"
+    python -c "print '%d / %d = %f' % ( $(grep -v '^#' $F | grep "You" | grep win | wc -l), $(grep -v '^#' $F | grep "You" | wc -l), $(grep -v '^#' $F | grep "You" | grep win | wc -l).0 / $(grep -v '^#' $F | grep "You" | wc -l) )"
 
     echo -n "Average time (seconds): "
     python -c "print $((grep -v '^#' $F | grep "You" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" | sed -e 's/^.\+runtime://g' | sed -e 's/seconds.\+$//g' && echo 0.0) | paste -sd+ | bc) / $(grep -v '^#' $F | grep "You" | wc -l)"

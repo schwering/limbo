@@ -18,23 +18,29 @@ Function rich/1 -> BOOL
 KB: rich(fatherOf(Sally)) = T
 KB: fatherOf(Sally) = Frank v fatherOf(Sally) = Fred
 
-// It's explicit knowledge that Frank/Fred is the father, then Frank/Fred is rich.
+// It's explicit knowledge that Frank/Fred is the father, then Frank is rich. Same for Fred.
 Assert: K<0> (fatherOf(Sally) = Frank -> rich(Frank) = T)
 Assert: K<0> (fatherOf(Sally) = Fred  -> rich(Fred) = T)
 Refute: K<0> (fatherOf(Sally) = Frank -> rich(Fred) = T)
 
-// At split level 1, it is believed that that Frank or Fred are rich
+// At split level 1, it is believed that that Frank or Fred are rich.
 Refute: K<0> (rich(Frank) = T v rich(Fred) = T)
 Assert: K<1> (rich(Frank) = T v rich(Fred) = T)
 
-// At split level 1, it is considered possible that Frank or Fred is the father.
+// At split level 1, it is considered possible that Frank is the father. Same for Fred.
 Refute: M<0> (fatherOf(Sally) = Frank)
 Refute: M<0> (fatherOf(Sally) = Fred)
 Assert: M<1> (fatherOf(Sally) = Frank)
 Assert: M<1> (fatherOf(Sally) = Fred)
 
-// At split level 1, it is considered possible that Frank/Fred is rich.
+// At split level 1, it is considered possible that Frank is rich. Same for Fred.
 Refute: M<0> (rich(Frank) = T)
 Assert: M<1> (rich(Frank) = T)
 Assert: M<1> (rich(Fred) = T)
+
+// We know Sally's father is rich, but we don't know who it is.
+Refute: K<1> ex x (fatherOf(Sally) = x ^ rich(x) = T ^ K<2> fatherOf(Sally) = x)
+Refute: K<1> ex x (fatherOf(Sally) = x ^ rich(x) = T ^ K<2> fatherOf(Sally) /= x)
+Assert: K<1> ex x (fatherOf(Sally) = x ^ rich(x) = T ^ ~K<1> fatherOf(Sally) /= x)
+Assert: K<1> ex x (fatherOf(Sally) = x ^ rich(x) = T ^ M<1> fatherOf(Sally) /= x)
 

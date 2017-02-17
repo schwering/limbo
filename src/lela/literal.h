@@ -94,7 +94,7 @@ class Literal {
   static bool Subsumes(Literal a, Literal b) {
     assert(a.primitive());
     assert(b.primitive());
-    return (a.lhs() == b.lhs() && a.pos() == b.pos() && a.rhs() == b.rhs()) ||
+    return a == b ||
            (a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
   }
 

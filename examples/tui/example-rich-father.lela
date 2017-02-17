@@ -18,23 +18,21 @@ Function rich/1 -> BOOL
 KB: rich(fatherOf(Sally)) = T
 KB: fatherOf(Sally) = Frank v fatherOf(Sally) = Fred
 
-// It's explicit knowledge that Frank/Fred is the father, then Frank/Fred is rich.
+// It's explicit knowledge that Frank/Fred is the father, then Frank is rich. Same for Fred.
 Query: K<0> (fatherOf(Sally) = Frank -> rich(Frank) = T)
-Query: K<0> (fatherOf(Sally) = Fred  -> rich(Fred) = T)
-Query: K<0> (fatherOf(Sally) = Frank -> rich(Fred) = T)
 
-// At split level 1, it is believed that that Frank or Fred are rich
+// At split level 1, it is believed that that Frank or Fred are rich.
 Query: K<0> (rich(Frank) = T v rich(Fred) = T)
 Query: K<1> (rich(Frank) = T v rich(Fred) = T)
 
-// At split level 1, it is considered possible that Frank or Fred is the father.
+// At split level 1, it is considered possible that Frank is the father. Same for Fred.
 Query: M<0> (fatherOf(Sally) = Frank)
-Query: M<0> (fatherOf(Sally) = Fred)
 Query: M<1> (fatherOf(Sally) = Frank)
-Query: M<1> (fatherOf(Sally) = Fred)
 
-// At split level 1, it is considered possible that Frank/Fred is rich.
+// At split level 1, it is considered possible that Frank is rich. Same for Fred.
 Query: M<0> (rich(Frank) = T)
 Query: M<1> (rich(Frank) = T)
-Query: M<1> (rich(Fred) = T)
+
+// We know Sally's father is rich, but we don't know who it is.
+Query: K<1> ex x (fatherOf(Sally) = x ^ rich(x) = T ^ M<1> fatherOf(Sally) /= x)
 
