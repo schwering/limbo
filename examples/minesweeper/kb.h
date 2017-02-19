@@ -141,6 +141,7 @@ class KnowledgeBase {
         processed_[index] = Update(g_->to_point(index));
       }
     }
+#ifdef END_GAME_CLAUSES
     const size_t m = g_->n_mines() - g_->n_flags();
     const size_t n = g_->n_fields() - g_->n_opens() - g_->n_flags();
     if (m < n_rem_mines_ && n < n_rem_fields_) {
@@ -148,6 +149,7 @@ class KnowledgeBase {
       n_rem_mines_ = m;
       n_rem_fields_ = n;
     }
+#endif
   }
 
   const Timer& timer() const { return t_; }
@@ -254,8 +256,10 @@ class KnowledgeBase {
 #endif
 
   std::vector<bool> processed_;
+#ifdef END_GAME_CLAUSES
   size_t n_rem_mines_ = 11;
   size_t n_rem_fields_ = 11;
+#endif
   Timer t_;
 };
 

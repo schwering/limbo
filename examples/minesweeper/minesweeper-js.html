@@ -419,10 +419,13 @@ This process is repeated for increasing split level, until a cell which is known
 If no cell is found, the agent guesses one randomly, with preference to non-frontier node.
 </p>
 
+<!--
 <p>
+<i>The following is not activated at the moment, but increases the success rate by about 1% for 10% of additional runtime cost.</i>
 During the end game, the number of remaining mines may also become relevant to making one's pick.
 For that reason, once less than 10 mines and less than 10 open fields are left, the reasoner adds clauses that represent the possible distributions of the remaining mines over the remaining fields.
 </p>
+-->
 
 <p>
 The <code>IsMine(x,y)</code> propositions mentioned above are actually represented as literals of the form <code>IsMine(x,y) = T</code>, as the reasoner does not support boolean propsitions; they must be simulated with functions and using a dummy standard name <code>T</code>.

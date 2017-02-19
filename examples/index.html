@@ -18,6 +18,8 @@
         .logic     { font-family: serif; }
         .logic b   { font-weight: bold; font-style: normal; }
         .logic i   { font-weight: normal; font-style: normal; font-size: 75%; line-height: 0; position: relative; vertical-align: baseline; bottom: -0.5ex; }
+        .logic i.t { font-weight: normal; font-style: normal; font-size: 75%; line-height: 0; position: relative; vertical-align: baseline; bottom: 0.95ex; margin-left: -0.75ex; }
+        .logic u   { font-style: italic; text-decoration: none; }
         div.logic  { width: 100%; text-align: center; }
     </style>
 </head>
@@ -42,15 +44,15 @@
 <p>
 The reasoner uses a first-order modal logic as representation language.
 In their most basic form, formulas are about the equality of terms&mdash;functions, variables, or standard names.
-For instance, we could say <span class="logic">fatherOf(Sally) = x</span>, where <span class="logic">fatherOf</span> is a unary function, <span class="logic">x</span> is a variable, and <span class="logic">Sally</span> is a standard name (it denotes one specific individual).
-Predicates are not an explicit part of the language, but can be easily simulated with functions and a special standard name <span class="logic">T</span> that indicates truth: <span class="logic">rich(x) = T</span> would represent the <span class="logic">x</span> is in the relation <span class="logic">rich</span>.
+For instance, we could say <span class="logic">fatherOf(Sally) = <u>x</u></span>, where <span class="logic">fatherOf</span> is a unary function, <span class="logic"><u>x</u></span> is a variable, and <span class="logic">Sally</span> is a standard name (it denotes one specific individual).
+Predicates are not an explicit part of the language, but can be easily simulated with functions and a special standard name <span class="logic">T</span> that indicates truth: <span class="logic">rich(<u>x</u>) = T</span> would represent the <span class="logic"><u>x</u></span> is in the relation <span class="logic">rich</span>.
 Such literals can be used to form more complex formulas using logical connectives such as logical negation, disjunction/conjunction, and existential/universal quantification.
-For example, <span class="logic">&exist;x (fatherOf(Sally) = x &and; rich(x) = T)</span> means Sally's father is rich.
+For example, <span class="logic">&exist;<u>x</u> (fatherOf(Sally) = <u>x</u> &and; rich(<u>x</u>) = T)</span> means Sally's father is rich.
 Finally, modal operators allow to expressly refer to what is known or considered possible.
 These modal operators are indexed with a natural number that indicates how much reasoning effort is put into proving the formula in its scope.
 A statement such as "I know Sally's father is rich, but I don't know him personally" could be formulised as follows:
 </p>
-<div class="logic"><b>K</b><i>1</i> &exist;x (fatherOf(Sally) = x &and; rich(x) = T &and; <b>M</b><i>1</i> fatherOf(Sally) &ne; x)</div>
+<div class="logic"><b>K</b><i>1</i> &exist;<u>x</u> (fatherOf(Sally) = <u>x</u> &and; rich(<u>x</u>) = T &and; <b>M</b><i>1</i> fatherOf(Sally) &ne; <u>x</u>)</div>
 
 <p>
 The above example is a typical query.
@@ -65,7 +67,7 @@ To help the reasoner optimise query evaluation, the user provide a guarantee tha
 
 <p>
 The language furthermore comprises conditional belief to refer to differently plausible beliefs.
-For instance, we could write <span class="logic"><b>B</b> fatherOf(Sally) = Frank &#x27F9; rich(Frank) = T</span> to say that we believe that if Frank is Sally's father, he most presumably is rich.
+For instance, we could write <span class="logic"><b>B</b><i>k</i><i class="t">l</i> fatherOf(Sally) = Frank &#x27F9; rich(Frank) = T</span> to say that we believe that if Frank is Sally's father, he most presumably is rich.
 </p>
 
 <h3>Reasoning</h3>
