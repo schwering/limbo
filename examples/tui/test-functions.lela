@@ -16,7 +16,7 @@ Refute: Know<3> f(a) == g(b)
 Refute: Know<3> f(a) == g(a)
 Refute: Know<3> f(a) == g(b)
 
-Refute: Know<0> (a == n v a != n)
+Assert: Know<0> (a == n v a != n)  // because of Clause::valid()
 Assert: Know<1> (a == n v a != n)
 
 Refute: Know<0> Ex x a == x

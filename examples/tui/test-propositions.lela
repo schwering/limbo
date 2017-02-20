@@ -14,10 +14,10 @@ Refute:   Know<2> !P
 Refute: G Know<2> !P
 Refute:   Know<2> P
 Refute: G Know<2> P
+Assert:   Know<0> (P || !P) // because of Clause::valid()
+Assert: G Know<0> (P || !P) // because of Clause::valid()
 Assert:   Know<1> (P || !P)
 Assert: G Know<1> (P || !P)
-Refute:   Know<0> (P || !P)
-Refute: G Know<0> (P || !P)
 
 Let phi := (P || !P) && (Q || !Q)
 Assert:   Know<1> phi // because the conjunction is resolved before splitting

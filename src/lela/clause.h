@@ -141,7 +141,23 @@ class Clause {
   bool   unit()  const { return size() == 1; }
   size_t size()  const { return size_; }
 
-  bool valid()   const { return any([](const Literal a) { return a.valid(); }); }
+  bool valid()  const {
+    for (size_t i = 0; i < size(); ++i) {
+      const Literal a = (*this)[i];
+      if (a.valid()) {
+        return true;
+      }
+      if (a.primitive()) {
+        Literal b;
+        for (size_t j = i + 1; j < size() && a.lhs() == (b = (*this)[j]).lhs(); ++j) {
+          if (a.pos() != b.pos() && a.rhs() == b.rhs()) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
   bool invalid() const { return empty(); }
 
 #if defined(BLOOM)
