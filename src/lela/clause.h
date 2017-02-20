@@ -143,14 +143,12 @@ class Clause {
 
   bool valid()  const {
     for (size_t i = 0; i < size(); ++i) {
-      const Literal a = (*this)[i];
-      if (a.valid()) {
+      if ((*this)[i].valid()) {
         return true;
       }
-      if (a.primitive()) {
-        Literal b;
-        for (size_t j = i + 1; j < size() && a.lhs() == (b = (*this)[j]).lhs(); ++j) {
-          if (a.pos() != b.pos() && a.rhs() == b.rhs()) {
+      if ((*this)[i].primitive()) {
+        for (size_t j = i + 1; j < size() && (*this)[j].primitive() && (*this)[i].lhs() == (*this)[j].lhs(); ++j) {
+          if (Literal::Valid((*this)[i], (*this)[j])) {
             return true;
           }
         }

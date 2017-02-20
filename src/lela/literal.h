@@ -77,11 +77,18 @@ class Literal {
            (pos() && lhs().sort() != rhs().sort());
   }
 
+  static bool Valid(const Literal a, const Literal b) {
+    assert(a.primitive());
+    assert(b.primitive());
+    return (a.lhs() == b.lhs() && a.pos() != b.pos() && a.rhs() == b.rhs()) ||
+           (a.lhs() == b.lhs() && !a.pos() && !b.pos() && a.rhs() != b.rhs());
+  }
+
   // Complementary(a, b) holds when a, b match one of the following:
   // (t1 = t2), (t1 != t2)
   // (t1 != t2), (t1 = t2)
   // (t = n1), (t = n2) for distinct n1, n2.
-  inline static bool Complementary(const Literal a, const Literal b) {
+  static bool Complementary(const Literal a, const Literal b) {
     assert(a.primitive());
     assert(b.primitive());
     return (a.lhs() == b.lhs() && a.rhs() == b.rhs() && a.pos() != b.pos()) ||
