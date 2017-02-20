@@ -201,12 +201,15 @@ class Setup {
   }
 
   bool Subsumes(const Clause& d) const {
-    assert(d.primitive());
+    assert(d.ground());
     if (empty_clause_) {
       return true;
     }
     if (d.empty()) {
-      return empty_clause_;
+      return false;
+    }
+    if (!d.primitive()) {
+      return d.valid();
     }
     for (size_t i = 0; i < units_.size(); ++i) {
       if (Clause::Subsumes(units_[i], d)) {
@@ -232,10 +235,10 @@ class Setup {
   }
 
   bool LocallyConsistent(const std::unordered_set<Term>& ts) const {
+    assert(std::all_of(ts.begin(), ts.end(), [](Term t) { return t.primitive(); }));
 #if defined(BLOOM)
     internal::BloomSet<Term> bs;
     for (Term t : ts) {
-      assert(t.primitive());
       bs.Add(t);
     }
 #endif

@@ -16,7 +16,7 @@ TEST(LiteralTest, general) {
   const Symbol::Sort s1 = sf.CreateSort();
   const Symbol::Sort s2 = sf.CreateSort();
   const Term n1 = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
-  //const Term n2 = tf.CreateTerm(Symbol::Factory::CreateName(2, s1));
+  const Term n2 = tf.CreateTerm(Symbol::Factory::CreateName(2, s1));
   const Term x1 = tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1));
   const Term x2 = tf.CreateTerm(Symbol::Factory::CreateVariable(2, s1));
   const Term f1 = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s1, 1), {n1});
@@ -84,6 +84,13 @@ TEST(LiteralTest, general) {
   EXPECT_TRUE(Literal::Neq(f1,f1).invalid());
   EXPECT_TRUE(!Literal::Neq(f1,n1).invalid());
   EXPECT_TRUE(!Literal::Neq(f1,f2).invalid());
+
+  EXPECT_TRUE(!Literal::Valid(Literal::Eq(f1, n1), Literal::Eq(f1, n1)));
+  EXPECT_TRUE(!Literal::Valid(Literal::Eq(f1, n1), Literal::Neq(f1, n2)));
+  EXPECT_TRUE(Literal::Valid(Literal::Eq(f1, n1), Literal::Neq(f1, n1)));
+  EXPECT_TRUE(!Literal::Valid(Literal::Neq(f1, n1), Literal::Neq(f1, n1)));
+  EXPECT_TRUE(!Literal::Valid(Literal::Eq(f1, n1), Literal::Eq(f1, n1)));
+  EXPECT_TRUE(Literal::Valid(Literal::Neq(f1, n1), Literal::Neq(f1, n2)));
 }
 
 }  // namespace lela

@@ -130,8 +130,7 @@ class Solver {
       assume_consistent ? grounder_.RelevantSplitTerms(phi) :
                           TermSet();
     const SortedTermSet& names = grounder_.Names();
-    return !s.Subsumes(Clause()) &&
-           ReduceDisjunctions(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
+    return ReduceDisjunctions(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
   }
 
  private:
@@ -248,7 +247,9 @@ class Solver {
     switch (phi.type()) {
       case Formula::kAtomic: {
         const Clause c = phi.as_atomic().arg();
-        return c.valid() || (c.primitive() && s.Subsumes(c));
+        assert(c.ground());
+        assert(c.valid() || c.primitive());
+        return s.Subsumes(c);
       }
       case Formula::kNot: {
         switch (phi.as_not().arg().type()) {
@@ -452,6 +453,10 @@ next_split:
     } else {
       if (!assume_consistent && !s.Consistent()) {
         return false;
+        // TODO XXX There's something wrong with how we use
+        // Setup::LocallyConsistent() here. The argument should rather be the
+        // grounded terms from the query. And Setup::LocallyConsistent() should
+        // close the set only under unsubsumed clauses.
       } else if (assume_consistent && !s.LocallyConsistent(relevant_terms)) {
         return false;
       }

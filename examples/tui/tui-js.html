@@ -581,6 +581,13 @@ See the Battleship and Sudoku code for examples.
 C-style single line comments are supported as well: <span class="code">//&nbsp;<span class="metavariable">rest of line is comment</span></span>.
 </p>
 
+<p>
+<b>Bug(s):</b> There's are two known bugs regarding the <span class="code">M&lt;k&gt;</span> operator.
+For one thing, within <span class="code">G</span> it's too aggressive and thus finds inconsistencies it shouldn't.
+For another, inconsistencies due to <span class="code">Fa x f(...) /= x</span> clauses are not detected at the moment.
+Fixes shouldn't be too difficult, will be coming soon.
+</p>
+
 </body>
 </html>
 

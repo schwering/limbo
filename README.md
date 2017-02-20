@@ -44,33 +44,30 @@ For more theoretical background see the papers linked below.
 
 ## Examples
 
-* This [web demo](http://www.cse.unsw.edu.au/~cschwering/demo/textinterface/)
-  allows to define and query a knowledge base through a simple text interface.
+* This [web demo](http://www.cse.unsw.edu.au/~cschwering/demo/tui/) allows to
+  define and query a knowledge base through a simple text interface.
   You can also use it from the command line; the the code is
-  [here](examples/textinterface/).
+  [here](examples/tui/).
 * There's are
   [Minesweeper](http://www.cse.unsw.edu.au/~cschwering/demo/minesweeper/) and
   [Sudoku](http://www.cse.unsw.edu.au/~cschwering/demo/sudoku/) web demos. You
   can use them it from the command line as well; the the code is
   [here](examples/minesweeper/) and [here](examples/sudoku/).
-* To see how the C++ API works, have a look at [this](tests/solver.cc) and
-  [that](tests/modal.cc) unit tests, which contain test cases that implement
-  examples from [1,2]. To reduce boiler plate code, they use a [higher-level
-  API](src/lela/format/cpp/syntax.h), which overloads some C++ operators.
+* The main part of the C++ API is [kb.h](src/lela/kb.h),
+  [formula.h](src/lela/formula.h), [clause.h](src/lela/clause.h),
+  [literal.h](src/lela/literal.h), [term.h](src/lela/term.h), in this
+  order.
+  To make creating formulas a little more convenient,
+  [format/cpp/syntax.h](src/lela/format/cpp/syntax.h) overloads some C++
+  operators.
 
-## Status
+## Plan for the future
 
-* The first-oder logic of knowledge with functions and equality and the sound
-  consistency from [1] is implemented. A difference to [1] is that the point
-  of splitting is "deterministic", whereas [1] allows splitting at any stage
-  during the proof.
-* The complete but unsound entailment check (or, equivalently, sound
-  consistency check) as well as conditional beliefs from [2] are implemented
-  as well.
-* Introspection is implemented using the representation theorem.
-* Actions from [3] are not yet implemented. The plan is to keep actions and
-  projection separate from the core reasoner and implement them as a
-  preprocessing step.
+* Add sitcalc-style actions: regression, progression, or simulate ESL [3] with
+  preprocessing, or all of them?
+* Add clause learning and/or backjumping?
+* Improve grounding.
+* Have a look at some other KR concepts.
 
 ## References
 

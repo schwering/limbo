@@ -50,25 +50,25 @@ TEST(ClauseTest, valid_invalid) {
   //const Term f3 = tf.CreateTerm(g, {n1});
   //const Term f4 = tf.CreateTerm(h, {n1,f1});
 
-  EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid());
-  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid());
-  EXPECT_TRUE(Clause({Literal::Eq(f1,f1)}).valid());
-  EXPECT_TRUE(!Clause({Literal::Neq(f1,f1)}).valid());
-  EXPECT_TRUE(!Clause({Literal::Neq(f1,n1)}).valid());
-  EXPECT_TRUE(Clause({Literal::Neq(f1,f2)}).valid());
-  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).valid());
-  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).valid());
-  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).valid());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid()   && !Clause({Literal::Eq(n1,n1)}).invalid());
+  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid() && Clause({Literal::Neq(n1,n1)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Eq(f1,f1)}).valid()   && !Clause({Literal::Eq(f1,f1)}).invalid());
+  EXPECT_TRUE(!Clause({Literal::Neq(f1,f1)}).valid() && Clause({Literal::Neq(f1,f1)}).invalid());
+  EXPECT_TRUE(!Clause({Literal::Neq(f1,n1)}).valid() && !Clause({Literal::Neq(f1,n1)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Neq(f1,f2)}).valid()  && !Clause({Literal::Neq(f1,f2)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).valid()    && !Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).valid()   && !Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).invalid());
+  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).valid() && Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).invalid());
 
-  EXPECT_TRUE(!Clause({Literal::Eq(n1,n1)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Neq(n1,n1)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Eq(f1,f1)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Neq(f1,f1)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(f1,n1)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(f1,f2)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid()   && !Clause({Literal::Eq(n1,n1)}).invalid());
+  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid() && Clause({Literal::Neq(n1,n1)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Eq(f1,f1)}).valid()   && !Clause({Literal::Eq(f1,f1)}).invalid());
+  EXPECT_TRUE(!Clause({Literal::Neq(f1,f1)}).valid() && Clause({Literal::Neq(f1,f1)}).invalid());
+  EXPECT_TRUE(!Clause({Literal::Neq(f1,n1)}).valid() && !Clause({Literal::Neq(f1,n1)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Neq(f1,f2)}).valid()  && !Clause({Literal::Neq(f1,f2)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).valid()    && !Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).valid()   && !Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).invalid());
+  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).valid() && Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).invalid());
 }
 
 
