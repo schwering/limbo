@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2016-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A couple of iterators to immitate Haskell lists with iterators.
 //
@@ -21,7 +22,8 @@ namespace internal {
 
 // Wrapper for operator*() and operator++(int).
 template<typename InputIt>
-struct iterator_proxy {
+class iterator_proxy {
+ public:
   typedef typename InputIt::value_type value_type;
   typedef typename InputIt::reference reference;
   typedef typename InputIt::pointer pointer;
@@ -34,7 +36,8 @@ struct iterator_proxy {
   mutable typename std::remove_const<value_type>::type v_;
 };
 
-struct Identity {
+class Identity {
+ public:
   template<typename T>
   constexpr auto operator()(T&& x) const noexcept -> decltype(std::forward<T>(x)) {
     return std::forward<T>(x);
@@ -43,7 +46,8 @@ struct Identity {
 
 // Encapsulates an integer type.
 template<typename T, typename UnaryFunction = Identity>
-struct int_iterator {
+class int_iterator {
+ public:
   typedef std::ptrdiff_t difference_type;
   typedef T value_type;
   typedef const value_type* pointer;
@@ -71,7 +75,8 @@ struct int_iterator {
 };
 
 template<typename T, typename UnaryFunction = Identity>
-struct int_iterators {
+class int_iterators {
+ public:
   typedef int_iterator<T, UnaryFunction> iterator;
 
   explicit int_iterators(T begin, T end, UnaryFunction func1 = UnaryFunction(), UnaryFunction func2 = UnaryFunction()) :
@@ -94,7 +99,8 @@ inline int_iterators<T, UnaryFunction> int_range(T begin,
 }
 
 template<typename T, typename U>
-struct array_iterator {
+class array_iterator {
+ public:
   typedef std::ptrdiff_t difference_type;
   typedef U value_type;
   typedef value_type* pointer;
@@ -138,7 +144,8 @@ template<typename OuterInputIt,
          typename InnerInputIt = decltype(std::declval<typename OuterInputIt::value_type const>().begin()),
          InnerInputIt (OuterInputIt::value_type::*begin)() const = &OuterInputIt::value_type::begin,
          InnerInputIt (OuterInputIt::value_type::*end)() const = &OuterInputIt::value_type::end>
-struct flatten_iterator {
+class flatten_iterator {
+ public:
   typedef std::ptrdiff_t difference_type;
   typedef typename InnerInputIt::value_type value_type;
   typedef typename InnerInputIt::pointer pointer;
@@ -206,7 +213,8 @@ struct flatten_iterator {
 
 // Haskell's map function.
 template<typename InputIt, typename UnaryFunction>
-struct transform_iterator {
+class transform_iterator {
+ public:
   typedef typename InputIt::difference_type difference_type;
   typedef typename std::remove_reference<
       typename first_type<std::result_of<UnaryFunction(typename InputIt::value_type)>,
@@ -256,7 +264,8 @@ struct transform_iterator {
 };
 
 template<typename InputIt, typename UnaryFunction>
-struct transform_iterators {
+class transform_iterators {
+ public:
   typedef transform_iterator<InputIt, UnaryFunction> iterator;
 
   transform_iterators(InputIt begin, InputIt end, UnaryFunction func = UnaryFunction()) :
@@ -288,7 +297,8 @@ transform_range(Range r, UnaryFunction func) {
 
 // Haskell's filter function.
 template<typename InputIt, typename UnaryPredicate>
-struct filter_iterator {
+class filter_iterator {
+ public:
   typedef std::ptrdiff_t difference_type;
   typedef typename InputIt::value_type value_type;
   typedef typename InputIt::pointer pointer;
@@ -327,7 +337,8 @@ struct filter_iterator {
 };
 
 template<typename InputIt, typename UnaryPredicate>
-struct filter_iterators {
+class filter_iterators {
+ public:
   typedef filter_iterator<InputIt, UnaryPredicate> iterator;
 
   filter_iterators(InputIt begin, InputIt end, UnaryPredicate pred = UnaryPredicate()) :
@@ -355,7 +366,8 @@ filter_range(Range r, UnaryPredicate pred) {
 }
 
 template<typename InputIt1, typename InputIt2>
-struct joined_iterator {
+class joined_iterator {
+ public:
   typedef std::ptrdiff_t difference_type;
   typedef typename InputIt1::value_type value_type;
   typedef typename InputIt1::pointer pointer;
@@ -389,7 +401,8 @@ struct joined_iterator {
 };
 
 template<typename InputIt1, typename InputIt2>
-struct joined_iterators {
+class joined_iterators {
+ public:
   typedef joined_iterator<InputIt1, InputIt2> iterator;
 
   joined_iterators(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2) :

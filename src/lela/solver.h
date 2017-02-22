@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2016-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Solver implements limited belief implications. The key methods are Entails(),
 // Determines(), and Consistent(), which determine whether the knowledge base
@@ -342,7 +343,7 @@ class Solver {
     // a query term t and two candidate names n, n' for t.
     //
     // Let us assume that for all combinations of t1=N*, t3=N**, the reasoner
-    // finds that t=n. 
+    // finds that t=n.
     //
     // The reasoner splits t1 at the first level, and after setting t1=n1 it
     // descends to the next split level, where it successfully splits t2, which
@@ -385,8 +386,8 @@ class Solver {
         const TermSet& ns = names[t.sort()];
         assert(!ns.empty());
         for (const Term n : ns) {
-          Setup::ShallowCopy split = s.shallow_copy();
-          const Setup::Result add_result = split.AddUnit(Literal::Eq(t, n));
+          Setup::ShallowCopy split_setup = s.shallow_copy();
+          const Setup::Result add_result = split_setup.AddUnit(Literal::Eq(t, n));
           if (add_result == Setup::kInconsistent) {
             merged_result = !merged_result ? inconsistent_result : merge(merged_result, inconsistent_result);
             if (!merged_result) {
@@ -395,7 +396,7 @@ class Solver {
             recursed = true;
             continue;
           }
-          auto split_result = Split<split_order_matters>(split.setup(),
+          auto split_result = Split<split_order_matters>(*split_setup,
                                                          split_order_matters ? split_terms_begin : it,
                                                          split_terms_end,
                                                          split_order_matters ? n_split_terms : n_split_terms_left,
@@ -442,13 +443,13 @@ next_split:
       assert(!assign_lits.empty());
       return std::any_of(assign_lits.begin(), assign_lits.end(), [&](const LiteralSet& lits) {
         assert(!lits.empty());
-        Setup::ShallowCopy split = s.shallow_copy();
+        Setup::ShallowCopy split_setup = s.shallow_copy();
         for (Literal a : lits) {
-          if (!split.setup().Subsumes(Clause{a.flip()})) {
-            split.AddUnit(a);
+          if (!split_setup->Subsumes(Clause{a.flip()})) {
+            split_setup.AddUnit(a);
           }
         }
-        return Assign(split.setup(), assign_lits, names, k-1, phi, assume_consistent, relevant_terms);
+        return Assign(*split_setup, assign_lits, names, k-1, phi, assume_consistent, relevant_terms);
       });
     } else {
       if (!assume_consistent && !s.Consistent()) {

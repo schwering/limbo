@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2016-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Symbols are the non-logical symbols of the language: variables, standard
 // names, and function symbols, which are sorted. Symbols are immutable.
@@ -46,11 +47,11 @@ namespace lela {
 
 template<typename T>
 struct Singleton {
-  static std::unique_ptr<T> instance_;
+  static std::unique_ptr<T> instance;
 };
 
 template<typename T>
-std::unique_ptr<T> Singleton<T>::instance_;
+std::unique_ptr<T> Singleton<T>::instance;
 
 class Symbol {
  public:
@@ -61,13 +62,13 @@ class Symbol {
   class Factory : private Singleton<Factory> {
    public:
     static Factory* Instance() {
-      if (instance_ == nullptr) {
-        instance_ = std::unique_ptr<Factory>(new Factory());
+      if (instance == nullptr) {
+        instance = std::unique_ptr<Factory>(new Factory());
       }
-      return instance_.get();
+      return instance.get();
     }
 
-    static void Reset() { instance_ = nullptr; }
+    static void Reset() { instance = nullptr; }
 
     static Symbol CreateName(Id id, Sort sort) {
       assert(id > 0);
@@ -155,15 +156,15 @@ class Term {
 
   internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
-  Symbol symbol()      const { return data()->symbol_; }
-  Term arg(size_t i)   const { return data()->args_[i]; }
-  const Vector& args() const { return data()->args_; }
+  Symbol symbol()      const { return data()->symbol; }
+  Term arg(size_t i)   const { return data()->args[i]; }
+  const Vector& args() const { return data()->args; }
 
-  Symbol::Sort sort()   const { return data()->symbol_.sort(); }
-  bool name()           const { assert(data()->symbol_.name() == (id_ & 1)); return (id_ & 1) == 1; }
-  bool variable()       const { return data()->symbol_.variable(); }
-  bool function()       const { return data()->symbol_.function(); }
-  Symbol::Arity arity() const { return data()->symbol_.arity(); }
+  Symbol::Sort sort()   const { return data()->symbol.sort(); }
+  bool name()           const { assert(data()->symbol.name() == (id_ & 1)); return (id_ & 1) == 1; }
+  bool variable()       const { return data()->symbol.variable(); }
+  bool function()       const { return data()->symbol.function(); }
+  Symbol::Arity arity() const { return data()->symbol.arity(); }
 
   bool null()           const { return id_ == 0; }
   bool ground()         const { return name() || (function() && all_args([](Term t) { return t.ground(); })); }
@@ -192,17 +193,17 @@ class Term {
   typedef internal::u32 u32;
 
   struct Data {
-    Data(Symbol symbol, const Vector& args) : symbol_(symbol), args_(args) {}
+    Data(Symbol symbol, const Vector& args) : symbol(symbol), args(args) {}
 
-    bool operator==(const Data& d) const { return symbol_ == d.symbol_ && args_ == d.args_; }
+    bool operator==(const Data& d) const { return symbol == d.symbol && args == d.args; }
     bool operator!=(const Data& s) const { return !(*this == s); }
 
-    Symbol symbol_;
-    Vector args_;
+    Symbol symbol;
+    Vector args;
 
     internal::hash32_t hash() const {
-      internal::hash32_t h = symbol_.hash();
-      for (const lela::Term t : args_) {
+      internal::hash32_t h = symbol.hash();
+      for (const lela::Term t : args) {
         h ^= t.hash();
       }
       return h;
@@ -216,10 +217,10 @@ class Term {
   u32 id() const { return id_; }
 
   template<typename UnaryPredicate>
-  bool all_args(UnaryPredicate p) const { return std::all_of(data()->args_.begin(), data()->args_.end(), p); }
+  bool all_args(UnaryPredicate p) const { return std::all_of(data()->args.begin(), data()->args.end(), p); }
 
   template<typename UnaryPredicate>
-  bool any_arg(UnaryPredicate p) const { return std::any_of(data()->args_.begin(), data()->args_.end(), p); }
+  bool any_arg(UnaryPredicate p) const { return std::any_of(data()->args.begin(), data()->args.end(), p); }
 
   u32 id_;
 };
@@ -227,13 +228,13 @@ class Term {
 class Term::Factory : private Singleton<Factory> {
  public:
   static Factory* Instance() {
-    if (instance_ == nullptr) {
-      instance_ = std::unique_ptr<Factory>(new Factory());
+    if (instance == nullptr) {
+      instance = std::unique_ptr<Factory>(new Factory());
     }
-    return instance_.get();
+    return instance.get();
   }
 
-  static void Reset() { instance_ = nullptr; }
+  static void Reset() { instance = nullptr; }
 
   ~Factory() {
     for (Data* data : name_heap_) {
@@ -325,12 +326,12 @@ Term Term::Substitute(UnaryFunction theta, Factory* tf) const {
     return t.val;
   } else if (arity() > 0) {
     Vector args;
-    args.reserve(data()->args_.size());
-    for (Term arg : data()->args_) {
+    args.reserve(data()->args.size());
+    for (Term arg : data()->args) {
       args.push_back(arg.Substitute(theta, tf));
     }
-    if (args != data()->args_) {
-      return tf->CreateTerm(data()->symbol_, args);
+    if (args != data()->args) {
+      return tf->CreateTerm(data()->symbol, args);
     } else {
       return *this;
     }

@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2016-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A BloomFilter allows for complete check whether an element is in a set.
 // That is, it may yield false positives. The class BloomSet<T> exists to

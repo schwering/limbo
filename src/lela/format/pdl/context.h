@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2016-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Context objects store and create symbols, terms, and allow for textual
 // representation, and encapsulate a Solver object.

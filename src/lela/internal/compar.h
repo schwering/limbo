@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A couple of comparators to achieve specific behaviour of set and map
 // containers. Currently only few are in use, the previous prototypes made

@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 Christoph Schwering
+// Copyright 2014-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Overloads the stream operator (<<) for Literal, Clause, and so on. For
 // Sort and Symbol objects, a human-readable name can be registered.

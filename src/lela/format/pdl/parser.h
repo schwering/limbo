@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2016-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Recursive descent parser for the problem description language. The grammar
 // for formulas is aims to reduce brackets and implement operator precedence.
@@ -1148,7 +1149,7 @@ class Parser {
     }
   }
 
-  // branch --> [ declarations | kb_formula | query | abbreviation | load_calls | call ]
+  // branch --> [ declaration | kb_formula | query | abbreviation | load_calls | call ]
   Result<Action<>> branch() {
     typedef Result<Action<>> (Parser::*Rule)();
     std::vector<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation, &Parser::query,

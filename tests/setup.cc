@@ -30,8 +30,8 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
 
   {
     lela::Setup s0;
-    EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)})), lela::Setup::kOK);
-    EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), lela::Setup::kOK);
+    EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)})), lela::Setup::kOk);
+    EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), lela::Setup::kOk);
     EXPECT_TRUE(s0.Consistent());
     EXPECT_TRUE(s0.LocallyConsistent({fm,fn}));
     for (size_t i : s0.clauses()) {
@@ -41,10 +41,10 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
 
     {
       lela::Setup& s1 = s0;
-      EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)})), lela::Setup::kOK);
-      EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), lela::Setup::kOK);
-      EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(fn,n)})), lela::Setup::kOK);
-      EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(gn,n)})), lela::Setup::kOK);
+      EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)})), lela::Setup::kOk);
+      EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), lela::Setup::kOk);
+      EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(fn,n)})), lela::Setup::kOk);
+      EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(gn,n)})), lela::Setup::kOk);
       EXPECT_EQ(dist(s1.clauses()), 6);
       s1.Minimize();
       EXPECT_EQ(dist(s1.clauses()), 4);
@@ -56,7 +56,7 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
 
       {
         lela::Setup& s2 = s1;
-        EXPECT_EQ(s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})), lela::Setup::kOK);
+        EXPECT_EQ(s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})), lela::Setup::kOk);
         EXPECT_EQ(dist(s2.clauses()), 5);
         EXPECT_TRUE(!s2.Consistent());
         for (const size_t i : s2.clauses()) {
@@ -65,7 +65,7 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
 
         {
           lela::Setup& s3 = s2;
-          EXPECT_EQ(s3.AddClause(Clause({Literal::Neq(a,m)})), lela::Setup::kOK);
+          EXPECT_EQ(s3.AddClause(Clause({Literal::Neq(a,m)})), lela::Setup::kOk);
           EXPECT_EQ(dist(s3.clauses()), 5+1+1+2+2);
           s3.Minimize();
           EXPECT_EQ(dist(s3.clauses()), 5);

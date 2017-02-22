@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 Christoph Schwering
+// Copyright 2014-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A clause is a set of literals. Clauses are immutable.
 //
@@ -106,7 +107,7 @@ class Clause {
   Clause& operator=(Clause&&) = default;
 
   bool operator==(const Clause& c) const {
-    return size_ == c.size_ &&
+    return size() == c.size() &&
 #if defined(BLOOM)
            lhs_bloom_ == c.lhs_bloom_ &&
 #endif
@@ -124,20 +125,20 @@ class Clause {
   }
 
   const_iterator cbegin() const { return const_iterator(this, 0); }
-  const_iterator cend()   const { return const_iterator(this, size_); }
+  const_iterator cend()   const { return const_iterator(this, size()); }
 
   const_iterator begin() const { return cbegin(); }
   const_iterator end()   const { return cend(); }
 
   const Literal& operator[](size_t i) const {
-    assert(i <= size_);
+    assert(i <= size());
     return i < kArraySize ? lits1_[i] : lits2_[i - kArraySize];
   }
 
   Literal first() const { return lits1_[0]; }
   Literal last()  const { return operator[](size() - 1); }
 
-  bool   empty() const { return size_ == 0; }
+  bool   empty() const { return size() == 0; }
   bool   unit()  const { return size() == 1; }
   size_t size()  const { return size_; }
 
@@ -383,7 +384,7 @@ next:
   }
 
  private:
-  friend struct internal::array_iterator<Clause, Literal>;
+  friend class internal::array_iterator<Clause, Literal>;
   typedef internal::array_iterator<Clause, Literal> iterator;
   static constexpr size_t kArraySize = 5;
 
@@ -402,7 +403,7 @@ next:
   }
 
   iterator begin() { return iterator(this, 0); }
-  iterator end()   { return iterator(this, size_); }
+  iterator end()   { return iterator(this, size()); }
 
   void Nullify(size_t i) {
     (*this)[i] = Literal();

@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2016-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A Grounder determines how many standard names need to be substituted for
 // variables in a proper+ knowledge base and in queries.
@@ -297,8 +298,10 @@ class Grounder {
 
   typedef internal::IntMap<Symbol::Sort, size_t> PlusMap;
 
-  struct Assignments {
-    struct TermRange {
+  class Assignments {
+   public:
+    class TermRange {
+     public:
       TermRange() = default;
       explicit TermRange(const TermSet* terms) : terms_(terms) { Reset(); }
 
@@ -318,7 +321,8 @@ class Grounder {
       TermSet::const_iterator begin_;
     };
 
-    struct Assignment {
+    class Assignment {
+     public:
       internal::Maybe<Term> operator()(Term x) const {
         auto it = map_.find(x);
         if (it != map_.end()) {

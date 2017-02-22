@@ -4,11 +4,11 @@ then
     chmod +x cpplint.py
 fi
 
-if [ "$(which cppclean)" == "" ]
-then
-    sudo pip install --upgrade cppclean
-fi
+#if [ "$(which cppclean)" == "" ]
+#then
+#    sudo pip install --upgrade cppclean
+#fi
 
 ./cpplint.py --root=src --filter=-build/include_order --linelength=120 $(find src/ -name \*.h -or -name \*.cc)
-cppclean --include=src src
+#cppclean --include=src src
 

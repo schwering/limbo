@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 Christoph Schwering
+// Copyright 2014-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A literal is an (in)equality expression of two terms. Literals are immutable.
 // If one of either terms in a literal is a function, then the left-hand side

@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 Christoph Schwering
+// Copyright 2014-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Basic first-order formulas without any syntactic sugar. The atomic entities
 // here are clauses, and the connectives are negation, disjunction, and
@@ -95,7 +96,8 @@ class Formula {
 
   template<typename UnaryFunction>
   void SubstituteFree(UnaryFunction theta, Term::Factory* tf) {
-    struct FreeSubstitution : public ISubstitution {
+    class FreeSubstitution : public ISubstitution {
+     public:
       explicit FreeSubstitution(UnaryFunction func) : func_(func) {}
       internal::Maybe<Term> operator()(Term t) const override { return !bound(t) ? func_(t) : internal::Nothing; }
      private:
@@ -107,7 +109,8 @@ class Formula {
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const {
     typedef typename internal::remove_const_ref<typename internal::arg<UnaryFunction>::template type<0>>::type arg_type;
-    struct Traversal : public ITraversal<arg_type> {
+    class Traversal : public ITraversal<arg_type> {
+     public:
       explicit Traversal(UnaryFunction func) : func_(func) {}
       bool operator()(arg_type t) const override { return func_(t); }
      private:
@@ -133,7 +136,8 @@ class Formula {
   virtual bool trivially_invalid() const = 0;
 
  protected:
-  struct ISubstitution {
+  class ISubstitution {
+   public:
     virtual ~ISubstitution() {}
     virtual internal::Maybe<Term> operator()(Term t) const = 0;
     void Bind(Term t) const { bound_.insert(t); }
@@ -144,14 +148,16 @@ class Formula {
   };
 
   template<typename T>
-  struct ITraversal {
+  class ITraversal {
+   public:
     virtual ~ITraversal() {}
     virtual bool operator()(T t) const = 0;
   };
 
   typedef std::unordered_map<Term, Term> TermMap;
 
-  struct QuantifierPrefix {
+  class QuantifierPrefix {
+   public:
     void prepend_not() { prefix_.push_front(Element{kNot}); }
     void append_not() { prefix_.push_back(Element{kNot}); }
     void prepend_exists(Term x) { prefix_.push_front(Element{kExists, x}); }

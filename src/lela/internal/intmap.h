@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2016-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A map from positive integers to some other type. The key integers are assumed
 // to be small and sparse, as their size corresponds to the size of the
@@ -46,37 +47,37 @@ class IntMap : public std::vector<T> {
   struct Keys {
     typedef internal::int_iterator<Key> iterator;
 
-    explicit Keys(const IntMap* owner) : owner_(owner) {}
+    explicit Keys(const IntMap* owner) : owner(owner) {}
 
     iterator begin() const { return iterator(0); }
-    iterator end()   const { return iterator(static_cast<Key>(owner_->size())); }
+    iterator end()   const { return iterator(static_cast<Key>(owner->size())); }
 
    private:
-    const IntMap* owner_;
+    const IntMap* owner;
   };
 
   Keys keys() const { return Keys(this); }
 
   struct Values {
-    explicit Values(IntMap* owner) : owner_(owner) {}
+    explicit Values(IntMap* owner) : owner(owner) {}
 
-    typename parent::iterator begin() const { return owner_->parent::begin(); }
-    typename parent::iterator end() const { return owner_->parent::end(); }
+    typename parent::iterator begin() const { return owner->parent::begin(); }
+    typename parent::iterator end() const { return owner->parent::end(); }
 
    private:
-    IntMap* owner_;
+    IntMap* owner;
   };
 
   Values values() { return Values(this); }
 
   struct ConstValues {
-    explicit ConstValues(const IntMap* owner) : owner_(owner) {}
+    explicit ConstValues(const IntMap* owner) : owner(owner) {}
 
-    typename parent::const_iterator begin() const { return owner_->parent::begin(); }
-    typename parent::const_iterator end() const { return owner_->parent::end(); }
+    typename parent::const_iterator begin() const { return owner->parent::begin(); }
+    typename parent::const_iterator end() const { return owner->parent::end(); }
 
    private:
-    const IntMap* owner_;
+    const IntMap* owner;
   };
 
   ConstValues cvalues() const { return ConstValues(this); }

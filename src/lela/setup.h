@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 Christoph Schwering
+// Copyright 2014-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Setups are collections of primitive clauses, which are added with
 // AddClause() and AddUnit(), where the former is more lightweight.
@@ -10,8 +11,8 @@
 // populate it, evaluate queries with Subsumes(), Determines(), Consistent(),
 // and LocallyConsistent().
 //
-// Additionally, shallow_copy() can be used to add further clauses or unit
-// clauses which are automatically removed once the lifecycle of ShallowCopy
+// Additionally, ShallowCopy() can be used to add further clauses or unit
+// clauses which are automatically removed once the lifecycle of Offspring
 // ends. This allows for very cheap backtracking. Note that anything that is
 // added to a WeakCopy also occurs in the original Setup. During the lifecycle
 // of any WeakCopies, Minimize() must not be called, as it leads to undefined
@@ -75,38 +76,37 @@ class Setup {
  public:
   typedef internal::size_t size_t;
 
-  enum Result { kOK, kSubsumed, kInconsistent };
+  enum Result { kOk, kSubsumed, kInconsistent };
 
-  struct ShallowCopy {
-    explicit ShallowCopy(Setup& s) : setup_(&s) { Save(); }
+  class ShallowCopy {
+   public:
     ShallowCopy(const ShallowCopy&) = delete;
     ShallowCopy& operator=(const ShallowCopy&) = delete;
     ShallowCopy(ShallowCopy&&) = default;
     ShallowCopy& operator=(ShallowCopy&&) = default;
-    ~ShallowCopy() { Restore(); }
+    ~ShallowCopy() { Die(); }
 
-    const Setup& setup() const { return *setup_; }
     operator const Setup&() const { return *setup_; }
-    Result AddUnit(Literal a) { return const_cast<Setup&>(*setup_).AddUnit(a); }
+    const Setup* operator->() const { return setup_; }
+    const Setup& operator*() const { return *setup_; }
 
-   private:
-    void Save() {
-      if (setup_) {
-        empty_clause_ = setup_->empty_clause_;
-        n_units_ = setup_->units_.size();
-        n_clauses_ = setup_->clauses_.size();
-        assert(++setup_->saved_ > 0);
-      }
-    }
+    Result AddUnit(Literal a) { return setup_->AddUnit(a); }
 
-    void Restore() {
+    void Die() {
       if (setup_) {
         setup_->empty_clause_ = empty_clause_;
         setup_->units_.Resize(n_units_);
         setup_->clauses_.Resize(n_clauses_);
+        setup_ = nullptr;
         assert(setup_->saved_-- > 0);
       }
     }
+
+   private:
+    friend Setup;
+
+    explicit ShallowCopy(Setup* s) :
+        setup_(s), empty_clause_(s->empty_clause_), n_clauses_(s->clauses_.size()), n_units_(s->units_.size()) {}
 
     Setup* setup_;
     bool empty_clause_;
@@ -120,7 +120,7 @@ class Setup {
   Setup(Setup&&) = default;
   Setup& operator=(Setup&&) = default;
 
-  ShallowCopy shallow_copy() const { return ShallowCopy(const_cast<Setup&>(*this)); }
+  ShallowCopy shallow_copy() const { return ShallowCopy(const_cast<Setup*>(this)); }
 
   void Minimize() {
     assert(saved_ == 0);
@@ -166,7 +166,7 @@ class Setup {
       return r;
     } else {
       clauses_.Add(c);
-      return kOK;
+      return kOk;
     }
   }
 
@@ -200,26 +200,26 @@ class Setup {
     return r;
   }
 
-  bool Subsumes(const Clause& d) const {
-    assert(d.ground());
+  bool Subsumes(const Clause& c) const {
+    assert(c.ground());
     if (empty_clause_) {
       return true;
     }
-    if (d.empty()) {
+    if (c.empty()) {
       return false;
     }
-    if (!d.primitive()) {
-      return d.valid();
+    if (!c.primitive()) {
+      return c.valid();
     }
     for (size_t i = 0; i < units_.size(); ++i) {
-      if (Clause::Subsumes(units_[i], d)) {
+      if (Clause::Subsumes(units_[i], c)) {
         return true;
       }
     }
-    if (d.unit() && d.first().pos()) {
+    if (c.unit() && c.first().pos()) {
       return false;
     }
-    return ClausesSubsume(d);
+    return ClausesSubsume(c);
   }
 
   bool Consistent() const {
@@ -258,22 +258,22 @@ class Setup {
 
   bool contains_empty_clause() const { return empty_clause_; }
 
-  const std::vector<Literal> units() const { return units_.vec(); }
+  const std::vector<Literal>& units() const { return units_.vec(); }
 
   internal::Maybe<Term> Determines(Term lhs) const {
     assert(lhs.primitive());
     return empty_clause_ ? internal::Just(Term()) : units_.Determines(lhs);
   }
 
-  struct clause_range {
-    explicit clause_range(const Setup& s) : end_((s.empty_clause_ ? 1 : 0) + s.units_.size() + s.clauses_.size()) {}
+  struct ClauseRange {
+    explicit ClauseRange(const Setup& s) : last((s.empty_clause_ ? 1 : 0) + s.units_.size() + s.clauses_.size()) {}
     internal::int_iterator<size_t> begin() const { return internal::int_iterator<size_t>(0); }
-    internal::int_iterator<size_t> end()   const { return internal::int_iterator<size_t>(end_); }
+    internal::int_iterator<size_t> end()   const { return internal::int_iterator<size_t>(last); }
    private:
-    size_t end_;
+    size_t last;
   };
 
-  clause_range clauses() const { return clause_range(*this); }
+  ClauseRange clauses() const { return ClauseRange(*this); }
 
   Clause clause(size_t i) const {
     if (i == 0 && empty_clause_) {
@@ -381,7 +381,7 @@ class Setup {
       assert(std::find(vec_.begin(), vec_.end(), a) == vec_.end());
       set_.insert(a);
       vec_.push_back(a);
-      return kOK;
+      return kOk;
     }
 
     void Resize(size_t n) {

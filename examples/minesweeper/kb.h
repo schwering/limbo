@@ -95,9 +95,10 @@ class KnowledgeBase {
     t_.start();
     lela::internal::Maybe<bool> r = lela::internal::Nothing;
 #ifdef USE_DETERMINES
-    // Doesn't work because we represent 'false' with "/= T".
-    // If we used a second name, "F", and constraints that every
-    // field is T or F, it would be fine.
+    // In this case we need a second name to represent falsity. The reason is
+    // that without such a name, falsity is represented by "/= T", which is for
+    // Determines() just means the term's value is not determined, whereas we'd
+    // want it to be determined as false.
     lela::internal::Maybe<lela::Term> is_mine = solver()->Determines(k, Mine(p), lela::Solver::kConsistencyGuarantee);
     assert(!is_mine || is_mine.val == T || is_mine.val == F);
     assert(solver()->Determines(k, Mine(p), lela::Solver::kNoConsistencyGuarantee) == is_mine);

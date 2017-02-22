@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014 Christoph Schwering
+// Copyright 2014-2016 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A simple Maybe type as in Haskell: it is either Nothing or Just some object.
 // Thanks to moving constructors and all that weird stuff, it's faster than

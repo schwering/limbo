@@ -1,5 +1,27 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016 Christoph Schwering
+// Copyright 2016-2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
+//
+// A KnowledgeBase manages a knowledge base consisting of objective sentences
+// or conditionals and evaluates queries in this knowledge base.
+//
+// The knowledge base is populated with Add(), whose argument shall be either a
+// clause; an objective sentence whose normal form is a universally quantified
+// clause; an objective sentence within Formula::Know() whose normal form is a
+// universally quantified clause; or a Formula::Bel() such that the normal form
+// of the material implication of antecedent and consequent is a universally
+// quantified clause. Semantically, knowledge base is only-known.
+//
+// The optional Formula::Know() modality in formulas added to the knowledge base
+// is fully ignored, including the belief level (an unconditional knowledge base
+// is always only-known at belief level 0).
+//
+// For Formula::Bel() formulas added to the knowledge base, the belief levels do
+// matter; they control how much effort is put into constructing the system of
+// spheres.
+//
+// Queries are not subject to any syntactic restrictions. Technically, they are
+// evaluated using variants of Levesque's representation theorem.
 
 #ifndef LELA_KB_H_
 #define LELA_KB_H_

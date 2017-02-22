@@ -1,5 +1,6 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2017 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A closed hash set.
 
@@ -53,7 +54,8 @@ class HashSet {
   };
 
   template<typename U, typename InputIt>
-  struct Iterator {
+  class Iterator {
+   public:
     typedef std::ptrdiff_t difference_type;
     typedef U value_type;
     typedef value_type* pointer;
@@ -92,7 +94,8 @@ class HashSet {
   };
 
   template<typename U, typename InputIt>
-  struct BucketIterator {
+  class BucketIterator {
+   public:
     typedef std::ptrdiff_t difference_type;
     typedef U value_type;
     typedef value_type* pointer;
