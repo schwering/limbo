@@ -12,7 +12,7 @@ set (CMAKE_BUILD_TYPE Release)
 set (CMAKE_VERBOSE_MAKEFILE ON)
 
 # Good for YCM-Generator for the Vim YouCompleteMe plugin
-#set (CMAKE_EXPORT_COMPILE_COMMANDS 1)
+set (CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 

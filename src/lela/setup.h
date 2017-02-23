@@ -94,11 +94,11 @@ class Setup {
 
     void Die() {
       if (setup_) {
+        assert(setup_->saved_-- > 0);
         setup_->empty_clause_ = empty_clause_;
         setup_->units_.Resize(n_units_);
         setup_->clauses_.Resize(n_clauses_);
         setup_ = nullptr;
-        assert(setup_->saved_-- > 0);
       }
     }
 
@@ -106,7 +106,12 @@ class Setup {
     friend Setup;
 
     explicit ShallowCopy(Setup* s) :
-        setup_(s), empty_clause_(s->empty_clause_), n_clauses_(s->clauses_.size()), n_units_(s->units_.size()) {}
+      setup_(s),
+      empty_clause_(s->empty_clause_),
+      n_clauses_(s->clauses_.size()),
+      n_units_(s->units_.size()) {
+      assert(++setup_->saved_ > 0);
+    }
 
     Setup* setup_;
     bool empty_clause_;

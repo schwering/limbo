@@ -7,6 +7,6 @@ F=test-${W}x${H}-${M}-${K}-${max}.log
 
 inxi -Fx -c 0 >$F
 
-for seed in $(seq 1 $max); do ./minesweeper $W $H $M $seed $K; done | grep '\(Last move\|Exploring\|Flagging\|You\)' >>$F
+for seed in $(seq 1 $max); do ./minesweeper $W $H $M $seed $K; done | grep You >>$F
 echo $F
 
