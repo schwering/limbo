@@ -160,6 +160,7 @@ class Setup {
   Result AddClause(Clause c) {
     assert(c.primitive());
     assert(saved_ == 0);
+    assert(!c.valid());
     units_.UnsealOriginalUnits();  // undo units_.SealOriginalUnits() called by Minimize()
     c.PropagateUnits(units_.set());
     if (c.size() == 0) {
@@ -177,6 +178,7 @@ class Setup {
 
   Result AddUnit(Literal a) {
     assert(a.primitive());
+    assert(!a.valid() && !a.invalid());
     if (empty_clause_) {
       return kInconsistent;
     }

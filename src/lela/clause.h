@@ -8,7 +8,7 @@
 // Thus, and since clauses are immutable, they represent sets of literals. Note
 // that copying and comparing clauses is more expensive than for literals.
 //
-// Perhaps the most important operations are PropagateUnit() and Subsumes(),
+// Perhaps the most important operations are PropagateUnit[s]() and Subsumes(),
 // which are only defined for primitive clauses and literals. Thus all involved
 // literals mention a primitive term on the left-hand side. By definition of
 // Complementary() and Subsumes() in the Literal class, a literal can react with
@@ -242,6 +242,8 @@ next:
   void PropagateUnit(const Literal b) {
     assert(primitive());
     assert(b.primitive());
+    assert(!valid());
+    assert(!b.valid() && !b.invalid());
 #if defined(BLOOM)
     if (!lhs_bloom_.PossiblyContains(b.lhs())) {
       return;
@@ -261,7 +263,9 @@ next:
 
   void PropagateUnits(const std::set<Literal>& units) {
     assert(primitive());
+    assert(!valid());
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
+    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.invalid(); }));
     auto it = units.begin();
     auto end = units.end();
     for (size_t i = 0; i < size(); ++i) {
@@ -282,7 +286,9 @@ next:
 
   void PropagateUnits(const std::unordered_set<Literal, Literal::LhsHash>& units) {
     assert(primitive());
+    assert(!valid());
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
+    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.invalid(); }));
     for (size_t i = 0; i < size(); ++i) {
       const Literal a = (*this)[i];
       if (units.bucket_count() > 0) {
@@ -303,7 +309,9 @@ next:
 
   void PropagateUnits(const std::vector<Literal>& units) {
     assert(primitive());
+    assert(!valid());
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
+    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.invalid(); }));
     for (Literal b : units) {
 #if defined(BLOOM)
       if (!lhs_bloom_.PossiblyContains(b.lhs())) {
