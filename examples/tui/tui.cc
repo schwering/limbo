@@ -20,7 +20,7 @@
 #include "battleship.h"
 #include "sudoku.h"
 
-using lela::format::output::operator<<;
+using lela::format::operator<<;
 
 template<typename ForwardIt, typename Context>
 static bool parse(ForwardIt begin, ForwardIt end, Context* ctx) {
@@ -128,7 +128,7 @@ struct Callback : public lela::format::pdl::DefaultCallback {
         std::cerr << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p)->setup() << std::endl;
       }
     } else if (proc == "print") {
-      lela::format::output::print_range(std::cout, args, "", "", " ");
+      lela::format::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
     } else if (proc == "enable_query_logging") {
       ctx->logger()->print_queries = true;
@@ -140,7 +140,7 @@ struct Callback : public lela::format::pdl::DefaultCallback {
       // it's a call for Sudoku
     } else {
       std::cerr << "Calling " << proc;
-      lela::format::output::print_range(std::cerr, args, "(", ")", ",");
+      lela::format::print_range(std::cerr, args, "(", ")", ",");
       std::cerr << " failed" << std::endl;
     }
   }

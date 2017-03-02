@@ -31,7 +31,7 @@ struct Logger {
     if (first_ && k == -1) {
       std::cout << ", chosen at random.";
     } else if (k == -1) {
-      using lela::format::output::operator<<;
+      using lela::format::operator<<;
       std::cout << ", which is just a guess.";
     } else {
       std::cout << ", found at split level " << k << ".";

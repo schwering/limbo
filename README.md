@@ -61,7 +61,7 @@ For more theoretical background see the papers linked below.
   [format/cpp/syntax.h](src/lela/format/cpp/syntax.h) overloads some C++
   operators.
 
-## Plan for the future
+## Future work
 
 * Add sitcalc-style actions: regression, progression, or simulate ESL [3] with
   preprocessing, or all of them?

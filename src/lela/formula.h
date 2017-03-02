@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <lela/clause.h>
+
 #include <lela/internal/iter.h>
 #include <lela/internal/ints.h>
 #include <lela/internal/maybe.h>

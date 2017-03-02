@@ -20,7 +20,7 @@
 #include "battleship.h"
 #include "sudoku.h"
 
-using lela::format::output::operator<<;
+using lela::format::operator<<;
 
 template<typename T>
 inline std::string to_string(const T& x) {

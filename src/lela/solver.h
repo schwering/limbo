@@ -51,9 +51,14 @@
 #include <iterator>
 #include <list>
 
+#include <lela/formula.h>
 #include <lela/grounder.h>
+#include <lela/literal.h>
 #include <lela/setup.h>
 #include <lela/term.h>
+
+#include <lela/internal/ints.h>
+#include <lela/internal/maybe.h>
 
 namespace lela {
 

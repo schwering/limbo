@@ -11,7 +11,7 @@
 
 namespace lela {
 
-using namespace lela::format::output;
+using namespace lela::format;
 
 std::unordered_set<Clause> unique(const Setup& s) {
   std::unordered_set<Clause> set;

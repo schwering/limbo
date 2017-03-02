@@ -32,6 +32,7 @@
 #include <vector>
 
 #include <lela/literal.h>
+
 #include <lela/internal/bloom.h>
 #include <lela/internal/ints.h>
 #include <lela/internal/iter.h>
@@ -49,7 +50,7 @@ class Clause {
 
   explicit Clause(const Literal a) : size_(!a.invalid() ? 1 : 0) {
     lits1_[0] = a;
-#if defined(BLOOM)
+#ifdef BLOOM
     InitBloom();
 #endif
   }
@@ -69,7 +70,7 @@ class Clause {
       lits2_[i++] = *it++;
     }
     Minimize();
-#if defined(BLOOM)
+#ifdef BLOOM
     InitBloom();
 #endif
   }
@@ -79,7 +80,7 @@ class Clause {
     if (size2() > 0) {
       std::memcpy(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal));
     }
-#if defined(BLOOM)
+#ifdef BLOOM
     lhs_bloom_ = c.lhs_bloom_;
 #endif
     assert(!any([](Literal a) { return a.invalid(); }));
@@ -96,7 +97,7 @@ class Clause {
       }
       std::memcpy(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal));
     }
-#if defined(BLOOM)
+#ifdef BLOOM
     lhs_bloom_ = c.lhs_bloom_;
 #endif
     assert(!any([](Literal a) { return a.invalid(); }));
@@ -108,7 +109,7 @@ class Clause {
 
   bool operator==(const Clause& c) const {
     return size() == c.size() &&
-#if defined(BLOOM)
+#ifdef BLOOM
            lhs_bloom_ == c.lhs_bloom_ &&
 #endif
            std::memcmp(lits1_, c.lits1_, size1() * sizeof(Literal)) == 0 &&
@@ -159,14 +160,14 @@ class Clause {
   }
   bool invalid() const { return empty(); }
 
-#if defined(BLOOM)
+#ifdef BLOOM
   internal::BloomSet<Term> lhs_bloom() const { return lhs_bloom_; }
 #endif
 
   static bool Subsumes(const Literal a, const Clause c) {
     assert(a.primitive());
     assert(c.primitive());
-#if defined(BLOOM)
+#ifdef BLOOM
     if (!c.lhs_bloom_.PossiblyContains(a.lhs())) {
       return false;
     }
@@ -185,7 +186,7 @@ class Clause {
   static bool Subsumes(const Literal a, const Literal b, const Clause c) {
     assert(a < b);
     assert(c.primitive());
-#if defined(BLOOM)
+#ifdef BLOOM
     if (!c.lhs_bloom_.PossiblyContains(a.lhs()) || !c.lhs_bloom_.PossiblyContains(b.lhs())) {
       return false;
     }
@@ -213,7 +214,7 @@ next:
   static bool Subsumes(const Clause& c, const Clause& d) {
     assert(c.primitive());
     assert(d.primitive());
-#if defined(BLOOM)
+#ifdef BLOOM
     if (!c.lhs_bloom_.PossiblySubsetOf(d.lhs_bloom_)) {
       return false;
     }
@@ -244,7 +245,7 @@ next:
     assert(b.primitive());
     assert(!valid());
     assert(!b.valid() && !b.invalid());
-#if defined(BLOOM)
+#ifdef BLOOM
     if (!lhs_bloom_.PossiblyContains(b.lhs())) {
       return;
     }
@@ -256,7 +257,7 @@ next:
       }
     }
     RemoveNulls();
-#if defined(BLOOM)
+#ifdef BLOOM
     InitBloom();
 #endif
   }
@@ -279,7 +280,7 @@ next:
       }
     }
     RemoveNulls();
-#if defined(BLOOM)
+#ifdef BLOOM
     InitBloom();
 #endif
   }
@@ -302,7 +303,7 @@ next:
       }
     }
     RemoveNulls();
-#if defined(BLOOM)
+#ifdef BLOOM
     InitBloom();
 #endif
   }
@@ -313,7 +314,7 @@ next:
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.invalid(); }));
     for (Literal b : units) {
-#if defined(BLOOM)
+#ifdef BLOOM
       if (!lhs_bloom_.PossiblyContains(b.lhs())) {
         continue;
       }
@@ -326,7 +327,7 @@ next:
       }
     }
     RemoveNulls();
-#if defined(BLOOM)
+#ifdef BLOOM
     InitBloom();
 #endif
   }
@@ -337,7 +338,7 @@ next:
 
   bool Mentions(Literal a) const {
     return
-#if defined(BLOOM)
+#ifdef BLOOM
         lhs_bloom_.PossiblyContains(a.lhs()) &&
 #endif
         any([a](Literal b) { return a == b; });
@@ -345,7 +346,7 @@ next:
 
   bool MentionsLhs(Term t) const {
     return
-#if defined(BLOOM)
+#ifdef BLOOM
         lhs_bloom_.PossiblyContains(t) &&
 #endif
         any([t](Literal a) { return a.lhs() == t; });
@@ -431,7 +432,7 @@ next:
     assert(!any([](Literal a) { return a.invalid(); }));
   }
 
-#if defined(BLOOM)
+#ifdef BLOOM
   void InitBloom() {
     lhs_bloom_.Clear();
     for (size_t i = 0; i < size(); ++i) {
@@ -441,7 +442,7 @@ next:
 #endif
 
   size_t size_ = 0;
-#if defined(BLOOM)
+#ifdef BLOOM
   internal::BloomSet<Term> lhs_bloom_;
 #endif
   Literal lits1_[kArraySize];

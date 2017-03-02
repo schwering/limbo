@@ -66,9 +66,12 @@
 #include <vector>
 
 #include <lela/clause.h>
-#include <lela/internal/intmap.h>
+#include <lela/literal.h>
+#include <lela/term.h>
+
 #include <lela/internal/ints.h>
 #include <lela/internal/iter.h>
+#include <lela/internal/maybe.h>
 
 namespace lela {
 
@@ -243,7 +246,7 @@ class Setup {
 
   bool LocallyConsistent(const std::unordered_set<Term>& ts) const {
     assert(std::all_of(ts.begin(), ts.end(), [](Term t) { return t.primitive(); }));
-#if defined(BLOOM)
+#ifdef BLOOM
     internal::BloomSet<Term> bs;
     for (Term t : ts) {
       bs.Add(t);
@@ -253,7 +256,7 @@ class Setup {
     for (size_t i : clauses()) {
       const Clause c = clause(i);
       if (
-#if defined(BLOOM)
+#ifdef BLOOM
           bs.PossiblyOverlaps(c.lhs_bloom()) &&
 #endif
           std::any_of(c.begin(), c.end(), [&ts](Literal a) { return ts.find(a.lhs()) != ts.end(); })) {

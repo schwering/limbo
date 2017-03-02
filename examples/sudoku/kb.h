@@ -22,14 +22,14 @@ class KnowledgeBase {
       : max_k_(max_k),
         VAL_(ctx_.CreateSort()),
         val_(ctx_.CreateFunction(VAL_, 2)) {
-    lela::format::output::RegisterSort(VAL_, "");
-    lela::format::output::RegisterSymbol(val_, "val");
+    lela::format::RegisterSort(VAL_, "");
+    lela::format::RegisterSymbol(val_, "val");
     using namespace lela::format::cpp;
     for (std::size_t i = 1; i <= 9; ++i) {
       vals_.push_back(ctx_.CreateName(VAL_));
       std::stringstream ss;
       ss << i;
-      lela::format::output::RegisterSymbol(vals_.back().symbol(), ss.str());
+      lela::format::RegisterSymbol(vals_.back().symbol(), ss.str());
     }
     for (std::size_t x = 1; x <= 9; ++x) {
       for (std::size_t y = 1; y <= 9; ++y) {

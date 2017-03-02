@@ -25,7 +25,9 @@
 #include <utility>
 
 #include <lela/term.h>
+
 #include <lela/internal/ints.h>
+#include <lela/internal/maybe.h>
 
 namespace lela {
 

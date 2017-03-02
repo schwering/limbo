@@ -12,8 +12,8 @@
 #ifndef LELA_FORMAT_PDL_CONTEXT_H_
 #define LELA_FORMAT_PDL_CONTEXT_H_
 
-#include <map>
 #include <iostream>
+#include <map>
 #include <string>
 #include <stdexcept>
 #include <utility>
@@ -22,6 +22,7 @@
 #include <lela/term.h>
 #include <lela/formula.h>
 #include <lela/kb.h>
+
 #include <lela/format/output.h>
 
 namespace lela {
@@ -132,7 +133,7 @@ class Context {
 
   void RegisterSort(const std::string& id) {
     const Symbol::Sort sort = CreateSort();
-    lela::format::output::RegisterSort(sort, "");
+    lela::format::RegisterSort(sort, "");
     sorts_.Register(id, sort);
     logger_(DefaultLogger::RegisterSortData(id));
   }
@@ -143,7 +144,7 @@ class Context {
     const Symbol::Sort sort = LookupSort(sort_id);
     const Term var = CreateVariable(sort);
     vars_.Register(id, var);
-    lela::format::output::RegisterSymbol(var.symbol(), id);
+    lela::format::RegisterSymbol(var.symbol(), id);
     logger_(DefaultLogger::RegisterVariableData(id, sort_id));
   }
 
@@ -153,7 +154,7 @@ class Context {
     const Symbol::Sort sort = LookupSort(sort_id);
     const Term name = CreateName(sort);
     names_.Register(id, name);
-    lela::format::output::RegisterSymbol(name.symbol(), id);
+    lela::format::RegisterSymbol(name.symbol(), id);
     logger_(DefaultLogger::RegisterNameData(id, sort_id));
   }
 
@@ -163,7 +164,7 @@ class Context {
     const Symbol::Sort sort = LookupSort(sort_id);
     const Symbol fun = CreateFunction(sort, arity);
     funs_.Register(id, fun);
-    lela::format::output::RegisterSymbol(fun, id);
+    lela::format::RegisterSymbol(fun, id);
     logger_(DefaultLogger::RegisterFunctionData(id, arity, sort_id));
   }
 

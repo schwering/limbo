@@ -2,11 +2,9 @@
 // Copyright 2014-2017 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// Overloads the stream operator (<<) for Literal, Clause, and so on. For
-// Sort and Symbol objects, a human-readable name can be registered.
-
-#ifndef LELA_FORMAT_OUTPUT_H_
-#define LELA_FORMAT_OUTPUT_H_
+// Overloads the stream operator (<<) for Literal, Clause, and so on. These
+// operators are only activated when the corresponding header is included.
+// For Sort and Symbol objects, a human-readable name can be registered.
 
 #include <algorithm>
 #include <list>
@@ -19,27 +17,20 @@
 #include <utility>
 #include <vector>
 
-#include <lela/formula.h>
-#include <lela/literal.h>
-#if 0
-#include <lela/modal.h>
-#endif
-#include <lela/setup.h>
-#if 0
-#include <lela/solver.h>
-#endif
 #include <lela/term.h>
+
 #include <lela/internal/compar.h>
-#include <lela/internal/hashset.h>
 #include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 
+#ifndef MARK
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
+#endif
 
 namespace lela {
 namespace format {
-namespace output {
 
+#ifndef LELA_FORMAT_OUTPUT_H_
 typedef std::unordered_map<Symbol::Sort, std::string> SortMap;
 typedef std::unordered_map<Symbol, std::string> SymbolMap;
 
@@ -124,13 +115,21 @@ std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>&
 
 template<typename K, typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map);
+#endif  // LELA_FORMAT_OUTPUT_H_
 
+#ifdef LELA_INTERNAL_HASHSET_H_
 template<typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set);
+#endif  // LELA_INTERNAL_HASHSET_H_
 
+#ifdef LELA_INTERNAL_MAYBE_H_
 template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m);
+#endif  // LELA_INTERNAL_MAYBE_H_
 
+#ifdef LELA_TERM_H_
+#ifndef LELA_TERM_OUTPUT
+#define LELA_TERM_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Symbol s) {
   internal::Maybe<std::string> sort_name = LookupSort(s.sort());
   internal::Maybe<std::string> symbol_name = LookupSymbol(s);
@@ -166,79 +165,81 @@ std::ostream& operator<<(std::ostream& os, const Term t) {
   }
   return os;
 }
+#endif  // LELA_TERM_OUTPUT
+#endif  // LELA_TERM_H_
 
-struct PrintSymbolComparator {
-  typedef Symbol value_type;
-
-  bool operator()(Symbol s1, Symbol s2) const {
-    internal::Maybe<std::string> n1 = LookupSymbol(s1);
-    internal::Maybe<std::string> n2 = LookupSymbol(s2);
-    return n1 && n2  ? n1.val < n2.val :
-           n1 && !n2 ? true :
-           !n1 && n2 ? false :
-                       s1.hash() < s2.hash();
-  }
-};
-
-struct PrintTermComparator {
-  typedef Term value_type;
-
-  inline bool operator()(Term t1, Term t2) const;
-};
-
-inline bool PrintTermComparator::operator()(Term t1, Term t2) const {
-  internal::LexicographicComparator<
-      PrintSymbolComparator,
-      internal::LessComparator<Symbol::Arity>,
-      internal::LexicographicContainerComparator<Term::Vector, PrintTermComparator>> comp;
-  return comp(t1.symbol(), t1.arity(), t1.args(),
-              t2.symbol(), t2.arity(), t2.args());
-}
-
-struct PrintLiteralComparator {
-  typedef Literal value_type;
-
-  bool operator()(Literal l1, Literal l2) const {
-    return comp(l1.lhs(), l1.rhs(), l1.pos(),
-                l2.lhs(), l2.rhs(), l2.pos());
-  }
-
-  internal::LexicographicComparator<
-      PrintTermComparator,
-      PrintTermComparator,
-      internal::LessComparator<bool>> comp;
-};
-
+#ifdef LELA_LITERAL_H_
+#ifndef LELA_LITERAL_OUTPUT
+#define LELA_LITERAL_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Literal a) {
   os << a.lhs() << ' ' << (a.pos() ? "\u003D" : "\u2260") << ' ' << a.rhs();
   return os;
 }
+#endif  // LELA_LITERAL_OUTPUT_
+#endif  // LELA_LITERAL_H_
 
+#ifdef LELA_CLAUSE_H_
+#ifndef LELA_CLAUSE_OUTPUT
+#define LELA_CLAUSE_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Clause& c) {
+  struct PrintLiteralComparator {
+    struct PrintTermComparator {
+      struct PrintSymbolComparator {
+        typedef Symbol value_type;
+
+        bool operator()(Symbol s1, Symbol s2) const {
+          internal::Maybe<std::string> n1 = LookupSymbol(s1);
+          internal::Maybe<std::string> n2 = LookupSymbol(s2);
+          return n1 && n2  ? n1.val < n2.val :
+                 n1 && !n2 ? true :
+                 !n1 && n2 ? false :
+                             s1.hash() < s2.hash();
+        }
+      };
+
+      typedef Term value_type;
+
+      inline bool operator()(Term t1, Term t2) const {
+        internal::LexicographicComparator<
+            PrintSymbolComparator,
+            internal::LessComparator<Symbol::Arity>,
+            internal::LexicographicContainerComparator<Term::Vector, PrintTermComparator>> comp;
+        return comp(t1.symbol(), t1.arity(), t1.args(),
+                    t2.symbol(), t2.arity(), t2.args());
+      }
+    };
+
+    bool operator()(Literal l1, Literal l2) const {
+      return comp(l1.lhs(), l1.rhs(), l1.pos(),
+                  l2.lhs(), l2.rhs(), l2.pos());
+    }
+
+    internal::LexicographicComparator<
+        PrintTermComparator,
+        PrintTermComparator,
+        internal::LessComparator<bool>> comp;
+  };
   std::vector<Literal> vec(c.begin(), c.end());
   std::sort(vec.begin(), vec.end(), PrintLiteralComparator());
   return print_range(os, vec, "[", "]", " \u2228 ");
 }
+#endif  // LELA_OUTPUT_CLAUSE
+#endif  // LELA_CLAUSE_H_
 
+#ifdef LELA_SETUP_H_
+#ifndef LELA_SETUP_OUTPUT
+#define LELA_SETUP_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
   auto is = s.clauses();
   auto cs = internal::transform_range(is.begin(), is.end(), [&s](size_t i) { return s.clause(i); });
   return print_range(os, cs, "{ ", "\n}", "\n, ");
 }
+#endif  // LELA_SETUP_OUTPUT
+#endif  // LELA_SETUP_H_
 
-#if 0
-std::ostream& operator<<(std::ostream& os, const Solver& s) {
-  return os << s.setup();
-}
-
-std::ostream& operator<<(std::ostream& os, const KnowledgeBase& kb) {
-  for (const Solver& s : kb.spheres()) {
-    os << s << std::endl;
-  }
-  return os;
-}
-#endif
-
+#ifdef LELA_FORMULA_H_
+#ifndef LELA_FORMULA_OUTPUT
+#define LELA_FORMULA_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
   switch (alpha.type()) {
     case Formula::kAtomic:
@@ -293,7 +294,10 @@ std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
 std::ostream& operator<<(std::ostream& os, const Formula::Ref& alpha) {
   return os << *alpha;
 }
+#endif  // LELA_FORMULA_OUTPUT
+#endif  // LELA_FORMULA_H_
 
+#ifndef LELA_FORMAT_OUTPUT_H_
 template<typename InputIt>
 std::ostream& print_sequence(std::ostream& os,
                              InputIt begin,
@@ -389,13 +393,22 @@ std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H
   print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
   return os;
 }
+#endif  // LELA_FORMAT_OUTPUT_H_
 
+#ifdef LELA_INTERNAL_HASHSET_H_
+#ifndef LELA_INTERNAL_HASHSET_OUTPUT
+#define LELA_INTERNAL_HASHSET_OUTPUT
 template<typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set) {
   print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
   return os;
 }
+#endif  // LELA_INTERNAL_HASHSET_OUTPUT
+#endif  // LELA_INTERNAL_HASHSET_H_
 
+#ifdef LELA_INTERNAL_MAYBE_H_
+#ifndef LELA_INTERNAL_MAYBE_OUTPUT
+#define LELA_INTERNAL_MAYBE_OUTPUT
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
   if (m) {
@@ -405,10 +418,13 @@ std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
   }
   return os;
 }
+#endif  // LELA_INTERNAL_MAYBE_OUTPUT
+#endif  // LELA_INTERNAL_MAYBE_H_
 
-}  // namespace output
 }  // namespace format
 }  // namespace lela
 
+#ifndef LELA_FORMAT_OUTPUT_H_
+#define LELA_FORMAT_OUTPUT_H_
 #endif  // LELA_FORMAT_OUTPUT_H_
 

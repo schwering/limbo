@@ -24,7 +24,9 @@
 #include <lela/formula.h>
 #include <lela/grounder.h>
 #include <lela/setup.h>
+
 #include <lela/format/output.h>
+
 #include <lela/format/pdl/lexer.h>
 
 namespace lela {
@@ -771,7 +773,7 @@ class Parser {
         return Success<>();
       } else {
         std::stringstream ss;
-        using lela::format::output::operator<<;
+        using lela::format::operator<<;
         ss << (is_assert ? "Assertion" : "Refutation") << " of " << *alpha.val << " failed";
         return Error<>(LELA_MSG(ss.str()));
       }
@@ -1173,7 +1175,7 @@ class Parser {
       const Result<Action<>> r = branch();
       if (!r) {
         std::stringstream ss;
-        using lela::format::output::operator<<;
+        using lela::format::operator<<;
         ss << Tok(0) << " " << Tok(1) << " " << Tok(2) << "...";
         return Error<Action<>>(LELA_MSG("Error in start with unparsed input "+ ss.str()), r);
       }

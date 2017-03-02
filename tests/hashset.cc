@@ -19,7 +19,7 @@ struct Value {
 
 std::ostream& operator<<(std::ostream& os, Value i) { return std::cout << i.x; }
 
-using namespace lela::format::output;
+using namespace lela::format;
 
 namespace lela {
 namespace internal {

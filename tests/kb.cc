@@ -9,8 +9,8 @@
 
 namespace lela {
 
+using namespace lela::format;
 using namespace lela::format::cpp;
-using namespace lela::format::output;
 
 #define REGISTER_SYMBOL(x)    RegisterSymbol(x, #x)
 

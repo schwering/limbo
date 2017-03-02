@@ -31,9 +31,15 @@
 #include <utility>
 #include <vector>
 
+#include <lela/clause.h>
 #include <lela/formula.h>
+#include <lela/grounder.h>
+#include <lela/literal.h>
 #include <lela/solver.h>
+#include <lela/term.h>
+
 #include <lela/internal/ints.h>
+#include <lela/internal/iter.h>
 #include <lela/internal/maybe.h>
 
 namespace lela {

@@ -61,27 +61,27 @@ class KnowledgeBase {
         F(ctx_.CreateName(Bool)),
 #endif
         MineF(ctx_.CreateFunction(Bool, 2)) {
-    lela::format::output::RegisterSort(Bool, "");
-    lela::format::output::RegisterSort(XPos, "");
-    lela::format::output::RegisterSort(YPos, "");
-    lela::format::output::RegisterSymbol(T.symbol(), "T");
+    lela::format::RegisterSort(Bool, "");
+    lela::format::RegisterSort(XPos, "");
+    lela::format::RegisterSort(YPos, "");
+    lela::format::RegisterSymbol(T.symbol(), "T");
 #ifdef USE_DETERMINES
-    lela::format::output::RegisterSymbol(F.symbol(), "F");
+    lela::format::RegisterSymbol(F.symbol(), "F");
 #endif
-    lela::format::output::RegisterSymbol(MineF, "Mine");
+    lela::format::RegisterSymbol(MineF, "Mine");
     X.resize(g_->width());
     for (size_t i = 0; i < g_->width(); ++i) {
       X[i] = ctx_.CreateName(XPos);
       std::stringstream ss;
       ss << "#X" << i;
-      lela::format::output::RegisterSymbol(X[i].symbol(), ss.str());
+      lela::format::RegisterSymbol(X[i].symbol(), ss.str());
     }
     Y.resize(g_->height());
     for (size_t i = 0; i < g_->height(); ++i) {
       Y[i] = ctx_.CreateName(YPos);
       std::stringstream ss;
       ss << "#Y" << i;
-      lela::format::output::RegisterSymbol(Y[i].symbol(), ss.str());
+      lela::format::RegisterSymbol(Y[i].symbol(), ss.str());
     }
     processed_.resize(g_->n_fields(), false);
   }

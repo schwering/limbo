@@ -9,7 +9,7 @@
 
 namespace lela {
 
-using namespace lela::format::output;
+using namespace lela::format;
 
 struct EqSubstitute {
   EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}

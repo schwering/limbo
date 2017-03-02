@@ -35,7 +35,7 @@ struct SudokuCallbacks {
             const lela::Clause c{lela::Literal::Eq(Val, ns_[n])};
             bool b = ctx->kb()->Entails(*lela::Formula::Factory::Know(0, lela::Formula::Factory::Atomic(c)));
             if (b) {
-              using lela::format::output::operator<<;
+              using lela::format::operator<<;
               std::stringstream ss;
               ss << ns_[n];
               std::cout << ss.str().substr(1);

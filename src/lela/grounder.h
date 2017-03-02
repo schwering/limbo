@@ -38,6 +38,7 @@
 #include <lela/clause.h>
 #include <lela/formula.h>
 #include <lela/setup.h>
+
 #include <lela/internal/hash.h>
 #include <lela/internal/ints.h>
 #include <lela/internal/iter.h>
