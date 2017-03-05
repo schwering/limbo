@@ -1,4 +1,4 @@
-add_executable (tui tui.cc) 
+add_executable (tui tui.cc linenoise/linenoise.c) 
 target_link_libraries (tui LINK_PUBLIC lela)
 
 

@@ -1170,8 +1170,8 @@ class Parser {
   // start --> branch
   Result<Action<>> start() {
     iterator prev;
-    Action<> a;
-    do {
+    Action<> a = [](Context*) { return Success<>(); };
+    while (Tok()) {
       const Result<Action<>> r = branch();
       if (!r) {
         std::stringstream ss;
@@ -1180,7 +1180,7 @@ class Parser {
         return Error<Action<>>(LELA_MSG("Error in start with unparsed input "+ ss.str()), r);
       }
       a += r.val;
-    } while (Tok());
+    }
     return Success<Action<>>(std::move(a));
   }
 

@@ -17,6 +17,8 @@
 #include <lela/format/pdl/context.h>
 #include <lela/format/pdl/parser.h>
 
+#include "linenoise/linenoise.h"
+
 #include "battleship.h"
 #include "sudoku.h"
 
@@ -151,16 +153,24 @@ struct Callback : public lela::format::pdl::DefaultCallback {
 };
 
 int main(int argc, char** argv) {
+  const int kFailCode = 1;
+  const int kHelpCode = 2;
+
+  enum ReadBehavior { kNothing, kStdin, kInteractive };
+  typedef multi_pass_iterator<std::istreambuf_iterator<char>> stream_iterator;
+
+  ReadBehavior read_behavior = kNothing;
   bool help = false;
-  bool wait = false;
   bool after_flags = false;
   std::vector<std::string> args;
   for (int i = 1; i < argc; ++i) {
     std::string s(argv[i]);
     if (!after_flags && (s == "-h" || s == "--help")) {
       help = true;
-    } else if (!after_flags && (s == "-w" || s == "--wait")) {
-      wait = true;
+    } else if (!after_flags && (s == "-s" || s == "--stdin")) {
+      read_behavior = kStdin;
+    } else if (!after_flags && (s == "-i" || s == "--interactive")) {
+      read_behavior = kInteractive;
     } else if (!after_flags && s == "--") {
       after_flags = true;
     } else if (!after_flags && !s.empty() && s[0] == 'w') {
@@ -169,37 +179,69 @@ int main(int argc, char** argv) {
       args.push_back(s);
     }
   }
-  wait |= args.empty();
+  if (read_behavior == kNothing && args.empty()) {
+    read_behavior = kStdin;
+  }
 
   if (help) {
-    std::cout << "Usage: " << argv[0] << " [[-w | --wait]] file [file ...]]" << std::endl;
-    std::cout << "The flag -w or --wait specifies that after reading the files the program reads to stdin." << std::endl;
+    std::cout << "Usage: " << argv[0] << " [[-s | --stdin]] file [file ...]]" << std::endl;
+    std::cout << "      -i   --interactive   after reading the files the program reads to stdin interactively" << std::endl;
+    std::cout << "      -s   --stdin         after reading the files the program reads to stdin" << std::endl;
     std::cout << "If there is no file argument, content is read from stdin." << std::endl;
-    return 2;
+    return kHelpCode;
   }
 
   std::ios_base::sync_with_stdio(true);
-  bool succ = true;
   lela::format::pdl::Context<Logger, Callback> ctx;
+
   for (const std::string& arg : args) {
-    if (!succ) {
-      break;
-    }
     std::ifstream stream(arg);
     if (!stream.is_open()) {
       std::cerr << "Cannot open file " << arg << std::endl;
-      return 2;
+      return kFailCode;
     }
-    multi_pass_iterator<std::istreambuf_iterator<char>> begin(stream);
-    multi_pass_iterator<std::istreambuf_iterator<char>> end;
-    succ &= succ && parse(begin, end, &ctx);
+    const bool succ = parse(stream_iterator(stream), stream_iterator(), &ctx);
+    if (!succ) {
+      return kFailCode;
+    }
   }
-  if (wait && succ) {
-    multi_pass_iterator<std::istreambuf_iterator<char>> begin(std::cin);
-    multi_pass_iterator<std::istreambuf_iterator<char>> end;
-    succ &= parse(begin, end, &ctx);
+
+  if (read_behavior == kStdin) {
+    const bool succ = parse(stream_iterator(std::cin), stream_iterator(), &ctx);
+    if (!succ) {
+      return kFailCode;
+    }
+  }
+
+  if (read_behavior == kInteractive) {
+    for (const std::string& arg : args) {
+      linenoiseHistoryLoad(arg.c_str());
+    }
+    char* line_ptr;
+    auto is_prefix = [](const std::string& needle, const std::string& haystack) {
+      return needle.length() <= haystack.length() &&
+          std::mismatch(needle.begin(), needle.end(), haystack.begin()).first == needle.end();
+    };
+    const std::string kIncludePrefix = ":r ";
+    const std::string kPrompt = "tui> ";
+    while ((line_ptr = linenoise(kPrompt.c_str())) != nullptr) {
+      const std::string line = line_ptr;
+      if (is_prefix(":r ", line)) {
+        const std::string file = line.substr(3);
+        std::ifstream stream(file);
+        if (!stream.is_open()) {
+          std::cerr << "Cannot open file " << file << std::endl;
+          return kFailCode;
+        }
+        parse(stream_iterator(stream), stream_iterator(), &ctx);
+        linenoiseHistoryLoad(file.c_str());
+      } else {
+        parse(line.begin(), line.end(), &ctx);
+        linenoiseHistoryAdd(line.c_str());
+      }
+    }
   }
   std::cout << "Bye." << std::endl;
-  return succ ? 0 : 1;
+  return 0;
 }
 
