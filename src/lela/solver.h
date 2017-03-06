@@ -67,7 +67,7 @@ class Solver {
   typedef Formula::split_level split_level;
 
   static constexpr bool kConsistencyGuarantee = true;
-  static constexpr bool kNoConsistencyGuarantee = true;
+  static constexpr bool kNoConsistencyGuarantee = false;
 
   Solver(Symbol::Factory* sf, Term::Factory* tf) : tf_(tf), grounder_(sf, tf) {}
   Solver(const Solver&) = delete;

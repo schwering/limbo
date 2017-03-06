@@ -102,7 +102,7 @@ class KnowledgeBase {
     Formula::Ref sigma_nf = sigma.NF(sf_, tf_);
     Formula::Ref phi = ReduceModalities(*sigma_nf, false);
     assert(phi->objective());
-    return objective_.Entails(0, *phi, false);
+    return objective_.Entails(0, *phi, Solver::kNoConsistencyGuarantee);
   }
 
   sphere_index n_spheres() const { return spheres_.size(); }
