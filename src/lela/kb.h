@@ -331,7 +331,7 @@ class KnowledgeBase {
     spheres_[p].grounder()->ReturnName(n0);
     const TermSet& ns = (*names)[x.sort()];
     const auto if_not = internal::transform_range(ns.begin(), ns.end(), [x](Term n) { return Literal::Eq(x, n); });
-    return Formula::Factory::Or(Formula::Factory::Atomic(Clause(if_not.begin(), if_not.end())), std::move(phi));
+    return Formula::Factory::Or(Formula::Factory::Atomic(Clause(ns.size(), if_not.begin(), if_not.end())), std::move(phi));
   }
 
   static Formula::Ref bool_to_formula(bool b) {

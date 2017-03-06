@@ -24,7 +24,13 @@ std::unordered_set<Clause> unique(const Setup& s) {
 size_t unique_length(const Setup& s) { return unique(s).size(); }
 
 template<typename T>
-size_t length(T r) { return std::distance(r.begin(), r.end()); }
+size_t length(T r) {
+  size_t n = 0;
+  for (auto it = r.begin(); it != r.end(); ++it) {
+    ++n;
+  }
+  return n;
+}
 
 TEST(GrounderTest, Ground_SplitTerms_Names) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
@@ -385,9 +391,10 @@ TEST(GrounderTest, Assignments) {
     Term fn1 = tf.CreateTerm(f, {n1});
     Term fn2 = tf.CreateTerm(f, {n2});
     Grounder::TermSet substitutes;
-    Grounder::Assignments::Assignment a = *as.begin();
+    auto it = as.begin();
+    Grounder::Assignments::Assignment a = *it;
     substitutes.insert(fx1.Substitute(a, &tf));
-    Grounder::Assignments::Assignment b = *std::next(as.begin());
+    Grounder::Assignments::Assignment b = *++it;
     substitutes.insert(fx1.Substitute(b, &tf));
     EXPECT_EQ(substitutes.size(), 2);
     EXPECT_EQ(substitutes, Grounder::TermSet({fn1, fn2}));

@@ -613,7 +613,10 @@ class Grounder {
 
   LiteralAssignmentSet LiteralAssignments(const LiteralSet& assigns) const {
     LiteralSet ground = Ground(assigns);
-    auto r = internal::transform_range(ground.begin(), ground.end(), [](Literal a) { return LiteralSet{a}; });
+    struct Func {  // a Lambda doesn't have assignment operators
+      LiteralSet operator()(Literal a) const { return LiteralSet{a}; }
+    };
+    auto r = internal::transform_range(ground.begin(), ground.end(), Func());
     LiteralAssignmentSet sets(r.begin(), r.end());
     for (Literal a : ground) {
       for (auto it = sets.begin(); it != sets.end(); ) {

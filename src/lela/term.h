@@ -156,15 +156,15 @@ class Term {
 
   internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
-  Symbol symbol()      const { return data()->symbol; }
-  Term arg(size_t i)   const { return data()->args[i]; }
-  const Vector& args() const { return data()->args; }
+  inline Symbol symbol()      const;
+  inline Term arg(size_t i)   const;
+  inline const Vector& args() const;
 
-  Symbol::Sort sort()   const { return data()->symbol.sort(); }
-  bool name()           const { assert(data()->symbol.name() == (id_ & 1)); return (id_ & 1) == 1; }
-  bool variable()       const { return data()->symbol.variable(); }
-  bool function()       const { return data()->symbol.function(); }
-  Symbol::Arity arity() const { return data()->symbol.arity(); }
+  Symbol::Sort sort()   const { return symbol().sort(); }
+  bool name()           const { assert(symbol().name() == (id_ & 1)); return (id_ & 1) == 1; }
+  bool variable()       const { return symbol().variable(); }
+  bool function()       const { return symbol().function(); }
+  Symbol::Arity arity() const { return symbol().arity(); }
 
   bool null()           const { return id_ == 0; }
   bool ground()         const { return name() || (function() && all_args([](Term t) { return t.ground(); })); }
@@ -192,7 +192,24 @@ class Term {
 
   typedef internal::u32 u32;
 
-  struct Data {
+  struct Data;
+
+  explicit Term(u32 id) : id_(id) {}
+
+  inline const Data* data() const;
+
+  u32 id() const { return id_; }
+
+  template<typename UnaryPredicate>
+  inline bool all_args(UnaryPredicate p) const;
+
+  template<typename UnaryPredicate>
+  inline bool any_arg(UnaryPredicate p) const;
+
+  u32 id_;
+};
+
+  struct Term::Data {
     Data(Symbol symbol, const Vector& args) : symbol(symbol), args(args) {}
 
     bool operator==(const Data& d) const { return symbol == d.symbol && args == d.args; }
@@ -209,21 +226,6 @@ class Term {
       return h;
     }
   };
-
-  explicit Term(u32 id) : id_(id) {}
-
-  inline const Data* data() const;
-
-  u32 id() const { return id_; }
-
-  template<typename UnaryPredicate>
-  bool all_args(UnaryPredicate p) const { return std::all_of(data()->args.begin(), data()->args.end(), p); }
-
-  template<typename UnaryPredicate>
-  bool any_arg(UnaryPredicate p) const { return std::any_of(data()->args.begin(), data()->args.end(), p); }
-
-  u32 id_;
-};
 
 class Term::Factory : private Singleton<Factory> {
  public:
@@ -317,7 +319,16 @@ struct Term::Substitution {
   std::vector<std::pair<Term, Term>> subs_;
 };
 
-inline const Term::Data* Term::data() const { return Factory::Instance()->get(id_); }
+inline Symbol Term::symbol()            const { return data()->symbol; }
+inline Term Term::arg(size_t i)         const { return data()->args[i]; }
+inline const Term::Vector& Term::args() const { return data()->args; }
+inline const Term::Data* Term::data()   const { return Factory::Instance()->get(id_); }
+
+template<typename UnaryPredicate>
+inline bool Term::all_args(UnaryPredicate p) const { return std::all_of(data()->args.begin(), data()->args.end(), p); }
+
+template<typename UnaryPredicate>
+inline bool Term::any_arg(UnaryPredicate p) const { return std::any_of(data()->args.begin(), data()->args.end(), p); }
 
 template<typename UnaryFunction>
 Term Term::Substitute(UnaryFunction theta, Factory* tf) const {

@@ -375,7 +375,7 @@ next:
   template<typename UnaryFunction>
   Clause Substitute(UnaryFunction theta, Term::Factory* tf) const {
     auto r = internal::transform_range(begin(), end(), [theta, tf](Literal a) { return a.Substitute(theta, tf); });
-    return Clause(r.begin(), r.end());
+    return Clause(size(), r.begin(), r.end());
   }
 
   template<typename UnaryFunction>

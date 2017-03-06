@@ -243,8 +243,8 @@ class transform_iterator {
   proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
   proxy operator--(int) { proxy p(operator*()); operator--(); return p; }
 
-  transform_iterator& operator+=(difference_type n) { iter_ += n; }
-  transform_iterator& operator-=(difference_type n) { iter_ -= n; }
+  transform_iterator& operator+=(difference_type n) { iter_ += n; return *this; }
+  transform_iterator& operator-=(difference_type n) { iter_ -= n; return *this; }
   friend transform_iterator operator+(transform_iterator it, difference_type n) { it += n; return it; }
   friend transform_iterator operator+(difference_type n, transform_iterator it) { it += n; return it; }
   friend transform_iterator operator-(transform_iterator it, difference_type n) { it -= n; return it; }

@@ -34,6 +34,7 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     #  -D_GLIBCXX_CONCEPT_CHECKS
     # leads to compiler errors when using things like
     #   std::vector<std::unique_ptr<int>> asdf;
+    # because of missing copy assignment operators
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC")
 endif ()
 
