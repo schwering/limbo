@@ -25,10 +25,7 @@ Assert: G Know<1> phi // because the conjunction is resolved before splitting
 Assert:   Know<2> phi
 Assert: G Know<2> phi
 
-Let phi := P &&  Q ||
-           P && !Q ||
-          !P &&  Q ||
-          !P && !Q
+Let phi := P &&  Q || P && !Q || !P &&  Q || !P && !Q
 Refute:   Know<1> phi
 Refute: G Know<1> phi
 Assert:   Know<2> phi

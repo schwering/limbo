@@ -4,9 +4,9 @@ Sort OBJ
 Var x -> OBJ
 Name n -> OBJ
 
-Query: n = n
-Query: Ex x x = x
-Query: Fa x x = x
+Assert: n = n
+Assert: Ex x x = x
+Assert: Fa x x = x
 Assert: Ex x K<0> x = x
 Assert: Ex x K<0> x = n
 Assert: Fa x K<0> x = x

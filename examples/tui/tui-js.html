@@ -6,7 +6,14 @@
     <meta charset="UTF-8"> 
     <title>Limited reasoner demo</title>
 
+    <script src="../jquery-3.1.1.min.js"></script>
+    <script>window.jQuery || document.write('<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js">\x3C/script>')</script>
+    <script src="jquery.terminal-1.0.10.min.js"></script>
+    <script src="jquery.mousewheel-min.js"></script>
+    <script src="unix_formatting.js"></script>
+
     <!--<link href="//fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">-->
+    <link href="jquery.terminal-1.0.10.css" rel="stylesheet" />
     <style type="text/css">
         body { font-family: 'Open Sans', sans-serif; font-size: 140%; }
         p { text-align: justify; }
@@ -16,63 +23,13 @@
         h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
 
         #examples { font-family: inherit; font-weight: bold; font-size: inherit; }
-        #parse-text { background-color: #eeeeee; font-family: monospace; font-size: 140%; border: 2px solid black; width: 95%; height: 70%; }
-        #parse-text { background: repeating-linear-gradient( -45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
-        #parse-button { font-family: inherit; font-weight: bold; font-size: inherit; }
-        #parse-button {
-            color: #eee;
-            background:
-                linear-gradient(27deg, #151515 5px, transparent 5px) 0 5px,
-                linear-gradient(207deg, #151515 5px, transparent 5px) 10px 0px,
-                linear-gradient(27deg, #222 5px, transparent 5px) 0px 10px,
-                linear-gradient(207deg, #222 5px, transparent 5px) 10px 5px,
-                linear-gradient(90deg, #1b1b1b 10px, transparent 10px),
-                linear-gradient(#1d1d1d 25%, #1a1a1a 25%, #1a1a1a 50%, transparent 50%, transparent 75%, #242424 75%, #242424);
-            background-color: #131313;
-            background-size: 20px 20px;
-        }
-        #parse-button { display: block; margin-top: 2ex; margin-left: 25%; min-width: 25%; padding-top: 3ex; padding-bottom: 3ex; }
 
-        #parse-output, #debug-output { width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; }
-        #parse-output, #debug-output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
-
-        #parse-output { font-family: monospace; font-size: 140%; }
-        #debug-output { font-family: monospace; font-size: 110%; }
-
-        .announcement { font-family: font-family: monospace; font-weight: bold; white-space: pre-wrap; }
-        .announcement div { display: inline-block; }
-        .announcement .console,
-        .announcement .parse-result,
-        .announcement.failure .parse-remainder { display: block; }
-        .announcement.success .parse-remainder { display: none; }
-
-        .announcement .console,
-        .announcement .split-level,
-        .announcement .formula,
-        .announcement .parse-result,
-        .announcement .parse-remainder { color: black; font-weight: normal; }
-
-        .announcement .split-level::after,
-        .announcement .split-level::before,
-        .announcement .formula::after,
-        .announcement .formula::before,
-        .announcement .parse-result::after,
-        .announcement .parse-result::before,
-        .announcement .parse-remainder::after,
-        .announcement .parse-remainder::before { font-weight: bold; }
-
-        .announcement.success *::after, .announcement.success *::before { color: green; }
-        .announcement.failure *::after, .announcement.failure *::before { color: red; }
-
-        .announcement.query .formula::before { content: "Query: "; }
-        .announcement.query .formula::after { content: "  \2192  " }
-
-        .announcement.success .result::after { content: "success" }
-        .announcement.failure .result::after { content: "failure" }
-
-        .announcement.overall.success .parse-result::before { display: block; content: "Success"; }
-        .announcement.overall.failure .parse-result::before { display: block; content: "Failure:"; }
-        .announcement.overall.failure .parse-remainder::before { display: block; content: "with remaining input:"; }
+        #terminal { width: 95%; min-height: 5ex; background-color: #eee; }
+        #terminal { background: repeating-linear-gradient( 45deg, #eaeaea, #eaeaea 10px, #eee 10px, #eee 20px); }
+        .terminal, .cmd { color: black; }
+        .cmd      { background: inherit; }
+        .terminal { border: 2px solid black; }
+	.terminal { --size: 2; }
 
         ul.grammar { list-style-type: none; }
         ul.grammar.table { display: table; }
@@ -83,20 +40,6 @@
         .metavariable { font-family: monospace; font-weight: normal; color: #800080; }
     </style>
 
-    <script src="../jquery-3.1.1.min.js"></script>
-    <script>window.jQuery || document.write('<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js">\x3C/script>')</script>
-    <script>
-    function getParameterByName(name) {
-        var url = window.location.href;
-        name = name.replace(/[\[\]]/g, "\\$&");
-        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
-            results = regex.exec(url);
-        if (!results) return null;
-        if (!results[2]) return '';
-        return decodeURIComponent(results[2].replace(/\+/g, " "));
-    }
-    </script>
-
     <script>
     Module = {
         'print': function(msg) { printMsg(msg); },
@@ -104,30 +47,6 @@
     };
     </script>
     <script src="tui-js.js"></script>
-
-    <script>
-    /*
-    var Module = null;
-
-    function loadEmscripten(mem) {
-        if (!mem) {
-            mem = getParameterByName('mem');
-        }
-        if (!mem) {
-            mem = 16;
-        }
-        mem *= 1024*1024;
-        Module = {
-            'print': function(msg) { printMsg(msg); },
-            'printErr': function(msg) { printDebug(msg); },
-            'TOTAL_MEMORY': mem,
-        };
-        src = 'tui-js.js';
-        $('script[src="' + src + '"]').remove();
-        $('<script>').attr('src', src).appendTo('head');
-    }
-    */
-    </script>
 </head>
 
 <body>
@@ -135,52 +54,76 @@
 <h1>Limited Reasoner Demo: Textual User Interface</h1>
 
 <p>
-<b>Quick start:</b> have a look at the "Problem Description", hit the "Click me!" button, and check the output under "Reasoning Results".
+<b>Quick start:</b> select an example and check the output in the terminal.
 </p>
 
 <p>
 For further demos and details on the reasoner, <a href="../">click here</a>.
 </p>
 
-<h2>Problem Description</h2>
+<h2>TUI</h2>
 
 <p>
 Load an example:
 <select id="examples">
+<option value="" style="color: #666;">none</option>
 <option value="example-rich-father">Example: Rich Father</option>
 <option value="example-unknown-father">Example: Unknown Father</option>
 <option value="example-siblings">Example: Siblings</option>
 <option value="example-veggie">Example: Veggie</option>
-<option value="example-battleship-1x4">Example: Battleship 1x4</option>
-<option value="example-battleship-4x4">Example: Battleship 4x4</option>
+<!-- <option value="example-battleship-1x4">Example: Battleship 1x4</option> -->
+<!-- <option value="example-battleship-4x4">Example: Battleship 4x4</option> -->
 <option value="test-propositions">Test: Propositions</option>
 <option value="test-functions">Test: Constants</option>
 <option value="test-introspection-disjunction">Test: Introspection 1</option>
 <option value="test-introspection-existential">Test: Introspection 2</option>
 <option value="test-introspection-constant">Test: Introspection 3</option>
 <option value="test-guarantee">Test: Guarantee</option>
-<option value="test-control">Test: Control Structures</option>
+<!-- <option value="test-control">Test: Control Structures</option> -->
 <option value="test-rich-father">Test: Rich Father</option>
 <option value="test-siblings">Test: Unknown Father</option>
 <option value="test-veggie">Test: Veggie 1</option>
 <option value="test-veggie-with-guarantee">Test: Veggie 2</option>
 <!-- test-battleship-1x4 test is specificially for "my" computer as it assumes a specific "random" ship placement, which is different under Javascript due to different random numbers -->
 <!-- <option value="test-battleship-1x4">Test: Battleship 1x4</option> -->
-<option value="" style="color: #666;">none</option>
-</select> <br />
-If you like, you can edit the text. For help on the syntax, see <a href="#syntax">below</a>.
+</select>
+<br>
+Show debug output: <input type="checkbox" id="show-debug" value="1" />
 </p>
 
-<textarea id="parse-text" cols="80" rows="20">
-</textarea>
-
-<input value="Click me!" type="button" id="parse-button" />
+<div id="terminal"></div>
 
 <script>
+function getParameterByName(name) {
+    var url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)");
+    var results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
+function inColor(text, color) {
+    return '[[;'+ color +';]'+ text +']';
+}
+
+function printMsg(msg) {
+    $('#terminal').terminal().echo(msg);
+}
+
+var showDebug = false;
+
+function printDebug(msg) {
+    if (showDebug) {
+        $('#terminal').terminal().echo(msg, { finalize: function(div) { div.css("color", "#888"); } });
+    }
+}
+
 $(document).ready(function() {
-    //loadEmscripten();
     $('#debug-toggle').click(function() { $('#debug-div').toggle(); return false; });
-    //$('#enlarge-memory').click(function() { loadEmscripten(128); return false; });
+
+    Module.ccall('lela_init', 'void', [], []);
 
     var select_ex = getParameterByName('ex');
     if (select_ex) {
@@ -189,31 +132,62 @@ $(document).ready(function() {
         }).prop('selected', true);
     }
 
-    justLoaded = true;
+    jQuery(function($, undefined) {
+	$('#terminal').terminal(function(command) {
+            Module.ccall('lela_parse', 'void', ['string'], [command]);
+	}, {
+	    greetings:
+                inColor('LELA Terminal\n'+
+		        '\n'+
+		        'Select one of the pre-defined scenarios from the dropdown list above.\n'+
+                        '\n', 'purple'),
+	    name: 'tui',
+	    height: 0.75 * $(window).height(),
+	    width: 0.95 * $(window).width(),
+            prompt: inColor('lela> ', '#888'),
+	});
+    });
+
+    var firstLoad = true;
     $('#examples').change(function() {
+        Module.ccall('lela_init', 'void', [], []);
         var file = null;
+        if (!firstLoad) {
+            $('#terminal').terminal().clear();
+        }
+        $('#terminal').terminal().history().clear();
         $('#examples option:selected').each(function() { file = $(this).val(); });
         if (file) {
             $.ajax({
                 url : file + '.lela',
                 dataType: 'text',
                 success: function(data) {
-                    $('#parse-text').val(data.trim());
-                    if (!justLoaded) {
-                        scrollToShow($('#parse-button'));
-                        $('#parse-button').focus();
-                    }
-                    justLoaded = false;
+                    var lines = data.trim().split('\n');
+                    var i = 0;
+                    var execLine = function() {
+                        if (i >= lines.length) {
+                            return;
+                        }
+                        var line = lines[i].trim();
+                        if (line.length == 0) {
+                            $('#terminal').terminal().echo(' ');
+                        } else {
+                            $('#terminal').terminal().exec(line);
+                            $('#terminal').terminal().history().append(line);
+                        }
+                        ++i;
+                        setTimeout(execLine, 10);
+                    };
+                    execLine();
                 }
             });
-        } else {
-            $('#parse-text').val("").focus();
         }
-    }).change();
-
-    $('#parse-button').click(function() {
-        parse();
+        scrollToShow($('#terminal'));
+        setTimeout(function() { $('#terminal').terminal().focus(true); }, 100);
+        firstLoad = false;
     });
+    setTimeout(function() { $('#examples').change(); }, 100);
+    $('#show-debug').change(function() { showDebug = $('#show-debug').prop('checked'); }).change();
 });
 
 function scrollToShow(e) {
@@ -240,93 +214,8 @@ function scrollToShow(e) {
         $('html, body').animate({ scrollTop: goalBottom - $(window).height() }, timeout);
     }
 }
-
-var last_is_console = false;
-
-function parse() {
-    $('#parse-output').empty();
-    $('#debug-output').empty();
-    var text = $('#parse-text').val();
-    var t0 = performance.now();
-    Module.ccall('lela_parse', 'void', ['string'], [text]);
-    var t1 = performance.now();
-    printDebug("Parsing and reasoning took "+ Math.round(t1 - t0) +" milliseconds");
-    scrollToShow($('#parse-output'));
-}
-
-function resultClass(r) { return r ? 'success' : 'failure'; }
-function resultLabel(r) { return r ? 'Success' : 'Failure'; }
-
-function announceQuery(phi, success) {
-    $('#parse-output').append(
-        '<li class="announcement query '+ resultClass(success)+'">'+
-        '<div class="formula">'+ phi +'</div><div class="result"></div>'+
-        '</li>');
-}
-
-function announceResult(success, msg, remainder) {
-    $('#parse-output').append(
-        '<li class="announcement overall '+ resultClass(success)+'">'+
-        '<div class="parse-result">'+ msg +'</div>'+
-        '<div class="parse-remainder">'+ remainder +'</div>'+
-        '</li>');
-}
-
-function printMsg(msg) {
-    if (msg.length == 0) {
-        return;
-    }
-    if ($('#parse-output').last() == null || !$('#parse-output').last().hasClass('console')) {
-        $('#parse-output').append(
-            '<li class="announcement console">'+
-            '<div class="message">'+ msg +'</div>'+
-            '</li>');
-    } else {
-        $('#parse-output').children().last().append(msg);
-    }
-}
-
-function printDebug(msg) {
-    if (msg.length == 0) {
-        return;
-    }
-    if (typeof msg.charCodeAt !== 'undefined') {
-        var c = msg.charCodeAt(0);
-        if ((65 <= c && c <= 90) || (97 <= c && c <= 122) || $('#debug-output').last() == null) {
-            $('#debug-output').append('<li>'+ msg +'</li>');
-        } else {
-            $('#debug-output').children().last().append('<br />'+ msg);
-        }
-    }
-}
 </script>
 
-
-
-<h2>Reasoning Results</h2>
-
-<p>
-Click the button above to let the reasoner do its work. It should report the results of the queries below.
-Note that the reasoner brings the query formulas into a normal form (similar to negation normal form), so the printed formulas below may differ syntactically from your queries.
-</p>
-
-<ul id="parse-output">
-</ul>
-
-<p>
-<a href="#debug-toggle" id="debug-toggle">Click here</a> to display/hide debug output.
-<!--If more memory is needed (e.g., for some Sudokus), <a href="#enlarge-memory" id="enlarge-memory">click here</a> to enlarge.-->
-</p>
-
-
-<div id="debug-div" style="display: none;">
-<h3>Debug Output</h3>
-
-<p>The Javascript console output is displayed below.</p>
-
-<ul id="debug-output">
-</ul>
-</div>
 
 
 
@@ -554,13 +443,15 @@ Implications are also allowed, provided that the negation of the antecedent as w
 Queries are of the form:
 </p>
 <ul class="grammar">
+    <li><span class="code"><span class="metavariable">formula</span></span></li>
     <li><span class="code">Query: <span class="metavariable">formula</span></span></li>
     <li><span class="code">Assert: <span class="metavariable">formula</span></span></li>
     <li><span class="code">Refute: <span class="metavariable">formula</span></span></li>
 </ul>
 <p>
 where <span class="metavariable">formula</span> is subjective, which means functions must not occur outside of modal operators (but variables, names, quantifiers, etc. may).
-The <span class="code">Assert</span> and <span class="code">Refute</span> versions differ from the <span class="code">Query</span> version in that they yield a error when the query does not come out true or false, respectively; this is useful for automated testing.
+The prefix <span class="code">Query:</span> is optional.
+Alternatively, the <span class="code">Assert:</span> and <span class="code">Refute:</span> prefixes can be used to require a certain outcome: the former fails when the query comes out false, the latter fails when the query comes out false; this is useful for automated testing.
 </p>
 
 <p>
@@ -573,20 +464,28 @@ In particular, they include:
     <li><span class="code">Call:&nbsp;print(<span class="metavariable">t<sub>1</sub></span>,<span class="metavariable">...</span>,<span class="metavariable">t<sub>k</sub></span>)</span> to print terms to main output</li>
 </ul>
 
+<!--
 <p>
 Furthermore simple control structures are allowed: if-then-else, while-loops, and for-loops.
-See the Battleship and Sudoku code for examples.
+They don't work well with this terminal, though.
 </p>
+-->
 
 <p>
 C-style single line comments are supported as well: <span class="code">//&nbsp;<span class="metavariable">rest of line is comment</span></span>.
 </p>
 
+<h2>Known Bugs</h2>
 <p>
-<b>Bug(s):</b> There's are two known bugs regarding the <span class="code">M&lt;k&gt;</span> operator.
+There's are two known bugs regarding the <span class="code">M&lt;k&gt;</span> operator.
 For one thing, within <span class="code">G</span> it's too aggressive and thus finds inconsistencies it shouldn't.
 For another, inconsistencies due to <span class="code">Fa x f(...) /= x</span> clauses are not detected at the moment.
 Fixes shouldn't be too difficult, will be coming soon.
+</p>
+
+<p>
+Possibly there's another bug that sometimes more names need to be considered, namely when a split uses one or more of the <code>p+1</code> names, possibly we need to add new names.
+Not sure yet if that's really a bug or if the lemmas from the theory can be improved.
 </p>
 
 </body>

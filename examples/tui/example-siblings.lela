@@ -42,7 +42,7 @@ KB: siblings(Mia, Frank) == T || siblings(Mary, Fred) == T
 // mother must be Mary. Mary is also Sonny's mother, so they're siblings.
 // If Mary and Fred are siblings, they cannot have Sonny together, so Sonny's
 // father must be Frank. Frank is also Sally's father, so they're siblings.
-Query: G Know<0> siblings(Sally, Sonny) == T
-Query: G Know<1> siblings(Sally, Sonny) == T
-Query: G Know<2> siblings(Sally, Sonny) == T
+G Know<0> siblings(Sally, Sonny) == T
+G Know<1> siblings(Sally, Sonny) == T
+G Know<2> siblings(Sally, Sonny) == T
 

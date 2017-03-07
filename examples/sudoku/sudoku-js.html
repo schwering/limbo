@@ -14,7 +14,7 @@
         h1       { font-size: 220%; }
         h2       { font-size: 170%; border-bottom: 1px solid #aaa; }
 
-        form .label { display: inline-block; min-width: 13em; }
+        form .label { display: inline-block; min-width: 15em; }
         form input.number { width: 5em; }
         #play-button { background-color: black; color: #eee; font-family: inherit; font-weight: bold; font-size: 100%; margin-top: 1ex; margin-left: 1em; padding-left: 3em; padding-right: 3em; padding-top: 1ex; padding-bottom: 1ex; }
         #play-button {
@@ -29,7 +29,7 @@
             background-size: 20px 20px;
         }
 
-        #output { min-width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; overflow: scroll; }
+        #output { min-width: 95%; min-height: 5ex; background-color: #dddddd; border: 2px solid black; overflow: scroll; margin-top: 3ex; }
         #output { background: repeating-linear-gradient( 45deg, #e5e5e5, #e5e5e5 10px, #eeeeee 10px, #eeeeee 20px); }
         #output { font-family: monospace; font-size: 120%; line-height: 119%; }
 
@@ -51,14 +51,14 @@
 <h1>Limited Reasoner Demo: Sudoku</h1>
 
 <p>
-<b>Quick start:</b> choose a "Game Configuration", hit the "Click to play Sudoku!" button, and see the agent play under "Game Output".
+<b>Quick start:</b> choose a "Game Configuration", hit the "Click to play Sudoku!" button, and see the agent play.
 </p>
 
 <p>
 For further demos and details on the reasoner, <a href="../">click here</a>.
 </p>
 
-<h2>Game Configuration</h2>
+<h2>Sudoku</h2>
 
 <form>
 <div class="label">Sudoku game:</div>
@@ -225,9 +225,6 @@ $(document).keydown(function(e) {
 });
 </script>
 
-
-
-<h2>Game Output</h2>
 
 <div id="output"></div>
 

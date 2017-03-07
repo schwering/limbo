@@ -1,0 +1,6 @@
+[submodule "examples/tui/linenoise"]
+	path = examples/tui/linenoise
+	url = https://github.com/antirez/linenoise
+[submodule "examples/tui/jquery.terminal"]
+	path = examples/tui/jquery.terminal
+        url = https://github.com/jcubic/jquery.terminal

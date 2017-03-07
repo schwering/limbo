@@ -745,18 +745,23 @@ class Parser {
 
   // query --> [ Query | Refute | Assert ] : subjective_formula
   Result<Action<>> query() {
-    if (!Is(Tok(), Token::kQuery) &&
+    if (!(Is(Tok(), Token::kQuery) || Is(Tok(), Token::kNot) || Is(Tok(), Token::kForall) ||
+          Is(Tok(), Token::kExists) || Is(Tok(), Token::kLeftParen) || Is(Tok(), Token::kKnow) ||
+          Is(Tok(), Token::kCons) || Is(Tok(), Token::kBel) || Is(Tok(), Token::kGuarantee) ||
+          Is(Tok(), Token::kIdentifier)) &&
         !Is(Tok(), Token::kAssert) &&
         !Is(Tok(), Token::kRefute)) {
       return Unapplicable<Action<>>(LELA_MSG("Expected 'Query', 'Assert', or 'Refute'"));
     }
-    const bool is_query = Is(Tok(), Token::kQuery);
+    const bool is_query = !Is(Tok(), Token::kAssert) && !Is(Tok(), Token::kRefute);
     const bool is_assert = Is(Tok(), Token::kAssert);
-    Advance();
-    if (!Is(Tok(), Token::kColon)) {
-      return Error<Action<>>(LELA_MSG("Expected ':'"));
-    }
-    Advance();
+    if (Is(Tok(), Token::kQuery) || Is(Tok(), Token::kAssert) || Is(Tok(), Token::kRefute)) {
+      Advance();
+      if (!Is(Tok(), Token::kColon)) {
+        return Error<Action<>>(LELA_MSG("Expected ':'"));
+      }
+      Advance();
+      }
     Result<Action<Formula::Ref>> alpha = subjective_formula();
     if (!alpha) {
       return Error<Action<>>(LELA_MSG("Expected query/assertion/refutation subjective_formula"), alpha);
@@ -1151,7 +1156,7 @@ class Parser {
     }
   }
 
-  // branch --> [ declaration | kb_formula | query | abbreviation | load_calls | call ]
+  // branch --> [ declaration | kb_formula | abbreviation | query | if_else | while_loop | for_loop | call ]
   Result<Action<>> branch() {
     typedef Result<Action<>> (Parser::*Rule)();
     std::vector<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation, &Parser::query,

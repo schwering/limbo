@@ -3,6 +3,8 @@
 //
 // Command line application that interprets a problem description and queries.
 
+#include <dirent.h>
+
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -24,18 +26,27 @@
 
 using lela::format::operator<<;
 
+static constexpr int RED = 31;
+static constexpr int GREEN = 32;
+
+static std::string in_color(const std::string& text, int color) {
+  std::stringstream ss;
+  ss << "\033[" << color << "m" << text << "\033[0m";
+  return ss.str();
+}
+
 template<typename ForwardIt, typename Context>
 static bool parse(ForwardIt begin, ForwardIt end, Context* ctx) {
   typedef lela::format::pdl::Parser<ForwardIt, Context> Parser;
   Parser parser(begin, end);
   auto parse_result = parser.Parse();
   if (!parse_result) {
-    std::cout << parse_result.str() << std::endl;
+    std::cout << in_color(parse_result.str(), RED) << std::endl;
     return false;
   }
   auto exec_result = parse_result.val.Run(ctx);
   if (!exec_result) {
-    std::cout << exec_result.str() << std::endl;
+    std::cout << in_color(exec_result.str(), RED) << std::endl;
     return false;
   }
   return true;
@@ -114,7 +125,9 @@ struct Logger : public lela::format::pdl::DefaultLogger {
     //  std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
     //}
     if (print_queries) {
-      std::cerr << "Query: " << *d.phi << "  =  " << std::boolalpha << d.yes << std::endl;
+      std::cout << "Query: " << *d.phi << " = " << in_color(d.yes ? "Yes" : "No", d.yes ? GREEN : RED) << std::endl;
+    } else {
+      std::cout << "Query: " << *d.phi << " = " << in_color(d.yes ? "Yes" : "No", d.yes ? GREEN : RED) << std::endl;
     }
     //std::cout << std::endl;
     //std::cout << std::endl;
@@ -222,12 +235,17 @@ int main(int argc, char** argv) {
       return needle.length() <= haystack.length() &&
           std::mismatch(needle.begin(), needle.end(), haystack.begin()).first == needle.end();
     };
-    const std::string kIncludePrefix = ":r ";
+    auto is_postfix = [](const std::string& needle, const std::string& haystack) {
+      return needle.length() <= haystack.length() &&
+          std::mismatch(needle.rbegin(), needle.rend(), haystack.rbegin()).first == needle.rend();
+    };
+    const std::string kIncludeCommand = ":r ";
+    const std::string kListCommand = ":ls";
     const std::string kPrompt = "tui> ";
     while ((line_ptr = linenoise(kPrompt.c_str())) != nullptr) {
       const std::string line = line_ptr;
-      if (is_prefix(":r ", line)) {
-        const std::string file = line.substr(3);
+      if (is_prefix(kIncludeCommand, line)) {
+        const std::string file = line.substr(kIncludeCommand.length());
         std::ifstream stream(file);
         if (!stream.is_open()) {
           std::cerr << "Cannot open file " << file << std::endl;
@@ -235,6 +253,24 @@ int main(int argc, char** argv) {
         }
         parse(stream_iterator(stream), stream_iterator(), &ctx);
         linenoiseHistoryLoad(file.c_str());
+      } else if (is_prefix(kListCommand, line)) {
+        std::string directory = line.substr(kListCommand.length());
+        if (directory.empty()) {
+          directory = ".";
+        }
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir(directory.c_str())) != NULL) {
+	  while ((ent = readdir(dir)) != NULL) {
+            const std::string file = ent->d_name;
+	    if (is_postfix(".lela", file)) {
+              std::cout << file << std::endl;
+            }
+	  }
+	  closedir(dir);
+	} else {
+          std::cerr << "No such directory: " << directory << std::endl;
+	}
       } else {
         parse(line.begin(), line.end(), &ctx);
         linenoiseHistoryAdd(line.c_str());

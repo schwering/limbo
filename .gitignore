@@ -47,6 +47,10 @@ examples/minesweeper/minesweeper
 examples/minesweeper/minesweeper-js.js*
 examples/tui/tui
 examples/tui/tui-js.js*
+examples/tui/jquery.mousewheel-min.js
+examples/tui/jquery.terminal-1.0.10.css
+examples/tui/jquery.terminal-1.0.10.min.js
+examples/tui/unix_formatting.js
 examples/sudoku/sudoku
 examples/sudoku/sudoku-js.js*
 examples/jquery-*.min.js

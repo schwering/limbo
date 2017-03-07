@@ -356,8 +356,9 @@ class Grounder {
       typedef std::input_iterator_tag iterator_category;
 
       // These iterators are really heavy-weight, especially comparison is
-      // unusually expensive. To abbreviate the usual comparison with end(),
-      // we hence reset the substitutes_ pointer to nullptr once the end is reached.
+      // unusually expensive. To boost the usual comparison with end(), we
+      // hence reset the substitutes_ pointer to nullptr once the end is
+      // reached.
       assignment_iterator() {}
       assignment_iterator(const TermSet& vars, const SortedTermSet* substitutes) : substitutes_(substitutes) {
         for (const Term var : vars) {
