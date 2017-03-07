@@ -67,7 +67,7 @@ struct Callback : public lela::format::pdl::DefaultCallback {
   void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
     if (proc == "print_kb") {
       for (lela::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
-        std::cerr << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p)->setup() << std::endl;
+        std::cout << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p)->setup() << std::endl;
       }
     } else if (proc == "print") {
       lela::format::print_range(std::cout, args, "", "", " ");
@@ -81,9 +81,9 @@ struct Callback : public lela::format::pdl::DefaultCallback {
     } else if (su_(ctx, proc, args)) {
       // it's a call for Sudoku
     } else {
-      std::cerr << "Calling " << proc;
+      std::cout << "Calling " << proc;
       lela::format::print_range(std::cerr, args, "(", ")", ",");
-      std::cerr << " failed" << std::endl;
+      std::cout << " failed" << std::endl;
     }
   }
 

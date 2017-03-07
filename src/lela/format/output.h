@@ -242,9 +242,22 @@ std::ostream& operator<<(std::ostream& os, const Setup& s) {
 #define LELA_FORMULA_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
   switch (alpha.type()) {
-    case Formula::kAtomic:
-      os << alpha.as_atomic().arg();
+    case Formula::kAtomic: {
+      const Clause& c = alpha.as_atomic().arg();
+#ifdef PRINT_ABBREVIATIONS
+      if (c.empty()) {
+        os << "\u22A5";
+      } else if (c.unit()) {
+        os << c.first();
+      } else {
+        auto as = internal::transform_range(c.begin(), c.end(), [](Literal a) { return a; });
+        print_sequence(os, as.begin(), as.end(), "[", "]", " \u2227 ");
+      }
+#else
+      os << c;
+#endif
       break;
+    }
     case Formula::kNot:
 #ifdef PRINT_ABBREVIATIONS
       if (alpha.as_not().arg().type() == Formula::kOr &&
@@ -255,9 +268,18 @@ std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
            << ' ' << "\u2227" << ' '
            << alpha.as_not().arg().as_or().rhs().as_not().arg()
            << ')';
+      } else if (alpha.as_not().arg().type() == Formula::kNot) {
+        os << alpha.as_not().arg().as_not().arg();
       } else if (alpha.as_not().arg().type() == Formula::kAtomic) {
         const Clause& c = alpha.as_not().arg().as_atomic().arg();
-        print_sequence(os, c.begin(), c.end(), "[", "]", " \u2227 ");
+        if (c.empty()) {
+          os << "\u22A4";
+        } else if (c.unit()) {
+          os << c.first().flip();
+        } else {
+          auto as = internal::transform_range(c.begin(), c.end(), [](Literal a) { return a.flip(); });
+          print_sequence(os, as.begin(), as.end(), "[", "]", " \u2227 ");
+        }
       } else if (alpha.as_not().arg().type() == Formula::kExists &&
                  alpha.as_not().arg().as_exists().arg().type() == Formula::kNot) {
         os << "\u2200" << alpha.as_not().arg().as_exists().x() << alpha.as_not().arg().as_exists().arg().as_not().arg();

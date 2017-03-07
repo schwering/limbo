@@ -3,6 +3,8 @@
 //
 // Command line application that interprets a problem description and queries.
 
+//#define PRINT_ABBREVIATIONS
+
 #include <dirent.h>
 
 #include <fstream>
@@ -108,33 +110,6 @@ class multi_pass_iterator {
   size_t index_ = 0;
 };
 
-struct Logger : public lela::format::pdl::DefaultLogger {
-  void operator()(const LogData&)                      const { std::cerr << "Unknown log data" << std::endl; }
-  void operator()(const RegisterData& d)               const { std::cerr << "Registered " << d.id << std::endl; }
-  void operator()(const RegisterSortData& d)           const { std::cerr << "Registered sort " << d.id << std::endl; }
-  void operator()(const RegisterVariableData& d)       const { std::cerr << "Registered variable " << d.id << " of sort " << d.sort_id << std::endl; }
-  void operator()(const RegisterNameData& d)           const { std::cerr << "Registered name " << d.id << " of sort " << d.sort_id << std::endl; }
-  void operator()(const RegisterFunctionData& d)       const { std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl; }
-  void operator()(const RegisterMetaVariableData& d)   const { std::cerr << "Registered meta variable " << d.id << " for " << d.term << std::endl; }
-  void operator()(const RegisterFormulaData& d)        const { std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl; }
-  void operator()(const UnregisterData& d)             const { std::cerr << "Unregistered " << d.id << std::endl; }
-  void operator()(const UnregisterMetaVariableData& d) const { std::cerr << "Unregistered meta variable " << d.id << std::endl; }
-  void operator()(const AddToKbData& d)                const { std::cerr << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
-  void operator()(const QueryData& d)                  const {
-    //for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
-    //  std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
-    //}
-    if (print_queries) {
-      std::cout << "Query: " << *d.phi << " = " << in_color(d.yes ? "Yes" : "No", d.yes ? GREEN : RED) << std::endl;
-    } else {
-      std::cout << "Query: " << *d.phi << " = " << in_color(d.yes ? "Yes" : "No", d.yes ? GREEN : RED) << std::endl;
-    }
-    //std::cout << std::endl;
-    //std::cout << std::endl;
-  }
-  bool print_queries = true;
-};
-
 struct Callback : public lela::format::pdl::DefaultCallback {
   template<typename T>
   void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
@@ -163,6 +138,36 @@ struct Callback : public lela::format::pdl::DefaultCallback {
  private:
   BattleshipCallbacks bs_;
   SudokuCallbacks su_;
+};
+
+struct Logger : public lela::format::pdl::DefaultLogger {
+  void operator()(const LogData&)                      const { std::cerr << "Unknown log data" << std::endl; }
+  void operator()(const RegisterData& d)               const { std::cerr << "Registered " << d.id << std::endl; }
+  void operator()(const RegisterSortData& d)           const { std::cerr << "Registered sort " << d.id << std::endl; }
+  void operator()(const RegisterVariableData& d)       const { std::cerr << "Registered variable " << d.id << " of sort " << d.sort_id << std::endl; }
+  void operator()(const RegisterNameData& d)           const { std::cerr << "Registered name " << d.id << " of sort " << d.sort_id << std::endl; }
+  void operator()(const RegisterFunctionData& d)       const { std::cerr << "Registered function symbol " << d.id << " with arity " << int(d.arity) << " of sort " << d.sort_id << std::endl; }
+  void operator()(const RegisterMetaVariableData& d)   const { std::cerr << "Registered meta variable " << d.id << " for " << d.term << std::endl; }
+  void operator()(const RegisterFormulaData& d)        const { std::cerr << "Registered formula " << d.id << " as " << *d.phi << std::endl; }
+  void operator()(const UnregisterData& d)             const { std::cerr << "Unregistered " << d.id << std::endl; }
+  void operator()(const UnregisterMetaVariableData& d) const { std::cerr << "Unregistered meta variable " << d.id << std::endl; }
+  void operator()(const AddToKbData& d)                const { std::cerr << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
+  void operator()(const QueryData& d)                  const {
+    //for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
+    //  std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
+    //}
+    std::ostream* os;
+    if (print_queries) {
+      os = &std::cout;
+    } else {
+      os = &std::cerr;
+    }
+    *os << "Query: " << d.phi->NF(ctx->sf(), ctx->tf()) << " = " << in_color(d.yes ? "Yes" : "No", d.yes ? GREEN : RED) << std::endl;
+    //std::cout << std::endl;
+    //std::cout << std::endl;
+  }
+  bool print_queries = true;
+  lela::format::pdl::Context<Logger, Callback>* ctx;
 };
 
 int main(int argc, char** argv) {
@@ -206,6 +211,7 @@ int main(int argc, char** argv) {
 
   std::ios_base::sync_with_stdio(true);
   lela::format::pdl::Context<Logger, Callback> ctx;
+  ctx.logger()->ctx = &ctx;
 
   for (const std::string& arg : args) {
     std::ifstream stream(arg);
