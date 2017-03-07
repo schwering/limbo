@@ -13,6 +13,7 @@ if (EMCC)
                     COMMAND ${EMCC} ${FLAGS} -I../../src sudoku-js.cc -o sudoku-js.js
                                 -s EXPORTED_FUNCTIONS=['_lela_init','_lela_play_turn']
                                 -s TOTAL_MEMORY=67108864
+                        DEPENDS sudoku-js.cc "*.h"
                         VERBATIM)
 
                 add_custom_target (sudoku-js DEPENDS sudoku-js.js sudoku-js.js.mem)

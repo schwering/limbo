@@ -12,6 +12,7 @@ if (EMCC)
                         COMMAND ${EMCC} ${FLAGS} -I../../src minesweeper-js.cc -o minesweeper-js.js
                                 -s EXPORTED_FUNCTIONS=['_lela_init','_lela_play_turn']
                                 -s TOTAL_MEMORY=67108864
+                        DEPENDS minesweeper-js.cc "*.h"
                         VERBATIM)
 
                 add_custom_target (minesweeper-js DEPENDS minesweeper-js.js minesweeper-js.js.mem)

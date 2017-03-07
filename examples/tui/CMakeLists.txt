@@ -16,6 +16,7 @@ if (EMCC)
                         COMMAND ${EMCC} ${FLAGS} -I../../src tui-js.cc -o tui-js.js
 				-s EXPORTED_FUNCTIONS=['_lela_init','_lela_parse','_lela_free']
                                 -s TOTAL_MEMORY=16777216
+                        DEPENDS tui-js.cc "*.h"
                         VERBATIM)
                 add_custom_command (OUTPUT jquery.terminal-1.0.10.min.js COMMAND cp jquery.terminal/js/jquery.terminal-1.0.10.min.js .)
                 add_custom_command (OUTPUT jquery.mousewheel-min.js      COMMAND cp jquery.terminal/js/jquery.mousewheel-min.js      .)

@@ -29,9 +29,15 @@ inline std::string to_string(const T& x) {
   return ss.str();
 }
 
+static std::string in_color(const std::string& text, int color) {
+  std::stringstream ss;
+  ss << "\033[" << color << "m" << text << "\033[0m";
+  return ss.str();
+}
+
 static std::string in_color(const std::string& text, const std::string& color) {
   std::stringstream ss;
-  ss << "[[;" << color << ";]" << text << "]";
+  ss << "[[b;" << color << ";]" << text << "]";
   return ss.str();
 }
 
@@ -51,10 +57,11 @@ struct Logger : public lela::format::pdl::DefaultLogger {
     //for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
     //  std::cerr << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
     //}
+    const std::string r = in_color(d.yes ? "Yes" : "No", d.yes ? "#0c0" : "#c00");
     if (print_queries) {
-      std::cout << in_color(d.yes ? "Yes" : "No", d.yes ? "green" : "#c00") << std::endl;
+      std::cout << r << std::endl;
     } else {
-      std::cerr << in_color(d.yes ? "Yes:  " : "No: ", d.yes ? "green" : "#c00") << *d.phi << std::endl;
+      std::cerr << r << *d.phi << std::endl;
     }
     //std::cerr << std::endl;
     //std::cerr << std::endl;
@@ -116,11 +123,11 @@ extern "C" void lela_parse(const char* c_str) {
   Parser parser(str.begin(), str.end());
   auto parse_result = parser.Parse();
   if (!parse_result) {
-    std::cout << in_color(parse_result.str(), "#c00") << std::endl;
+    std::cout << in_color(parse_result.str(), 31) << std::endl;
   }
   auto exec_result = parse_result.val.Run(ctx);
   if (!exec_result) {
-    std::cout << in_color(exec_result.str(), "#c00") << std::endl;
+    std::cout << in_color(exec_result.str(), 31) << std::endl;
   }
 }
 

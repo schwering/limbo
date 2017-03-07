@@ -47,6 +47,29 @@
     };
     </script>
     <script src="tui-js.js"></script>
+    <script>
+    var examples = [
+        { value: 'example-rich-father',            text: 'Example: Rich Father' },
+        { value: 'example-unknown-father',         text: 'Example: Unknown Father' },
+        { value: 'example-siblings',               text: 'Example: Siblings' },
+        { value: 'example-veggie',                 text: 'Example: Veggie' },
+    //  { value: 'example-battleship-1x4',         text: 'Example: Battleship 1x4' },
+    //  { value: 'example-battleship-4x4',         text: 'Example: Battleship 4x4' },
+        { value: 'test-propositions',              text: 'Test: Propositions' },
+        { value: 'test-functions',                 text: 'Test: Constants' },
+        { value: 'test-introspection-disjunction', text: 'Test: Introspection 1' },
+        { value: 'test-introspection-existential', text: 'Test: Introspection 2' },
+        { value: 'test-introspection-constant',    text: 'Test: Introspection 3' },
+        { value: 'test-guarantee',                 text: 'Test: Guarantee' },
+    //  { value: 'test-control',                   text: 'Test: Control Structures' },
+        { value: 'test-rich-father',               text: 'Test: Rich Father' },
+        { value: 'test-unknown-father',            text: 'Test: Unknown Father' },
+        { value: 'test-siblings',                  text: 'Test: Siblings' },
+        { value: 'test-veggie',                    text: 'Test: Veggie 1' },
+        { value: 'test-veggie-with-guarantee',     text: 'Test: Veggie 2' },
+    //  { value: 'test-battleship-1x4',            text: 'Test: Battleship 1x4' }, // test-battleship-1x4 test is specificially for "my" computer as it assumes a specific "random" ship placement, which is different under Javascript due to different random numbers -->
+    ];
+    </script>
 </head>
 
 <body>
@@ -67,25 +90,7 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 Load an example:
 <select id="examples">
 <option value="" style="color: #666;">none</option>
-<option value="example-rich-father">Example: Rich Father</option>
-<option value="example-unknown-father">Example: Unknown Father</option>
-<option value="example-siblings">Example: Siblings</option>
-<option value="example-veggie">Example: Veggie</option>
-<!-- <option value="example-battleship-1x4">Example: Battleship 1x4</option> -->
-<!-- <option value="example-battleship-4x4">Example: Battleship 4x4</option> -->
-<option value="test-propositions">Test: Propositions</option>
-<option value="test-functions">Test: Constants</option>
-<option value="test-introspection-disjunction">Test: Introspection 1</option>
-<option value="test-introspection-existential">Test: Introspection 2</option>
-<option value="test-introspection-constant">Test: Introspection 3</option>
-<option value="test-guarantee">Test: Guarantee</option>
-<!-- <option value="test-control">Test: Control Structures</option> -->
-<option value="test-rich-father">Test: Rich Father</option>
-<option value="test-siblings">Test: Unknown Father</option>
-<option value="test-veggie">Test: Veggie 1</option>
-<option value="test-veggie-with-guarantee">Test: Veggie 2</option>
-<!-- test-battleship-1x4 test is specificially for "my" computer as it assumes a specific "random" ship placement, which is different under Javascript due to different random numbers -->
-<!-- <option value="test-battleship-1x4">Test: Battleship 1x4</option> -->
+<script>for (var i = 0; i < examples.length; ++i) document.write('<option value="'+ examples[i].value +'">'+ examples[i].text +'\x3C/option>')</script>
 </select>
 <br>
 Show debug output: <input type="checkbox" id="show-debug" value="1" />
@@ -120,10 +125,118 @@ function printDebug(msg) {
     }
 }
 
+var firstLoad = true;
+function resetTerminal() {
+    if (!firstLoad) {
+        $('#terminal').terminal().clear();
+    }
+    $('#terminal').terminal().history().clear();
+    firstLoad = false;
+}
+
+function loadExample(file) {
+    Module.ccall('lela_init', 'void', [], []);
+    $('#examples').val('');
+    if (file) {
+        $.ajax({
+            url : file + '.lela',
+            dataType: 'text',
+            success: function(data) {
+                $('#examples').val(file);
+                var lines = data.trim().split('\n');
+                for (var i = 0; i < lines.length; ++i) {
+                    lines[i] = lines[i].trim();
+                }
+                var i = 0;
+                var t = $('#terminal').terminal();
+                var execLine = function() {
+                    if (lines[i].length == 0) {
+                        t.echo(' ');
+                    } else {
+                        t.exec(lines[i]);
+                        t.history().append(lines[i]);
+                        t.set_command('');
+                    }
+                    ++i;
+                    if (i < lines.length) {
+                        t.set_command(lines[i]);
+                        setTimeout(execLine, 10);
+                    }
+                };
+                if (i < lines.length) {
+                    t.set_command(lines[i]);
+                    execLine();
+                }
+            }
+        });
+    }
+}
+
+function lela_exec(command) {
+    var t = $('#terminal').terminal();
+    if (command == "help") {
+        t.echo('Commands:');
+        t.echo('  ls                                 list predefined examples');
+        t.echo('  load <example>                     load the specified example');
+        t.echo('  [hide|show]-debug                  show/hide debug output');
+        t.echo('');
+        t.echo('  Sort <id>                          define new sort with specified id');
+        t.echo('  Var <id> -> <sort-id>              define new variable');
+        t.echo('  Name <id> -> <sort-id>             define new standard name');
+        t.echo('  Fun <id>/<arity> -> <sort-id>      define new function');
+        t.echo('  Let <id> := <formula>              define formula abbreviation');
+        t.echo('  KB: <formula>                      add clausal formula to knowledge base');
+        t.echo('  <formula>                          evaluate query formula in knowledge base ...');
+        t.echo('  Query: <formula>                   ');
+        t.echo('  Assert: <formula>                  ... and fail if formula is false');
+        t.echo('  Refute: <formula>                  ... and fail if formula is true');
+        t.echo('See below for the grammar of formulas.');
+        //t.echo('Formula are of the form:');
+        //t.echo('  t == t     t /= t                  literals');
+        //t.echo('  ~formula                           negation');
+        //t.echo('  formula v formula                  disjunction');
+        //t.echo('  formula ^ formula                  conjunction');
+        //t.echo('  Ex x formula                       existential quantification');
+        //t.echo('  Fa x formula                       universal quantification');
+        //t.echo('  formula -> formula                 implication');
+        //t.echo('  formula <-> formula                implication');
+        //t.echo('  K<k> formula                       knowledge modality, k >= 0');
+        //t.echo('  M<k> formula                       consistency modality, k >= 0');
+        //t.echo('  B<k,l> formula ==> formula         conditional belief modality, k, l >= 0');
+        //t.echo('  G formula                          consistency guarantee');
+        //t.echo('  ( formula )                        brackets');
+        //t.echo('  formula-id                         id of abbreviation');
+    } else if (command == "ls") {
+        var maxlen = 0;
+        for (var i = 0; i < examples.length; ++i) {
+            if (maxlen < examples[i].value.length) {
+                maxlen = examples[i].value.length;
+            }
+        }
+        for (var i = 0; i < examples.length; ++i) {
+            var pad = new Array(maxlen - examples[i].value.length + 1).join(' ');
+            t.echo('  '+ examples[i].value + pad +'  ' + examples[i].text);
+        }
+    } else if (command.startsWith('load ')) {
+        resetTerminal();
+        loadExample(command.substring('load '.length), command.length);
+    } else if (command == 'show-debug') {
+        $('#show-debug').prop('checked', true).change();
+    } else if (command == 'hide-debug') {
+        $('#show-debug').prop('checked', false).change();
+    } else {
+        Module.ccall('lela_parse', 'void', ['string'], [command]);
+    }
+}
+
 $(document).ready(function() {
     $('#debug-toggle').click(function() { $('#debug-div').toggle(); return false; });
 
     Module.ccall('lela_init', 'void', [], []);
+
+    for (var i = 0; i < examples.length; ++i) {
+        $('#examples').append($('<option>', examples[i])).select();
+    }
 
     var select_ex = getParameterByName('ex');
     if (select_ex) {
@@ -133,13 +246,11 @@ $(document).ready(function() {
     }
 
     jQuery(function($, undefined) {
-	$('#terminal').terminal(function(command) {
-            Module.ccall('lela_parse', 'void', ['string'], [command]);
-	}, {
+	$('#terminal').terminal(lela_exec, {
 	    greetings:
                 inColor('LELA Terminal\n'+
 		        '\n'+
-		        'Select one of the pre-defined scenarios from the dropdown list above.\n'+
+		        'Select one of the pre-defined examples from the dropdown list above, or type "help" and press enter.\n'+
                         '\n', 'purple'),
 	    name: 'tui',
 	    height: 0.75 * $(window).height(),
@@ -148,43 +259,13 @@ $(document).ready(function() {
 	});
     });
 
-    var firstLoad = true;
     $('#examples').change(function() {
-        Module.ccall('lela_init', 'void', [], []);
         var file = null;
-        if (!firstLoad) {
-            $('#terminal').terminal().clear();
-        }
-        $('#terminal').terminal().history().clear();
         $('#examples option:selected').each(function() { file = $(this).val(); });
-        if (file) {
-            $.ajax({
-                url : file + '.lela',
-                dataType: 'text',
-                success: function(data) {
-                    var lines = data.trim().split('\n');
-                    var i = 0;
-                    var execLine = function() {
-                        if (i >= lines.length) {
-                            return;
-                        }
-                        var line = lines[i].trim();
-                        if (line.length == 0) {
-                            $('#terminal').terminal().echo(' ');
-                        } else {
-                            $('#terminal').terminal().exec(line);
-                            $('#terminal').terminal().history().append(line);
-                        }
-                        ++i;
-                        setTimeout(execLine, 10);
-                    };
-                    execLine();
-                }
-            });
-        }
+        resetTerminal();
+        loadExample(file);
         scrollToShow($('#terminal'));
         setTimeout(function() { $('#terminal').terminal().focus(true); }, 100);
-        firstLoad = false;
     });
     setTimeout(function() { $('#examples').change(); }, 100);
     $('#show-debug').change(function() { showDebug = $('#show-debug').prop('checked'); }).change();
