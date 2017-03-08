@@ -209,23 +209,23 @@ class Term {
   u32 id_;
 };
 
-  struct Term::Data {
-    Data(Symbol symbol, const Vector& args) : symbol(symbol), args(args) {}
+struct Term::Data {
+  Data(Symbol symbol, const Vector& args) : symbol(symbol), args(args) {}
 
-    bool operator==(const Data& d) const { return symbol == d.symbol && args == d.args; }
-    bool operator!=(const Data& s) const { return !(*this == s); }
+  bool operator==(const Data& d) const { return symbol == d.symbol && args == d.args; }
+  bool operator!=(const Data& s) const { return !(*this == s); }
 
-    Symbol symbol;
-    Vector args;
-
-    internal::hash32_t hash() const {
-      internal::hash32_t h = symbol.hash();
-      for (const lela::Term t : args) {
-        h ^= t.hash();
-      }
-      return h;
+  internal::hash32_t hash() const {
+    internal::hash32_t h = symbol.hash();
+    for (const lela::Term t : args) {
+      h ^= t.hash();
     }
-  };
+    return h;
+  }
+
+  Symbol symbol;
+  Vector args;
+};
 
 class Term::Factory : private Singleton<Factory> {
  public:
