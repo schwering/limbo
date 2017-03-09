@@ -93,7 +93,17 @@ Load an example:
 <script>for (var i = 0; i < examples.length; ++i) document.write('<option value="'+ examples[i].value +'">'+ examples[i].text +'\x3C/option>')</script>
 </select>
 <br>
-Show debug output: <input type="checkbox" id="show-debug" value="1" />
+<label><input type="checkbox" id="show-debug" value="1" /> Show debug output</label>
+<select id="delay" style="margin-left: 2em; text-align: right;">
+<option value ="0">0 ms</option>
+<option value ="10" selected>10 ms</option>
+<option value ="50">50 ms</option>
+<option value ="100">100 ms</option>
+<option value ="1000">1000 ms</option>
+<option value ="5000">5000 ms</option>
+<option value ="-1">block</option>
+</select>
+delay after each command
 </p>
 
 <div id="terminal"></div>
@@ -149,6 +159,7 @@ function loadExample(file) {
                 }
                 var i = 0;
                 var t = $('#terminal').terminal();
+                var delay = $('#delay').val();
                 var execLine = function() {
                     if (lines[i].length == 0) {
                         t.echo(' ');
@@ -160,7 +171,11 @@ function loadExample(file) {
                     ++i;
                     if (i < lines.length) {
                         t.set_command(lines[i]);
-                        setTimeout(execLine, 10);
+                        if (delay == -1) {
+                            t.read('', function() { setTimeout(execLine, 0); });
+                        } else {
+                            setTimeout(execLine, delay);
+                        }
                     }
                 };
                 if (i < lines.length) {
@@ -174,7 +189,7 @@ function loadExample(file) {
 
 function lela_exec(command) {
     var t = $('#terminal').terminal();
-    if (command == "help") {
+    if (command == 'help') {
         t.echo('Commands:');
         t.echo('  ls                                 list predefined examples');
         t.echo('  load <example>                     load the specified example');
@@ -206,7 +221,7 @@ function lela_exec(command) {
         //t.echo('  G formula                          consistency guarantee');
         //t.echo('  ( formula )                        brackets');
         //t.echo('  formula-id                         id of abbreviation');
-    } else if (command == "ls") {
+    } else if (command == 'ls') {
         var maxlen = 0;
         for (var i = 0; i < examples.length; ++i) {
             if (maxlen < examples[i].value.length) {
