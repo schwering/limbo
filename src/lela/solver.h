@@ -450,7 +450,7 @@ next_split:
         assert(!lits.empty());
         Setup::ShallowCopy split_setup = s.shallow_copy();
         for (Literal a : lits) {
-          if (!split_setup->Subsumes(Clause{a.flip()})) {
+          if (!s.Subsumes(Clause{a.flip()})) {
             split_setup.AddUnit(a);
           }
         }

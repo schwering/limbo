@@ -4,6 +4,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=0.5">
     <title>Limited reasoner demo</title>
 
     <script src="../jquery-3.1.1.min.js"></script>
@@ -69,6 +70,40 @@
         { value: 'test-veggie-with-guarantee',     text: 'Test: Veggie 2' },
     //  { value: 'test-battleship-1x4',            text: 'Test: Battleship 1x4' }, // test-battleship-1x4 test is specificially for "my" computer as it assumes a specific "random" ship placement, which is different under Javascript due to different random numbers -->
     ];
+    var help = [
+        { value: 'ls', text: 'list predefined examples' },
+        { value: 'load <example>', text: 'load the specified example' },
+        { value: '[hide|show]-debug', text: 'show/hide debug output' },
+        { value: '', text: '' },
+        { value: 'Sort <id>', text: 'define new sort with specified id' },
+        { value: 'Var <id> -> <sort-id>', text: 'define new variable' },
+        { value: 'Name <id> -> <sort-id>', text: 'define new standard name' },
+        { value: 'Fun <id>/<arity> -> <sort-id>', text: 'define new function' },
+        { value: '', text: '' },
+        { value: 'Let <id> := <formula>', text: 'define formula abbreviation' },
+        { value: '', text: '' },
+        { value: 'KB: <formula>', text: 'add clausal formula to knowledge base' },
+        { value: '', text: '' },
+        { value: '<formula>', text: 'evaluate query formula in knowledge base ...' },
+        { value: 'Query: <formula>', text: '' },
+        { value: 'Assert: <formula>', text: '... and fail if formula is false' },
+        { value: 'Refute: <formula>', text: '... and fail if formula is true' },
+        //t.echo('Formula are of the form:');
+        //t.echo('  t == t     t /= t                  literals');
+        //t.echo('  ~formula                           negation');
+        //t.echo('  formula v formula                  disjunction');
+        //t.echo('  formula ^ formula                  conjunction');
+        //t.echo('  Ex x formula                       existential quantification');
+        //t.echo('  Fa x formula                       universal quantification');
+        //t.echo('  formula -> formula                 implication');
+        //t.echo('  formula <-> formula                implication');
+        //t.echo('  K<k> formula                       knowledge modality, k >= 0');
+        //t.echo('  M<k> formula                       consistency modality, k >= 0');
+        //t.echo('  B<k,l> formula ==> formula         conditional belief modality, k, l >= 0');
+        //t.echo('  G formula                          consistency guarantee');
+        //t.echo('  ( formula )                        brackets');
+        //t.echo('  formula-id                         id of abbreviation');
+    ];
     </script>
 </head>
 
@@ -99,6 +134,7 @@ Load an example:
 <option value ="10" selected>10 ms</option>
 <option value ="50">50 ms</option>
 <option value ="100">100 ms</option>
+<option value ="500">500 ms</option>
 <option value ="1000">1000 ms</option>
 <option value ="5000">5000 ms</option>
 <option value ="-1">block</option>
@@ -190,37 +226,18 @@ function loadExample(file) {
 function lela_exec(command) {
     var t = $('#terminal').terminal();
     if (command == 'help') {
+        var maxlen = 0;
+        for (var i = 0; i < help.length; ++i) {
+            if (maxlen < help[i].value.length) {
+                maxlen = help[i].value.length;
+            }
+        }
         t.echo('Commands:');
-        t.echo('  ls                                 list predefined examples');
-        t.echo('  load <example>                     load the specified example');
-        t.echo('  [hide|show]-debug                  show/hide debug output');
-        t.echo('');
-        t.echo('  Sort <id>                          define new sort with specified id');
-        t.echo('  Var <id> -> <sort-id>              define new variable');
-        t.echo('  Name <id> -> <sort-id>             define new standard name');
-        t.echo('  Fun <id>/<arity> -> <sort-id>      define new function');
-        t.echo('  Let <id> := <formula>              define formula abbreviation');
-        t.echo('  KB: <formula>                      add clausal formula to knowledge base');
-        t.echo('  <formula>                          evaluate query formula in knowledge base ...');
-        t.echo('  Query: <formula>                   ');
-        t.echo('  Assert: <formula>                  ... and fail if formula is false');
-        t.echo('  Refute: <formula>                  ... and fail if formula is true');
+        for (var i = 0; i < help.length; ++i) {
+            var pad = new Array(maxlen - help[i].value.length + 1).join(' ');
+            t.echo('  '+ help[i].value + pad +'  ' + help[i].text);
+        }
         t.echo('See below for the grammar of formulas.');
-        //t.echo('Formula are of the form:');
-        //t.echo('  t == t     t /= t                  literals');
-        //t.echo('  ~formula                           negation');
-        //t.echo('  formula v formula                  disjunction');
-        //t.echo('  formula ^ formula                  conjunction');
-        //t.echo('  Ex x formula                       existential quantification');
-        //t.echo('  Fa x formula                       universal quantification');
-        //t.echo('  formula -> formula                 implication');
-        //t.echo('  formula <-> formula                implication');
-        //t.echo('  K<k> formula                       knowledge modality, k >= 0');
-        //t.echo('  M<k> formula                       consistency modality, k >= 0');
-        //t.echo('  B<k,l> formula ==> formula         conditional belief modality, k, l >= 0');
-        //t.echo('  G formula                          consistency guarantee');
-        //t.echo('  ( formula )                        brackets');
-        //t.echo('  formula-id                         id of abbreviation');
     } else if (command == 'ls') {
         var maxlen = 0;
         for (var i = 0; i < examples.length; ++i) {
@@ -248,10 +265,6 @@ $(document).ready(function() {
     $('#debug-toggle').click(function() { $('#debug-div').toggle(); return false; });
 
     Module.ccall('lela_init', 'void', [], []);
-
-    for (var i = 0; i < examples.length; ++i) {
-        $('#examples').append($('<option>', examples[i])).select();
-    }
 
     var select_ex = getParameterByName('ex');
     if (select_ex) {
