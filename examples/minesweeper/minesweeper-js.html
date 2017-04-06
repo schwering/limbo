@@ -263,8 +263,7 @@ function displayGame(arg) {
     var lastLegal = currentGame > 1 ? games[currentGame - 2] : null;
     var lastMove = currentGame > 0 ? games[currentGame - 1] : null;
     var g = games[currentGame];
-    var finalDisplay = gameOver && currentGame == games.length - 1;
-    var madeMistake = gameOver && games.length >= 2 && games[games.length - 2] != games[games.length - 1];
+    var madeMistake = gameOver && ((games.length >= 2 && games[games.length - 2] != games[games.length - 1]) || games[games.length - 1].indexOf(' ') != -1);
     var i;
     for (i = 0; i < g.length; ++i) {
         var c = g[i];
