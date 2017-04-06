@@ -17,6 +17,7 @@
 
         form .label { display: inline-block; min-width: 15em; }
         form input.number { width: 5em; }
+        #custom { font-family: monospace; }
         #play-button { background-color: black; color: #eee; font-family: inherit; font-weight: bold; font-size: 100%; margin-top: 1ex; margin-left: 1em; padding-left: 3em; padding-right: 3em; padding-top: 1ex; padding-bottom: 1ex; }
         #play-button {
             background:
@@ -44,6 +45,13 @@
 
     <script src="../jquery-3.1.1.min.js"></script>
     <script>window.jQuery || document.write('<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js">\x3C/script>')</script>
+    <script>
+    var runtimeIsReadyFlag = false;
+
+    var Module = {
+        onRuntimeInitialized: function() { runtimeIsReadyFlag = true; initGame(); }
+    };
+    </script>
     <script src="sudoku-js.js"></script>
 </head>
 
@@ -64,9 +72,9 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 <form>
 <div class="label">Sudoku game:</div>
 <select id="configs">
-    <option value="" style="color: #666;">Custom:</option>
+    <option value="">Custom:</option>
 </select>
-<input id="custom" type="text" size="81" placeholder="Line by line; dots for blanks; e.g.: 18........5.28691..6...4...9.6..2.4..4..175.2....4968.4...6..........751.....14.9" />
+<input id="custom" type="text" size="90" placeholder="Line by line. Whitespace is ignored. Other characters represent blanks. E.g.: 5.1.8...4.42.6.718..742..5..159...6.32..1.47..7.3.41.......834729..47...7....5..9" />
 <br />
 <div class="label">Max. number of case splits:</div> <input type="number" id="max_k" min="0" value="2" class="number"><br />
 <input id="play-button" type="button" value="Click to play Sudoku!" />
@@ -79,13 +87,15 @@ $(document).ready(function() {
     $('#configs').change(function() {
         var config = document.getElementById('configs').value;
         if (config) {
-            initGame();
             $('#custom').hide();
         } else {
-            $('#custom').show();
+            $('#custom').show().focus();
         }
+        initGame();
     });
-    $('#custom').change(function() { initGame($('#custom').val()); }).hide();
+    $('#custom').change(function() { initGame(); });
+    $('#custom').keyup(function() { initGame(); });
+    $('#custom').hide();
     $.ajax({
         url : 'sudokus.txt',
         dataType: 'text',
@@ -114,14 +124,20 @@ $(document).ready(function() {
 
 var t0 = null;
 
-function initGame(config, max_k) {
+function initGame() {
+    if (!runtimeIsReadyFlag) {
+        return;
+    }
     $('#output').empty();
+    config = document.getElementById('configs').value;
     if (!config) {
-        config = document.getElementById('configs').value;
+        config = $('#custom').val();
     }
-    if (!max_k) {
-        max_k = document.getElementById('max_k').value;
+    if (!config) {
+        config = '';
     }
+    config = config.replace(/\s/g,'');
+    max_k = document.getElementById('max_k').value;
     if (max_k == null) {
         max_k = 2;
     }

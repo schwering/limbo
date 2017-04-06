@@ -42,7 +42,7 @@
     </style>
 
     <script>
-    Module = {
+    var Module = {
         'print': function(msg) { printMsg(msg); },
         'printErr': function(msg) { printDebug(msg); },
     };
@@ -125,7 +125,11 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 Load an example:
 <select id="examples">
 <option value="" style="color: #666;">none</option>
-<script>for (var i = 0; i < examples.length; ++i) document.write('<option value="'+ examples[i].value +'">'+ examples[i].text +'\x3C/option>')</script>
+<script>
+for (var i = 0; i < examples.length; ++i) {
+    document.write('<option value="'+ examples[i].value +'">'+ examples[i].text +'\x3C/option>');
+}
+</script>
 </select>
 <br>
 <label><input type="checkbox" id="show-debug" value="1" /> Show debug output</label>
