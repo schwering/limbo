@@ -4,12 +4,12 @@
 //
 // Integer typedefs.
 
-#ifndef LELA_INTERNAL_INTS_H_
-#define LELA_INTERNAL_INTS_H_
+#ifndef LIMBO_INTERNAL_INTS_H_
+#define LIMBO_INTERNAL_INTS_H_
 
 #include <cstdint>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 typedef std::int8_t i8;
@@ -23,7 +23,7 @@ typedef std::uintptr_t uptr_t;
 typedef std::intptr_t iptr_t;
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_INTERNAL_INTS_H_
+#endif  // LIMBO_INTERNAL_INTS_H_
 

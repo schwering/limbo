@@ -9,8 +9,8 @@
 // NF() rectifies a formula (that is, renames variables to make sure no variable
 // occurs freely and bound or bound by two different quantifiers).
 
-#ifndef LELA_FORMULA_H_
-#define LELA_FORMULA_H_
+#ifndef LIMBO_FORMULA_H_
+#define LIMBO_FORMULA_H_
 
 #include <cassert>
 
@@ -21,13 +21,13 @@
 #include <unordered_map>
 #include <vector>
 
-#include <lela/clause.h>
+#include <limbo/clause.h>
 
-#include <lela/internal/iter.h>
-#include <lela/internal/ints.h>
-#include <lela/internal/maybe.h>
+#include <limbo/internal/iter.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/maybe.h>
 
-namespace lela {
+namespace limbo {
 
 class Formula {
  public:
@@ -885,7 +885,7 @@ inline const class Formula::Guarantee& Formula::as_guarantee() const {
   return *dynamic_cast<const class Guarantee*>(this);
 }
 
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_FORMULA_H_
+#endif  // LIMBO_FORMULA_H_
 

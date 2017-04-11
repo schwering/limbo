@@ -85,6 +85,11 @@ For further demos and details on the reasoner, <a href="../">click here</a>.
 </form>
 
 <script>
+function preloadImg(image) {
+    var img = new Image();
+    img.src = image;
+}
+
 $(document).ready(function() {
     $('#config-small').click(function() { setConfig(8, 8, 10); return false; }).click();
     $('#config-medium').click(function() { setConfig(16, 16, 40); return false; });
@@ -97,6 +102,8 @@ $(document).ready(function() {
     $('#different-seed').click(function() { $('#seed').val(parseInt($('#seed').val()) + 1); scrollToShow('#play-button'); return false; });
     $('#different-field-size').click(function() { scrollToShow('#config-small'); return false; });
     $('#play-again-msg').hide();
+    preloadImg('flag.svg');
+    preloadImg('mine.svg');
     initDisplay();
 });
 
@@ -125,7 +132,7 @@ function play() {
     resetGameVariables();
     timerOverall = 0;
     scrollToShow('#output');
-    Module.ccall('lela_init', 'void', ['number', 'number', 'number', 'number', 'number'], [width, height, n_mines, seed, max_k]);
+    Module.ccall('limbo_init', 'void', ['number', 'number', 'number', 'number', 'number'], [width, height, n_mines, seed, max_k]);
     playTurn();
 }
 
@@ -133,7 +140,7 @@ function playTurn() {
     setTimeout(function() {
         var t0 = performance.now();
         timerTurn = t0;
-        var gameOver = Module.ccall('lela_play_turn', 'number', [], []);
+        var gameOver = Module.ccall('limbo_play_turn', 'number', [], []);
         var t1 = performance.now();
         timerOverall += t1 - t0;
         if (!gameOver) {

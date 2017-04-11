@@ -3,12 +3,12 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/literal.h>
-#include <lela/format/output.h>
+#include <limbo/literal.h>
+#include <limbo/format/output.h>
 
-namespace lela {
+namespace limbo {
 
-using namespace lela::format;
+using namespace limbo::format;
 
 TEST(LiteralTest, general) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
@@ -93,5 +93,5 @@ TEST(LiteralTest, general) {
   EXPECT_TRUE(Literal::Valid(Literal::Neq(f1, n1), Literal::Neq(f1, n2)));
 }
 
-}  // namespace lela
+}  // namespace limbo
 

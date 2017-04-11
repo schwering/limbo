@@ -84,8 +84,8 @@ static SimplePrinter* printer = nullptr;
 static std::vector<int>* split_counts = nullptr;
 
 void Finalize() {
-  lela::Symbol::Factory::Reset();
-  lela::Term::Factory::Reset();
+  limbo::Symbol::Factory::Reset();
+  limbo::Term::Factory::Reset();
   if (agent)
     delete agent;
   if (kb)
@@ -120,7 +120,7 @@ bool PlayTurn() {
   Timer timer_turn;
   timer_turn.start();
   timer_overall->start();
-  const lela::internal::Maybe<Agent::Result> r = agent->Explore();
+  const limbo::internal::Maybe<Agent::Result> r = agent->Explore();
   timer_overall->stop();
   timer_turn.stop();
   if (r) {
@@ -159,14 +159,14 @@ bool PlayTurn() {
 
 }  // namespace game
 
-extern "C" void lela_init(const char* cfg, int max_k) {
+extern "C" void limbo_init(const char* cfg, int max_k) {
   if (!logging::redirector_) {
     logging::redirector_ = new logging::StreamRedirector<logging::JsLogger>(&std::cout);
   }
   game::Init(cfg, max_k);
 }
 
-extern "C" int lela_play_turn() {
+extern "C" int limbo_play_turn() {
   return game::PlayTurn() ? 1 : 0;
 }
 

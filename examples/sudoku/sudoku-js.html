@@ -141,7 +141,7 @@ function initGame() {
     if (max_k == null) {
         max_k = 2;
     }
-    Module.ccall('lela_init', 'void', ['string', 'number'], [config, max_k]);
+    Module.ccall('limbo_init', 'void', ['string', 'number'], [config, max_k]);
 }
 
 function play() {
@@ -153,7 +153,7 @@ function play() {
 
 function playTurn() {
     setTimeout(function() {
-        var game_over = Module.ccall('lela_play_turn', 'number', [], []);
+        var game_over = Module.ccall('limbo_play_turn', 'number', [], []);
         if (!game_over) {
             playTurn();
         } else {

@@ -11,16 +11,16 @@
 
 #include <emscripten.h>
 
-#include <lela/setup.h>
-#include <lela/formula.h>
-#include <lela/format/output.h>
-#include <lela/format/pdl/context.h>
-#include <lela/format/pdl/parser.h>
+#include <limbo/setup.h>
+#include <limbo/formula.h>
+#include <limbo/format/output.h>
+#include <limbo/format/pdl/context.h>
+#include <limbo/format/pdl/parser.h>
 
 #include "battleship.h"
 #include "sudoku.h"
 
-using lela::format::operator<<;
+using limbo::format::operator<<;
 
 template<typename T>
 inline std::string to_string(const T& x) {
@@ -41,7 +41,7 @@ static std::string in_color(const std::string& text, const std::string& color) {
   return ss.str();
 }
 
-struct Logger : public lela::format::pdl::DefaultLogger {
+struct Logger : public limbo::format::pdl::DefaultLogger {
   void operator()(const LogData&)                      const { std::cerr << "Unknown log data" << std::endl; }
   void operator()(const RegisterData& d)               const { std::cerr << "Registered " << d.id << std::endl; }
   void operator()(const RegisterSortData& d)           const { std::cerr << "Registered sort " << d.id << std::endl; }
@@ -54,7 +54,7 @@ struct Logger : public lela::format::pdl::DefaultLogger {
   void operator()(const UnregisterMetaVariableData& d) const { std::cerr << "Unregistered meta variable " << d.id << std::endl; }
   void operator()(const AddToKbData& d)                const { std::cerr << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
   void operator()(const QueryData& d)                  const {
-    //for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
+    //for (limbo::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
     //  std::cerr << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
     //}
     const std::string r = in_color(d.yes ? "Yes" : "No", d.yes ? "#0c0" : "#c00");
@@ -69,15 +69,15 @@ struct Logger : public lela::format::pdl::DefaultLogger {
   bool print_queries = true;
 };
 
-struct Callback : public lela::format::pdl::DefaultCallback {
+struct Callback : public limbo::format::pdl::DefaultCallback {
   template<typename T>
-  void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
+  void operator()(T* ctx, const std::string& proc, const std::vector<limbo::Term>& args) {
     if (proc == "print_kb") {
-      for (lela::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
+      for (limbo::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
         std::cout << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p)->setup() << std::endl;
       }
     } else if (proc == "print") {
-      lela::format::print_range(std::cout, args, "", "", " ");
+      limbo::format::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
     } else if (proc == "enable_query_logging") {
       ctx->logger()->print_queries = true;
@@ -89,7 +89,7 @@ struct Callback : public lela::format::pdl::DefaultCallback {
       // it's a call for Sudoku
     } else {
       std::cout << "Calling " << proc;
-      lela::format::print_range(std::cerr, args, "(", ")", ",");
+      limbo::format::print_range(std::cerr, args, "(", ")", ",");
       std::cout << " failed" << std::endl;
     }
   }
@@ -99,25 +99,25 @@ struct Callback : public lela::format::pdl::DefaultCallback {
   SudokuCallbacks su_;
 };
 
-typedef lela::format::pdl::Context<Logger, Callback> Context;
-typedef lela::format::pdl::Parser<std::string::const_iterator, Context> Parser;
+typedef limbo::format::pdl::Context<Logger, Callback> Context;
+typedef limbo::format::pdl::Parser<std::string::const_iterator, Context> Parser;
 
 static Context* ctx = nullptr;
 
-extern "C" void lela_init() {
+extern "C" void limbo_init() {
   if (ctx) {
     delete ctx;
   }
   ctx = new Context();
 }
 
-extern "C" void lela_free() {
+extern "C" void limbo_free() {
   if (ctx) {
     delete ctx;
   }
 }
 
-extern "C" void lela_parse(const char* c_str) {
+extern "C" void limbo_parse(const char* c_str) {
   const std::string str = c_str;
 
   Parser parser(str.begin(), str.end());

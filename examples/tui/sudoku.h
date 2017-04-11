@@ -8,17 +8,17 @@
 #include <sstream>
 #include <vector>
 
-#include <lela/term.h>
-#include <lela/clause.h>
-#include <lela/literal.h>
-#include <lela/formula.h>
-#include <lela/format/output.h>
+#include <limbo/term.h>
+#include <limbo/clause.h>
+#include <limbo/literal.h>
+#include <limbo/formula.h>
+#include <limbo/format/output.h>
 
 #include "timer.h"
 
 struct SudokuCallbacks {
   template<typename T>
-  bool operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
+  bool operator()(T* ctx, const std::string& proc, const std::vector<limbo::Term>& args) {
     if (proc == "su_init") {
       ns_ = args;
     } else if (proc == "su_print") {
@@ -31,11 +31,11 @@ struct SudokuCallbacks {
         for (size_t x = 0; x < ns_.size(); ++x) {
           bool known = false;
           for (size_t n = 0; n < ns_.size(); ++n) {
-            const lela::Term Val = ctx->CreateTerm(ctx->LookupFunction("val"), {ns_[x], ns_[y]});
-            const lela::Clause c{lela::Literal::Eq(Val, ns_[n])};
-            bool b = ctx->kb()->Entails(*lela::Formula::Factory::Know(0, lela::Formula::Factory::Atomic(c)));
+            const limbo::Term Val = ctx->CreateTerm(ctx->LookupFunction("val"), {ns_[x], ns_[y]});
+            const limbo::Clause c{limbo::Literal::Eq(Val, ns_[n])};
+            bool b = ctx->kb()->Entails(*limbo::Formula::Factory::Know(0, limbo::Formula::Factory::Atomic(c)));
             if (b) {
-              using lela::format::operator<<;
+              using limbo::format::operator<<;
               std::stringstream ss;
               ss << ns_[n];
               std::cout << ss.str().substr(1);
@@ -66,7 +66,7 @@ struct SudokuCallbacks {
   }
 
  private:
-  std::vector<lela::Term> ns_;
+  std::vector<limbo::Term> ns_;
   Timer timer_;
 };
 

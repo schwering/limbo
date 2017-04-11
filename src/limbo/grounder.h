@@ -22,8 +22,8 @@
 // Symbol::Factory. Returning such temporary names for later re-use may avoid
 // bloating up the setups.
 
-#ifndef LELA_GROUNDER_H_
-#define LELA_GROUNDER_H_
+#ifndef LIMBO_GROUNDER_H_
+#define LIMBO_GROUNDER_H_
 
 #include <cassert>
 
@@ -35,16 +35,16 @@
 #include <unordered_set>
 #include <utility>
 
-#include <lela/clause.h>
-#include <lela/formula.h>
-#include <lela/setup.h>
+#include <limbo/clause.h>
+#include <limbo/formula.h>
+#include <limbo/setup.h>
 
-#include <lela/internal/hash.h>
-#include <lela/internal/ints.h>
-#include <lela/internal/iter.h>
-#include <lela/internal/maybe.h>
+#include <limbo/internal/hash.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/iter.h>
+#include <limbo/internal/maybe.h>
 
-namespace lela {
+namespace limbo {
 
 class Grounder {
  public:
@@ -663,7 +663,7 @@ class Grounder {
   internal::Maybe<Setup> setup_;
 };
 
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_GROUNDER_H_
+#endif  // LIMBO_GROUNDER_H_
 

@@ -3,9 +3,9 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/internal/iter.h>
+#include <limbo/internal/iter.h>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 struct Int {
@@ -161,5 +161,5 @@ TEST(IterTest, join_ranges) {
 }
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 

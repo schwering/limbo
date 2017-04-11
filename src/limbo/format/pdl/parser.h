@@ -8,8 +8,8 @@
 // definition. The Context template parameter is merely passed around to be
 // the argument of Parser::Action functors, as returned by Parser::Parse().
 
-#ifndef LELA_FORMAT_PDL_PARSER_H_
-#define LELA_FORMAT_PDL_PARSER_H_
+#ifndef LIMBO_FORMAT_PDL_PARSER_H_
+#define LIMBO_FORMAT_PDL_PARSER_H_
 
 #include <cassert>
 
@@ -21,22 +21,22 @@
 #include <utility>
 #include <vector>
 
-#include <lela/formula.h>
-#include <lela/grounder.h>
-#include <lela/setup.h>
+#include <limbo/formula.h>
+#include <limbo/grounder.h>
+#include <limbo/setup.h>
 
-#include <lela/format/output.h>
+#include <limbo/format/output.h>
 
-#include <lela/format/pdl/lexer.h>
+#include <limbo/format/pdl/lexer.h>
 
-namespace lela {
+namespace limbo {
 namespace format {
 namespace pdl {
 
-#define LELA_S(x)          #x
-#define LELA_S_(x)         LELA_S(x)
-#define LELA_STR__LINE__   LELA_S_(__LINE__)
-#define LELA_MSG(msg)      (std::string(msg) +" (in rule "+ __FUNCTION__ +":"+ LELA_STR__LINE__ +")")
+#define LIMBO_S(x)          #x
+#define LIMBO_S_(x)         LIMBO_S(x)
+#define LIMBO_STR__LINE__   LIMBO_S_(__LINE__)
+#define LIMBO_MSG(msg)      (std::string(msg) +" (in rule "+ __FUNCTION__ +":"+ LIMBO_STR__LINE__ +")")
 
 template<typename ForwardIt, typename Context>
 class Parser {
@@ -111,7 +111,7 @@ class Parser {
       if (f) {
         return (*f)(ctx);
       } else {
-        return Result<T>(Result<T>::kError, LELA_MSG("Action is null"));
+        return Result<T>(Result<T>::kError, LIMBO_MSG("Action is null"));
       }
     }
 
@@ -186,11 +186,11 @@ class Parser {
               ctx->RegisterSort(id);
               return Success<>();
             } else {
-              return Error<>(LELA_MSG("Sort "+ id +" is already registered"));
+              return Error<>(LIMBO_MSG("Sort "+ id +" is already registered"));
             }
           };
         } else {
-          return Error<Action<>>(LELA_MSG("Expected sort identifier"));
+          return Error<Action<>>(LIMBO_MSG("Expected sort identifier"));
         }
       } while (Is(Tok(), Token::kComma));
       return Success<Action<>>(std::move(a));
@@ -204,7 +204,7 @@ class Parser {
           ids.push_back(Tok().val.str());
           Advance();
         } else {
-          return Error<Action<>>(LELA_MSG(var ? "Expected variable identifier" : "Expected name identifier"));
+          return Error<Action<>>(LIMBO_MSG(var ? "Expected variable identifier" : "Expected name identifier"));
         }
       } while (Is(Tok(0), Token::kComma));
       if (Is(Tok(0), Token::kRArrow) &&
@@ -219,16 +219,16 @@ class Parser {
                 var ? ctx->RegisterVariable(id, sort) : ctx->RegisterName(id, sort);
                 return Success<>();
               } else {
-                return Error<>(LELA_MSG("Term "+ id +" is already registered"));
+                return Error<>(LIMBO_MSG("Term "+ id +" is already registered"));
               }
             } else {
-              return Error<>(LELA_MSG("Sort "+ sort +" is not registered"));
+              return Error<>(LIMBO_MSG("Sort "+ sort +" is not registered"));
             }
           };
         }
         return Success<Action<>>(std::move(a));
       } else {
-        return Error<Action<>>(LELA_MSG("Expected arrow and sort identifier"));
+        return Error<Action<>>(LIMBO_MSG("Expected arrow and sort identifier"));
       }
     }
     if (Is(Tok(), Token::kFun)) {
@@ -241,7 +241,7 @@ class Parser {
           ids.push_back(std::make_pair(Tok(0).val.str(), std::stoi(Tok(2).val.str())));
           Advance(3);
         } else {
-          return Error<Action<>>(LELA_MSG("Expected function identifier"));
+          return Error<Action<>>(LIMBO_MSG("Expected function identifier"));
         }
       } while (Is(Tok(0), Token::kComma));
       if (Is(Tok(0), Token::kRArrow) &&
@@ -258,19 +258,19 @@ class Parser {
                 ctx->RegisterFunction(id, arity, sort);
                 return Success<>();
               } else {
-                return Error<>(LELA_MSG("Term "+ id +" is already registered"));
+                return Error<>(LIMBO_MSG("Term "+ id +" is already registered"));
               }
             } else {
-              return Error<>(LELA_MSG("Sort "+ sort +" is not registered"));
+              return Error<>(LIMBO_MSG("Sort "+ sort +" is not registered"));
             }
           };
         }
         return Success<Action<>>(std::move(a));
       } else {
-        return Error<Action<>>(LELA_MSG("Expected arrow and sort identifier"));
+        return Error<Action<>>(LIMBO_MSG("Expected arrow and sort identifier"));
       }
     }
-    return Unapplicable<Action<>>(LELA_MSG("Expected 'Sort', 'Var', 'Name' or 'Fun'"));
+    return Unapplicable<Action<>>(LIMBO_MSG("Expected 'Sort', 'Var', 'Name' or 'Fun'"));
   }
 
   // atomic_term --> x
@@ -288,17 +288,17 @@ class Parser {
         } else if (ctx->IsRegisteredFunction(id)) {
           Symbol f = ctx->LookupFunction(id);
           if (f.arity() != 0) {
-            return Error<Term>(LELA_MSG("Wrong number of arguments for "+ id));
+            return Error<Term>(LIMBO_MSG("Wrong number of arguments for "+ id));
           }
           return Success(ctx->CreateTerm(f, {}));
         } else if (ctx->IsRegisteredMetaVariable(id)) {
           return Success(ctx->LookupMetaVariable(id));
         } else {
-          return Error<Term>(LELA_MSG("Error in atomic_term"));
+          return Error<Term>(LIMBO_MSG("Error in atomic_term"));
         }
       });
     }
-    return Error<Action<Term>>(LELA_MSG("Expected a declared variable/name/function identifier"));
+    return Error<Action<Term>>(LIMBO_MSG("Expected a declared variable/name/function identifier"));
   }
 
   // term --> x
@@ -315,7 +315,7 @@ class Parser {
         for (;;) {
           Result<Action<Term>> t = term();
           if (!t) {
-            return Error<Action<Term>>(LELA_MSG("Expected argument term"), t);
+            return Error<Action<Term>>(LIMBO_MSG("Expected argument term"), t);
           }
           args.push_back(t.val);
           if (Is(Tok(), Token::kComma)) {
@@ -325,7 +325,7 @@ class Parser {
             Advance();
             break;
           } else {
-            return Error<Action<Term>>(LELA_MSG("Expected comma ',' or closing parenthesis ')'"));
+            return Error<Action<Term>>(LIMBO_MSG("Expected comma ',' or closing parenthesis ')'"));
           }
         }
       }
@@ -337,7 +337,7 @@ class Parser {
         } else if (ctx->IsRegisteredFunction(id)) {
           Symbol f = ctx->LookupFunction(id);
           if (static_cast<size_t>(f.arity()) != args_a.size()) {
-            return Error<Term>(LELA_MSG("Wrong number of arguments for "+ id));
+            return Error<Term>(LIMBO_MSG("Wrong number of arguments for "+ id));
           }
           Term::Vector args;
           for (const Action<Term>& a : args_a) {
@@ -345,45 +345,45 @@ class Parser {
             if (t) {
               args.push_back(t.val);
             } else {
-              return Error<Term>(LELA_MSG("Expected argument term"), t);
+              return Error<Term>(LIMBO_MSG("Expected argument term"), t);
             }
           }
           return Success(ctx->CreateTerm(f, args));
         } else if (ctx->IsRegisteredMetaVariable(id)) {
           return Success(ctx->LookupMetaVariable(id));
         } else {
-          return Error<Term>(LELA_MSG("Error in term"));
+          return Error<Term>(LIMBO_MSG("Error in term"));
         }
       });
     }
-    return Error<Action<Term>>(LELA_MSG("Expected a declared variable/name/function identifier"));
+    return Error<Action<Term>>(LIMBO_MSG("Expected a declared variable/name/function identifier"));
   }
 
   // literal --> term [ '==' | '!=' ] term
   Result<Action<std::unique_ptr<Literal>>> literal() {
     Result<Action<Term>> lhs = term();
     if (!lhs) {
-      return Error<Action<std::unique_ptr<Literal>>>(LELA_MSG("Expected a lhs term"), lhs);
+      return Error<Action<std::unique_ptr<Literal>>>(LIMBO_MSG("Expected a lhs term"), lhs);
     }
     bool pos;
     if (Is(Tok(), Token::kEquality) || Is(Tok(), Token::kInequality)) {
       pos = Is(Tok(), Token::kEquality);
       Advance();
     } else {
-      return Error<Action<std::unique_ptr<Literal>>>(LELA_MSG("Expected equality or inequality '=='/'!='"));
+      return Error<Action<std::unique_ptr<Literal>>>(LIMBO_MSG("Expected equality or inequality '=='/'!='"));
     }
     Result<Action<Term>> rhs = term();
     if (!rhs) {
-      return Error<Action<std::unique_ptr<Literal>>>(LELA_MSG("Expected rhs term"), rhs);
+      return Error<Action<std::unique_ptr<Literal>>>(LIMBO_MSG("Expected rhs term"), rhs);
     }
     return Success<Action<std::unique_ptr<Literal>>>([lhs_a = lhs.val, pos, rhs_a = rhs.val](Context* ctx) {
       Result<Term> lhs = lhs_a.Run(ctx);
       if (!lhs) {
-        return Error<std::unique_ptr<Literal>>(LELA_MSG("Expected a lhs term"), lhs);
+        return Error<std::unique_ptr<Literal>>(LIMBO_MSG("Expected a lhs term"), lhs);
       }
       Result<Term> rhs = rhs_a.Run(ctx);
       if (!rhs) {
-        return Error<std::unique_ptr<Literal>>(LELA_MSG("Expected a rhs term"), rhs);
+        return Error<std::unique_ptr<Literal>>(LIMBO_MSG("Expected a rhs term"), rhs);
       }
       Literal a = pos ? Literal::Eq(lhs.val, rhs.val) : Literal::Neq(lhs.val, rhs.val);
       return Success(std::unique_ptr<Literal>(new Literal(a)));
@@ -405,12 +405,12 @@ class Parser {
       Advance();
       Result<Action<Formula::Ref>> alpha = primary_formula();
       if (!alpha) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected a primary formula within negation"), alpha);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected a primary formula within negation"), alpha);
       }
       return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val](Context* ctx) {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected a primary formula within negation"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected a primary formula within negation"), alpha);
         }
         return Success<Formula::Ref>(Formula::Factory::Not(std::move(alpha.val)));
       });
@@ -420,20 +420,20 @@ class Parser {
       Advance();
       Result<Action<Term>> x = atomic_term();
       if (!x) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected variable in quantifier"), x);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected variable in quantifier"), x);
       }
       Result<Action<Formula::Ref>> alpha = primary_formula();
       if (!alpha) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected primary formula within quantifier"), alpha);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected primary formula within quantifier"), alpha);
       }
       return Success<Action<Formula::Ref>>([this, ex, x_a = x.val, alpha_a = alpha.val](Context* ctx) {
         Result<Term> x = x_a.Run(ctx);
         if (!x || !x.val.variable()) {
-          return Error<Formula::Ref>(LELA_MSG("Expected variable in quantifier"), x);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected variable in quantifier"), x);
         }
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected primary formula within quantifier"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected primary formula within quantifier"), alpha);
         }
         return Success(ex ? Formula::Factory::Exists(x.val, std::move(alpha.val))
                           : Formula::Factory::Not(
@@ -444,26 +444,26 @@ class Parser {
       bool know = Is(Tok(), Token::kKnow);
       Advance();
       if (!Is(Tok(), Token::kLess)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected '<'"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected '<'"));
       }
       Advance();
       if (!Is(Tok(), Token::kUint)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected split level integer"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected split level integer"));
       }
       const Formula::split_level k = std::stoi(Tok().val.str());
       Advance();
       if (!Is(Tok(), Token::kGreater)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected '>'"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected '>'"));
       }
       Advance();
       Result<Action<Formula::Ref>> alpha = primary_formula();
       if (!alpha) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected primary formula within modality"), alpha);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected primary formula within modality"), alpha);
       }
       return Success<Action<Formula::Ref>>([this, know, k, alpha_a = alpha.val](Context* ctx) {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected primary formula within modality"), alpha);
         }
         if (know) {
           return Success(Formula::Factory::Know(k, std::move(alpha.val)));
@@ -475,47 +475,47 @@ class Parser {
     if (Is(Tok(), Token::kBel)) {
       Advance();
       if (!Is(Tok(), Token::kLess)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected '<'"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected '<'"));
       }
       Advance();
       if (!Is(Tok(), Token::kUint)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected first split level integer"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected first split level integer"));
       }
       const Formula::split_level k = std::stoi(Tok().val.str());
       Advance();
       if (!Is(Tok(), Token::kComma)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected ','"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected ','"));
       }
       Advance();
       if (!Is(Tok(), Token::kUint)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected second split level integer"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected second split level integer"));
       }
       const Formula::split_level l = std::stoi(Tok().val.str());
       Advance();
       if (!Is(Tok(), Token::kGreater)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected '>'"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected '>'"));
       }
       Advance();
       Result<Action<Formula::Ref>> alpha = primary_formula();
       if (!alpha) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected primary formula within modality"), alpha);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected primary formula within modality"), alpha);
       }
       if (!Is(Tok(), Token::kDoubleRArrow)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected conditional belief arrow"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected conditional belief arrow"));
       }
       Advance();
       Result<Action<Formula::Ref>> beta = primary_formula();
       if (!beta) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected primary formula within modality"), beta);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected primary formula within modality"), beta);
       }
       return Success<Action<Formula::Ref>>([this, k, l, alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected primary formula within modality"), alpha);
         }
         Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
-          return Error<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), beta);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected primary formula within modality"), beta);
         }
         return Success(Formula::Factory::Bel(k, l, std::move(alpha.val), std::move(beta.val)));
       });
@@ -524,12 +524,12 @@ class Parser {
       Advance();
       Result<Action<Formula::Ref>> alpha = primary_formula();
       if (!alpha) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected primary formula within modality"), alpha);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected primary formula within modality"), alpha);
       }
       return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val](Context* ctx) {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected primary formula within modality"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected primary formula within modality"), alpha);
         }
         return Success(Formula::Factory::Guarantee(std::move(alpha.val)));
       });
@@ -538,16 +538,16 @@ class Parser {
       Advance();
       Result<Action<Formula::Ref>> alpha = formula();
       if (!alpha) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected formula within brackets"), alpha);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected formula within brackets"), alpha);
       }
       if (!Is(Tok(), Token::kRightParen)) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected closing right parenthesis ')'"));
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected closing right parenthesis ')'"));
       }
       Advance();
       return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val](Context* ctx) {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected formula within brackets"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected formula within brackets"), alpha);
         }
         return Success(std::move(alpha.val));
       });
@@ -558,19 +558,19 @@ class Parser {
       Advance();
       return Success<Action<Formula::Ref>>([this, id](Context* ctx) {
         if (!ctx->IsRegisteredFormula(id)) {
-          return Error<Formula::Ref>(LELA_MSG("Undefined formula abbreviation "+ id));
+          return Error<Formula::Ref>(LIMBO_MSG("Undefined formula abbreviation "+ id));
         }
         return Success(ctx->LookupFormula(id).Clone());
       });
     }
     Result<Action<std::unique_ptr<Literal>>> a = literal();
     if (!a) {
-      return Error<Action<Formula::Ref>>(LELA_MSG("Expected literal"), a);
+      return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected literal"), a);
     }
     return Success<Action<Formula::Ref>>([this, a_a = a.val](Context* ctx) {
       Result<std::unique_ptr<Literal>> a = a_a.Run(ctx);
       if (!a) {
-        return Error<Formula::Ref>(LELA_MSG("Expected literal"), a);
+        return Error<Formula::Ref>(LIMBO_MSG("Expected literal"), a);
       }
       return Success(Formula::Factory::Atomic(Clause{*a.val}));
     });
@@ -580,22 +580,22 @@ class Parser {
   Result<Action<Formula::Ref>> conjunctive_formula() {
     Result<Action<Formula::Ref>> alpha = primary_formula();
     if (!alpha) {
-      return Error<Action<Formula::Ref>>(LELA_MSG("Expected left conjunctive formula"), alpha);
+      return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected left conjunctive formula"), alpha);
     }
     while (Is(Tok(), Token::kAnd)) {
       Advance();
       Result<Action<Formula::Ref>> beta = primary_formula();
       if (!beta) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected left conjunctive formula"), beta);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected left conjunctive formula"), beta);
       }
       alpha = Success<Action<Formula::Ref>>([alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected left conjunctive formula"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected left conjunctive formula"), alpha);
         }
         Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
-          return Error<Formula::Ref>(LELA_MSG("Expected right conjunctive formula"), beta);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected right conjunctive formula"), beta);
         }
         return Success(Formula::Factory::Not(Formula::Factory::Or(Formula::Factory::Not(std::move(alpha.val)),
                                                                   Formula::Factory::Not(std::move(beta.val)))));
@@ -608,22 +608,22 @@ class Parser {
   Result<Action<Formula::Ref>> disjunctive_formula() {
     Result<Action<Formula::Ref>> alpha = conjunctive_formula();
     if (!alpha) {
-      return Error<Action<Formula::Ref>>(LELA_MSG("Expected left argument conjunctive formula"), alpha);
+      return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected left argument conjunctive formula"), alpha);
     }
     while (Is(Tok(), Token::kOr)) {
       Advance();
       Result<Action<Formula::Ref>> beta = conjunctive_formula();
       if (!beta) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected right argument conjunctive formula"), beta);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected right argument conjunctive formula"), beta);
       }
       alpha = Success<Action<Formula::Ref>>([alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected left argument conjunctive formula"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected left argument conjunctive formula"), alpha);
         }
         Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
-          return Error<Formula::Ref>(LELA_MSG("Expected right argument conjunctive formula"), beta);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected right argument conjunctive formula"), beta);
         }
         return Success(Formula::Factory::Or(std::move(alpha.val), std::move(beta.val)));
       });
@@ -636,22 +636,22 @@ class Parser {
   Result<Action<Formula::Ref>> implication_formula() {
     Result<Action<Formula::Ref>> alpha = disjunctive_formula();
     if (!alpha) {
-      return Error<Action<Formula::Ref>>(LELA_MSG("Expected left argument disjunctive formula"), alpha);
+      return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected left argument disjunctive formula"), alpha);
     }
     if (Is(Tok(), Token::kRArrow)) {
       Advance();
       Result<Action<Formula::Ref>> beta = disjunctive_formula();
       if (!beta) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected right argument disjunctive formula"), beta);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected right argument disjunctive formula"), beta);
       }
       alpha = Success<Action<Formula::Ref>>([this, alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected left argument disjunctive formula"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected left argument disjunctive formula"), alpha);
         }
         Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
-          return Error<Formula::Ref>(LELA_MSG("Expected right argument disjunctive formula"), beta);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected right argument disjunctive formula"), beta);
         }
         return Success(Formula::Factory::Or(Formula::Factory::Not(std::move(alpha.val)), std::move(beta.val)));
       });
@@ -664,22 +664,22 @@ class Parser {
   Result<Action<Formula::Ref>> equivalence_formula() {
     Result<Action<Formula::Ref>> alpha = implication_formula();
     if (!alpha) {
-      return Error<Action<Formula::Ref>>(LELA_MSG("Expected left argument implication formula"), alpha);
+      return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected left argument implication formula"), alpha);
     }
     if (Is(Tok(), Token::kLRArrow)) {
       Advance();
       Result<Action<Formula::Ref>> beta = implication_formula();
       if (!beta) {
-        return Error<Action<Formula::Ref>>(LELA_MSG("Expected right argument implication formula"), beta);
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected right argument implication formula"), beta);
       }
       alpha = Success<Action<Formula::Ref>>([alpha_a = alpha.val, beta_a = beta.val](Context* ctx) {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<Formula::Ref>(LELA_MSG("Expected left argument implication formula"), alpha);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected left argument implication formula"), alpha);
         }
         Result<Formula::Ref> beta = beta_a.Run(ctx);
         if (!beta) {
-          return Error<Formula::Ref>(LELA_MSG("Expected right argument implication formula"), beta);
+          return Error<Formula::Ref>(LIMBO_MSG("Expected right argument implication formula"), beta);
         }
         Formula::Ref lr = Formula::Factory::Or(Formula::Factory::Not(alpha.val->Clone()), beta.val->Clone());
         Formula::Ref rl = Formula::Factory::Or(Formula::Factory::Not(std::move(alpha.val)), std::move(beta.val));
@@ -698,26 +698,26 @@ class Parser {
   // kb_formula --> KB : formula
   Result<Action<>> kb_formula() {
     if (!Is(Tok(), Token::kKB)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected 'KB'"));
+      return Unapplicable<Action<>>(LIMBO_MSG("Expected 'KB'"));
     }
     Advance();
     if (!Is(Tok(), Token::kColon)) {
-      return Error<Action<>>(LELA_MSG("Expected ':'"));
+      return Error<Action<>>(LIMBO_MSG("Expected ':'"));
     }
     Advance();
     Result<Action<Formula::Ref>> alpha = formula();
     if (!alpha) {
-      return Error<Action<>>(LELA_MSG("Expected KB formula"), alpha);
+      return Error<Action<>>(LIMBO_MSG("Expected KB formula"), alpha);
     }
     return Success<Action<>>([this, alpha_a = alpha.val](Context* ctx) {
       Result<Formula::Ref> alpha = alpha_a.Run(ctx);
       if (!alpha) {
-        return Error<>(LELA_MSG("Expected KB formula"), alpha);
+        return Error<>(LIMBO_MSG("Expected KB formula"), alpha);
       }
       if (ctx->AddToKb(*alpha.val)) {
         return Success<>();
       } else {
-        return Error<>(LELA_MSG("Couldn't add formula to KB; is it proper+ "
+        return Error<>(LIMBO_MSG("Couldn't add formula to KB; is it proper+ "
                                 "(i.e., its NF must be a universally quantified clause)?"));
       }
     });
@@ -727,15 +727,15 @@ class Parser {
   Result<Action<Formula::Ref>> subjective_formula() {
     Result<Action<Formula::Ref>> alpha = formula();
     if (!alpha) {
-      return Error<Action<Formula::Ref>>(LELA_MSG("Expected subjective formula"), alpha);
+      return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected subjective formula"), alpha);
     }
     return Success<Action<Formula::Ref>>([this, alpha_a = alpha.val](Context* ctx) {
       Result<Formula::Ref> alpha = alpha_a.Run(ctx);
       if (!alpha) {
-        return Error<Formula::Ref>(LELA_MSG("Expected subjective formula"), alpha);
+        return Error<Formula::Ref>(LIMBO_MSG("Expected subjective formula"), alpha);
       }
       if (!alpha.val->subjective()) {
-        return Error<Formula::Ref>(LELA_MSG("Expected subjective formula "
+        return Error<Formula::Ref>(LIMBO_MSG("Expected subjective formula "
                                               "(i.e., no functions outside of modal operators; "
                                               "probably caused by missing brackets)"));
       }
@@ -751,25 +751,25 @@ class Parser {
           Is(Tok(), Token::kIdentifier)) &&
         !Is(Tok(), Token::kAssert) &&
         !Is(Tok(), Token::kRefute)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected 'Query', 'Assert', or 'Refute'"));
+      return Unapplicable<Action<>>(LIMBO_MSG("Expected 'Query', 'Assert', or 'Refute'"));
     }
     const bool is_query = !Is(Tok(), Token::kAssert) && !Is(Tok(), Token::kRefute);
     const bool is_assert = Is(Tok(), Token::kAssert);
     if (Is(Tok(), Token::kQuery) || Is(Tok(), Token::kAssert) || Is(Tok(), Token::kRefute)) {
       Advance();
       if (!Is(Tok(), Token::kColon)) {
-        return Error<Action<>>(LELA_MSG("Expected ':'"));
+        return Error<Action<>>(LIMBO_MSG("Expected ':'"));
       }
       Advance();
       }
     Result<Action<Formula::Ref>> alpha = subjective_formula();
     if (!alpha) {
-      return Error<Action<>>(LELA_MSG("Expected query/assertion/refutation subjective_formula"), alpha);
+      return Error<Action<>>(LIMBO_MSG("Expected query/assertion/refutation subjective_formula"), alpha);
     }
     return Success<Action<>>([this, alpha_a = alpha.val, is_query, is_assert](Context* ctx) {
       Result<Formula::Ref> alpha = alpha_a.Run(ctx);
       if (!alpha) {
-        return Error<>(LELA_MSG("Expected query/assertion/refutation subjective_formula"), alpha);
+        return Error<>(LIMBO_MSG("Expected query/assertion/refutation subjective_formula"), alpha);
       }
       const bool r = ctx->Query(*alpha.val);
       if (is_query) {
@@ -778,9 +778,9 @@ class Parser {
         return Success<>();
       } else {
         std::stringstream ss;
-        using lela::format::operator<<;
+        using limbo::format::operator<<;
         ss << (is_assert ? "Assertion" : "Refutation") << " of " << *alpha.val << " failed";
-        return Error<>(LELA_MSG(ss.str()));
+        return Error<>(LIMBO_MSG(ss.str()));
       }
     });
   }
@@ -803,23 +803,23 @@ class Parser {
         Advance();
         Result<Action<Term>> t = term();
         if (!t) {
-          return Error<Action<IdTerms>>(LELA_MSG("Expected argument term"), t);
+          return Error<Action<IdTerms>>(LIMBO_MSG("Expected argument term"), t);
         }
         ts.push_back(std::move(t.val));
       } while (Is(Tok(), Token::kComma));
     }
     if (!Is(Tok(), Token::kRArrow)) {
-      return Error<Action<IdTerms>>(LELA_MSG("Expected right arrow '->'"));
+      return Error<Action<IdTerms>>(LIMBO_MSG("Expected right arrow '->'"));
     }
     Advance();
     if (!Is(Tok(), Token::kIdentifier)) {
-      return Error<Action<IdTerms>>(LELA_MSG("Expected sort identifier"));
+      return Error<Action<IdTerms>>(LIMBO_MSG("Expected sort identifier"));
     }
     const std::string sort = Tok().val.str();
     Advance();
     return Success<Action<IdTerms>>([this, id, sort_id = sort, ts_a = ts](Context* ctx) {
       if (!ctx->IsRegisteredSort(sort_id)) {
-        return Error<IdTerms>(LELA_MSG("Sort "+ sort_id +" is not registered"));
+        return Error<IdTerms>(LIMBO_MSG("Sort "+ sort_id +" is not registered"));
       }
       Symbol::Sort sort = ctx->LookupSort(sort_id);
       std::vector<Term> ts;
@@ -830,10 +830,10 @@ class Parser {
         for (const Action<Term>& t_a : ts_a) {
           Result<Term> t = t_a.Run(ctx);
           if (!t) {
-            return Error<IdTerms>(LELA_MSG("Expected term in range"), t);
+            return Error<IdTerms>(LIMBO_MSG("Expected term in range"), t);
           }
           if (t.val.sort() != sort) {
-            return Error<IdTerms>(LELA_MSG("Term in range is not of sort "+ sort_id));
+            return Error<IdTerms>(LIMBO_MSG("Term in range is not of sort "+ sort_id));
           }
           ts.push_back(t.val);
         }
@@ -845,27 +845,27 @@ class Parser {
   // if_else --> If formula block [ Else block ]
   Result<Action<>> if_else() {
     if (!Is(Tok(), Token::kIf)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected 'If'"));
+      return Unapplicable<Action<>>(LIMBO_MSG("Expected 'If'"));
     }
     Advance();
     Result<Action<IdTerms>> bind = bind_meta_variables();
     if (!bind) {
-      return Error<Action<>>(LELA_MSG("Expected bind_meta_variables"), bind);
+      return Error<Action<>>(LIMBO_MSG("Expected bind_meta_variables"), bind);
     }
     Result<Action<Formula::Ref>> alpha = formula();
     if (!alpha) {
-      return Error<Action<>>(LELA_MSG("Expected formula in if_else"), alpha);
+      return Error<Action<>>(LIMBO_MSG("Expected formula in if_else"), alpha);
     }
     Result<Action<>> if_block = block();
     if (!if_block) {
-      return Error<Action<>>(LELA_MSG("Expected if block in if_else"), if_block);
+      return Error<Action<>>(LIMBO_MSG("Expected if block in if_else"), if_block);
     }
     Result<Action<>> else_block;
     if (Is(Tok(), Token::kElse)) {
       Advance();
       else_block = block();
       if (!else_block) {
-        return Error<Action<>>(LELA_MSG("Expected else block in if_else"), else_block);
+        return Error<Action<>>(LIMBO_MSG("Expected else block in if_else"), else_block);
       }
     } else {
       else_block = Success<Action<>>([](Context* ctx) { return Success<>(); });
@@ -881,7 +881,7 @@ class Parser {
           ctx->RegisterMetaVariable(id, t);
           Result<Formula::Ref> alpha = alpha_a.Run(ctx);
           if (!alpha) {
-            return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+            return Error<>(LIMBO_MSG("Expected condition subjective_formula"), alpha);
           }
           if (ctx->Query(*alpha.val)) {
             cond = true;
@@ -892,7 +892,7 @@ class Parser {
       } else {
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+          return Error<>(LIMBO_MSG("Expected condition subjective_formula"), alpha);
         }
         cond = ctx->Query(*alpha.val);
       }
@@ -906,7 +906,7 @@ class Parser {
         r = else_block_a.Run(ctx);
       }
       if (!r) {
-        return Error<>(LELA_MSG("Expected block in if_else"), r);
+        return Error<>(LIMBO_MSG("Expected block in if_else"), r);
       }
       return r;
     });
@@ -915,27 +915,27 @@ class Parser {
   // while_loop --> While formula block [ Else block ]
   Result<Action<>> while_loop() {
     if (!Is(Tok(), Token::kWhile)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected 'While'"));
+      return Unapplicable<Action<>>(LIMBO_MSG("Expected 'While'"));
     }
     Advance();
     Result<Action<IdTerms>> bind = bind_meta_variables();
     if (!bind) {
-      return Error<Action<>>(LELA_MSG("Expected bind_meta_variables"), bind);
+      return Error<Action<>>(LIMBO_MSG("Expected bind_meta_variables"), bind);
     }
     Result<Action<Formula::Ref>> alpha = formula();
     if (!alpha) {
-      return Error<Action<>>(LELA_MSG("Expected formula in while_loop"), alpha);
+      return Error<Action<>>(LIMBO_MSG("Expected formula in while_loop"), alpha);
     }
     Result<Action<>> while_block = block();
     if (!while_block) {
-      return Error<Action<>>(LELA_MSG("Expected if block in while_else"), while_block);
+      return Error<Action<>>(LIMBO_MSG("Expected if block in while_else"), while_block);
     }
     Result<Action<>> else_block;
     if (Is(Tok(), Token::kElse)) {
       Advance();
       else_block = block();
       if (!else_block) {
-        return Error<Action<>>(LELA_MSG("Expected else block in while_loop"), else_block);
+        return Error<Action<>>(LIMBO_MSG("Expected else block in while_loop"), else_block);
       }
     } else {
       else_block = Success<Action<>>([](Context* ctx) { return Success<>(); });
@@ -953,7 +953,7 @@ class Parser {
             ctx->RegisterMetaVariable(id, t);
             Result<Formula::Ref> alpha = alpha_a.Run(ctx);
             if (!alpha) {
-              return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+              return Error<>(LIMBO_MSG("Expected condition subjective_formula"), alpha);
             }
             if (ctx->Query(*alpha.val)) {
               cond = true;
@@ -964,7 +964,7 @@ class Parser {
         } else {
           Result<Formula::Ref> alpha = alpha_a.Run(ctx);
           if (!alpha) {
-            return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+            return Error<>(LIMBO_MSG("Expected condition subjective_formula"), alpha);
           }
           cond = ctx->Query(*alpha.val);
         }
@@ -975,7 +975,7 @@ class Parser {
             ctx->UnregisterMetaVariable(id);
           }
           if (!r) {
-            return Error<>(LELA_MSG("Expected block in while_loop"), r);
+            return Error<>(LIMBO_MSG("Expected block in while_loop"), r);
           }
         } else {
           break;
@@ -984,7 +984,7 @@ class Parser {
       if (!once) {
         Result<> r = else_block_a.Run(ctx);
         if (!r) {
-          return Error<>(LELA_MSG("Expected block in while_loop"), r);
+          return Error<>(LIMBO_MSG("Expected block in while_loop"), r);
         }
       }
       return Success<>();
@@ -994,27 +994,27 @@ class Parser {
   // for_loop --> For formula block [ Else block ]
   Result<Action<>> for_loop() {
     if (!Is(Tok(), Token::kFor)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected 'For'"));
+      return Unapplicable<Action<>>(LIMBO_MSG("Expected 'For'"));
     }
     Advance();
     Result<Action<IdTerms>> bind = bind_meta_variables();
     if (!bind) {
-      return Error<Action<>>(LELA_MSG("Expected bind_meta_variables"), bind);
+      return Error<Action<>>(LIMBO_MSG("Expected bind_meta_variables"), bind);
     }
     Result<Action<Formula::Ref>> alpha = formula();
     if (!alpha) {
-      return Error<Action<>>(LELA_MSG("Expected formula in for_loop"), alpha);
+      return Error<Action<>>(LIMBO_MSG("Expected formula in for_loop"), alpha);
     }
     Result<Action<>> for_block = block();
     if (!for_block) {
-      return Error<Action<>>(LELA_MSG("Expected if block in for_else"), for_block);
+      return Error<Action<>>(LIMBO_MSG("Expected if block in for_else"), for_block);
     }
     Result<Action<>> else_block;
     if (Is(Tok(), Token::kElse)) {
       Advance();
       else_block = block();
       if (!else_block) {
-        return Error<Action<>>(LELA_MSG("Expected else block in for_loop"), else_block);
+        return Error<Action<>>(LIMBO_MSG("Expected else block in for_loop"), else_block);
       }
     } else {
       else_block = Success<Action<>>([](Context* ctx) { return Success<>(); });
@@ -1024,21 +1024,21 @@ class Parser {
       Result<IdTerms> bind = bind_a.Run(ctx);
       const std::string id = bind.val.first;
       if (id.empty()) {
-        return Error<>(LELA_MSG("Expected meta variable id"));
+        return Error<>(LIMBO_MSG("Expected meta variable id"));
       }
       bool once = false;
       for (Term t : bind.val.second) {
         ctx->RegisterMetaVariable(id, t);
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
-          return Error<>(LELA_MSG("Expected condition subjective_formula"), alpha);
+          return Error<>(LIMBO_MSG("Expected condition subjective_formula"), alpha);
         }
         if (ctx->Query(*alpha.val)) {
           once = true;
           Result<> r = for_block_a.Run(ctx);
           if (!r) {
             ctx->UnregisterMetaVariable(id);
-            return Error<>(LELA_MSG("Expected block in for_loop"), r);
+            return Error<>(LIMBO_MSG("Expected block in for_loop"), r);
           }
         }
         ctx->UnregisterMetaVariable(id);
@@ -1046,7 +1046,7 @@ class Parser {
       if (!once) {
         Result<> r = else_block_a.Run(ctx);
         if (!r) {
-          return Error<>(LELA_MSG("Expected block in for_loop"), r);
+          return Error<>(LIMBO_MSG("Expected block in for_loop"), r);
         }
       }
       return Success<>();
@@ -1056,26 +1056,26 @@ class Parser {
   // abbreviation --> let identifier := formula
   Result<Action<>> abbreviation() {
     if (!Is(Tok(), Token::kLet)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected abbreviation operator 'let'"));
+      return Unapplicable<Action<>>(LIMBO_MSG("Expected abbreviation operator 'let'"));
     }
     Advance();
     if (!Is(Tok(), Token::kIdentifier)) {
-      return Error<Action<>>(LELA_MSG("Expected fresh identifier"));
+      return Error<Action<>>(LIMBO_MSG("Expected fresh identifier"));
     }
     const std::string id = Tok().val.str();
     Advance();
     if (!Is(Tok(), Token::kAssign)) {
-      return Error<Action<>>(LELA_MSG("Expected assignment operator ':='"));
+      return Error<Action<>>(LIMBO_MSG("Expected assignment operator ':='"));
     }
     Advance();
     Result<Action<Formula::Ref>> alpha = formula();
     if (!alpha) {
-      return Error<Action<>>(LELA_MSG("Expected formula"), alpha);
+      return Error<Action<>>(LIMBO_MSG("Expected formula"), alpha);
     }
     return Success<Action<>>([this, id, alpha_a = alpha.val](Context* ctx) {
       Result<Formula::Ref> alpha = alpha_a.Run(ctx);
       if (!alpha) {
-        return Error<>(LELA_MSG("Expected formula"), alpha);
+        return Error<>(LIMBO_MSG("Expected formula"), alpha);
       }
       ctx->RegisterFormula(id, *alpha.val);
       return Success<>();
@@ -1085,20 +1085,20 @@ class Parser {
   // call --> Call id
   Result<Action<>> call() {
     if (!Is(Tok(), Token::kCall)) {
-      return Unapplicable<Action<>>(LELA_MSG("Expected 'Call'"));
+      return Unapplicable<Action<>>(LIMBO_MSG("Expected 'Call'"));
     }
     Advance();
     if (!Is(Tok(), Token::kColon)) {
-      return Error<Action<>>(LELA_MSG("Expected ':'"));
+      return Error<Action<>>(LIMBO_MSG("Expected ':'"));
     }
     Advance();
     if (!Is(Tok(), Token::kIdentifier)) {
-      return Error<Action<>>(LELA_MSG("Expected meta variable in for_loop"));
+      return Error<Action<>>(LIMBO_MSG("Expected meta variable in for_loop"));
     }
     const std::string id = Tok().val.str();
     Advance();
     if (!Is(Tok(), Token::kLeftParen)) {
-      return Error<Action<>>(LELA_MSG("Expected opening parentheses '('"));
+      return Error<Action<>>(LIMBO_MSG("Expected opening parentheses '('"));
     }
     std::vector<Action<Term>> ts;
     do {
@@ -1108,12 +1108,12 @@ class Parser {
       }
       Result<Action<Term>> t = term();
       if (!t) {
-        return Error<Action<>>(LELA_MSG("Expected argument"), t);
+        return Error<Action<>>(LIMBO_MSG("Expected argument"), t);
       }
       ts.push_back(std::move(t.val));
     } while (Is(Tok(), Token::kComma));
     if (!Is(Tok(), Token::kRightParen)) {
-      return Error<Action<>>(LELA_MSG("Expected closing parentheses '('"));
+      return Error<Action<>>(LIMBO_MSG("Expected closing parentheses '('"));
     }
     Advance();
     return Success<Action<>>([this, id, ts_as = ts](Context* ctx) {
@@ -1132,7 +1132,7 @@ class Parser {
     if (!Is(Tok(), Token::kBegin)) {
       Result<Action<>> r = branch();
       if (!r) {
-        return Error<Action<>>(LELA_MSG("Expected branch in block"), r);
+        return Error<Action<>>(LIMBO_MSG("Expected branch in block"), r);
       }
       return r;
     } else {
@@ -1147,7 +1147,7 @@ class Parser {
         } else {
           Result<Action<>> r = branch();
           if (!r) {
-            return Error<Action<>>(LELA_MSG("Expected branch in block"), r);
+            return Error<Action<>>(LIMBO_MSG("Expected branch in block"), r);
           }
           a += r.val;
         }
@@ -1166,10 +1166,10 @@ class Parser {
       if (r) {
         return r;
       } else if (r.applied()) {
-        return Error<Action<>>(LELA_MSG("Error in branch"), r);
+        return Error<Action<>>(LIMBO_MSG("Error in branch"), r);
       }
     }
-    return Unapplicable<Action<>>(LELA_MSG("No rule applicable in branch"));
+    return Unapplicable<Action<>>(LIMBO_MSG("No rule applicable in branch"));
   }
 
   // start --> branch
@@ -1180,31 +1180,31 @@ class Parser {
       const Result<Action<>> r = branch();
       if (!r) {
         std::stringstream ss;
-        using lela::format::operator<<;
+        using limbo::format::operator<<;
         ss << Tok(0) << " " << Tok(1) << " " << Tok(2) << "...";
-        return Error<Action<>>(LELA_MSG("Error in start with unparsed input "+ ss.str()), r);
+        return Error<Action<>>(LIMBO_MSG("Error in start with unparsed input "+ ss.str()), r);
       }
       a += r.val;
     }
     return Success<Action<>>(std::move(a));
   }
 
-  bool Is(const lela::internal::Maybe<Token>& symbol, Token::Id id) const {
+  bool Is(const limbo::internal::Maybe<Token>& symbol, Token::Id id) const {
     return symbol && symbol.val.id() == id;
   }
 
   template<typename UnaryPredicate>
-  bool Is(const lela::internal::Maybe<Token>& symbol, Token::Id id, UnaryPredicate p) const {
+  bool Is(const limbo::internal::Maybe<Token>& symbol, Token::Id id, UnaryPredicate p) const {
     return symbol && symbol.val.id() == id && p(symbol.val.str());
   }
 
-  lela::internal::Maybe<Token> Tok(size_t n = 0) const {
+  limbo::internal::Maybe<Token> Tok(size_t n = 0) const {
     auto it = begin();
     for (size_t i = 0; i < n && it != end_; ++i) {
       assert(begin() != end());
       ++it;
     }
-    return it != end_ ? lela::internal::Just(*it) : lela::internal::Nothing;
+    return it != end_ ? limbo::internal::Just(*it) : limbo::internal::Nothing;
   }
 
   void Advance(size_t n = 1) {
@@ -1247,7 +1247,7 @@ const char* Parser<ForwardIt, Context>::kCausesLabel       = " causes: ";
 
 }  // namespace pdl
 }  // namespace format
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_FORMAT_PDL_PARSER_H_
+#endif  // LIMBO_FORMAT_PDL_PARSER_H_
 

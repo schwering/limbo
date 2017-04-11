@@ -8,18 +8,18 @@
 // default is T(), which amounts to 0 for integers and false for bools; the
 // value can be changed by set_null_value().
 
-#ifndef LELA_INTERNAL_INTMAP_H_
-#define LELA_INTERNAL_INTMAP_H_
+#ifndef LIMBO_INTERNAL_INTMAP_H_
+#define LIMBO_INTERNAL_INTMAP_H_
 
 #include <algorithm>
 #include <iterator>
 #include <utility>
 #include <vector>
 
-#include <lela/internal/iter.h>
-#include <lela/internal/ints.h>
+#include <limbo/internal/iter.h>
+#include <limbo/internal/ints.h>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 template<typename Key, typename T>
@@ -106,7 +106,7 @@ class IntMap : public std::vector<T> {
 };
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_INTERNAL_INTMAP_H_
+#endif  // LIMBO_INTERNAL_INTMAP_H_
 

@@ -26,8 +26,8 @@
 // certain operations on Terms and Literals can be expressed as bitwise
 // operations on their integer representations.
 
-#ifndef LELA_TERM_H_
-#define LELA_TERM_H_
+#ifndef LIMBO_TERM_H_
+#define LIMBO_TERM_H_
 
 #include <cassert>
 
@@ -38,12 +38,12 @@
 #include <utility>
 #include <vector>
 
-#include <lela/internal/hash.h>
-#include <lela/internal/intmap.h>
-#include <lela/internal/ints.h>
-#include <lela/internal/maybe.h>
+#include <limbo/internal/hash.h>
+#include <limbo/internal/intmap.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/maybe.h>
 
-namespace lela {
+namespace limbo {
 
 template<typename T>
 struct Singleton {
@@ -217,7 +217,7 @@ struct Term::Data {
 
   internal::hash32_t hash() const {
     internal::hash32_t h = symbol.hash();
-    for (const lela::Term t : args) {
+    for (const limbo::Term t : args) {
       h ^= t.hash();
     }
     return h;
@@ -416,32 +416,32 @@ void Term::Traverse(UnaryFunction f) const {
   }
 }
 
-}  // namespace lela
+}  // namespace limbo
 
 
 namespace std {
 
 template<>
-struct hash<lela::Symbol> {
-  lela::internal::hash32_t operator()(const lela::Symbol s) const { return s.hash(); }
+struct hash<limbo::Symbol> {
+  limbo::internal::hash32_t operator()(const limbo::Symbol s) const { return s.hash(); }
 };
 
 template<>
-struct equal_to<lela::Symbol> {
-  bool operator()(const lela::Symbol a, const lela::Symbol b) const { return a == b; }
+struct equal_to<limbo::Symbol> {
+  bool operator()(const limbo::Symbol a, const limbo::Symbol b) const { return a == b; }
 };
 
 template<>
-struct hash<lela::Term> {
-  lela::internal::hash32_t operator()(const lela::Term t) const { return t.hash(); }
+struct hash<limbo::Term> {
+  limbo::internal::hash32_t operator()(const limbo::Term t) const { return t.hash(); }
 };
 
 template<>
-struct equal_to<lela::Term> {
-  bool operator()(const lela::Term a, const lela::Term b) const { return a == b; }
+struct equal_to<limbo::Term> {
+  bool operator()(const limbo::Term a, const limbo::Term b) const { return a == b; }
 };
 
 }  // namespace std
 
-#endif  // LELA_TERM_H_
+#endif  // LIMBO_TERM_H_
 

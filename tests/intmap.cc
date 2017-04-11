@@ -3,9 +3,9 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/internal/intmap.h>
+#include <limbo/internal/intmap.h>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 template<typename T>
@@ -51,5 +51,5 @@ TEST(IntMapTest, general) {
 }
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 

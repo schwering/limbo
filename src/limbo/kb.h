@@ -23,26 +23,26 @@
 // Queries are not subject to any syntactic restrictions. Technically, they are
 // evaluated using variants of Levesque's representation theorem.
 
-#ifndef LELA_KB_H_
-#define LELA_KB_H_
+#ifndef LIMBO_KB_H_
+#define LIMBO_KB_H_
 
 #include <cassert>
 
 #include <utility>
 #include <vector>
 
-#include <lela/clause.h>
-#include <lela/formula.h>
-#include <lela/grounder.h>
-#include <lela/literal.h>
-#include <lela/solver.h>
-#include <lela/term.h>
+#include <limbo/clause.h>
+#include <limbo/formula.h>
+#include <limbo/grounder.h>
+#include <limbo/literal.h>
+#include <limbo/solver.h>
+#include <limbo/term.h>
 
-#include <lela/internal/ints.h>
-#include <lela/internal/iter.h>
-#include <lela/internal/maybe.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/iter.h>
+#include <limbo/internal/maybe.h>
 
-namespace lela {
+namespace limbo {
 
 class KnowledgeBase {
  public:
@@ -350,7 +350,7 @@ class KnowledgeBase {
   bool spheres_changed_ = false;
 };
 
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_KB_H_
+#endif  // LIMBO_KB_H_
 

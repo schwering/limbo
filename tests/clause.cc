@@ -3,13 +3,13 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/clause.h>
-#include <lela/internal/maybe.h>
-#include <lela/format/output.h>
+#include <limbo/clause.h>
+#include <limbo/internal/maybe.h>
+#include <limbo/format/output.h>
 
-namespace lela {
+namespace limbo {
 
-using namespace lela::format;
+using namespace limbo::format;
 
 struct EqSubstitute {
   EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}
@@ -356,5 +356,5 @@ TEST(ClauseTest, Subsumes3) {
   EXPECT_TRUE(Clause{Literal::Neq(P,T)}.Subsumes(Clause{Literal::Neq(P,T)}));
 }
 
-}  // namespace lela
+}  // namespace limbo
  

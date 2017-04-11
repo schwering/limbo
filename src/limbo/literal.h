@@ -15,8 +15,8 @@
 // Due to the memory-wise lightweight representation of terms, copying or
 // comparing literals is very fast.
 
-#ifndef LELA_LITERAL_H_
-#define LELA_LITERAL_H_
+#ifndef LIMBO_LITERAL_H_
+#define LIMBO_LITERAL_H_
 
 #include <cassert>
 
@@ -24,12 +24,12 @@
 #include <functional>
 #include <utility>
 
-#include <lela/term.h>
+#include <limbo/term.h>
 
-#include <lela/internal/ints.h>
-#include <lela/internal/maybe.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/maybe.h>
 
-namespace lela {
+namespace limbo {
 
 class Literal {
  public:
@@ -176,22 +176,22 @@ struct Literal::LhsHash {
   internal::hash32_t operator()(const Literal a) const { return a.lhs().hash(); }
 };
 
-}  // namespace lela
+}  // namespace limbo
 
 
 namespace std {
 
 template<>
-struct hash<lela::Literal> {
-  lela::internal::hash32_t operator()(const lela::Literal a) const { return a.hash(); }
+struct hash<limbo::Literal> {
+  limbo::internal::hash32_t operator()(const limbo::Literal a) const { return a.hash(); }
 };
 
 template<>
-struct equal_to<lela::Literal> {
-  bool operator()(const lela::Literal a, const lela::Literal b) const { return a == b; }
+struct equal_to<limbo::Literal> {
+  bool operator()(const limbo::Literal a, const limbo::Literal b) const { return a == b; }
 };
 
 }  // namespace std
 
-#endif  // LELA_LITERAL_H_
+#endif  // LIMBO_LITERAL_H_
 

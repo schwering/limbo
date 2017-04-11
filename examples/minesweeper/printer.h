@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <string>
 
-#include <lela/format/output.h>
+#include <limbo/format/output.h>
 
 #include "game.h"
 #include "kb.h"
@@ -183,7 +183,7 @@ class KnowledgeBasePrinter : public Printer {
     switch (g.state(p)) {
       case Game::UNEXPLORED: {
         if (g.frontier(p)) {
-          const lela::internal::Maybe<bool> r = kb_->IsMine(p, kb_->max_k());
+          const limbo::internal::Maybe<bool> r = kb_->IsMine(p, kb_->max_k());
           if (r.yes) {
             assert(g.mine(p) == r.val);
             if (r.val) {

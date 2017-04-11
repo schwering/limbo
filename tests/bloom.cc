@@ -3,14 +3,14 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/term.h>
-#include <lela/internal/bloom.h>
-#include <lela/format/output.h>
+#include <limbo/term.h>
+#include <limbo/internal/bloom.h>
+#include <limbo/format/output.h>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
-using namespace lela::format;
+using namespace limbo::format;
 
 TEST(BloomFilterTest, Subset_Contains) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
@@ -97,5 +97,5 @@ TEST(BloomFilterTest, hash) {
 }
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 

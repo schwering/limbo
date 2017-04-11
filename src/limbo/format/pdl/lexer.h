@@ -7,8 +7,8 @@
 // The compuational complexity is pretty bad (O(n^2)), but we don't expect very
 // long tokens, so parsing shouldn't be the bottleneck.
 
-#ifndef LELA_FORMAT_PDL_LEXER_H_
-#define LELA_FORMAT_PDL_LEXER_H_
+#ifndef LIMBO_FORMAT_PDL_LEXER_H_
+#define LIMBO_FORMAT_PDL_LEXER_H_
 
 #include <cassert>
 
@@ -18,9 +18,9 @@
 #include <string>
 #include <utility>
 
-#include <lela/internal/iter.h>
+#include <limbo/internal/iter.h>
 
-namespace lela {
+namespace limbo {
 namespace format {
 namespace pdl {
 
@@ -69,7 +69,7 @@ class Lexer {
     typedef value_type reference;
     typedef value_type* pointer;
     typedef std::forward_iterator_tag iterator_category;
-    typedef lela::internal::iterator_proxy<iterator> proxy;
+    typedef limbo::internal::iterator_proxy<iterator> proxy;
 
     iterator() = default;
     iterator(const LexemeVector* lexemes, ForwardIt it, ForwardIt end) : lexemes_(lexemes), it_(it), end_(end) {
@@ -147,9 +147,9 @@ class Lexer {
 
   Lexer(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {
     lexemes_.emplace_back(Token::kSort,         [](Word w) { return IsPrefix(w, {"Sort", "sort"}); });
-    lexemes_.emplace_back(Token::kVar,          [](Word w) { return IsPrefix(w, {"Var", "Variable", "var", "variable"}); });
+    lexemes_.emplace_back(Token::kVar,          [](Word w) { return IsPrefix(w, {"Var", "Variable", "var", "variable"}); });  // NOLINT
     lexemes_.emplace_back(Token::kName,         [](Word w) { return IsPrefix(w, {"Name", "name"}); });
-    lexemes_.emplace_back(Token::kFun,          [](Word w) { return IsPrefix(w, {"Fun", "fun", "Function", "function"}); });
+    lexemes_.emplace_back(Token::kFun,          [](Word w) { return IsPrefix(w, {"Fun", "fun", "Function", "function"}); });  // NOLINT
     lexemes_.emplace_back(Token::kSlash,        [](Word w) { return IsPrefix(w, "/"); });
     lexemes_.emplace_back(Token::kKB,           [](Word w) { return IsPrefix(w, {"KB", "Kb", "kb"}); });
     lexemes_.emplace_back(Token::kLet,          [](Word w) { return IsPrefix(w, {"Let", "let"}); });
@@ -299,7 +299,7 @@ std::ostream& operator<<(std::ostream& os, const Token& t) {
 
 }  // namespace pdl
 }  // namespace format
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_FORMAT_PDL_LEXER_H_
+#endif  // LIMBO_FORMAT_PDL_LEXER_H_
 

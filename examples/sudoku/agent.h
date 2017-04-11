@@ -6,7 +6,7 @@
 
 #include <iostream>
 
-#include <lela/internal/maybe.h>
+#include <limbo/internal/maybe.h>
 
 #include "game.h"
 #include "kb.h"
@@ -22,31 +22,31 @@ class Agent {
   };
 
   virtual ~Agent() {}
-  virtual lela::internal::Maybe<Result> Explore() = 0;
+  virtual limbo::internal::Maybe<Result> Explore() = 0;
 };
 
 class KnowledgeBaseAgent : public Agent {
  public:
   KnowledgeBaseAgent(Game* g, KnowledgeBase* kb) : g_(g), kb_(kb) {}
 
-  lela::internal::Maybe<Result> Explore() override {
+  limbo::internal::Maybe<Result> Explore() override {
     for (int k = 0; k <= kb_->max_k(); ++k) {
       for (std::size_t x = 1; x <= 9; ++x) {
         for (std::size_t y = 1; y <= 9; ++y) {
           Point p(x, y);
           if (g_->get(p) == 0) {
-            const lela::internal::Maybe<int> r = kb_->Val(p, k);
+            const limbo::internal::Maybe<int> r = kb_->Val(p, k);
             if (r) {
               const int n = r.val;
               kb_->Add(p, n);
               g_->set(p, n);
-              return lela::internal::Just(Result(p, n, k));
+              return limbo::internal::Just(Result(p, n, k));
             }
           }
         }
       }
     }
-    return lela::internal::Nothing;
+    return limbo::internal::Nothing;
   }
 
  private:

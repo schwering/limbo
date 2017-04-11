@@ -9,8 +9,8 @@
 // operator() for the structs defined in Logger. Logger itself is a minimal
 // implementation of a Logger, which ignores all log data.
 
-#ifndef LELA_FORMAT_PDL_CONTEXT_H_
-#define LELA_FORMAT_PDL_CONTEXT_H_
+#ifndef LIMBO_FORMAT_PDL_CONTEXT_H_
+#define LIMBO_FORMAT_PDL_CONTEXT_H_
 
 #include <iostream>
 #include <map>
@@ -19,13 +19,13 @@
 #include <utility>
 #include <vector>
 
-#include <lela/term.h>
-#include <lela/formula.h>
-#include <lela/kb.h>
+#include <limbo/term.h>
+#include <limbo/formula.h>
+#include <limbo/kb.h>
 
-#include <lela/format/output.h>
+#include <limbo/format/output.h>
 
-namespace lela {
+namespace limbo {
 namespace format {
 namespace pdl {
 
@@ -133,7 +133,7 @@ class Context {
 
   void RegisterSort(const std::string& id) {
     const Symbol::Sort sort = CreateSort();
-    lela::format::RegisterSort(sort, "");
+    limbo::format::RegisterSort(sort, "");
     sorts_.Register(id, sort);
     logger_(DefaultLogger::RegisterSortData(id));
   }
@@ -144,7 +144,7 @@ class Context {
     const Symbol::Sort sort = LookupSort(sort_id);
     const Term var = CreateVariable(sort);
     vars_.Register(id, var);
-    lela::format::RegisterSymbol(var.symbol(), id);
+    limbo::format::RegisterSymbol(var.symbol(), id);
     logger_(DefaultLogger::RegisterVariableData(id, sort_id));
   }
 
@@ -154,7 +154,7 @@ class Context {
     const Symbol::Sort sort = LookupSort(sort_id);
     const Term name = CreateName(sort);
     names_.Register(id, name);
-    lela::format::RegisterSymbol(name.symbol(), id);
+    limbo::format::RegisterSymbol(name.symbol(), id);
     logger_(DefaultLogger::RegisterNameData(id, sort_id));
   }
 
@@ -164,7 +164,7 @@ class Context {
     const Symbol::Sort sort = LookupSort(sort_id);
     const Symbol fun = CreateFunction(sort, arity);
     funs_.Register(id, fun);
-    lela::format::RegisterSymbol(fun, id);
+    limbo::format::RegisterSymbol(fun, id);
     logger_(DefaultLogger::RegisterFunctionData(id, arity, sort_id));
   }
 
@@ -237,7 +237,7 @@ class Context {
 
 }  // namespace pdl
 }  // namespace format
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_FORMAT_PDL_CONTEXT_H_
+#endif  // LIMBO_FORMAT_PDL_CONTEXT_H_
 

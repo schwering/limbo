@@ -17,20 +17,20 @@
 #include <utility>
 #include <vector>
 
-#include <lela/term.h>
+#include <limbo/term.h>
 
-#include <lela/internal/compar.h>
-#include <lela/internal/iter.h>
-#include <lela/internal/maybe.h>
+#include <limbo/internal/compar.h>
+#include <limbo/internal/iter.h>
+#include <limbo/internal/maybe.h>
 
-#ifndef MARK
+#ifndef MARK  // NOLINT
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
 #endif
 
-namespace lela {
+namespace limbo {
 namespace format {
 
-#ifndef LELA_FORMAT_OUTPUT_H_
+#ifndef LIMBO_FORMAT_OUTPUT_H_
 typedef std::unordered_map<Symbol::Sort, std::string> SortMap;
 typedef std::unordered_map<Symbol, std::string> SymbolMap;
 
@@ -115,21 +115,21 @@ std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>&
 
 template<typename K, typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map);
-#endif  // LELA_FORMAT_OUTPUT_H_
+#endif  // LIMBO_FORMAT_OUTPUT_H_
 
-#ifdef LELA_INTERNAL_HASHSET_H_
+#ifdef LIMBO_INTERNAL_HASHSET_H_
 template<typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set);
-#endif  // LELA_INTERNAL_HASHSET_H_
+#endif  // LIMBO_INTERNAL_HASHSET_H_
 
-#ifdef LELA_INTERNAL_MAYBE_H_
+#ifdef LIMBO_INTERNAL_MAYBE_H_
 template<typename K, typename T>
 std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m);
-#endif  // LELA_INTERNAL_MAYBE_H_
+#endif  // LIMBO_INTERNAL_MAYBE_H_
 
-#ifdef LELA_TERM_H_
-#ifndef LELA_TERM_OUTPUT
-#define LELA_TERM_OUTPUT
+#ifdef LIMBO_TERM_H_
+#ifndef LIMBO_TERM_OUTPUT
+#define LIMBO_TERM_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Symbol s) {
   internal::Maybe<std::string> sort_name = LookupSort(s.sort());
   internal::Maybe<std::string> symbol_name = LookupSymbol(s);
@@ -165,22 +165,22 @@ std::ostream& operator<<(std::ostream& os, const Term t) {
   }
   return os;
 }
-#endif  // LELA_TERM_OUTPUT
-#endif  // LELA_TERM_H_
+#endif  // LIMBO_TERM_OUTPUT
+#endif  // LIMBO_TERM_H_
 
-#ifdef LELA_LITERAL_H_
-#ifndef LELA_LITERAL_OUTPUT
-#define LELA_LITERAL_OUTPUT
+#ifdef LIMBO_LITERAL_H_
+#ifndef LIMBO_LITERAL_OUTPUT
+#define LIMBO_LITERAL_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Literal a) {
   os << a.lhs() << ' ' << (a.pos() ? "\u003D" : "\u2260") << ' ' << a.rhs();
   return os;
 }
-#endif  // LELA_LITERAL_OUTPUT_
-#endif  // LELA_LITERAL_H_
+#endif  // LIMBO_LITERAL_OUTPUT_
+#endif  // LIMBO_LITERAL_H_
 
-#ifdef LELA_CLAUSE_H_
-#ifndef LELA_CLAUSE_OUTPUT
-#define LELA_CLAUSE_OUTPUT
+#ifdef LIMBO_CLAUSE_H_
+#ifndef LIMBO_CLAUSE_OUTPUT
+#define LIMBO_CLAUSE_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Clause& c) {
   struct PrintLiteralComparator {
     struct PrintTermComparator {
@@ -223,23 +223,23 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
   std::sort(vec.begin(), vec.end(), PrintLiteralComparator());
   return print_range(os, vec, "[", "]", " \u2228 ");
 }
-#endif  // LELA_OUTPUT_CLAUSE
-#endif  // LELA_CLAUSE_H_
+#endif  // LIMBO_OUTPUT_CLAUSE
+#endif  // LIMBO_CLAUSE_H_
 
-#ifdef LELA_SETUP_H_
-#ifndef LELA_SETUP_OUTPUT
-#define LELA_SETUP_OUTPUT
+#ifdef LIMBO_SETUP_H_
+#ifndef LIMBO_SETUP_OUTPUT
+#define LIMBO_SETUP_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
   auto is = s.clauses();
   auto cs = internal::transform_range(is.begin(), is.end(), [&s](size_t i) { return s.clause(i); });
   return print_range(os, cs, "{ ", "\n}", "\n, ");
 }
-#endif  // LELA_SETUP_OUTPUT
-#endif  // LELA_SETUP_H_
+#endif  // LIMBO_SETUP_OUTPUT
+#endif  // LIMBO_SETUP_H_
 
-#ifdef LELA_FORMULA_H_
-#ifndef LELA_FORMULA_OUTPUT
-#define LELA_FORMULA_OUTPUT
+#ifdef LIMBO_FORMULA_H_
+#ifndef LIMBO_FORMULA_OUTPUT
+#define LIMBO_FORMULA_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
   switch (alpha.type()) {
     case Formula::kAtomic: {
@@ -316,10 +316,10 @@ std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
 std::ostream& operator<<(std::ostream& os, const Formula::Ref& alpha) {
   return os << *alpha;
 }
-#endif  // LELA_FORMULA_OUTPUT
-#endif  // LELA_FORMULA_H_
+#endif  // LIMBO_FORMULA_OUTPUT
+#endif  // LIMBO_FORMULA_H_
 
-#ifndef LELA_FORMAT_OUTPUT_H_
+#ifndef LIMBO_FORMAT_OUTPUT_H_
 template<typename InputIt>
 std::ostream& print_sequence(std::ostream& os,
                              InputIt begin,
@@ -415,22 +415,22 @@ std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H
   print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
   return os;
 }
-#endif  // LELA_FORMAT_OUTPUT_H_
+#endif  // LIMBO_FORMAT_OUTPUT_H_
 
-#ifdef LELA_INTERNAL_HASHSET_H_
-#ifndef LELA_INTERNAL_HASHSET_OUTPUT
-#define LELA_INTERNAL_HASHSET_OUTPUT
+#ifdef LIMBO_INTERNAL_HASHSET_H_
+#ifndef LIMBO_INTERNAL_HASHSET_OUTPUT
+#define LIMBO_INTERNAL_HASHSET_OUTPUT
 template<typename T, typename H, typename E>
 std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set) {
   print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
   return os;
 }
-#endif  // LELA_INTERNAL_HASHSET_OUTPUT
-#endif  // LELA_INTERNAL_HASHSET_H_
+#endif  // LIMBO_INTERNAL_HASHSET_OUTPUT
+#endif  // LIMBO_INTERNAL_HASHSET_H_
 
-#ifdef LELA_INTERNAL_MAYBE_H_
-#ifndef LELA_INTERNAL_MAYBE_OUTPUT
-#define LELA_INTERNAL_MAYBE_OUTPUT
+#ifdef LIMBO_INTERNAL_MAYBE_H_
+#ifndef LIMBO_INTERNAL_MAYBE_OUTPUT
+#define LIMBO_INTERNAL_MAYBE_OUTPUT
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
   if (m) {
@@ -440,13 +440,13 @@ std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
   }
   return os;
 }
-#endif  // LELA_INTERNAL_MAYBE_OUTPUT
-#endif  // LELA_INTERNAL_MAYBE_H_
+#endif  // LIMBO_INTERNAL_MAYBE_OUTPUT
+#endif  // LIMBO_INTERNAL_MAYBE_H_
 
 }  // namespace format
-}  // namespace lela
+}  // namespace limbo
 
-#ifndef LELA_FORMAT_OUTPUT_H_
-#define LELA_FORMAT_OUTPUT_H_
-#endif  // LELA_FORMAT_OUTPUT_H_
+#ifndef LIMBO_FORMAT_OUTPUT_H_
+#define LIMBO_FORMAT_OUTPUT_H_
+#endif  // LIMBO_FORMAT_OUTPUT_H_
 

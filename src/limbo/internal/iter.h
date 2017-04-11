@@ -7,17 +7,17 @@
 // Maybe boost provides the same iterators and we should move to boost (this set
 // of iterators evolved somewhat).
 
-#ifndef LELA_INTERNAL_ITER_H_
-#define LELA_INTERNAL_ITER_H_
+#ifndef LIMBO_INTERNAL_ITER_H_
+#define LIMBO_INTERNAL_ITER_H_
 
 #include <iterator>
 #include <type_traits>
 #include <utility>
 
-#include <lela/internal/ints.h>
-#include <lela/internal/traits.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/traits.h>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 // Wrapper for operator*() and operator++(int).
@@ -437,7 +437,7 @@ inline joined_iterators<InputIt1, InputIt2> join_ranges(Range1 r1, Range2 r2) {
 }
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_INTERNAL_ITER_H_
+#endif  // LIMBO_INTERNAL_ITER_H_
 

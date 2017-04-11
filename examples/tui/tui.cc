@@ -14,19 +14,19 @@
 #include <memory>
 #include <vector>
 
-#include <lela/setup.h>
-#include <lela/formula.h>
-#include <lela/internal/iter.h>
-#include <lela/format/output.h>
-#include <lela/format/pdl/context.h>
-#include <lela/format/pdl/parser.h>
+#include <limbo/setup.h>
+#include <limbo/formula.h>
+#include <limbo/internal/iter.h>
+#include <limbo/format/output.h>
+#include <limbo/format/pdl/context.h>
+#include <limbo/format/pdl/parser.h>
 
 #include "linenoise/linenoise.h"
 
 #include "battleship.h"
 #include "sudoku.h"
 
-using lela::format::operator<<;
+using limbo::format::operator<<;
 
 static constexpr int RED = 31;
 static constexpr int GREEN = 32;
@@ -39,7 +39,7 @@ static std::string in_color(const std::string& text, int color) {
 
 template<typename ForwardIt, typename Context>
 static bool parse(ForwardIt begin, ForwardIt end, Context* ctx) {
-  typedef lela::format::pdl::Parser<ForwardIt, Context> Parser;
+  typedef limbo::format::pdl::Parser<ForwardIt, Context> Parser;
   Parser parser(begin, end);
   auto parse_result = parser.Parse();
   if (!parse_result) {
@@ -63,7 +63,7 @@ class multi_pass_iterator {
   typedef value_type reference;
   typedef value_type* pointer;
   typedef std::forward_iterator_tag iterator_category;
-  typedef lela::internal::iterator_proxy<multi_pass_iterator> proxy;
+  typedef limbo::internal::iterator_proxy<multi_pass_iterator> proxy;
 
   multi_pass_iterator() = default;
   multi_pass_iterator(InputIt it) : data_(new Data(it)) {}
@@ -110,15 +110,15 @@ class multi_pass_iterator {
   size_t index_ = 0;
 };
 
-struct Callback : public lela::format::pdl::DefaultCallback {
+struct Callback : public limbo::format::pdl::DefaultCallback {
   template<typename T>
-  void operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
+  void operator()(T* ctx, const std::string& proc, const std::vector<limbo::Term>& args) {
     if (proc == "print_kb") {
-      for (lela::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
+      for (limbo::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
         std::cerr << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p)->setup() << std::endl;
       }
     } else if (proc == "print") {
-      lela::format::print_range(std::cout, args, "", "", " ");
+      limbo::format::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
     } else if (proc == "enable_query_logging") {
       ctx->logger()->print_queries = true;
@@ -130,7 +130,7 @@ struct Callback : public lela::format::pdl::DefaultCallback {
       // it's a call for Sudoku
     } else {
       std::cerr << "Calling " << proc;
-      lela::format::print_range(std::cerr, args, "(", ")", ",");
+      limbo::format::print_range(std::cerr, args, "(", ")", ",");
       std::cerr << " failed" << std::endl;
     }
   }
@@ -140,7 +140,7 @@ struct Callback : public lela::format::pdl::DefaultCallback {
   SudokuCallbacks su_;
 };
 
-struct Logger : public lela::format::pdl::DefaultLogger {
+struct Logger : public limbo::format::pdl::DefaultLogger {
   void operator()(const LogData&)                      const { std::cerr << "Unknown log data" << std::endl; }
   void operator()(const RegisterData& d)               const { std::cerr << "Registered " << d.id << std::endl; }
   void operator()(const RegisterSortData& d)           const { std::cerr << "Registered sort " << d.id << std::endl; }
@@ -153,7 +153,7 @@ struct Logger : public lela::format::pdl::DefaultLogger {
   void operator()(const UnregisterMetaVariableData& d) const { std::cerr << "Unregistered meta variable " << d.id << std::endl; }
   void operator()(const AddToKbData& d)                const { std::cerr << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
   void operator()(const QueryData& d)                  const {
-    //for (lela::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
+    //for (limbo::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
     //  std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;
     //}
     std::ostream* os;
@@ -167,7 +167,7 @@ struct Logger : public lela::format::pdl::DefaultLogger {
     //std::cout << std::endl;
   }
   bool print_queries = true;
-  lela::format::pdl::Context<Logger, Callback>* ctx;
+  limbo::format::pdl::Context<Logger, Callback>* ctx;
 };
 
 int main(int argc, char** argv) {
@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
   }
 
   std::ios_base::sync_with_stdio(true);
-  lela::format::pdl::Context<Logger, Callback> ctx;
+  limbo::format::pdl::Context<Logger, Callback> ctx;
   ctx.logger()->ctx = &ctx;
 
   for (const std::string& arg : args) {
@@ -269,7 +269,7 @@ int main(int argc, char** argv) {
 	if ((dir = opendir(directory.c_str())) != NULL) {
 	  while ((ent = readdir(dir)) != NULL) {
             const std::string file = ent->d_name;
-	    if (is_postfix(".lela", file)) {
+	    if (is_postfix(".limbo", file)) {
               std::cout << file << std::endl;
             }
 	  }

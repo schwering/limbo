@@ -7,11 +7,11 @@
 #include <sstream>
 #include <vector>
 
-#include <lela/solver.h>
-#include <lela/internal/maybe.h>
-#include <lela/internal/iter.h>
-#include <lela/format/output.h>
-#include <lela/format/cpp/syntax.h>
+#include <limbo/solver.h>
+#include <limbo/internal/maybe.h>
+#include <limbo/internal/iter.h>
+#include <limbo/format/output.h>
+#include <limbo/format/cpp/syntax.h>
 
 #include "game.h"
 #include "timer.h"
@@ -22,14 +22,14 @@ class KnowledgeBase {
       : max_k_(max_k),
         VAL_(ctx_.CreateSort()),
         val_(ctx_.CreateFunction(VAL_, 2)) {
-    lela::format::RegisterSort(VAL_, "");
-    lela::format::RegisterSymbol(val_, "val");
-    using namespace lela::format::cpp;
+    limbo::format::RegisterSort(VAL_, "");
+    limbo::format::RegisterSymbol(val_, "val");
+    using namespace limbo::format::cpp;
     for (std::size_t i = 1; i <= 9; ++i) {
       vals_.push_back(ctx_.CreateName(VAL_));
       std::stringstream ss;
       ss << i;
-      lela::format::RegisterSymbol(vals_.back().symbol(), ss.str());
+      limbo::format::RegisterSymbol(vals_.back().symbol(), ss.str());
     }
     for (std::size_t x = 1; x <= 9; ++x) {
       for (std::size_t y = 1; y <= 9; ++y) {
@@ -66,11 +66,11 @@ class KnowledgeBase {
     }
     for (std::size_t x = 1; x <= 9; ++x) {
       for (std::size_t y = 1; y <= 9; ++y) {
-        std::vector<lela::Literal> lits;
+        std::vector<limbo::Literal> lits;
         for (std::size_t i = 1; i <= 9; ++i) {
-          lits.push_back(lela::Literal::Eq(val(x, y), n(i)));
+          lits.push_back(limbo::Literal::Eq(val(x, y), n(i)));
         }
-        ctx_.AddClause(lela::Clause(lits.begin(), lits.end()));
+        ctx_.AddClause(limbo::Clause(lits.begin(), lits.end()));
       }
     }
     for (std::size_t x = 1; x <= 9; ++x) {
@@ -85,55 +85,55 @@ class KnowledgeBase {
 
   int max_k() const { return max_k_; }
 
-  lela::Solver* solver() { return ctx_.solver(); }
-  const lela::Solver& solver() const { return ctx_.solver(); }
-  const lela::Setup& setup() const { return solver().setup(); }
+  limbo::Solver* solver() { return ctx_.solver(); }
+  const limbo::Solver& solver() const { return ctx_.solver(); }
+  const limbo::Setup& setup() const { return solver().setup(); }
 
   void Add(Point p, int i) {
     ctx_.AddClause(val(p) == n(i));
   }
 
-  lela::internal::Maybe<int> Val(Point p, int k) {
+  limbo::internal::Maybe<int> Val(Point p, int k) {
     t_.start();
-    const lela::internal::Maybe<lela::Term> r = solver()->Determines(k, val(p), lela::Solver::kConsistencyGuarantee);
-    assert(std::all_of(lela::internal::int_iterator<size_t>(1), lela::internal::int_iterator<size_t>(9),
-           [&](size_t i) { return solver()->Entails(k, val(p) == n(i), lela::Solver::kConsistencyGuarantee) ==
+    const limbo::internal::Maybe<limbo::Term> r = solver()->Determines(k, val(p), limbo::Solver::kConsistencyGuarantee);
+    assert(std::all_of(limbo::internal::int_iterator<size_t>(1), limbo::internal::int_iterator<size_t>(9),
+           [&](size_t i) { return solver()->Entails(k, val(p) == n(i), limbo::Solver::kConsistencyGuarantee) ==
                                   (r && r.val == n(i)); }));
     if (r) {
       assert(!r.val.null());
       for (std::size_t i = 1; i <= 9; ++i) {
         if (r.val.null() || r.val == n(i)) {
-          return lela::internal::Just(i);
+          return limbo::internal::Just(i);
         }
       }
     }
     t_.stop();
-    return lela::internal::Nothing;
+    return limbo::internal::Nothing;
   }
 
   const Timer& timer() const { return t_; }
   void ResetTimer() { t_.reset(); }
 
  private:
-  lela::format::cpp::HiTerm n(std::size_t n) const {
+  limbo::format::cpp::HiTerm n(std::size_t n) const {
     return vals_[n-1];
   }
 
-  lela::format::cpp::HiTerm val(Point p) const {
+  limbo::format::cpp::HiTerm val(Point p) const {
     return val(p.x, p.y);
   }
 
-  lela::format::cpp::HiTerm val(std::size_t x, std::size_t y) const {
+  limbo::format::cpp::HiTerm val(std::size_t x, std::size_t y) const {
     return val_(vals_[x-1], vals_[y-1]);
   }
 
   int max_k_;
 
-  lela::format::cpp::Context ctx_;
+  limbo::format::cpp::Context ctx_;
 
-  lela::Symbol::Sort VAL_;
-  lela::format::cpp::HiSymbol val_;
-  std::vector<lela::format::cpp::HiTerm> vals_;
+  limbo::Symbol::Sort VAL_;
+  limbo::format::cpp::HiSymbol val_;
+  std::vector<limbo::format::cpp::HiTerm> vals_;
 
   Timer t_;
 };

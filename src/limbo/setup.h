@@ -55,8 +55,8 @@
 // reasons, but because it may likely lead to complications with the linked
 // structure of setups and therefore hints at a programming error.
 
-#ifndef LELA_SETUP_H_
-#define LELA_SETUP_H_
+#ifndef LIMBO_SETUP_H_
+#define LIMBO_SETUP_H_
 
 #include <cassert>
 
@@ -65,15 +65,15 @@
 #include <utility>
 #include <vector>
 
-#include <lela/clause.h>
-#include <lela/literal.h>
-#include <lela/term.h>
+#include <limbo/clause.h>
+#include <limbo/literal.h>
+#include <limbo/term.h>
 
-#include <lela/internal/ints.h>
-#include <lela/internal/iter.h>
-#include <lela/internal/maybe.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/iter.h>
+#include <limbo/internal/maybe.h>
 
-namespace lela {
+namespace limbo {
 
 class Setup {
  public:
@@ -491,7 +491,7 @@ class Setup {
 #endif
 };
 
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_SETUP_H_
+#endif  // LIMBO_SETUP_H_
 

@@ -4,13 +4,13 @@
 //
 // Traits, mostly to extract and identify the arguments of functors.
 
-#ifndef LELA_INTERNAL_TRAITS_H_
-#define LELA_INTERNAL_TRAITS_H_
+#ifndef LIMBO_INTERNAL_TRAITS_H_
+#define LIMBO_INTERNAL_TRAITS_H_
 
 #include <tuple>
 #include <type_traits>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 // first_type<T, U>::type is T::type if it exists, and U::type else.
@@ -64,8 +64,8 @@ struct remove_const_ref {
 };
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_INTERNAL_TRAITS_H_
+#endif  // LIMBO_INTERNAL_TRAITS_H_
 
 

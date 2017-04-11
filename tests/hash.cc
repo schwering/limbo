@@ -5,9 +5,9 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/internal/hash.h>
+#include <limbo/internal/hash.h>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 TEST(HashTest, hash) {
@@ -31,5 +31,5 @@ TEST(HashTest, hash) {
 }
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 

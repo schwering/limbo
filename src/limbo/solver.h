@@ -43,24 +43,24 @@
 // the Consistent() method is that it is perhaps less confusing and less prone
 // to typos and shares some code with the sound Entails().
 
-#ifndef LELA_SOLVER_H_
-#define LELA_SOLVER_H_
+#ifndef LIMBO_SOLVER_H_
+#define LIMBO_SOLVER_H_
 
 #include <cassert>
 
 #include <iterator>
 #include <list>
 
-#include <lela/formula.h>
-#include <lela/grounder.h>
-#include <lela/literal.h>
-#include <lela/setup.h>
-#include <lela/term.h>
+#include <limbo/formula.h>
+#include <limbo/grounder.h>
+#include <limbo/literal.h>
+#include <limbo/setup.h>
+#include <limbo/term.h>
 
-#include <lela/internal/ints.h>
-#include <lela/internal/maybe.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/maybe.h>
 
-namespace lela {
+namespace limbo {
 
 class Solver {
  public:
@@ -474,7 +474,7 @@ next_split:
   Grounder grounder_;
 };
 
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_SOLVER_H_
+#endif  // LIMBO_SOLVER_H_
 

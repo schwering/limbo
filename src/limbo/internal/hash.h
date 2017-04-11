@@ -4,12 +4,12 @@
 //
 // Some fast hash functions.
 
-#ifndef LELA_INTERNAL_HASH_H_
-#define LELA_INTERNAL_HASH_H_
+#ifndef LIMBO_INTERNAL_HASH_H_
+#define LIMBO_INTERNAL_HASH_H_
 
-#include <lela/internal/ints.h>
+#include <limbo/internal/ints.h>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 typedef u32 hash32_t;
@@ -116,7 +116,7 @@ hash64_t murmur64a_hash(const T& x, hash64_t seed = 0) {
 }
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_INTERNAL_HASH_H_
+#endif  // LIMBO_INTERNAL_HASH_H_
 

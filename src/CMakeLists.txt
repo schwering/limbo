@@ -1,7 +1,7 @@
-add_library (lela INTERFACE)
+add_library (limbo INTERFACE)
 
-target_include_directories (lela INTERFACE
+target_include_directories (limbo INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-	$<INSTALL_INTERFACE:include/lela>
+	$<INSTALL_INTERFACE:include/limbo>
 )
 

@@ -6,12 +6,12 @@
 // containers. Currently only few are in use, the previous prototypes made
 // much heavier use of specific sorting.
 
-#ifndef LELA_INTERNAL_COMPAR_H_
-#define LELA_INTERNAL_COMPAR_H_
+#ifndef LIMBO_INTERNAL_COMPAR_H_
+#define LIMBO_INTERNAL_COMPAR_H_
 
 #include <algorithm>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 template<class T>
@@ -75,7 +75,7 @@ struct LexicographicComparator<Compar> {
 };
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_INTERNAL_COMPAR_H_
+#endif  // LIMBO_INTERNAL_COMPAR_H_
 

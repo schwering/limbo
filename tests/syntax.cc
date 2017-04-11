@@ -3,14 +3,14 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/formula.h>
-#include <lela/format/output.h>
-#include <lela/format/cpp/syntax.h>
+#include <limbo/formula.h>
+#include <limbo/format/output.h>
+#include <limbo/format/cpp/syntax.h>
 
-namespace lela {
+namespace limbo {
 
-using namespace lela::format;
-using namespace lela::format::cpp;
+using namespace limbo::format;
+using namespace limbo::format::cpp;
 
 #define REGISTER_SYMBOL(x)    RegisterSymbol(x, #x)
 
@@ -62,5 +62,5 @@ TEST(Syntax, general) {
   }
 }
 
-}  // namespace lela
+}  // namespace limbo
 

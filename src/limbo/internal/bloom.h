@@ -21,15 +21,15 @@
 // We take the byte pairs 1,2 and 3,4 and 5,6 and 7,8 and consider the 16bit
 // number formed by each of them as a single hash.
 
-#ifndef LELA_INTERNAL_BLOOM_H_
-#define LELA_INTERNAL_BLOOM_H_
+#ifndef LIMBO_INTERNAL_BLOOM_H_
+#define LIMBO_INTERNAL_BLOOM_H_
 
 #include <functional>
 
-#include <lela/internal/hash.h>
-#include <lela/internal/ints.h>
+#include <limbo/internal/hash.h>
+#include <limbo/internal/ints.h>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 class BloomFilter {
@@ -133,22 +133,22 @@ class BloomSet {
 };
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 
 
 namespace std {
 
 template<>
-struct equal_to<lela::internal::BloomFilter> {
-  bool operator()(const lela::internal::BloomFilter& a, const lela::internal::BloomFilter& b) const { return a == b; }
+struct equal_to<limbo::internal::BloomFilter> {
+  bool operator()(const limbo::internal::BloomFilter& a, const limbo::internal::BloomFilter& b) const { return a == b; }
 };
 
 template<typename T>
-struct equal_to<lela::internal::BloomSet<T>> {
-  bool operator()(const lela::internal::BloomSet<T>& a, const lela::internal::BloomSet<T>& b) const { return a == b; }
+struct equal_to<limbo::internal::BloomSet<T>> {
+  bool operator()(const limbo::internal::BloomSet<T>& a, const limbo::internal::BloomSet<T>& b) const { return a == b; }
 };
 
 }  // namespace std
 
-#endif  // LELA_INTERNAL_BLOOM_H_
+#endif  // LIMBO_INTERNAL_BLOOM_H_
 

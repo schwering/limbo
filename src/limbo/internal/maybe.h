@@ -8,15 +8,15 @@
 //
 // To handle Maybe<std::unique_ptr<T>> we use std::forward(). Is that correct?
 
-#ifndef LELA_INTERNAL_MAYBE_H_
-#define LELA_INTERNAL_MAYBE_H_
+#ifndef LIMBO_INTERNAL_MAYBE_H_
+#define LIMBO_INTERNAL_MAYBE_H_
 
 #include <cassert>
 
 #include <memory>
 #include <utility>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 template<typename T>
@@ -62,7 +62,7 @@ Maybe<typename std::remove_cv<typename std::remove_reference<T>::type>::type> Ju
 }
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_INTERNAL_MAYBE_H_
+#endif  // LIMBO_INTERNAL_MAYBE_H_
 

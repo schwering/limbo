@@ -1,8 +1,8 @@
 # CMakeLists files in this project can
-# refer to the root source directory of the project as ${lela_SOURCE_DIR} and
-# to the root binary directory of the project as ${lela_BINARY_DIR}.
+# refer to the root source directory of the project as ${limbo_SOURCE_DIR} and
+# to the root binary directory of the project as ${limbo_BINARY_DIR}.
 cmake_minimum_required (VERSION 2.8.11)
-project (lela)
+project (limbo)
 
 include (CTest)
 
@@ -44,9 +44,6 @@ if (CMAKE_BUILD_TYPE MATCHES Release)
 endif ()
 
 add_subdirectory (src)
-
-#add_subdirectory (eclipse-clp)
-#add_subdirectory (bats)
 
 add_subdirectory (tests)
 add_subdirectory (examples)

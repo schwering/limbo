@@ -4,20 +4,20 @@
 //
 // Overloads some operators to provide a higher-level syntax for formulas.
 
-#ifndef LELA_FORMAT_CPP_SYNTAX_H_
-#define LELA_FORMAT_CPP_SYNTAX_H_
+#ifndef LIMBO_FORMAT_CPP_SYNTAX_H_
+#define LIMBO_FORMAT_CPP_SYNTAX_H_
 
 #include <utility>
 
-#include <lela/formula.h>
-#include <lela/clause.h>
-#include <lela/literal.h>
-#include <lela/solver.h>
-#include <lela/term.h>
+#include <limbo/formula.h>
+#include <limbo/clause.h>
+#include <limbo/literal.h>
+#include <limbo/solver.h>
+#include <limbo/term.h>
 
 #define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
 
-namespace lela {
+namespace limbo {
 namespace format {
 namespace cpp {
 
@@ -43,7 +43,7 @@ class HiFormula;
 class HiFormula {
  public:
   HiFormula(const Literal& a) : HiFormula(Clause({a})) {}  // NOLINT
-  HiFormula(const lela::Clause& c) : HiFormula(Formula::Factory::Atomic(c)) {}  // NOLINT
+  HiFormula(const limbo::Clause& c) : HiFormula(Formula::Factory::Atomic(c)) {}  // NOLINT
   HiFormula(const Formula::Ref& phi) : HiFormula(*phi) {}  // NOLINT
   HiFormula(const Formula& phi) : phi_(phi.Clone()) {}  // NOLINT
 
@@ -128,7 +128,7 @@ inline HiFormula Fa(HiTerm x, const HiFormula& phi) { return ~Ex(x, ~phi); }
 
 }  // namespace cpp
 }  // namespace format
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_FORMAT_CPP_SYNTAX_H_
+#endif  // LIMBO_FORMAT_CPP_SYNTAX_H_
 

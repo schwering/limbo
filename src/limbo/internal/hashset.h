@@ -4,8 +4,8 @@
 //
 // A closed hash set.
 
-#ifndef LELA_INTERNAL_HASHSET_H_
-#define LELA_INTERNAL_HASHSET_H_
+#ifndef LIMBO_INTERNAL_HASHSET_H_
+#define LIMBO_INTERNAL_HASHSET_H_
 
 #include <cstdlib>
 #include <cstring>
@@ -16,11 +16,11 @@
 #include <utility>
 #include <vector>
 
-#include <lela/internal/hash.h>
-#include <lela/internal/ints.h>
-#include <lela/internal/iter.h>
+#include <limbo/internal/hash.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/iter.h>
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 template<typename T, typename Hash = std::hash<T>, typename Equal = std::equal_to<T>>
@@ -357,7 +357,7 @@ class HashSet {
 };
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 
-#endif  // LELA_INTERNAL_HASHSET_H_
+#endif  // LIMBO_INTERNAL_HASHSET_H_
 

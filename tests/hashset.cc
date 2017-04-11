@@ -5,9 +5,9 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/internal/hashset.h>
+#include <limbo/internal/hashset.h>
 
-#include <lela/format/output.h>
+#include <limbo/format/output.h>
 
 struct Value {
   Value() = default;
@@ -19,9 +19,9 @@ struct Value {
 
 std::ostream& operator<<(std::ostream& os, Value i) { return std::cout << i.x; }
 
-using namespace lela::format;
+using namespace limbo::format;
 
-namespace lela {
+namespace limbo {
 namespace internal {
 
 TEST(HashSetTest, main) {
@@ -67,5 +67,5 @@ TEST(HashSetTest, main) {
 }
 
 }  // namespace internal
-}  // namespace lela
+}  // namespace limbo
 

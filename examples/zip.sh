@@ -18,5 +18,5 @@ $CMD \
     index.html jquery*.js \
     minesweeper/minesweeper-js.{html,js,js.mem} minesweeper/*.svg \
     sudoku/sudoku-js.{html,js,js.mem} sudoku/sudokus.txt \
-    tui/tui-js.{html,js,js.mem} tui/jquery.terminal*.{js,css} tui/unix_formatting.js tui/*.lela
+    tui/tui-js.{html,js,js.mem} tui/jquery.terminal*.{js,css} tui/unix_formatting.js tui/*.limbo
 

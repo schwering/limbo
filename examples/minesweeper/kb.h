@@ -7,11 +7,11 @@
 #include <sstream>
 #include <vector>
 
-#include <lela/solver.h>
-#include <lela/internal/maybe.h>
-#include <lela/internal/iter.h>
-#include <lela/format/output.h>
-#include <lela/format/cpp/syntax.h>
+#include <limbo/solver.h>
+#include <limbo/internal/maybe.h>
+#include <limbo/internal/iter.h>
+#include <limbo/format/output.h>
+#include <limbo/format/cpp/syntax.h>
 
 #include "game.h"
 #include "timer.h"
@@ -61,75 +61,75 @@ class KnowledgeBase {
         F(ctx_.CreateName(Bool)),
 #endif
         MineF(ctx_.CreateFunction(Bool, 2)) {
-    lela::format::RegisterSort(Bool, "");
-    lela::format::RegisterSort(XPos, "");
-    lela::format::RegisterSort(YPos, "");
-    lela::format::RegisterSymbol(T.symbol(), "T");
+    limbo::format::RegisterSort(Bool, "");
+    limbo::format::RegisterSort(XPos, "");
+    limbo::format::RegisterSort(YPos, "");
+    limbo::format::RegisterSymbol(T.symbol(), "T");
 #ifdef USE_DETERMINES
-    lela::format::RegisterSymbol(F.symbol(), "F");
+    limbo::format::RegisterSymbol(F.symbol(), "F");
 #endif
-    lela::format::RegisterSymbol(MineF, "Mine");
+    limbo::format::RegisterSymbol(MineF, "Mine");
     X.resize(g_->width());
     for (size_t i = 0; i < g_->width(); ++i) {
       X[i] = ctx_.CreateName(XPos);
       std::stringstream ss;
       ss << "#X" << i;
-      lela::format::RegisterSymbol(X[i].symbol(), ss.str());
+      limbo::format::RegisterSymbol(X[i].symbol(), ss.str());
     }
     Y.resize(g_->height());
     for (size_t i = 0; i < g_->height(); ++i) {
       Y[i] = ctx_.CreateName(YPos);
       std::stringstream ss;
       ss << "#Y" << i;
-      lela::format::RegisterSymbol(Y[i].symbol(), ss.str());
+      limbo::format::RegisterSymbol(Y[i].symbol(), ss.str());
     }
     processed_.resize(g_->n_fields(), false);
   }
 
   size_t max_k() const { return max_k_; }
 
-  const lela::Solver& solver() const { return ctx_.solver(); }
-  const lela::Setup& setup() const { return solver().setup(); }
+  const limbo::Solver& solver() const { return ctx_.solver(); }
+  const limbo::Setup& setup() const { return solver().setup(); }
 
-  lela::internal::Maybe<bool> IsMine(Point p, int k) {
+  limbo::internal::Maybe<bool> IsMine(Point p, int k) {
     t_.start();
-    lela::internal::Maybe<bool> r = lela::internal::Nothing;
+    limbo::internal::Maybe<bool> r = limbo::internal::Nothing;
 #ifdef USE_DETERMINES
     // In this case we need a second name to represent falsity. The reason is
     // that without such a name, falsity is represented by "/= T", which is for
     // Determines() just means the term's value is not determined, whereas we'd
     // want it to be determined as false.
-    lela::internal::Maybe<lela::Term> is_mine = solver()->Determines(k, Mine(p), lela::Solver::kConsistencyGuarantee);
+    limbo::internal::Maybe<limbo::Term> is_mine = solver()->Determines(k, Mine(p), limbo::Solver::kConsistencyGuarantee);
     assert(!is_mine || is_mine.val == T || is_mine.val == F);
-    assert(solver()->Determines(k, Mine(p), lela::Solver::kNoConsistencyGuarantee) == is_mine);
-    assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(true, p)}),
-                             lela::Solver::kConsistencyGuarantee) ==
+    assert(solver()->Determines(k, Mine(p), limbo::Solver::kNoConsistencyGuarantee) == is_mine);
+    assert(solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)}),
+                             limbo::Solver::kConsistencyGuarantee) ==
            (is_mine && is_mine.val == T));
-    assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(true, p)}),
-                             lela::Solver::kConsistencyGuarantee) ==
-           solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(true, p)}),
-                             lela::Solver::kNoConsistencyGuarantee));
-    assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(false, p)}),
-                             lela::Solver::kConsistencyGuarantee) ==
-           solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(false, p)}),
-                             lela::Solver::kNoConsistencyGuarantee));
-    assert(solver()->Entails(k, *lela::Formula::Factory::Atomic(lela::Clause{MineLit(false, p)}),
-                             lela::Solver::kConsistencyGuarantee) ==
+    assert(solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)}),
+                             limbo::Solver::kConsistencyGuarantee) ==
+           solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)}),
+                             limbo::Solver::kNoConsistencyGuarantee));
+    assert(solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)}),
+                             limbo::Solver::kConsistencyGuarantee) ==
+           solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)}),
+                             limbo::Solver::kNoConsistencyGuarantee));
+    assert(solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)}),
+                             limbo::Solver::kConsistencyGuarantee) ==
            (is_mine && is_mine.val == F));
     if (is_mine) {
       assert(!is_mine.val.null());
-      r = lela::internal::Just(is_mine.val == T);
+      r = limbo::internal::Just(is_mine.val == T);
       assert(g_->mine(p) == r.val);
     }
 #else
-    lela::Formula::Ref yes_mine = lela::Formula::Factory::Atomic(lela::Clause{MineLit(true, p)});
-    lela::Formula::Ref no_mine = lela::Formula::Factory::Atomic(lela::Clause{MineLit(false, p)});
-    if (solver()->Entails(k, *yes_mine, lela::Solver::kConsistencyGuarantee)) {
+    limbo::Formula::Ref yes_mine = limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)});
+    limbo::Formula::Ref no_mine = limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)});
+    if (solver()->Entails(k, *yes_mine, limbo::Solver::kConsistencyGuarantee)) {
       assert(g_->mine(p));
-      r = lela::internal::Just(true);
-    } else if (solver()->Entails(k, *no_mine, lela::Solver::kConsistencyGuarantee)) {
+      r = limbo::internal::Just(true);
+    } else if (solver()->Entails(k, *no_mine, limbo::Solver::kConsistencyGuarantee)) {
       assert(!g_->mine(p));
-      r = lela::internal::Just(false);
+      r = limbo::internal::Just(false);
     }
 #endif
     t_.stop();
@@ -157,22 +157,22 @@ class KnowledgeBase {
   void ResetTimer() { t_.reset(); }
 
  private:
-  lela::Term Mine(Point p) const {
+  limbo::Term Mine(Point p) const {
     return MineF(X[p.x], Y[p.y]);
   }
 
-  lela::Literal MineLit(bool is, Point p) const {
-    lela::Term t = Mine(p);
+  limbo::Literal MineLit(bool is, Point p) const {
+    limbo::Term t = Mine(p);
 #ifdef USE_DETERMINES
-    return lela::Literal::Eq(t, is ? T : F);
+    return limbo::Literal::Eq(t, is ? T : F);
 #else
-    return is ? lela::Literal::Eq(t, T) : lela::Literal::Neq(t, T);
+    return is ? limbo::Literal::Eq(t, T) : limbo::Literal::Neq(t, T);
 #endif
   }
 
-  lela::Clause MineClause(bool sign, const std::vector<Point> ns) const {
-    auto r = lela::internal::transform_range(ns.begin(), ns.end(), [this, sign](Point p) { return MineLit(sign, p); });
-    return lela::Clause(r.begin(), r.end());
+  limbo::Clause MineClause(bool sign, const std::vector<Point> ns) const {
+    auto r = limbo::internal::transform_range(ns.begin(), ns.end(), [this, sign](Point p) { return MineLit(sign, p); });
+    return limbo::Clause(r.begin(), r.end());
   }
 
   bool Update(Point p) {
@@ -183,11 +183,11 @@ class KnowledgeBase {
         return false;
       }
       case Game::FLAGGED: {
-        AddClause(lela::Clause{MineLit(true, p)});
+        AddClause(limbo::Clause{MineLit(true, p)});
         return true;
       }
       case Game::HIT_MINE: {
-        AddClause(lela::Clause{MineLit(true, p)});
+        AddClause(limbo::Clause{MineLit(true, p)});
         return true;
       }
       default: {
@@ -199,7 +199,7 @@ class KnowledgeBase {
         for (const std::vector<Point>& ps : util::Subsets(ns, m + 1)) {
           AddClause(MineClause(false, ps));
         }
-        AddClause(lela::Clause{MineLit(false, p)});
+        AddClause(limbo::Clause{MineLit(false, p)});
         return true;
       }
     }
@@ -221,12 +221,12 @@ class KnowledgeBase {
     }
   }
 
-  void AddClause(const lela::Clause& c) {
+  void AddClause(const limbo::Clause& c) {
 #ifdef USE_DETERMINES
-    for (lela::Literal a : c) {
-      lela::Term t = a.lhs();
+    for (limbo::Literal a : c) {
+      limbo::Term t = a.lhs();
       if (closure_added_.find(t) == closure_added_.end()) {
-        solver()->AddClause(lela::Clause{lela::Literal::Eq(t, T), lela::Literal::Eq(t, F)});
+        solver()->AddClause(limbo::Clause{limbo::Literal::Eq(t, T), limbo::Literal::Eq(t, F)});
         closure_added_.insert(t);
       }
     }
@@ -234,26 +234,26 @@ class KnowledgeBase {
     solver()->AddClause(c);
   }
 
-  lela::Solver* solver() { return ctx_.solver(); }
+  limbo::Solver* solver() { return ctx_.solver(); }
 
   const Game* g_;
   size_t max_k_;
 
-  lela::format::cpp::Context ctx_;
+  limbo::format::cpp::Context ctx_;
 
-  lela::Symbol::Sort Bool;
-  lela::Symbol::Sort XPos;
-  lela::Symbol::Sort YPos;
-  lela::format::cpp::HiTerm T;               // name for positive truth value
+  limbo::Symbol::Sort Bool;
+  limbo::Symbol::Sort XPos;
+  limbo::Symbol::Sort YPos;
+  limbo::format::cpp::HiTerm T;               // name for positive truth value
 #ifdef USE_DETERMINES
-  lela::format::cpp::HiTerm F;               // name for negative truth value
+  limbo::format::cpp::HiTerm F;               // name for negative truth value
 #endif
-  std::vector<lela::format::cpp::HiTerm> X;  // names for X positions
-  std::vector<lela::format::cpp::HiTerm> Y;  // names for Y positions
-  lela::format::cpp::HiSymbol MineF;
+  std::vector<limbo::format::cpp::HiTerm> X;  // names for X positions
+  std::vector<limbo::format::cpp::HiTerm> Y;  // names for Y positions
+  limbo::format::cpp::HiSymbol MineF;
 
 #ifdef USE_DETERMINES
-  std::unordered_set<lela::Term> closure_added_;
+  std::unordered_set<limbo::Term> closure_added_;
 #endif
 
   std::vector<bool> processed_;

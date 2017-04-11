@@ -3,12 +3,12 @@
 
 #include <gtest/gtest.h>
 
-#include <lela/term.h>
-#include <lela/format/output.h>
+#include <limbo/term.h>
+#include <limbo/format/output.h>
 
-namespace lela {
+namespace limbo {
 
-using namespace lela::format;
+using namespace limbo::format;
 
 struct EqSubstitute {
   EqSubstitute(Term pre, Term post) : pre_(pre), post_(post) {}
@@ -151,5 +151,5 @@ TEST(TermTest, Isomorphic) {
   { auto u = Term::Isomorphic(fn2n1, fn1n1); EXPECT_FALSE(bool(u)); }
 }
 
-}  // namespace lela
+}  // namespace limbo
 

@@ -5,13 +5,13 @@
 
 #include <unordered_set>
 
-#include <lela/formula.h>
-#include <lela/grounder.h>
-#include <lela/format/output.h>
+#include <limbo/formula.h>
+#include <limbo/grounder.h>
+#include <limbo/format/output.h>
 
-namespace lela {
+namespace limbo {
 
-using namespace lela::format;
+using namespace limbo::format;
 
 std::unordered_set<Clause> unique(const Setup& s) {
   std::unordered_set<Clause> set;
@@ -63,7 +63,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(n1,n1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [n1=n1]. The clause is valid and hence skipped.
     EXPECT_EQ(unique_length(s), 0);
     EXPECT_TRUE(s.Consistent());
@@ -72,7 +72,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(n1,n1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
     // down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -82,7 +82,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(x1, x1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [n1=n1]. The clause is valid and hence skipped.
     EXPECT_EQ(unique_length(s), 0);
     EXPECT_TRUE(s.Consistent());
@@ -91,7 +91,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(x1, x1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
     // down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -101,7 +101,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(n1, x1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [n1=n1], [n3=n1]. The first clause is valid and
     // hence skipped. The second is invalid and hence boiled down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -111,7 +111,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(n1, x1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [n1/=n1], [n3/=n1]. The second clause is valid and
     // hence skipped. The first is invalid and hence boiled down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -121,7 +121,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(x1, x2)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [n1=n1], [n3=2], [n1=n3], [n3=n1]. The former two
     // clauses are valid and hence skipped. The latter ones are invalid and
     // hence boiled down to [].
@@ -132,7 +132,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(x1, x1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
     // down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -143,10 +143,10 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(a, {}), x1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [a=n1], [a=n2], which yields [].
     //EXPECT_EQ(unique_length(s), 2);  // the second clause is replaced with []
-    //const_cast<lela::Setup&>(s).Minimize();
+    //const_cast<limbo::Setup&>(s).Minimize();
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_FALSE(s.Consistent());
   }
@@ -154,7 +154,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(a, {}), n1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [a=n1].
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_TRUE(s.Consistent());
@@ -163,11 +163,11 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(f, {n1}), x1)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [f(n1)=n1)], [f(n1)=n3]. The clauses unify and
     // yield [].
     //EXPECT_EQ(unique_length(s), 2);
-    //const_cast<lela::Setup&>(s).Minimize();
+    //const_cast<limbo::Setup&>(s).Minimize();
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_FALSE(s.Consistent());
   }
@@ -175,10 +175,10 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(tf.CreateTerm(f, {n1}), x2)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [f(n1)/=n1)], [f(n1)/=n3], [f(n1)/=n4].
     //EXPECT_EQ(unique_length(s), 3);
-    //const_cast<lela::Setup&>(s).Minimize();
+    //const_cast<limbo::Setup&>(s).Minimize();
     EXPECT_EQ(unique_length(s), 3);
     EXPECT_TRUE(s.Consistent());
   }
@@ -186,11 +186,11 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(h, {n1,x2}), x3)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=4,5. The clauses
     // unify and yield [].
     //EXPECT_EQ(unique_length(s), 3+1);  // after [h(n1,nX)=n4] for all nX have been added, adding any [h(n1,nX)=n5] yields []
-    //const_cast<lela::Setup&>(s).Minimize();
+    //const_cast<limbo::Setup&>(s).Minimize();
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_FALSE(s.Consistent());
   }
@@ -198,10 +198,10 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(tf.CreateTerm(h, {n1,x2}), x3)}));
-    const lela::Setup& s = g.Ground();
+    const limbo::Setup& s = g.Ground();
     // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=4,5.
     //EXPECT_EQ(unique_length(s), 3*2);
-    //const_cast<lela::Setup&>(s).Minimize();
+    //const_cast<limbo::Setup&>(s).Minimize();
     EXPECT_EQ(unique_length(s), 3*2);
     EXPECT_TRUE(s.Consistent());
   }
@@ -213,7 +213,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 //    g.PrepareForQuery(Formula::Factory::Exists(x2, *Formula::Factory::Atomic({Literal::Eq(x2, x2)}))->NF(&sf, &tf));
 //    g.PrepareForQuery(Formula::Factory::Exists(x3, *Formula::Factory::Atomic({Literal::Eq(x3, x3)}))->NF(&sf, &tf));
 //    g.PrepareForQuery(Formula::Factory::Exists(x4, *Formula::Factory::Atomic({Literal::Eq(x4, x4)}))->NF(&sf, &tf));
-//    const lela::Setup& s = g.Ground();
+//    const limbo::Setup& s = g.Ground();
 //    EXPECT_EQ(unique_length(s), 2);
 //  }
 
@@ -530,5 +530,5 @@ TEST(GrounderTest, Ground_SplitNames_iterated) {
   }
 }
 
-}  // namespace lela
+}  // namespace limbo
 

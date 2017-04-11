@@ -35,8 +35,8 @@ static Timer* timer_overall = nullptr;
 static std::vector<int>* split_counts = nullptr;
 
 void Finalize() {
-  lela::Symbol::Factory::Reset();
-  lela::Term::Factory::Reset();
+  limbo::Symbol::Factory::Reset();
+  limbo::Term::Factory::Reset();
   if (game)
     delete game;
   if (kb)
@@ -91,11 +91,11 @@ bool PlayTurn() {
 
 }  // namespace game
 
-extern "C" void lela_init(size_t width, size_t height, size_t n_mines, size_t seed, int max_k) {
+extern "C" void limbo_init(size_t width, size_t height, size_t n_mines, size_t seed, int max_k) {
   game::Init(width, height, n_mines, seed, max_k);
 }
 
-extern "C" int lela_play_turn() {
+extern "C" int limbo_play_turn() {
   return game::PlayTurn() ? 1 : 0;
 }
 

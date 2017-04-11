@@ -17,8 +17,8 @@
 // that unit propagation or subsumption won't work early (in a sound but
 // incomplete way).
 
-#ifndef LELA_CLAUSE_H_
-#define LELA_CLAUSE_H_
+#ifndef LIMBO_CLAUSE_H_
+#define LIMBO_CLAUSE_H_
 
 #include <cassert>
 #include <cstring>
@@ -31,15 +31,15 @@
 #include <utility>
 #include <vector>
 
-#include <lela/literal.h>
+#include <limbo/literal.h>
 
-#include <lela/internal/bloom.h>
-#include <lela/internal/ints.h>
-#include <lela/internal/iter.h>
-#include <lela/internal/maybe.h>
-#include <lela/internal/traits.h>
+#include <limbo/internal/bloom.h>
+#include <limbo/internal/ints.h>
+#include <limbo/internal/iter.h>
+#include <limbo/internal/maybe.h>
+#include <limbo/internal/traits.h>
 
-namespace lela {
+namespace limbo {
 
 class Clause {
  public:
@@ -449,22 +449,22 @@ next:
   std::unique_ptr<Literal[]> lits2_;
 };
 
-}  // namespace lela
+}  // namespace limbo
 
 
 namespace std {
 
 template<>
-struct hash<lela::Clause> {
-  lela::internal::hash32_t operator()(const lela::Clause& a) const { return a.hash(); }
+struct hash<limbo::Clause> {
+  limbo::internal::hash32_t operator()(const limbo::Clause& a) const { return a.hash(); }
 };
 
 template<>
-struct equal_to<lela::Clause> {
-  bool operator()(const lela::Clause& a, const lela::Clause& b) const { return a == b; }
+struct equal_to<limbo::Clause> {
+  bool operator()(const limbo::Clause& a, const limbo::Clause& b) const { return a == b; }
 };
 
 }  // namespace std
 
-#endif  // LELA_CLAUSE_H_
+#endif  // LIMBO_CLAUSE_H_
 

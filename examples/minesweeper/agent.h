@@ -45,7 +45,7 @@ class Agent {
           if (g_->opened(p) || g_->flagged(p)) {
             continue;
           }
-          const lela::internal::Maybe<bool> r = kb_->IsMine(p, k);
+          const limbo::internal::Maybe<bool> r = kb_->IsMine(p, k);
           if (r.yes) {
             if (r.val) {
               logger_.flagged(p, k);

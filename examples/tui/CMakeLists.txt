@@ -1,8 +1,8 @@
 add_executable (tui tui.cc linenoise/linenoise.c) 
-target_link_libraries (tui LINK_PUBLIC lela)
+target_link_libraries (tui LINK_PUBLIC limbo)
 
 
-file (GLOB tests RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.lela")
+file (GLOB tests RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.limbo")
 foreach (test ${tests})
     add_test (NAME ${test} COMMAND ./tui ${test})
 endforeach ()
@@ -14,7 +14,7 @@ if (EMCC)
                 separate_arguments(FLAGS UNIX_COMMAND "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE}")
                 add_custom_command (OUTPUT tui-js.js tui-js.js.mem
                         COMMAND ${EMCC} ${FLAGS} -I../../src tui-js.cc -o tui-js.js
-				-s EXPORTED_FUNCTIONS=['_lela_init','_lela_parse','_lela_free']
+				-s EXPORTED_FUNCTIONS=['_limbo_init','_limbo_parse','_limbo_free']
                                 -s TOTAL_MEMORY=16777216
                         DEPENDS tui-js.cc "*.h"
                         VERBATIM)

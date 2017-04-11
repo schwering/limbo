@@ -9,7 +9,7 @@
 #include <iostream>
 #include <string>
 
-#include <lela/internal/maybe.h>
+#include <limbo/internal/maybe.h>
 
 #include "agent.h"
 #include "game.h"
@@ -25,7 +25,7 @@ inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::o
   SimplePrinter printer(&colors, os);
   std::vector<int> split_counts;
   split_counts.resize(max_k + 1);
-  lela::internal::Maybe<Agent::Result> r;
+  limbo::internal::Maybe<Agent::Result> r;
   *os << "Initial Sudoku:" << std::endl;
   *os << std::endl;
   printer.Print(g);

@@ -9,7 +9,7 @@
 #include <string>
 #include <sstream>
 
-#include <lela/format/output.h>
+#include <limbo/format/output.h>
 
 #include "game.h"
 #include "kb.h"

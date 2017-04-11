@@ -185,11 +185,11 @@ function resetTerminal() {
 }
 
 function loadExample(file) {
-    Module.ccall('lela_init', 'void', [], []);
+    Module.ccall('limbo_init', 'void', [], []);
     $('#examples').val('');
     if (file) {
         $.ajax({
-            url : file + '.lela',
+            url : file + '.limbo',
             dataType: 'text',
             success: function(data) {
                 $('#examples').val(file);
@@ -227,7 +227,7 @@ function loadExample(file) {
     }
 }
 
-function lela_exec(command) {
+function limbo_exec(command) {
     var t = $('#terminal').terminal();
     if (command == 'help') {
         var maxlen = 0;
@@ -261,14 +261,14 @@ function lela_exec(command) {
     } else if (command == 'hide-debug') {
         $('#show-debug').prop('checked', false).change();
     } else {
-        Module.ccall('lela_parse', 'void', ['string'], [command]);
+        Module.ccall('limbo_parse', 'void', ['string'], [command]);
     }
 }
 
 $(document).ready(function() {
     $('#debug-toggle').click(function() { $('#debug-div').toggle(); return false; });
 
-    Module.ccall('lela_init', 'void', [], []);
+    Module.ccall('limbo_init', 'void', [], []);
 
     var select_ex = getParameterByName('ex');
     if (select_ex) {
@@ -278,16 +278,16 @@ $(document).ready(function() {
     }
 
     jQuery(function($, undefined) {
-	$('#terminal').terminal(lela_exec, {
+	$('#terminal').terminal(limbo_exec, {
 	    greetings:
-                inColor('LELA Terminal\n'+
+                inColor('Limbo Terminal\n'+
 		        '\n'+
 		        'Select one of the pre-defined examples from the dropdown list above, or type "help" and press enter.\n'+
                         '\n', 'purple'),
 	    name: 'tui',
 	    height: 0.75 * $(window).height(),
 	    width: 0.95 * $(window).width(),
-            prompt: inColor('lela> ', '#888'),
+            prompt: inColor('limbo> ', '#888'),
 	});
     });
 

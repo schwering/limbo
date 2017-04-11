@@ -15,9 +15,9 @@
 #include <set>
 #include <vector>
 
-#include <lela/term.h>
-#include <lela/clause.h>
-#include <lela/literal.h>
+#include <limbo/term.h>
+#include <limbo/clause.h>
+#include <limbo/literal.h>
 
 struct Point {
   Point() {}
@@ -225,7 +225,7 @@ std::ostream& operator<<(std::ostream& os, const BattleshipGame& g) {
 
 struct BattleshipCallbacks {
   template<typename T>
-  bool operator()(T* ctx, const std::string& proc, const std::vector<lela::Term>& args) {
+  bool operator()(T* ctx, const std::string& proc, const std::vector<limbo::Term>& args) {
     if (proc == "bs_init" && !bs_) {
       if (args.size() == 4) {
         bs_ = std::make_shared<BattleshipGame>(1, 4, std::vector<size_t>{0, 0, 1});
@@ -254,16 +254,16 @@ struct BattleshipCallbacks {
  private:
   template<typename T>
   void Fire(T* ctx, Point p) {
-    const lela::Term t = Lookup(p);
+    const limbo::Term t = Lookup(p);
     const bool is_water = !bs_->Fire(p);
-    const lela::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {t});
-    const lela::Term Fired = ctx->CreateTerm(ctx->LookupFunction("fired"), {t});
-    const lela::Term True = ctx->LookupName("T");
-    ctx->kb()->Add(lela::Clause{is_water ? lela::Literal::Eq(Water, True) : lela::Literal::Neq(Water, True)});
-    ctx->kb()->Add(lela::Clause{lela::Literal::Eq(Fired, True)});
+    const limbo::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {t});
+    const limbo::Term Fired = ctx->CreateTerm(ctx->LookupFunction("fired"), {t});
+    const limbo::Term True = ctx->LookupName("T");
+    ctx->kb()->Add(limbo::Clause{is_water ? limbo::Literal::Eq(Water, True) : limbo::Literal::Neq(Water, True)});
+    ctx->kb()->Add(limbo::Clause{limbo::Literal::Eq(Fired, True)});
   }
 
-  Point Lookup(lela::Term t) {
+  Point Lookup(limbo::Term t) {
     for (size_t i = 0; i < ps_.size(); ++i) {
       if (ps_[i] == t) {
         return bs_->to_point(i);
@@ -272,12 +272,12 @@ struct BattleshipCallbacks {
     throw;
   }
 
-  lela::Term Lookup(Point p) {
+  limbo::Term Lookup(Point p) {
     return ps_[bs_->to_index(p)];
   }
 
   std::shared_ptr<BattleshipGame> bs_;
-  std::vector<lela::Term> ps_;
+  std::vector<limbo::Term> ps_;
 };
 
 #endif  // EXAMPLES_TEXTINTERFACE_BATTLESHIP_H_

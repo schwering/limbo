@@ -1,26 +1,28 @@
-# Limited Epistemic Logic in Action
+# A Reasoning System for First-Order Limited Belief
 
-LELA (**L**imited **E**pistemic **L**ogic in **A**ction) is a C++ library for
-*decidable reasoning in first-order knowledge bases* based on the theory of
-*limited belief* from [1,2,3,4]. [Here are some web
-demos](http://www.cse.unsw.edu.au/~cschwering/demo/).
+Limbo is a *reasoning system for a first-order logic of **lim**ited
+**b**elief*. Limited belief allows for decidable reasoning in first-order
+knowledge bases, and in the propositional case it is even tractable. See
+[\[1,2,3,4\]](#references) for details on the theory, or click
+[here](http://www.cse.unsw.edu.au/~cschwering/limbo/) to see some web demos.
 
 ## Features
 
-The library provides a logical language to encode and reason about knowledge
-and belief.
+Limbo provides a logical language to represent and reason about (possibly
+incomplete) knowledge and belief.
 
-The logical language features functions of different sorts, standard names that
-designate distinct objects, first-order variables and quantification, equality,
-and modal operators for knowledge and conditional belief. (Predicates are not
-built-in but can be simulated without overhead using boolean functions.)
+This logical language is a first-order modal dialect: it features functions and
+equality, standard names to designate distinct objects, first-order variables
+and quantification, sorts, and modal operators for knowledge and conditional
+belief. (Predicates are not built-in but can be simulated without overhead
+using boolean functions.)
 
 An agent's knowledge and beliefs are encoded in this language. This knowledge
 base is subject to a syntactic restriction: it must be in clausal form, and all
-variables must be universally quantified. (Existentially quantified variables
-in the knowledge base can be simulated through Skolemization.) For instance,
-assuming a birthday scenario and a gift box, we could say that we know the box
-contains a gift.
+variables must be universally quantified; however, as existentially quantified
+variables can be simulated through Skolemization, this is no effective
+restriction. An example knowledge base might assume a birthday scenario and
+stipulate that that a certain gift box is known to contain an (unknown) gift.
 
 Reasoning in such knowledge bases is done with queries expressed in this
 language. For example, we can say that we believe that something is in the box
@@ -44,22 +46,21 @@ For more theoretical background see the papers linked below.
 
 ## Examples
 
-* This [web demo](http://www.cse.unsw.edu.au/~cschwering/demo/tui/) allows to
+* This [web demo](http://www.cse.unsw.edu.au/~cschwering/limbo/tui/) allows to
   define and query a knowledge base through a simple text interface.
   You can also use it from the command line; the the code is
   [here](examples/tui/).
 * There's are
-  [Minesweeper](http://www.cse.unsw.edu.au/~cschwering/demo/minesweeper/) and
-  [Sudoku](http://www.cse.unsw.edu.au/~cschwering/demo/sudoku/) web demos. You
+  [Minesweeper](http://www.cse.unsw.edu.au/~cschwering/limbo/minesweeper/) and
+  [Sudoku](http://www.cse.unsw.edu.au/~cschwering/limbo/sudoku/) web demos. You
   can use them it from the command line as well; the the code is
   [here](examples/minesweeper/) and [here](examples/sudoku/).
-* The main part of the C++ API is [kb.h](src/lela/kb.h),
-  [formula.h](src/lela/formula.h), [clause.h](src/lela/clause.h),
-  [literal.h](src/lela/literal.h), [term.h](src/lela/term.h), in this
-  order.
-  To make creating formulas a little more convenient,
-  [format/cpp/syntax.h](src/lela/format/cpp/syntax.h) overloads some C++
-  operators.
+* The main part of the C++ API is [kb.h](src/limbo/kb.h),
+  [formula.h](src/limbo/formula.h), [clause.h](src/limbo/clause.h),
+  [literal.h](src/limbo/literal.h), [term.h](src/limbo/term.h), in this
+  order. Optional C++ operator overloadings are provided by
+  [format/cpp/syntax.h](src/limbo/format/cpp/syntax.h) to make creating
+  formulas a little more convenient.
 
 ## Future work
 
