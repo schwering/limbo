@@ -25,7 +25,6 @@ DartConfiguration.tcl
 target
 
 Testing
-tests/googletest
 
 test-driver
 tests/bloom
