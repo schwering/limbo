@@ -631,7 +631,7 @@ class Parser {
     return alpha;
   }
 
-  // implication_formula --> disjunctive_formula -> disjunctive_formula
+  // implication_formula --> disjunctive_formula -> implication_formula
   //                      |  disjunctive_formula
   Result<Action<Formula::Ref>> implication_formula() {
     Result<Action<Formula::Ref>> alpha = disjunctive_formula();
@@ -640,7 +640,7 @@ class Parser {
     }
     if (Is(Tok(), Token::kRArrow)) {
       Advance();
-      Result<Action<Formula::Ref>> beta = disjunctive_formula();
+      Result<Action<Formula::Ref>> beta = implication_formula();
       if (!beta) {
         return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected right argument disjunctive formula"), beta);
       }

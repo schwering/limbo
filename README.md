@@ -3,7 +3,7 @@
 Limbo is a *reasoning system for a first-order logic of **lim**ited
 **b**elief*. Limited belief allows for decidable reasoning in first-order
 knowledge bases, and in the propositional case it is even tractable. See
-[\[1,2,3,4\]](#references) for details on the theory, or click
+[\[1,2,3,4,5\]](#references) for details on the theory, or click
 [here](http://www.cse.unsw.edu.au/~cschwering/limbo/) to see some web demos.
 
 ## Features
@@ -70,18 +70,43 @@ For more theoretical background see the papers linked below.
 * Improve grounding.
 * Have a look at some other KR concepts.
 
+## Installation
+
+The library is header-only and has no third-party dependencies. It suffices to
+have `src/limbo` in the include path.
+
+To compile and run the tests and demos, execute the following:
+
+```shell
+$ git submodule init
+$ git submodule update
+$ cmake .
+$ make
+$ make test
+```
+
 ## References
 
-1. Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief
-   with Function Symbols. KR 2016.
+1. C. Schwering.
+   A Reasoning System for a First-Order Logic of Limited Belief.
+   In Proc. IJCAI 2017 (to appear).
+   [PDF](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017.pdf),
+   [slides](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017-slides.pdf)
+2. G. Lakemeyer and H. Levesque.
+   Decidable Reasoning in a Logic of Limited Belief with Function Symbols.
+   In Proc. KR 2016.
    [PDF](https://kbsg.rwth-aachen.de/sites/kbsg/files/LakemeyerLevesque2016.pdf)
-2. Schwering and Lakemeyer. Decidable Reasoning in a First-Order Logic of
-   Limited Conditional Belief. ECAI 2016.
-   [PDF](https://kbsg.rwth-aachen.de/sites/kbsg/files/SchweringLakemeyer2016.pdf)
-3. Lakemeyer and Levesque. Decidable Reasoning in a Fragment of the Epistemic
-   Situation Calculus. KR 2014.
+3. C. Schwering and G. Lakemeyer.
+   Decidable Reasoning in a First-Order Logic of Limited Conditional Belief.
+   In Proc. ECAI 2016.
+   [PDF](http://www.cse.unsw.edu.au/~cschwering/ecai-2016.pdf),
+   [slides](http://www.cse.unsw.edu.au/~cschwering/ecai-2016-slides.pdf)
+4. G. Lakemeyer and H. Levesque.
+   Decidable Reasoning in a Fragment of the Epistemic Situation Calculus.
+   In Proc. KR 2014.
    [PDF](https://pdfs.semanticscholar.org/8ac9/a2955895cd391ec2b62d8210ee8206979f4a.pdf)
-4. Lakemeyer and Levesque. Decidable Reasoning in a Logic of Limited Belief
-   with Introspection and Unknown Individuals. IJCAI 2013.
+5. G. Lakemeyer and H. Levesque.
+   Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals.
+   In Proc. IJCAI 2013.
    [PDF](https://pdfs.semanticscholar.org/387c/951016c68aaf8ce36bb87e5ea4d1ef42405d.pdf)
 

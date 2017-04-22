@@ -1,0 +1,39 @@
+// ex(x1,fa(x2,ex(x3,fa(x4, (x1 v x2)^ (~x2 v x3)^ (x1 v ~x3)^ (x2 v ~x4)))))
+Sort Bool
+Name T, X -> Bool
+Fun x1/0, x1'/0 -> Bool
+Fun x3/0, x3'/0 -> Bool
+Fun x2/0 -> Bool
+Fun x4/0 -> Bool
+Fun sorted/0, pass/0 -> Bool
+Fun u0/0, u1/0, y1/0, u2/0, y2/0, u3/0, y3/0, u4/0, y4/0 -> Bool
+KB: u0=T
+KB: u0=T ^ x1/=X -> u1=T
+KB: u0=T ^ ~x1/=X ^ ~y2/=X -> sorted=T
+KB: u0=T ^ ~x1/=X ^ ~y3/=X -> sorted=T
+KB: u0=T ^ ~x1/=X ^ ~y4/=X -> sorted=T
+KB: u0=T ^ ~x1/=X ^ y2/=X ^ y3/=X ^ y4/=X -> sorted=T
+KB: u0=T ^ x1'/=X -> u1=T
+KB: u0=T ^ ~x1'/=X ^ ~y2/=X -> sorted=T
+KB: u0=T ^ ~x1'/=X ^ ~y3/=X -> sorted=T
+KB: u0=T ^ ~x1'/=X ^ ~y4/=X -> sorted=T
+KB: u0=T ^ ~x1'/=X ^ y2/=X ^ y3/=X ^ y4/=X -> sorted=T
+KB: ~x1=T -> pass=T
+KB: ~x1'=T -> pass=T
+KB: u1=T ^ x2/=X -> u2=T
+KB: u1=T ^ ~x2/=X ^ ~y3/=X -> sorted=T
+KB: u1=T ^ ~x2/=X ^ ~y4/=X -> sorted=T
+KB: u1=T ^ ~x2/=X ^ y3/=X ^ y4/=X -> sorted=T
+KB: u2=T ^ x3/=X -> u3=T
+KB: u2=T ^ ~x3/=X ^ ~y4/=X -> sorted=T
+KB: u2=T ^ ~x3/=X ^ y4/=X -> sorted=T
+KB: u2=T ^ x3'/=X -> u3=T
+KB: u2=T ^ ~x3'/=X ^ ~y4/=X -> sorted=T
+KB: u2=T ^ ~x3'/=X ^ y4/=X -> sorted=T
+KB: ~x3=T -> pass=T
+KB: ~x3'=T -> pass=T
+KB: u3=T ^ x4/=X -> u4=T
+KB: u3=T ^ ~x4/=X -> sorted=T
+KB: u4=T -> sorted=T
+Refute: K<4> (sorted=T ^ (~pass=T -> ((x1=T v x2=T)^ (~x2=T v x3=T)^ (x1=T v x3'=T)^ (x2=T v ~x4=T))))
+
