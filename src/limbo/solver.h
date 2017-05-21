@@ -105,15 +105,15 @@ class Solver {
     const SortedTermSet& names = grounder_.Names();
     internal::Maybe<Term> inconsistent_result = internal::Just(Term());
     internal::Maybe<Term> unsuccessful_result = internal::Nothing;
-    return Split<true>(s, split_terms, names, k,
-                       [this, &names, lhs](const Setup& s) { return s.Determines(lhs); },
-                       [](internal::Maybe<Term> r1, internal::Maybe<Term> r2) {
-                         return r1 && r2 && r1.val == r2.val ? r1 :
-                                r1 && r2 && r1.val.null()    ? r2 :
-                                r1 && r2 && r2.val.null()    ? r1 :
-                                                               internal::Nothing;
-                       },
-                       inconsistent_result, unsuccessful_result);
+    return Split(s, split_terms, names, k,
+                 [this, &names, lhs](const Setup& s) { return s.Determines(lhs); },
+                 [](internal::Maybe<Term> r1, internal::Maybe<Term> r2) {
+                   return r1 && r2 && r1.val == r2.val ? r1 :
+                          r1 && r2 && r1.val.null()    ? r2 :
+                          r1 && r2 && r2.val.null()    ? r1 :
+                                                         internal::Nothing;
+                 },
+                 inconsistent_result, unsuccessful_result);
   }
 
   bool EntailsComplete(int k, const Formula& phi, bool assume_consistent) {
@@ -193,10 +193,10 @@ class Solver {
         if (phi.trivially_valid()) {
           return true;
         }
-        return Split<false>(s, split_terms, names, k,
-                            [this, &names, &phi](const Setup& s) { return Reduce(s, names, phi); },
-                            [](bool r1, bool r2) { return r1 && r2; },
-                            true, false);
+        return Split(s, split_terms, names, k,
+                      [this, &names, &phi](const Setup& s) { return Reduce(s, names, phi); },
+                      [](bool r1, bool r2) { return r1 && r2; },
+                      true, false);
       }
     }
     throw;
@@ -255,7 +255,7 @@ class Solver {
         const Clause c = phi.as_atomic().arg();
         assert(c.ground());
         assert(c.valid() || c.primitive());
-        return s.Subsumes(c);
+        return c.valid() || s.Subsumes(c);
       }
       case Formula::kNot: {
         switch (phi.as_not().arg().type()) {
@@ -319,7 +319,7 @@ class Solver {
     throw;
   }
 
-  template<bool split_order_matters, typename T, typename GoalPredicate, typename MergeResultPredicate>
+  template<typename T, typename GoalPredicate, typename MergeResultPredicate>
   T Split(const Setup& s,
           const TermSet& split_terms,
           const SortedTermSet& names,
@@ -328,11 +328,11 @@ class Solver {
           MergeResultPredicate merge,
           T inconsistent_result,
           T unsuccessful_result) {
-    return Split<split_order_matters>(s, split_terms.begin(), split_terms.end(), split_terms.size(), names, k,
-                                      goal, merge, inconsistent_result, unsuccessful_result);
+    return Split(s, split_terms.begin(), split_terms.end(), split_terms.size(), names, k,
+                 goal, merge, inconsistent_result, unsuccessful_result);
   }
 
-  template<bool split_order_matters, typename T, typename GoalPredicate, typename MergeResultPredicate>
+  template<typename T, typename GoalPredicate, typename MergeResultPredicate>
   T Split(const Setup& s,
           const TermSet::const_iterator split_terms_begin,
           const TermSet::const_iterator split_terms_end,
@@ -401,16 +401,16 @@ class Solver {
             recursed = true;
             continue;
           }
-          auto split_result = Split<split_order_matters>(*split_setup,
-                                                         split_order_matters ? split_terms_begin : it,
-                                                         split_terms_end,
-                                                         split_order_matters ? n_split_terms : n_split_terms_left,
-                                                         names,
-                                                         k - 1,
-                                                         goal,
-                                                         merge,
-                                                         inconsistent_result,
-                                                         unsuccessful_result);
+          auto split_result = Split(*split_setup,
+                                    split_terms_begin,
+                                    split_terms_end,
+                                    n_split_terms,
+                                    names,
+                                    k - 1,
+                                    goal,
+                                    merge,
+                                    inconsistent_result,
+                                    unsuccessful_result);
           if (!split_result) {
             goto next_split;
           }

@@ -6,6 +6,7 @@
 // operators are only activated when the corresponding header is included.
 // For Sort and Symbol objects, a human-readable name can be registered.
 
+#include <array>
 #include <algorithm>
 #include <list>
 #include <map>
@@ -85,6 +86,9 @@ std::ostream& print_range(std::ostream& os, const Range& r,
                           const char* pre = "[",
                           const char* post = "]",
                           const char* sep = ", ");
+
+template<typename T, size_t N>
+std::ostream& operator<<(std::ostream& os, const std::array<T, N>& arr);
 
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec);
@@ -352,6 +356,12 @@ std::ostream& print_range(std::ostream& os, const Range& r,
                           const char* post,
                           const char* sep) {
   return print_sequence(os, r.begin(), r.end(), pre, post, sep);
+}
+
+template<typename T, size_t N>
+std::ostream& operator<<(std::ostream& os, const std::array<T, N>& arr) {
+  print_sequence(os, arr.begin(), arr.end(), "[", "]", ", ");
+  return os;
 }
 
 template<typename T>

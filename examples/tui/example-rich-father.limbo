@@ -1,19 +1,16 @@
 // Are Frank or Fred rich?
 
-Sort HUMAN
-Sort BOOL
+Sort BOOL, HUMAN
 
-Variable x -> HUMAN
-Variable y -> HUMAN
-Variable z -> HUMAN
+Function fatherOf/1 -> HUMAN
+Function rich/1 -> BOOL
 
 Name Frank -> HUMAN
 Name Fred -> HUMAN
 Name Sally -> HUMAN
 Name T -> BOOL
 
-Function fatherOf/1 -> HUMAN
-Function rich/1 -> BOOL
+Variable x -> HUMAN
 
 KB: rich(fatherOf(Sally)) = T
 KB: fatherOf(Sally) = Frank v fatherOf(Sally) = Fred

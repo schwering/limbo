@@ -1,0 +1,20 @@
+// fa(x1,x1 v ~x1)
+Sort Bool
+Name T, X -> Bool
+Fun x1/0 -> Bool
+Fun sorted1/0, sorted2/0 -> Bool
+Fun u0'1/0, u0'2/0 -> Bool
+Fun u1'1/0, u1'2/0 -> Bool
+Fun s1'1/0 -> Bool
+Fun pass/0 -> Bool
+Let Sorted := sorted1=T v sorted2=T
+KB: u0'1=T
+KB: u0'2=T
+KB: ~x1/=X -> pass=T
+KB: u0'1=T ^ u0'2=T ^ x1/=X -> u1'1=T
+KB: u0'1=T ^ u0'2=T ^ x1/=X -> u1'2=T
+KB: u0'1=T ^ u0'2=T ^ ~x1/=X -> Sorted
+KB: u1'1=T ^ u1'2=T -> Sorted
+Refute: K<0> Sorted
+Assert: K<1> Sorted
+Assert: K<1> (Sorted ^ (~pass=T -> (x1=T v ~x1=T)))
