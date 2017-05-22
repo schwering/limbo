@@ -22,6 +22,8 @@ Assert: Know<1> (a == n v a != n)
 Refute: Know<0> Ex x a == x
 Assert: Know<1> Ex x a == x
 
+Refute: Ex x Know<1> f(x) == x
+Refute: Fa x Know<1> f(x) == x
 Refute: Know<1> Fa x f(x) == x
 Refute: Know<1> Ex x f(x) != x
 

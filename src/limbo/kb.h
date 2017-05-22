@@ -67,7 +67,7 @@ class KnowledgeBase {
   }
 
   bool Add(const Formula& alpha) {
-    Formula::Ref beta = alpha.NF(sf_, tf_);
+    Formula::Ref beta = alpha.NF(sf_, tf_, false);
     bool assume_consistent = false;
     if (beta->type() == Formula::kGuarantee) {
       beta = beta->as_guarantee().arg().Clone();
@@ -92,15 +92,14 @@ class KnowledgeBase {
     return false;
   }
 
-  bool Entails(const Formula& sigma) {
+  bool Entails(const Formula& sigma, bool distribute = true) {
     assert(sigma.subjective());
     assert(sigma.free_vars().empty());
     if (spheres_changed_) {
       BuildSpheres();
       spheres_changed_ = false;
     }
-    Formula::Ref sigma_nf = sigma.NF(sf_, tf_);
-    Formula::Ref phi = ReduceModalities(*sigma_nf, false);
+    Formula::Ref phi = ReduceModalities(*sigma.NF(sf_, tf_, distribute), false);
     assert(phi->objective());
     return objective_.Entails(0, *phi, Solver::kNoConsistencyGuarantee);
   }

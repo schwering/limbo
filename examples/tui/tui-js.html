@@ -436,23 +436,23 @@ The following constructs are well-formed formulas:
     </li>
     <li><div class="label">knowledge modality:</div>
         <div class="body">
-            <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span>
+            <span class="code">Know&lt;<span class="metavariable">belief-level</span>&gt; <span class="metavariable">formula</span></span>
             &nbsp;&nbsp;or&nbsp;&nbsp;
-            <span class="code">K&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span>
+            <span class="code">K&lt;<span class="metavariable">belief-level</span>&gt; <span class="metavariable">formula</span></span>
         </div>
     </li>
     <li><div class="label">considering-possible modality:</div>
         <div class="body">
-            <span class="code">Cons&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span>
+            <span class="code">Cons&lt;<span class="metavariable">belief-level</span>&gt; <span class="metavariable">formula</span></span>
             &nbsp;&nbsp;or&nbsp;&nbsp;
-            <span class="code">M&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula</span></span>
+            <span class="code">M&lt;<span class="metavariable">belief-level</span>&gt; <span class="metavariable">formula</span></span>
         </div>
     </li>
     <li><div class="label">conditional belief modality:</div>
         <div class="body">
-            <span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span>
+            <span class="code">Bel&lt;<span class="metavariable">belief-level<sub>1</sub></span>,<span class="metavariable">belief-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span>
             &nbsp;&nbsp;or<br />
-            <span class="code">B&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span>
+            <span class="code">B&lt;<span class="metavariable">belief-level<sub>1</sub></span>,<span class="metavariable">belief-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span>
         </div>
     </li>
     <li><div class="label">guarantee-consistency modality:</div>
@@ -498,13 +498,13 @@ When <span class="metavariable">f</span> is a constant symbol (that is, has arit
 Variables in the KB are implicitly universally quantified.
 </p>
 <p>
-A <span class="metavariable">split-level</span> is a natural number &ge; 0 that indicates how much reasoning effort the reasoner can spend on proving the <span class="metavariable">formula</span> in the modality.
+A <span class="metavariable">belief-level</span> is a natural number &ge; 0 that indicates how much reasoning effort the reasoner can spend on proving the <span class="metavariable">formula</span> in the modality.
 The modal operator <span class="code">Know</span> is the usual knowledge modality, <span class="code">Cons</span> means a formula is considered possible (that is, its negation is not known), and <span class="code">Bel</span> is conditional belief.
 All three operators are sound but incomplete with respect to the unlimited logic of only-knowing/believing.
-The <span class="metavariable">split-level</span> can have two different meanings.
+The <span class="metavariable">belief-level</span> can have two different meanings.
 The one within <span class="code">Know</span> and the first parameter of <span class="code">Bel</span> specify how many terms may be split.
 A split means to select a term <span class="code">f(n<sub>1</sub>,...,n<sub>l</sub>)</span> and consider all possible denotations of that term; that is, the reasoner tests all (relevant) assignments for these terms.
-The <span class="metavariable">split-level</span> in <span class="code">Cons</span> and the second parameter of <span class="code">Bel</span>, on the other hand, specify how many terms can be freely assigned a value, which means to select a (possibly non-ground) term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix its denotation.
+The <span class="metavariable">belief-level</span> in <span class="code">Cons</span> and the second parameter of <span class="code">Bel</span>, on the other hand, specify how many terms can be freely assigned a value, which means to select a (possibly non-ground) term <span class="code">f(t<sub>1</sub>,...,t<sub>l</sub>)</span> and fix its denotation.
 </p>
 <p>
 Within the scope of the <span class="code">Guarantee</span> modality the reasoner is allowed to assume the knowledge base is consistent, which may improve performance because it limits the splitting search space.
@@ -514,8 +514,8 @@ Operator precedence is as follows:
 equivalence &lt; implication &lt; disjunction &lt; conjunction &lt; negation, quantifiers, modalities &lt; brackets.
 Note the maximal precedence of quantifiers and modalities.
 Use brackets to expand the scope of a quantifier or a modal operator.
-For example, to say that <span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> is known, write <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; (<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span>)</span>.
-The formula <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> by contrast says that either <span class="code"><span class="metavariable">formula<sub>1</sub></span></span> is known or <span class="code"><span class="metavariable">formula<sub>2</sub></span></span> is true.
+For example, to say that <span class="code"><span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> is known, write <span class="code">Know&lt;<span class="metavariable">belief-level</span>&gt; (<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span>)</span>.
+The formula <span class="code">Know&lt;<span class="metavariable">belief-level</span>&gt; <span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> by contrast says that either <span class="code"><span class="metavariable">formula<sub>1</sub></span></span> is known or <span class="code"><span class="metavariable">formula<sub>2</sub></span></span> is true.
 </p>
 
 <p>
@@ -540,8 +540,8 @@ where one of the following syntactic conditions must be satisfied:
 </p>
 <ol>
     <li><span class="metavariable">formula</span> contains no modal operators and its normal form (&approx; prenex-NNF) is a clause without existentially quantified variables;</li>
-    <li><span class="metavariable">formula</span> is of the form <span class="code">Know&lt;<span class="metavariable">split-level</span>&gt; <span class="metavariable">formula'</span></span> where <span class="metavariable">formula'</span> satisfies to condition 1 (the <span class="metavariable">split-level</span> is ignored);</li>
-    <li><span class="metavariable">formula</span> is of the form <span class="code">Bel&lt;<span class="metavariable">split-level<sub>1</sub></span>,<span class="metavariable">split-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span> where <span class="code">!<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> satisfies to condition 1 (the <span class="metavariable">split-level</span>s affect how faithful the induced system of spheres is to the unlimited logic).</li>
+    <li><span class="metavariable">formula</span> is of the form <span class="code">Know&lt;<span class="metavariable">belief-level</span>&gt; <span class="metavariable">formula'</span></span> where <span class="metavariable">formula'</span> satisfies to condition 1 (the <span class="metavariable">belief-level</span> is ignored);</li>
+    <li><span class="metavariable">formula</span> is of the form <span class="code">Bel&lt;<span class="metavariable">belief-level<sub>1</sub></span>,<span class="metavariable">belief-level<sub>2</sub></span>&gt; <span class="metavariable">formula<sub>1</sub></span> ==&gt; <span class="metavariable">formula<sub>2</sub></span></span> where <span class="code">!<span class="metavariable">formula<sub>1</sub></span> || <span class="metavariable">formula<sub>2</sub></span></span> satisfies to condition 1 (the <span class="metavariable">belief-level</span>s affect how faithful the induced system of spheres is to the unlimited logic).</li>
 </ol>
 <p>
 Free variables in <span class="metavariable">formula</span> in KB definitions are implicitly universally quantified.

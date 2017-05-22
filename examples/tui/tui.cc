@@ -124,6 +124,10 @@ struct Callback : public limbo::format::pdl::DefaultCallback {
       ctx->logger()->print_queries = true;
     } else if (proc == "disable_query_logging") {
       ctx->logger()->print_queries = false;
+    } else if (proc == "enable_distribute") {
+      ctx->set_distribute(true);
+    } else if (proc == "disable_distribute") {
+      ctx->set_distribute(false);
     } else if (bs_(ctx, proc, args)) {
       // it's a call for Battleship
     } else if (su_(ctx, proc, args)) {

@@ -1,4 +1,5 @@
 // ex(x1,ex(x2,x1^x2))
+Call: disable_distribute()
 Sort Bool
 Name T, X -> Bool
 Fun x1/0, x1'/0 -> Bool

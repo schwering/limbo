@@ -1,4 +1,5 @@
 // ex(x1,fa(x2,ex(x3,fa(x4, (x1 v x2)^ (~x2 v x3)^ (x1 v ~x3)^ (x2 v ~x4)))))
+Call: disable_distribute()
 Sort Bool
 Name T, X -> Bool
 Fun x1/0, x1'/0 -> Bool

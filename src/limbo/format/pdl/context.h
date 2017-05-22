@@ -187,6 +187,9 @@ class Context {
     logger_(DefaultLogger::UnregisterMetaVariableData(id));
   }
 
+  void set_distribute(bool b) { distribute_ = b; }
+  bool distribute() const { return distribute_; }
+
   bool AddToKb(const Formula& alpha) {
     const bool ok = kb_.Add(alpha);
     logger_(DefaultLogger::AddToKbData(alpha, ok));
@@ -194,7 +197,7 @@ class Context {
   }
 
   bool Query(const Formula& alpha) {
-    const bool yes = kb_.Entails(alpha);
+    const bool yes = kb_.Entails(alpha, distribute_);
     logger_(DefaultLogger::QueryData(kb_, alpha, yes));
     return yes;
   }
@@ -233,6 +236,7 @@ class Context {
   Registry<Term>         meta_vars_;
   Registry<Formula::Ref> formulas_;
   KnowledgeBase          kb_;
+  bool                   distribute_ = true;
 };
 
 }  // namespace pdl

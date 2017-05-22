@@ -1,4 +1,5 @@
 // fa(x1,fa(x2,fa(x3,fa(x4,x4 v ~x4))))
+Call: disable_distribute()
 Sort Bool
 Name T, X -> Bool
 Fun x1/0 -> Bool

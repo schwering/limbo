@@ -120,10 +120,10 @@ class Formula {
     ITraverse(Traversal(f));
   }
 
-  Ref NF(Symbol::Factory* sf, Term::Factory* tf) const {
+  Ref NF(Symbol::Factory* sf, Term::Factory* tf, bool distribute = true) const {
     Formula::Ref c = Clone();
     c->Rectify(sf, tf);
-    c = c->Normalize();
+    c = c->Normalize(distribute);
     c = c->Flatten(0, sf, tf);
     return Ref(std::move(c));
   }
@@ -204,7 +204,7 @@ class Formula {
 
   virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const = 0;
 
-  virtual Ref Normalize() const = 0;
+  virtual Ref Normalize(bool distribute) const = 0;
 
   virtual Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const = 0;
 
@@ -272,7 +272,7 @@ class Formula::Atomic : public Formula {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
-  Ref Normalize() const override { return Clone(); }
+  Ref Normalize(bool distribute) const override { return Clone(); }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     // The following two expressions are equivalent provided that x1 ... xN do
@@ -417,9 +417,9 @@ class Formula::Or : public Formula {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
-  Ref Normalize() const override {
-    Ref l = alpha_->Normalize();
-    Ref r = beta_->Normalize();
+  Ref Normalize(bool distribute) const override {
+    Ref l = alpha_->Normalize(distribute);
+    Ref r = beta_->Normalize(distribute);
     QuantifierPrefix lp;
     QuantifierPrefix rp;
     const Formula* ls;
@@ -518,7 +518,15 @@ class Formula::Exists : public Formula {
     return p;
   }
 
-  Ref Normalize() const override { return Factory::Exists(x_, alpha_->Normalize()); }
+  Ref Normalize(bool distribute) const override {
+    const TermSet& ts = alpha_->free_vars();
+    Ref alpha = alpha_->Normalize(distribute);
+    if (ts.find(x_) != ts.end()) {
+      return Factory::Exists(x_, std::move(alpha));
+    } else {
+      return alpha;
+    }
+  }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     return Factory::Exists(x_, alpha_->Flatten(nots, sf, tf));
@@ -571,7 +579,7 @@ class Formula::Not : public Formula {
     return p;
   }
 
-  Ref Normalize() const override {
+  Ref Normalize(bool distribute) const override {
     switch (alpha_->type()) {
       case kAtomic: {
         const Clause& c = arg().as_atomic().arg();
@@ -582,19 +590,19 @@ class Formula::Not : public Formula {
         }
       }
       case kNot:
-        return arg().as_not().arg().Normalize();
+        return arg().as_not().arg().Normalize(distribute);
       case kOr:
-        return Factory::Not(arg().Normalize());
+        return Factory::Not(arg().Normalize(distribute));
       case kExists: {
         Term x = arg().as_exists().x();
         const Formula& alpha = arg().as_exists().arg();
-        return Factory::Not(Factory::Exists(x, alpha.Normalize()));
+        return Factory::Not(Factory::Exists(x, alpha.Normalize(distribute)));
       }
       case kKnow:
       case kCons:
       case kBel:
       case kGuarantee: {
-        return Factory::Not(arg().Normalize());
+        return Factory::Not(arg().Normalize(distribute));
       }
     }
     throw;
@@ -646,7 +654,14 @@ class Formula::Know : public Formula {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
-  Ref Normalize() const override { return Factory::Know(k_, alpha_->Normalize()); }
+  Ref Normalize(bool distribute) const override {
+    Ref alpha = alpha_->Normalize(distribute);
+    if (distribute) {
+      return DistK(k_, std::move(alpha));
+    } else {
+      return Factory::Know(k_, std::move(alpha));
+    }
+  }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     Formula::Ref alpha = alpha_->Flatten(0, sf, tf);
@@ -656,6 +671,47 @@ class Formula::Know : public Formula {
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
+  static Ref DistK(split_level k, Ref alpha) {
+    if (alpha->type() == kNot) {
+      const Formula& beta = alpha->as_not().arg();
+      switch (beta.type()) {
+        case kAtomic: {
+          const Clause& c = beta.as_atomic().arg();
+          if (c.size() == 1) {
+            return Factory::Know(k, Factory::Atomic(Clause{c[0].flip()}));
+          } else if (c.size() >= 2) {
+            Ref gamma;
+            for (Literal a : c) {
+              Ref delta = Factory::Know(k, Factory::Atomic(Clause{a.flip()}));
+              if (!gamma) {
+                gamma = std::move(std::move(delta));
+              } else {
+                gamma = Factory::Or(std::move(gamma), std::move(delta));
+              }
+            }
+            gamma = Factory::Not(std::move(gamma));
+            return gamma;
+          }
+          break;
+        }
+        case kNot:
+          return DistK(k, beta.as_not().arg().Clone());
+        case kOr:
+          return Factory::Not(Factory::Or(Factory::Not(DistK(k, Factory::Not(beta.as_or().lhs().Clone()))),
+                                          Factory::Not(DistK(k, Factory::Not(beta.as_or().rhs().Clone())))));
+        case kExists:
+          return Factory::Not(Factory::Exists(beta.as_exists().x(),
+                                              Factory::Not(DistK(k, Factory::Not(beta.as_exists().arg().Clone())))));
+        case kKnow:
+        case kCons:
+        case kBel:
+        case kGuarantee:
+          break;
+      }
+    }
+    return Factory::Know(k, std::move(alpha));
+  }
+
   split_level k_;
   Ref alpha_;
 };
@@ -694,7 +750,14 @@ class Formula::Cons : public Formula {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
-  Ref Normalize() const override { return Factory::Cons(k_, alpha_->Normalize()); }
+  Ref Normalize(bool distribute) const override {
+    Ref alpha = alpha_->Normalize(distribute);
+    if (distribute) {
+      return DistM(k_, std::move(alpha));
+    } else {
+      return Factory::Cons(k_, std::move(alpha));
+    }
+  }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     Formula::Ref alpha = alpha_->Flatten(0, sf, tf);
@@ -704,6 +767,40 @@ class Formula::Cons : public Formula {
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
+  static Ref DistM(split_level k, Ref alpha) {
+    switch (alpha->type()) {
+      case kAtomic: {
+        const Clause& c = alpha->as_atomic().arg();
+        if (c.size() >= 2) {
+          Ref gamma;
+          for (Literal a : c) {
+            Ref delta = Factory::Know(k, Factory::Atomic(Clause{a.flip()}));
+            if (!gamma) {
+              gamma = std::move(std::move(delta));
+            } else {
+              gamma = Factory::Or(std::move(gamma), std::move(delta));
+            }
+          }
+          return gamma;
+        }
+        break;
+      }
+      case kNot:
+        break;
+      case kOr:
+        return Factory::Or(DistM(k, alpha->as_or().lhs().Clone()),
+                           DistM(k, alpha->as_or().rhs().Clone()));
+      case kExists:
+        return Factory::Exists(alpha->as_exists().x(), DistM(k, alpha->as_exists().arg().Clone()));
+      case kKnow:
+      case kCons:
+      case kBel:
+      case kGuarantee:
+        break;
+    }
+    return Factory::Cons(k, std::move(alpha));
+  }
+
   split_level k_;
   Ref alpha_;
 };
@@ -763,8 +860,10 @@ class Formula::Bel : public Formula {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
-  Ref Normalize() const override { return Factory::Bel(k_, l_, antecedent_->Normalize(), consequent_->Normalize(),
-                                                       not_antecedent_or_consequent_->Normalize()); }
+  Ref Normalize(bool distribute) const override {
+    return Factory::Bel(k_, l_, antecedent_->Normalize(distribute), consequent_->Normalize(distribute),
+                        not_antecedent_or_consequent_->Normalize(distribute));
+  }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     Formula::Ref ante = antecedent_->Flatten(0, sf, tf);
@@ -826,7 +925,7 @@ class Formula::Guarantee : public Formula {
     return std::make_pair(QuantifierPrefix(), this);
   }
 
-  Ref Normalize() const override { return Factory::Guarantee(alpha_->Normalize()); }
+  Ref Normalize(bool distribute) const override { return Factory::Guarantee(alpha_->Normalize(distribute)); }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     return Factory::Guarantee(alpha_->Flatten(nots, sf, tf));

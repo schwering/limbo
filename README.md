@@ -89,24 +89,24 @@ $ make test
 
 1. C. Schwering.
    A Reasoning System for a First-Order Logic of Limited Belief.
-   In Proc. IJCAI 2017 (to appear).
+   In *Proc. IJCAI*, 2017 (to appear).
    [PDF](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017.pdf),
    [slides](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017-slides.pdf)
 2. G. Lakemeyer and H. Levesque.
    Decidable Reasoning in a Logic of Limited Belief with Function Symbols.
-   In Proc. KR 2016.
+   In *Proc. KR*, 2016.
    [PDF](https://kbsg.rwth-aachen.de/sites/kbsg/files/LakemeyerLevesque2016.pdf)
 3. C. Schwering and G. Lakemeyer.
    Decidable Reasoning in a First-Order Logic of Limited Conditional Belief.
-   In Proc. ECAI 2016.
+   In *Proc. ECAI*, 2016.
    [PDF](http://www.cse.unsw.edu.au/~cschwering/ecai-2016.pdf),
    [slides](http://www.cse.unsw.edu.au/~cschwering/ecai-2016-slides.pdf)
 4. G. Lakemeyer and H. Levesque.
    Decidable Reasoning in a Fragment of the Epistemic Situation Calculus.
-   In Proc. KR 2014.
+   In *Proc. KR*, 2014.
    [PDF](https://pdfs.semanticscholar.org/8ac9/a2955895cd391ec2b62d8210ee8206979f4a.pdf)
 5. G. Lakemeyer and H. Levesque.
    Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals.
-   In Proc. IJCAI 2013.
+   In *Proc. IJCAI*, 2013.
    [PDF](https://pdfs.semanticscholar.org/387c/951016c68aaf8ce36bb87e5ea4d1ef42405d.pdf)
 

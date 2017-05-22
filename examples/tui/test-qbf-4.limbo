@@ -1,4 +1,5 @@
 // fa(x1,fa(x2,fa(x3,x1^x2^x3 v x1^x2^ ~x3 v x1^ ~x2^x3 v x1^ ~x2^ ~x3 v ~x1^x2^x3 v ~x1^x2^ ~x3 v ~x1^ ~x2^x3 v ~x1^ ~x2^ ~x3)))
+Call: disable_distribute()
 Sort Bool
 Name T, X -> Bool
 Fun x1/0 -> Bool

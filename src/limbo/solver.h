@@ -91,7 +91,11 @@ class Solver {
       assume_consistent ? grounder_.RelevantSplitTerms(phi) :
                           grounder_.SplitTerms();
     const SortedTermSet& names = grounder_.Names();
-    return s.Subsumes(Clause{}) || ReduceConjunctions(s, split_terms, names, k, phi);
+    return s.Subsumes(Clause{}) || phi.trivially_valid() ||
+        Split(s, split_terms, names, k,
+              [this, &names, &phi](const Setup& s) { return Reduce(s, names, phi); },
+              [](bool r1, bool r2) { return r1 && r2; },
+              true, false);
   }
 
   internal::Maybe<Term> Determines(int k, Term lhs, bool assume_consistent) {
@@ -136,7 +140,7 @@ class Solver {
       assume_consistent ? grounder_.RelevantSplitTerms(phi) :
                           TermSet();
     const SortedTermSet& names = grounder_.Names();
-    return ReduceDisjunctions(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
+    return !phi.trivially_invalid() && Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
   }
 
  private:
@@ -148,105 +152,6 @@ class Solver {
   typedef Grounder::LiteralSet LiteralSet;
   typedef Grounder::LiteralAssignmentSet LiteralAssignmentSet;
   typedef Grounder::SortedTermSet SortedTermSet;
-
-  bool ReduceConjunctions(const Setup& s,
-                          const TermSet& split_terms,
-                          const SortedTermSet& names,
-                          int k,
-                          const Formula& phi) {
-    assert(phi.objective());
-    switch (phi.type()) {
-      case Formula::kNot: {
-        switch (phi.as_not().arg().type()) {
-          case Formula::kAtomic: {
-            const Clause c = phi.as_not().arg().as_atomic().arg();
-            return std::all_of(c.begin(), c.end(), [&, this](Literal a) {
-              a = a.flip();
-              Formula::Ref psi = Formula::Factory::Atomic(Clause{a});
-              return ReduceConjunctions(s, split_terms, names, k, *psi);
-            });
-          }
-          case Formula::kNot: {
-            return ReduceConjunctions(s, split_terms, names, k, phi.as_not().arg().as_not().arg());
-          }
-          case Formula::kOr: {
-            Formula::Ref left = Formula::Factory::Not(phi.as_not().arg().as_or().lhs().Clone());
-            Formula::Ref right = Formula::Factory::Not(phi.as_not().arg().as_or().rhs().Clone());
-            return ReduceConjunctions(s, split_terms, names, k, *left) &&
-                   ReduceConjunctions(s, split_terms, names, k, *right);
-          }
-          case Formula::kExists: {
-            const Term x = phi.as_not().arg().as_exists().x();
-            const Formula& psi = phi.as_not().arg().as_exists().arg();
-            const TermSet& ns = names[x.sort()];
-            return std::all_of(ns.begin(), ns.end(), [&, this](const Term n) {
-              Formula::Ref xi = Formula::Factory::Not(psi.Clone());
-              xi->SubstituteFree(Term::Substitution(x, n), tf_);
-              return ReduceConjunctions(s, split_terms, names, k, *xi);
-            });
-          }
-          default:
-            break;
-        }
-      }
-      default: {
-        if (phi.trivially_valid()) {
-          return true;
-        }
-        return Split(s, split_terms, names, k,
-                      [this, &names, &phi](const Setup& s) { return Reduce(s, names, phi); },
-                      [](bool r1, bool r2) { return r1 && r2; },
-                      true, false);
-      }
-    }
-    throw;
-  }
-
-  bool ReduceDisjunctions(const Setup& s,
-                          const LiteralAssignmentSet& assign_lits,
-                          const SortedTermSet& names,
-                          int k,
-                          const Formula& phi,
-                          bool assume_consistent,
-                          const TermSet& relevant_terms) {
-    assert(phi.objective());
-    switch (phi.type()) {
-      case Formula::kAtomic: {
-        return Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
-      }
-      case Formula::kOr: {
-        const Formula& left = phi.as_or().lhs();
-        const Formula& right = phi.as_or().rhs();
-        return ReduceDisjunctions(s, assign_lits, names, k, left, assume_consistent, relevant_terms) ||
-               ReduceDisjunctions(s, assign_lits, names, k, right, assume_consistent, relevant_terms);
-      }
-      case Formula::kExists: {
-        const Term x = phi.as_exists().x();
-        const TermSet& ns = names[x.sort()];
-        return std::any_of(ns.begin(), ns.end(), [&, this](const Term n) {
-          Formula::Ref psi = phi.as_exists().arg().Clone();
-          psi->SubstituteFree(Term::Substitution(x, n), tf_);
-          return ReduceDisjunctions(s, assign_lits, names, k, *psi, assume_consistent, relevant_terms);
-        });
-      }
-      case Formula::kNot: {
-        switch (phi.as_not().arg().type()) {
-          case Formula::kNot:
-            return ReduceDisjunctions(s, assign_lits, names, k, phi.as_not().arg().as_not().arg(), assume_consistent,
-                                      relevant_terms);
-          default:
-            return !phi.trivially_invalid() && Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
-        }
-      }
-      case Formula::kKnow:
-      case Formula::kCons:
-      case Formula::kBel:
-      case Formula::kGuarantee:
-        assert(false);
-        return false;
-    }
-    throw;
-  }
 
   bool Reduce(const Setup& s, const SortedTermSet& names, const Formula& phi) {
     assert(phi.objective());
@@ -278,12 +183,23 @@ class Solver {
           case Formula::kExists: {
             const Term x = phi.as_not().arg().as_exists().x();
             const Formula& psi = phi.as_not().arg().as_exists().arg();
-            const TermSet& ns = names[x.sort()];
-            return std::all_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
+            const TermSet& xs = psi.free_vars();
+            // XXX TODO Check that this works even if we disable the first if-branch, once the name computation is fixed.
+            // In test-functions.limbo, the line
+            //   Refute: Fa x Know<1> f(x) == x
+            // yields an error because the set of names is empty. This error should be fixed by correct name computation.
+            if (xs.find(x) == xs.end()) {
               Formula::Ref xi = Formula::Factory::Not(psi.Clone());
-              xi->SubstituteFree(Term::Substitution(x, n), tf_);
               return Reduce(s, names, *xi);
-            });
+            } else {
+              const TermSet& ns = names[x.sort()];
+              assert(!ns.empty());
+              return std::all_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
+                Formula::Ref xi = Formula::Factory::Not(psi.Clone());
+                xi->SubstituteFree(Term::Substitution(x, n), tf_);
+                return Reduce(s, names, *xi);
+              });
+            }
           }
           case Formula::kKnow:
           case Formula::kCons:
@@ -302,12 +218,18 @@ class Solver {
       case Formula::kExists: {
         const Term x = phi.as_exists().x();
         const Formula& psi = phi.as_exists().arg();
-        const TermSet& ns = names[x.sort()];
-        return std::any_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
-          Formula::Ref xi = psi.Clone();
-          xi->SubstituteFree(Term::Substitution(x, n), tf_);
-          return Reduce(s, names, *xi);
-        });
+        const TermSet& xs = psi.free_vars();
+        if (xs.find(x) == xs.end()) {
+          return Reduce(s, names, psi);
+        } else {
+          const TermSet& ns = names[x.sort()];
+          assert(!ns.empty());
+          return std::any_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
+            Formula::Ref xi = psi.Clone();
+            xi->SubstituteFree(Term::Substitution(x, n), tf_);
+            return Reduce(s, names, *xi);
+          });
+        }
       }
       case Formula::kKnow:
       case Formula::kCons:
