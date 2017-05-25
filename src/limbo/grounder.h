@@ -40,6 +40,7 @@
 #include <limbo/setup.h>
 
 #include <limbo/internal/hash.h>
+#include <limbo/internal/intmap.h>
 #include <limbo/internal/ints.h>
 #include <limbo/internal/iter.h>
 #include <limbo/internal/maybe.h>
@@ -180,7 +181,7 @@ class Grounder {
           }
         } else {
           const TermSet vars = Mentioned<TermSet>([](Term t) { return t.variable(); }, c);
-          for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
+          for (const auto& mapping : Assignments(vars, &names_)) {
             const Clause ci = c.Substitute(mapping, tf_);
             if (!ci.valid()) {
               assert(ci.primitive());
@@ -301,116 +302,24 @@ class Grounder {
 
   class Assignments {
    public:
-    class TermRange {
-     public:
-      TermRange() = default;
-      explicit TermRange(const TermSet* terms) : terms_(terms) { Reset(); }
-
-      bool operator==(const TermRange r) const { return terms_ == r.terms_ && begin_ == r.begin_; }
-      bool operator!=(const TermRange r) const { return !(*this == r); }
-
-      TermSet::const_iterator begin() const { return begin_; }
-      TermSet::const_iterator end()   const { return terms_->end(); }
-
-      bool empty() const { return begin_ == terms_->end(); }
-
-      void Reset() { begin_ = terms_->begin(); }
-      void Next() { ++begin_; }
-
+    struct GetRange {
+      GetRange(const SortedTermSet& substitutes) : substitutes_(substitutes) {}
+      std::pair<Term, std::pair<TermSet::const_iterator, TermSet::const_iterator>> operator()(const Term x) const {
+        return std::make_pair(x, std::make_pair(substitutes_[x.sort()].begin(), substitutes_[x.sort()].end()));
+      }
      private:
-      const TermSet* terms_;
-      TermSet::const_iterator begin_;
+      const SortedTermSet& substitutes_;
     };
-
-    class Assignment {
-     public:
-      internal::Maybe<Term> operator()(Term x) const {
-        auto it = map_.find(x);
-        if (it != map_.end()) {
-          auto r = it->second;
-          assert(!r.empty());
-          const Term t = *r.begin();
-          return internal::Just(t);
-        } else {
-          return internal::Nothing;
-        }
-      }
-
-      bool operator==(const Assignment& a) const { return map_ == a.map_; }
-      bool operator!=(const Assignment& a) const { return !(*this == a); }
-
-      TermRange& operator[](Term t) { return map_[t]; }
-
-      std::unordered_map<Term, TermRange>::iterator begin() { return map_.begin(); }
-      std::unordered_map<Term, TermRange>::iterator end() { return map_.end(); }
-
-     private:
-      std::unordered_map<Term, TermRange> map_;
-    };
-
-    struct assignment_iterator {
-      typedef std::ptrdiff_t difference_type;
-      typedef const Assignment value_type;
-      typedef value_type* pointer;
-      typedef value_type& reference;
-      typedef std::input_iterator_tag iterator_category;
-
-      // These iterators are really heavy-weight, especially comparison is
-      // unusually expensive. To boost the usual comparison with end(), we
-      // hence reset the substitutes_ pointer to nullptr once the end is
-      // reached.
-      assignment_iterator() {}
-      assignment_iterator(const TermSet& vars, const SortedTermSet* substitutes) : substitutes_(substitutes) {
-        for (const Term var : vars) {
-          assert(var.symbol().variable());
-          TermRange r(&((*substitutes_)[var.sort()]));
-          assignment_[var] = r;
-          assert(!r.empty());
-          assert(var.sort() == r.begin()->sort());
-        }
-        meta_iter_ = assignment_.end();
-      }
-
-      bool operator==(const assignment_iterator& it) const {
-        return substitutes_ == it.substitutes_ &&
-              (substitutes_ == nullptr || (assignment_ == it.assignment_ &&
-                                           *meta_iter_ == *it.meta_iter_));
-      }
-      bool operator!=(const assignment_iterator& it) const { return !(*this == it); }
-
-      reference operator*() const { return assignment_; }
-
-      assignment_iterator& operator++() {
-        for (meta_iter_ = assignment_.begin(); meta_iter_ != assignment_.end(); ++meta_iter_) {
-          TermRange& r = meta_iter_->second;
-          assert(meta_iter_->first.symbol().variable());
-          assert(!r.empty());
-          r.Next();
-          if (!r.empty()) {
-            break;
-          } else {
-            r.Reset();
-            assert(!r.empty());
-            assert(meta_iter_->first.sort() == r.begin()->sort());
-          }
-        }
-        if (meta_iter_ == assignment_.end()) {
-          substitutes_ = nullptr;
-          assert(*this == assignment_iterator());
-        }
-        return *this;
-      }
-
-     private:
-      const SortedTermSet* substitutes_ = nullptr;
-      Assignment assignment_;
-      std::unordered_map<Term, TermRange>::iterator meta_iter_;
-    };
+    typedef internal::transform_iterator<TermSet::const_iterator, GetRange> domain_codomain_iterator;
+    typedef internal::mapping_iterator<Term, TermSet::const_iterator> mapping_iterator;
 
     Assignments(const TermSet& vars, const SortedTermSet* substitutes) : vars_(vars), substitutes_(substitutes) {}
 
-    assignment_iterator begin() const { return assignment_iterator(vars_, substitutes_); }
-    assignment_iterator end() const { return assignment_iterator(); }
+    mapping_iterator begin() const {
+      return mapping_iterator(domain_codomain_iterator(vars_.begin(), GetRange(*substitutes_)),
+                              domain_codomain_iterator(vars_.end(), GetRange(*substitutes_)));
+    }
+    mapping_iterator end() const { return mapping_iterator(); }
 
    private:
     const TermSet vars_;
@@ -432,7 +341,7 @@ class Grounder {
   void Ground(const T ungrounded, U* grounded_set) const {
     assert(ungrounded.quasiprimitive());
     const TermSet vars = Mentioned<TermSet>([](Term t) { return t.variable(); }, ungrounded);
-    for (const Assignments::Assignment& mapping : Assignments(vars, &names_)) {
+    for (const auto& mapping : Assignments(vars, &names_)) {
       auto grounded = ungrounded.Substitute(mapping, tf_);
       assert(grounded.primitive());
       grounded_set->insert(grounded);

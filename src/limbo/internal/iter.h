@@ -12,9 +12,11 @@
 
 #include <iterator>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 
 #include <limbo/internal/ints.h>
+#include <limbo/internal/maybe.h>
 #include <limbo/internal/traits.h>
 
 namespace limbo {
@@ -36,12 +38,9 @@ class iterator_proxy {
   mutable typename std::remove_const<value_type>::type v_;
 };
 
-class Identity {
- public:
+struct Identity {
   template<typename T>
-  constexpr auto operator()(T&& x) const noexcept -> decltype(std::forward<T>(x)) {
-    return std::forward<T>(x);
-  }
+  constexpr auto operator()(T&& x) const noexcept -> decltype(std::forward<T>(x)) { return std::forward<T>(x); }
 };
 
 // Encapsulates an integer type.
@@ -364,6 +363,106 @@ inline filter_iterators<typename Range::iterator, UnaryPredicate>
 filter_range(Range r, UnaryPredicate pred) {
   return filter_range(r.begin(), r.end(), pred);
 }
+
+template<typename DomainType, typename CodomainInputIt>
+struct mapping_iterator {
+ public:
+  typedef DomainType domain_type;
+  typedef CodomainInputIt codomain_iterator;
+  typedef typename CodomainInputIt::value_type codomain_type;
+
+  struct value_type {
+    value_type(const mapping_iterator& owner) : owner_(owner) {}
+
+    internal::Maybe<codomain_type> operator()(domain_type x) const {
+      auto it = owner_.dcd_.find(x);
+      if (it != owner_.dcd_.end()) {
+        auto& cd = it->second;
+        assert(cd.current != cd.end);
+        const codomain_type y = *cd.current;
+        return internal::Just(y);
+      } else {
+        return internal::Nothing;
+      }
+    }
+
+    bool operator==(const value_type& a) const { return owner_ == a.owner_; }
+    bool operator!=(const value_type& a) const { return !(*this == a); }
+
+   private:
+    const mapping_iterator& owner_;
+  };
+
+  typedef std::ptrdiff_t difference_type;
+  typedef value_type* pointer;
+  typedef value_type& reference;
+  typedef typename std::conditional<
+      std::is_convertible<typename codomain_iterator::iterator_category, std::forward_iterator_tag>::value,
+      std::forward_iterator_tag, std::input_iterator_tag>::type iterator_category;
+  typedef iterator_proxy<mapping_iterator> proxy;
+
+  mapping_iterator() {}
+
+  template<typename InputIt>
+  explicit mapping_iterator(InputIt begin, InputIt end) {
+    for (; begin != end; ++begin) {
+      domain_type x = begin->first;
+      codomain_iterator y1 = begin->second.first;
+      codomain_iterator y2 = begin->second.second;
+      dcd_.insert(std::make_pair(x, CodomainState(y1, y2)));
+    }
+    iter_ = Just(dcd_.end());
+  }
+
+  // These iterators are really heavy-weight, especially comparison is
+  // unusually expensive. To boost the usual comparison with end(), we
+  // hence reset the iter_ Maybe to Nothing once the end is reached.
+  bool operator==(const mapping_iterator& it) const { return iter_ == it.iter_ && (!iter_ || dcd_ == it.dcd_); }
+  bool operator!=(const mapping_iterator& it) const { return !(*this == it); }
+
+  value_type operator*() const { return value_type(*this); }
+
+  mapping_iterator& operator++() {
+    for (iter_ = Just(dcd_.begin()); iter_.val != dcd_.end(); ++iter_.val) {
+      CodomainState& cd = iter_.val->second;
+      assert(cd.current != cd.end);
+      ++cd.current;
+      if (cd.current != cd.end) {
+        break;
+      } else {
+        cd.current = cd.begin;
+        assert(cd.current != cd.end);
+      }
+    }
+    assert(iter_);
+    if (iter_.val == dcd_.end()) {
+      iter_ = Nothing;
+      assert(*this == mapping_iterator());
+    }
+    return *this;
+  }
+
+  pointer operator->() const { return iter_.operator->(); }
+  proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
+
+ private:
+  friend struct value_type;
+
+  struct CodomainState {
+    CodomainState(codomain_iterator begin, codomain_iterator end) : begin(begin), current(begin), end(end) {}
+
+    bool operator==(const CodomainState& a) const { return begin == a.begin && current == a.current && end == a.end; }
+    bool operator!=(const CodomainState& a) const { return !(*this == a); }
+
+    codomain_iterator begin;
+    codomain_iterator current;
+    codomain_iterator end;
+  };
+  typedef std::unordered_map<domain_type, CodomainState> DomainCodomainState;
+
+  DomainCodomainState dcd_;
+  Maybe<typename DomainCodomainState::iterator> iter_;
+};
 
 template<typename InputIt1, typename InputIt2>
 class joined_iterator {

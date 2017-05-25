@@ -14,6 +14,7 @@
 
 #include <cassert>
 
+#include <algorithm>
 #include <list>
 #include <memory>
 #include <utility>
@@ -24,6 +25,7 @@
 #include <limbo/clause.h>
 
 #include <limbo/internal/iter.h>
+#include <limbo/internal/intmap.h>
 #include <limbo/internal/ints.h>
 #include <limbo/internal/maybe.h>
 
@@ -34,6 +36,7 @@ class Formula {
   typedef internal::size_t size_t;
   typedef std::unique_ptr<Formula> Ref;
   typedef std::unordered_set<Term> TermSet;
+  typedef internal::IntMap<Symbol::Sort, size_t> SortMap;
   typedef unsigned int split_level;
   enum Type { kAtomic, kNot, kOr, kExists, kKnow, kCons, kBel, kGuarantee };
 
@@ -94,6 +97,8 @@ class Formula {
     }
     return free_vars_.val;
   }
+
+  virtual SortMap n_vars() const = 0;
 
   template<typename UnaryFunction>
   void SubstituteFree(UnaryFunction theta, Term::Factory* tf) {
@@ -234,6 +239,14 @@ class Formula::Atomic : public Formula {
   Ref Clone() const override { return Factory::Atomic(c_); }
 
   const Clause& arg() const { return c_; }
+
+  SortMap n_vars() const override {
+    SortMap m;
+    for (Term x : free_vars()) {
+      ++m[x.sort()];
+    }
+    return m;
+  }
 
   bool objective() const override { return true; }
   bool subjective() const override {
@@ -383,6 +396,16 @@ class Formula::Or : public Formula {
   const Formula& lhs() const { return *alpha_; }
   const Formula& rhs() const { return *beta_; }
 
+  SortMap n_vars() const override {
+    SortMap m;
+    for (Term x : free_vars()) {
+      ++m[x.sort()];
+    }
+    m.Zip(alpha_->n_vars(), [](size_t a, size_t b) { return std::max(a, b); });
+    m.Zip(beta_->n_vars(), [](size_t a, size_t b) { return std::max(a, b); });
+    return m;
+  }
+
   bool objective() const override { return alpha_->objective() && beta_->objective(); }
   bool subjective() const override { return alpha_->subjective() && beta_->subjective(); }
   bool quantified_in() const override { return alpha_->quantified_in() || beta_->quantified_in(); }
@@ -395,8 +418,8 @@ class Formula::Or : public Formula {
   Or(Ref lhs, Ref rhs) : Formula(kOr), alpha_(std::move(lhs)), beta_(std::move(rhs)) {}
 
   TermSet FreeVars() const override {
-    TermSet ts1 = alpha_->FreeVars();
-    const TermSet ts2 = beta_->FreeVars();
+    TermSet ts1 = alpha_->free_vars();
+    const TermSet& ts2 = beta_->free_vars();
     ts1.insert(ts2.begin(), ts2.end());
     return ts1;
   }
@@ -478,6 +501,8 @@ class Formula::Exists : public Formula {
   Term x() const { return x_; }
   const Formula& arg() const { return *alpha_; }
 
+  SortMap n_vars() const override { return alpha_->n_vars(); }
+
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
   bool quantified_in() const override { return alpha_->quantified_in(); }
@@ -489,7 +514,7 @@ class Formula::Exists : public Formula {
 
   Exists(Term x, Ref alpha) : Formula(kExists), x_(x), alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { TermSet ts = alpha_->FreeVars(); ts.erase(x_); return ts; }
+  TermSet FreeVars() const override { TermSet ts = alpha_->free_vars(); ts.erase(x_); return ts; }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
     theta.Bind(x_);
@@ -554,6 +579,8 @@ class Formula::Not : public Formula {
 
   const Formula& arg() const { return *alpha_; }
 
+  SortMap n_vars() const override { return alpha_->n_vars(); }
+
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
   bool quantified_in() const override { return false; }
@@ -565,7 +592,7 @@ class Formula::Not : public Formula {
 
   explicit Not(Ref alpha) : Formula(kNot), alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { return alpha_->FreeVars(); }
+  TermSet FreeVars() const override { return alpha_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
@@ -631,6 +658,8 @@ class Formula::Know : public Formula {
   split_level k() const { return k_; }
   const Formula& arg() const { return *alpha_; }
 
+  SortMap n_vars() const override { return alpha_->n_vars(); }
+
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
   bool quantified_in() const override { return !free_vars().empty(); }
@@ -642,7 +671,7 @@ class Formula::Know : public Formula {
 
   Know(split_level k, Ref alpha) : Formula(kKnow), k_(k), alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { return alpha_->FreeVars(); }
+  TermSet FreeVars() const override { return alpha_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
@@ -727,6 +756,8 @@ class Formula::Cons : public Formula {
   split_level k() const { return k_; }
   const Formula& arg() const { return *alpha_; }
 
+  SortMap n_vars() const override { return alpha_->n_vars(); }
+
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
   bool quantified_in() const override { return !free_vars().empty(); }
@@ -738,7 +769,7 @@ class Formula::Cons : public Formula {
 
   Cons(split_level k, Ref alpha) : Formula(kCons), k_(k), alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { return alpha_->FreeVars(); }
+  TermSet FreeVars() const override { return alpha_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
@@ -823,6 +854,8 @@ class Formula::Bel : public Formula {
   const Formula& consequent() const { return *consequent_; }
   const Formula& not_antecedent_or_consequent() const { return *not_antecedent_or_consequent_; }
 
+  SortMap n_vars() const override { return not_antecedent_or_consequent_->n_vars(); }
+
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
   bool quantified_in() const override { return !free_vars().empty(); }
@@ -840,7 +873,7 @@ class Formula::Bel : public Formula {
       consequent_(consequent->Clone()),
       not_antecedent_or_consequent_(Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
 
-  TermSet FreeVars() const override { return not_antecedent_or_consequent_->FreeVars(); }
+  TermSet FreeVars() const override { return not_antecedent_or_consequent_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
     antecedent_->ISubstitute(theta, tf);
@@ -900,6 +933,8 @@ class Formula::Guarantee : public Formula {
 
   const Formula& arg() const { return *alpha_; }
 
+  SortMap n_vars() const override { return alpha_->n_vars(); }
+
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
   bool quantified_in() const override { return alpha_->quantified_in(); }
@@ -913,7 +948,7 @@ class Formula::Guarantee : public Formula {
       Formula(kGuarantee),
       alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { return alpha_->FreeVars(); }
+  TermSet FreeVars() const override { return alpha_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }

@@ -2,9 +2,18 @@
 
 Limbo is a *reasoning system for a first-order logic of **lim**ited
 **b**elief*. Limited belief allows for decidable reasoning in first-order
-knowledge bases, and in the propositional case it is even tractable. See
-[\[1,2,3,4,5\]](#references) for details on the theory, or click
-[here](http://www.cse.unsw.edu.au/~cschwering/limbo/) to see some web demos.
+knowledge bases, and in the propositional case it is even tractable.
+
+Where to go from here?
+
+* You could check out the [web
+  demos](http://www.cse.unsw.edu.au/~cschwering/limbo/) to see limited
+  belief in action.
+* You could check out the code and [compile](#installation) it and run
+  Limbo on your computer.
+* You could have a look at one of the [papers](#references) on the
+  theory behind Limbo.
+* You could also send [me](http://www.cse.unsw.edu.au/~cschwering/) an email.
 
 ## Features
 
@@ -78,6 +87,8 @@ have `src/limbo` in the include path.
 To compile and run the tests and demos, execute the following:
 
 ```shell
+$ git clone https://github.com/schwering/limbo.git
+$ cd limbo
 $ git submodule init
 $ git submodule update
 $ cmake .
@@ -87,26 +98,30 @@ $ make test
 
 ## References
 
-1. C. Schwering.
-   A Reasoning System for a First-Order Logic of Limited Belief.
-   In *Proc. IJCAI*, 2017 (to appear).
-   [PDF](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017.pdf),
+The first paper is the most recent one and describes the theory behind Limbo.
+Many of the ideas were introduced in the earlier papers linked below.
+
+1.  A Reasoning System for a First-Order Logic of Limited Belief. <br>
+   C. Schwering. <br>
+   In *Proc. IJCAI*, 2017 (to appear). <br>
+   [pdf](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017.pdf),
+   [proofs](https://arxiv.org/abs/1705.01817),
    [slides](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017-slides.pdf)
-2. G. Lakemeyer and H. Levesque.
-   Decidable Reasoning in a Logic of Limited Belief with Function Symbols.
-   In *Proc. KR*, 2016.
-   [PDF](https://kbsg.rwth-aachen.de/sites/kbsg/files/LakemeyerLevesque2016.pdf)
-3. C. Schwering and G. Lakemeyer.
-   Decidable Reasoning in a First-Order Logic of Limited Conditional Belief.
-   In *Proc. ECAI*, 2016.
-   [PDF](http://www.cse.unsw.edu.au/~cschwering/ecai-2016.pdf),
+2. Decidable Reasoning in a Logic of Limited Belief with Function Symbols. <br>
+   G. Lakemeyer and H. Levesque. <br>
+   In *Proc. KR*, 2016. <br>
+   [pdf](https://kbsg.rwth-aachen.de/sites/kbsg/files/LakemeyerLevesque2016.pdf)
+3. Decidable Reasoning in a First-Order Logic of Limited Conditional Belief. <br>
+   C. Schwering and G. Lakemeyer. <br>
+   In *Proc. ECAI*, 2016. <br>
+   [pdf](http://www.cse.unsw.edu.au/~cschwering/ecai-2016.pdf),
    [slides](http://www.cse.unsw.edu.au/~cschwering/ecai-2016-slides.pdf)
-4. G. Lakemeyer and H. Levesque.
-   Decidable Reasoning in a Fragment of the Epistemic Situation Calculus.
-   In *Proc. KR*, 2014.
-   [PDF](https://pdfs.semanticscholar.org/8ac9/a2955895cd391ec2b62d8210ee8206979f4a.pdf)
-5. G. Lakemeyer and H. Levesque.
-   Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals.
-   In *Proc. IJCAI*, 2013.
-   [PDF](https://pdfs.semanticscholar.org/387c/951016c68aaf8ce36bb87e5ea4d1ef42405d.pdf)
+4. Decidable Reasoning in a Fragment of the Epistemic Situation Calculus. <br>
+   G. Lakemeyer and H. Levesque. <br>
+   In *Proc. KR*, 2014. <br>
+   [pdf](https://pdfs.semanticscholar.org/8ac9/a2955895cd391ec2b62d8210ee8206979f4a.pdf)
+5. Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals. <br>
+   G. Lakemeyer and H. Levesque. <br>
+   In *Proc. IJCAI*, 2013. <br>
+   [pdf](https://pdfs.semanticscholar.org/387c/951016c68aaf8ce36bb87e5ea4d1ef42405d.pdf)
 

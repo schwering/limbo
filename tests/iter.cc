@@ -150,6 +150,166 @@ TEST(IterTest, filter_range) {
   }
 }
 
+TEST(IterTest, maping_iterator) {
+  {
+    typedef std::vector<int> vec;
+    typedef std::map<int, std::pair<vec::const_iterator, vec::const_iterator>> map;
+    typedef mapping_iterator<int, vec::const_iterator> iterator;
+    map domain_codomain{};
+    auto begin = iterator(domain_codomain.cbegin(), domain_codomain.cend());
+    auto end = iterator();
+    EXPECT_NE(begin, end);
+    EXPECT_EQ(std::distance(begin, end), 1);
+    EXPECT_NE(begin, end);
+  }
+  {
+    typedef std::vector<int> vec;
+    typedef std::map<int, std::pair<vec::const_iterator, vec::const_iterator>> map;
+    typedef mapping_iterator<int, vec::const_iterator> iterator;
+    vec one{11};
+    map domain_codomain{
+      {1, {one.begin(), one.end()}}
+    };
+    auto begin = iterator(domain_codomain.cbegin(), domain_codomain.cend());
+    auto end = iterator();
+    EXPECT_NE(begin, end);
+    EXPECT_EQ(std::distance(begin, end), 1);
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(11));
+    EXPECT_EQ((*begin)(2), Nothing);
+    ++begin;
+    EXPECT_EQ(begin, end);
+  }
+  { typedef std::vector<int> vec;
+    typedef std::map<int, std::pair<vec::const_iterator, vec::const_iterator>> map;
+    typedef mapping_iterator<int, vec::const_iterator> iterator;
+    vec one{11};
+    vec two{22};
+    map domain_codomain{
+      {1, {one.begin(), one.end()}},
+      {2, {two.begin(), two.end()}}
+    };
+    auto begin = iterator(domain_codomain.cbegin(), domain_codomain.cend());
+    auto end = iterator();
+    EXPECT_NE(begin, end);
+    EXPECT_EQ(std::distance(begin, end), 1);
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(11));
+    EXPECT_EQ((*begin)(2), Just(22));
+    ++begin;
+    EXPECT_EQ(begin, end);
+  }
+  {
+    typedef std::vector<int> vec;
+    typedef std::map<int, std::pair<vec::const_iterator, vec::const_iterator>> map;
+    typedef mapping_iterator<int, vec::const_iterator> iterator;
+    vec one{11};
+    vec two{22, 23};
+    map domain_codomain{
+      {1, {one.begin(), one.end()}},
+      {2, {two.begin(), two.end()}}
+    };
+    auto begin = iterator(domain_codomain.cbegin(), domain_codomain.cend());
+    auto end = iterator();
+    EXPECT_NE(begin, end);
+    EXPECT_EQ(std::distance(begin, end), 2);
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(11));
+    EXPECT_EQ((*begin)(2), Just(22));
+    ++begin;
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(11));
+    EXPECT_EQ((*begin)(2), Just(23));
+    ++begin;
+    EXPECT_EQ(begin, end);
+  }
+  {
+    typedef std::vector<int> vec;
+    typedef std::map<int, std::pair<vec::const_iterator, vec::const_iterator>> map;
+    typedef mapping_iterator<int, vec::const_iterator> iterator;
+    vec one{11, 12};
+    vec two{22};
+    map domain_codomain{
+      {1, {one.begin(), one.end()}},
+      {2, {two.begin(), two.end()}}
+    };
+    auto begin = iterator(domain_codomain.cbegin(), domain_codomain.cend());
+    auto end = iterator();
+    EXPECT_NE(begin, end);
+    EXPECT_EQ(std::distance(begin, end), 2);
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(11));
+    EXPECT_EQ((*begin)(2), Just(22));
+    ++begin;
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(12));
+    EXPECT_EQ((*begin)(2), Just(22));
+    ++begin;
+    EXPECT_EQ(begin, end);
+  }
+  {
+    typedef std::vector<int> vec;
+    typedef std::map<int, std::pair<vec::const_iterator, vec::const_iterator>> map;
+    typedef mapping_iterator<int, vec::const_iterator> iterator;
+    vec one{11, 12};
+    vec two{22, 23};
+    map domain_codomain{
+      {1, {one.begin(), one.end()}},
+      {2, {two.begin(), two.end()}}
+    };
+    auto begin = iterator(domain_codomain.cbegin(), domain_codomain.cend());
+    auto end = iterator();
+    EXPECT_NE(begin, end);
+    EXPECT_EQ(std::distance(begin, end), 4);
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(11));
+    EXPECT_EQ((*begin)(2), Just(22));
+    ++begin;
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(11));
+    EXPECT_EQ((*begin)(2), Just(23));
+    ++begin;
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(12));
+    EXPECT_EQ((*begin)(2), Just(22));
+    ++begin;
+    EXPECT_NE(begin, end);
+    EXPECT_EQ((*begin)(1), Just(12));
+    EXPECT_EQ((*begin)(2), Just(23));
+    ++begin;
+    EXPECT_EQ(begin, end);
+  }
+  {
+    typedef std::vector<int> vec;
+    typedef std::map<int, std::pair<vec::const_iterator, vec::const_iterator>> map;
+    typedef mapping_iterator<int, vec::const_iterator> iterator;
+    vec one{11, 12};
+    vec two{22, 23};
+    vec three{33, 34};
+    map domain_codomain{
+      {1, {one.begin(), one.end()}},
+      {2, {two.begin(), two.end()}},
+      {3, {three.begin(), three.end()}}
+    };
+    auto begin = iterator(domain_codomain.cbegin(), domain_codomain.cend());
+    auto end = iterator();
+    EXPECT_NE(begin, end);
+    EXPECT_EQ(std::distance(begin, end), 2*2*2);
+    for (int i = 0; i <= 1; ++i) {
+      for (int k = 0; k <= 1; ++k) {
+        for (int j = 0; j <= 1; ++j) {
+          EXPECT_NE(begin, end);
+          EXPECT_EQ((*begin)(1).val, Just(11 + i).val);
+          EXPECT_EQ((*begin)(2).val, Just(22 + k).val);
+          EXPECT_EQ((*begin)(3).val, Just(33 + j).val);
+          ++begin;
+        }
+      }
+    }
+    EXPECT_EQ(begin, end);
+  }
+}
+
 TEST(IterTest, join_ranges) {
   {
     typedef std::vector<int> vec;

@@ -366,7 +366,8 @@ TEST(GrounderTest, Assignments) {
     EXPECT_EQ(length(as), 1);
     Term fx1 = tf.CreateTerm(f, {x1});
     Term fn1 = tf.CreateTerm(f, {n1});
-    Grounder::Assignments::Assignment a = *as.begin();
+    auto it = as.begin();
+    auto a = *it;
     EXPECT_EQ(fx1.Substitute(a, &tf), fx1);
     EXPECT_NE(fx1.Substitute(a, &tf), fn1);
   }
@@ -377,7 +378,8 @@ TEST(GrounderTest, Assignments) {
     EXPECT_EQ(length(as), 1);
     Term fx1 = tf.CreateTerm(f, {x1});
     Term fn1 = tf.CreateTerm(f, {n1});
-    Grounder::Assignments::Assignment a = *as.begin();
+    auto it = as.begin();
+    auto a = *it;
     EXPECT_NE(fx1.Substitute(a, &tf), fx1);
     EXPECT_EQ(fx1.Substitute(a, &tf), fn1);
   }
@@ -392,9 +394,10 @@ TEST(GrounderTest, Assignments) {
     Term fn2 = tf.CreateTerm(f, {n2});
     Grounder::TermSet substitutes;
     auto it = as.begin();
-    Grounder::Assignments::Assignment a = *it;
+    auto a = *it;
     substitutes.insert(fx1.Substitute(a, &tf));
-    Grounder::Assignments::Assignment b = *++it;
+    auto jt = ++it;
+    auto b = *jt;
     substitutes.insert(fx1.Substitute(b, &tf));
     EXPECT_EQ(substitutes.size(), 2);
     EXPECT_EQ(substitutes, Grounder::TermSet({fn1, fn2}));
