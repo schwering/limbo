@@ -20,7 +20,7 @@ TEST(IntMapTest, general) {
   EXPECT_EQ(map[2], "two");
   EXPECT_EQ(length(map.keys()), 3);
   EXPECT_EQ(length(map.values()), 3);
-  EXPECT_EQ(map.size(), 3);
+  EXPECT_EQ(map.n_keys(), 3);
 
   const IntMap<int, std::string> map2 = map;
   EXPECT_EQ(length(map2.keys()), 3);
@@ -42,7 +42,7 @@ TEST(IntMapTest, general) {
   map[4] = "four";
   EXPECT_EQ(length(map.keys()), 5);
   EXPECT_EQ(length(map.values()), 5);
-  EXPECT_EQ(map.size(), 5);
+  EXPECT_EQ(map.n_keys(), 5);
   EXPECT_EQ(map[0], "zero");
   EXPECT_EQ(map[1], "one");
   EXPECT_EQ(map[2], "two");

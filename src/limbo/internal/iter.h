@@ -365,18 +365,18 @@ filter_range(Range r, UnaryPredicate pred) {
 }
 
 template<typename DomainType, typename CodomainInputIt>
-struct mapping_iterator {
+class mapping_iterator {
  public:
   typedef DomainType domain_type;
   typedef CodomainInputIt codomain_iterator;
   typedef typename CodomainInputIt::value_type codomain_type;
 
   struct value_type {
-    value_type(const mapping_iterator& owner) : owner_(owner) {}
+    value_type(const mapping_iterator* owner) : owner(owner) {}
 
     internal::Maybe<codomain_type> operator()(domain_type x) const {
-      auto it = owner_.dcd_.find(x);
-      if (it != owner_.dcd_.end()) {
+      auto it = owner->dcd_.find(x);
+      if (it != owner->dcd_.end()) {
         auto& cd = it->second;
         assert(cd.current != cd.end);
         const codomain_type y = *cd.current;
@@ -386,11 +386,11 @@ struct mapping_iterator {
       }
     }
 
-    bool operator==(const value_type& a) const { return owner_ == a.owner_; }
+    bool operator==(const value_type& a) const { return *owner == *a->owner; }
     bool operator!=(const value_type& a) const { return !(*this == a); }
 
    private:
-    const mapping_iterator& owner_;
+    const mapping_iterator* owner;
   };
 
   typedef std::ptrdiff_t difference_type;
@@ -407,8 +407,8 @@ struct mapping_iterator {
   explicit mapping_iterator(InputIt begin, InputIt end) {
     for (; begin != end; ++begin) {
       domain_type x = begin->first;
-      codomain_iterator y1 = begin->second.first;
-      codomain_iterator y2 = begin->second.second;
+      codomain_iterator y1 = begin->second.begin();
+      codomain_iterator y2 = begin->second.end();
       dcd_.insert(std::make_pair(x, CodomainState(y1, y2)));
     }
     iter_ = Just(dcd_.end());
@@ -420,7 +420,7 @@ struct mapping_iterator {
   bool operator==(const mapping_iterator& it) const { return iter_ == it.iter_ && (!iter_ || dcd_ == it.dcd_); }
   bool operator!=(const mapping_iterator& it) const { return !(*this == it); }
 
-  value_type operator*() const { return value_type(*this); }
+  value_type operator*() const { return value_type(this); }
 
   mapping_iterator& operator++() {
     for (iter_ = Just(dcd_.begin()); iter_.val != dcd_.end(); ++iter_.val) {

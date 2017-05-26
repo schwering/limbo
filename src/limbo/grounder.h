@@ -76,44 +76,8 @@ class Grounder {
 
   typedef std::unordered_set<LiteralSet, LiteralSetHash> LiteralAssignmentSet;
 
-  class SortedTermSet : public internal::IntMap<Symbol::Sort, TermSet> {
-   public:
-    typedef TermSet::value_type value_type;
-
-    using internal::IntMap<Symbol::Sort, TermSet>::IntMap;
-
-    size_t insert(Term t) {
-      auto p = (*this)[t.sort()].insert(t);
-      return p.second ? 1 : 0;
-    }
-
-    void erase(Term t) {
-      (*this)[t.sort()].erase(t);
-    }
-
-    size_t insert(const TermSet& terms) {
-      size_t n = 0;
-      for (Term t : terms) {
-        n += insert(t);
-      }
-      return n;
-    }
-
-    size_t insert(const SortedTermSet& terms) {
-      size_t n = 0;
-      for (const TermSet& set : terms.values()) {
-        for (Term t : set) {
-          n += insert(t);
-        }
-      }
-      return n;
-    }
-
-    bool contains(Term t) const {
-      const TermSet& ts = (*this)[t.sort()];
-      return ts.find(t) != ts.end();
-    }
-  };
+  struct GetSort { Symbol::Sort operator()(Term t) const { return t.sort(); } };
+  typedef internal::MultiIntSet<Term, GetSort> SortedTermSet;
 
   Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
   Grounder(const Grounder&) = delete;
@@ -303,12 +267,12 @@ class Grounder {
   class Assignments {
    public:
     struct GetRange {
-      GetRange(const SortedTermSet& substitutes) : substitutes_(substitutes) {}
-      std::pair<Term, std::pair<TermSet::const_iterator, TermSet::const_iterator>> operator()(const Term x) const {
-        return std::make_pair(x, std::make_pair(substitutes_[x.sort()].begin(), substitutes_[x.sort()].end()));
+      GetRange(const SortedTermSet* substitutes) : substitutes_(substitutes) {}
+      std::pair<Term, SortedTermSet::PosValues> operator()(const Term x) const {
+        return std::make_pair(x, substitutes_->values(x));
       }
      private:
-      const SortedTermSet& substitutes_;
+      const SortedTermSet* substitutes_;
     };
     typedef internal::transform_iterator<TermSet::const_iterator, GetRange> domain_codomain_iterator;
     typedef internal::mapping_iterator<Term, TermSet::const_iterator> mapping_iterator;
@@ -316,8 +280,8 @@ class Grounder {
     Assignments(const TermSet& vars, const SortedTermSet* substitutes) : vars_(vars), substitutes_(substitutes) {}
 
     mapping_iterator begin() const {
-      return mapping_iterator(domain_codomain_iterator(vars_.begin(), GetRange(*substitutes_)),
-                              domain_codomain_iterator(vars_.end(), GetRange(*substitutes_)));
+      return mapping_iterator(domain_codomain_iterator(vars_.begin(), GetRange(substitutes_)),
+                              domain_codomain_iterator(vars_.end(), GetRange(substitutes_)));
     }
     mapping_iterator end() const { return mapping_iterator(); }
 

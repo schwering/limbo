@@ -230,7 +230,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     //std::cout << terms << std::endl;
     EXPECT_NE(x3.sort(), n1.sort());
     EXPECT_NE(x3.sort(), a.sort());
-    EXPECT_EQ(names.size(), 2);
+    EXPECT_EQ(names.n_keys(), 2);
     EXPECT_EQ(n1.symbol().sort(), a.sort());
     EXPECT_EQ(x3.symbol().sort(), g.sort());
     EXPECT_EQ(x3.symbol().sort(), h.sort());
