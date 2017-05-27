@@ -461,7 +461,7 @@ class Formula::Or : public Formula {
         rp.append_not();
         rc = Clause(rc.first().flip());
       }
-      const auto lits = internal::join_ranges(lc.cbegin(), lc.cend(), rc.cbegin(), rc.cend());
+      const auto lits = internal::join_cranges(lc, rc);
       return lp.PrependTo(rp.PrependTo(Factory::Atomic(Clause(lits.begin(), lits.end()))));
     } else {
       return Factory::Or(std::move(l), std::move(r));
@@ -481,7 +481,7 @@ class Formula::Or : public Formula {
     if (!c1 || !c2) {
       return internal::Nothing;
     }
-    const auto r = internal::join_ranges(c1.val.begin(), c1.val.end(), c2.val.begin(), c2.val.end());
+    const auto r = internal::join_ranges(c1.val, c2.val);
     return internal::Just(Clause(r.begin(), r.end()));
   }
 

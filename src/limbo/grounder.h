@@ -77,7 +77,7 @@ class Grounder {
   typedef std::unordered_set<LiteralSet, LiteralSetHash> LiteralAssignmentSet;
 
   struct GetSort { Symbol::Sort operator()(Term t) const { return t.sort(); } };
-  typedef internal::MultiIntSet<Term, GetSort> SortedTermSet;
+  typedef internal::IntMultiSet<Term, GetSort> SortedTermSet;
 
   Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
   Grounder(const Grounder&) = delete;
@@ -88,10 +88,7 @@ class Grounder {
   typedef std::list<Clause>::const_iterator clause_iterator;
   typedef internal::joined_iterators<clause_iterator, clause_iterator> clause_range;
 
-  clause_range clauses() const {
-    return internal::join_ranges(processed_clauses_.cbegin(), processed_clauses_.cend(),
-                                 unprocessed_clauses_.cbegin(), unprocessed_clauses_.cend());
-  }
+  clause_range clauses() const { return internal::join_ranges(processed_clauses_, unprocessed_clauses_); }
 
   void AddClause(const Clause& c) {
     assert(std::all_of(c.begin(), c.end(),
@@ -490,7 +487,7 @@ class Grounder {
     struct Func {  // a Lambda doesn't have assignment operators
       LiteralSet operator()(Literal a) const { return LiteralSet{a}; }
     };
-    auto r = internal::transform_range(ground.begin(), ground.end(), Func());
+    auto r = internal::transform_crange(ground, Func());
     LiteralAssignmentSet sets(r.begin(), r.end());
     for (Literal a : ground) {
       for (auto it = sets.begin(); it != sets.end(); ) {

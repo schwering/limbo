@@ -141,8 +141,8 @@ class array_iterator {
 // Expects an iterator over containers, and iterates over the containers' elements.
 template<typename OuterInputIt,
          typename InnerInputIt = decltype(std::declval<typename OuterInputIt::value_type const>().begin()),
-         InnerInputIt (OuterInputIt::value_type::*begin)() const = &OuterInputIt::value_type::begin,
-         InnerInputIt (OuterInputIt::value_type::*end)() const = &OuterInputIt::value_type::end>
+         InnerInputIt (OuterInputIt::value_type::*Begin)() const = &OuterInputIt::value_type::begin,
+         InnerInputIt (OuterInputIt::value_type::*End)() const = &OuterInputIt::value_type::end>
 class flatten_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
@@ -153,11 +153,11 @@ class flatten_iterator {
   typedef iterator_proxy<flatten_iterator> proxy;
 
   flatten_iterator() = default;
-  explicit flatten_iterator(OuterInputIt cont_first, OuterInputIt cont_last) :
+  flatten_iterator(OuterInputIt cont_first, OuterInputIt cont_last) :
       cont_first_(cont_first),
-        cont_last_(cont_last) {
+      cont_last_(cont_last) {
     if (cont_first_ != cont_last_) {
-      iter_ = ((*cont_first_).*begin)();
+      iter_ = ((*cont_first_).*Begin)();
     }
     Skip();
   }
@@ -169,12 +169,12 @@ class flatten_iterator {
 
   reference operator*() const {
     assert(cont_first_ != cont_last_);
-    assert(((*cont_first_).*begin)() != ((*cont_first_).*end)());
+    assert(((*cont_first_).*Begin)() != ((*cont_first_).*End)());
     return *iter_;
   }
 
   flatten_iterator& operator++() {
-    assert(cont_first_ != cont_last_ && iter_ != ((*cont_first_).*end)());
+    assert(cont_first_ != cont_last_ && iter_ != ((*cont_first_).*End)());
     ++iter_;
     Skip();
     return *this;
@@ -188,27 +188,73 @@ class flatten_iterator {
                 "OuterInputIt has wrong iterator category");
   static_assert(std::is_convertible<typename InnerInputIt::iterator_category, std::input_iterator_tag>::value,
                 "InnerInputIt has wrong iterator category");
+  static_assert(std::is_lvalue_reference<decltype(std::declval<OuterInputIt const>().operator*())>::value,
+                "OuterInputIt::operator*() must return lvalue reference (to inner container)");
 
   void Skip() {
     for (;;) {
       if (cont_first_ == cont_last_) {
         break;  // iterator has ended
       }
-      if (iter_ != ((*cont_first_).*end)()) {
+      if (iter_ != ((*cont_first_).*End)()) {
         break;  // found next element
       }
       ++cont_first_;
       if (cont_first_ != cont_last_) {
-        iter_ = ((*cont_first_).*begin)();
+        iter_ = ((*cont_first_).*Begin)();
       }
     }
-    assert(cont_first_ == cont_last_ || iter_ != ((*cont_first_).*end)());
+    assert(cont_first_ == cont_last_ || iter_ != ((*cont_first_).*End)());
   }
 
   OuterInputIt cont_first_;
   OuterInputIt cont_last_;
   InnerInputIt iter_;
 };
+
+template<typename OuterInputIt,
+         typename InnerInputIt = decltype(std::declval<typename OuterInputIt::value_type const>().begin()),
+         InnerInputIt (OuterInputIt::value_type::*Begin)() const = &OuterInputIt::value_type::begin,
+         InnerInputIt (OuterInputIt::value_type::*End)() const = &OuterInputIt::value_type::end>
+class flatten_iterators {
+ public:
+  typedef flatten_iterator<OuterInputIt, InnerInputIt, Begin, End> iterator;
+
+  flatten_iterators(OuterInputIt begin, OuterInputIt end) : begin_(begin, end), end_(end, end) {}
+
+  iterator begin() const { return begin_; }
+  iterator end()   const { return end_; }
+
+ private:
+  static_assert(std::is_convertible<typename OuterInputIt::iterator_category, std::input_iterator_tag>::value,
+                "OuterInputIt has wrong iterator category");
+  static_assert(std::is_convertible<typename InnerInputIt::iterator_category, std::input_iterator_tag>::value,
+                "InnerInputIt has wrong iterator category");
+
+  iterator begin_;
+  iterator end_;
+};
+
+template<typename OuterInputIt,
+         typename InnerInputIt = decltype(std::declval<typename OuterInputIt::value_type const>().begin()),
+         InnerInputIt (OuterInputIt::value_type::*Begin)() const = &OuterInputIt::value_type::begin,
+         InnerInputIt (OuterInputIt::value_type::*End)() const = &OuterInputIt::value_type::end>
+inline flatten_iterators<OuterInputIt, InnerInputIt, Begin, End>
+flatten_range(OuterInputIt begin, OuterInputIt end) {
+  return flatten_iterators<OuterInputIt, InnerInputIt, Begin, End>(begin, end);
+}
+
+template<typename Range, typename UnaryFunction>
+inline flatten_iterators<decltype(std::declval<Range>().begin())>
+flatten_range(Range& r) {
+  return flatten_range(r.begin(), r.end());
+}
+
+template<typename Range>
+inline flatten_iterators<decltype(std::declval<Range const>().begin())>
+flatten_crange(const Range& r) {
+  return flatten_range(r.begin(), r.end());
+}
 
 // Haskell's map function.
 template<typename InputIt, typename UnaryFunction>
@@ -284,13 +330,19 @@ class transform_iterators {
 template<typename InputIt, typename UnaryFunction>
 inline transform_iterators<InputIt, UnaryFunction> transform_range(InputIt begin,
                                                                    InputIt end,
-                                                                   UnaryFunction func) {
+                                                                   UnaryFunction func = UnaryFunction()) {
   return transform_iterators<InputIt, UnaryFunction>(begin, end, func);
 }
 
-template<typename Range, typename InputIt, typename UnaryFunction>
-inline transform_iterators<typename Range::iterator, UnaryFunction>
-transform_range(Range r, UnaryFunction func) {
+template<typename Range, typename UnaryFunction>
+inline transform_iterators<decltype(std::declval<Range>().begin()), UnaryFunction>
+transform_range(Range& r, UnaryFunction func = UnaryFunction()) {
+  return transform_range(r.begin(), r.end(), func);
+}
+
+template<typename Range, typename UnaryFunction>
+inline transform_iterators<decltype(std::declval<Range const>().begin()), UnaryFunction>
+transform_crange(const Range& r, UnaryFunction func = UnaryFunction()) {
   return transform_range(r.begin(), r.end(), func);
 }
 
@@ -359,8 +411,14 @@ inline filter_iterators<InputIt, UnaryPredicate> filter_range(InputIt begin,
 }
 
 template<typename Range, typename UnaryPredicate>
-inline filter_iterators<typename Range::iterator, UnaryPredicate>
-filter_range(Range r, UnaryPredicate pred) {
+inline filter_iterator<decltype(std::declval<Range>().begin()), UnaryPredicate>
+filter_range(Range& r, UnaryPredicate pred = UnaryPredicate()) {
+  return filter_range(r.begin(), r.end(), pred);
+}
+
+template<typename Range, typename UnaryPredicate>
+inline filter_iterator<decltype(std::declval<Range const>().begin()), UnaryPredicate>
+filter_crange(const Range& r, UnaryPredicate pred = UnaryPredicate()) {
   return filter_range(r.begin(), r.end(), pred);
 }
 
@@ -404,7 +462,7 @@ class mapping_iterator {
   mapping_iterator() {}
 
   template<typename InputIt>
-  explicit mapping_iterator(InputIt begin, InputIt end) {
+  mapping_iterator(InputIt begin, InputIt end) {
     for (; begin != end; ++begin) {
       domain_type x = begin->first;
       codomain_iterator y1 = begin->second.begin();
@@ -530,8 +588,15 @@ inline joined_iterators<InputIt1, InputIt2> join_ranges(InputIt1 begin1,
   return joined_iterators<InputIt1, InputIt2>(begin1, end1, begin2, end2);
 }
 
-template<typename Range1, typename Range2, typename InputIt1, typename InputIt2>
-inline joined_iterators<InputIt1, InputIt2> join_ranges(Range1 r1, Range2 r2) {
+template<typename Range1, typename Range2>
+inline joined_iterators<decltype(std::declval<Range1>().begin()), decltype(std::declval<Range2>().begin())>
+join_ranges(Range1& r1, Range2& r2) {
+  return join_ranges(r1.begin(), r1.end(), r2.begin(), r2.end());
+}
+
+template<typename Range1, typename Range2>
+inline joined_iterators<decltype(std::declval<Range1 const>().begin()), decltype(std::declval<Range2 const>().begin())>
+join_cranges(const Range1& r1, const Range2& r2) {
   return join_ranges(r1.begin(), r1.end(), r2.begin(), r2.end());
 }
 

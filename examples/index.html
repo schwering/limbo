@@ -45,30 +45,33 @@
 <p>
 The reasoner uses a first-order modal logic as representation language.
 In their most basic form, formulas are about the equality of terms&mdash;functions, variables, or standard names.
-For instance, we could say <span class="logic">fatherOf(Sally) = <u>x</u></span>, where <span class="logic">fatherOf</span> is a unary function, <span class="logic"><u>x</u></span> is a variable, and <span class="logic">Sally</span> is a standard name (it denotes one specific individual).
-Predicates are not an explicit part of the language, but can be easily simulated with functions and a special standard name <span class="logic">T</span> that indicates truth: <span class="logic">rich(<u>x</u>) = T</span> would represent the <span class="logic"><u>x</u></span> is in the relation <span class="logic">rich</span>.
-Such literals can be used to form more complex formulas using logical connectives such as logical negation, disjunction/conjunction, and existential/universal quantification.
+For instance, we could say <span class="logic">fatherOf(Sally) = <u>x</u></span>, where <span class="logic">fatherOf</span> is a unary function, <span class="logic"><u>x</u></span> is a variable, and <span class="logic">Sally</span> is a standard name.
+A standard name is a special constant symbols that denote one specific individual; that is, two distinct standard names are guaranteed to refer to two distinct individuals.
+Predicates are not an explicit part of the language, but can be easily simulated with functions and a special standard name <span class="logic">T</span> that indicates truth: <span class="logic">rich(<u>x</u>) = T</span> represents that <span class="logic"><u>x</u></span> is in the relation <span class="logic">rich</span>.
+Such equality or inequality expressions are called literals.
+From these literals, we can form more complex formulas using logical connectives such as logical negation, disjunction and conjunction, existential and universal quantification, implication, or equivalence.
 For example, <span class="logic">&exist;<u>x</u> (fatherOf(Sally) = <u>x</u> &and; rich(<u>x</u>) = T)</span> means Sally's father is rich.
 Finally, modal operators allow to expressly refer to what is known or considered possible.
 These modal operators are indexed with a natural number that indicates how much reasoning effort is put into proving the formula in its scope.
-A statement such as "I know Sally's father is rich, but I don't know him personally" could be formulised as follows:
+A statement such as "I know Sally's father is rich, but I don't know him personally" could be formalised as follows:
 </p>
 <div class="logic"><b>K</b><i>1</i> &exist;<u>x</u> (fatherOf(Sally) = <u>x</u> &and; rich(<u>x</u>) = T &and; <b>M</b><i>1</i> fatherOf(Sally) &ne; <u>x</u>)</div>
 
 <p>
 The above example is a typical query.
-As for knowledge bases, we make a syntactic restriction to so-called proper<sup>+</sup> formulas: knowledge bases need to be conjunctions of clauses without existential quantifiers.
+Usually we are interested in whether or not such a formula is logically entailed by a knowledge base.
+For knowledge bases we make a syntactic restriction to so-called proper<sup>+</sup> formulas: they need to be conjunctions of clauses without existential quantifiers.
 Note that every knowledge base can be brought into proper<sup>+</sup> form by converting it into prenex-CNF and Skolemizing the existentialy quantified variables.
 Furthermore, knowledge bases are assumed have no nested modal operators.
 </p>
 
 <p>
-To help the reasoner optimise query evaluation, the user provide a guarantee that the knowledge base is consistent with a special modal operator: <span class="logic"><b>G</b> &alpha;</span> indicates that when evaluating <span class="logic">&alpha;</span>, the knowledge base can be assumed to be consistent.
+To help the reasoner optimise query evaluation, the user can provide a guarantee that the knowledge base is consistent with a special modal operator: <span class="logic"><b>G</b> &alpha;</span> indicates that when evaluating <span class="logic">&alpha;</span>, the knowledge base can be assumed to be consistent.
 </p>
 
 <p>
 The language furthermore comprises conditional belief to refer to differently plausible beliefs.
-For instance, we could write <span class="logic"><b>B</b><i>k</i><i class="t">l</i> fatherOf(Sally) = Frank &#x27F9; rich(Frank) = T</span> to say that we believe that if Frank is Sally's father, he most presumably is rich.
+For instance, we could write <span class="logic"><b>B</b><i>k</i><i class="t">l</i> fatherOf(Sally) = Frank &#x27F9; rich(Frank) = T</span> to say that we believe that if Frank is Sally's father, he presumably is rich.
 </p>
 
 <h3>Reasoning</h3>
@@ -82,12 +85,13 @@ Analogously, whenever <span class="logic"><b>M</b><i>k</i> &alpha;</span> can be
 
 <p>
 The reasoner is implemented in C++ and will be available as open source.
-This demo is compiled to Javascript by <a href="http://emscripten.org">emscripten</a>.
-As a rule of thumb, the execution of the Javascript takes about 200%&ndash;400% of the native binary's execution time&mdash;this may however vary depending on the computer, browser or Javascript engine, and the demo.
+The demos on this website are compiled to Javascript by <a href="http://emscripten.org">emscripten</a>.
+Note that this does impair performance compared to running the same code natively on your computer.
+How bad the penalty is depends a lot on the specific example, the browser or its Javascripts engine, and possibly your computer, but as a very rough rule of thumb, the Javascript version appears to be about 2&times; to 4&times; slower.
 </p>
 
 <p>
-For future work, we plan to integrate sitation calculus-style actions, belief revision for sensing, have a look at some other KR concepts, and improve performance.
+For future work, I plan to integrate sitation calculus-style actions, belief revision for sensing, have a look at some other KR concepts, and improve performance.
 </p>
 
 </body>
