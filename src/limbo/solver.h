@@ -265,6 +265,9 @@ class Solver {
           MergeResultPredicate merge,
           T inconsistent_result,
           T unsuccessful_result) {
+    // XXX TODO The statement "the split order [does not matter] for Entails()"
+    // is wrong:
+    //
     // For Determines(), the split order matters, for Entails() it does not.
     // Suppose we have two split terms t1, t2, t3 and two names n1, n2, and
     // a query term t and two candidate names n, n' for t.

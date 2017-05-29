@@ -43,7 +43,7 @@ queries. Completeness is sacrificed for decidability, which means that the
 procedure actually terminates. (Soundness, completeness, decidability in
 first-order logic is one of those "pick any two" scenarios.)
 
-How much *effort* (and time) is spend on evaluating a query is controlled
+How much *effort* (and time) is spent on evaluating a query is controlled
 through a parameter that specifies how many case splits the reasoner may
 investigate. Every modal operator is decorated with such an effort parameter.
 This effort parameter and its limiting effect on the reasoning capabilities is
@@ -73,11 +73,17 @@ For more theoretical background see the papers linked below.
 
 ## Future work
 
-* Add sitcalc-style actions: regression, progression, or simulate ESL [3] with
-  preprocessing, or all of them?
-* Add clause learning and/or backjumping?
-* Improve grounding.
-* Have a look at some other KR concepts.
+Interesting KR concepts to be added include:
+
+* Actions (possible as in [4], but rather through regression and progression).
+* Sensing and/or belief revision.
+* Multiple agents.
+
+To improve the performance, we could investigate:
+
+* Clause learning, including its theoretical implications.
+* Backjumping.
+* More efficient grounding.
 
 ## Installation
 

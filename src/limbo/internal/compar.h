@@ -14,7 +14,7 @@
 namespace limbo {
 namespace internal {
 
-template<class T>
+template<typename T>
 struct LessComparator {
   typedef T value_type;
   bool operator()(const T& t1, const T& t2) const {
@@ -22,7 +22,7 @@ struct LessComparator {
   }
 };
 
-template<class T, class Compar = typename T::key_compare>
+template<typename T, typename Compar = typename T::key_compare>
 struct LexicographicContainerComparator {
   typedef T value_type;
   bool operator()(const T& t1, const T& t2) const {
@@ -35,7 +35,7 @@ struct LexicographicContainerComparator {
   Compar comp;
 };
 
-template<class T>
+template<typename T>
 struct BySizeComparator {
   typedef T value_type;
   bool operator()(const T& t1, const T& t2) const {
@@ -43,7 +43,7 @@ struct BySizeComparator {
   }
 };
 
-template<class Compar, class... Compars>
+template<typename Compar, typename... Compars>
 struct LexicographicComparator {
   bool operator()(const typename Compar::value_type& x,
                   const typename Compars::value_type&... xs,
@@ -63,7 +63,7 @@ struct LexicographicComparator {
   LexicographicComparator<Compars...> tail_comp;
 };
 
-template<class Compar>
+template<typename Compar>
 struct LexicographicComparator<Compar> {
   bool operator()(const typename Compar::value_type& x,
                   const typename Compar::value_type& y) const {

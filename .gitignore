@@ -36,6 +36,7 @@ tests/hashset
 tests/intmap
 tests/iter
 tests/kb
+tests/linked
 tests/literal
 tests/Makefile
 tests/setup
