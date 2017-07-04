@@ -114,8 +114,8 @@ struct Callback : public limbo::format::pdl::DefaultCallback {
   template<typename T>
   void operator()(T* ctx, const std::string& proc, const std::vector<limbo::Term>& args) {
     if (proc == "print_kb") {
-      for (limbo::KnowledgeBase::sphere_index p = 0; p < ctx->kb()->n_spheres(); ++p) {
-        std::cerr << "Setup[" << p << "] = " << std::endl << ctx->kb()->sphere(p)->setup() << std::endl;
+      for (limbo::KnowledgeBase::sphere_index p = 0; p < ctx->kb().n_spheres(); ++p) {
+        std::cerr << "Setup[" << p << "] = " << std::endl << ctx->kb().sphere(p).setup() << std::endl;
       }
     } else if (proc == "print") {
       limbo::format::print_range(std::cout, args, "", "", " ");

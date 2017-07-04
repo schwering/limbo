@@ -62,32 +62,22 @@ class IntMap {
 
   Keys keys() const { return Keys(this); }
 
-  struct Values {
-    typedef typename Vec::iterator iterator;
-    explicit Values(IntMap* owner) : owner(owner) {}
-    iterator begin() const { return owner->vec_.begin(); }
-    iterator end() const { return owner->vec_.end(); }
-   private:
-    IntMap* owner;
-  };
+  typename Vec::iterator begin() { return vec_.begin(); }
+  typename Vec::iterator end()   { return vec_.end(); }
+
+  typename Vec::const_iterator begin() const { return vec_.begin(); }
+  typename Vec::const_iterator end()   const { return vec_.end(); }
 
   struct ConstValues {
     typedef typename Vec::const_iterator iterator;
     explicit ConstValues(const IntMap* owner) : owner(owner) {}
-    iterator begin() const { return owner->vec_.begin(); }
-    iterator end() const { return owner->vec_.end(); }
+    iterator begin() const { return owner->begin(); }
+    iterator end()   const { return owner->end(); }
    private:
     const IntMap* owner;
   };
 
-  Values values() { return Values(this); }
   ConstValues values() const { return ConstValues(this); }
-
-  typename Values::iterator begin() { return values().begin(); }
-  typename Values::iterator end() { return values().end(); }
-
-  typename ConstValues::iterator begin() const { return values().begin(); }
-  typename ConstValues::iterator end() const { return values().end(); }
 
   template<typename BinaryFunction>
   static IntMap Zip(const IntMap& m1, const IntMap& m2, BinaryFunction f) {
@@ -115,63 +105,78 @@ class IntMap {
 template<typename Key, typename T>
 class IntMultiMap {
  public:
-  typedef std::unordered_set<T> Set;
-  typedef IntMap<Key, Set> Base;
+  typedef std::unordered_set<T> Bucket;
+  typedef IntMap<Key, Bucket> Base;
   typedef T value_type;
 
   bool operator==(const IntMultiMap& a) const { return map_ == a.map_; }
   bool operator!=(const IntMultiMap& a) const { return !(*this == a); }
 
-  typename Base::reference operator[](Key key) { return map_[key]; }
-  typename Base::const_reference operator[](Key key) const { return map_[key]; }
+        Bucket& operator[](Key key)       { return map_[key]; }
+  const Bucket& operator[](Key key) const { return map_[key]; }
 
   size_t insert(Key key, const T& val) {
     auto p = map_[key].insert(val);
-    return p.second ? 1 : 0;
+    size_t n = p.second ? 1 : 0;
+    size_ += n;
+    return n;
   }
 
-  void erase(Key key, const T& val) {
-    map_[key].erase(val);
+  size_t erase(Key key, const T& val) {
+    size_t n = map_[key].erase(val);
+    size_ -= n;
+    return n;
   }
 
   bool contains(Key key, const T& val) const {
-    const value_type& s = map_[key];
+    const Bucket& s = map_[key];
     return s.find(val) != s.end();
   }
 
   size_t n_keys() const { return map_.n_keys(); }
+  size_t n_values(Key key) const { return map_[key].size(); }
 
   typedef typename Base::Keys Keys;
 
   Keys keys() const { return Keys(&map_); }
 
-  struct PosValues {
-    explicit PosValues(const IntMultiMap* owner, Key key) : owner(owner), key(key) {}
-    typename Base::value_type::const_iterator begin() const { return owner->map_[key].begin(); }
-    typename Base::value_type::const_iterator end() const { return owner->map_[key].end(); }
+  typedef typename Bucket::const_iterator value_iterator;
+
+  value_iterator begin(Key key) const { return map_[key].begin(); }
+  value_iterator end(Key key) const { return map_[key].end(); }
+
+  struct ValuesForKey {
+    explicit ValuesForKey(const IntMultiMap* owner, Key key) : owner(owner), key(key) {}
+    value_iterator begin() const { return owner->begin(key); }
+    value_iterator end()   const { return owner->end(key); }
    private:
     const IntMultiMap* owner;
     Key key;
   };
 
-  PosValues values(Key key) const { return PosValues(this, key); }
+  ValuesForKey values(Key key) const { return ValuesForKey(this, key); }
+
+  typedef flatten_iterator<typename Base::Vec::const_iterator> all_values_iterator;
+
+  all_values_iterator begin() const { return all_values_iterator(map_.begin(), map_.end()); }
+  all_values_iterator end()   const { return all_values_iterator(map_.end(), map_.end()); }
 
   struct Values {
-    typedef flatten_iterator<typename Base::Vec::const_iterator> iterator;
-    explicit Values(IntMultiMap* owner) : owner(owner) {}
-    iterator begin() const { return owner->map_.values().begin(); }
-    iterator end() const { return owner->map_.values().end(); }
+    explicit Values(const IntMultiMap* owner) : owner(owner) {}
+    all_values_iterator begin() const { return owner->begin(); }
+    all_values_iterator end()   const { return owner->end(); }
    private:
-    IntMultiMap* owner;
+    const IntMultiMap* owner;
   };
 
   Values values() const { return Values(this); }
 
-  typename Values::iterator begin() const { return values().begin(); }
-  typename Values::iterator end() const { return values().end(); }
+  bool all_empty() const { return size_ == 0; }
+  size_t total_size() const { return size_; }
 
  private:
   Base map_;
+  size_t size_ = 0;
 };
 
 template<typename T, typename UnaryFunction, typename Key = typename std::result_of<UnaryFunction(T)>::type>
@@ -179,6 +184,7 @@ class IntMultiSet {
  public:
   typedef IntMultiMap<Key, T> Parent;
   typedef typename Parent::Base Base;
+  typedef typename Parent::Bucket Bucket;
   typedef T value_type;
 
   explicit IntMultiSet(UnaryFunction key = UnaryFunction()) : key_(key) {}
@@ -186,8 +192,8 @@ class IntMultiSet {
   bool operator==(const IntMultiSet& a) const { return map_ == a.map_; }
   bool operator!=(const IntMultiSet& a) const { return !(*this == a); }
 
-  typename Base::reference operator[](Key key) { return map_[key]; }
-  typename Base::const_reference operator[](Key key) const { return map_[key]; }
+        Bucket& operator[](Key key)       { return map_[key]; }
+  const Bucket& operator[](Key key) const { return map_[key]; }
 
   size_t insert(const T& val) { return map_.insert(key_(val), val); }
 
@@ -206,21 +212,29 @@ class IntMultiSet {
     return n;
   }
 
-  bool contains(const T& val) const { return map_.contains(key_(val)); }
+  bool contains(const T& val) const { return map_.contains(key_(val), val); }
 
   size_t n_keys() const { return map_.n_keys(); }
+  size_t n_values(Key key) const { return map_[key].size(); }
 
   typedef typename Parent::Keys Keys;
-  typedef typename Parent::PosValues PosValues;
+  typedef typename Parent::value_iterator value_iterator;
+  typedef typename Parent::ValuesForKey ValuesForKey;
+  typedef typename Parent::all_values_iterator all_values_iterator;
   typedef typename Parent::Values Values;
 
   Keys keys() const { return map_.keys(); }
-  PosValues values(Key key) const { return map_.values(key); }
-  PosValues values(const T& val) const { return values(key_(val)); }
+  value_iterator begin(Key key) const { return map_[key].begin(); }
+  value_iterator end(Key key) const { return map_[key].end(); }
+  ValuesForKey values(Key key) const { return map_.values(key); }
+  ValuesForKey values(const T& val) const { return values(key_(val)); }
   Values values() const { return map_.values(); }
 
-  typename Values::iterator begin() const { return values().begin(); }
-  typename Values::iterator end() const { return values().end(); }
+  all_values_iterator begin() const { return values().begin(); }
+  all_values_iterator end()   const { return values().end(); }
+
+  bool all_empty() const { return map_.all_empty(); }
+  size_t total_size() const { return map_.total_size(); }
 
  private:
   UnaryFunction key_;

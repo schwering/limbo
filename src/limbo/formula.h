@@ -35,9 +35,11 @@ class Formula {
  public:
   typedef internal::size_t size_t;
   typedef std::unique_ptr<Formula> Ref;
-  typedef std::unordered_set<Term> TermSet;
-  typedef internal::IntMap<Symbol::Sort, size_t> SortMap;
-  typedef unsigned int split_level;
+  struct SortOf { Symbol::Sort operator()(Term t) const { return t.sort(); } };
+  typedef internal::IntMultiSet<Term, SortOf> SortedTermSet;
+  typedef SortedTermSet::Bucket TermSet;
+  typedef internal::IntMap<Symbol::Sort, size_t> SortCount;
+  typedef unsigned int belief_level;
   enum Type { kAtomic, kNot, kOr, kExists, kKnow, kCons, kBel, kGuarantee };
 
   class Factory {
@@ -52,10 +54,10 @@ class Formula {
     inline static Ref Not(Ref alpha);
     inline static Ref Or(Ref lhs, Ref rhs);
     inline static Ref Exists(Term lhs, Ref rhs);
-    inline static Ref Know(split_level k, Ref alpha);
-    inline static Ref Cons(split_level k, Ref alpha);
-    inline static Ref Bel(split_level k, split_level l, Ref alpha, Ref beta);
-    inline static Ref Bel(split_level k, split_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta);
+    inline static Ref Know(belief_level k, Ref alpha);
+    inline static Ref Cons(belief_level k, Ref alpha);
+    inline static Ref Bel(belief_level k, belief_level l, Ref alpha, Ref beta);
+    inline static Ref Bel(belief_level k, belief_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta);
     inline static Ref Guarantee(Ref alpha);
   };
 
@@ -91,14 +93,14 @@ class Formula {
   inline const Bel&       as_bel() const;
   inline const Guarantee& as_guarantee() const;
 
-  const TermSet& free_vars() const {
+  const SortedTermSet& free_vars() const {
     if (!free_vars_) {
       free_vars_ = internal::Just(FreeVars());
     }
     return free_vars_.val;
   }
 
-  virtual SortMap n_vars() const = 0;
+  virtual SortCount n_vars() const = 0;
 
   template<typename UnaryFunction>
   void SubstituteFree(UnaryFunction theta, Term::Factory* tf) {
@@ -118,7 +120,7 @@ class Formula {
     class Traversal : public ITraversal<arg_type> {
      public:
       explicit Traversal(UnaryFunction func) : func_(func) {}
-      bool operator()(arg_type t) const override { return func_(t); }
+      bool operator()(const arg_type& t) const override { return func_(t); }
      private:
       UnaryFunction func_;
     };
@@ -148,16 +150,16 @@ class Formula {
     virtual internal::Maybe<Term> operator()(Term t) const = 0;
     void Bind(Term t) const { bound_.insert(t); }
     void Unbind(Term t) const { bound_.erase(t); }
-    bool bound(Term t) const { return bound_.find(t) != bound_.end(); }
+    bool bound(Term t) const { return bound_.contains(t); }
    private:
-    mutable TermSet bound_;
+    mutable SortedTermSet bound_;
   };
 
   template<typename T>
   class ITraversal {
    public:
     virtual ~ITraversal() {}
-    virtual bool operator()(T t) const = 0;
+    virtual bool operator()(const T& t) const = 0;
   };
 
   typedef std::unordered_map<Term, Term> TermMap;
@@ -189,11 +191,13 @@ class Formula {
 
   explicit Formula(Type type) : type_(type) {}
 
-  virtual TermSet FreeVars() const = 0;
+  virtual SortedTermSet FreeVars() const = 0;
 
   virtual void ISubstitute(const ISubstitution&, Term::Factory*) = 0;
   virtual void ITraverse(const ITraversal<Term>&)    const = 0;
   virtual void ITraverse(const ITraversal<Literal>&) const = 0;
+  virtual void ITraverse(const ITraversal<Clause>&)  const = 0;
+  virtual void ITraverse(const ITraversal<Formula>&) const = 0;
 
   void Rectify(Symbol::Factory* sf, Term::Factory* tf) {
     TermMap tm;
@@ -217,7 +221,7 @@ class Formula {
 
  private:
   Type type_;
-  mutable internal::Maybe<TermSet> free_vars_ = internal::Nothing;
+  mutable internal::Maybe<SortedTermSet> free_vars_ = internal::Nothing;
 };
 
 Formula::Ref Formula::QuantifierPrefix::PrependTo(Formula::Ref alpha) const {
@@ -240,8 +244,8 @@ class Formula::Atomic : public Formula {
 
   const Clause& arg() const { return c_; }
 
-  SortMap n_vars() const override {
-    SortMap m;
+  SortCount n_vars() const override {
+    SortCount m;
     for (Term x : free_vars()) {
       ++m[x.sort()];
     }
@@ -261,8 +265,8 @@ class Formula::Atomic : public Formula {
 
   explicit Atomic(const Clause& c) : Formula(Formula::kAtomic), c_(c) {}
 
-  TermSet FreeVars() const override {
-    TermSet ts;
+  SortedTermSet FreeVars() const override {
+    SortedTermSet ts;
     c_.Traverse([&ts](Term x) { if (x.variable()) ts.insert(x); return true; });
     return ts;
   }
@@ -272,6 +276,8 @@ class Formula::Atomic : public Formula {
   }
   void ITraverse(const ITraversal<Term>& f)    const override { c_.Traverse([&f](Term t) { return f(t); }); }
   void ITraverse(const ITraversal<Literal>& f) const override { c_.Traverse([&f](Literal a) { return f(a); }); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { f(c_); }
+  void ITraverse(const ITraversal<Formula>& f) const override { f(*this); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
     c_ = c_.Substitute([tm](Term t) {
@@ -396,8 +402,8 @@ class Formula::Or : public Formula {
   const Formula& lhs() const { return *alpha_; }
   const Formula& rhs() const { return *beta_; }
 
-  SortMap n_vars() const override {
-    SortMap m;
+  SortCount n_vars() const override {
+    SortCount m;
     for (Term x : free_vars()) {
       ++m[x.sort()];
     }
@@ -417,11 +423,12 @@ class Formula::Or : public Formula {
 
   Or(Ref lhs, Ref rhs) : Formula(kOr), alpha_(std::move(lhs)), beta_(std::move(rhs)) {}
 
-  TermSet FreeVars() const override {
-    TermSet ts1 = alpha_->free_vars();
-    const TermSet& ts2 = beta_->free_vars();
-    ts1.insert(ts2.begin(), ts2.end());
-    return ts1;
+  SortedTermSet FreeVars() const override {
+    SortedTermSet ts = alpha_->free_vars();
+    for (Term x : beta_->free_vars().values()) {
+      ts.insert(x);
+    }
+    return ts;
   }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
@@ -430,6 +437,8 @@ class Formula::Or : public Formula {
   }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); beta_->ITraverse(f); }
   void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); beta_->ITraverse(f); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); beta_->ITraverse(f); }
+  void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); beta_->ITraverse(f); f(*this); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
     alpha_->Rectify(tm, sf, tf);
@@ -501,7 +510,7 @@ class Formula::Exists : public Formula {
   Term x() const { return x_; }
   const Formula& arg() const { return *alpha_; }
 
-  SortMap n_vars() const override { return alpha_->n_vars(); }
+  SortCount n_vars() const override { return alpha_->n_vars(); }
 
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
@@ -514,7 +523,7 @@ class Formula::Exists : public Formula {
 
   Exists(Term x, Ref alpha) : Formula(kExists), x_(x), alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { TermSet ts = alpha_->free_vars(); ts.erase(x_); return ts; }
+  SortedTermSet FreeVars() const override { SortedTermSet ts = alpha_->free_vars(); ts.erase(x_); return ts; }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
     theta.Bind(x_);
@@ -523,6 +532,8 @@ class Formula::Exists : public Formula {
   }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
     TermMap::const_iterator it = tm->find(x_);
@@ -544,9 +555,9 @@ class Formula::Exists : public Formula {
   }
 
   Ref Normalize(bool distribute) const override {
-    const TermSet& ts = alpha_->free_vars();
+    const SortedTermSet& ts = alpha_->free_vars();
     Ref alpha = alpha_->Normalize(distribute);
-    if (ts.find(x_) != ts.end()) {
+    if (ts.contains(x_)) {
       return Factory::Exists(x_, std::move(alpha));
     } else {
       return alpha;
@@ -579,7 +590,7 @@ class Formula::Not : public Formula {
 
   const Formula& arg() const { return *alpha_; }
 
-  SortMap n_vars() const override { return alpha_->n_vars(); }
+  SortCount n_vars() const override { return alpha_->n_vars(); }
 
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
@@ -592,11 +603,13 @@ class Formula::Not : public Formula {
 
   explicit Not(Ref alpha) : Formula(kNot), alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { return alpha_->free_vars(); }
+  SortedTermSet FreeVars() const override { return alpha_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
 
@@ -655,27 +668,29 @@ class Formula::Know : public Formula {
 
   Ref Clone() const override { return Factory::Know(k_, alpha_->Clone()); }
 
-  split_level k() const { return k_; }
+  belief_level k() const { return k_; }
   const Formula& arg() const { return *alpha_; }
 
-  SortMap n_vars() const override { return alpha_->n_vars(); }
+  SortCount n_vars() const override { return alpha_->n_vars(); }
 
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
-  bool quantified_in() const override { return !free_vars().empty(); }
+  bool quantified_in() const override { return !free_vars().all_empty(); }
   bool trivially_valid() const override { return alpha_->trivially_valid(); }
   bool trivially_invalid() const override { return false; }
 
  protected:
   friend class Factory;
 
-  Know(split_level k, Ref alpha) : Formula(kKnow), k_(k), alpha_(std::move(alpha)) {}
+  Know(belief_level k, Ref alpha) : Formula(kKnow), k_(k), alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { return alpha_->free_vars(); }
+  SortedTermSet FreeVars() const override { return alpha_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
 
@@ -700,7 +715,7 @@ class Formula::Know : public Formula {
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
-  static Ref DistK(split_level k, Ref alpha) {
+  static Ref DistK(belief_level k, Ref alpha) {
     if (alpha->type() == kNot) {
       const Formula& beta = alpha->as_not().arg();
       switch (beta.type()) {
@@ -741,7 +756,7 @@ class Formula::Know : public Formula {
     return Factory::Know(k, std::move(alpha));
   }
 
-  split_level k_;
+  belief_level k_;
   Ref alpha_;
 };
 
@@ -753,27 +768,29 @@ class Formula::Cons : public Formula {
 
   Ref Clone() const override { return Factory::Cons(k_, alpha_->Clone()); }
 
-  split_level k() const { return k_; }
+  belief_level k() const { return k_; }
   const Formula& arg() const { return *alpha_; }
 
-  SortMap n_vars() const override { return alpha_->n_vars(); }
+  SortCount n_vars() const override { return alpha_->n_vars(); }
 
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
-  bool quantified_in() const override { return !free_vars().empty(); }
+  bool quantified_in() const override { return !free_vars().all_empty(); }
   bool trivially_valid() const override { return false; }
   bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
 
  protected:
   friend class Factory;
 
-  Cons(split_level k, Ref alpha) : Formula(kCons), k_(k), alpha_(std::move(alpha)) {}
+  Cons(belief_level k, Ref alpha) : Formula(kCons), k_(k), alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { return alpha_->free_vars(); }
+  SortedTermSet FreeVars() const override { return alpha_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
 
@@ -798,7 +815,7 @@ class Formula::Cons : public Formula {
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
-  static Ref DistM(split_level k, Ref alpha) {
+  static Ref DistM(belief_level k, Ref alpha) {
     switch (alpha->type()) {
       case kAtomic: {
         const Clause& c = alpha->as_atomic().arg();
@@ -832,7 +849,7 @@ class Formula::Cons : public Formula {
     return Factory::Cons(k, std::move(alpha));
   }
 
-  split_level k_;
+  belief_level k_;
   Ref alpha_;
 };
 
@@ -848,24 +865,24 @@ class Formula::Bel : public Formula {
     return Factory::Bel(k_, l_, antecedent_->Clone(), consequent_->Clone(), not_antecedent_or_consequent_->Clone());
   }
 
-  split_level k() const { return k_; }
-  split_level l() const { return l_; }
+  belief_level k() const { return k_; }
+  belief_level l() const { return l_; }
   const Formula& antecedent() const { return *antecedent_; }
   const Formula& consequent() const { return *consequent_; }
   const Formula& not_antecedent_or_consequent() const { return *not_antecedent_or_consequent_; }
 
-  SortMap n_vars() const override { return not_antecedent_or_consequent_->n_vars(); }
+  SortCount n_vars() const override { return not_antecedent_or_consequent_->n_vars(); }
 
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
-  bool quantified_in() const override { return !free_vars().empty(); }
+  bool quantified_in() const override { return !free_vars().all_empty(); }
   bool trivially_valid() const override { return not_antecedent_or_consequent_->trivially_valid(); }
   bool trivially_invalid() const override { return false; }
 
  protected:
   friend class Factory;
 
-  Bel(split_level k, split_level l, Ref antecedent, Ref consequent) :
+  Bel(belief_level k, belief_level l, Ref antecedent, Ref consequent) :
       Formula(kBel),
       k_(k),
       l_(l),
@@ -873,7 +890,7 @@ class Formula::Bel : public Formula {
       consequent_(consequent->Clone()),
       not_antecedent_or_consequent_(Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
 
-  TermSet FreeVars() const override { return not_antecedent_or_consequent_->free_vars(); }
+  SortedTermSet FreeVars() const override { return not_antecedent_or_consequent_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
     antecedent_->ISubstitute(theta, tf);
@@ -882,6 +899,8 @@ class Formula::Bel : public Formula {
   }
   void ITraverse(const ITraversal<Term>& f)    const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); }
   void ITraverse(const ITraversal<Literal>& f) const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); }
+  void ITraverse(const ITraversal<Formula>& f) const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); f(*this); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
     antecedent_->Rectify(tm, sf, tf);
@@ -908,7 +927,7 @@ class Formula::Bel : public Formula {
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
-  Bel(split_level k, split_level l, Ref antecedent, Ref consequent, Ref not_antecedent_or_consequent) :
+  Bel(belief_level k, belief_level l, Ref antecedent, Ref consequent, Ref not_antecedent_or_consequent) :
       Formula(kBel),
       k_(k),
       l_(l),
@@ -916,8 +935,8 @@ class Formula::Bel : public Formula {
       consequent_(std::move(consequent)),
       not_antecedent_or_consequent_(std::move(not_antecedent_or_consequent)) {}
 
-  split_level k_;
-  split_level l_;
+  belief_level k_;
+  belief_level l_;
   Ref antecedent_;
   Ref consequent_;
   Ref not_antecedent_or_consequent_;
@@ -933,7 +952,7 @@ class Formula::Guarantee : public Formula {
 
   const Formula& arg() const { return *alpha_; }
 
-  SortMap n_vars() const override { return alpha_->n_vars(); }
+  SortCount n_vars() const override { return alpha_->n_vars(); }
 
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
@@ -948,11 +967,13 @@ class Formula::Guarantee : public Formula {
       Formula(kGuarantee),
       alpha_(std::move(alpha)) {}
 
-  TermSet FreeVars() const override { return alpha_->free_vars(); }
+  SortedTermSet FreeVars() const override { return alpha_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override { alpha_->ISubstitute(theta, tf); }
   void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
 
@@ -976,12 +997,12 @@ Formula::Ref Formula::Factory::Atomic(const Clause& c)   { return Ref(new class 
 Formula::Ref Formula::Factory::Not(Ref alpha)            { return Ref(new class Not(std::move(alpha))); }
 Formula::Ref Formula::Factory::Or(Ref lhs, Ref rhs)    { return Ref(new class Or(std::move(lhs), std::move(rhs))); }
 Formula::Ref Formula::Factory::Exists(Term x, Ref alpha) { return Ref(new class Exists(x, std::move(alpha))); }
-Formula::Ref Formula::Factory::Know(split_level k, Ref alpha) { return Ref(new class Know(k, std::move(alpha))); }
-Formula::Ref Formula::Factory::Cons(split_level k, Ref alpha) { return Ref(new class Cons(k, std::move(alpha))); }
-Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta) {
+Formula::Ref Formula::Factory::Know(belief_level k, Ref alpha) { return Ref(new class Know(k, std::move(alpha))); }
+Formula::Ref Formula::Factory::Cons(belief_level k, Ref alpha) { return Ref(new class Cons(k, std::move(alpha))); }
+Formula::Ref Formula::Factory::Bel(belief_level k, belief_level l, Ref alpha, Ref beta) {
   return Ref(new class Bel(k, l, std::move(alpha), std::move(beta)));
 }
-Formula::Ref Formula::Factory::Bel(split_level k, split_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta) {
+Formula::Ref Formula::Factory::Bel(belief_level k, belief_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta) {
   return Ref(new class Bel(k, l, std::move(alpha), std::move(beta), std::move(not_alpha_or_beta)));
 }
 Formula::Ref Formula::Factory::Guarantee(Ref alpha) { return Ref(new class Guarantee(std::move(alpha))); }

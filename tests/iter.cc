@@ -52,6 +52,18 @@ TEST(IterTest, int_iterator) {
   }
 }
 
+TEST(IterTest, singleton_iterator) {
+  typedef singleton_iterator<int> iterator;
+  {
+    iterator begin = iterator(5);
+    iterator end = iterator();
+    EXPECT_NE(begin, end);
+    EXPECT_EQ(*begin, 5);
+    ++begin;
+    EXPECT_EQ(begin, end);
+  }
+}
+
 TEST(IterTest, flatten_iterator) {
   {
     typedef std::vector<Int> vec;
@@ -301,6 +313,49 @@ TEST(IterTest, maping_iterator) {
       }
     }
     EXPECT_EQ(begin, end);
+  }
+}
+
+TEST(IterTest, cross_iterator) {
+  typedef std::vector<int> vec1;
+  typedef std::vector<double> vec2;
+  typedef cross_iterator<vec1::const_iterator, vec2::const_iterator> iterator;
+  {
+    vec1 xs{};
+    vec2 ys{};
+    iterator begin = iterator(xs.begin(), ys.begin(), ys.end());
+    iterator end = iterator(xs.begin(), ys.begin(), ys.end());
+    EXPECT_EQ(begin, end);
+  }
+  {
+    vec1 xs{1,2,3};
+    vec2 ys{};
+    iterator begin = iterator(xs.begin(), ys.begin(), ys.end());
+    iterator end = iterator(xs.end(), ys.begin(), ys.end());
+    EXPECT_EQ(begin, end);
+  }
+  {
+    vec1 xs{};
+    vec2 ys{1.1,2.2,3.3};
+    iterator begin = iterator(xs.begin(), ys.begin(), ys.end());
+    iterator end = iterator(xs.end(), ys.begin(), ys.end());
+    EXPECT_EQ(begin, end);
+  }
+  {
+    vec1 xs{1,2,3};
+    vec2 ys{1.1,2.2,3.3};
+    iterator begin = iterator(xs.begin(), ys.begin(), ys.end());
+    iterator end = iterator(xs.end(), ys.begin(), ys.end());
+    EXPECT_NE(begin, end); EXPECT_EQ(*begin, std::make_pair(1, 1.1)); ++begin;
+    EXPECT_NE(begin, end); EXPECT_EQ(*begin, std::make_pair(1, 2.2)); ++begin;
+    EXPECT_NE(begin, end); EXPECT_EQ(*begin, std::make_pair(1, 3.3)); ++begin;
+    EXPECT_NE(begin, end); EXPECT_EQ(*begin, std::make_pair(2, 1.1)); ++begin;
+    EXPECT_NE(begin, end); EXPECT_EQ(*begin, std::make_pair(2, 2.2)); ++begin;
+    EXPECT_NE(begin, end); EXPECT_EQ(*begin, std::make_pair(2, 3.3)); ++begin;
+    EXPECT_NE(begin, end); EXPECT_EQ(*begin, std::make_pair(3, 1.1)); ++begin;
+    EXPECT_NE(begin, end); EXPECT_EQ(*begin, std::make_pair(3, 2.2)); ++begin;
+    EXPECT_NE(begin, end); EXPECT_EQ(*begin, std::make_pair(3, 3.3)); ++begin;
+    EXPECT_EQ(begin ,end);
   }
 }
 

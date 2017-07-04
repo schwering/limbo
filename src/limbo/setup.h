@@ -12,11 +12,11 @@
 // and LocallyConsistent().
 //
 // Additionally, ShallowCopy() can be used to add further clauses or unit
-// clauses which are automatically removed once the lifecycle of Offspring
+// clauses which are automatically removed once the lifecycle of ShallowCopy
 // ends. This allows for very cheap backtracking. Note that anything that is
-// added to a WeakCopy also occurs in the original Setup. During the lifecycle
-// of any WeakCopies, Minimize() must not be called, as it leads to undefined
-// behaviour.
+// added to a ShallowCopy also occurs in the original Setup. During the
+// lifecycle of any ShallowCopies, Minimize() must not be called, as it leads
+// to undefined behaviour.
 //
 // Subsumes() checks whether the clause is subsumed by any clause in the setup
 // after doing unit propagation; it is hence a sound but incomplete test for
@@ -81,45 +81,105 @@ class Setup {
 
   enum Result { kOk, kSubsumed, kInconsistent };
 
+  template<typename UnaryFunction = internal::Identity>
+  struct ClauseRange {
+    typedef internal::int_iterator<size_t, UnaryFunction> iterator;
+
+    explicit ClauseRange(size_t last, UnaryFunction func = UnaryFunction()) : last(last), func(func) {}
+    iterator begin() const { return iterator(0, func); }
+    iterator end()   const { return iterator(last, func); }
+
+   private:
+    size_t last;
+    UnaryFunction func;
+  };
+
   class ShallowCopy {
    public:
+    struct GlobalIndex {
+      GlobalIndex(const Setup* s, bool empty_clause, size_t n_units, size_t n_clauses)
+          : s(s), empty_clause(empty_clause), n_units(n_units), n_clauses(n_clauses) {}
+
+      size_t operator()(size_t i) const {
+        if (i >= s->empty_clause_ - empty_clause + s->units_.size() - n_units) {
+          return empty_clause + n_units + n_clauses + i;
+        }
+        if (i >= s->empty_clause_ - empty_clause) {
+          return empty_clause + n_units + i;
+        }
+        return i;
+      }
+
+     private:
+      const Setup* s = nullptr;
+      bool empty_clause;
+      size_t n_units;
+      size_t n_clauses;
+    };
+
+    ShallowCopy() = default;
     ShallowCopy(const ShallowCopy&) = delete;
     ShallowCopy& operator=(const ShallowCopy&) = delete;
-    ShallowCopy(ShallowCopy&&) = default;
-    ShallowCopy& operator=(ShallowCopy&&) = default;
+    ShallowCopy(ShallowCopy&& c) : setup_(c.setup_), data_(c.data_) { c.setup_ = nullptr; }
+    ShallowCopy& operator=(ShallowCopy&& c) {
+      setup_ = c.setup_;
+      data_ = c.data_;
+      c.setup_ = nullptr;
+      return *this;
+    }
     ~ShallowCopy() { Die(); }
-
-    operator const Setup&() const { return *setup_; }
-    const Setup* operator->() const { return setup_; }
-    const Setup& operator*() const { return *setup_; }
-
-    Result AddUnit(Literal a) { return setup_->AddUnit(a); }
 
     void Die() {
       if (setup_) {
-        assert(setup_->saved_-- > 0);
-        setup_->empty_clause_ = empty_clause_;
-        setup_->units_.Resize(n_units_);
-        setup_->clauses_.Resize(n_clauses_);
+        assert(data_.empty_clause + data_.n_clauses + data_.n_units == 0 || setup_->saved_-- > 0);
+        setup_->empty_clause_ = data_.empty_clause;
+        setup_->units_.Resize(data_.n_units);
+        setup_->clauses_.Resize(data_.n_clauses);
         setup_ = nullptr;
       }
+    }
+
+    Setup& setup() { return *setup_; }
+    const Setup& setup() const { return *setup_; }
+
+    Result AddClause(Clause c) { return setup_->AddClause(c); }
+    Result AddUnit(Literal a) { return setup_->AddUnit(a); }
+
+    void Minimize() {
+      assert(data_.saved == setup_->saved_);
+      setup_->Minimize(data_.n_clauses, data_.n_units);
+      assert(data_.n_clauses <= setup_->clauses_.size());
+      assert(data_.n_units <= setup_->units_.size());
+    }
+
+    ClauseRange<GlobalIndex> new_clauses() const {
+      const size_t last = setup_->empty_clause_ - data_.empty_clause +
+          setup_->units_.size() - data_.n_units +
+          setup_->clauses_.size() - data_.n_clauses;
+      return ClauseRange<GlobalIndex>(last, GlobalIndex(setup_, data_.empty_clause, data_.n_units, data_.n_clauses));
     }
 
    private:
     friend Setup;
 
-    explicit ShallowCopy(Setup* s) :
-      setup_(s),
-      empty_clause_(s->empty_clause_),
-      n_clauses_(s->clauses_.size()),
-      n_units_(s->units_.size()) {
-      assert(++setup_->saved_ > 0);
+    struct Data {
+      bool empty_clause = false;
+      size_t n_clauses = 0;
+      size_t n_units = 0;
+#ifndef NDEBUG
+      size_t saved = 0;
+#endif
+    };
+
+    explicit ShallowCopy(Setup* s) : setup_(s), data_({s->empty_clause_, s->clauses_.size(), s->units_.size()}) {
+      assert(data_.empty_clause + data_.n_clauses + data_.n_units == 0 || ++setup_->saved_ > 0);
+#ifndef NDEBUG
+      data_.saved = s->saved_;
+#endif
     }
 
-    Setup* setup_;
-    bool empty_clause_;
-    size_t n_clauses_;
-    size_t n_units_;
+    Setup* setup_ = nullptr;
+    Data data_;
   };
 
   Setup() = default;
@@ -128,41 +188,15 @@ class Setup {
   Setup(Setup&&) = default;
   Setup& operator=(Setup&&) = default;
 
-  ShallowCopy shallow_copy() const { return ShallowCopy(const_cast<Setup*>(this)); }
+  ShallowCopy shallow_copy() { return ShallowCopy(this); }
 
   void Minimize() {
-    assert(saved_ == 0);
-    if (empty_clause_) {
-      clauses_.Resize(0);
-      units_.Resize(0);
-      return;
-    }
-    for (size_t i = 0; i < units_.size(); ++i) {
-      Literal a = units_[i];
-      if (!a.pos()) {
-        units_.Erase(i);
-        Result r = units_.Add(a);
-        assert(r != kInconsistent), (void) r;
-      }
-    }
-    for (size_t i = clauses_.size(); i > 0; --i) {
-      Clause c;
-      std::swap(c, clauses_[i - 1]);
-      c.PropagateUnits(units_.set());
-      assert(!c.empty());
-      assert(c.size() >= 2 ||
-             any_of(units_.vec().begin(), units_.vec().end(), [&c](Literal a) { return a.Subsumes(c.first()); }));
-      clauses_.Erase(i - 1);
-      if (c.size() >= 2 && !Subsumes(c)) {
-        clauses_.Add(c);
-      }
-    }
+    Minimize(0, 0);
     units_.SealOriginalUnits();  // units_.set() have been eliminated from all clauses, so not needed in AddUnit()
   }
 
   Result AddClause(Clause c) {
     assert(c.primitive());
-    assert(saved_ == 0);
     assert(!c.valid());
     units_.UnsealOriginalUnits();  // undo units_.SealOriginalUnits() called by Minimize()
     c.PropagateUnits(units_.set());
@@ -186,28 +220,26 @@ class Setup {
       return kInconsistent;
     }
     size_t n_propagated = units_.size();
-    Result r = units_.Add(a);
+    const Result r = units_.Add(a);
     empty_clause_ = r == kInconsistent;
-    for (; n_propagated < units_.size() && r != kInconsistent; ++n_propagated) {
+    for (; n_propagated < units_.size() && !empty_clause_; ++n_propagated) {
       a = units_[n_propagated];
-      for (size_t i = 0; i < clauses_.size() && r != kInconsistent; ++i) {
+      for (size_t i = 0; i < clauses_.size() && !empty_clause_; ++i) {
         if (Literal::Complementary(clauses_.watched(i).a, a) ||
             Literal::Complementary(clauses_.watched(i).b, a)) {
           Clause c = clauses_[i];
           c.PropagateUnits(units_.set());
           if (c.size() == 0) {
-            r = kInconsistent;
             empty_clause_ = true;
           } else if (c.size() == 1) {
-            r = units_.Add(c.first());
-            empty_clause_ = r == kInconsistent;
+            empty_clause_ = units_.Add(c.first()) == kInconsistent;
           } else {
             clauses_.Watch(i, c.first(), c.last());
           }
         }
       }
     }
-    return r;
+    return empty_clause_ ? kInconsistent : r;
   }
 
   bool Subsumes(const Clause& c) const {
@@ -268,22 +300,15 @@ class Setup {
 
   bool contains_empty_clause() const { return empty_clause_; }
 
-  const std::vector<Literal>& units() const { return units_.vec(); }
+  const std::unordered_set<Literal, Literal::LhsHash>& units() const { return units_.set(); }
+  const std::vector<Clause>& non_units() const { return clauses_.vec(); }
 
   internal::Maybe<Term> Determines(Term lhs) const {
     assert(lhs.primitive());
     return empty_clause_ ? internal::Just(Term()) : units_.Determines(lhs);
   }
 
-  struct ClauseRange {
-    explicit ClauseRange(const Setup& s) : last((s.empty_clause_ ? 1 : 0) + s.units_.size() + s.clauses_.size()) {}
-    internal::int_iterator<size_t> begin() const { return internal::int_iterator<size_t>(0); }
-    internal::int_iterator<size_t> end()   const { return internal::int_iterator<size_t>(last); }
-   private:
-    size_t last;
-  };
-
-  ClauseRange clauses() const { return ClauseRange(*this); }
+  ClauseRange<> clauses() const { return ClauseRange<>(empty_clause_ + units_.size() + clauses_.size()); }
 
   Clause clause(size_t i) const {
     if (i == 0 && empty_clause_) {
@@ -351,6 +376,8 @@ class Setup {
       watched_.resize(n);
     }
 
+    const std::vector<Clause>& vec() const { return clauses_; }
+
    private:
     std::vector<Clause> clauses_;
     std::vector<Watched> watched_;
@@ -366,8 +393,8 @@ class Setup {
     }
 
     Result Add(Literal a) {
-      auto orig_end = vec_.begin() + n_orig_;
-      auto orig_begin = std::lower_bound(vec_.begin(), orig_end, Literal::Min(a.lhs()));
+      const auto orig_end = vec_.begin() + n_orig_;
+      const auto orig_begin = std::lower_bound(vec_.begin(), orig_end, Literal::Min(a.lhs()));
       for (auto it = orig_begin; it != orig_end && a.lhs() == it->lhs(); ++it) {
         if (Literal::Complementary(a, *it)) {
           return kInconsistent;
@@ -377,7 +404,7 @@ class Setup {
         }
       }
       if (set_.bucket_count() > 0) {
-        auto bucket = set_.bucket(a);
+        const auto bucket = set_.bucket(a);
         for (auto it = set_.begin(bucket), end = set_.end(bucket); it != end; ++it) {
           if (Literal::Complementary(a, *it)) {
             return kInconsistent;
@@ -425,8 +452,8 @@ class Setup {
 
     internal::Maybe<Term> Determines(Term t) const {
       assert(t.primitive());
-      auto orig_end = vec_.begin() + n_orig_;
-      auto orig_begin = std::lower_bound(vec_.begin(), orig_end, Literal::Min(t));
+      const auto orig_end = vec_.begin() + n_orig_;
+      const auto orig_begin = std::lower_bound(vec_.begin(), orig_end, Literal::Min(t));
       for (auto it = orig_begin; it != orig_end && t == it->lhs(); ++it) {
         if (it->pos()) {
           return internal::Just(it->rhs());
@@ -469,9 +496,9 @@ class Setup {
   static bool ConsistentSet(const std::unordered_set<Literal, Literal::LhsHash>& lits) {
     for (const Literal a : lits) {
       assert(lits.bucket_count() > 0);
-      size_t b = lits.bucket(a);
-      auto begin = lits.begin(b);
-      auto end   = lits.end(b);
+      const size_t bucket = lits.bucket(a);
+      const auto begin = lits.begin(bucket);
+      const auto end   = lits.end(bucket);
       for (auto it = begin; it != end; ++it) {
         const Literal b = *it;
         assert(Literal::Complementary(a, b) == Literal::Complementary(b, a));
@@ -481,6 +508,35 @@ class Setup {
       }
     }
     return true;
+  }
+
+  void Minimize(size_t n_clauses, size_t n_units) {
+    assert(n_clauses + n_units > 0 || saved_ == 0);
+    if (empty_clause_) {
+      clauses_.Resize(n_clauses);
+      units_.Resize(n_units);
+      return;
+    }
+    for (size_t i = n_units; i < units_.size(); ++i) {
+      const Literal a = units_[i];
+      if (!a.pos()) {
+        units_.Erase(i);
+        Result r = units_.Add(a);
+        assert(r != kInconsistent), (void) r;
+      }
+    }
+    for (size_t i = clauses_.size(); i > n_clauses; --i) {
+      Clause c;
+      std::swap(c, clauses_[i - 1]);
+      c.PropagateUnits(units_.set());
+      assert(!c.empty());
+      assert(c.size() >= 2 ||
+             any_of(units_.vec().begin(), units_.vec().end(), [&c](Literal a) { return a.Subsumes(c.first()); }));
+      clauses_.Erase(i - 1);
+      if (c.size() >= 2 && !Subsumes(c)) {
+        clauses_.Add(c);
+      }
+    }
   }
 
   bool empty_clause_ = false;

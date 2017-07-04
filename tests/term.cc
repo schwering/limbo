@@ -105,28 +105,28 @@ TEST(TermTest, Unify) {
   const Term fxy = tf.CreateTerm(f, {x,y});
   const Term fgyx = tf.CreateTerm(f, {gy,x});
 
-  { auto u = Term::Unify<0                                     >(n1, n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(n1.Substitute(u.val, &tf), n1.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(n1, n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(n1.Substitute(u.val, &tf), n1.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(n1, nn); EXPECT_FALSE(bool(u)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(n1, n2); EXPECT_FALSE(bool(u)); }
+  { auto u = Term::Unify<0                 >(n1, n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(n1.Substitute(u.val, &tf), n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(n1, n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(n1.Substitute(u.val, &tf), n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(n1, nn); EXPECT_FALSE(bool(u)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(n1, n2); EXPECT_FALSE(bool(u)); }
 
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(x, n2); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n2); EXPECT_EQ(x.Substitute(u.val, &tf), n2.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyLeft   | Term::kUnifyVars >(x, n2); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n2); EXPECT_EQ(x.Substitute(u.val, &tf), n2.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyRight  | Term::kUnifyVars >(x, n2); EXPECT_FALSE(bool(u)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(x, n2); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n2); EXPECT_EQ(x.Substitute(u.val, &tf), n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyLeft  >(x, n2); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n2); EXPECT_EQ(x.Substitute(u.val, &tf), n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyRight >(x, n2); EXPECT_FALSE(bool(u)); }
 
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxx, fn1n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n1); EXPECT_EQ(fxx.Substitute(u.val, &tf), fn1n1.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxx, fn1n2); EXPECT_FALSE(bool(u)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxx, fxn2); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n2); EXPECT_EQ(fxx.Substitute(u.val, &tf), fxn2.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxx, fn1x); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n1); EXPECT_EQ(fxx.Substitute(u.val, &tf), fn1x.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyLeft   | Term::kUnifyVars >(fxx, fn1n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n1); EXPECT_EQ(fxx.Substitute(u.val, &tf), fn1n1.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyRight  | Term::kUnifyVars >(fxx, fn1n1); EXPECT_FALSE(bool(u)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fn1n2, fn1n2); EXPECT_TRUE(bool(u)); EXPECT_EQ(fn1n2.Substitute(u.val, &tf), fn1n2.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fn1n2, fn2n1); EXPECT_FALSE(bool(u)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(fxx, fn1n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n1); EXPECT_EQ(fxx.Substitute(u.val, &tf), fn1n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(fxx, fn1n2); EXPECT_FALSE(bool(u)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(fxx, fxn2); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n2); EXPECT_EQ(fxx.Substitute(u.val, &tf), fxn2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(fxx, fn1x); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n1); EXPECT_EQ(fxx.Substitute(u.val, &tf), fn1x.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyLeft  >(fxx, fn1n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(u.val(x).val, n1); EXPECT_EQ(fxx.Substitute(u.val, &tf), fn1n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyRight >(fxx, fn1n1); EXPECT_FALSE(bool(u)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(fn1n2, fn1n2); EXPECT_TRUE(bool(u)); EXPECT_EQ(fn1n2.Substitute(u.val, &tf), fn1n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(fn1n2, fn2n1); EXPECT_FALSE(bool(u)); }
 
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxy, fn1n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(fxy.Substitute(u.val, &tf), fn1n1.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxy, fn1n2); EXPECT_TRUE(bool(u)); EXPECT_EQ(fxy.Substitute(u.val, &tf), fn1n2.Substitute(u.val, &tf)); }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars >(fxy, fgyx); EXPECT_TRUE(bool(u)); /* only true because of missing occurs-check */ }
-  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kUnifyVars | Term::kOccursCheck>(fxy, fgyx); EXPECT_FALSE(bool(u)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(fxy, fn1n1); EXPECT_TRUE(bool(u)); EXPECT_EQ(fxy.Substitute(u.val, &tf), fn1n1.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(fxy, fn1n2); EXPECT_TRUE(bool(u)); EXPECT_EQ(fxy.Substitute(u.val, &tf), fn1n2.Substitute(u.val, &tf)); }
+  { auto u = Term::Unify<Term::kUnifyTwoWay>(fxy, fgyx); EXPECT_TRUE(bool(u)); /* only true because of missing occurs-check */ }
+  { auto u = Term::Unify<Term::kUnifyTwoWay | Term::kOccursCheck>(fxy, fgyx); EXPECT_FALSE(bool(u)); }
 }
 
 TEST(TermTest, Isomorphic) {

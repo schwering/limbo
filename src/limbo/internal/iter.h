@@ -2,7 +2,7 @@
 // Copyright 2016-2017 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// A couple of iterators to immitate Haskell lists with iterators.
+// A few iterators to immitate Haskell lists with iterators.
 //
 // Maybe boost provides the same iterators and we should move to boost (this set
 // of iterators evolved somewhat).
@@ -57,7 +57,7 @@ class int_iterator {
   int_iterator() = default;
   explicit int_iterator(value_type index, UnaryFunction func = UnaryFunction()) : index_(index), func_(func) {}
 
-  bool operator==(int_iterator it) const { return *(*this) == *it; }
+  bool operator==(int_iterator it) const { return index_ == it.index_; }
   bool operator!=(int_iterator it) const { return !(*this == it); }
 
   reference operator*() const { return func_(index_); }
@@ -78,8 +78,8 @@ class int_iterators {
  public:
   typedef int_iterator<T, UnaryFunction> iterator;
 
-  explicit int_iterators(T begin, T end, UnaryFunction func1 = UnaryFunction(), UnaryFunction func2 = UnaryFunction()) :
-      begin_(begin, func1), end_(end, func2) {}
+  explicit int_iterators(T begin, T end, UnaryFunction func1 = UnaryFunction(), UnaryFunction func2 = UnaryFunction())
+      : begin_(begin, func1), end_(end, func2) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -97,7 +97,58 @@ inline int_iterators<T, UnaryFunction> int_range(T begin,
   return int_iterators<T, UnaryFunction>(begin, end, func1, func2);
 }
 
-template<typename T, typename U>
+// Encapsulates a single element.
+template<typename T>
+class singleton_iterator {
+ public:
+  typedef std::ptrdiff_t difference_type;
+  typedef T value_type;
+  typedef const value_type* pointer;
+  typedef const value_type& reference;
+  typedef std::bidirectional_iterator_tag iterator_category;
+
+  singleton_iterator() = default;
+  explicit singleton_iterator(value_type obj) : obj_(obj), valid_(true) {}
+
+  bool operator==(singleton_iterator it) const { return valid_ == it.valid_; }
+  bool operator!=(singleton_iterator it) const { return !(*this == it); }
+
+  reference operator*() const { assert(valid_); return obj_; }
+  singleton_iterator& operator++() { valid_ = false; return *this; }
+  singleton_iterator& operator--() { valid_ = false; return *this; }
+
+  pointer operator->() const { assert(valid_); return &obj_; }
+  reference operator++(int) { assert(valid_); valid_ = false; return obj_; }
+  reference operator--(int) { assert(valid_); valid_ = false; return obj_; }
+
+ private:
+  value_type obj_;
+  bool valid_ = false;
+};
+
+template<typename T>
+class singleton_iterators {
+ public:
+  typedef singleton_iterator<T> iterator;
+
+  explicit singleton_iterators(T obj) : obj_(obj) {}
+
+  iterator begin() const { return iterator(obj_); }
+  iterator end()   const { return iterator(); }
+
+ private:
+  T obj_;
+};
+
+template<typename T>
+inline singleton_iterators<T> singleton_range(T obj) {
+  return singleton_iterators<T>(obj);
+}
+
+
+// Expects a container of type T with elements of type U returned by operator[].
+template<typename T,
+         typename U = decltype(std::declval<T const>().operator[](0))>
 class array_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
@@ -138,11 +189,17 @@ class array_iterator {
   size_t index_;
 };
 
+template<typename T, typename U = decltype(std::declval<T const>().begin())>
+struct Begin { U operator()(const T& t) const { return t.begin(); } };
+
+template<typename T, typename U = decltype(std::declval<T const>().begin())>
+struct End { U operator()(const T& t) const { return t.end(); } };
+
 // Expects an iterator over containers, and iterates over the containers' elements.
 template<typename OuterInputIt,
          typename InnerInputIt = decltype(std::declval<typename OuterInputIt::value_type const>().begin()),
-         InnerInputIt (OuterInputIt::value_type::*Begin)() const = &OuterInputIt::value_type::begin,
-         InnerInputIt (OuterInputIt::value_type::*End)() const = &OuterInputIt::value_type::end>
+         typename Begin = Begin<typename OuterInputIt::value_type, InnerInputIt>,
+         typename End = End<typename OuterInputIt::value_type, InnerInputIt>>
 class flatten_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
@@ -153,12 +210,12 @@ class flatten_iterator {
   typedef iterator_proxy<flatten_iterator> proxy;
 
   flatten_iterator() = default;
-  flatten_iterator(OuterInputIt cont_first, OuterInputIt cont_last) :
-      cont_first_(cont_first),
-      cont_last_(cont_last) {
-    if (cont_first_ != cont_last_) {
-      iter_ = ((*cont_first_).*Begin)();
-    }
+  flatten_iterator(OuterInputIt cont_first, OuterInputIt cont_last, Begin begin = Begin(), End end = End())
+      : cont_first_(cont_first),
+        cont_last_(cont_last),
+        begin_(begin),
+        end_(end),
+        iter_(cont_first_ != cont_last_ ? inner_begin() : InnerInputIt()) {
     Skip();
   }
 
@@ -169,12 +226,12 @@ class flatten_iterator {
 
   reference operator*() const {
     assert(cont_first_ != cont_last_);
-    assert(((*cont_first_).*Begin)() != ((*cont_first_).*End)());
+    assert(inner_begin() != inner_end());
     return *iter_;
   }
 
   flatten_iterator& operator++() {
-    assert(cont_first_ != cont_last_ && iter_ != ((*cont_first_).*End)());
+    assert(cont_first_ != cont_last_ && iter_ != inner_end());
     ++iter_;
     Skip();
     return *this;
@@ -196,26 +253,47 @@ class flatten_iterator {
       if (cont_first_ == cont_last_) {
         break;  // iterator has ended
       }
-      if (iter_ != ((*cont_first_).*End)()) {
+      if (iter_ != inner_end()) {
         break;  // found next element
       }
       ++cont_first_;
       if (cont_first_ != cont_last_) {
-        iter_ = ((*cont_first_).*Begin)();
+        iter_ = inner_begin();
       }
     }
-    assert(cont_first_ == cont_last_ || iter_ != ((*cont_first_).*End)());
+    assert(cont_first_ == cont_last_ || iter_ != inner_end());
+  }
+
+  template<typename It = OuterInputIt>
+  typename internal::if_arg<Begin, It, InnerInputIt>::type inner_begin() const {
+    return begin_(cont_first_);
+  }
+
+  template<typename It = OuterInputIt>
+  typename internal::if_arg<Begin, typename It::value_type, InnerInputIt>::type inner_begin() const {
+    return begin_(*cont_first_);
+  }
+
+  template<typename It = OuterInputIt>
+  typename internal::if_arg<End, It, InnerInputIt>::type inner_end() const {
+    return end_(cont_first_);
+  }
+  template<typename It = OuterInputIt>
+  typename internal::if_arg<End, typename It::value_type, InnerInputIt>::type inner_end() const {
+    return end_(*cont_first_);
   }
 
   OuterInputIt cont_first_;
   OuterInputIt cont_last_;
+  Begin begin_;
+  End end_;
   InnerInputIt iter_;
 };
 
 template<typename OuterInputIt,
          typename InnerInputIt = decltype(std::declval<typename OuterInputIt::value_type const>().begin()),
-         InnerInputIt (OuterInputIt::value_type::*Begin)() const = &OuterInputIt::value_type::begin,
-         InnerInputIt (OuterInputIt::value_type::*End)() const = &OuterInputIt::value_type::end>
+         typename Begin = Begin<typename OuterInputIt::value_type, InnerInputIt>,
+         typename End = End<typename OuterInputIt::value_type, InnerInputIt>>
 class flatten_iterators {
  public:
   typedef flatten_iterator<OuterInputIt, InnerInputIt, Begin, End> iterator;
@@ -237,8 +315,8 @@ class flatten_iterators {
 
 template<typename OuterInputIt,
          typename InnerInputIt = decltype(std::declval<typename OuterInputIt::value_type const>().begin()),
-         InnerInputIt (OuterInputIt::value_type::*Begin)() const = &OuterInputIt::value_type::begin,
-         InnerInputIt (OuterInputIt::value_type::*End)() const = &OuterInputIt::value_type::end>
+         typename Begin = Begin<typename OuterInputIt::value_type, InnerInputIt>,
+         typename End = End<typename OuterInputIt::value_type, InnerInputIt>>
 inline flatten_iterators<OuterInputIt, InnerInputIt, Begin, End>
 flatten_range(OuterInputIt begin, OuterInputIt end) {
   return flatten_iterators<OuterInputIt, InnerInputIt, Begin, End>(begin, end);
@@ -313,8 +391,8 @@ class transform_iterators {
  public:
   typedef transform_iterator<InputIt, UnaryFunction> iterator;
 
-  transform_iterators(InputIt begin, InputIt end, UnaryFunction func = UnaryFunction()) :
-      begin_(begin, func), end_(end, func) {}
+  transform_iterators(InputIt begin, InputIt end, UnaryFunction func = UnaryFunction())
+      : begin_(begin, func), end_(end, func) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -360,8 +438,8 @@ class filter_iterator {
   typedef iterator_proxy<filter_iterator> proxy;
 
   filter_iterator() = default;
-  filter_iterator(InputIt it, const InputIt end, UnaryPredicate pred = UnaryPredicate()) :
-      iter_(it), end_(end), pred_(pred) { Skip(); }
+  filter_iterator(InputIt it, const InputIt end, UnaryPredicate pred = UnaryPredicate())
+      : iter_(it), end_(end), pred_(pred) { Skip(); }
 
   bool operator==(filter_iterator it) const { return iter_ == it.iter_; }
   bool operator!=(filter_iterator it) const { return !(*this == it); }
@@ -376,7 +454,15 @@ class filter_iterator {
   static_assert(std::is_convertible<typename InputIt::iterator_category, std::input_iterator_tag>::value,
                 "InputIt has wrong iterator category");
 
-  void Skip() {
+  template<typename It = InputIt>
+  typename internal::if_arg<UnaryPredicate, It>::type Skip() {
+    while (iter_ != end_ && !pred_(*iter_)) {
+      ++iter_;
+    }
+  }
+
+  template<typename It = InputIt>
+  typename internal::if_arg<UnaryPredicate, value_type>::type Skip() {
     while (iter_ != end_ && !pred_(*iter_)) {
       ++iter_;
     }
@@ -392,8 +478,8 @@ class filter_iterators {
  public:
   typedef filter_iterator<InputIt, UnaryPredicate> iterator;
 
-  filter_iterators(InputIt begin, InputIt end, UnaryPredicate pred = UnaryPredicate()) :
-      begin_(begin, end, pred), end_(end, end, pred) {}
+  filter_iterators(InputIt begin, InputIt end, UnaryPredicate pred = UnaryPredicate())
+      : begin_(begin, end, pred), end_(end, end, pred) {}
 
   iterator begin() const { return begin_; }
   iterator end()   const { return end_; }
@@ -422,12 +508,22 @@ filter_crange(const Range& r, UnaryPredicate pred = UnaryPredicate()) {
   return filter_range(r.begin(), r.end(), pred);
 }
 
-template<typename DomainType, typename CodomainInputIt>
+struct Rubbish {
+  template<typename T1, typename T2>
+  void operator()(const T1&, const T2&) const {}
+};
+
+// Iterates over all mappings from DomainType to CodomainInputIt::value_type.
+// Elements of the iterator are functors that map DomainType to Maybe<CodomainInputIt::value_type>.
+// The constructor takes a range of pairs of DomainType and CodomainInputIt range.
+template<typename DomainType,
+         typename CodomainInputIt,
+         template<typename, typename, typename...> class Map = std::unordered_map>
 class mapping_iterator {
  public:
   typedef DomainType domain_type;
-  typedef CodomainInputIt codomain_iterator;
   typedef typename CodomainInputIt::value_type codomain_type;
+  typedef CodomainInputIt codomain_iterator;
 
   struct value_type {
     value_type(const mapping_iterator* owner) : owner(owner) {}
@@ -516,13 +612,70 @@ class mapping_iterator {
     codomain_iterator current;
     codomain_iterator end;
   };
-  typedef std::unordered_map<domain_type, CodomainState> DomainCodomainState;
 
-  DomainCodomainState dcd_;
-  Maybe<typename DomainCodomainState::iterator> iter_;
+  Map<domain_type, CodomainState> dcd_;
+  Maybe<typename Map<domain_type, CodomainState>::iterator> iter_;
 };
 
-template<typename InputIt1, typename InputIt2>
+template<typename InputIt1, typename InputIt2 = InputIt1>
+class cross_iterator {
+ public:
+  typedef std::ptrdiff_t difference_type;
+  typedef std::pair<typename InputIt1::value_type, typename InputIt2::value_type> value_type;
+  typedef value_type* pointer;
+  typedef value_type& reference;
+  typedef typename std::conditional<
+      std::is_convertible<typename InputIt1::iterator_category, std::forward_iterator_tag>::value &&
+      std::is_convertible<typename InputIt2::iterator_category, std::forward_iterator_tag>::value,
+      std::forward_iterator_tag, std::input_iterator_tag>::type iterator_category;
+  typedef iterator_proxy<InputIt1> proxy;
+
+  cross_iterator() {}
+  cross_iterator(InputIt1 begin1, InputIt2 begin2, InputIt2 end2)
+      : it1_(begin1), begin2_(begin2), end2_(end2), it2_(begin2) {}
+
+  bool operator==(const cross_iterator& it) const {
+    return (it1_ == it.it1_ && it2_ == it.it2_) || (begin2_ == end2_ && it.begin2_ == it.end2_);
+  }
+  bool operator!=(const cross_iterator& it) const { return !(*this == it); }
+
+  value_type operator*() const { return value_type(*it1_, *it2_); }
+
+  cross_iterator& operator++() {
+    ++it2_;
+    if (it2_ == end2_) {
+      it2_ = begin2_;
+      ++it1_;
+    }
+    return *this;
+  }
+
+  cross_iterator& operator--() {
+    if (it2_ != begin2_) {
+      --it2_;
+    } else if (it2_ != begin2_) {
+      --it1_;
+      it2_ = end2_;
+      --it2_;
+    }
+    return *this;
+  }
+
+  proxy operator->() const { return proxy(operator*()); }
+  proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
+  proxy operator--(int) { proxy p(operator*()); operator--(); return p; }
+
+ private:
+  static_assert(std::is_convertible<typename InputIt2::iterator_category, std::input_iterator_tag>::value,
+                "InputIt2 has wrong iterator category");
+
+  InputIt1 it1_;
+  InputIt2 begin2_;
+  InputIt2 end2_;
+  InputIt2 it2_;
+};
+
+template<typename InputIt1, typename InputIt2 = InputIt1>
 class joined_iterator {
  public:
   typedef std::ptrdiff_t difference_type;
@@ -541,7 +694,13 @@ class joined_iterator {
   bool operator==(const joined_iterator& it) const { return it1_ == it.it1_ && it2_ == it.it2_; }
   bool operator!=(const joined_iterator& it) const { return !(*this == it); }
 
-  reference operator*() const { return it1_ != end1_ ? *it1_ : *it2_; }
+  reference operator*() const {
+    if (it1_ != end1_) {
+      return *it1_;
+    } else {
+      return *it2_;
+    }
+  }
   joined_iterator& operator++() {
     if (it1_ != end1_)  ++it1_;
     else                ++it2_;
@@ -557,13 +716,13 @@ class joined_iterator {
   InputIt2 it2_;
 };
 
-template<typename InputIt1, typename InputIt2>
+template<typename InputIt1, typename InputIt2 = InputIt1>
 class joined_iterators {
  public:
   typedef joined_iterator<InputIt1, InputIt2> iterator;
 
-  joined_iterators(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2) :
-      begin1_(begin1), end1_(end1), begin2_(begin2), end2_(end2) {}
+  joined_iterators(InputIt1 begin1, InputIt1 end1, InputIt2 begin2, InputIt2 end2)
+      : begin1_(begin1), end1_(end1), begin2_(begin2), end2_(end2) {}
 
   iterator begin() const { return iterator(begin1_, end1_, begin2_); }
   iterator end()   const { return iterator(end1_, end1_, end2_); }
@@ -580,7 +739,7 @@ class joined_iterators {
   InputIt2 end2_;
 };
 
-template<typename InputIt1, typename InputIt2>
+template<typename InputIt1, typename InputIt2 = InputIt1>
 inline joined_iterators<InputIt1, InputIt2> join_ranges(InputIt1 begin1,
                                                         InputIt1 end1,
                                                         InputIt2 begin2,
@@ -588,13 +747,13 @@ inline joined_iterators<InputIt1, InputIt2> join_ranges(InputIt1 begin1,
   return joined_iterators<InputIt1, InputIt2>(begin1, end1, begin2, end2);
 }
 
-template<typename Range1, typename Range2>
+template<typename Range1, typename Range2 = Range1>
 inline joined_iterators<decltype(std::declval<Range1>().begin()), decltype(std::declval<Range2>().begin())>
 join_ranges(Range1& r1, Range2& r2) {
   return join_ranges(r1.begin(), r1.end(), r2.begin(), r2.end());
 }
 
-template<typename Range1, typename Range2>
+template<typename Range1, typename Range2 = Range1>
 inline joined_iterators<decltype(std::declval<Range1 const>().begin()), decltype(std::declval<Range2 const>().begin())>
 join_cranges(const Range1& r1, const Range2& r2) {
   return join_ranges(r1.begin(), r1.end(), r2.begin(), r2.end());

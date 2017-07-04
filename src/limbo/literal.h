@@ -127,8 +127,16 @@ class Literal {
 
   static internal::Maybe<Term::Substitution> Isomorphic(Literal a, Literal b) {
     Term::Substitution sub;
-    bool ok = Term::Isomorphic(a.lhs(), b.lhs(), &sub) &&
-              Term::Isomorphic(a.rhs(), b.rhs(), &sub);
+    bool ok = Term::Isomorphic(a.lhs(), b.lhs(), &sub);
+    if (ok) {
+      if (a.rhs() == b.rhs()) {
+        sub.Add(a.rhs(), b.rhs());
+        ok = true;
+      } else {
+        const internal::Maybe<Term> ar = sub(a.rhs());
+        ok = ar && ar == sub(b.rhs());
+      }
+    }
     return ok ? internal::Just(sub) : internal::Nothing;
   }
 

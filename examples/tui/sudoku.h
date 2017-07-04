@@ -33,7 +33,7 @@ struct SudokuCallbacks {
           for (size_t n = 0; n < ns_.size(); ++n) {
             const limbo::Term Val = ctx->CreateTerm(ctx->LookupFunction("val"), {ns_[x], ns_[y]});
             const limbo::Clause c{limbo::Literal::Eq(Val, ns_[n])};
-            bool b = ctx->kb()->Entails(*limbo::Formula::Factory::Know(0, limbo::Formula::Factory::Atomic(c)));
+            bool b = ctx->kb().Entails(*limbo::Formula::Factory::Know(0, limbo::Formula::Factory::Atomic(c)));
             if (b) {
               using limbo::format::operator<<;
               std::stringstream ss;

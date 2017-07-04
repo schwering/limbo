@@ -3,23 +3,23 @@ Call: disable_distribute()
 Sort Bool
 Name T, X -> Bool
 Fun x1/0, x1'/0 -> Bool
-Fun sorted1/0, sorted2/0 -> Bool
+Fun o1/0, o2/0 -> Bool
 Fun u0'1/0, u0'2/0 -> Bool
 Fun u1'1/0, u1'2/0 -> Bool
 Fun s1'1/0 -> Bool
-Fun pass/0 -> Bool
-Let Sorted := sorted1=T v sorted2=T
+Fun p/0 -> Bool
+Let O := o1=T v o2=T
 KB: u0'1=T
 KB: u0'2=T
-KB: ~x1=T -> pass=T
-KB: ~x1'=T -> pass=T
-KB: u0'1=T ^ u0'2=T ^ x1/=X -> u1'1=T
-KB: u0'1=T ^ u0'2=T ^ x1/=X -> u1'2=T
-KB: u0'1=T ^ u0'2=T ^ x1'/=X -> u1'1=T
-KB: u0'1=T ^ u0'2=T ^ x1'/=X -> u1'2=T
-KB: u0'1=T ^ u0'2=T ^ ~x1/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ ~x1'/=X -> Sorted
-KB: u1'1=T ^ u1'2=T -> Sorted
-Refute: K<0> Sorted
-Assert: K<1> Sorted
-Assert: K<1> (Sorted ^ (~pass=T -> (x1=T)))
+KB: u0'1=T ^ u0'2=T ^ x1=T -> u1'1=T
+KB: u0'1=T ^ u0'2=T ^ x1=T -> u1'2=T
+KB: u0'1=T ^ u0'2=T ^ x1'=T -> u1'1=T
+KB: u0'1=T ^ u0'2=T ^ x1'=T -> u1'2=T
+KB: ~x1=T -> p=T
+KB: ~x1'=T -> p=T
+KB: u0'1=T ^ u0'2=T ^ ~x1=T -> O
+KB: u0'1=T ^ u0'2=T ^ ~x1'=T -> O
+KB: u1'1=T ^ u1'2=T -> O
+Refute: K<0> O
+Assert: K<1> O
+Assert: K<1> (O ^ (~p=T -> (x1=T)))

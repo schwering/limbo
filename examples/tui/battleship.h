@@ -259,8 +259,8 @@ struct BattleshipCallbacks {
     const limbo::Term Water = ctx->CreateTerm(ctx->LookupFunction("water"), {t});
     const limbo::Term Fired = ctx->CreateTerm(ctx->LookupFunction("fired"), {t});
     const limbo::Term True = ctx->LookupName("T");
-    ctx->kb()->Add(limbo::Clause{is_water ? limbo::Literal::Eq(Water, True) : limbo::Literal::Neq(Water, True)});
-    ctx->kb()->Add(limbo::Clause{limbo::Literal::Eq(Fired, True)});
+    ctx->kb().Add(limbo::Clause{is_water ? limbo::Literal::Eq(Water, True) : limbo::Literal::Neq(Water, True)});
+    ctx->kb().Add(limbo::Clause{limbo::Literal::Eq(Fired, True)});
   }
 
   Point Lookup(limbo::Term t) {

@@ -6,7 +6,7 @@ Fun x1/0, x1'/0 -> Bool
 Fun x2/0, x2'/0 -> Bool
 Fun x3/0, x3'/0 -> Bool
 Fun x4/0, x4'/0 -> Bool
-Fun sorted1/0, sorted2/0, sorted3/0, sorted4/0, sorted5/0 -> Bool
+Fun o1/0, o2/0, o3/0, o4/0, o5/0 -> Bool
 Fun u0'1/0, u0'2/0, u0'3/0, u0'4/0, u0'5/0 -> Bool
 Fun u1'1/0, u1'2/0, u1'3/0, u1'4/0, u1'5/0 -> Bool
 Fun u2'1/0, u2'2/0, u2'3/0, u2'4/0, u2'5/0 -> Bool
@@ -16,82 +16,82 @@ Fun s1'2/0, s1'3/0, s1'4/0 -> Bool
 Fun s2'3/0, s2'4/0 -> Bool
 Fun s3'4/0 -> Bool
 Fun s4'4/0 -> Bool
-Fun pass/0 -> Bool
-Let Sorted := sorted1=T v sorted2=T v sorted3=T v sorted4=T v sorted5=T
+Fun p/0 -> Bool
+Let O := o1=T v o2=T v o3=T v o4=T v o5=T
 KB: u0'1=T
 KB: u0'2=T
 KB: u0'3=T
 KB: u0'4=T
 KB: u0'5=T
-KB: ~x1=T -> pass=T
-KB: ~x1'=T -> pass=T
-KB: ~x2=T -> pass=T
-KB: ~x2'=T -> pass=T
-KB: ~x3=T -> pass=T
-KB: ~x3'=T -> pass=T
-KB: ~x4=T -> pass=T
-KB: ~x4'=T -> pass=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1/=X -> u1'1=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1/=X -> u1'2=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1/=X -> u1'3=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1/=X -> u1'4=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1/=X -> u1'5=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'/=X -> u1'1=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'/=X -> u1'2=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'/=X -> u1'3=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'/=X -> u1'4=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'/=X -> u1'5=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2/=X -> u2'1=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2/=X -> u2'2=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2/=X -> u2'3=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2/=X -> u2'4=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2/=X -> u2'5=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'/=X -> u2'1=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'/=X -> u2'2=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'/=X -> u2'3=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'/=X -> u2'4=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'/=X -> u2'5=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3/=X -> u3'1=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3/=X -> u3'2=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3/=X -> u3'3=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3/=X -> u3'4=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3/=X -> u3'5=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'/=X -> u3'1=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'/=X -> u3'2=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'/=X -> u3'3=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'/=X -> u3'4=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'/=X -> u3'5=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4/=X -> u4'1=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4/=X -> u4'2=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4/=X -> u4'3=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4/=X -> u4'4=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4/=X -> u4'5=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'/=X -> u4'1=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'/=X -> u4'2=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'/=X -> u4'3=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'/=X -> u4'4=T
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'/=X -> u4'5=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1/=X ^ ~s1'2/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1/=X ^ ~s1'3/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1/=X ^ ~s1'4/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1/=X ^ s1'2/=X ^ s1'3/=X ^ s1'4/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1'/=X ^ ~s1'2/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1'/=X ^ ~s1'3/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1'/=X ^ ~s1'4/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1'/=X ^ s1'2/=X ^ s1'3/=X ^ s1'4/=X -> Sorted
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2/=X ^ ~s2'3/=X -> Sorted
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2/=X ^ ~s2'4/=X -> Sorted
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2/=X ^ s2'3/=X ^ s2'4/=X -> Sorted
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2'/=X ^ ~s2'3/=X -> Sorted
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2'/=X ^ ~s2'4/=X -> Sorted
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2'/=X ^ s2'3/=X ^ s2'4/=X -> Sorted
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ ~x3/=X ^ ~s3'4/=X -> Sorted
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ ~x3/=X ^ s3'4/=X -> Sorted
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ ~x3'/=X ^ ~s3'4/=X -> Sorted
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ ~x3'/=X ^ s3'4/=X -> Sorted
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ ~x4/=X -> Sorted
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ ~x4'/=X -> Sorted
-KB: u4'1=T ^ u4'2=T ^ u4'3=T ^ u4'4=T ^ u4'5=T -> Sorted
-Refute: K<3> Sorted
-Assert: K<4> Sorted
-Refute: K<4> (Sorted ^ (~pass=T -> (x4=T^x4'=T)))
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1=T -> u1'1=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1=T -> u1'2=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1=T -> u1'3=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1=T -> u1'4=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1=T -> u1'5=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'=T -> u1'1=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'=T -> u1'2=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'=T -> u1'3=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'=T -> u1'4=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ x1'=T -> u1'5=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2=T -> u2'1=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2=T -> u2'2=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2=T -> u2'3=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2=T -> u2'4=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2=T -> u2'5=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'=T -> u2'1=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'=T -> u2'2=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'=T -> u2'3=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'=T -> u2'4=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ x2'=T -> u2'5=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3=T -> u3'1=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3=T -> u3'2=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3=T -> u3'3=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3=T -> u3'4=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3=T -> u3'5=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'=T -> u3'1=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'=T -> u3'2=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'=T -> u3'3=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'=T -> u3'4=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ x3'=T -> u3'5=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4=T -> u4'1=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4=T -> u4'2=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4=T -> u4'3=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4=T -> u4'4=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4=T -> u4'5=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'=T -> u4'1=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'=T -> u4'2=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'=T -> u4'3=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'=T -> u4'4=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ x4'=T -> u4'5=T
+KB: ~x1=T -> p=T
+KB: ~x1'=T -> p=T
+KB: ~x2=T -> p=T
+KB: ~x2'=T -> p=T
+KB: ~x3=T -> p=T
+KB: ~x3'=T -> p=T
+KB: ~x4=T -> p=T
+KB: ~x4'=T -> p=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1=T ^ ~s1'2=T -> O
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1=T ^ ~s1'3=T -> O
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1=T ^ ~s1'4=T -> O
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1=T ^ s1'2=T ^ s1'3=T ^ s1'4=T -> O
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1'=T ^ ~s1'2=T -> O
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1'=T ^ ~s1'3=T -> O
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1'=T ^ ~s1'4=T -> O
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ u0'5=T ^ ~x1'=T ^ s1'2=T ^ s1'3=T ^ s1'4=T -> O
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2=T ^ ~s2'3=T -> O
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2=T ^ ~s2'4=T -> O
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2=T ^ s2'3=T ^ s2'4=T -> O
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2'=T ^ ~s2'3=T -> O
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2'=T ^ ~s2'4=T -> O
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ u1'5=T ^ ~x2'=T ^ s2'3=T ^ s2'4=T -> O
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ ~x3=T ^ ~s3'4=T -> O
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ ~x3=T ^ s3'4=T -> O
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ ~x3'=T ^ ~s3'4=T -> O
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ u2'5=T ^ ~x3'=T ^ s3'4=T -> O
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ ~x4=T -> O
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T ^ u3'5=T ^ ~x4'=T -> O
+KB: u4'1=T ^ u4'2=T ^ u4'3=T ^ u4'4=T ^ u4'5=T -> O
+Refute: K<3> O
+Assert: K<4> O
+Refute: K<4> (O ^ (~p=T -> (x4=T^x4'=T)))

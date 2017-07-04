@@ -5,7 +5,7 @@ Name T, X -> Bool
 Fun x1/0 -> Bool
 Fun x2/0 -> Bool
 Fun x3/0 -> Bool
-Fun sorted1/0, sorted2/0, sorted3/0, sorted4/0 -> Bool
+Fun o1/0, o2/0, o3/0, o4/0 -> Bool
 Fun u0'1/0, u0'2/0, u0'3/0, u0'4/0 -> Bool
 Fun u1'1/0, u1'2/0, u1'3/0, u1'4/0 -> Bool
 Fun u2'1/0, u2'2/0, u2'3/0, u2'4/0 -> Bool
@@ -13,34 +13,37 @@ Fun u3'1/0, u3'2/0, u3'3/0, u3'4/0 -> Bool
 Fun s1'2/0, s1'3/0 -> Bool
 Fun s2'3/0 -> Bool
 Fun s3'3/0 -> Bool
-Fun pass/0 -> Bool
-Let Sorted := sorted1=T v sorted2=T v sorted3=T v sorted4=T
+Fun p/0 -> Bool
+Let O := o1=T v o2=T v o3=T v o4=T
 KB: u0'1=T
 KB: u0'2=T
 KB: u0'3=T
 KB: u0'4=T
-KB: ~x1/=X -> pass=T
-KB: ~x2/=X -> pass=T
-KB: ~x3/=X -> pass=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ x1/=X -> u1'1=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ x1/=X -> u1'2=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ x1/=X -> u1'3=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ x1/=X -> u1'4=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ x2/=X -> u2'1=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ x2/=X -> u2'2=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ x2/=X -> u2'3=T
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ x2/=X -> u2'4=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ x3/=X -> u3'1=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ x3/=X -> u3'2=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ x3/=X -> u3'3=T
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ x3/=X -> u3'4=T
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ ~x1/=X ^ ~s1'2/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ ~x1/=X ^ ~s1'3/=X -> Sorted
-KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ ~x1/=X ^ s1'2/=X ^ s1'3/=X -> Sorted
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ ~x2/=X ^ ~s2'3/=X -> Sorted
-KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ ~x2/=X ^ s2'3/=X -> Sorted
-KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ ~x3/=X -> Sorted
-KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T -> Sorted
-Refute: K<2> Sorted
-Assert: K<3> Sorted
-Assert: K<3> (Sorted ^ (~pass=T -> (x1=T^x2=T^x3=T v x1=T^x2=T^ ~x3=T v x1=T^ ~x2=T^x3=T v x1=T^ ~x2=T^ ~x3=T v ~x1=T^x2=T^x3=T v ~x1=T^x2=T^ ~x3=T v ~x1=T^ ~x2=T^x3=T v ~x1=T^ ~x2=T^ ~x3=T)))
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ x1=T -> u1'1=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ x1=T -> u1'2=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ x1=T -> u1'3=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ x1=T -> u1'4=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ ~x1=T -> u1'1=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ ~x1=T -> u1'2=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ ~x1=T -> u1'3=T
+KB: u0'1=T ^ u0'2=T ^ u0'3=T ^ u0'4=T ^ ~x1=T -> u1'4=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ x2=T -> u2'1=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ x2=T -> u2'2=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ x2=T -> u2'3=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ x2=T -> u2'4=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ ~x2=T -> u2'1=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ ~x2=T -> u2'2=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ ~x2=T -> u2'3=T
+KB: u1'1=T ^ u1'2=T ^ u1'3=T ^ u1'4=T ^ ~x2=T -> u2'4=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ x3=T -> u3'1=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ x3=T -> u3'2=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ x3=T -> u3'3=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ x3=T -> u3'4=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ ~x3=T -> u3'1=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ ~x3=T -> u3'2=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ ~x3=T -> u3'3=T
+KB: u2'1=T ^ u2'2=T ^ u2'3=T ^ u2'4=T ^ ~x3=T -> u3'4=T
+KB: u3'1=T ^ u3'2=T ^ u3'3=T ^ u3'4=T -> O
+Refute: K<2> O
+Assert: K<3> O
+Assert: K<3> (O ^ (~p=T -> (x1=T^x2=T^x3=T v x1=T^x2=T^ ~x3=T v x1=T^ ~x2=T^x3=T v x1=T^ ~x2=T^ ~x3=T v ~x1=T^x2=T^x3=T v ~x1=T^x2=T^ ~x3=T v ~x1=T^ ~x2=T^x3=T v ~x1=T^ ~x2=T^ ~x3=T)))

@@ -450,7 +450,7 @@ class Parser {
       if (!Is(Tok(), Token::kUint)) {
         return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected split level integer"));
       }
-      const Formula::split_level k = std::stoi(Tok().val.str());
+      const Formula::belief_level k = std::stoi(Tok().val.str());
       Advance();
       if (!Is(Tok(), Token::kGreater)) {
         return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected '>'"));
@@ -481,7 +481,7 @@ class Parser {
       if (!Is(Tok(), Token::kUint)) {
         return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected first split level integer"));
       }
-      const Formula::split_level k = std::stoi(Tok().val.str());
+      const Formula::belief_level k = std::stoi(Tok().val.str());
       Advance();
       if (!Is(Tok(), Token::kComma)) {
         return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected ','"));
@@ -490,7 +490,7 @@ class Parser {
       if (!Is(Tok(), Token::kUint)) {
         return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected second split level integer"));
       }
-      const Formula::split_level l = std::stoi(Tok().val.str());
+      const Formula::belief_level l = std::stoi(Tok().val.str());
       Advance();
       if (!Is(Tok(), Token::kGreater)) {
         return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected '>'"));
@@ -824,8 +824,8 @@ class Parser {
       Symbol::Sort sort = ctx->LookupSort(sort_id);
       std::vector<Term> ts;
       if (ts_a.empty()) {
-        Grounder::TermSet tss = ctx->kb()->sphere(0)->grounder()->Names()[sort];
-        ts.insert(ts.end(), tss.begin(), tss.end());
+        Grounder::Names ns = ctx->kb().sphere(0).grounder().names(sort);
+        ts.insert(ts.end(), ns.begin(), ns.end());
       } else {
         for (const Action<Term>& t_a : ts_a) {
           Result<Term> t = t_a.Run(ctx);

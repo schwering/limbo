@@ -31,6 +31,7 @@
 #include <list>
 #include <memory>
 #include <queue>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -50,487 +51,944 @@ namespace limbo {
 class Grounder {
  public:
   typedef internal::size_t size_t;
-  typedef Formula::split_level split_level;
-  typedef Formula::TermSet TermSet;
-  typedef std::unordered_set<Literal, Literal::LhsHash> LiteralSet;
 
-  struct LhsSymbolHasher {
-    internal::hash32_t operator()(const LiteralSet& set) const {
-      assert(!set.empty());
-      assert(std::all_of(set.begin(), set.end(), [&set](Literal a) { return
-             std::all_of(set.begin(), set.end(), [a](Literal b) { return
-                         a.lhs().symbol() == b.lhs().symbol(); }); }));
-      return set.begin()->lhs().symbol().hash();
-    }
-  };
+  template<Symbol (Symbol::Factory::*CreateSymbol)(Symbol::Sort)>
+  class Pool {
+   public:
+    Pool(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
+    Pool(const Pool&) = delete;
+    Pool& operator=(const Pool&) = delete;
+    Pool(Pool&&) = default;
+    Pool& operator=(Pool&&) = default;
 
-  struct LiteralSetHash {
-    internal::hash32_t operator()(const LiteralSet& set) const {
-      internal::hash32_t h = 0;
-      for (Literal a : set) {
-        h ^= a.hash();
+    Term Create(Symbol::Sort sort) {
+      if (terms_[sort].empty()) {
+        return tf_->CreateTerm((sf_->*CreateSymbol)(sort));
+      } else {
+        Term t = terms_[sort].back();
+        terms_[sort].pop_back();
+        return t;
       }
-      return h;
     }
+
+    void Return(Term t) { terms_[t.sort()].push_back(t); }
+
+    Term Get(Symbol::Sort sort, size_t i) {
+      Term::Vector& ts = terms_[sort];
+      while (i < ts.size()) {
+        ts.push_back(tf_->CreateTerm((sf_->*CreateSymbol)(sort)));
+      }
+      return ts[i];
+    }
+
+   private:
+    Symbol::Factory* const sf_;
+    Term::Factory* const tf_;
+    internal::IntMap<Symbol::Sort, Term::Vector> terms_;
   };
 
-  typedef std::unordered_set<LiteralSet, LiteralSetHash> LiteralAssignmentSet;
+  typedef Pool<&Symbol::Factory::CreateName> NamePool;
+  typedef Pool<&Symbol::Factory::CreateVariable> VariablePool;
 
-  struct GetSort { Symbol::Sort operator()(Term t) const { return t.sort(); } };
-  typedef internal::IntMultiSet<Term, GetSort> SortedTermSet;
+  typedef Formula::SortedTermSet SortedTermSet;
 
-  Grounder(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
+  template<typename T>
+  struct Ungrounded {
+    typedef T value_type;
+    struct Hash { internal::hash32_t operator()(const Ungrounded<T>& u) const { return u.val.hash(); } };
+    typedef std::vector<Ungrounded> Vector;
+    typedef std::unordered_set<Ungrounded, Hash> Set;
+
+    bool operator==(const Ungrounded& u) const { return val == u.val; }
+    bool operator!=(const Ungrounded& u) const { return !(*this != u); }
+
+    T val;
+    SortedTermSet vars;
+
+   private:
+    friend class Grounder;
+
+    explicit Ungrounded(const T& val) : val(val) {}
+  };
+
+  struct Ply {
+    typedef std::list<Ply> List;
+
+    Ply(const Ply&) = delete;
+    Ply& operator=(const Ply&) = delete;
+    Ply(Ply&&) = default;
+    Ply& operator=(Ply&&) = default;
+
+    struct {
+      Ungrounded<Clause>::Vector ungrounded;
+      std::unique_ptr<Setup> full_setup;
+      Setup::ShallowCopy shallow_setup;
+    } clauses;
+    struct {
+      bool filter = false;  // enabled after consistency guarantee
+      Ungrounded<Term>::Set ungrounded;
+      SortedTermSet terms;
+    } relevant;
+    struct {
+      SortedTermSet occurring;  // names occurring in clause or prepared-for query
+      SortedTermSet plus_max;   // plus-names that may be used for multiple purposes
+      SortedTermSet plus_new;   // plus-names that may not be used for multiple purposes
+    } names;
+    struct {
+      Ungrounded<Literal>::Set ungrounded;  // literals in prepared-for query
+      std::unordered_map<Term, std::unordered_set<Term>> map;  // grounded lhs-rhs index for clause or prepared-for query
+    } lhs_rhs;
+    bool do_not_add_if_inconsistent = false;  // enabled for fix-literals
+
+   private:
+    friend class Grounder;
+
+    Ply() = default;
+  };
+
+  struct Plies {
+    typedef Ply::List::const_reverse_iterator iterator;
+    enum Policy { kAll, kSinceSetup, kNew, kOld };
+
+    iterator begin() const {
+      switch (policy) {
+        case kAll:
+        case kSinceSetup:
+        case kNew:
+          return owner->plies_.rbegin();
+        case kOld:
+          return std::next(owner->plies_.rbegin());
+      }
+      return owner->plies_.rbegin();
+    }
+
+    iterator end() const {
+      switch (policy) {
+        case kAll:
+        case kOld:
+          return owner->plies_.rend();
+        case kSinceSetup: {
+          const iterator e = owner->plies_.rend();
+          for (auto it = begin(); it != e; ++it) {
+            if (it->clauses.full_setup) {
+              return ++it;
+            }
+          }
+          return e;
+        }
+        case kNew:
+          return std::next(begin());
+      }
+    }
+
+   private:
+    friend class Grounder;
+
+    explicit Plies(const Grounder* owner, Policy policy = kAll) : owner(owner), policy(policy) {}
+
+    const Grounder* const owner;
+    const Plies::Policy policy;
+  };
+
+  struct LhsTerms {
+    struct First { Term operator()(const std::pair<Term, std::unordered_set<Term>>& p) const { return p.first; } };
+    typedef std::unordered_map<Term, std::unordered_set<Term>>::const_iterator pair_iterator;
+    typedef internal::transform_iterator<pair_iterator, First> term_iterator;
+
+    struct New {
+      New() = default;
+      New(Plies::iterator begin, Plies::iterator end) : begin(begin), end(end) {}
+      bool operator()(Term t) const {
+        for (auto it = begin; it != end; ++it) {
+          auto& m = it->lhs_rhs.map;
+          if (m.find(t) != m.end()) {
+            return false;
+          }
+        }
+        return true;
+      }
+     private:
+      Plies::iterator begin;
+      Plies::iterator end;
+    };
+
+    typedef internal::filter_iterator<term_iterator, New> unique_term_iterator;
+
+    struct Begin {
+      explicit Begin(const Plies* plies) : plies(plies) {}
+      unique_term_iterator operator()(const Plies::iterator it) const {
+        term_iterator b = term_iterator(it->lhs_rhs.map.begin(), First());
+        term_iterator e = term_iterator(it->lhs_rhs.map.end(), First());
+        return unique_term_iterator(b, e, New(plies->begin(), it));
+      }
+     private:
+      const Plies* plies;
+    };
+
+    struct End {
+      explicit End(const Plies* plies) : plies(plies) {}
+      unique_term_iterator operator()(const Plies::iterator it) const {
+        term_iterator e = term_iterator(it->lhs_rhs.map.end(), First());
+        return unique_term_iterator(e, e, New(plies->begin(), it));
+      }
+     private:
+      const Plies* plies;
+    };
+
+    typedef internal::flatten_iterator<Plies::iterator, unique_term_iterator, Begin, End> iterator;
+
+    iterator begin() const { return iterator(plies.begin(), plies.end(), Begin(&plies), End(&plies)); }
+    iterator end()   const { return iterator(plies.end(),   plies.end(), Begin(&plies), End(&plies)); }
+
+   private:
+    friend class Grounder;
+
+    LhsTerms(const Grounder* owner, Plies::Policy policy) : plies(owner, policy) {}
+
+    const Plies plies;
+  };
+
+  struct RhsNames {
+    typedef std::unordered_set<Term>::const_iterator name_iterator;
+
+    struct Begin {
+      Begin(Term t, name_iterator end) : t(t), end(end) {}
+      name_iterator operator()(const Ply& p) const {
+        auto it = p.lhs_rhs.map.find(t);
+        return it != p.lhs_rhs.map.end() ? it->second.begin() : end;
+      }
+     private:
+      Term t;
+      name_iterator end;
+    };
+
+    struct End {
+      End(Term t, name_iterator end) : t(t), end(end) {}
+      name_iterator operator()(const Ply& p) const {
+        auto it = p.lhs_rhs.map.find(t);
+        return it != p.lhs_rhs.map.end() ? it->second.end() : end;
+      }
+     private:
+      Term t;
+      name_iterator end;
+    };
+
+    typedef internal::flatten_iterator<Plies::iterator, name_iterator, Begin, End> flat_iterator;
+    typedef internal::singleton_iterator<Term> plus_iterator;
+    typedef internal::joined_iterator<flat_iterator, plus_iterator> iterator;
+
+    ~RhsNames() { if (!n_it->null()) { owner->name_pool_.Return(*n_it); } }
+
+    iterator begin() const {
+      flat_iterator b = flat_iterator(plies.begin(), plies.end(), Begin(t, ts.end()), End(t, ts.end()));
+      flat_iterator e = flat_iterator(plies.end(),   plies.end(), Begin(t, ts.end()), End(t, ts.end()));
+      if (n_it->null()) {
+        n_it = plus_iterator(owner->name_pool_.Create(t.sort()));
+      }
+      return iterator(b, e, n_it);
+    }
+
+    iterator end() const {
+      flat_iterator b = flat_iterator(plies.end(), plies.end(), Begin(t, ts.end()), End(t, ts.end()));
+      flat_iterator e = flat_iterator(plies.end(), plies.end(), Begin(t, ts.end()), End(t, ts.end()));
+      return iterator(b, e, plus_iterator());
+    }
+
+   private:
+    friend class Grounder;
+
+    RhsNames(Grounder* owner, Term t, Plies::Policy policy)
+        : owner(owner), plies(owner, policy), t(t), n_it(Term()) { assert(n_it->null()); }
+
+    Grounder* const owner;
+    const Plies plies;
+    const Term t;
+    mutable plus_iterator n_it;
+    const std::unordered_set<Term> ts = {};
+  };
+
+  struct Names {
+    typedef internal::joined_iterator<typename SortedTermSet::value_iterator> plus_iterator;
+    typedef internal::joined_iterator<typename SortedTermSet::value_iterator, plus_iterator> name_iterator;
+
+    struct Begin {
+      explicit Begin(Symbol::Sort sort) : sort(sort) {}
+      name_iterator operator()(const Ply& p) const {
+        auto b = plus_iterator(p.names.plus_max.begin(sort), p.names.plus_max.end(sort), p.names.plus_new.begin(sort));
+        return name_iterator(p.names.occurring.begin(sort), p.names.occurring.end(sort), b);
+      }
+     private:
+      Symbol::Sort sort;
+    };
+
+    struct End {
+      explicit End(Symbol::Sort sort) : sort(sort) {}
+      name_iterator operator()(const Ply& p) const {
+        auto e = plus_iterator(p.names.plus_max.end(sort), p.names.plus_max.end(sort), p.names.plus_new.begin(sort));
+        return name_iterator(p.names.occurring.end(sort), p.names.occurring.end(sort), e);
+      }
+     private:
+      Symbol::Sort sort;
+    };
+
+    typedef internal::flatten_iterator<Plies::iterator, name_iterator, Begin, End> iterator;
+
+    iterator begin() const { return iterator(plies.begin(), plies.end(), Begin(sort), End(sort)); }
+    iterator end()   const { return iterator(plies.end(),   plies.end(), Begin(sort), End(sort)); }
+
+   private:
+    friend class Grounder;
+
+    Names(const Grounder* owner, Symbol::Sort sort, Plies::Policy policy) : sort(sort), plies(owner, policy) {}
+
+    const Symbol::Sort sort;
+    const Plies plies;
+  };
+
+  class Undo {
+   public:
+    Undo() = default;
+    Undo(const Undo&) = delete;
+    Undo& operator=(const Undo&) = delete;
+    Undo(Undo&& u) : owner_(u.owner_) { u.owner_ = nullptr; }
+    Undo& operator=(Undo&& u) { owner_ = u.owner_; u.owner_ = nullptr; return *this; }
+    ~Undo() {
+      if (owner_) {
+        owner_->UndoLast();
+      }
+      owner_ = nullptr;
+    }
+
+   private:
+    friend class Grounder;
+
+    explicit Undo(Grounder* owner) : owner_(owner) {}
+
+    Grounder* owner_ = nullptr;
+  };
+
+  Grounder(Symbol::Factory* sf, Term::Factory* tf) : tf_(tf), name_pool_(sf, tf), var_pool_(sf, tf) {}
   Grounder(const Grounder&) = delete;
   Grounder& operator=(const Grounder&) = delete;
   Grounder(Grounder&&) = default;
   Grounder& operator=(Grounder&&) = default;
-
-  typedef std::list<Clause>::const_iterator clause_iterator;
-  typedef internal::joined_iterators<clause_iterator, clause_iterator> clause_range;
-
-  clause_range clauses() const { return internal::join_ranges(processed_clauses_, unprocessed_clauses_); }
-
-  void AddClause(const Clause& c) {
-    assert(std::all_of(c.begin(), c.end(),
-                       [](Literal a) { return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
-    if (c.valid()) {
-      return;
-    }
-    names_changed_ |= AddMentionedNames(Mentioned<SortedTermSet>([](Term t) { return t.name(); }, c));
-    names_changed_ |= AddPlusNames(PlusNames(c));
-    AddSplitTerms(Mentioned<TermSet>([](Term t) { return t.quasiprimitive(); }, c));
-    AddAssignmentLiterals(Mentioned<LiteralSet>([](Literal a) { return a.quasiprimitive(); }, c));
-    unprocessed_clauses_.push_front(c);
-  }
-
-  void PrepareForQuery(split_level k, const Formula& phi) {
-    assert(phi.objective());
-    names_changed_ |= AddMentionedNames(Mentioned<SortedTermSet>([](Term t) { return t.name(); }, phi));
-    names_changed_ |= AddPlusNames(PlusNames(phi));
-    if (k > 0) {
-      AddSplitTerms(Mentioned<TermSet>([](Term t) { return t.function(); }, phi));
-      AddAssignmentLiterals(Mentioned<LiteralSet>([](Literal a) { return a.lhs().function(); }, phi));
+  ~Grounder() {
+    while (!plies_.empty()) {
+      plies_.erase(std::prev(plies_.end()));
     }
   }
 
-  void PrepareForQuery(split_level k, Term lhs) {
-    names_changed_ |= AddMentionedNames(Mentioned<SortedTermSet>([](Term t) { return t.name(); }, lhs));
-    names_changed_ |= AddPlusNames(PlusNames(lhs));
-    if (k > 0) {
-      AddSplitTerms(Mentioned<TermSet>([](Term t) { return t.function(); }, lhs));
-    }
-  }
+  NamePool& temp_name_pool() { return name_pool_; }
 
-  const Setup& Ground() const { return const_cast<Grounder*>(this)->Ground(); }
+  Setup& setup() { return last_ply().clauses.shallow_setup.setup(); }
+  const Setup& setup() const { return last_ply().clauses.shallow_setup.setup(); }
 
-  const Setup& Ground() {
-    if (names_changed_) {
-      // Re-ground all clauses, i.e., all clauses are considered unprocessed and all old setups are forgotten.
-      unprocessed_clauses_.splice(unprocessed_clauses_.begin(), processed_clauses_);
-      setup_ = internal::Nothing;
-      assert(processed_clauses_.empty());
-    }
-    if (!unprocessed_clauses_.empty() || !setup_) {
-      if (!setup_) {
-        setup_ = internal::Just(Setup());
-      }
-      for (const Clause& c : unprocessed_clauses_) {
-        if (c.ground()) {
-          assert(c.primitive());
-          if (!c.valid()) {
-            setup_.val.AddClause(c);
-          }
-        } else {
-          const TermSet vars = Mentioned<TermSet>([](Term t) { return t.variable(); }, c);
-          for (const auto& mapping : Assignments(vars, &names_)) {
-            const Clause ci = c.Substitute(mapping, tf_);
-            if (!ci.valid()) {
-              assert(ci.primitive());
-              setup_.val.AddClause(ci);
-            }
-          }
-        }
-      }
-      processed_clauses_.splice(processed_clauses_.begin(), unprocessed_clauses_);
-      names_changed_ = false;
-      setup_.val.Minimize();
-    }
-    assert(bool(setup_));
-    return setup_.val;
-  }
+  // 1. AddClause(c):
+  // New ply.
+  // Add c to ungrounded_clauses.
+  // Add new names in c to names.
+  // Add variables to vars, generate plus-names.
+  // Re-ground.
+  //
+  // 2. PrepareForQuery(phi):
+  // New ply.
+  // Add new names in phi to names.
+  // Add variables to vars, generate plus-names.
+  // Re-ground.
+  // Add f(.)=n, f(.)/=n pairs from grounded phi to lhs_rhs.
+  //
+  // 3. AddUnit(t=n):
+  // New ply.
+  // Add t=n to ungrounded_clauses.
+  // If t=n contains a plus-name, add these to names and generate new plus-names.
+  // If n is new, add n to names.
+  // If either of the two cases, re-ground.
+  //
+  // 3. AddUnits(U):
+  // New ply.
+  // Add U to ungrounded_clauses.
+  // If U contains t=n for new n, add n to names and re-ground.
+  // (Note: in this case, all literals in U are of the form t'=n.)
+  //
+  // Re-ground:
+  // Ground ungrounded_clauses for names and vars from last ply.
+  // Add f(.)=n, f(.)/=n pairs from newly grounded clauses to lhs_rhs.
+  // [ Close unit sets from previous AddUnit(U) plies under isomorphism with the names and vars from the last ply. ]
+  //
+  // We add the plus-names for quantifiers in the query in advance and ground
+  // everything with them as if they occurred in the query.
+  // So to determine the split and fix names, lhs_rhs suffices.
+  //
+  // Splits: {t=n | t in terms, n in lhs_rhs[t] or single new one}
+  // Fixes: {t=n | t in terms, n in lhs_rhs[t] or single new one} or
+  //        for every t in terms, n in lhs_rhs[t]:
+  //        {t*=n* | t* in terms, n in lhs_rhs[t] or x in lhs_rhs[t], t=n, t*=n* isomorphic}
+  //
+  // Isomorphic literals: the bijection for a literal f(n1,...,nK)=n0 should only modify n1,...,nK, but not n0 unless
+  // it is contained in n1,...,nK. Otherwise we'd add f(n1,...,nK)=n0, f(n1,...,nK)=n0*, etc. which obviously is
+  // inconsistent.
 
-  const SortedTermSet& Names() const { return names_; }
-
-  Term CreateName(Symbol::Sort sort) {
-    TermSet& ns = owned_names_[sort];
-    if (ns.empty()) {
-      return tf_->CreateTerm(sf_->CreateName(sort));
-    } else {
-      auto it = ns.begin();
-      const Term n = *it;
-      ns.erase(it);
-      return n;
-    }
-  }
-
-  void ReturnName(Term n) {
-    assert(n.name());
-    owned_names_.insert(n);
-  }
-
-  TermSet SplitTerms() const {
-    return Ground(splits_);
-  }
-
-  TermSet RelevantSplitTerms(const Formula& phi) {
-    assert(phi.objective());
-    const Setup& s = Ground();
-    TermSet queue = Ground(Mentioned<TermSet>([](Term t) { return t.function(); }, phi));
-    for (auto it = queue.begin(); it != queue.end(); ) {
-      if (s.Determines(*it)) {
-        it = queue.erase(it);
-      } else {
-        ++it;
-      }
-    }
-    TermSet splits;
-    RelevantClosure(s, &queue, &splits, [](const Clause& c, Term t, TermSet* queue) {
-      if (c.MentionsLhs(t)) {
-        TermSet next = Mentioned<TermSet>([](Term t) { return t.function(); }, c);
-        queue->insert(next.begin(), next.end());
-        return true;
-      } else {
-        return false;
-      }
-    });
-    return splits;
-  }
-
-  TermSet RelevantSplitTerms(Term lhs) {
-    const Setup& s = Ground();
-    if (s.Determines(lhs)) {
-      return TermSet();
-    }
-    TermSet queue({lhs});
-    TermSet splits;
-    RelevantClosure(s, &queue, &splits, [](const Clause& c, Term t, TermSet* queue) {
-      if (c.MentionsLhs(t)) {
-        TermSet next = Mentioned<TermSet>([](Term t) { return t.function(); }, c);
-        queue->insert(next.begin(), next.end());
-        return true;
-      } else {
-        return false;
-      }
-    });
-    return splits;
-  }
-
-  LiteralAssignmentSet LiteralAssignments() const {
-    return LiteralAssignments(assigns_);
-  }
-
-  LiteralAssignmentSet RelevantLiteralAssignments(const Formula& phi) {
-    assert(phi.objective());
-    const Setup& s = Ground();
-    LiteralSet queue;
-    AddAssignmentLiteralsTo(Ground(Mentioned<LiteralSet>([](Literal a) { return a.lhs().function(); }, phi)), &queue);
-    for (auto it = queue.begin(); it != queue.end(); ) {
-      if (s.Determines(it->lhs())) {
-        it = queue.erase(it);
-      } else {
-        ++it;
-      }
-    }
-    LiteralSet assigns;
-    RelevantClosure(s, &queue, &assigns, [this, &assigns](const Clause& c, Literal a, LiteralSet* queue) {
-      if (c.MentionsLhs(a.lhs())) {
-        AddAssignmentLiteralsTo(Mentioned<LiteralSet>([](Literal a) { return a.lhs().function(); }, c), queue);
-        return true;
-      } else {
-        return false;
-      }
-    });
-    return LiteralAssignments(assigns);
-  }
-
- private:
-#ifdef FRIEND_TEST
-  FRIEND_TEST(GrounderTest, Ground_SplitTerms_Names);
-  FRIEND_TEST(GrounderTest, Assignments);
-#endif
-
-  typedef internal::IntMap<Symbol::Sort, size_t> PlusMap;
-
-  class Assignments {
-   public:
-    struct GetRange {
-      GetRange(const SortedTermSet* substitutes) : substitutes_(substitutes) {}
-      std::pair<Term, SortedTermSet::PosValues> operator()(const Term x) const {
-        return std::make_pair(x, substitutes_->values(x));
-      }
-     private:
-      const SortedTermSet* substitutes_;
-    };
-    typedef internal::transform_iterator<TermSet::const_iterator, GetRange> domain_codomain_iterator;
-    typedef internal::mapping_iterator<Term, TermSet::const_iterator> mapping_iterator;
-
-    Assignments(const TermSet& vars, const SortedTermSet* substitutes) : vars_(vars), substitutes_(substitutes) {}
-
-    mapping_iterator begin() const {
-      return mapping_iterator(domain_codomain_iterator(vars_.begin(), GetRange(substitutes_)),
-                              domain_codomain_iterator(vars_.end(), GetRange(substitutes_)));
-    }
-    mapping_iterator end() const { return mapping_iterator(); }
-
-   private:
-    const TermSet vars_;
-    const SortedTermSet* substitutes_;
-  };
-
-  struct PairHasher {
-    internal::hash32_t operator()(const std::pair<const Setup*, Literal>& p) const {
-      typedef internal::uptr_t uptr_t;
-      typedef internal::u32 u32;
-      const uptr_t addr = reinterpret_cast<uptr_t>(p.first);
-      return internal::jenkins_hash(static_cast<u32>(addr)) ^
-             internal::jenkins_hash(static_cast<u32>(addr >> 32)) ^
-             p.second.hash();
-    }
-  };
-
-  template<typename T, typename U>
-  void Ground(const T ungrounded, U* grounded_set) const {
-    assert(ungrounded.quasiprimitive());
-    const TermSet vars = Mentioned<TermSet>([](Term t) { return t.variable(); }, ungrounded);
-    for (const auto& mapping : Assignments(vars, &names_)) {
-      auto grounded = ungrounded.Substitute(mapping, tf_);
-      assert(grounded.primitive());
-      grounded_set->insert(grounded);
-    }
+  Setup::Result AddClause(const Clause& c, Undo* undo = nullptr, bool do_not_add_if_inconsistent = false) {
+    return AddClauses(internal::singleton_range(c), undo, do_not_add_if_inconsistent);
   }
 
   template<typename T>
-  T Ground(const T& ungrounded_set) const {
-    T grounded_set;
-    for (auto ungrounded : ungrounded_set) {
-      Ground(ungrounded, &grounded_set);
+  Setup::Result AddClauses(const T& clauses, Undo* undo = nullptr, const bool do_not_add_if_inconsistent = false) {
+    // Add c to ungrounded_clauses.
+    // Add new names in c to names.
+    // Add variables to vars, generate plus-names.
+    // Re-ground.
+    Ply& p = new_ply();
+    SortedTermSet reused_plus_names;
+    for (const Clause& c : clauses) {
+      Ungrounded<Clause> uc(c);
+      uc.val.Traverse([this, &p, &uc, &reused_plus_names](Term t) {
+        if (t.variable()) {
+          uc.vars.insert(t);
+        }
+        if (t.name()) {
+          if (IsPlusName(t)) {
+            reused_plus_names.insert(t);
+          } else {
+            p.names.occurring.insert(t);
+          }
+        }
+        return true;
+      });
+      p.clauses.ungrounded.push_back(uc);
+      CreateMaxPlusNames(uc.vars, 1);
     }
-    return grounded_set;
+    CreateNewPlusNames(reused_plus_names);
+    p.do_not_add_if_inconsistent = do_not_add_if_inconsistent;
+    const Setup::Result r = Reground();
+    if (undo) {
+      *undo = Undo(this);
+    }
+    return r;
   }
 
-  template<typename Collection, typename Haystack, typename UnaryPredicate>
-  static Collection Mentioned(const UnaryPredicate p, const Haystack& obj) {
-    Collection needles;
-    obj.Traverse([p, &needles](const typename Collection::value_type& t) {
-      if (p(t)) {
-        needles.insert(t);
+  void PrepareForQuery(const Term t, Undo* undo = nullptr) {
+    const Term x = var_pool_.Create(t.sort());
+    const Literal a = Literal::Eq(t, x);
+    const Formula::Ref phi = Formula::Factory::Atomic(Clause{a});
+    PrepareForQuery(*phi, undo);
+    var_pool_.Return(x);
+  }
+
+  void PrepareForQuery(const Formula& phi, Undo* undo = nullptr) {
+    // New ply.
+    // Add new names in phi to names.
+    // Add variables to vars, generate plus-names.
+    // Re-ground.
+    // Add f(.)=n, f(.)/=n pairs from grounded phi to lhs_rhs.
+    Ply& p = new_ply();
+    SortedTermSet reused_plus_names;
+    phi.Traverse([this, &p, &reused_plus_names](const Literal a) {
+      Ungrounded<Literal> ua(a.pos() ? a : a.flip());
+      a.Traverse([this, &p, &reused_plus_names, &ua](const Term t) {
+        if (t.name()) {
+          if (IsPlusName(t)) {
+            reused_plus_names.insert(t);
+          } else {
+            p.names.occurring.insert(t);
+          }
+        } else if (t.variable()) {
+          ua.vars.insert(t);
+        }
+        return true;
+      });
+      if (ua.val.lhs().function() && IsNewUngroundedLhsRhs(ua)) {
+        last_ply().lhs_rhs.ungrounded.insert(ua);
       }
       return true;
     });
-    return needles;
-  }
-
-  static PlusMap PlusNames(Term lhs) {
-    // For term queries like KRef lhs, we assume there were a variable (lhs = x).
-    // Hence we need two plus names: one for x, and one for the Lemma 8 fix.
-    PlusMap plus;
-    plus[lhs.sort()] = 2;
-    for (const Term var : Mentioned<TermSet>([](Term t) { return t.variable(); }, lhs)) {
-      ++plus[var.sort()];
-    }
-    return plus;
-  }
-
-  static PlusMap PlusNames(const Clause& c) {
-    PlusMap plus;
-    for (const Term var : Mentioned<TermSet>([](Term t) { return t.variable(); }, c)) {
-      ++plus[var.sort()];
-    }
-    // The following fixes Lemma 8 in the LBF paper. The problem is that
-    // for KB = {[c = x]}, unit propagation should yield the empty clause;
-    // but this requires that x is grounded by more than one name. It suffices
-    // to ground variables by p+1 names, where p is the maximum number of
-    // variables in any clause.
-    // PlusNames() computes p for a given clause; it is hence p+1 where p
-    // is the number of variables in that clause.
-    PlusMap plus_one;
-    c.Traverse([&plus_one](Term t) { plus_one[t.sort()] = 1; return true; });
-    return PlusMap::Zip(plus, plus_one, [](size_t lp, size_t rp) { return lp + rp; });
-  }
-
-  static PlusMap PlusNames(const Formula& phi) {
-    assert(phi.objective());
-    // Roughly, we need to add one name for each quantifier. More precisely,
-    // it suffices to check for every sort which is the maximal number of
-    // different variables occurring freely in any subformula of phi. We do
-    // so from the inside to the outside, determining the number of free
-    // variables of any sort in cur, and the maximum in max.
-    PlusMap max;
-    PlusMap cur;
-    PlusNames(phi, &cur, &max);
-    return max;
-  }
-
-  static void PlusNames(const Formula& phi, PlusMap* cur, PlusMap* max) {
-    assert(phi.objective());
-    switch (phi.type()) {
-      case Formula::kAtomic:
-        *cur = PlusNames(phi.as_atomic().arg());
-        *max = *cur;
-        break;
-      case Formula::kNot:
-        PlusNames(phi.as_not().arg(), cur, max);
-        break;
-      case Formula::kOr: {
-        PlusMap lcur, lmax;
-        PlusMap rcur, rmax;
-        PlusNames(phi.as_or().lhs(), &lcur, &lmax);
-        PlusNames(phi.as_or().rhs(), &rcur, &rmax);
-        *cur = PlusMap::Zip(lcur, rcur, [](size_t lp, size_t rp) { return lp + rp; });
-        *max = PlusMap::Zip(lmax, rmax, [](size_t lp, size_t rp) { return std::max(lp, rp); });
-        *max = PlusMap::Zip(*max, *cur, [](size_t mp, size_t cp) { return std::max(mp, cp); });
-        break;
-      }
-      case Formula::kExists: {
-        PlusNames(phi.as_exists().arg(), cur, max);
-        Symbol::Sort sort = phi.as_exists().x().sort();
-        if ((*cur)[sort] > 0) {
-          --(*cur)[sort];
-        }
-        break;
-      }
-      case Formula::kKnow:
-      case Formula::kCons:
-      case Formula::kBel:
-      case Formula::kGuarantee:
-        break;
+    CreateNewPlusNames(reused_plus_names);
+    CreateMaxPlusNames(phi.n_vars());  // XXX or CreateNewPlusNames()?
+    Reground();
+    if (undo) {
+      *undo = Undo(this);
     }
   }
 
-  bool AddMentionedNames(const SortedTermSet& names) {
-    const size_t added = names_.insert(names);
-    return added > 0;
-  }
-
-  bool AddPlusNames(const PlusMap& plus) {
-    size_t added = 0;
-    for (const Symbol::Sort sort : plus.keys()) {
-      size_t m = plus_[sort];
-      size_t n = plus[sort];
-      if (n > m) {
-        plus_[sort] = n;
-        n -= m;
-        while (n-- > 0) {
-          added += names_.insert(CreateName(sort));
+  void GuaranteeConsistency(const Formula& alpha, Undo* undo) {
+    // Collect ungrounded terms from query.
+    // Close under terms in current setup.
+    assert(plies_.empty() || !last_ply().relevant.filter);
+    Ply& p = new_ply();
+    p.relevant.filter = true;
+    alpha.Traverse([this, &p](const Term t) {
+      if (t.function()) {
+        Ungrounded<Term> ut(t);
+        t.Traverse([&ut](const Term x) { if (x.variable()) { ut.vars.insert(x); } return true; });
+        if (IsNewUngroundedRelevantTerm(ut)) {
+          p.relevant.ungrounded.insert(ut);
         }
       }
+      return false;
+    });
+    for (const Ungrounded<Term>& u : p.relevant.ungrounded) {
+      for (const Term g : groundings(&u.val, &u.vars)) {
+        UpdateRelevantTerms(g);
+      }
     }
-    return added > 0;
-  }
-
-  void AddSplitTerms(const TermSet& terms) {
-    size_t added = 0;
-    for (Term t : terms) {
-      added += splits_.insert(t).second ? 1 : 0;
+    CloseRelevanceUnderClauses(p.clauses.shallow_setup.setup().clauses());
+    GroundNewSetup();
+    if (undo) {
+      *undo = Undo(this);
     }
   }
 
-  template<typename SourceQueue, typename Sink, typename UnaryPredicate>
-  void RelevantClosure(const Setup& s, SourceQueue* queue, Sink* sink, UnaryPredicate collect) {
-    std::unordered_set<size_t> done;
-    RelevantClosure(s, queue, &done, sink, collect);
+  void GuaranteeConsistency(Term t, Undo* undo) {
+    // Add t to ungrounded terms from query.
+    // Close under terms in current setup.
+    assert(plies_.empty() || !last_ply().relevant.filter);
+    assert(t.primitive());
+    Ply& p = new_ply();
+    p.relevant.filter = true;
+    Ungrounded<Term> ut(t);
+    if (IsNewUngroundedRelevantTerm(ut)) {
+      p.relevant.ungrounded.insert(ut);
+    }
+    UpdateRelevantTerms(t);
+    CloseRelevanceUnderClauses(p.clauses.shallow_setup.setup().clauses());
+    GroundNewSetup();
+    if (undo) {
+      *undo = Undo(this);
+    }
   }
 
-  template<typename SourceQueue, typename Sink, typename UnaryPredicate>
-  void RelevantClosure(const Setup& s,
-                       SourceQueue* queue,
-                       std::unordered_set<size_t>* done,
-                       Sink* sink,
-                       UnaryPredicate collect) {
-    while (!queue->empty()) {
-      const auto elem = *queue->begin();
-      queue->erase(queue->begin());
-      auto p = sink->insert(elem);
-      if (p.second) {
-        for (size_t i : s.clauses()) {
-          if (done->find(i) != done->end()) {
-            continue;
-          }
-          const Clause c = s.clause(i);
-          if (c.unit() && c.first().pos()) {
-            continue;
-          }
-          if (collect(c, elem, queue)) {
-            done->insert(i);
-          }
+  void UndoLast() { pop_ply(); }
+
+  Literal Variablify(Literal a) {
+    assert(a.ground());
+    Term::Vector ns;
+    a.lhs().Traverse([&ns](Term t) {
+      if (t.name() && std::find(ns.begin(), ns.end(), t) != ns.end()) {
+        ns.push_back(t);
+      }
+      return true;
+    });
+    return a.Substitute([this, ns](Term t) {
+      const size_t i = std::find(ns.begin(), ns.end(), t) - ns.begin();
+      return i != ns.size() ? internal::Just(var_pool_.Get(t.sort(), i)) : internal::Nothing;
+    }, tf_);
+  }
+
+  Plies plies(Plies::Policy p = Plies::kAll) const { return Plies(this, p); }
+  LhsTerms lhs_terms(Plies::Policy p = Plies::kAll) const { return LhsTerms(this, p); }
+  // The additional name must not be used after RhsName's death.
+  RhsNames rhs_names(Term t, Plies::Policy p = Plies::kAll) { return RhsNames(this, t, p); }
+  Names names(Symbol::Sort sort, Plies::Policy p = Plies::kAll) const { return Names(this, sort, p); }
+
+ private:
+  template<typename T>
+  struct Groundings {
+   public:
+    struct Assignments {
+     public:
+      struct NotX {
+        explicit NotX(Term x) : x(x) {}
+
+        bool operator()(Term y) const { return x != y; }
+
+       private:
+        const Term x;
+      };
+
+      struct DomainCodomain {
+        DomainCodomain(const Grounder* owner, Plies::Policy policy) : owner(owner), policy(policy) {}
+
+        std::pair<Term, Names> operator()(const Term x) const {
+          return std::make_pair(x, owner->names(x.sort(), policy));
         }
+
+       private:
+        const Grounder* const owner;
+        const Plies::Policy policy;
+      };
+
+      typedef internal::filter_iterator<SortedTermSet::all_values_iterator, NotX> vars_iterator;
+      typedef internal::transform_iterator<vars_iterator, DomainCodomain> var_names_iterator;
+      typedef internal::mapping_iterator<Term, Names::iterator> iterator;
+
+      Assignments(const Grounder* owner, const SortedTermSet* vars, Plies::Policy policy, Term x, Term n)
+          : vars(vars), owner(owner), policy(policy), x(x), n(n) {}
+
+      iterator begin() const {
+        auto p = NotX(x);
+        auto f = DomainCodomain(owner, policy);
+        auto b = vars->begin();
+        auto e = vars->end();
+        return iterator(var_names_iterator(vars_iterator(b, e, p), f), var_names_iterator(vars_iterator(e, e, p), f));
       }
-    }
-  }
+      iterator end() const { return iterator(); }
 
-  void AddAssignmentLiteralsTo(const LiteralSet& lits, LiteralSet* assigns) {
-    for (Literal a : lits) {
-      if (!a.pos()) {
-        const Term x = tf_->CreateTerm(sf_->CreateVariable(a.rhs().sort()));
-        a = Literal::Eq(a.lhs(), x);
-      }
-      assigns->insert(a);
-    }
-  }
-
-  void AddAssignmentLiterals(const LiteralSet& lits) {
-    AddAssignmentLiteralsTo(lits, &assigns_);
-  }
-
-  LiteralAssignmentSet LiteralAssignments(const LiteralSet& assigns) const {
-    LiteralSet ground = Ground(assigns);
-    struct Func {  // a Lambda doesn't have assignment operators
-      LiteralSet operator()(Literal a) const { return LiteralSet{a}; }
+     private:
+      const SortedTermSet* const vars;
+      const Grounder* const owner;
+      const Plies::Policy policy;
+      const Term x;
+      const Term n;
     };
-    auto r = internal::transform_crange(ground, Func());
-    LiteralAssignmentSet sets(r.begin(), r.end());
-    for (Literal a : ground) {
-      for (auto it = sets.begin(); it != sets.end(); ) {
-        const LiteralSet& set = *it;
-        assert(!set.empty());
-        const Literal b = *set.begin();
-        if (a.lhs().symbol() == b.lhs().symbol() && set.find(a) == set.end() && Literal::Isomorphic(a, b)) {
-          if (set.size() == 1) {
-            LiteralSet new_set = set;
-            new_set.insert(a);
-            const float prev_load_factor = sets.load_factor();
-            const float prev_size = sets.size();
-            sets.insert(new_set);
-            if (sets.size() > prev_size && sets.load_factor() <= prev_load_factor) {
-              it = sets.begin();
-            } else {
-              ++it;
-            }
-          } else {
-            LiteralSet new_set = set;
-            new_set.insert(a);
-            it = sets.erase(it);
-            sets.insert(new_set);
-          }
-        } else {
-          ++it;
+
+    struct Ground {
+      Ground(Term::Factory* tf, const T* obj, Term x, Term n) : tf_(tf), obj(obj), x(x), n(n) {}
+      T operator()(const typename Assignments::iterator::value_type& assignment) const {
+        auto substitution = [this, &assignment](Term y) { return x == y ? internal::Just(n) : assignment(y); };
+        return obj->Substitute(substitution, tf_);
+      }
+     private:
+      Term::Factory* const tf_;
+      const T* const obj;
+      const Term x;
+      const Term n;
+    };
+
+    typedef internal::transform_iterator<typename Assignments::iterator, Ground> iterator;
+
+    Groundings(const Grounder* owner, const T* obj, const SortedTermSet* vars, Term x, Term n, Plies::Policy p)
+        : x(x), n(n), assignments(owner, vars, p, x, n), ground(owner->tf_, obj, x, n) {}
+
+    iterator begin() const { return iterator(assignments.begin(), ground); }
+    iterator end()   const { return iterator(assignments.end(), ground); }
+
+   private:
+    Term x;
+    Term n;
+    Assignments assignments;
+    Ground ground;
+  };
+
+  template<typename T>
+  Groundings<T> groundings(const T* o, const SortedTermSet* vars, Plies::Policy p = Plies::kAll) const {
+    return groundings(o, vars, Term(), Term(), p);
+  }
+  template<typename T>
+  Groundings<T> groundings(const T* o, const SortedTermSet* vars, Term x, Term n, Plies::Policy p = Plies::kAll) const {
+    return Groundings<T>(this, o, vars, x, n, p);
+  }
+
+  Ply& new_ply() {
+    if (plies_.empty()) {
+      plies_.push_back(Ply());
+      Ply& p = plies_.back();
+      p.clauses.full_setup = std::unique_ptr<Setup>(new Setup());
+      p.clauses.shallow_setup = p.clauses.full_setup->shallow_copy();
+      return p;
+    } else {
+      Ply& last_p = last_ply();
+      plies_.push_back(Ply());
+      Ply& p = plies_.back();
+      p.clauses.shallow_setup = last_p.clauses.shallow_setup.setup().shallow_copy();
+      p.relevant.filter = last_p.relevant.filter;
+      return p;
+    }
+  }
+
+  Ply& last_ply() { assert(!plies_.empty()); return plies_.back(); }
+  const Ply& last_ply() const { assert(!plies_.empty()); return plies_.back(); }
+
+  void pop_ply() {
+    assert(!plies_.empty());
+    Ply& p = last_ply();
+    for (const Term n : p.names.plus_max) {
+      name_pool_.Return(n);
+    }
+    for (const Term n : p.names.plus_new) {
+      name_pool_.Return(n);
+    }
+    plies_.pop_back();
+  }
+
+  bool IsNewUngroundedLhsRhs(const Ungrounded<Literal>& ua) {
+    assert(ua.val.lhs().function());
+    for (const Ply& p : plies(Plies::kSinceSetup)) {
+      if (p.lhs_rhs.ungrounded.find(ua) != p.lhs_rhs.ungrounded.end()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool IsNewLhsRhs(Literal a) {
+    assert(a.primitive());
+    for (const Ply& p : plies(Plies::kSinceSetup)) {
+      auto it = p.lhs_rhs.map.find(a.lhs());
+      if (it != p.lhs_rhs.map.end() && it->second.find(a.rhs()) != it->second.end()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool IsNewUngroundedRelevantTerm(const Ungrounded<Term>& ut) {
+    assert(ut.val.function());
+    for (const Ply& p : plies(Plies::kSinceSetup)) {
+      if (p.relevant.ungrounded.find(ut) != p.relevant.ungrounded.end()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool IsNewRelevantTerm(Term t) {
+    assert(t.ground() && t.function());
+    for (const Ply& p : plies(Plies::kSinceSetup)) {
+      if (p.relevant.terms.contains(t)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool IsRelevantClause(const Clause& c) {
+    if (!last_ply().relevant.filter) {
+      return true;
+    }
+    for (const Ply& p : plies(Plies::kSinceSetup)) {
+      if (!p.relevant.terms.all_empty() &&
+          c.any([&p](const Literal a) { return !a.lhs().name() && p.relevant.terms.contains(a.lhs()); })) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  size_t nMaxPlusNames(Symbol::Sort sort) const {
+    size_t n_names = 0;
+    for (const Ply& p : plies_) {
+      n_names += p.names.plus_max.n_values(sort);
+    }
+    return n_names;
+  }
+
+  bool IsPlusName(Term n) const {
+    assert(n.name());
+    for (const Ply& p : plies_) {
+      if (p.names.plus_max.contains(n) || p.names.plus_new.contains(n)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void CreateMaxPlusNames(const Formula::SortCount& sc) {
+    Ply& p = last_ply();
+    for (const Symbol::Sort sort : sc.keys()) {
+      const size_t need_total = sc[sort];
+      if (need_total > 0) {
+        const size_t have_already = nMaxPlusNames(sort);
+        for (size_t i = have_already; i < need_total; ++i) {
+          p.names.plus_max.insert(name_pool_.Create(sort));
         }
       }
     }
-    return sets;
   }
 
-  Symbol::Factory* const sf_;
+  void CreateMaxPlusNames(const SortedTermSet& vars, size_t plus) {
+    Ply& p = last_ply();
+    for (const Symbol::Sort sort : vars.keys()) {
+      size_t need_total = vars.n_values(sort);
+      if (need_total > 0) {
+        need_total += plus;
+        const size_t have_already = nMaxPlusNames(sort);
+        for (size_t i = have_already; i < need_total; ++i) {
+          p.names.plus_max.insert(name_pool_.Create(sort));
+        }
+      }
+    }
+  }
+
+  void CreateNewPlusNames(const SortedTermSet& ts) {
+    Ply& p = last_ply();
+    for (const Symbol::Sort sort : ts.keys()) {
+      size_t need_total = ts.n_values(sort);
+      for (size_t i = 0; i < need_total; ++i) {
+        p.names.plus_new.insert(name_pool_.Create(sort));
+      }
+    }
+  }
+
+  void UpdateLhsRhs(Literal a) {
+    assert(a.ground());
+    if (a.lhs().function() && IsNewLhsRhs(a)) {
+      const Term t = a.lhs();
+      const Term n = a.rhs();
+      assert(t.ground() && n.name());
+      Ply& p = last_ply();
+      auto it = p.lhs_rhs.map.find(t);
+      if (it == p.lhs_rhs.map.end()) {
+        it = p.lhs_rhs.map.insert(std::make_pair(t, std::unordered_set<Term>())).first;
+      }
+      it->second.insert(n);
+    }
+  }
+
+  void UpdateLhsRhs(const Clause& c) {
+    for (const Literal a : c) {
+      UpdateLhsRhs(a);
+    }
+  }
+
+  void UpdateRelevantTerms(Term t) {
+    assert(t.ground());
+    if (t.function() && IsNewRelevantTerm(t)) {
+      last_ply().relevant.terms.insert(t);
+    }
+  }
+
+  void UpdateRelevantTerms(const Clause& c) {
+    assert(c.ground());
+    assert(!c.valid());
+    if (c.any([this](const Literal a) { return !IsNewRelevantTerm(a.lhs()); })) {
+      c.all([this](const Literal a) {
+        UpdateRelevantTerms(a.lhs());
+        return true;
+      });
+    }
+  }
+
+  template<typename ClauseRange>
+  void CloseRelevanceUnderClauses(ClauseRange r) {
+    std::unordered_set<size_t> clauses;
+    for (size_t i : r) {
+      clauses.insert(i);
+    }
+rescan:
+    for (auto it = clauses.begin(); it != clauses.end(); ++it) {
+      const Clause c = last_ply().clauses.shallow_setup.setup().clause(*it);
+      if (IsRelevantClause(c)) {
+        UpdateRelevantTerms(c);
+        clauses.erase(it);
+        goto rescan;
+      }
+    }
+  }
+
+  bool InconsistencyCheck(const Ply& p, const Clause& c) {
+    return !p.do_not_add_if_inconsistent || !c.unit() || !setup().Subsumes(Clause{c[0].flip()});
+  }
+
+  template<typename UnaryFunction, typename UnaryPredicate>
+  void ForEachGrounding(UnaryFunction range, UnaryPredicate pred, Setup::Result* add_result = nullptr) {
+    typedef decltype(range(std::declval<Ply>()).begin()) iterator;
+    typedef typename iterator::value_type::value_type value_type;
+    for (const Ply& p : plies_) {
+      for (const Ungrounded<value_type>& u : range(p)) {
+        for (const value_type& g : groundings(&u.val, &u.vars)) {
+          assert(g.ground());
+          pred(g, p, add_result);
+          if (add_result && *add_result == Setup::kInconsistent) {
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  template<typename UnaryFunction, typename UnaryPredicate>
+  void ForEachNewGrounding(UnaryFunction range, UnaryPredicate pred, Setup::Result* add_result = nullptr) {
+    typedef decltype(range(std::declval<Ply>()).begin()) iterator;
+    typedef typename iterator::value_type::value_type value_type;
+    for (const Ply& p : plies(Plies::kOld)) {
+      for (const Ungrounded<value_type>& u : range(p)) {
+        for (const Term x : u.vars) {
+          for (const Term n : names(x.sort(), Plies::kNew)) {
+            for (const value_type& g : groundings(&u.val, &u.vars, x, n)) {
+              assert(g.ground());
+              pred(g, p, add_result);
+              if (add_result && *add_result == Setup::kInconsistent) {
+                return;
+              }
+            }
+          }
+        }
+      }
+    }
+    const Ply& p = last_ply();
+    for (const Ungrounded<value_type>& u : range(p)) {
+      for (const value_type& g : groundings(&u.val, &u.vars)) {
+        pred(g, p, add_result);
+        if (add_result && *add_result == Setup::kInconsistent) {
+          return;
+        }
+      }
+    }
+  }
+
+  Setup::Result Reground(bool minimize = false) {
+    // Ground old clauses for names from last ply.
+    // Ground new clauses for all names.
+    // Add f(.)=n, f(.)/=n pairs from newly grounded clauses to lhs_rhs.
+    Setup::Result add_result = Setup::kSubsumed;
+    ForEachNewGrounding(
+        [](const Ply& p) { return p.clauses.ungrounded; },
+        [this](const Clause& c, const Ply& p, Setup::Result* add_result) {
+          // XXX Should relevance be tested only for clauses from before the consistency-guarantee?
+          if (!c.valid() && IsRelevantClause(c) && InconsistencyCheck(p, c)) {
+            const Setup::Result r = setup().AddClause(c);
+            switch (r) {
+              case Setup::kOk:
+                *add_result = r;
+                UpdateLhsRhs(c);
+                break;
+              case Setup::kSubsumed:
+                break;
+              case Setup::kInconsistent:
+                *add_result = r;
+                break;
+            }
+          }
+        },
+        &add_result);
+    ForEachNewGrounding(
+        [](const Ply& p) { return p.lhs_rhs.ungrounded; },
+        [this](const Literal a, const Ply&, Setup::Result*) {
+          UpdateLhsRhs(a);
+        });
+    Ply& p = last_ply();
+    if (minimize) {
+      if (p.clauses.full_setup) {
+        p.clauses.full_setup->Minimize();
+      } else {
+        p.clauses.shallow_setup.Minimize();
+      }
+    }
+    if (p.relevant.filter) {
+      ForEachNewGrounding(
+          [](const Ply& p) { return p.relevant.ungrounded; },
+          [this](const Term t, const Ply&, Setup::Result*) {
+            UpdateRelevantTerms(t);
+          });
+      CloseRelevanceUnderClauses(p.clauses.shallow_setup.new_clauses());
+    }
+    return add_result;
+  }
+
+  void GroundNewSetup() {
+    // Ground all clauses for all names.
+    Ply& p = last_ply();
+    assert(p.relevant.filter);
+    assert(p.clauses.ungrounded.empty());
+    assert(p.names.occurring.all_empty() && p.names.plus_new.all_empty() && p.names.plus_max.all_empty());
+    const Setup& old_s = p.clauses.shallow_setup.setup();
+    std::unique_ptr<Setup> new_s(new Setup());
+    for (size_t i : old_s.clauses()) {
+      const Clause c = old_s.clause(i);
+      if (IsRelevantClause(c)) {
+        UpdateLhsRhs(c);
+        new_s->AddClause(c);
+      }
+    }
+    new_s->Minimize();
+    p.clauses.full_setup = std::move(new_s);
+    p.clauses.shallow_setup = p.clauses.full_setup->shallow_copy();
+  }
+
   Term::Factory* const tf_;
-  PlusMap plus_;
-  TermSet splits_;
-  LiteralSet assigns_;
-  SortedTermSet names_;
-  bool names_changed_ = false;
-  std::list<Clause> processed_clauses_;
-  std::list<Clause> unprocessed_clauses_;
-  SortedTermSet owned_names_;
-  internal::Maybe<Setup> setup_;
+  NamePool name_pool_;
+  VariablePool var_pool_;
+  Ply::List plies_;
 };
 
 }  // namespace limbo

@@ -133,6 +133,7 @@ class Symbol {
 
 class Term {
  public:
+  typedef internal::size_t size_t;
   class Factory;
   struct Substitution;
   typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
@@ -140,10 +141,9 @@ class Term {
 
   static constexpr UnificationConfiguration kUnifyLeft = (1 << 0);
   static constexpr UnificationConfiguration kUnifyRight = (1 << 1);
-  static constexpr UnificationConfiguration kUnifyVars = (1 << 2);
   static constexpr UnificationConfiguration kOccursCheck = (1 << 4);
   static constexpr UnificationConfiguration kUnifyTwoWay = kUnifyLeft | kUnifyRight;
-  static constexpr UnificationConfiguration kDefaultConfig = kUnifyTwoWay | kUnifyVars;
+  static constexpr UnificationConfiguration kDefaultConfig = kUnifyTwoWay;
 
   Term() = default;
 
@@ -278,7 +278,7 @@ class Term::Factory : private Singleton<Factory> {
   }
 
  private:
-  struct DataPtrHash   { internal::hash32_t operator()(const Term::Data* d) const { return d->hash(); } };
+  struct DataPtrHash { internal::hash32_t operator()(const Term::Data* d) const { return d->hash(); } };
   struct DataPtrEquals { bool operator()(const Term::Data* a, const Term::Data* b) const { return *a == *b; } };
 
   Factory() = default;
@@ -385,7 +385,6 @@ internal::Maybe<Term::Substitution> Term::Unify(Term l, Term r) {
 }
 
 bool Term::Isomorphic(Term l, Term r, Substitution* sub) {
-  internal::Maybe<Term> u;
   if (l.function() && r.function() && l.symbol() == r.symbol()) {
     for (Symbol::Arity i = 0; i < l.arity(); ++i) {
       if (!Isomorphic(l.arg(i), r.arg(i), sub)) {

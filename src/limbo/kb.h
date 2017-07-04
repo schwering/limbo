@@ -42,15 +42,20 @@
 #include <limbo/internal/iter.h>
 #include <limbo/internal/maybe.h>
 
+#include <iostream>
+#include <limbo/format/output.h>
+using limbo::format::operator<<;
+
 namespace limbo {
 
 class KnowledgeBase {
  public:
   typedef internal::size_t size_t;
   typedef size_t sphere_index;
+  typedef Formula::belief_level belief_level;
 
   KnowledgeBase(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf), objective_(sf, tf) {
-    spheres_.push_back(Solver(sf, tf));
+    spheres_.emplace_back(sf, tf);
   }
 
   KnowledgeBase(const KnowledgeBase&) = delete;
@@ -59,9 +64,6 @@ class KnowledgeBase {
   KnowledgeBase& operator=(KnowledgeBase&&) = default;
 
   void Add(const Clause& c) {
-    for (Solver& sphere : spheres_) {
-      sphere.AddClause(c);
-    }
     knowledge_.push_back(c);
     c.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
   }
@@ -74,8 +76,8 @@ class KnowledgeBase {
       assume_consistent = true;
     }
     if (beta->type() == Formula::kBel) {
-      const Formula::split_level k = beta->as_bel().k();
-      const Formula::split_level l = beta->as_bel().l();
+      const belief_level k = beta->as_bel().k();
+      const belief_level l = beta->as_bel().l();
       const Formula& ante = beta->as_bel().antecedent();
       internal::Maybe<Clause> not_ante_or_conse = beta->as_bel().not_antecedent_or_consequent().AsUnivClause();
       if (not_ante_or_conse) {
@@ -94,10 +96,9 @@ class KnowledgeBase {
 
   bool Entails(const Formula& sigma, bool distribute = true) {
     assert(sigma.subjective());
-    assert(sigma.free_vars().empty());
-    if (spheres_changed_) {
+    assert(sigma.free_vars().all_empty());
+    if (n_processed_beliefs_ < beliefs_.size() || n_processed_knowledge_ < knowledge_.size()) {
       BuildSpheres();
-      spheres_changed_ = false;
     }
     Formula::Ref phi = ReduceModalities(*sigma.NF(sf_, tf_, distribute), false);
     assert(phi->objective());
@@ -105,68 +106,82 @@ class KnowledgeBase {
   }
 
   sphere_index n_spheres() const { return spheres_.size(); }
-  Solver* sphere(sphere_index p) { return &spheres_[p]; }
+  Solver& sphere(sphere_index p) { return spheres_[p]; }
   const Solver& sphere(sphere_index p) const { return spheres_[p]; }
   const std::vector<Solver>& spheres() const { return spheres_; }
 
  private:
   struct Conditional {
-    Formula::split_level k;
-    Formula::split_level l;
+    belief_level k;
+    belief_level l;
     Formula::Ref ante;
     Clause not_ante_or_conse;
     bool assume_consistent;
   };
-  typedef Grounder::TermSet TermSet;
-  typedef Grounder::SortedTermSet SortedTermSet;
+  typedef Formula::TermSet TermSet;
+  typedef Formula::SortedTermSet SortedTermSet;
 
-  void Add(Formula::split_level k, Formula::split_level l,
-           const Formula& antecedent, const Clause& not_antecedent_or_consequent, bool assume_consistent) {
+  void Add(belief_level k,
+           belief_level l,
+           const Formula& antecedent,
+           const Clause& not_antecedent_or_consequent,
+           bool assume_consistent) {
     beliefs_.push_back(Conditional{k, l, antecedent.Clone(), not_antecedent_or_consequent, assume_consistent});
-    spheres_changed_ = true;
     antecedent.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
     not_antecedent_or_consequent.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
   }
 
   void BuildSpheres() {
-    spheres_.clear();
-    std::vector<bool> done(beliefs_.size(), false);
-    bool is_plausibility_consistent = true;
-    size_t n_done = 0;
-    size_t last_n_done;
-    do {
-      last_n_done = n_done;
-      Solver sphere(sf_, tf_);
-      for (const Clause& c : knowledge_) {
-        sphere.AddClause(c);
-      }
-      for (size_t i = 0; i < beliefs_.size(); ++i) {
-        const Conditional& c = beliefs_[i];
-        if (!done[i]) {
-          sphere.AddClause(c.not_ante_or_conse);
+    if (beliefs_.empty()) {
+      assert(spheres_.size() == 1);
+      assert(n_processed_beliefs_ == 0);
+      for (Solver& sphere : spheres_) {
+        for (const Clause& c : knowledge_) {
+          sphere.AddClause(c);
         }
       }
-      bool next_is_plausibility_consistent = true;
-      for (size_t i = 0; i < beliefs_.size(); ++i) {
-        const Conditional& c = beliefs_[i];
-        if (!done[i]) {
-          const bool possibly_consistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()),
-                                                           c.assume_consistent);
-          if (possibly_consistent) {
-            done[i] = true;
-            ++n_done;
-            const bool necessarilyConsistent = sphere.Consistent(c.l, *c.ante, c.assume_consistent);
-            if (!necessarilyConsistent) {
-              next_is_plausibility_consistent = false;
+    } else {
+      spheres_.clear();
+      std::vector<bool> done(beliefs_.size(), false);
+      bool is_plausibility_consistent = true;
+      size_t n_done = 0;
+      size_t last_n_done;
+      do {
+        last_n_done = n_done;
+        Solver sphere(sf_, tf_);
+        for (const Clause& c : knowledge_) {
+          sphere.AddClause(c);
+        }
+        for (size_t i = 0; i < beliefs_.size(); ++i) {
+          const Conditional& c = beliefs_[i];
+          if (!done[i]) {
+            sphere.AddClause(c.not_ante_or_conse);
+          }
+        }
+        bool next_is_plausibility_consistent = true;
+        for (size_t i = 0; i < beliefs_.size(); ++i) {
+          const Conditional& c = beliefs_[i];
+          if (!done[i]) {
+            const bool possibly_consistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()),
+                                                             c.assume_consistent);
+            if (possibly_consistent) {
+              done[i] = true;
+              ++n_done;
+              const bool necessarily_consistent = sphere.Consistent(c.l, *c.ante, c.assume_consistent);
+              if (!necessarily_consistent) {
+                next_is_plausibility_consistent = false;
+              }
             }
           }
         }
-      }
-      if (is_plausibility_consistent || n_done == last_n_done) {
-        spheres_.push_back(std::move(sphere));
-      }
-      is_plausibility_consistent = next_is_plausibility_consistent;
-    } while (n_done > last_n_done);
+        if (is_plausibility_consistent || n_done == last_n_done) {
+          spheres_.push_back(std::move(sphere));
+        }
+        is_plausibility_consistent = next_is_plausibility_consistent;
+      } while (n_done > last_n_done);
+    }
+    n_processed_beliefs_ = beliefs_.size();
+    n_processed_knowledge_ = knowledge_.size();
   }
 
   Formula::Ref ReduceModalities(const Formula& alpha, bool assume_consistent) {
@@ -203,8 +218,8 @@ class KnowledgeBase {
         const Formula::Ref ante = ReduceModalities(alpha.as_bel().antecedent(), assume_consistent);
         const Formula::Ref not_ante_or_conse = ReduceModalities(alpha.as_bel().not_antecedent_or_consequent(),
                                                                 assume_consistent);
-        const Formula::split_level k = alpha.as_bel().k();
-        const Formula::split_level l = alpha.as_bel().l();
+        const belief_level k = alpha.as_bel().k();
+        const belief_level l = alpha.as_bel().l();
         std::vector<Formula::Ref> consistent;
         std::vector<Formula::Ref> entails;
         for (sphere_index p = 0; p < n_spheres(); ++p) {
@@ -240,7 +255,7 @@ class KnowledgeBase {
     throw;
   }
 
-  Formula::Ref ResEntails(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
+  Formula::Ref ResEntails(sphere_index p, belief_level k, const Formula& phi, bool assume_consistent) {
     // If phi is just a literal (t = n) or (t = x) for primitive t, we can use Solver::Determines to speed things up.
     if (phi.type() == Formula::kAtomic) {
       const Clause& c = phi.as_atomic().arg();
@@ -270,7 +285,7 @@ class KnowledgeBase {
     return Res(p, phi.Clone(), if_no_free_vars);
   }
 
-  Formula::Ref ResConsistent(sphere_index p, Formula::split_level k, const Formula& phi, bool assume_consistent) {
+  Formula::Ref ResConsistent(sphere_index p, belief_level k, const Formula& phi, bool assume_consistent) {
     auto if_no_free_vars = [k, assume_consistent, this](Solver* sphere, const Formula& psi) {
       return sphere->Consistent(k, psi, assume_consistent);
     };
@@ -286,7 +301,7 @@ class KnowledgeBase {
 
   template<typename BinaryPredicate>
   Formula::Ref Res(sphere_index p, Formula::Ref phi, SortedTermSet* names, BinaryPredicate if_no_free_vars) {
-    if (phi->free_vars().empty()) {
+    if (phi->free_vars().all_empty()) {
       const bool r = if_no_free_vars(&spheres_[p], *phi);
       return bool_to_formula(r);
     }
@@ -321,13 +336,13 @@ class KnowledgeBase {
                             SortedTermSet* names,
                             BinaryPredicate if_no_free_vars) {
     // (x != n1 && ... && x != nK -> RES(p, phi^x_n0)^n0_x) in clausal form
-    Term n0 = spheres_[p].grounder()->CreateName(x.sort());
+    Term n0 = spheres_[p].grounder().temp_name_pool().Create(x.sort());
     phi->SubstituteFree(Term::Substitution(x, n0), tf_);
     names->insert(n0);
     phi = Res(p, std::move(phi), names, if_no_free_vars);
     names->erase(n0);
     phi->SubstituteFree(Term::Substitution(n0, x), tf_);
-    spheres_[p].grounder()->ReturnName(n0);
+    spheres_[p].grounder().temp_name_pool().Return(n0);
     const TermSet& ns = (*names)[x.sort()];
     const auto if_not = internal::transform_range(ns.begin(), ns.end(), [x](Term n) { return Literal::Eq(x, n); });
     const Clause c(ns.size(), if_not.begin(), if_not.end());
@@ -346,7 +361,8 @@ class KnowledgeBase {
   SortedTermSet names_;
   std::vector<Solver> spheres_;
   Solver objective_;
-  bool spheres_changed_ = false;
+  size_t n_processed_knowledge_ = 0;
+  size_t n_processed_beliefs_ = 0;
 };
 
 }  // namespace limbo

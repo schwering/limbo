@@ -202,7 +202,7 @@ class Context {
     return yes;
   }
 
-  KnowledgeBase* kb() { return &kb_; }
+  KnowledgeBase& kb() { return kb_; }
   const KnowledgeBase& kb() const { return kb_; }
 
   Symbol::Factory* sf() { return Symbol::Factory::Instance(); }

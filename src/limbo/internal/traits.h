@@ -39,15 +39,15 @@ struct arg<Return (Function::*)(Args...) const> {
   using type = typename std::tuple_element<N, typename std::tuple<Args...>>::type;
 };
 
-// is_arg<Function, ExpType, N>::value is true iff the Nth argument of Function is
-// convertible to ExpType, and false otherwise.
+// is_arg<Function, ExpType, N>::value is true iff ExpType is convertible to
+// Nth argument of Function, and false otherwise.
 template<typename Function, typename ExpType, int N = 0>
 struct is_arg {
-  static constexpr bool value = std::is_convertible<typename arg<Function>::template type<N>, ExpType>::value;
+  static constexpr bool value = std::is_convertible<ExpType, typename arg<Function>::template type<N>>::value;
 };
 
-// if_arg<Function, ExpType, Type, N>::type is defined as Type iff the Nth
-// argument of Function is convertible to ExpType.
+// if_arg<Function, ExpType, Type, N>::type is defined as Type iff ExpType
+// is convertible to the Nth argument of Function.
 template<typename Function, typename ExpType, typename Type = void, int N = 0,
   bool = is_arg<Function, ExpType, N>::value>
 struct if_arg {};

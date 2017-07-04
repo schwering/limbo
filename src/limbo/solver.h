@@ -64,8 +64,6 @@ namespace limbo {
 
 class Solver {
  public:
-  typedef Formula::split_level split_level;
-
   static constexpr bool kConsistencyGuarantee = true;
   static constexpr bool kNoConsistencyGuarantee = false;
 
@@ -75,42 +73,39 @@ class Solver {
   Solver(Solver&&) = default;
   Solver& operator=(Solver&&) = default;
 
-  void AddClause(const Clause& c) { grounder_.AddClause(c); }
+  Setup::Result AddClause(const Clause& c) { return grounder_.AddClause(c); }
 
-  const Setup& setup() const { return grounder_.Ground(); }
+  Grounder& grounder() { return grounder_; }
+  const Grounder& grounder() const { return grounder_; }
 
-  Grounder* grounder() { return &grounder_; }
+  const Setup& setup() const { return grounder_.setup(); }
 
-  bool Entails(int k, const Formula& phi, bool assume_consistent) {
+  bool Entails(Formula::belief_level k, const Formula& phi, bool assume_consistent = false) {
     assert(phi.objective());
-    assert(phi.free_vars().empty());
-    grounder_.PrepareForQuery(k, phi);
-    const Setup& s = grounder_.Ground();
-    TermSet split_terms =
-      k == 0            ? TermSet() :
-      assume_consistent ? grounder_.RelevantSplitTerms(phi) :
-                          grounder_.SplitTerms();
-    const SortedTermSet& names = grounder_.Names();
-    return s.Subsumes(Clause{}) || phi.trivially_valid() ||
-        Split(s, split_terms, names, k,
-              [this, &names, &phi](const Setup& s) { return Reduce(s, names, phi); },
-              [](bool r1, bool r2) { return r1 && r2; },
-              true, false);
+    assert(phi.free_vars().all_empty());
+    Grounder::Undo undo1;
+    if (assume_consistent) {
+      grounder_.GuaranteeConsistency(phi, &undo1);
+    }
+    Grounder::Undo undo2;
+    grounder_.PrepareForQuery(phi, &undo2);
+    const bool entailed = setup().Subsumes(Clause{}) || phi.trivially_valid() ||
+        Split(k, [this, &phi]() { return Reduce(phi); }, [](bool r1, bool r2) { return r1 && r2; }, true, false);
+    return entailed;
   }
 
-  internal::Maybe<Term> Determines(int k, Term lhs, bool assume_consistent) {
+  internal::Maybe<Term> Determines(Formula::belief_level k, Term lhs, bool assume_consistent = false) {
     assert(lhs.primitive());
-    grounder_.PrepareForQuery(k, lhs);
-    const Setup& s = grounder_.Ground();
-    TermSet split_terms =
-      k == 0            ? TermSet() :
-      assume_consistent ? grounder_.RelevantSplitTerms(lhs) :
-                          grounder_.SplitTerms();
-    const SortedTermSet& names = grounder_.Names();
+    Grounder::Undo undo1;
+    if (assume_consistent) {
+      grounder_.GuaranteeConsistency(lhs, &undo1);
+    }
+    Grounder::Undo undo2;
+    grounder_.PrepareForQuery(lhs, &undo2);
     internal::Maybe<Term> inconsistent_result = internal::Just(Term());
     internal::Maybe<Term> unsuccessful_result = internal::Nothing;
-    return Split(s, split_terms, names, k,
-                 [this, &names, lhs](const Setup& s) { return s.Determines(lhs); },
+    internal::Maybe<Term> t = Split(k,
+                 [this, lhs]() { return setup().Determines(lhs); },
                  [](internal::Maybe<Term> r1, internal::Maybe<Term> r2) {
                    return r1 && r2 && r1.val == r2.val ? r1 :
                           r1 && r2 && r1.val.null()    ? r2 :
@@ -118,29 +113,29 @@ class Solver {
                                                          internal::Nothing;
                  },
                  inconsistent_result, unsuccessful_result);
+    return t;
   }
 
-  bool EntailsComplete(int k, const Formula& phi, bool assume_consistent) {
+  bool EntailsComplete(int k, const Formula& phi, bool assume_consistent = false) {
     assert(phi.objective());
-    assert(phi.free_vars().empty());
+    assert(phi.free_vars().all_empty());
     Formula::Ref psi = Formula::Factory::Not(phi.Clone());
     return !Consistent(k, *psi, assume_consistent);
   }
 
-  bool Consistent(int k, const Formula& phi, bool assume_consistent) {
+  int cons=0;
+  bool Consistent(int k, const Formula& phi, bool assume_consistent = false) {
     assert(phi.objective());
-    assert(phi.free_vars().empty());
-    grounder_.PrepareForQuery(k, phi);
-    const Setup& s = grounder_.Ground();
-    LiteralAssignmentSet assign_lits =
-      k == 0            ? LiteralAssignmentSet() :
-      assume_consistent ? grounder_.RelevantLiteralAssignments(phi) :
-                          grounder_.LiteralAssignments();
-    TermSet relevant_terms =
-      assume_consistent ? grounder_.RelevantSplitTerms(phi) :
-                          TermSet();
-    const SortedTermSet& names = grounder_.Names();
-    return !phi.trivially_invalid() && Assign(s, assign_lits, names, k, phi, assume_consistent, relevant_terms);
+    assert(phi.free_vars().all_empty());
+    Grounder::Undo undo1;
+    if (assume_consistent) {
+      grounder_.GuaranteeConsistency(phi, &undo1);
+    }
+    Grounder::Undo undo2;
+    grounder_.PrepareForQuery(phi, &undo2);
+    bool b = false;
+    const bool consistent = !phi.trivially_invalid() && (b = Fix(k, [this, &phi]() { return Reduce(phi); }));
+    return consistent;
   }
 
  private:
@@ -148,56 +143,53 @@ class Solver {
   FRIEND_TEST(SolverTest, Constants);
 #endif
 
-  typedef Grounder::TermSet TermSet;
-  typedef Grounder::LiteralSet LiteralSet;
-  typedef Grounder::LiteralAssignmentSet LiteralAssignmentSet;
-  typedef Grounder::SortedTermSet SortedTermSet;
+  typedef internal::size_t size_t;
+  typedef Formula::SortedTermSet SortedTermSet;
 
-  bool Reduce(const Setup& s, const SortedTermSet& names, const Formula& phi) {
+  bool Reduce(const Formula& phi) {
     assert(phi.objective());
     switch (phi.type()) {
       case Formula::kAtomic: {
         const Clause c = phi.as_atomic().arg();
         assert(c.ground());
         assert(c.valid() || c.primitive());
-        return c.valid() || s.Subsumes(c);
+        return c.valid() || setup().Subsumes(c);
       }
       case Formula::kNot: {
         switch (phi.as_not().arg().type()) {
           case Formula::kAtomic: {
             const Clause c = phi.as_not().arg().as_atomic().arg();
-            return std::all_of(c.begin(), c.end(), [this, &s, &names](Literal a) {
+            return std::all_of(c.begin(), c.end(), [this](Literal a) {
               Formula::Ref psi = Formula::Factory::Atomic(Clause{a.flip()});
-              return Reduce(s, names, *psi);
+              return Reduce(*psi);
             });
           }
           case Formula::kNot: {
-            return Reduce(s, names, phi.as_not().arg().as_not().arg());
+            return Reduce(phi.as_not().arg().as_not().arg());
           }
           case Formula::kOr: {
             Formula::Ref left = Formula::Factory::Not(phi.as_not().arg().as_or().lhs().Clone());
             Formula::Ref right = Formula::Factory::Not(phi.as_not().arg().as_or().rhs().Clone());
-            return Reduce(s, names, *left) &&
-                   Reduce(s, names, *right);
+            return Reduce(*left) && Reduce(*right);
           }
           case Formula::kExists: {
             const Term x = phi.as_not().arg().as_exists().x();
             const Formula& psi = phi.as_not().arg().as_exists().arg();
-            const TermSet& xs = psi.free_vars();
+            const SortedTermSet& xs = psi.free_vars();
             // XXX TODO Check that this works even if we disable the first if-branch, once the name computation is fixed.
             // In test-functions.limbo, the line
             //   Refute: Fa x Know<1> f(x) == x
             // yields an error because the set of names is empty. This error should be fixed by correct name computation.
-            if (xs.find(x) == xs.end()) {
+            if (xs.all_empty()) {
               Formula::Ref xi = Formula::Factory::Not(psi.Clone());
-              return Reduce(s, names, *xi);
+              return Reduce(*xi);
             } else {
-              const TermSet& ns = names[x.sort()];
-              assert(!ns.empty());
-              return std::all_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
+              const Grounder::Names ns = grounder_.names(x.sort());
+              assert(ns.begin() != ns.end());
+              return std::all_of(ns.begin(), ns.end(), [this, &psi, x](const Term n) {
                 Formula::Ref xi = Formula::Factory::Not(psi.Clone());
                 xi->SubstituteFree(Term::Substitution(x, n), tf_);
-                return Reduce(s, names, *xi);
+                return Reduce(*xi);
               });
             }
           }
@@ -212,22 +204,21 @@ class Solver {
       case Formula::kOr: {
         const Formula& left = phi.as_or().lhs();
         const Formula& right = phi.as_or().rhs();
-        return Reduce(s, names, left) ||
-               Reduce(s, names, right);
+        return Reduce(left) || Reduce(right);
       }
       case Formula::kExists: {
         const Term x = phi.as_exists().x();
         const Formula& psi = phi.as_exists().arg();
-        const TermSet& xs = psi.free_vars();
-        if (xs.find(x) == xs.end()) {
-          return Reduce(s, names, psi);
+        const SortedTermSet& xs = psi.free_vars();
+        if (xs.all_empty()) {
+          return Reduce(psi);
         } else {
-          const TermSet& ns = names[x.sort()];
-          assert(!ns.empty());
-          return std::any_of(ns.begin(), ns.end(), [this, &s, &names, &psi, x](const Term n) {
+          const Grounder::Names ns = grounder_.names(x.sort());
+          assert(ns.begin() != ns.end());
+          return std::any_of(ns.begin(), ns.end(), [this, &psi, x](const Term n) {
             Formula::Ref xi = psi.Clone();
             xi->SubstituteFree(Term::Substitution(x, n), tf_);
-            return Reduce(s, names, *xi);
+            return Reduce(*xi);
           });
         }
       }
@@ -242,29 +233,7 @@ class Solver {
   }
 
   template<typename T, typename GoalPredicate, typename MergeResultPredicate>
-  T Split(const Setup& s,
-          const TermSet& split_terms,
-          const SortedTermSet& names,
-          int k,
-          GoalPredicate goal,
-          MergeResultPredicate merge,
-          T inconsistent_result,
-          T unsuccessful_result) {
-    return Split(s, split_terms.begin(), split_terms.end(), split_terms.size(), names, k,
-                 goal, merge, inconsistent_result, unsuccessful_result);
-  }
-
-  template<typename T, typename GoalPredicate, typename MergeResultPredicate>
-  T Split(const Setup& s,
-          const TermSet::const_iterator split_terms_begin,
-          const TermSet::const_iterator split_terms_end,
-          const internal::size_t n_split_terms,
-          const SortedTermSet& names,
-          int k,
-          GoalPredicate goal,
-          MergeResultPredicate merge,
-          T inconsistent_result,
-          T unsuccessful_result) {
+  T Split(int k, GoalPredicate goal, MergeResultPredicate merge, T inconsistent_result, T unsuccessful_result) {
     // XXX TODO The statement "the split order [does not matter] for Entails()"
     // is wrong:
     //
@@ -296,103 +265,83 @@ class Solver {
     //
     // (*) This holds under the assumption that the KB is consistent.
     // If the KB is not consistent, could split terms 'block' each other?
-    assert(std::distance(split_terms_begin, split_terms_end) == n_split_terms);
-    if (s.contains_empty_clause()) {
+    if (setup().contains_empty_clause()) {
       return unsuccessful_result;
-    } else if (k > 0 && n_split_terms > 0) {
-      assert(split_terms_begin != split_terms_end);
-      internal::size_t n_split_terms_left = n_split_terms;
-      bool recursed = false;
-      for (auto it = split_terms_begin; it != split_terms_end; ) {
-        if (n_split_terms >= k && n_split_terms_left < k-1) {
-          break;
-        }
-        const Term t = *it++;
-        --n_split_terms_left;
-        if (s.Determines(t)) {
-          continue;
-        }
-        auto merged_result = unsuccessful_result;
-        const TermSet& ns = names[t.sort()];
-        assert(!ns.empty());
-        for (const Term n : ns) {
-          Setup::ShallowCopy split_setup = s.shallow_copy();
-          const Setup::Result add_result = split_setup.AddUnit(Literal::Eq(t, n));
-          if (add_result == Setup::kInconsistent) {
-            merged_result = !merged_result ? inconsistent_result : merge(merged_result, inconsistent_result);
-            if (!merged_result) {
-              goto next_split;
-            }
-            recursed = true;
-            continue;
-          }
-          auto split_result = Split(*split_setup,
-                                    split_terms_begin,
-                                    split_terms_end,
-                                    n_split_terms,
-                                    names,
-                                    k - 1,
-                                    goal,
-                                    merge,
-                                    inconsistent_result,
-                                    unsuccessful_result);
-          if (!split_result) {
-            goto next_split;
-          }
-          merged_result = !merged_result ? split_result : merge(merged_result, split_result);
+    }
+    if (k == 0) {
+      return goal();
+    }
+    bool recursed = false;
+    for (const Term t : grounder_.lhs_terms()) {
+      if (setup().Determines(t)) {
+        continue;
+      }
+      auto merged_result = unsuccessful_result;
+      for (const Term n : grounder_.rhs_names(t)) {
+        Grounder::Undo undo;
+        const Setup::Result add_result = grounder_.AddClause(Clause{Literal::Eq(t, n)}, &undo);
+        if (add_result == Setup::kInconsistent) {
+          merged_result = !merged_result ? inconsistent_result : merge(merged_result, inconsistent_result);
           if (!merged_result) {
-            goto next_split;
+            goto next_term;
           }
           recursed = true;
+          goto next_name;
         }
-        return merged_result;
-next_split:
-        {}
+        {
+          const T split_result = Split(k-1, goal, merge, inconsistent_result, unsuccessful_result);
+          if (!split_result) {
+            goto next_term;
+          }
+          merged_result = !merged_result ? split_result : merge(merged_result, split_result);
+        }
+        if (!merged_result) {
+          goto next_term;
+        }
+        recursed = true;
+next_name:
+        {};
       }
-      return recursed ? unsuccessful_result : goal(s);
-    } else {
-      return goal(s);
+      return merged_result;
+next_term:
+      {}
     }
+    return recursed ? unsuccessful_result : goal();
   }
 
-  bool Assign(const Setup& s,
-              const LiteralAssignmentSet& assign_lits,
-              const SortedTermSet& names,
-              int k,
-              const Formula& phi,
-              bool assume_consistent,
-              const TermSet&  relevant_terms) {
-    assert(phi.objective());
-    if ((!assume_consistent && s.Subsumes(Clause{})) || phi.trivially_invalid()) {
+  template<typename GoalPredicate>
+  bool Fix(int k, GoalPredicate goal) {
+    if (setup().Subsumes(Clause{})) {
       return false;
-    } else if (k > 0 && !assign_lits.empty()) {
-      if (assign_lits.empty()) {
-        assert(phi.trivially_valid() || phi.trivially_invalid());
-        return phi.trivially_valid();
-      }
-      assert(!assign_lits.empty());
-      return std::any_of(assign_lits.begin(), assign_lits.end(), [&](const LiteralSet& lits) {
-        assert(!lits.empty());
-        Setup::ShallowCopy split_setup = s.shallow_copy();
-        for (Literal a : lits) {
-          if (!s.Subsumes(Clause{a.flip()})) {
-            split_setup.AddUnit(a);
+    }
+    if (k > 0) {
+      std::unordered_set<Literal> as;
+      for (const Term t : grounder_.lhs_terms()) {
+        for (const Term n : grounder_.rhs_names(t)) {
+          {
+            const Literal a = Literal::Eq(t, n);
+            Grounder::Undo undo;
+            const Setup::Result add_result = grounder_.AddClause(Clause{a}, &undo, true);
+            const bool succ = add_result != Setup::kSubsumed && Fix(k-1, goal);
+            if (succ) {
+              return true;
+            }
+          }
+          {
+            const Literal a = grounder_.Variablify(Literal::Eq(t, n));
+            if (!as.insert(a).second) {
+              Grounder::Undo undo;
+              const Setup::Result add_result = grounder_.AddClause(Clause{a}, &undo, true);
+              const bool succ = add_result != Setup::kSubsumed && Fix(k-1, goal);
+              if (succ) {
+                return true;
+              }
+            }
           }
         }
-        return Assign(*split_setup, assign_lits, names, k-1, phi, assume_consistent, relevant_terms);
-      });
-    } else {
-      if (!assume_consistent && !s.Consistent()) {
-        return false;
-        // TODO XXX There's something wrong with how we use
-        // Setup::LocallyConsistent() here. The argument should rather be the
-        // grounded terms from the query. And Setup::LocallyConsistent() should
-        // close the set only under unsubsumed clauses.
-      } else if (assume_consistent && !s.LocallyConsistent(relevant_terms)) {
-        return false;
       }
-      return Reduce(s, names, phi);
     }
+    return setup().Consistent() && goal();
   }
 
   Term::Factory* tf_;

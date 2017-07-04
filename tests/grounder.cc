@@ -9,6 +9,8 @@
 #include <limbo/grounder.h>
 #include <limbo/format/output.h>
 
+using limbo::format::operator<<;
+
 namespace limbo {
 
 using namespace limbo::format;
@@ -32,6 +34,102 @@ size_t length(T r) {
   return n;
 }
 
+typedef std::unordered_set<Clause> ClauseSet;
+typedef std::unordered_set<Term> TermSet;
+typedef std::unordered_set<Literal> LiteralSet;
+
+ClauseSet S(const Setup& s) {
+  ClauseSet set;
+  for (auto i : s.clauses()) {
+    set.insert(s.clause(i));
+  }
+  return set;
+}
+TermSet S(const Grounder::Names& ns) { return TermSet(ns.begin(), ns.end()); }
+TermSet S(const Grounder::LhsTerms& ts) { return TermSet(ts.begin(), ts.end()); }
+TermSet S(const Grounder::RhsNames& ns) { return TermSet(ns.begin(), ns.end()); }
+//LiteralSet S(const Grounder::LhsRhsLiterals& as) { return LiteralSet(as.begin(), as.end()); }
+
+std::pair<TermSet, size_t> operator+(const TermSet& ts, size_t n) { return std::make_pair(ts, n); }
+
+bool operator==(const TermSet& ts, const std::pair<TermSet, size_t>& p) {
+  for (Term t : p.first) {
+    if (ts.find(t) == ts.end()) {
+      return false;
+    }
+  }
+  return ts.size() == p.first.size() + p.second;
+}
+
+TEST(GrounderTest, Ground_SplitTerms_Names) {
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
+  const Symbol::Sort sa = sf.CreateSort();                  RegisterSort(sa, "");
+  const Symbol::Sort sb = sf.CreateSort();                  RegisterSort(sb, "");
+  const Term m1 = tf.CreateTerm(sf.CreateName(sa));         RegisterSymbol(m1.symbol(), "m1");
+  const Term m2 = tf.CreateTerm(sf.CreateName(sa));         RegisterSymbol(m2.symbol(), "m2");
+  const Term n1 = tf.CreateTerm(sf.CreateName(sb));         RegisterSymbol(n1.symbol(), "n1");
+  const Term n2 = tf.CreateTerm(sf.CreateName(sb));         RegisterSymbol(n2.symbol(), "n2");
+  const Term x1 = tf.CreateTerm(sf.CreateVariable(sa));     RegisterSymbol(x1.symbol(), "x1");
+  const Term x2 = tf.CreateTerm(sf.CreateVariable(sa));     RegisterSymbol(x2.symbol(), "x2");
+  const Term y1 = tf.CreateTerm(sf.CreateVariable(sb));     RegisterSymbol(y1.symbol(), "y1");
+  const Symbol s_a = sf.CreateFunction(sa, 0);              RegisterSymbol(s_a, "a");
+  const Symbol s_b = sf.CreateFunction(sb, 0);              RegisterSymbol(s_b, "b");
+  const Symbol s_f = sf.CreateFunction(sa, 1);              RegisterSymbol(s_f, "f");
+  const Symbol s_g = sf.CreateFunction(sb, 1);              RegisterSymbol(s_g, "g");
+  const Term a = tf.CreateTerm(s_a, {});
+  const Term b = tf.CreateTerm(s_b, {});
+  const Term fm1 = tf.CreateTerm(s_f, {m1});
+  const Term fm2 = tf.CreateTerm(s_f, {m2});
+  const Term fn1 = tf.CreateTerm(s_f, {n1});
+  const Term fn2 = tf.CreateTerm(s_f, {n2});
+  const Term gm1 = tf.CreateTerm(s_f, {m1});
+  const Term gm2 = tf.CreateTerm(s_f, {m2});
+  const Term gn1 = tf.CreateTerm(s_f, {n1});
+  const Term gn2 = tf.CreateTerm(s_f, {n2});
+  {
+    Grounder g(&sf, &tf);
+    //EXPECT_EQ(S(g.setup()), ClauseSet({}));
+    g.AddClause(Clause{Literal::Eq(a, m1)});
+    EXPECT_EQ(S(g.setup()), ClauseSet({Clause({Literal::Eq(a, m1)})}));
+    EXPECT_EQ(S(g.names(sa)), TermSet({m1}));
+    EXPECT_EQ(S(g.names(sb)), TermSet({}));
+    EXPECT_EQ(S(g.lhs_terms()), TermSet({a}));
+    EXPECT_EQ(S(g.rhs_names(a)), TermSet({m1}) + 1);
+    EXPECT_EQ(S(g.rhs_names(b)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm1)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm2)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn1)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn2)), TermSet({}) + 1);
+    //EXPECT_EQ(S(g.lhs_rhs_literals()), LiteralSet({Literal::Eq(a, m1)}));
+    g.AddClause(Clause{Literal::Eq(a, m1)});
+    EXPECT_EQ(S(g.setup()), ClauseSet({Clause({Literal::Eq(a, m1)})}));
+    EXPECT_EQ(S(g.names(sa)), TermSet({m1}));
+    EXPECT_EQ(S(g.names(sb)), TermSet({}));
+    EXPECT_EQ(S(g.lhs_terms()), TermSet({a}));
+    EXPECT_EQ(S(g.rhs_names(a)), TermSet({m1}) + 1);
+    EXPECT_EQ(S(g.rhs_names(b)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm1)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm2)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn1)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn2)), TermSet({}) + 1);
+    //EXPECT_EQ(S(g.lhs_rhs_literals()), LiteralSet{Literal::Eq(a, m1)});
+    g.AddClause(Clause{Literal::Eq(fm1, m1), Literal::Eq(fm1, m2), Literal::Eq(fn1, m2)});
+    EXPECT_EQ(S(g.setup()), ClauseSet({Clause({Literal::Eq(a, m1)}), Clause({Literal::Eq(fm1, m1), Literal::Eq(fm1, m2), Literal::Eq(fn1, m2)})}));
+    EXPECT_EQ(S(g.names(sa)), TermSet({m1, m2}));
+    EXPECT_EQ(S(g.names(sb)), TermSet({n1}));
+    EXPECT_EQ(S(g.lhs_terms()), TermSet({a, fm1, fn1}));
+    EXPECT_EQ(S(g.rhs_names(a)), TermSet({m1}) + 1);
+    EXPECT_EQ(S(g.rhs_names(b)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm1)), TermSet({m1, m2}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm2)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn1)), TermSet({m2}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn2)), TermSet({}) + 1);
+    //EXPECT_EQ(S(g.lhs_rhs_literals()), LiteralSet({Literal::Eq(a, m1), Literal::Eq(fm1, m1), Literal::Eq(fm1, m2), Literal::Eq(fn1, m2)}));
+  }
+}
+
+#if 0
 TEST(GrounderTest, Ground_SplitTerms_Names) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
@@ -63,7 +161,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(n1,n1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [n1=n1]. The clause is valid and hence skipped.
     EXPECT_EQ(unique_length(s), 0);
     EXPECT_TRUE(s.Consistent());
@@ -72,7 +170,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(n1,n1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
     // down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -82,7 +180,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(x1, x1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [n1=n1]. The clause is valid and hence skipped.
     EXPECT_EQ(unique_length(s), 0);
     EXPECT_TRUE(s.Consistent());
@@ -91,7 +189,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(x1, x1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
     // down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -101,7 +199,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(n1, x1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [n1=n1], [n3=n1]. The first clause is valid and
     // hence skipped. The second is invalid and hence boiled down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -111,7 +209,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(n1, x1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [n1/=n1], [n3/=n1]. The second clause is valid and
     // hence skipped. The first is invalid and hence boiled down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -121,7 +219,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(x1, x2)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [n1=n1], [n3=2], [n1=n3], [n3=n1]. The former two
     // clauses are valid and hence skipped. The latter ones are invalid and
     // hence boiled down to [].
@@ -132,7 +230,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(x1, x1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
     // down to [].
     EXPECT_EQ(unique_length(s), 1);
@@ -143,7 +241,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(a, {}), x1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [a=n1], [a=n2], which yields [].
     //EXPECT_EQ(unique_length(s), 2);  // the second clause is replaced with []
     //const_cast<limbo::Setup&>(s).Minimize();
@@ -154,7 +252,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(a, {}), n1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [a=n1].
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_TRUE(s.Consistent());
@@ -163,7 +261,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(f, {n1}), x1)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [f(n1)=n1)], [f(n1)=n3]. The clauses unify and
     // yield [].
     //EXPECT_EQ(unique_length(s), 2);
@@ -175,7 +273,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(tf.CreateTerm(f, {n1}), x2)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [f(n1)/=n1)], [f(n1)/=n3], [f(n1)/=n4].
     //EXPECT_EQ(unique_length(s), 3);
     //const_cast<limbo::Setup&>(s).Minimize();
@@ -186,7 +284,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Eq(tf.CreateTerm(h, {n1,x2}), x3)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=4,5. The clauses
     // unify and yield [].
     //EXPECT_EQ(unique_length(s), 3+1);  // after [h(n1,nX)=n4] for all nX have been added, adding any [h(n1,nX)=n5] yields []
@@ -198,7 +296,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(tf.CreateTerm(h, {n1,x2}), x3)}));
-    const limbo::Setup& s = g.Ground();
+    const limbo::Setup& s = g.setup();
     // Grounding should be [h(n1,nX)=nY] for X=1,2,3 and Y=4,5.
     //EXPECT_EQ(unique_length(s), 3*2);
     //const_cast<limbo::Setup&>(s).Minimize();
@@ -213,7 +311,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 //    g.PrepareForQuery(Formula::Factory::Exists(x2, *Formula::Factory::Atomic({Literal::Eq(x2, x2)}))->NF(&sf, &tf));
 //    g.PrepareForQuery(Formula::Factory::Exists(x3, *Formula::Factory::Atomic({Literal::Eq(x3, x3)}))->NF(&sf, &tf));
 //    g.PrepareForQuery(Formula::Factory::Exists(x4, *Formula::Factory::Atomic({Literal::Eq(x4, x4)}))->NF(&sf, &tf));
-//    const limbo::Setup& s = g.Ground();
+//    const limbo::Setup& s = g.setup();
 //    EXPECT_EQ(unique_length(s), 2);
 //  }
 
@@ -222,7 +320,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     auto phi = Formula::Factory::Exists(x3, Formula::Factory::Atomic({Literal::Eq(tf.CreateTerm(h, {n1,x3}), tf.CreateTerm(g, {tf.CreateTerm(a, {})}))}))->NF(&sf, &tf);
     // NF introduces two new variables of the same sort as x3, and one new of the same sort as n1.
     Grounder gg(&sf, &tf);
-    gg.PrepareForQuery(1, *phi);
+    gg.PrepareForQuery(*phi);
     Grounder::TermSet terms = gg.SplitTerms();
     Grounder::SortedTermSet names = gg.Names();
     //std::cout << phi << std::endl;
@@ -265,7 +363,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 0);
-      const class Setup* s = &g.Ground();
+      const class Setup* s = &g.setup();
       EXPECT_EQ(unique_length(*s), 0);
       EXPECT_TRUE(bool(g.setup_));
     }
@@ -273,7 +371,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 0);
-      const class Setup* s = &g.Ground();
+      const class Setup* s = &g.setup();
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 0);
@@ -285,7 +383,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
       EXPECT_TRUE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 1);
       EXPECT_EQ(g.processed_clauses_.size(), 0);
-      const class Setup* s = &g.Ground();
+      const class Setup* s = &g.setup();
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 1);
@@ -297,7 +395,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
       EXPECT_TRUE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 1);
-      const class Setup* s = &g.Ground();
+      const class Setup* s = &g.setup();
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 1);
@@ -309,7 +407,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
       EXPECT_TRUE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 1);
       EXPECT_EQ(g.processed_clauses_.size(), 1);
-      const class Setup* s = &g.Ground();
+      const class Setup* s = &g.setup();
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 2);
@@ -321,7 +419,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 2);
-      const class Setup* s = &g.Ground();
+      const class Setup* s = &g.setup();
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 2);
@@ -333,7 +431,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 1);
       EXPECT_EQ(g.processed_clauses_.size(), 2);
-      const class Setup* s = &g.Ground();
+      const class Setup* s = &g.setup();
       EXPECT_FALSE(g.names_changed_);
       EXPECT_EQ(g.unprocessed_clauses_.size(), 0);
       EXPECT_EQ(g.processed_clauses_.size(), 3);
@@ -532,6 +630,7 @@ TEST(GrounderTest, Ground_SplitNames_iterated) {
     EXPECT_NE(terms.size(), 0);
   }
 }
+#endif
 
 }  // namespace limbo
 
