@@ -5,22 +5,21 @@
 // A Grounder determines how many standard names need to be substituted for
 // variables in a proper+ knowledge base and in queries.
 //
-// AddClause() and PrepareForQuery() determine the names and split terms that
-// need to be considered when proving whether the added clauses entail a
-// query.
+// The grounder incrementally builds up the setup whenever AddClause(),
+// PrepareForQuery(), or GuaranteeConsistency() are called. In particular,
+// the relevant standard names (including the additional names) are managed and
+// the clauses are regrounded accordingly. The Grounder is designed for fast
+// backtracking.
 //
-// The Ground() method aims to avoid unnecessary regrounding of all clauses.
-// To this end, we distinguish internally between processed and unprocessed
-// clauses. A call to Ground() only grounds the unprocessed clauses and adds
-// them to a new Setup, which inherits the other clauses from the previous
-// result of Ground(). The unprocessed clauses include those which were added
-// with AddClause(). In case new names have been added due to AddClause() or
-// PrepareForQuery(), the unprocessed clauses include all added clauses.
+// GuaranteeConsistency() is not designed for nested calls, and PrepareForQuery()
+// should not be called before GuaranteeConsistency(). Otherwise their behaviour
+// is undefined.
 //
-// Sometimes names are used temporarily in queries. For that purpose, Grounder
-// offers CreateName() and ReturnName() as a layer on-top of Term::Factory and
-// Symbol::Factory. Returning such temporary names for later re-use may avoid
-// bloating up the setups.
+// Quantification requires the temporary use of additional standard names.
+// Grounder uses a temporary NamePool where names can be returned for later
+// re-use. This NamePool is public for it can also be used to handle free
+// variables in the representation theorem.
+
 
 #ifndef LIMBO_GROUNDER_H_
 #define LIMBO_GROUNDER_H_

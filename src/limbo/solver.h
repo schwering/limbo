@@ -2,46 +2,25 @@
 // Copyright 2016-2017 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// Solver implements limited belief implications. The key methods are Entails(),
-// Determines(), and Consistent(), which determine whether the knowledge base
-// consisting of the clauses added with AddClause() entails a query, determines
-// a terms's denotation or is consistent with it, respectively. They are are
-// sound but incomplete: if they return true, this answer is correct with
-// respect to classical logic; if they return false, this may not be correct
-// and should be rather interpreted as "don't know." The method
-// EntailsComplete() uses Consistent() to implement a complete but unsound
-// entailment relation. It is safe to call AddClause() between evaluating
-// queries with Entails(), Determines(), EntailsComplete(), or Consistent().
+// Solver implements objective limited belief implications. The key methods
+// are Entails(), Determines(), and Consistent(), which determine whether the
+// knowledge base consisting of the clauses added with AddClause() entails a
+// query, determines a terms's denotation or is consistent with it,
+// respectively. They are are sound but incomplete: if they return true, this
+// answer is correct with respect to classical logic; if they return false,
+// this may not be correct and should be rather interpreted as "don't know."
+// The method EntailsComplete() uses Consistent() to implement a complete but
+// unsound entailment relation. It is safe to call AddClause() between
+// evaluating queries with Entails(), Determines(), EntailsComplete(), or
+// Consistent().
 //
 // Splitting and assigning is done at a deterministic point, namely after
 // reducing the outermost logical operators with conjunctive meaning (negated
-// disjunction, double negation, negated existential). This is opposed to the
-// original semantics from the KR-2016 paper where splitting can be done at any
-// point during the reduction.
+// disjunction, double negation, negated existential).
 //
-// Note that in the special case that the set of clauses can be shown to be
-// inconsistent after the splits, Determines() returns the null term to indicate
-// that [t=n] is entailed by the clauses for arbitrary n.
-//
-// In the original semantics, when a split sets (t = n), we also substitute n
-// for t in the query to deal with nested terms. But since we often split before
-// reducing quantifiers, t might occur later in the query only after quantifiers
-// are reduced. Substituting n for t at splitting time is hence not sufficient.
-// For that reason, we defer that substitution until the query is reduced to a
-// clause for which subsumption is to be checked. Then we check for any nested
-// term t in that clause whether its denotation is defined by a unit clause
-// (t = n) in the setup, in which case we substitute n for t in the clause.
-// Note that the unit clause does not need to come from a split. Hence we
-// may even save some trivial splits, e.g., from [f(n) = n], [g(n) = n]
-// we infer without split that [f(g(n)) = n].
-//
-// While the ECAI-2016 paper complements the sound but incomplete entailment
-// relation with a complete but unsound entailment relation, Solver provides
-// a sound but incomplete consistency check. It is easy to see that this is
-// equivalent: Consistent(k, phi) == !EntailsComplete(k, Not(phi)) and
-// EntailsComplete(k, phi)) == !Consistent(k, Not(phi)). The advantage of
-// the Consistent() method is that it is perhaps less confusing and less prone
-// to typos and shares some code with the sound Entails().
+// In the special case that the set of clauses can be shown to be inconsistent
+// after the splits, Determines() returns the null term to indicate that [t=n]
+// is entailed by the clauses for arbitrary n.
 
 #ifndef LIMBO_SOLVER_H_
 #define LIMBO_SOLVER_H_
