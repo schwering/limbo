@@ -384,8 +384,7 @@ class Grounder {
 
   NamePool& temp_name_pool() { return name_pool_; }
 
-  Setup& setup() { return last_ply().clauses.shallow_setup.setup(); }
-  const Setup& setup() const { return last_ply().clauses.shallow_setup.setup(); }
+  const Setup& setup() const { return plies_.empty() ? dummy_setup_ : last_ply().clauses.shallow_setup.setup(); }
 
   // 1. AddClause(c):
   // New ply.
@@ -694,6 +693,8 @@ class Grounder {
   Ply& last_ply() { assert(!plies_.empty()); return plies_.back(); }
   const Ply& last_ply() const { assert(!plies_.empty()); return plies_.back(); }
 
+  Setup& last_setup() { return last_ply().clauses.shallow_setup.setup(); }
+
   void pop_ply() {
     assert(!plies_.empty());
     Ply& p = last_ply();
@@ -882,7 +883,7 @@ rescan:
   }
 
   bool InconsistencyCheck(const Ply& p, const Clause& c) {
-    return !p.do_not_add_if_inconsistent || !c.unit() || !setup().Subsumes(Clause{c[0].flip()});
+    return !p.do_not_add_if_inconsistent || !c.unit() || !last_setup().Subsumes(Clause{c[0].flip()});
   }
 
   template<typename UnaryFunction, typename UnaryPredicate>
@@ -942,7 +943,7 @@ rescan:
         [this](const Clause& c, const Ply& p, Setup::Result* add_result) {
           // XXX Should relevance be tested only for clauses from before the consistency-guarantee?
           if (!c.valid() && IsRelevantClause(c) && InconsistencyCheck(p, c)) {
-            const Setup::Result r = setup().AddClause(c);
+            const Setup::Result r = last_setup().AddClause(c);
             switch (r) {
               case Setup::kOk:
                 *add_result = r;
@@ -1005,6 +1006,7 @@ rescan:
   NamePool name_pool_;
   VariablePool var_pool_;
   Ply::List plies_;
+  Setup dummy_setup_;
 };
 
 }  // namespace limbo
