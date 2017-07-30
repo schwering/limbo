@@ -133,10 +133,10 @@ class Grounder {
       SortedTermSet terms;
     } relevant;
     struct {
-      SortedTermSet occurring;       // names occurring in clause or prepared-for query (but are not plus-names)
+      SortedTermSet mentioned;       // names mentioned in clause or prepared-for query (but are not plus-names)
       SortedTermSet plus_max;        // plus-names that may be used for multiple purposes
       SortedTermSet plus_new;        // plus-names that may not be used for multiple purposes
-      SortedTermSet plus_occurring;  // plus-names that later occurred in formulas (which lead to plus_new names)
+      SortedTermSet plus_mentioned;  // plus-names that later occurred in formulas (which lead to plus_new names)
     } names;
     struct {
       Ungrounded<Literal>::Set ungrounded;  // literals in prepared-for query
@@ -319,7 +319,7 @@ class Grounder {
       explicit Begin(Symbol::Sort sort) : sort(sort) {}
       name_iterator operator()(const Ply& p) const {
         auto b = plus_iterator(p.names.plus_max.begin(sort), p.names.plus_max.end(sort), p.names.plus_new.begin(sort));
-        return name_iterator(p.names.occurring.begin(sort), p.names.occurring.end(sort), b);
+        return name_iterator(p.names.mentioned.begin(sort), p.names.mentioned.end(sort), b);
       }
      private:
       Symbol::Sort sort;
@@ -329,7 +329,7 @@ class Grounder {
       explicit End(Symbol::Sort sort) : sort(sort) {}
       name_iterator operator()(const Ply& p) const {
         auto e = plus_iterator(p.names.plus_max.end(sort), p.names.plus_max.end(sort), p.names.plus_new.begin(sort));
-        return name_iterator(p.names.occurring.end(sort), p.names.occurring.end(sort), e);
+        return name_iterator(p.names.mentioned.end(sort), p.names.mentioned.end(sort), e);
       }
      private:
       Symbol::Sort sort;
@@ -451,9 +451,9 @@ class Grounder {
         if (t.name()) {
           if (!IsOccurringName(t)) {
             if (IsPlusName(t)) {
-              p.names.plus_occurring.insert(t);
+              p.names.plus_mentioned.insert(t);
             } else {
-              p.names.occurring.insert(t);
+              p.names.mentioned.insert(t);
             }
           }
         }
@@ -462,7 +462,7 @@ class Grounder {
       p.clauses.ungrounded.push_back(uc);
       CreateMaxPlusNames(uc.vars, 1);
     }
-    CreateNewPlusNames(p.names.plus_occurring);
+    CreateNewPlusNames(p.names.plus_mentioned);
     p.do_not_add_if_inconsistent = do_not_add_if_inconsistent;
     const Setup::Result r = Reground();
     if (undo) {
@@ -492,9 +492,9 @@ class Grounder {
         if (t.name()) {
           if (!IsOccurringName(t)) {
             if (IsPlusName(t)) {
-              p.names.plus_occurring.insert(t);
+              p.names.plus_mentioned.insert(t);
             } else {
-              p.names.occurring.insert(t);
+              p.names.mentioned.insert(t);
             }
           }
         } else if (t.variable()) {
@@ -507,7 +507,7 @@ class Grounder {
       }
       return true;
     });
-    CreateNewPlusNames(p.names.plus_occurring);
+    CreateNewPlusNames(p.names.plus_mentioned);
     CreateMaxPlusNames(phi.n_vars());  // XXX or CreateNewPlusNames()?
     Reground();
     if (undo) {
@@ -772,7 +772,7 @@ class Grounder {
   bool IsOccurringName(Term n) const {
     assert(n.name());
     for (const Ply& p : plies_) {
-      if (p.names.occurring.contains(n) || p.names.plus_occurring.contains(n)) {
+      if (p.names.mentioned.contains(n) || p.names.plus_mentioned.contains(n)) {
         return true;
       }
     }
@@ -985,7 +985,7 @@ rescan:
     Ply& p = last_ply();
     assert(p.relevant.filter);
     assert(p.clauses.ungrounded.empty());
-    assert(p.names.occurring.all_empty() && p.names.plus_new.all_empty() && p.names.plus_max.all_empty());
+    assert(p.names.mentioned.all_empty() && p.names.plus_new.all_empty() && p.names.plus_max.all_empty());
     const Setup& old_s = p.clauses.shallow_setup.setup();
     std::unique_ptr<Setup> new_s(new Setup());
     for (size_t i : old_s.clauses()) {

@@ -824,7 +824,7 @@ class Parser {
       Symbol::Sort sort = ctx->LookupSort(sort_id);
       std::vector<Term> ts;
       if (ts_a.empty()) {
-        Grounder::Names ns = ctx->kb().sphere(0).grounder().names(sort);
+        const KnowledgeBase::TermSet& ns = ctx->kb().mentioned_names(sort);
         ts.insert(ts.end(), ns.begin(), ns.end());
       } else {
         for (const Action<Term>& t_a : ts_a) {

@@ -53,6 +53,8 @@ class KnowledgeBase {
   typedef internal::size_t size_t;
   typedef size_t sphere_index;
   typedef Formula::belief_level belief_level;
+  typedef Formula::TermSet TermSet;
+  typedef Formula::SortedTermSet SortedTermSet;
 
   KnowledgeBase(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf), objective_(sf, tf) {
     spheres_.emplace_back(sf, tf);
@@ -108,6 +110,9 @@ class KnowledgeBase {
   const Solver& sphere(sphere_index p) const { const_cast<KnowledgeBase&>(*this).UpdateSpheres(); return spheres_[p]; }
   const std::vector<Solver>& spheres() const { const_cast<KnowledgeBase&>(*this).UpdateSpheres(); return spheres_; }
 
+  const SortedTermSet& mentioned_names() const { return names_; }
+  const TermSet& mentioned_names(Symbol::Sort sort) const { return names_[sort]; }
+
  private:
   struct Conditional {
     belief_level k;
@@ -116,8 +121,6 @@ class KnowledgeBase {
     Clause not_ante_or_conse;
     bool assume_consistent;
   };
-  typedef Formula::TermSet TermSet;
-  typedef Formula::SortedTermSet SortedTermSet;
 
   void Add(belief_level k,
            belief_level l,

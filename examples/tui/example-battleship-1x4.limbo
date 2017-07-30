@@ -55,7 +55,8 @@ KB: water(s(tail(three)))=T
 KB: p=p1 v p=p2 v p=p3 v p=p4 v water(p)=T
 // We don't need the following in the KB. If we do have it, however,
 // split level 1 suffices for the assertions below.
-// KB: head(three)=p v body(three)=p v tail(three)=p v water(p)=T
+//KB: head(three)=p v body(three)=p v tail(three)=p v water(p)=T
+Assert: Fa p K<2> (head(three)=p v body(three)=p v tail(three)=p v water(p)=T)
 Assert: Fa p G K<2> (head(three)=p v body(three)=p v tail(three)=p v water(p)=T)
 
 Call: bs_init(p1, p2, p3, p4)
