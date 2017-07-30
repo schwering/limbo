@@ -97,18 +97,16 @@ class KnowledgeBase {
   bool Entails(const Formula& sigma, bool distribute = true) {
     assert(sigma.subjective());
     assert(sigma.free_vars().all_empty());
-    if (n_processed_beliefs_ < beliefs_.size() || n_processed_knowledge_ < knowledge_.size()) {
-      BuildSpheres();
-    }
+    UpdateSpheres();
     Formula::Ref phi = ReduceModalities(*sigma.NF(sf_, tf_, distribute), false);
     assert(phi->objective());
     return objective_.Entails(0, *phi, Solver::kNoConsistencyGuarantee);
   }
 
-  sphere_index n_spheres() const { return spheres_.size(); }
-  Solver& sphere(sphere_index p) { return spheres_[p]; }
-  const Solver& sphere(sphere_index p) const { return spheres_[p]; }
-  const std::vector<Solver>& spheres() const { return spheres_; }
+  sphere_index n_spheres() const { const_cast<KnowledgeBase&>(*this).UpdateSpheres(); return spheres_.size(); }
+  Solver& sphere(sphere_index p) { UpdateSpheres(); return spheres_[p]; }
+  const Solver& sphere(sphere_index p) const { const_cast<KnowledgeBase&>(*this).UpdateSpheres(); return spheres_[p]; }
+  const std::vector<Solver>& spheres() const { const_cast<KnowledgeBase&>(*this).UpdateSpheres(); return spheres_; }
 
  private:
   struct Conditional {
@@ -131,7 +129,10 @@ class KnowledgeBase {
     not_antecedent_or_consequent.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
   }
 
-  void BuildSpheres() {
+  void UpdateSpheres() {
+    if (n_processed_beliefs_ == beliefs_.size() && n_processed_knowledge_ == knowledge_.size()) {
+      return;
+    }
     if (beliefs_.empty()) {
       assert(spheres_.size() == 1);
       assert(n_processed_beliefs_ == 0);
@@ -205,12 +206,12 @@ class KnowledgeBase {
                                         ReduceModalities(alpha.as_exists().arg(), assume_consistent));
       }
       case Formula::kKnow: {
-        const sphere_index p = n_spheres() - 1;
+        const sphere_index p = spheres_.size() - 1;
         Formula::Ref phi = ReduceModalities(alpha.as_know().arg(), assume_consistent);
         return ResEntails(p, alpha.as_know().k(), *phi, assume_consistent);
       }
       case Formula::kCons: {
-        const sphere_index p = n_spheres() - 1;
+        const sphere_index p = spheres_.size() - 1;
         Formula::Ref phi = ReduceModalities(alpha.as_cons().arg(), assume_consistent);
         return ResConsistent(p, alpha.as_cons().k(), *phi, assume_consistent);
       }
@@ -222,7 +223,7 @@ class KnowledgeBase {
         const belief_level l = alpha.as_bel().l();
         std::vector<Formula::Ref> consistent;
         std::vector<Formula::Ref> entails;
-        for (sphere_index p = 0; p < n_spheres(); ++p) {
+        for (sphere_index p = 0; p < spheres_.size(); ++p) {
           consistent.push_back(ResConsistent(p, l, *ante, assume_consistent));
           entails.push_back(ResEntails(p, k, *not_ante_or_conse, assume_consistent));
           // The above calls to ResConsistent() and ResEntails() are potentially
