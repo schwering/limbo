@@ -100,7 +100,7 @@ class KnowledgeBase {
     assert(sigma.subjective());
     assert(sigma.free_vars().all_empty());
     UpdateSpheres();
-    Formula::Ref phi = ReduceModalities(*sigma.NF(sf_, tf_, distribute), false);
+    Formula::Ref phi = ReduceModalities(*sigma.NF(sf_, tf_, distribute));
     assert(phi->objective());
     return objective_.Entails(0, *phi, Solver::kNoConsistencyGuarantee);
   }
@@ -166,12 +166,15 @@ class KnowledgeBase {
         for (size_t i = 0; i < beliefs_.size(); ++i) {
           const Conditional& c = beliefs_[i];
           if (!done[i]) {
-            const bool possibly_consistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()),
-                                                             c.assume_consistent);
+            Grounder::Undo undo;
+            if (c.assume_consistent) {
+              sphere.grounder().GuaranteeConsistency(*c.ante, &undo);
+            }
+            const bool possibly_consistent = !sphere.Entails(c.k, *Formula::Factory::Not(c.ante->Clone()));
             if (possibly_consistent) {
               done[i] = true;
               ++n_done;
-              const bool necessarily_consistent = sphere.Consistent(c.l, *c.ante, c.assume_consistent);
+              const bool necessarily_consistent = sphere.Consistent(c.l, *c.ante);
               if (!necessarily_consistent) {
                 next_is_plausibility_consistent = false;
               }
@@ -188,7 +191,7 @@ class KnowledgeBase {
     n_processed_knowledge_ = knowledge_.size();
   }
 
-  Formula::Ref ReduceModalities(const Formula& alpha, bool assume_consistent) {
+  Formula::Ref ReduceModalities(const Formula& alpha) {
     if (alpha.objective()) {
       return alpha.Clone();
     }
@@ -198,37 +201,36 @@ class KnowledgeBase {
         return Formula::Ref(nullptr);
       }
       case Formula::kNot: {
-        return Formula::Factory::Not(ReduceModalities(alpha.as_not().arg(), assume_consistent));
+        return Formula::Factory::Not(ReduceModalities(alpha.as_not().arg()));
       }
       case Formula::kOr: {
-        return Formula::Factory::Or(ReduceModalities(alpha.as_or().lhs(), assume_consistent),
-                                    ReduceModalities(alpha.as_or().rhs(), assume_consistent));
+        return Formula::Factory::Or(ReduceModalities(alpha.as_or().lhs()),
+                                    ReduceModalities(alpha.as_or().rhs()));
       }
       case Formula::kExists: {
         return Formula::Factory::Exists(alpha.as_exists().x(),
-                                        ReduceModalities(alpha.as_exists().arg(), assume_consistent));
+                                        ReduceModalities(alpha.as_exists().arg()));
       }
       case Formula::kKnow: {
         const sphere_index p = spheres_.size() - 1;
-        Formula::Ref phi = ReduceModalities(alpha.as_know().arg(), assume_consistent);
-        return ResEntails(p, alpha.as_know().k(), *phi, assume_consistent);
+        Formula::Ref phi = ReduceModalities(alpha.as_know().arg());
+        return ResEntails(p, alpha.as_know().k(), *phi);
       }
       case Formula::kCons: {
         const sphere_index p = spheres_.size() - 1;
-        Formula::Ref phi = ReduceModalities(alpha.as_cons().arg(), assume_consistent);
-        return ResConsistent(p, alpha.as_cons().k(), *phi, assume_consistent);
+        Formula::Ref phi = ReduceModalities(alpha.as_cons().arg());
+        return ResConsistent(p, alpha.as_cons().k(), *phi);
       }
       case Formula::kBel: {
-        const Formula::Ref ante = ReduceModalities(alpha.as_bel().antecedent(), assume_consistent);
-        const Formula::Ref not_ante_or_conse = ReduceModalities(alpha.as_bel().not_antecedent_or_consequent(),
-                                                                assume_consistent);
+        const Formula::Ref ante = ReduceModalities(alpha.as_bel().antecedent());
+        const Formula::Ref not_ante_or_conse = ReduceModalities(alpha.as_bel().not_antecedent_or_consequent());
         const belief_level k = alpha.as_bel().k();
         const belief_level l = alpha.as_bel().l();
         std::vector<Formula::Ref> consistent;
         std::vector<Formula::Ref> entails;
         for (sphere_index p = 0; p < spheres_.size(); ++p) {
-          consistent.push_back(ResConsistent(p, l, *ante, assume_consistent));
-          entails.push_back(ResEntails(p, k, *not_ante_or_conse, assume_consistent));
+          consistent.push_back(ResConsistent(p, l, *ante));
+          entails.push_back(ResEntails(p, k, *not_ante_or_conse));
           // The above calls to ResConsistent() and ResEntails() are potentially
           // very expensive, so we should abort this loop when the subsequent
           // spheres are clearly irrelevant.
@@ -252,21 +254,25 @@ class KnowledgeBase {
         return phi;
       }
       case Formula::kGuarantee: {
-        assume_consistent = true;
-        return ReduceModalities(alpha.as_guarantee().arg(), assume_consistent);
+        std::vector<Grounder::Undo> undos(spheres_.size());
+        const Formula& beta = alpha.as_guarantee().arg();
+        for (sphere_index p = 0; p < spheres_.size(); ++p) {
+          spheres_[p].grounder().GuaranteeConsistency(beta, &undos[p]);
+        }
+        return ReduceModalities(beta);
       }
     }
     throw;
   }
 
-  Formula::Ref ResEntails(sphere_index p, belief_level k, const Formula& phi, bool assume_consistent) {
+  Formula::Ref ResEntails(sphere_index p, belief_level k, const Formula& phi) {
     // If phi is just a literal (t = n) or (t = x) for primitive t, we can use Solver::Determines to speed things up.
     if (phi.type() == Formula::kAtomic) {
       const Clause& c = phi.as_atomic().arg();
       if (c.unit()) {
         Literal a = c.first();
         if (a.lhs().primitive() && a.pos()) {
-          internal::Maybe<Term> r = spheres_[p].Determines(k, a.lhs(), assume_consistent);
+          internal::Maybe<Term> r = spheres_[p].Determines(k, a.lhs());
           if (a.rhs().name()) {
             return bool_to_formula(r && (r.val.null() || r.val == a.rhs()));
           } else if (a.rhs().variable()) {
@@ -283,15 +289,15 @@ class KnowledgeBase {
         }
       }
     }
-    auto if_no_free_vars = [k, assume_consistent, this](Solver* sphere, const Formula& psi) {
-      return sphere->Entails(k, psi, assume_consistent);
+    auto if_no_free_vars = [k, this](Solver* sphere, const Formula& psi) {
+      return sphere->Entails(k, psi);
     };
     return Res(p, phi.Clone(), if_no_free_vars);
   }
 
-  Formula::Ref ResConsistent(sphere_index p, belief_level k, const Formula& phi, bool assume_consistent) {
-    auto if_no_free_vars = [k, assume_consistent, this](Solver* sphere, const Formula& psi) {
-      return sphere->Consistent(k, psi, assume_consistent);
+  Formula::Ref ResConsistent(sphere_index p, belief_level k, const Formula& phi) {
+    auto if_no_free_vars = [k, this](Solver* sphere, const Formula& psi) {
+      return sphere->Consistent(k, psi);
     };
     return Res(p, phi.Clone(), if_no_free_vars);
   }

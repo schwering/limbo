@@ -127,9 +127,9 @@ class Setup {
       c.setup_ = nullptr;
       return *this;
     }
-    ~ShallowCopy() { Die(); }
+    ~ShallowCopy() { Kill(); }
 
-    void Die() {
+    void Kill() {
       if (setup_) {
         assert(data_.empty_clause + data_.n_clauses + data_.n_units == 0 || setup_->saved_-- > 0);
         setup_->empty_clause_ = data_.empty_clause;

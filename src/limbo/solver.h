@@ -102,7 +102,6 @@ class Solver {
     return !Consistent(k, *psi, assume_consistent);
   }
 
-  int cons=0;
   bool Consistent(int k, const Formula& phi, bool assume_consistent = false) {
     assert(phi.objective());
     assert(phi.free_vars().all_empty());
@@ -112,9 +111,7 @@ class Solver {
     }
     Grounder::Undo undo2;
     grounder_.PrepareForQuery(phi, &undo2);
-    bool b = false;
-    const bool consistent = !phi.trivially_invalid() && (b = Fix(k, [this, &phi]() { return Reduce(phi); }));
-    return consistent;
+    return !phi.trivially_invalid() && Fix(k, [this, &phi]() { return Reduce(phi); });
   }
 
  private:
