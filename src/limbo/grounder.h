@@ -979,7 +979,7 @@ rescan:
     return add_result;
   }
 
-  void GroundNewSetup() {
+  void GroundNewSetup(bool minimize = false) {
     // Ground all clauses for all names.
     Ply& p = last_ply();
     assert(p.relevant.filter);
@@ -994,7 +994,9 @@ rescan:
         new_s->AddClause(c);
       }
     }
-    new_s->Minimize();
+    if (minimize) {
+      new_s->Minimize();
+    }
     p.clauses.full_setup = std::move(new_s);
     p.clauses.shallow_setup = p.clauses.full_setup->shallow_copy();
   }
