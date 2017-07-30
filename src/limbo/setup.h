@@ -153,7 +153,8 @@ class Setup {
     }
 
     ClauseRange<GlobalIndex> new_clauses() const {
-      const size_t last = setup_->empty_clause_ - data_.empty_clause +
+      const size_t last =
+          setup_->empty_clause_ - data_.empty_clause +
           setup_->units_.size() - data_.n_units +
           setup_->clauses_.size() - data_.n_clauses;
       return ClauseRange<GlobalIndex>(last, GlobalIndex(setup_, data_.empty_clause, data_.n_units, data_.n_clauses));

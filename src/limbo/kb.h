@@ -192,24 +192,18 @@ class KnowledgeBase {
   }
 
   Formula::Ref ReduceModalities(const Formula& alpha) {
-    if (alpha.objective()) {
-      return alpha.Clone();
-    }
     switch (alpha.type()) {
       case Formula::kAtomic: {
-        assert(false);
-        return Formula::Ref(nullptr);
+        return alpha.Clone();
       }
       case Formula::kNot: {
         return Formula::Factory::Not(ReduceModalities(alpha.as_not().arg()));
       }
       case Formula::kOr: {
-        return Formula::Factory::Or(ReduceModalities(alpha.as_or().lhs()),
-                                    ReduceModalities(alpha.as_or().rhs()));
+        return Formula::Factory::Or(ReduceModalities(alpha.as_or().lhs()), ReduceModalities(alpha.as_or().rhs()));
       }
       case Formula::kExists: {
-        return Formula::Factory::Exists(alpha.as_exists().x(),
-                                        ReduceModalities(alpha.as_exists().arg()));
+        return Formula::Factory::Exists(alpha.as_exists().x(), ReduceModalities(alpha.as_exists().arg()));
       }
       case Formula::kKnow: {
         const sphere_index p = spheres_.size() - 1;

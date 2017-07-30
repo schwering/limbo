@@ -517,7 +517,6 @@ class Grounder {
   void GuaranteeConsistency(const Formula& alpha, Undo* undo) {
     // Collect ungrounded terms from query.
     // Close under terms in current setup.
-    assert(plies_.empty() || !last_ply().relevant.filter);
     Ply& p = new_ply();
     p.relevant.filter = true;
     alpha.Traverse([this, &p](const Term t) {
@@ -543,7 +542,6 @@ class Grounder {
   void GuaranteeConsistency(Term t, Undo* undo) {
     // Add t to ungrounded terms from query.
     // Close under terms in current setup.
-    assert(plies_.empty() || !last_ply().relevant.filter);
     assert(t.primitive());
     Ply& p = new_ply();
     p.relevant.filter = true;
