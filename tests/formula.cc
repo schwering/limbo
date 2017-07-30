@@ -113,10 +113,10 @@ TEST(Formula, NF) {
     EXPECT_EQ(*phi, *F::Or(F::Not(F::Exists(x, F::Atomic(Clause{Literal::Eq(tf.CreateTerm(P, {x}), True)}))),
                            F::Not(F::Exists(y, F::Not(F::Atomic(Clause{Literal::Eq(tf.CreateTerm(Q, {y}), True)}))))));
     EXPECT_EQ(*phi_nf,
-              *F::Not(F::Exists(x, F::Not(F::Not(F::Exists(y, F::Not(F::Atomic(Clause{
-                                                                               Literal::Neq(tf.CreateTerm(P, {x}), True),
-                                                                               Literal::Eq(tf.CreateTerm(Q, {y}), True)
-                                                                               }))))))));
+              *F::Not(F::Exists(x, F::Exists(y, F::Not(F::Atomic(Clause{
+                                                                 Literal::Neq(tf.CreateTerm(P, {x}), True),
+                                                                 Literal::Eq(tf.CreateTerm(Q, {y}), True)
+                                                                 }))))));
   }
 }
 

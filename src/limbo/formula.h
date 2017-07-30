@@ -130,6 +130,7 @@ class Formula {
   Ref NF(Symbol::Factory* sf, Term::Factory* tf, bool distribute = true) const {
     Formula::Ref c = Clone();
     c->Rectify(sf, tf);
+    c = c->Normalize(distribute);
     c = c->Flatten(0, sf, tf);
     c = c->Normalize(distribute);
     return Ref(std::move(c));
