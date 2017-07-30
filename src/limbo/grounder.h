@@ -45,6 +45,10 @@
 #include <limbo/internal/iter.h>
 #include <limbo/internal/maybe.h>
 
+#include <iostream>
+#include <limbo/format/output.h>
+using limbo::format::operator<<;
+
 namespace limbo {
 
 class Grounder {
@@ -129,9 +133,10 @@ class Grounder {
       SortedTermSet terms;
     } relevant;
     struct {
-      SortedTermSet occurring;  // names occurring in clause or prepared-for query
-      SortedTermSet plus_max;   // plus-names that may be used for multiple purposes
-      SortedTermSet plus_new;   // plus-names that may not be used for multiple purposes
+      SortedTermSet occurring;       // names occurring in clause or prepared-for query (but are not plus-names)
+      SortedTermSet plus_max;        // plus-names that may be used for multiple purposes
+      SortedTermSet plus_new;        // plus-names that may not be used for multiple purposes
+      SortedTermSet plus_occurring;  // plus-names that later occurred in formulas (which lead to plus_new names)
     } names;
     struct {
       Ungrounded<Literal>::Set ungrounded;  // literals in prepared-for query
@@ -438,18 +443,19 @@ class Grounder {
     // Add variables to vars, generate plus-names.
     // Re-ground.
     Ply& p = new_ply();
-    SortedTermSet reused_plus_names;
     for (const Clause& c : clauses) {
       Ungrounded<Clause> uc(c);
-      uc.val.Traverse([this, &p, &uc, &reused_plus_names](Term t) {
+      uc.val.Traverse([this, &p, &uc](Term t) {
         if (t.variable()) {
           uc.vars.insert(t);
         }
         if (t.name()) {
-          if (IsPlusName(t)) {
-            reused_plus_names.insert(t);
-          } else {
-            p.names.occurring.insert(t);
+          if (!IsOccurringName(t)) {
+            if (IsPlusName(t)) {
+              p.names.plus_occurring.insert(t);
+            } else {
+              p.names.occurring.insert(t);
+            }
           }
         }
         return true;
@@ -457,7 +463,7 @@ class Grounder {
       p.clauses.ungrounded.push_back(uc);
       CreateMaxPlusNames(uc.vars, 1);
     }
-    CreateNewPlusNames(reused_plus_names);
+    CreateNewPlusNames(p.names.plus_occurring);
     p.do_not_add_if_inconsistent = do_not_add_if_inconsistent;
     const Setup::Result r = Reground();
     if (undo) {
@@ -481,15 +487,16 @@ class Grounder {
     // Re-ground.
     // Add f(.)=n, f(.)/=n pairs from grounded phi to lhs_rhs.
     Ply& p = new_ply();
-    SortedTermSet reused_plus_names;
-    phi.Traverse([this, &p, &reused_plus_names](const Literal a) {
+    phi.Traverse([this, &p](const Literal a) {
       Ungrounded<Literal> ua(a.pos() ? a : a.flip());
-      a.Traverse([this, &p, &reused_plus_names, &ua](const Term t) {
+      a.Traverse([this, &p, &ua](const Term t) {
         if (t.name()) {
-          if (IsPlusName(t)) {
-            reused_plus_names.insert(t);
-          } else {
-            p.names.occurring.insert(t);
+          if (!IsOccurringName(t)) {
+            if (IsPlusName(t)) {
+              p.names.plus_occurring.insert(t);
+            } else {
+              p.names.occurring.insert(t);
+            }
           }
         } else if (t.variable()) {
           ua.vars.insert(t);
@@ -501,7 +508,7 @@ class Grounder {
       }
       return true;
     });
-    CreateNewPlusNames(reused_plus_names);
+    CreateNewPlusNames(p.names.plus_occurring);
     CreateMaxPlusNames(phi.n_vars());  // XXX or CreateNewPlusNames()?
     Reground();
     if (undo) {
@@ -761,6 +768,16 @@ class Grounder {
     return n_names;
   }
 
+  bool IsOccurringName(Term n) const {
+    assert(n.name());
+    for (const Ply& p : plies_) {
+      if (p.names.occurring.contains(n) || p.names.plus_occurring.contains(n)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   bool IsPlusName(Term n) const {
     assert(n.name());
     for (const Ply& p : plies_) {
@@ -946,12 +963,10 @@ rescan:
           UpdateLhsRhs(a);
         });
     Ply& p = last_ply();
-    if (minimize) {
-      if (p.clauses.full_setup) {
-        p.clauses.full_setup->Minimize();
-      } else {
-        p.clauses.shallow_setup.Minimize();
-      }
+    if (p.clauses.full_setup) {
+      p.clauses.full_setup->Minimize();
+    } else if (minimize) {
+      p.clauses.shallow_setup.Minimize();
     }
     if (p.relevant.filter) {
       ForEachNewGrounding(
