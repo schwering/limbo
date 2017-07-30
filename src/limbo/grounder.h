@@ -11,9 +11,8 @@
 // the clauses are regrounded accordingly. The Grounder is designed for fast
 // backtracking.
 //
-// GuaranteeConsistency() is not designed for nested calls, and PrepareForQuery()
-// should not be called before GuaranteeConsistency(). Otherwise their behaviour
-// is undefined.
+// PrepareForQuery() should not be called before GuaranteeConsistency().
+// Otherwise their behaviour is undefined.
 //
 // Quantification requires the temporary use of additional standard names.
 // Grounder uses a temporary NamePool where names can be returned for later
@@ -502,7 +501,7 @@ class Grounder {
         }
         return true;
       });
-      if (ua.val.lhs().function() && IsNewUngroundedLhsRhs(ua)) {
+      if (ua.val.lhs().function() && IsNewUngroundedLhsRhs(ua, Plies::kSinceSetup)) {
         last_ply().lhs_rhs.ungrounded.insert(ua);
       }
       return true;
@@ -525,18 +524,16 @@ class Grounder {
       if (t.function()) {
         Ungrounded<Term> ut(t);
         t.Traverse([&ut](const Term x) { if (x.variable()) { ut.vars.insert(x); } return true; });
-        if (IsNewUngroundedRelevantTerm(ut)) {
-          p.relevant.ungrounded.insert(ut);
-        }
+        p.relevant.ungrounded.insert(ut);
       }
       return false;
     });
     for (const Ungrounded<Term>& u : p.relevant.ungrounded) {
       for (const Term g : groundings(&u.val, &u.vars)) {
-        UpdateRelevantTerms(g);
+        p.relevant.terms.insert(g);
       }
     }
-    CloseRelevanceUnderClauses(p.clauses.shallow_setup.setup().clauses());
+    CloseRelevanceUnderClauses(p.clauses.shallow_setup.setup().clauses(), Plies::kNew);
     GroundNewSetup();
     if (undo) {
       *undo = Undo(this);
@@ -550,12 +547,9 @@ class Grounder {
     assert(t.primitive());
     Ply& p = new_ply();
     p.relevant.filter = true;
-    Ungrounded<Term> ut(t);
-    if (IsNewUngroundedRelevantTerm(ut)) {
-      p.relevant.ungrounded.insert(ut);
-    }
-    UpdateRelevantTerms(t);
-    CloseRelevanceUnderClauses(p.clauses.shallow_setup.setup().clauses());
+    p.relevant.ungrounded.insert(Ungrounded<Term>(t));
+    p.relevant.terms.insert(t);
+    CloseRelevanceUnderClauses(p.clauses.shallow_setup.setup().clauses(), Plies::kNew);
     GroundNewSetup();
     if (undo) {
       *undo = Undo(this);
@@ -582,7 +576,7 @@ class Grounder {
   Plies plies(Plies::Policy p = Plies::kAll) const { return Plies(this, p); }
   LhsTerms lhs_terms(Plies::Policy p = Plies::kAll) const { return LhsTerms(this, p); }
   // The additional name must not be used after RhsName's death.
-  RhsNames rhs_names(Term t, Plies::Policy p = Plies::kAll) { return RhsNames(this, t, p); }
+  RhsNames rhs_names(Term t, Plies::Policy p = Plies::kSinceSetup) { return RhsNames(this, t, p); }
   Names names(Symbol::Sort sort, Plies::Policy p = Plies::kAll) const { return Names(this, sort, p); }
 
  private:
@@ -694,6 +688,7 @@ class Grounder {
   const Ply& last_ply() const { assert(!plies_.empty()); return plies_.back(); }
 
   Setup& last_setup() { return last_ply().clauses.shallow_setup.setup(); }
+  const Setup& last_setup() const { return last_ply().clauses.shallow_setup.setup(); }
 
   void pop_ply() {
     assert(!plies_.empty());
@@ -707,9 +702,9 @@ class Grounder {
     plies_.pop_back();
   }
 
-  bool IsNewUngroundedLhsRhs(const Ungrounded<Literal>& ua) {
+  bool IsNewUngroundedLhsRhs(const Ungrounded<Literal>& ua, Plies::Policy p) const {
     assert(ua.val.lhs().function());
-    for (const Ply& p : plies(Plies::kSinceSetup)) {
+    for (const Ply& p : plies(p)) {
       if (p.lhs_rhs.ungrounded.find(ua) != p.lhs_rhs.ungrounded.end()) {
         return false;
       }
@@ -717,9 +712,9 @@ class Grounder {
     return true;
   }
 
-  bool IsNewLhsRhs(Literal a) {
+  bool IsNewLhsRhs(Literal a, Plies::Policy p) const {
     assert(a.primitive());
-    for (const Ply& p : plies(Plies::kSinceSetup)) {
+    for (const Ply& p : plies(p)) {
       auto it = p.lhs_rhs.map.find(a.lhs());
       if (it != p.lhs_rhs.map.end() && it->second.find(a.rhs()) != it->second.end()) {
         return false;
@@ -728,19 +723,9 @@ class Grounder {
     return true;
   }
 
-  bool IsNewUngroundedRelevantTerm(const Ungrounded<Term>& ut) {
-    assert(ut.val.function());
-    for (const Ply& p : plies(Plies::kSinceSetup)) {
-      if (p.relevant.ungrounded.find(ut) != p.relevant.ungrounded.end()) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool IsNewRelevantTerm(Term t) {
+  bool IsNewRelevantTerm(Term t, Plies::Policy p) const {
     assert(t.ground() && t.function());
-    for (const Ply& p : plies(Plies::kSinceSetup)) {
+    for (const Ply& p : plies(p)) {
       if (p.relevant.terms.contains(t)) {
         return false;
       }
@@ -748,11 +733,11 @@ class Grounder {
     return true;
   }
 
-  bool IsRelevantClause(const Clause& c) {
+  bool IsRelevantClause(const Clause& c, Plies::Policy p) const {
     if (!last_ply().relevant.filter) {
       return true;
     }
-    for (const Ply& p : plies(Plies::kSinceSetup)) {
+    for (const Ply& p : plies(p)) {
       if (!p.relevant.terms.all_empty() &&
           c.any([&p](const Literal a) { return !a.lhs().name() && p.relevant.terms.contains(a.lhs()); })) {
         return true;
@@ -826,9 +811,9 @@ class Grounder {
     }
   }
 
-  void UpdateLhsRhs(Literal a) {
+  void UpdateLhsRhs(Literal a, Plies::Policy p) {
     assert(a.ground());
-    if (a.lhs().function() && IsNewLhsRhs(a)) {
+    if (a.lhs().function() && IsNewLhsRhs(a, p)) {
       const Term t = a.lhs();
       const Term n = a.rhs();
       assert(t.ground() && n.name());
@@ -841,32 +826,35 @@ class Grounder {
     }
   }
 
-  void UpdateLhsRhs(const Clause& c) {
+  void UpdateLhsRhs(const Clause& c, Plies::Policy p) {
     for (const Literal a : c) {
-      UpdateLhsRhs(a);
+      UpdateLhsRhs(a, p);
     }
   }
 
-  void UpdateRelevantTerms(Term t) {
+  void UpdateRelevantTerms(Term t, Plies::Policy p) {
     assert(t.ground());
-    if (t.function() && IsNewRelevantTerm(t)) {
+    if (t.function() && IsNewRelevantTerm(t, p)) {
       last_ply().relevant.terms.insert(t);
     }
   }
 
-  void UpdateRelevantTerms(const Clause& c) {
+  bool UpdateRelevantTerms(const Clause& c, Plies::Policy p) {
     assert(c.ground());
     assert(!c.valid());
-    if (c.any([this](const Literal a) { return !IsNewRelevantTerm(a.lhs()); })) {
-      c.all([this](const Literal a) {
-        UpdateRelevantTerms(a.lhs());
+    if (c.any([this, p](const Literal a) { return !IsNewRelevantTerm(a.lhs(), p); })) {
+      c.all([this, p](const Literal a) {
+        UpdateRelevantTerms(a.lhs(), p);
         return true;
       });
+      return true;
+    } else {
+      return false;
     }
   }
 
   template<typename ClauseRange>
-  void CloseRelevanceUnderClauses(ClauseRange r) {
+  void CloseRelevanceUnderClauses(ClauseRange r, Plies::Policy p) {
     std::unordered_set<size_t> clauses;
     for (size_t i : r) {
       clauses.insert(i);
@@ -874,8 +862,8 @@ class Grounder {
 rescan:
     for (auto it = clauses.begin(); it != clauses.end(); ++it) {
       const Clause c = last_ply().clauses.shallow_setup.setup().clause(*it);
-      if (IsRelevantClause(c)) {
-        UpdateRelevantTerms(c);
+      bool relevant = UpdateRelevantTerms(c, p);
+      if (relevant) {
         clauses.erase(it);
         goto rescan;
       }
@@ -933,50 +921,70 @@ rescan:
     }
   }
 
+  static void update_result(Setup::Result* add_result, Setup::Result r) {
+    if (add_result) {
+      switch (r) {
+        case Setup::kOk:
+          *add_result = r;
+          break;
+        case Setup::kSubsumed:
+          break;
+        case Setup::kInconsistent:
+          *add_result = r;
+          break;
+      }
+    }
+  }
+
   Setup::Result Reground(bool minimize = false) {
     // Ground old clauses for names from last ply.
     // Ground new clauses for all names.
     // Add f(.)=n, f(.)/=n pairs from newly grounded clauses to lhs_rhs.
     Setup::Result add_result = Setup::kSubsumed;
+    Ply& p = last_ply();
     ForEachNewGrounding(
         [](const Ply& p) { return p.clauses.ungrounded; },
         [this](const Clause& c, const Ply& p, Setup::Result* add_result) {
-          // XXX Should relevance be tested only for clauses from before the consistency-guarantee?
-          if (!c.valid() && IsRelevantClause(c) && InconsistencyCheck(p, c)) {
+          if (!c.valid() && InconsistencyCheck(p, c)) {
             const Setup::Result r = last_setup().AddClause(c);
-            switch (r) {
-              case Setup::kOk:
-                *add_result = r;
-                UpdateLhsRhs(c);
-                break;
-              case Setup::kSubsumed:
-                break;
-              case Setup::kInconsistent:
-                *add_result = r;
-                break;
-            }
+            update_result(add_result, r);
           }
         },
         &add_result);
-    ForEachNewGrounding(
-        [](const Ply& p) { return p.lhs_rhs.ungrounded; },
-        [this](const Literal a, const Ply&, Setup::Result*) {
-          UpdateLhsRhs(a);
-        });
-    Ply& p = last_ply();
+    if (p.relevant.filter) {
+      ForEachNewGrounding(
+          [](const Ply& p) { return p.relevant.ungrounded; },
+          [this](const Term t, const Ply&, Setup::Result*) {
+            UpdateRelevantTerms(t, Plies::kSinceSetup);
+          });
+      CloseRelevanceUnderClauses(p.clauses.shallow_setup.new_clauses(), Plies::kSinceSetup);
+      std::vector<Clause> new_clauses;
+      Setup& s = last_setup();
+      for (size_t i : p.clauses.shallow_setup.new_clauses()) {
+        new_clauses.push_back(s.clause(i));
+      }
+      p.clauses.shallow_setup.Kill();
+      p.clauses.shallow_setup = s.shallow_copy();
+      for (const Clause& c : new_clauses) {
+        if (IsRelevantClause(c, Plies::kSinceSetup)) {
+          const Setup::Result r = s.AddClause(c);
+          update_result(&add_result, r);
+        }
+      }
+    }
     if (p.clauses.full_setup) {
       p.clauses.full_setup->Minimize();
     } else if (minimize) {
       p.clauses.shallow_setup.Minimize();
     }
-    if (p.relevant.filter) {
-      ForEachNewGrounding(
-          [](const Ply& p) { return p.relevant.ungrounded; },
-          [this](const Term t, const Ply&, Setup::Result*) {
-            UpdateRelevantTerms(t);
-          });
-      CloseRelevanceUnderClauses(p.clauses.shallow_setup.new_clauses());
+    for (size_t i : p.clauses.shallow_setup.new_clauses()) {
+      UpdateLhsRhs(last_setup().clause(i), Plies::kSinceSetup);
     }
+    ForEachNewGrounding(
+        [](const Ply& p) { return p.lhs_rhs.ungrounded; },
+        [this](const Literal a, const Ply&, Setup::Result*) {
+          UpdateLhsRhs(a, Plies::kSinceSetup);
+        });
     return add_result;
   }
 
@@ -990,8 +998,8 @@ rescan:
     std::unique_ptr<Setup> new_s(new Setup());
     for (size_t i : old_s.clauses()) {
       const Clause c = old_s.clause(i);
-      if (IsRelevantClause(c)) {
-        UpdateLhsRhs(c);
+      if (IsRelevantClause(c, Plies::kNew)) {
+        UpdateLhsRhs(c, Plies::kNew);
         new_s->AddClause(c);
       }
     }

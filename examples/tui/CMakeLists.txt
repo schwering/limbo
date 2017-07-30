@@ -2,7 +2,7 @@ add_executable (tui tui.cc linenoise/linenoise.c)
 target_link_libraries (tui LINK_PUBLIC limbo)
 
 
-file (GLOB tests RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.limbo")
+file (GLOB tests RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "test-[^q]*.limbo" "example-*.limbo")
 foreach (test ${tests})
     add_test (NAME ${test} COMMAND ./tui ${test})
 endforeach ()
