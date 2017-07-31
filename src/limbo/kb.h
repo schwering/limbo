@@ -42,10 +42,6 @@
 #include <limbo/internal/iter.h>
 #include <limbo/internal/maybe.h>
 
-#include <iostream>
-#include <limbo/format/output.h>
-using limbo::format::operator<<;
-
 namespace limbo {
 
 class KnowledgeBase {
