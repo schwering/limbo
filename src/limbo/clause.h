@@ -143,7 +143,7 @@ class Clause {
   bool   unit()  const { return size() == 1; }
   size_t size()  const { return size_; }
 
-  bool valid()  const {
+  bool valid() const {
     for (size_t i = 0; i < size(); ++i) {
       if ((*this)[i].valid()) {
         return true;

@@ -923,9 +923,11 @@ rescan:
     if (add_result) {
       switch (r) {
         case Setup::kOk:
+          assert(*add_result != Setup::kInconsistent);
           *add_result = r;
           break;
         case Setup::kSubsumed:
+          assert(*add_result != Setup::kInconsistent);
           break;
         case Setup::kInconsistent:
           *add_result = r;
@@ -949,6 +951,9 @@ rescan:
           }
         },
         &add_result);
+    if (add_result == Setup::kInconsistent) {
+      return add_result;
+    }
     if (p.relevant.filter) {
       ForEachNewGrounding(
           [](const Ply& p) { return p.relevant.ungrounded; },
@@ -967,6 +972,7 @@ rescan:
         if (IsRelevantClause(c, Plies::kSinceSetup)) {
           const Setup::Result r = s.AddClause(c);
           update_result(&add_result, r);
+          assert(r != Setup::kInconsistent);
         }
       }
     }
