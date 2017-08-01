@@ -427,18 +427,22 @@ class Grounder {
   // inconsistent.
 
   Setup::Result AddClause(const Clause& c, Undo* undo = nullptr, bool do_not_add_if_inconsistent = false) {
-    return AddClauses(internal::singleton_range(c), undo, do_not_add_if_inconsistent);
+    auto r = internal::singleton_range(c);
+    return AddClauses(r.begin(), r.end(), undo, do_not_add_if_inconsistent);
   }
 
-  template<typename T>
-  Setup::Result AddClauses(const T& clauses, Undo* undo = nullptr, const bool do_not_add_if_inconsistent = false) {
+  template<typename InputIt>
+  Setup::Result AddClauses(InputIt first,
+                           InputIt last,
+                           Undo* undo = nullptr,
+                           const bool do_not_add_if_inconsistent = false) {
     // Add c to ungrounded_clauses.
     // Add new names in c to names.
     // Add variables to vars, generate plus-names.
     // Re-ground.
     Ply& p = new_ply();
-    for (const Clause& c : clauses) {
-      Ungrounded<Clause> uc(c);
+    for (; first != last; ++first) {
+      Ungrounded<Clause> uc(*first);
       uc.val.Traverse([this, &p, &uc](Term t) {
         if (t.variable()) {
           uc.vars.insert(t);
@@ -552,6 +556,8 @@ class Grounder {
 
   void UndoLast() { pop_ply(); }
 
+  void Consolidate() { MergePlies(true); }
+
   Literal Variablify(Literal a) {
     assert(a.ground());
     Term::Vector ns;
@@ -567,7 +573,6 @@ class Grounder {
     }, tf_);
   }
 
-  Plies plies(Plies::Policy p = Plies::kAll) const { return Plies(this, p); }
   LhsTerms lhs_terms(Plies::Policy p = Plies::kAll) const { return LhsTerms(this, p); }
   // The additional name must not be used after RhsName's death.
   RhsNames rhs_names(Term t, Plies::Policy p = Plies::kSinceSetup) { return RhsNames(this, t, p); }
@@ -677,6 +682,8 @@ class Grounder {
       return p;
     }
   }
+
+  Plies plies(Plies::Policy p = Plies::kAll) const { return Plies(this, p); }
 
   Ply& last_ply() { assert(!plies_.empty()); return plies_.back(); }
   const Ply& last_ply() const { assert(!plies_.empty()); return plies_.back(); }
@@ -1008,6 +1015,54 @@ rescan:
     }
     p.clauses.full_setup = std::move(new_s);
     p.clauses.shallow_setup = p.clauses.full_setup->shallow_copy();
+  }
+
+  void MergePlies(bool minimize) {
+    assert(!plies_.empty());
+    auto p = plies_.end();
+    for (auto it = plies_.begin(); it != plies_.end(); ++it) {
+      if (it->clauses.full_setup) {
+        p = it;
+      }
+    }
+    if (p == plies_.end()) {
+      return;
+    }
+    bool after = false;
+    for (auto it = plies_.begin(); it != plies_.end(); ++it) {
+      assert(!it->do_not_add_if_inconsistent);
+      if (it == p) {
+        after = true;
+        continue;
+      }
+      p->clauses.ungrounded.insert(p->clauses.ungrounded.end(),
+                                   it->clauses.ungrounded.begin(), it->clauses.ungrounded.end());
+      p->names.mentioned.insert(it->names.mentioned);
+      p->names.plus_max.insert(it->names.plus_max);
+      p->names.plus_new.insert(it->names.plus_new);
+      p->names.plus_mentioned.insert(it->names.plus_mentioned);
+      if (after) {
+        assert(!it->clauses.full_setup);
+        p->clauses.shallow_setup.Immortalize();
+        p->relevant.ungrounded.insert(it->relevant.ungrounded.begin(), it->relevant.ungrounded.end());
+        p->relevant.terms.insert(it->relevant.terms);
+        p->lhs_rhs.ungrounded.insert(it->lhs_rhs.ungrounded.begin(), it->lhs_rhs.ungrounded.end());
+        for (auto& lhs_rhs : it->lhs_rhs.map) {
+          auto lhs = p->lhs_rhs.map.find(lhs_rhs.first);
+          if (lhs == p->lhs_rhs.map.end()) {
+            p->lhs_rhs.map.insert(lhs_rhs);
+          } else {
+            lhs->second.insert(lhs_rhs.second.begin(), lhs_rhs.second.end());
+          }
+        }
+      }
+    }
+    if (minimize) {
+      p->clauses.full_setup->Minimize();
+    }
+    plies_.erase(plies_.begin(), p);
+    plies_.erase(std::next(p), plies_.end());
+    assert(plies_.size() == 1);
   }
 
   Term::Factory* const tf_;

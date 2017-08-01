@@ -136,9 +136,7 @@ class KnowledgeBase {
       assert(spheres_.size() == 1);
       assert(n_processed_beliefs_ == 0);
       for (Solver& sphere : spheres_) {
-        for (const Clause& c : knowledge_) {
-          sphere.AddClause(c);
-        }
+        sphere.grounder().AddClauses(knowledge_.begin() + n_processed_knowledge_, knowledge_.end());
       }
     } else {
       spheres_.clear();
@@ -149,15 +147,13 @@ class KnowledgeBase {
       do {
         last_n_done = n_done;
         Solver sphere(sf_, tf_);
-        for (const Clause& c : knowledge_) {
-          sphere.AddClause(c);
-        }
-        for (size_t i = 0; i < beliefs_.size(); ++i) {
-          const Conditional& c = beliefs_[i];
-          if (!done[i]) {
-            sphere.AddClause(c.not_ante_or_conse);
-          }
-        }
+        auto is = internal::filter_range(internal::int_iterator<size_t>(0),
+                                         internal::int_iterator<size_t>(beliefs_.size()),
+                                         [this, &done](size_t i) { return !done[i]; });
+        auto bs = internal::transform_range(is.begin(), is.end(),
+                                            [this](size_t i) -> const Clause& { return beliefs_[i].not_ante_or_conse; });
+        auto cs = internal::join_ranges(knowledge_.cbegin(), knowledge_.cend(), bs.begin(), bs.end());
+        sphere.grounder().AddClauses(cs.begin(), cs.end());
         bool next_is_plausibility_consistent = true;
         for (size_t i = 0; i < beliefs_.size(); ++i) {
           const Conditional& c = beliefs_[i];
@@ -256,12 +252,17 @@ class KnowledgeBase {
   }
 
   Formula::Ref ResEntails(sphere_index p, belief_level k, const Formula& phi) {
-    // If phi is just a literal (t = n) or (t = x) for primitive t, we can use Solver::Determines to speed things up.
+    // If phi is just a literal (t = n) or (t = x) for primitive t, we can
+    // use Solver::Determines to speed things up.
     if (phi.type() == Formula::kAtomic) {
       const Clause& c = phi.as_atomic().arg();
       if (c.unit()) {
         Literal a = c.first();
-        if (a.lhs().primitive() && a.pos()) {
+        // Currently we enable this only for (t = x) and not for (t = n), for
+        // the latter introduces a new temporary variable which in turn leads
+        // to additional names for grounding.
+        // TODO Make Grounder::PrepareForQuery() more efficient for (t = n).
+        if (a.lhs().primitive() && a.pos() && a.rhs().variable()) {
           internal::Maybe<Term> r = spheres_[p].Determines(k, a.lhs());
           if (a.rhs().name()) {
             return bool_to_formula(r && (r.val.null() || r.val == a.rhs()));

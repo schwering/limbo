@@ -52,8 +52,6 @@ class Solver {
   Solver(Solver&&) = default;
   Solver& operator=(Solver&&) = default;
 
-  Setup::Result AddClause(const Clause& c) { return grounder_.AddClause(c); }
-
   Grounder& grounder() { return grounder_; }
   const Grounder& grounder() const { return grounder_; }
 

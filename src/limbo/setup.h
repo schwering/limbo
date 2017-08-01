@@ -139,6 +139,8 @@ class Setup {
       }
     }
 
+    void Immortalize() { setup_ = nullptr; }
+
     Setup& setup() { return *setup_; }
     const Setup& setup() const { return *setup_; }
 
@@ -164,6 +166,8 @@ class Setup {
     friend Setup;
 
     struct Data {
+      Data() = default;
+      Data(bool ec, size_t nc, size_t nu) : empty_clause(ec), n_clauses(nc), n_units(nu) {}
       bool empty_clause = false;
       size_t n_clauses = 0;
       size_t n_units = 0;
@@ -172,7 +176,7 @@ class Setup {
 #endif
     };
 
-    explicit ShallowCopy(Setup* s) : setup_(s), data_({s->empty_clause_, s->clauses_.size(), s->units_.size()}) {
+    explicit ShallowCopy(Setup* s) : setup_(s), data_(Data(s->empty_clause_, s->clauses_.size(), s->units_.size())) {
       assert(data_.empty_clause + data_.n_clauses + data_.n_units == 0 || ++setup_->saved_ > 0);
 #ifndef NDEBUG
       data_.saved = s->saved_;

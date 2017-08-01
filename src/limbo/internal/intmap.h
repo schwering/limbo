@@ -122,6 +122,12 @@ class IntMultiMap {
     return n;
   }
 
+  void insert(const IntMultiMap& m) {
+    for (Key key : m.keys()) {
+      (*this)[key].insert(map_[key].begin(), map_[key].end());
+    }
+  }
+
   size_t erase(Key key, const T& val) {
     size_t n = map_[key].erase(val);
     size_ -= n;
@@ -197,20 +203,12 @@ class IntMultiSet {
 
   size_t insert(const T& val) { return map_.insert(key_(val), val); }
 
-  void erase(const T& val) { map_.erase(key_(val), val); }
+  void insert(const IntMultiSet& m) { map_.insert(m.map_); }
 
   template<typename Collection>
   size_t insert(const Collection& vals) { map_.insert(vals); }
 
-  size_t insert(const IntMultiSet& set) {
-    size_t n = 0;
-    for (Key key : set.keys()) {
-      for (const T& val : set.values(key)) {
-        n += insert(val);
-      }
-    }
-    return n;
-  }
+  void erase(const T& val) { map_.erase(key_(val), val); }
 
   bool contains(const T& val) const { return map_.contains(key_(val), val); }
 

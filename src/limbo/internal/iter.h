@@ -454,19 +454,17 @@ class filter_iterator {
   static_assert(std::is_convertible<typename InputIt::iterator_category, std::input_iterator_tag>::value,
                 "InputIt has wrong iterator category");
 
-  template<typename It = InputIt>
-  typename internal::if_arg<UnaryPredicate, It>::type Skip() {
-    while (iter_ != end_ && !pred_(*iter_)) {
+  void Skip() {
+    while (iter_ != end_ && !call()) {
       ++iter_;
     }
   }
 
   template<typename It = InputIt>
-  typename internal::if_arg<UnaryPredicate, value_type>::type Skip() {
-    while (iter_ != end_ && !pred_(*iter_)) {
-      ++iter_;
-    }
-  }
+  typename internal::if_arg<UnaryPredicate, value_type, bool>::type call() { return pred_(*iter_); }
+
+  template<typename It = InputIt>
+  typename internal::if_arg<UnaryPredicate, It, bool>::type call() { return pred_(iter_); }
 
   InputIt iter_;
   InputIt end_;

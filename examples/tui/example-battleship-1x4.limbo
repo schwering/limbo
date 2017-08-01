@@ -73,4 +73,3 @@ while Ex p G (~K<0> fired(p)=T ^ ~K<2> water(p)=T) {
     Call: bs_print()
 }
 
-

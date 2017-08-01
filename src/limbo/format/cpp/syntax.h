@@ -92,11 +92,11 @@ class Context {
     Formula::Ref psi = phi.NF(sf(), tf());
     internal::Maybe<Clause> c = psi->AsUnivClause();
     assert(c);
-    solver_.AddClause(c.val);
+    solver_.grounder().AddClause(c.val);
   }
 
   void AddClause(const Clause& c) {
-    solver_.AddClause(c);
+    solver_.grounder().AddClause(c);
   }
 
   Solver* solver() { return &solver_; }

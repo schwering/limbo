@@ -16,17 +16,19 @@
 #include "game.h"
 #include "timer.h"
 
+using namespace limbo;
+
 class KnowledgeBase {
  public:
   KnowledgeBase(const Game* g, int max_k)
       : max_k_(max_k),
-        VAL_(ctx_.CreateSort()),
-        val_(ctx_.CreateFunction(VAL_, 2)) {
+        VAL_(CreateSort()),
+        val_(CreateFunctionSymbol(VAL_, 2)) {
     limbo::format::RegisterSort(VAL_, "");
     limbo::format::RegisterSymbol(val_, "val");
     using namespace limbo::format::cpp;
     for (std::size_t i = 1; i <= 9; ++i) {
-      vals_.push_back(ctx_.CreateName(VAL_));
+      vals_.push_back(CreateName(VAL_));
       std::stringstream ss;
       ss << i;
       limbo::format::RegisterSymbol(vals_.back().symbol(), ss.str());
@@ -35,7 +37,7 @@ class KnowledgeBase {
       for (std::size_t y = 1; y <= 9; ++y) {
         for (std::size_t yy = 1; yy <= 9; ++yy) {
           if (y != yy) {
-            ctx_.AddClause(val(x, y) != val(x, yy));
+            kb_.Add(val(x, y) != val(x, yy));
           }
         }
       }
@@ -44,7 +46,7 @@ class KnowledgeBase {
       for (std::size_t xx = 1; xx <= 9; ++xx) {
         for (std::size_t y = 1; y <= 9; ++y) {
           if (x != xx) {
-            ctx_.AddClause(val(x, y) != val(xx, y));
+            kb_.Add(val(x, y) != val(xx, y));
           }
         }
       }
@@ -56,7 +58,7 @@ class KnowledgeBase {
             for (std::size_t y = 3*j-2; y <= 3*j; ++y) {
               for (std::size_t yy = 3*j-2; yy <= 3*j; ++yy) {
                 if (x != xx || y != yy) {
-                  ctx_.AddClause(val(x, y) != val(xx, yy));
+                  kb_.Add(val(x, y) != val(xx, yy));
                 }
               }
             }
@@ -70,14 +72,14 @@ class KnowledgeBase {
         for (std::size_t i = 1; i <= 9; ++i) {
           lits.push_back(limbo::Literal::Eq(val(x, y), n(i)));
         }
-        ctx_.AddClause(limbo::Clause(lits.begin(), lits.end()));
+        kb_.Add(limbo::Clause(lits.begin(), lits.end()));
       }
     }
     for (std::size_t x = 1; x <= 9; ++x) {
       for (std::size_t y = 1; y <= 9; ++y) {
         int i = g->get(Point(x, y));
         if (i != 0) {
-          ctx_.AddClause(val(x, y) == n(i));
+          kb_.Add(val(x, y) == n(i));
         }
       }
     }
@@ -85,17 +87,15 @@ class KnowledgeBase {
 
   int max_k() const { return max_k_; }
 
-  limbo::Solver* solver() { return ctx_.solver(); }
-  const limbo::Solver& solver() const { return ctx_.solver(); }
+  limbo::Solver& solver() { return kb_.sphere(0); }
+  const limbo::Solver& solver() const { return kb_.sphere(0); }
   const limbo::Setup& setup() const { return solver().setup(); }
 
-  void Add(Point p, int i) {
-    ctx_.AddClause(val(p) == n(i));
-  }
+  void Add(Point p, int i) { kb_.Add(Clause{Literal::Eq(val(p), n(i))}); }
 
   limbo::internal::Maybe<int> Val(Point p, int k) {
     t_.start();
-    const limbo::internal::Maybe<limbo::Term> r = solver()->Determines(k, val(p), limbo::Solver::kConsistencyGuarantee);
+    const limbo::internal::Maybe<limbo::Term> r = solver().Determines(k, val(p), limbo::Solver::kConsistencyGuarantee);
     assert(std::all_of(limbo::internal::int_iterator<size_t>(1), limbo::internal::int_iterator<size_t>(9),
            [&](size_t i) { return solver()->Entails(k, val(p) == n(i), limbo::Solver::kConsistencyGuarantee) ==
                                   (r && r.val == n(i)); }));
@@ -115,25 +115,46 @@ class KnowledgeBase {
   void ResetTimer() { t_.reset(); }
 
  private:
-  limbo::format::cpp::HiTerm n(std::size_t n) const {
+  limbo::Term n(std::size_t n) const {
     return vals_[n-1];
   }
 
-  limbo::format::cpp::HiTerm val(Point p) const {
+  limbo::Term val(Point p) const {
     return val(p.x, p.y);
   }
 
-  limbo::format::cpp::HiTerm val(std::size_t x, std::size_t y) const {
-    return val_(vals_[x-1], vals_[y-1]);
+  limbo::Term val(std::size_t x, std::size_t y) const {
+    return CreateFunction(val_, limbo::Term::Vector{vals_[x-1], vals_[y-1]});
   }
+
+  limbo::Symbol::Sort CreateSort() const {
+    return limbo::Symbol::Factory::Instance()->CreateSort();
+  }
+
+  limbo::Symbol CreateFunctionSymbol(limbo::Symbol::Sort sort, limbo::Symbol::Arity arity) const {
+    return limbo::Symbol::Factory::Instance()->CreateFunction(sort, arity);
+  }
+
+  limbo::Term CreateName(limbo::Symbol::Sort sort) const {
+    return limbo::Term::Factory::Instance()->CreateTerm(limbo::Symbol::Factory::Instance()->CreateName(sort));
+  }
+
+  limbo::Term CreateVariable(limbo::Symbol::Sort sort) const {
+    return limbo::Term::Factory::Instance()->CreateTerm(limbo::Symbol::Factory::Instance()->CreateVariable(sort));
+  }
+
+  limbo::Term CreateFunction(limbo::Symbol symbol, const limbo::Term::Vector& args) const {
+    return limbo::Term::Factory::Instance()->CreateTerm(symbol, args);
+  }
+
 
   int max_k_;
 
-  limbo::format::cpp::Context ctx_;
+  limbo::KnowledgeBase kb_;
 
   limbo::Symbol::Sort VAL_;
-  limbo::format::cpp::HiSymbol val_;
-  std::vector<limbo::format::cpp::HiTerm> vals_;
+  limbo::Symbol val_;
+  limbo::Term::Vector vals_;
 
   Timer t_;
 };
