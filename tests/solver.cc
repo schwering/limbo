@@ -37,8 +37,8 @@ TEST(SolverTest, Entails) {
     auto x = ctx.CreateVariable(Human);               REGISTER_SYMBOL(x);
     auto y = ctx.CreateVariable(Human);               REGISTER_SYMBOL(y);
     {
-      solver.AddClause(( Mother(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
-      solver.AddClause(( Mother(Sonny) == Mary ).as_clause());
+      solver.grounder().AddClause(( Mother(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
+      solver.grounder().AddClause(( Mother(Sonny) == Mary ).as_clause());
       auto phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
       EXPECT_TRUE(solver.Entails(0, *phi, Solver::kConsistencyGuarantee));
       EXPECT_TRUE(solver.Entails(1, *phi, Solver::kConsistencyGuarantee));
@@ -63,8 +63,8 @@ TEST(SolverTest, Entails) {
     auto x = ctx.CreateVariable(Human);               REGISTER_SYMBOL(x);
     auto y = ctx.CreateVariable(Human);               REGISTER_SYMBOL(y);
     {
-      solver.AddClause(( Father(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
-      solver.AddClause(( Father(Sonny) == Mary || Father(Sonny) == Fred ).as_clause());
+      solver.grounder().AddClause(( Father(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
+      solver.grounder().AddClause(( Father(Sonny) == Mary || Father(Sonny) == Fred ).as_clause());
       auto phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
       EXPECT_FALSE(solver.Entails(0, *phi, Solver::kConsistencyGuarantee));
       EXPECT_TRUE(solver.Entails(1, *phi, Solver::kConsistencyGuarantee));
@@ -90,8 +90,8 @@ TEST(SolverTest, Entails) {
     auto x = ctx.CreateVariable(Human);               REGISTER_SYMBOL(x);
     auto y = ctx.CreateVariable(Human);               REGISTER_SYMBOL(y);
     {
-      solver.AddClause(( Father(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
-      solver.AddClause(( Father(Sonny) == Mary || Father(Sonny) == Fred || Father(Sonny) == Fox ).as_clause());
+      solver.grounder().AddClause(( Father(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
+      solver.grounder().AddClause(( Father(Sonny) == Mary || Father(Sonny) == Fred || Father(Sonny) == Fox ).as_clause());
       auto phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
       EXPECT_FALSE(solver.Entails(0, *phi, Solver::kConsistencyGuarantee));
       EXPECT_TRUE(solver.Entails(1, *phi, Solver::kConsistencyGuarantee));
@@ -115,8 +115,8 @@ TEST(SolverTest, Consistent) {
     auto x = ctx.CreateVariable(Human);               REGISTER_SYMBOL(x);
     auto y = ctx.CreateVariable(Human);               REGISTER_SYMBOL(y);
     {
-      solver.AddClause(( Mother(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
-      solver.AddClause(( Mother(Sonny) == Mary ).as_clause());
+      solver.grounder().AddClause(( Mother(x) != y || x == y || IsParentOf(y,x) == True ).as_clause());
+      solver.grounder().AddClause(( Mother(Sonny) == Mary ).as_clause());
       auto phi = Ex(x, Ex(y, IsParentOf(y,x) == True))->NF(ctx.sf(), ctx.tf());
       EXPECT_TRUE(solver.EntailsComplete(0, *phi, Solver::kNoConsistencyGuarantee));
       EXPECT_TRUE(solver.EntailsComplete(1, *phi, Solver::kNoConsistencyGuarantee));
@@ -136,9 +136,9 @@ TEST(SolverTest, KR2016) {
   auto george = ctx.CreateName(Human);       REGISTER_SYMBOL(george);
   auto father = ctx.CreateFunction(Human, 1);     REGISTER_SYMBOL(father);
   auto bestFriend = ctx.CreateFunction(Human, 1); REGISTER_SYMBOL(bestFriend);
-  solver.AddClause(( bestFriend(mary) == sue || bestFriend(mary) == jane ).as_clause());
-  solver.AddClause(( father(sue) == george ).as_clause());
-  solver.AddClause(( father(jane) == george ).as_clause());
+  solver.grounder().AddClause(( bestFriend(mary) == sue || bestFriend(mary) == jane ).as_clause());
+  solver.grounder().AddClause(( father(sue) == george ).as_clause());
+  solver.grounder().AddClause(( father(jane) == george ).as_clause());
   // Since our normal form converts
   //   father(bestFriend(mary)) == george
   // to
@@ -165,12 +165,12 @@ TEST(SolverTest, ECAI2016Sound) {
   auto Veggie = ctx.CreateFunction(Bool, 0)();    REGISTER_SYMBOL(Veggie);
   auto roo = ctx.CreateName(Food);           REGISTER_SYMBOL(roo);
   auto x = ctx.CreateVariable(Food);              REGISTER_SYMBOL(x);
-  solver.AddClause(( Meat(roo) == T ).as_clause());
-  solver.AddClause(( Meat(x) != T ||  Eats(x) != T ||  Veggie != T ).as_clause());
-  solver.AddClause(( Aussie != T ||  Italian != T ).as_clause());
-  solver.AddClause(( Aussie == T ||  Italian == T ).as_clause());
-  solver.AddClause(( Aussie != T ||  Eats(roo) == T ).as_clause());
-  solver.AddClause(( Italian == T ||  Veggie == T ).as_clause());
+  solver.grounder().AddClause(( Meat(roo) == T ).as_clause());
+  solver.grounder().AddClause(( Meat(x) != T ||  Eats(x) != T ||  Veggie != T ).as_clause());
+  solver.grounder().AddClause(( Aussie != T ||  Italian != T ).as_clause());
+  solver.grounder().AddClause(( Aussie == T ||  Italian == T ).as_clause());
+  solver.grounder().AddClause(( Aussie != T ||  Eats(roo) == T ).as_clause());
+  solver.grounder().AddClause(( Italian == T ||  Veggie == T ).as_clause());
   EXPECT_FALSE(solver.Entails(0, *(Aussie != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
   EXPECT_TRUE(solver.Entails(1, *(Aussie != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
 }
@@ -189,12 +189,12 @@ TEST(SolverTest, ECAI2016Complete) {
   auto Veggie = ctx.CreateFunction(Bool, 0)();    REGISTER_SYMBOL(Veggie);
   auto roo = ctx.CreateName(Food);                REGISTER_SYMBOL(roo);
   auto x = ctx.CreateVariable(Food);              REGISTER_SYMBOL(x);
-  solver.AddClause(( Meat(roo) == T ).as_clause());
-  solver.AddClause(( Meat(x) != T || Eats(x) != T || Veggie != T ).as_clause());
-  solver.AddClause(( Aussie != T || Italian != T ).as_clause());
-  solver.AddClause(( Aussie == T || Italian == T ).as_clause());
-  solver.AddClause(( Aussie != T || Eats(roo) == T ).as_clause());
-  solver.AddClause(( Italian == T || Veggie == T ).as_clause());
+  solver.grounder().AddClause(( Meat(roo) == T ).as_clause());
+  solver.grounder().AddClause(( Meat(x) != T || Eats(x) != T || Veggie != T ).as_clause());
+  solver.grounder().AddClause(( Aussie != T || Italian != T ).as_clause());
+  solver.grounder().AddClause(( Aussie == T || Italian == T ).as_clause());
+  solver.grounder().AddClause(( Aussie != T || Eats(roo) == T ).as_clause());
+  solver.grounder().AddClause(( Italian == T || Veggie == T ).as_clause());
   EXPECT_TRUE(solver.EntailsComplete(0, *(Italian != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
   EXPECT_TRUE(solver.EntailsComplete(0, *(Italian != T)->NF(ctx.sf(), ctx.tf()), Solver::kNoConsistencyGuarantee));
   EXPECT_FALSE(solver.EntailsComplete(1, *(Italian != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));

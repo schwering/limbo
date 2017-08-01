@@ -11,7 +11,6 @@
 #include <limbo/internal/maybe.h>
 #include <limbo/internal/iter.h>
 #include <limbo/format/output.h>
-#include <limbo/format/cpp/syntax.h>
 
 #include "game.h"
 #include "timer.h"
@@ -53,14 +52,15 @@ class KnowledgeBase {
   KnowledgeBase(const Game* g, size_t max_k)
       : g_(g),
         max_k_(max_k),
-        Bool(ctx_.CreateSort()),
-        XPos(ctx_.CreateSort()),
-        YPos(ctx_.CreateSort()),
-        T(ctx_.CreateName(Bool)),
+        solver_(limbo::Symbol::Factory::Instance(), limbo::Term::Factory::Instance()),
+        Bool(CreateSort()),
+        XPos(CreateSort()),
+        YPos(CreateSort()),
+        T(CreateName(Bool)),
 #ifdef USE_DETERMINES
-        F(ctx_.CreateName(Bool)),
+        F(CreateName(Bool)),
 #endif
-        MineF(ctx_.CreateFunction(Bool, 2)) {
+        MineF(CreateFunctionSymbol(Bool, 2)) {
     limbo::format::RegisterSort(Bool, "");
     limbo::format::RegisterSort(XPos, "");
     limbo::format::RegisterSort(YPos, "");
@@ -71,14 +71,14 @@ class KnowledgeBase {
     limbo::format::RegisterSymbol(MineF, "Mine");
     X.resize(g_->width());
     for (size_t i = 0; i < g_->width(); ++i) {
-      X[i] = ctx_.CreateName(XPos);
+      X[i] = CreateName(XPos);
       std::stringstream ss;
       ss << "#X" << i;
       limbo::format::RegisterSymbol(X[i].symbol(), ss.str());
     }
     Y.resize(g_->height());
     for (size_t i = 0; i < g_->height(); ++i) {
-      Y[i] = ctx_.CreateName(YPos);
+      Y[i] = CreateName(YPos);
       std::stringstream ss;
       ss << "#Y" << i;
       limbo::format::RegisterSymbol(Y[i].symbol(), ss.str());
@@ -88,8 +88,9 @@ class KnowledgeBase {
 
   size_t max_k() const { return max_k_; }
 
-  const limbo::Solver& solver() const { return ctx_.solver(); }
-  const limbo::Setup& setup() const { return solver().setup(); }
+  limbo::Solver& solver() { UpdateSolver(); return solver_; }
+  const limbo::Solver& solver() const { const_cast<KnowledgeBase&>(*this).UpdateSolver(); return solver_; }
+  const limbo::Setup& setup() const { const_cast<KnowledgeBase&>(*this).UpdateSolver(); return solver().setup(); }
 
   limbo::internal::Maybe<bool> IsMine(Point p, int k) {
     t_.start();
@@ -99,22 +100,22 @@ class KnowledgeBase {
     // that without such a name, falsity is represented by "/= T", which is for
     // Determines() just means the term's value is not determined, whereas we'd
     // want it to be determined as false.
-    limbo::internal::Maybe<limbo::Term> is_mine = solver()->Determines(k, Mine(p), limbo::Solver::kConsistencyGuarantee);
+    limbo::internal::Maybe<limbo::Term> is_mine = solver().Determines(k, Mine(p), limbo::Solver::kConsistencyGuarantee);
     assert(!is_mine || is_mine.val == T || is_mine.val == F);
-    assert(solver()->Determines(k, Mine(p), limbo::Solver::kNoConsistencyGuarantee) == is_mine);
-    assert(solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)}),
-                             limbo::Solver::kConsistencyGuarantee) ==
+    assert(solver().Determines(k, Mine(p), limbo::Solver::kNoConsistencyGuarantee) == is_mine);
+    assert(solver().Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)}),
+                            limbo::Solver::kConsistencyGuarantee) ==
            (is_mine && is_mine.val == T));
-    assert(solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)}),
-                             limbo::Solver::kConsistencyGuarantee) ==
-           solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)}),
-                             limbo::Solver::kNoConsistencyGuarantee));
-    assert(solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)}),
-                             limbo::Solver::kConsistencyGuarantee) ==
-           solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)}),
-                             limbo::Solver::kNoConsistencyGuarantee));
-    assert(solver()->Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)}),
-                             limbo::Solver::kConsistencyGuarantee) ==
+    assert(solver().Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)}),
+                            limbo::Solver::kConsistencyGuarantee) ==
+           solver().Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)}),
+                            limbo::Solver::kNoConsistencyGuarantee));
+    assert(solver().Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)}),
+                            limbo::Solver::kConsistencyGuarantee) ==
+           solver().Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)}),
+                            limbo::Solver::kNoConsistencyGuarantee));
+    assert(solver().Entails(k, *limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)}),
+                            limbo::Solver::kConsistencyGuarantee) ==
            (is_mine && is_mine.val == F));
     if (is_mine) {
       assert(!is_mine.val.null());
@@ -124,10 +125,10 @@ class KnowledgeBase {
 #else
     limbo::Formula::Ref yes_mine = limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)});
     limbo::Formula::Ref no_mine = limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)});
-    if (solver()->Entails(k, *yes_mine, limbo::Solver::kConsistencyGuarantee)) {
+    if (solver().Entails(k, *yes_mine, limbo::Solver::kConsistencyGuarantee)) {
       assert(g_->mine(p));
       r = limbo::internal::Just(true);
-    } else if (solver()->Entails(k, *no_mine, limbo::Solver::kConsistencyGuarantee)) {
+    } else if (solver().Entails(k, *no_mine, limbo::Solver::kConsistencyGuarantee)) {
       assert(!g_->mine(p));
       r = limbo::internal::Just(false);
     }
@@ -157,9 +158,7 @@ class KnowledgeBase {
   void ResetTimer() { t_.reset(); }
 
  private:
-  limbo::Term Mine(Point p) const {
-    return MineF(X[p.x], Y[p.y]);
-  }
+  limbo::Term Mine(Point p) const { return CreateFunction(MineF, limbo::Term::Vector{X[p.x], Y[p.y]}); }
 
   limbo::Literal MineLit(bool is, Point p) const {
     limbo::Term t = Mine(p);
@@ -183,23 +182,23 @@ class KnowledgeBase {
         return false;
       }
       case Game::FLAGGED: {
-        AddClause(limbo::Clause{MineLit(true, p)});
+        Add(limbo::Clause{MineLit(true, p)});
         return true;
       }
       case Game::HIT_MINE: {
-        AddClause(limbo::Clause{MineLit(true, p)});
+        Add(limbo::Clause{MineLit(true, p)});
         return true;
       }
       default: {
         const std::vector<Point>& ns = g_->neighbors_of(p);
         const int n = ns.size();
         for (const std::vector<Point>& ps : util::Subsets(ns, n - m + 1)) {
-          AddClause(MineClause(true, ps));
+          Add(MineClause(true, ps));
         }
         for (const std::vector<Point>& ps : util::Subsets(ns, m + 1)) {
-          AddClause(MineClause(false, ps));
+          Add(MineClause(false, ps));
         }
-        AddClause(limbo::Clause{MineLit(false, p)});
+        Add(limbo::Clause{MineLit(false, p)});
         return true;
       }
     }
@@ -214,47 +213,78 @@ class KnowledgeBase {
       }
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, n - m + 1)) {
-      AddClause(MineClause(true, ps));
+      Add(MineClause(true, ps));
     }
     for (const std::vector<Point>& ps : util::Subsets(fields, m + 1)) {
-      AddClause(MineClause(false, ps));
+      Add(MineClause(false, ps));
     }
   }
 
-  void AddClause(const limbo::Clause& c) {
+  void Add(const limbo::Literal a) { return Add(limbo::Clause{a}); }
+
+  void Add(const limbo::Clause& c) {
 #ifdef USE_DETERMINES
     for (limbo::Literal a : c) {
       limbo::Term t = a.lhs();
       if (closure_added_.find(t) == closure_added_.end()) {
-        solver()->AddClause(limbo::Clause{limbo::Literal::Eq(t, T), limbo::Literal::Eq(t, F)});
+        clauses_.push_back(limbo::Clause{limbo::Literal::Eq(t, T), limbo::Literal::Eq(t, F)});
         closure_added_.insert(t);
       }
     }
 #endif
-    solver()->AddClause(c);
+    clauses_.push_back(c);
   }
 
-  limbo::Solver* solver() { return ctx_.solver(); }
+  void UpdateSolver() {
+    if (n_processed_clauses_ == clauses_.size()) {
+      return;
+    }
+    solver_.grounder().AddClauses(clauses_.begin() + n_processed_clauses_, clauses_.end());
+    n_processed_clauses_ = clauses_.size();
+  }
+
+  limbo::Symbol::Sort CreateSort() const {
+    return limbo::Symbol::Factory::Instance()->CreateSort();
+  }
+
+  limbo::Symbol CreateFunctionSymbol(limbo::Symbol::Sort sort, limbo::Symbol::Arity arity) const {
+    return limbo::Symbol::Factory::Instance()->CreateFunction(sort, arity);
+  }
+
+  limbo::Term CreateName(limbo::Symbol::Sort sort) const {
+    return limbo::Term::Factory::Instance()->CreateTerm(limbo::Symbol::Factory::Instance()->CreateName(sort));
+  }
+
+  limbo::Term CreateVariable(limbo::Symbol::Sort sort) const {
+    return limbo::Term::Factory::Instance()->CreateTerm(limbo::Symbol::Factory::Instance()->CreateVariable(sort));
+  }
+
+  limbo::Term CreateFunction(limbo::Symbol symbol, const limbo::Term::Vector& args) const {
+    return limbo::Term::Factory::Instance()->CreateTerm(symbol, args);
+  }
 
   const Game* g_;
   size_t max_k_;
 
-  limbo::format::cpp::Context ctx_;
+  std::vector<limbo::Clause> clauses_;
+  size_t n_processed_clauses_;
 
-  limbo::Symbol::Sort Bool;
-  limbo::Symbol::Sort XPos;
-  limbo::Symbol::Sort YPos;
-  limbo::format::cpp::HiTerm T;               // name for positive truth value
-#ifdef USE_DETERMINES
-  limbo::format::cpp::HiTerm F;               // name for negative truth value
-#endif
-  std::vector<limbo::format::cpp::HiTerm> X;  // names for X positions
-  std::vector<limbo::format::cpp::HiTerm> Y;  // names for Y positions
-  limbo::format::cpp::HiSymbol MineF;
+  limbo::Solver solver_;
 
 #ifdef USE_DETERMINES
   std::unordered_set<limbo::Term> closure_added_;
 #endif
+
+  limbo::Symbol::Sort Bool;
+  limbo::Symbol::Sort XPos;
+  limbo::Symbol::Sort YPos;
+  limbo::Term T;               // name for positive truth value
+#ifdef USE_DETERMINES
+  limbo::Term F;               // name for negative truth value
+#endif
+  std::vector<limbo::Term> X;  // names for X positions
+  std::vector<limbo::Term> Y;  // names for Y positions
+  limbo::Symbol MineF;
 
   std::vector<bool> processed_;
 #ifdef END_GAME_CLAUSES
