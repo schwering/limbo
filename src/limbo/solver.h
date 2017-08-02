@@ -29,6 +29,7 @@
 
 #include <iterator>
 #include <list>
+#include <unordered_set>
 
 #include <limbo/formula.h>
 #include <limbo/grounder.h>

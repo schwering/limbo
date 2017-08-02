@@ -33,6 +33,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include <limbo/clause.h>
 #include <limbo/formula.h>
@@ -135,7 +136,7 @@ class Grounder {
     } names;
     struct {
       Ungrounded<Literal>::Set ungrounded;  // literals in prepared-for query
-      std::unordered_map<Term, std::unordered_set<Term>> map;  // grounded lhs-rhs index for clause or prepared-for query
+      std::unordered_map<Term, std::unordered_set<Term>> map;  // grounded lhs-rhs index for clauses, prepared-for query
     } lhs_rhs;
     bool do_not_add_if_inconsistent = false;  // enabled for fix-literals
 

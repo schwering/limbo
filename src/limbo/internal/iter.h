@@ -324,7 +324,7 @@ flatten_range(OuterInputIt begin, OuterInputIt end) {
 
 template<typename Range, typename UnaryFunction>
 inline flatten_iterators<decltype(std::declval<Range>().begin())>
-flatten_range(Range& r) {
+flatten_range(Range r) {
   return flatten_range(r.begin(), r.end());
 }
 
@@ -414,7 +414,7 @@ inline transform_iterators<InputIt, UnaryFunction> transform_range(InputIt begin
 
 template<typename Range, typename UnaryFunction>
 inline transform_iterators<decltype(std::declval<Range>().begin()), UnaryFunction>
-transform_range(Range& r, UnaryFunction func = UnaryFunction()) {
+transform_range(Range r, UnaryFunction func = UnaryFunction()) {
   return transform_range(r.begin(), r.end(), func);
 }
 
@@ -496,7 +496,7 @@ inline filter_iterators<InputIt, UnaryPredicate> filter_range(InputIt begin,
 
 template<typename Range, typename UnaryPredicate>
 inline filter_iterator<decltype(std::declval<Range>().begin()), UnaryPredicate>
-filter_range(Range& r, UnaryPredicate pred = UnaryPredicate()) {
+filter_range(Range r, UnaryPredicate pred = UnaryPredicate()) {
   return filter_range(r.begin(), r.end(), pred);
 }
 
@@ -747,7 +747,7 @@ inline joined_iterators<InputIt1, InputIt2> join_ranges(InputIt1 begin1,
 
 template<typename Range1, typename Range2 = Range1>
 inline joined_iterators<decltype(std::declval<Range1>().begin()), decltype(std::declval<Range2>().begin())>
-join_ranges(Range1& r1, Range2& r2) {
+join_ranges(Range1 r1, Range2 r2) {
   return join_ranges(r1.begin(), r1.end(), r2.begin(), r2.end());
 }
 

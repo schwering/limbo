@@ -151,7 +151,9 @@ class KnowledgeBase {
                                          internal::int_iterator<size_t>(beliefs_.size()),
                                          [this, &done](size_t i) { return !done[i]; });
         auto bs = internal::transform_range(is.begin(), is.end(),
-                                            [this](size_t i) -> const Clause& { return beliefs_[i].not_ante_or_conse; });
+                                            [this](size_t i) -> const Clause& {
+                                              return beliefs_[i].not_ante_or_conse;
+                                            });
         auto cs = internal::join_ranges(knowledge_.cbegin(), knowledge_.cend(), bs.begin(), bs.end());
         sphere.grounder().AddClauses(cs.begin(), cs.end());
         bool next_is_plausibility_consistent = true;

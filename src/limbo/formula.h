@@ -491,7 +491,7 @@ class Formula::Or : public Formula {
     if (!c1 || !c2) {
       return internal::Nothing;
     }
-    const auto r = internal::join_ranges(c1.val, c2.val);
+    const auto r = internal::join_cranges(c1.val, c2.val);
     return internal::Just(Clause(r.begin(), r.end()));
   }
 
@@ -858,26 +858,26 @@ class Formula::Bel : public Formula {
  public:
   bool operator==(const Formula& that) const override {
     return type() == that.type() &&
-        *antecedent_ == *that.as_bel().antecedent_ &&
-        *not_antecedent_or_consequent_ == *that.as_bel().not_antecedent_or_consequent_;
+        *ante_ == *that.as_bel().ante_ &&
+        *not_ante_or_conse_ == *that.as_bel().not_ante_or_conse_;
   }
 
   Ref Clone() const override {
-    return Factory::Bel(k_, l_, antecedent_->Clone(), consequent_->Clone(), not_antecedent_or_consequent_->Clone());
+    return Factory::Bel(k_, l_, ante_->Clone(), conse_->Clone(), not_ante_or_conse_->Clone());
   }
 
   belief_level k() const { return k_; }
   belief_level l() const { return l_; }
-  const Formula& antecedent() const { return *antecedent_; }
-  const Formula& consequent() const { return *consequent_; }
-  const Formula& not_antecedent_or_consequent() const { return *not_antecedent_or_consequent_; }
+  const Formula& antecedent() const { return *ante_; }
+  const Formula& consequent() const { return *conse_; }
+  const Formula& not_antecedent_or_consequent() const { return *not_ante_or_conse_; }
 
-  SortCount n_vars() const override { return not_antecedent_or_consequent_->n_vars(); }
+  SortCount n_vars() const override { return not_ante_or_conse_->n_vars(); }
 
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
   bool quantified_in() const override { return !free_vars().all_empty(); }
-  bool trivially_valid() const override { return not_antecedent_or_consequent_->trivially_valid(); }
+  bool trivially_valid() const override { return not_ante_or_conse_->trivially_valid(); }
   bool trivially_invalid() const override { return false; }
 
  protected:
@@ -887,26 +887,26 @@ class Formula::Bel : public Formula {
       Formula(kBel),
       k_(k),
       l_(l),
-      antecedent_(antecedent->Clone()),
-      consequent_(consequent->Clone()),
-      not_antecedent_or_consequent_(Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
+      ante_(antecedent->Clone()),
+      conse_(consequent->Clone()),
+      not_ante_or_conse_(Factory::Or(Factory::Not(std::move(antecedent)), std::move(consequent))) {}
 
-  SortedTermSet FreeVars() const override { return not_antecedent_or_consequent_->free_vars(); }
+  SortedTermSet FreeVars() const override { return not_ante_or_conse_->free_vars(); }
 
   void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
-    antecedent_->ISubstitute(theta, tf);
-    consequent_->ISubstitute(theta, tf);
-    not_antecedent_or_consequent_->ISubstitute(theta, tf);
+    ante_->ISubstitute(theta, tf);
+    conse_->ISubstitute(theta, tf);
+    not_ante_or_conse_->ISubstitute(theta, tf);
   }
-  void ITraverse(const ITraversal<Term>& f)    const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); }
-  void ITraverse(const ITraversal<Literal>& f) const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); }
-  void ITraverse(const ITraversal<Clause>& f)  const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); }
-  void ITraverse(const ITraversal<Formula>& f) const override { antecedent_->ITraverse(f); consequent_->ITraverse(f); f(*this); }
+  void ITraverse(const ITraversal<Term>& f)    const override { ante_->ITraverse(f); conse_->ITraverse(f); }
+  void ITraverse(const ITraversal<Literal>& f) const override { ante_->ITraverse(f); conse_->ITraverse(f); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { ante_->ITraverse(f); conse_->ITraverse(f); }
+  void ITraverse(const ITraversal<Formula>& f) const override { ante_->ITraverse(f); conse_->ITraverse(f); f(*this); }
 
   void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
-    antecedent_->Rectify(tm, sf, tf);
-    consequent_->Rectify(tm, sf, tf);
-    not_antecedent_or_consequent_->Rectify(tm, sf, tf);
+    ante_->Rectify(tm, sf, tf);
+    conse_->Rectify(tm, sf, tf);
+    not_ante_or_conse_->Rectify(tm, sf, tf);
   }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
@@ -914,14 +914,14 @@ class Formula::Bel : public Formula {
   }
 
   Ref Normalize(bool distribute) const override {
-    return Factory::Bel(k_, l_, antecedent_->Normalize(distribute), consequent_->Normalize(distribute),
-                        not_antecedent_or_consequent_->Normalize(distribute));
+    return Factory::Bel(k_, l_, ante_->Normalize(distribute), conse_->Normalize(distribute),
+                        not_ante_or_conse_->Normalize(distribute));
   }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    Formula::Ref ante = antecedent_->Flatten(0, sf, tf);
-    Formula::Ref conse = consequent_->Flatten(0, sf, tf);
-    Formula::Ref not_ante_or_conse = not_antecedent_or_consequent_->Flatten(0, sf, tf);
+    Formula::Ref ante = ante_->Flatten(0, sf, tf);
+    Formula::Ref conse = conse_->Flatten(0, sf, tf);
+    Formula::Ref not_ante_or_conse = not_ante_or_conse_->Flatten(0, sf, tf);
     return Factory::Bel(k_, l_, std::move(ante), std::move(conse), std::move(not_ante_or_conse));
   }
 
@@ -932,15 +932,15 @@ class Formula::Bel : public Formula {
       Formula(kBel),
       k_(k),
       l_(l),
-      antecedent_(std::move(antecedent)),
-      consequent_(std::move(consequent)),
-      not_antecedent_or_consequent_(std::move(not_antecedent_or_consequent)) {}
+      ante_(std::move(antecedent)),
+      conse_(std::move(consequent)),
+      not_ante_or_conse_(std::move(not_antecedent_or_consequent)) {}
 
   belief_level k_;
   belief_level l_;
-  Ref antecedent_;
-  Ref consequent_;
-  Ref not_antecedent_or_consequent_;
+  Ref ante_;
+  Ref conse_;
+  Ref not_ante_or_conse_;
 };
 
 class Formula::Guarantee : public Formula {
