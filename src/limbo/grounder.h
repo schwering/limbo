@@ -1060,6 +1060,7 @@ rescan:
     }
     if (minimize) {
       p->clauses.full_setup->Minimize();
+      p->clauses.shallow_setup = p->clauses.full_setup->shallow_copy();
     }
     plies_.erase(plies_.begin(), p);
     plies_.erase(std::next(p), plies_.end());

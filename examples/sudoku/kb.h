@@ -95,8 +95,11 @@ class KnowledgeBase {
     UpdateSolver();
     const limbo::internal::Maybe<limbo::Term> r = solver().Determines(k, val(p));
     assert(std::all_of(limbo::internal::int_iterator<size_t>(1), limbo::internal::int_iterator<size_t>(9),
-           [&](size_t i) { return solver()->Entails(k, val(p) == n(i)) ==
-                                  (r && r.val == n(i)); }));
+           [&](size_t i) {
+             return solver().Entails(k, *limbo::Formula::Factory::Atomic(
+                                            limbo::Clause{limbo::Literal::Eq(val(p), n(i))})) ==
+                    (r && r.val == n(i));
+           }));
     if (r) {
       assert(!r.val.null());
       for (std::size_t i = 1; i <= 9; ++i) {

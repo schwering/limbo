@@ -151,10 +151,6 @@ class Solver {
             const Term x = phi.as_not().arg().as_exists().x();
             const Formula& psi = phi.as_not().arg().as_exists().arg();
             const SortedTermSet& xs = psi.free_vars();
-            // XXX TODO Check that this works even if we disable the first if-branch, once the name computation is fixed.
-            // In test-functions.limbo, the line
-            //   Refute: Fa x Know<1> f(x) == x
-            // yields an error because the set of names is empty. This error should be fixed by correct name computation.
             if (xs.all_empty()) {
               Formula::Ref xi = Formula::Factory::Not(psi.Clone());
               return Reduce(*xi);
@@ -209,37 +205,6 @@ class Solver {
 
   template<typename T, typename GoalPredicate, typename MergeResultPredicate>
   T Split(int k, GoalPredicate goal, MergeResultPredicate merge, T inconsistent_result, T unsuccessful_result) {
-    // XXX TODO The statement "the split order [does not matter] for Entails()"
-    // is wrong:
-    //
-    // For Determines(), the split order matters, for Entails() it does not.
-    // Suppose we have two split terms t1, t2, t3 and two names n1, n2, and
-    // a query term t and two candidate names n, n' for t.
-    //
-    // Let us assume that for all combinations of t1=N*, t3=N**, the reasoner
-    // finds that t=n.
-    //
-    // The reasoner splits t1 at the first level, and after setting t1=n1 it
-    // descends to the next split level, where it successfully splits t2, which
-    // obtains t=n' as binding for t. Back at split level one, the reasoner now
-    // considers the case t1=n2, again descends to the next level, where it
-    // splits, say, t3, and obtains t=n.
-    //
-    // Back at split level one, the reasoner sees that t=n' and t=n are
-    // incompatible and hence proceeds by splitting t2, which does not succeed.
-    // In a way, t=n' found with t2 after t1=n1 blocks the real solution.
-    //
-    // Again at level one, the reasoner splits t3. If the order does not
-    // matter, it will not descend to any further split level, since all
-    // unordered combinations of t1, t2, t3 have been tested already.
-    //
-    // If the order does matter, however, it does descend to the next level.
-    // There it will split t1: even if it picks t2 before t1, t2 will prove
-    // incompatible with t3 (*). And once it splits t1 at level two, it will
-    // find t=n, which this time is not blocked by t=n'.
-    //
-    // (*) This holds under the assumption that the KB is consistent.
-    // If the KB is not consistent, could split terms 'block' each other?
     if (setup().contains_empty_clause()) {
       return unsuccessful_result;
     }

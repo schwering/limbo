@@ -427,11 +427,14 @@ class Setup {
     }
 
     void Resize(size_t n) {
-      assert(n >= n_orig_);
+      assert(n == 0 || n >= n_orig_);
       for (size_t i = n; i < vec_.size(); ++i) {
         set_.erase(vec_[i]);
       }
       vec_.resize(n);
+      if (n == 0) {
+        n_orig_ = 0;
+      }
     }
 
     void Erase(size_t i) {
