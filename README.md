@@ -1,8 +1,29 @@
 # A Reasoning System for First-Order Limited Belief
 
-Limbo is a *reasoning system for a first-order logic of **lim**ited
-**b**elief*. Limited belief allows for decidable reasoning in first-order
-knowledge bases, and in the propositional case it is even tractable.
+Limbo is a **reasoning system** for modelling and querying an agent's
+knowledge. Limbo features a **highly expressive** modelling language
+(with functions, equality, quantification, introspective modal
+operators), but  maintains **attractive computational** properties.
+
+Great expressivity usually brings along great computational complexity.
+Limbo avoids the computational cliff using the *theory of limited
+belief*, which offers a principled way to control the computational
+effort and preserves decidability and, in the propositional case, even
+tractability.
+
+A quick example of the modelling language: the statement "I know
+Sally's father is rich, but I don't know who he is" can be encoded
+by the following Limbo formula:
+**K**<sub>1</sub> exists *x* (fatherOf(Sally) = *x* ^ rich(*x*) = T ^ **M**<sub>1</sub> fatherOf(Sally) /= *x*).
+The operators **K**<sub>1</sub> and **M**<sub>1</sub> refer to what
+the agent knows or considers possible, respectively, at *belief level*
+1; the belief level is the key concept that controls the computational
+effort.
+
+Limbo is a **C++ library**. Started as an academic proof of concept,
+it'll hopefully develop into a practical reasoning system in the longer
+run. The name Limbo derives from **lim**ited **b**elief with an
+Australian '-**o**' suffix.
 
 Where to go from here?
 
@@ -14,7 +35,7 @@ Where to go from here?
 * You could have a look at one of the [papers](#references) on the
   theory behind Limbo.
 * You could also send [me](http://www.cse.unsw.edu.au/~cschwering/) an email:
-  c.*<my github username>*@unsw.edu.au.
+  c.*my Github username*@unsw.edu.au.
 
 ## Features
 
