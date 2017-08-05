@@ -23,8 +23,8 @@
 // Queries are not subject to any syntactic restrictions. Technically, they are
 // evaluated using variants of Levesque's representation theorem.
 
-#ifndef LIMBO_KB_H_
-#define LIMBO_KB_H_
+#ifndef LIMBO_KNOWLEDGE_BASE_H_
+#define LIMBO_KNOWLEDGE_BASE_H_
 
 #include <cassert>
 
@@ -370,5 +370,5 @@ class KnowledgeBase {
 
 }  // namespace limbo
 
-#endif  // LIMBO_KB_H_
+#endif  // LIMBO_KNOWLEDGE_BASE_H_
 

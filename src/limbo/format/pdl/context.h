@@ -21,7 +21,7 @@
 
 #include <limbo/term.h>
 #include <limbo/formula.h>
-#include <limbo/kb.h>
+#include <limbo/knowledge_base.h>
 
 #include <limbo/format/output.h>
 

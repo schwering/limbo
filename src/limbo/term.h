@@ -69,6 +69,8 @@ class Symbol {
     bool operator==(const Sort s) const { return id_ == s.id_; }
     bool operator!=(const Sort s) const { return id_ != s.id_; }
 
+    internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
+
     Id id() const { return id_; }
 
    private:
@@ -440,9 +442,7 @@ namespace std {
 
 template<>
 struct hash<limbo::Symbol::Sort> {
-  limbo::internal::hash32_t operator()(const limbo::Symbol::Sort s) const { return h(s.id()); }
- private:
-  std::hash<limbo::Symbol::Sort::Id> h;
+  limbo::internal::hash32_t operator()(const limbo::Symbol::Sort s) const { return s.hash(); }
 };
 
 template<>

@@ -2,12 +2,17 @@
 // Copyright 2014-2017 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// Basic first-order formulas without any syntactic sugar. The atomic entities
-// here are clauses, and the connectives are negation, disjunction, and
-// existential quantifier.
+// Basic first-order formulas. The atomic entities here are clauses, and the
+// connectives are negation, disjunction, existential, as well as modalities
+// for knowledge, contingency, conditional belief, consistency guarantee.
 //
-// NF() rectifies a formula (that is, renames variables to make sure no variable
-// occurs freely and bound or bound by two different quantifiers).
+// Some rewriting procedures are bundled in NF():
+// - Rectify() makes assigns a unique variable to every quantifier.
+// - Normalize() aims to turn disjunctions into clauses, removes redundant
+//   quantifiers and double negations, and redistributes knowledge and
+//   contingency operators over quantifiers.
+// - Flatten() pulls nested terms and terms on the right-hand side of literals
+//   out by generating a new clause.
 
 #ifndef LIMBO_FORMULA_H_
 #define LIMBO_FORMULA_H_

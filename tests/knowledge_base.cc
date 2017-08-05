@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include <limbo/kb.h>
+#include <limbo/knowledge_base.h>
 #include <limbo/format/output.h>
 #include <limbo/format/cpp/syntax.h>
 
