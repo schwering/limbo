@@ -80,9 +80,9 @@ struct Callback : public limbo::format::pdl::DefaultCallback {
       limbo::format::print_range(std::cout, args, "", "", " ");
       std::cout << std::endl;
     } else if (proc == "enable_query_logging") {
-      ctx->logger()->print_queries = true;
+      ctx->logger().print_queries = true;
     } else if (proc == "disable_query_logging") {
-      ctx->logger()->print_queries = false;
+      ctx->logger().print_queries = false;
     } else if (proc == "enable_distribute") {
       ctx->set_distribute(true);
     } else if (proc == "disable_distribute") {

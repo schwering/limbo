@@ -77,9 +77,9 @@ TEST(TermTest, general) {
   f4.Traverse([&terms](const Term t) { terms.insert(t); return true; });
   EXPECT_TRUE(terms == TermSet({n1,f1,f4}));
 
-  std::set<Symbol::Sort> sorts;
+  std::unordered_set<Symbol::Sort> sorts;
   f4.Traverse([&sorts](Term t) { sorts.insert(t.symbol().sort()); return true; });
-  EXPECT_TRUE(sorts == std::set<Symbol::Sort>({s1,s2}));
+  EXPECT_TRUE(sorts == std::unordered_set<Symbol::Sort>({s1,s2}));
 }
 
 TEST(TermTest, Unify) {

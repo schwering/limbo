@@ -91,7 +91,7 @@ struct DefaultLogger {
     const bool yes;
   };
 
-  void operator()(const LogData& d) const {}
+  void operator()(const LogData&) const {}
 };
 
 struct DefaultCallback {
@@ -209,10 +209,10 @@ class Context {
   Term::Factory* tf() { return Term::Factory::Instance(); }
 
   const Logger& logger() const { return logger_; }
-        Logger* logger()       { return &logger_; }
+        Logger& logger()       { return logger_; }
 
-  const Callback& callback() const { return &callback_; }
-        Callback* callback()       { return &callback_; }
+  const Callback& callback() const { return callback_; }
+        Callback& callback()       { return callback_; }
 
  private:
   template<typename T>

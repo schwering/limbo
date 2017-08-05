@@ -38,7 +38,7 @@ class IntMap {
   bool operator!=(const IntMap& a) const { return !(*this == a); }
 
   reference operator[](Key key) {
-    typename Vec::size_type key_int = static_cast<typename Vec::size_type>(key);
+    const typename Vec::size_type key_int = typename Vec::size_type(key);
     if (key_int >= n_keys()) {
       vec_.resize(key_int + 1, null_);
     }
@@ -52,10 +52,12 @@ class IntMap {
   size_t n_keys() const { return vec_.size(); }
 
   struct Keys {
-    typedef internal::int_iterator<Key> iterator;
+    struct Cast { Key operator()(size_t key) const { return Key(key); } };
+    typedef internal::int_iterator<size_t> int_iterator;
+    typedef internal::transform_iterator<int_iterator, Cast> iterator;
     explicit Keys(const IntMap* owner) : owner(owner) {}
-    iterator begin() const { return iterator(0); }
-    iterator end()   const { return iterator(static_cast<Key>(owner->n_keys())); }
+    iterator begin() const { return iterator(int_iterator(0)); }
+    iterator end()   const { return iterator(int_iterator(owner->n_keys())); }
    private:
     const IntMap* owner;
   };
@@ -93,7 +95,7 @@ class IntMap {
   void Zip(const IntMap& m, BinaryFunction f) {
     size_t s = std::max(n_keys(), m.n_keys());
     for (size_t i = 0; i < s; ++i) {
-      vec_[i] = f(vec_[i], m[i]);
+      vec_[i] = f(vec_[i], m[Key(i)]);
     }
   }
 

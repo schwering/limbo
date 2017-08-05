@@ -56,8 +56,24 @@ std::unique_ptr<T> Singleton<T>::instance;
 class Symbol {
  public:
   typedef internal::u32 Id;
-  typedef internal::u8 Sort;
   typedef internal::u8 Arity;
+
+  class Sort {
+   public:
+    typedef internal::u8 Id;
+
+    explicit Sort(Id id) : id_(id) {}
+    explicit operator Id() const { return id_; }
+    explicit operator internal::size_t() const { return id_; }
+
+    bool operator==(const Sort s) const { return id_ == s.id_; }
+    bool operator!=(const Sort s) const { return id_ != s.id_; }
+
+    Id id() const { return id_; }
+
+   private:
+    Id id_;
+  };
 
   class Factory : private Singleton<Factory> {
    public:
@@ -85,7 +101,8 @@ class Symbol {
       return Symbol((id << 2) | 2, sort, arity);
     }
 
-    Sort   CreateSort()                           { return last_sort_++; }
+    Sort CreateSort() { return Sort(last_sort_++); }
+
     Symbol CreateName(Sort sort)                  { return CreateName(++last_name_, sort); }
     Symbol CreateVariable(Sort sort)              { return CreateVariable(++last_variable_, sort); }
     Symbol CreateFunction(Sort sort, Arity arity) { return CreateFunction(++last_function_, sort, arity); }
@@ -97,7 +114,7 @@ class Symbol {
     Factory(Factory&&) = delete;
     Factory& operator=(Factory&&) = delete;
 
-    Sort last_sort_ = 0;
+    Sort::Id last_sort_ = 0;
     Id last_function_ = 0;
     Id last_name_ = 0;
     Id last_variable_ = 0;
@@ -121,7 +138,7 @@ class Symbol {
 
  private:
   Symbol(Id id, Sort sort, Arity arity) : id_(id), sort_(sort), arity_(arity) {
-    assert(sort >= 0);
+    assert(sort.id() >= 0);
     assert(arity >= 0);
     assert(!function() || !variable() || arity == 0);
   }
@@ -161,7 +178,7 @@ class Term {
   inline const Vector& args() const;
 
   Symbol::Sort sort()   const { return symbol().sort(); }
-  bool name()           const { assert(symbol().name() == (id_ & 1)); return (id_ & 1) == 1; }
+  bool name()           const { assert(symbol().name() == (id_& 1)); return (id_ & 1) == 1; }
   bool variable()       const { return symbol().variable(); }
   bool function()       const { return symbol().function(); }
   Symbol::Arity arity() const { return symbol().arity(); }
@@ -257,9 +274,10 @@ class Term::Factory : private Singleton<Factory> {
     DataPtrSet* s = &memory_[symbol.sort()];
     auto it = s->find(d);
     if (it == s->end()) {
-      std::vector<Data*>* heap = symbol.name() ? &name_heap_ : &variable_and_function_heap_;
+      const bool name = symbol.name();
+      std::vector<Data*>* heap = name ? &name_heap_ : &variable_and_function_heap_;
       heap->push_back(d);
-      const u32 id = (static_cast<u32>(heap->size()) << 1) | static_cast<u32>(symbol.name());
+      const u32 id = (static_cast<u32>(heap->size()) << 1) | static_cast<u32>(name);
       s->insert(std::make_pair(d, id));
       return Term(id);
     } else {
@@ -385,7 +403,7 @@ internal::Maybe<Term::Substitution> Term::Unify(Term l, Term r) {
 }
 
 bool Term::Isomorphic(Term l, Term r, Substitution* sub) {
-  if (l.function() && r.function() && l.symbol() == r.symbol()) {
+  if (l.function() && r.function() && !l.name() && !r.name() && l.symbol() == r.symbol()) {
     for (Symbol::Arity i = 0; i < l.arity(); ++i) {
       if (!Isomorphic(l.arg(i), r.arg(i), sub)) {
         return false;
@@ -419,6 +437,18 @@ void Term::Traverse(UnaryFunction f) const {
 
 
 namespace std {
+
+template<>
+struct hash<limbo::Symbol::Sort> {
+  limbo::internal::hash32_t operator()(const limbo::Symbol::Sort s) const { return h(s.id()); }
+ private:
+  std::hash<limbo::Symbol::Sort::Id> h;
+};
+
+template<>
+struct equal_to<limbo::Symbol::Sort> {
+  bool operator()(const limbo::Symbol::Sort a, const limbo::Symbol::Sort b) const { return a == b; }
+};
 
 template<>
 struct hash<limbo::Symbol> {
