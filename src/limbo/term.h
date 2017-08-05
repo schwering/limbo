@@ -62,6 +62,9 @@ class Symbol {
    public:
     typedef internal::u8 Id;
 
+    static Sort Simple(Id id) { return Sort(2 * id); }
+    static Sort Compound(Id id) { return Sort(2 * id + 1); }
+
     explicit Sort(Id id) : id_(id) {}
     explicit operator Id() const { return id_; }
     explicit operator internal::size_t() const { return id_; }
@@ -72,6 +75,7 @@ class Symbol {
     internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
     Id id() const { return id_; }
+    bool compound() const { return id_ % 2 == 1; }
 
    private:
     Id id_;
@@ -103,7 +107,8 @@ class Symbol {
       return Symbol((id << 2) | 2, sort, arity);
     }
 
-    Sort CreateSort() { return Sort(last_sort_++); }
+    Sort CreateSort()         { return Sort::Simple(last_sort_++); }
+    Sort CreateCompoundSort() { return Sort::Compound(last_sort_++); }
 
     Symbol CreateName(Sort sort)                  { return CreateName(++last_name_, sort); }
     Symbol CreateVariable(Sort sort)              { return CreateVariable(++last_variable_, sort); }
@@ -180,17 +185,19 @@ class Term {
   inline const Vector& args() const;
 
   Symbol::Sort sort()   const { return symbol().sort(); }
-  bool name()           const { assert(symbol().name() == (id_& 1)); return (id_ & 1) == 1; }
+  bool atomic_name()    const { assert(symbol().name() == (!function() && ((id_ & 1) == 1))); return !function() && ((id_ & 1) == 1); }
+  bool compound_name()  const { assert((symbol().sort().compound() && primitive()) == (function() && (id_ & 1) == 1)); return function() && ((id_ & 1) == 1); }
+  bool name()           const { assert((atomic_name() || compound_name()) == (id_ & 1) == 1); return ((id_ & 1) == 1); }
   bool variable()       const { return symbol().variable(); }
   bool function()       const { return symbol().function(); }
   Symbol::Arity arity() const { return symbol().arity(); }
 
   bool null()           const { return id_ == 0; }
-  bool ground()         const { return name() || (function() && all_args([](Term t) { return t.ground(); })); }
-  bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
-  bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
+  bool ground()         const { return atomic_name() || (function() && all_args([](Term t) { return t.ground(); })); }
+  bool primitive()      const { return function() && all_args([](Term t) { return t.atomic_name(); }); }
+  bool quasiprimitive() const { return function() && all_args([](Term t) { return t.atomic_name() || t.variable(); }); }
 
-  bool Mentions(Term t) const { return *this == t || any_arg([t](Term tt) { return t == tt; }); }
+  bool Mentions(Term t) const { assert(quasiprimitive()); return *this == t || any_arg([t](Term tt) { return t == tt; }); }
 
   template<typename UnaryFunction>
   Term Substitute(UnaryFunction theta, Factory* tf) const;
@@ -272,11 +279,15 @@ class Term::Factory : private Singleton<Factory> {
 
   Term CreateTerm(Symbol symbol, const Vector& args) {
     assert(symbol.arity() == static_cast<Symbol::Arity>(args.size()));
+    assert(!symbol.sort().compound() || std::all_of(args.begin(), args.end(),
+                                                    [](Term t) { return !t.sort().compound(); }));
     Data* d = new Data(symbol, args);
     DataPtrSet* s = &memory_[symbol.sort()];
     auto it = s->find(d);
     if (it == s->end()) {
-      const bool name = symbol.name();
+      const bool name = symbol.name() ||
+          (symbol.sort().compound() && symbol.function() &&
+           std::all_of(args.begin(), args.end(), [](const Term t) { return t.atomic_name(); }));
       std::vector<Data*>* heap = name ? &name_heap_ : &variable_and_function_heap_;
       heap->push_back(d);
       const u32 id = (static_cast<u32>(heap->size()) << 1) | static_cast<u32>(name);

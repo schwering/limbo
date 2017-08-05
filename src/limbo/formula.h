@@ -45,7 +45,7 @@ class Formula {
   typedef SortedTermSet::Bucket TermSet;
   typedef internal::IntMap<Symbol::Sort, size_t> SortCount;
   typedef unsigned int belief_level;
-  enum Type { kAtomic, kNot, kOr, kExists, kKnow, kCons, kBel, kGuarantee };
+  enum Type { kAtomic, kNot, kOr, kExists, kKnow, kCons, kBel, kGuarantee, kAction };
 
   class Factory {
    public:
@@ -64,6 +64,7 @@ class Formula {
     inline static Ref Bel(belief_level k, belief_level l, Ref alpha, Ref beta);
     inline static Ref Bel(belief_level k, belief_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta);
     inline static Ref Guarantee(Ref alpha);
+    inline static Ref Action(Term t, Ref alpha);
   };
 
   class Atomic;
@@ -74,6 +75,7 @@ class Formula {
   class Cons;
   class Bel;
   class Guarantee;
+  class Action;
 
   Formula(const Formula&) = delete;
   Formula& operator=(const Formula&) = delete;
@@ -97,6 +99,7 @@ class Formula {
   inline const Cons&      as_cons() const;
   inline const Bel&       as_bel() const;
   inline const Guarantee& as_guarantee() const;
+  inline const Action&    as_action() const;
 
   const SortedTermSet& free_vars() const {
     if (!free_vars_) {
@@ -137,6 +140,9 @@ class Formula {
     c->Rectify(sf, tf);
     c = c->Normalize(distribute);
     c = c->Flatten(0, sf, tf);
+    // TODO: In ex x (t = x ^ phi) and fa x (t = x -> phi), we could substitute t
+    // for x and eliminate the quantifier and t = x literal provided that x does
+    // not occur within a belief modality.
     c = c->Normalize(distribute);
     return Ref(std::move(c));
   }
@@ -145,6 +151,7 @@ class Formula {
 
   virtual bool objective() const = 0;
   virtual bool subjective() const = 0;
+  virtual bool dynamic() const = 0;
   virtual bool quantified_in() const = 0;
   virtual bool trivially_valid() const = 0;
   virtual bool trivially_invalid() const = 0;
@@ -262,6 +269,7 @@ class Formula::Atomic : public Formula {
   bool subjective() const override {
     return std::all_of(c_.begin(), c_.end(), [](Literal a) { return !a.lhs().function() && !a.rhs().function(); });
   }
+  bool dynamic() const override { return false; }
   bool quantified_in() const override { return false; }
   bool trivially_valid() const override { return c_.valid(); }
   bool trivially_invalid() const override { return c_.invalid(); }
@@ -313,7 +321,7 @@ class Formula::Atomic : public Formula {
     // literal in the unit clause, apply the transformation to the new unit
     // clause, and prepend another negation to the transformed formula.
     typedef std::unordered_set<Literal> LiteralSet;
-    bool add_double_negation = nots % 2 == 1 && arg().unit();
+    const bool add_double_negation = nots % 2 == 1 && arg().unit();
     const Clause c = add_double_negation ? Clause(arg().first().flip()) : arg();
     LiteralSet queue(c.begin(), c.end());
     TermMap term_to_var;
@@ -325,17 +333,17 @@ class Formula::Atomic : public Formula {
     LiteralSet lits;
     QuantifierPrefix vars;
     while (!queue.empty()) {
-      auto it = queue.begin();
-      Literal a = *it;
+      const auto it = queue.begin();
+      const Literal a = *it;
       queue.erase(it);
       if (a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function())) {
         lits.insert(a);
       } else if (a.rhs().function() &&
                  (!a.pos() || std::all_of(queue.begin(), queue.end(), [](Literal a) { return a.pos(); }))) {
         assert(a.lhs().function());
-        Term old_t = a.lhs().arity() < a.rhs().arity() ? a.lhs() : a.rhs();
+        const Term old_t = a.lhs().arity() < a.rhs().arity() ? a.lhs() : a.rhs();
         Term new_t;
-        TermMap::const_iterator it = term_to_var.find(old_t);
+        const TermMap::const_iterator it = term_to_var.find(old_t);
         if (it != term_to_var.end()) {
           new_t = it->second;
         } else {
@@ -343,17 +351,17 @@ class Formula::Atomic : public Formula {
           term_to_var[old_t] = new_t;
           vars.append_exists(new_t);
         }
-        Literal new_a = a.Substitute(Term::Substitution(old_t, new_t), tf);
-        Literal new_b = Literal::Neq(new_t, old_t);
+        const Literal new_a = a.Substitute(Term::Substitution(old_t, new_t), tf);
+        const Literal new_b = Literal::Neq(new_t, old_t);
         queue.insert(new_a);
         queue.insert(new_b);
       } else {
         assert(!a.lhs().quasiprimitive());
         for (Term arg : a.lhs().args()) {
           if (arg.function()) {
-            Term old_arg = arg;
+            const Term old_arg = arg;
             Term new_arg;
-            TermMap::const_iterator it = term_to_var.find(old_arg);
+            const TermMap::const_iterator it = term_to_var.find(old_arg);
             if (it != term_to_var.end()) {
               new_arg = it->second;
             } else {
@@ -361,8 +369,8 @@ class Formula::Atomic : public Formula {
               term_to_var[old_arg] = new_arg;
               vars.append_exists(new_arg);
             }
-            Literal new_a = a.Substitute(Term::Substitution(old_arg, new_arg), tf);
-            Literal new_b = Literal::Neq(new_arg, old_arg);
+            const Literal new_a = a.Substitute(Term::Substitution(old_arg, new_arg), tf);
+            const Literal new_b = Literal::Neq(new_arg, old_arg);
             queue.insert(new_a);
             queue.insert(new_b);
             break;
@@ -420,6 +428,7 @@ class Formula::Or : public Formula {
 
   bool objective() const override { return alpha_->objective() && beta_->objective(); }
   bool subjective() const override { return alpha_->subjective() && beta_->subjective(); }
+  bool dynamic() const override { return alpha_->dynamic() || beta_->dynamic(); }
   bool quantified_in() const override { return alpha_->quantified_in() || beta_->quantified_in(); }
   bool trivially_valid() const override { return alpha_->trivially_valid() || beta_->trivially_valid(); }
   bool trivially_invalid() const override { return alpha_->trivially_invalid() && beta_->trivially_invalid(); }
@@ -520,6 +529,7 @@ class Formula::Exists : public Formula {
 
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
+  bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return alpha_->quantified_in(); }
   bool trivially_valid() const override { return alpha_->trivially_valid(); }
   bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
@@ -600,6 +610,7 @@ class Formula::Not : public Formula {
 
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
+  bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return false; }
   bool trivially_valid() const override { return alpha_->trivially_invalid(); }
   bool trivially_invalid() const override { return alpha_->trivially_valid(); }
@@ -647,7 +658,8 @@ class Formula::Not : public Formula {
       case kKnow:
       case kCons:
       case kBel:
-      case kGuarantee: {
+      case kGuarantee:
+      case kAction: {
         return Factory::Not(arg().Normalize(distribute));
       }
     }
@@ -681,6 +693,7 @@ class Formula::Know : public Formula {
 
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
+  bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return !free_vars().all_empty(); }
   bool trivially_valid() const override { return alpha_->trivially_valid(); }
   bool trivially_invalid() const override { return false; }
@@ -756,6 +769,7 @@ class Formula::Know : public Formula {
         case kCons:
         case kBel:
         case kGuarantee:
+        case kAction:
           break;
       }
     }
@@ -781,6 +795,7 @@ class Formula::Cons : public Formula {
 
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
+  bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return !free_vars().all_empty(); }
   bool trivially_valid() const override { return false; }
   bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
@@ -850,6 +865,7 @@ class Formula::Cons : public Formula {
       case kCons:
       case kBel:
       case kGuarantee:
+      case kAction:
         break;
     }
     return Factory::Cons(k, std::move(alpha));
@@ -881,6 +897,7 @@ class Formula::Bel : public Formula {
 
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
+  bool dynamic() const override { return not_ante_or_conse_->dynamic(); }
   bool quantified_in() const override { return !free_vars().all_empty(); }
   bool trivially_valid() const override { return not_ante_or_conse_->trivially_valid(); }
   bool trivially_invalid() const override { return false; }
@@ -962,6 +979,7 @@ class Formula::Guarantee : public Formula {
 
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
+  bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return alpha_->quantified_in(); }
   bool trivially_valid() const override { return alpha_->trivially_valid(); }
   bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
@@ -999,6 +1017,114 @@ class Formula::Guarantee : public Formula {
   Ref alpha_;
 };
 
+class Formula::Action : public Formula {
+ public:
+  bool operator==(const Formula& that) const override {
+    return type() == that.type() && t_ == that.as_action().t_ && *alpha_ == *that.as_action().alpha_;
+  }
+
+  Ref Clone() const override { return Factory::Action(t_, alpha_->Clone()); }
+
+  Term t() const { return t_; }
+  const Formula& arg() const { return *alpha_; }
+
+  SortCount n_vars() const override {
+    SortCount m;
+    for (Term x : free_vars()) {
+      ++m[x.sort()];
+    }
+    m.Zip(alpha_->n_vars(), [](size_t a, size_t b) { return std::max(a, b); });
+    return m;
+  }
+
+  bool objective() const override { return alpha_->objective(); }
+  bool subjective() const override { return alpha_->subjective(); }
+  bool dynamic() const override { return false; }
+  bool quantified_in() const override { return alpha_->quantified_in(); }
+  bool trivially_valid() const override { return alpha_->trivially_valid(); }
+  bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
+
+ protected:
+  friend class Factory;
+
+  Action(Term t, Ref alpha) :
+      Formula(kAction),
+      t_(t),
+      alpha_(std::move(alpha)) {}
+
+  SortedTermSet FreeVars() const override {
+    SortedTermSet ts = alpha_->free_vars();
+    t_.Traverse([&ts](Term x) { if (x.variable()) ts.insert(x); return true; });
+    return ts;
+  }
+
+  void ISubstitute(const ISubstitution& theta, Term::Factory* tf) override {
+    t_ = t_.Substitute([&theta](Term t) { return theta(t); }, tf);
+    alpha_->ISubstitute(theta, tf);
+  }
+  void ITraverse(const ITraversal<Term>& f)    const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Literal>& f) const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
+  void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
+
+  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
+
+  std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
+    return std::make_pair(QuantifierPrefix(), this);
+  }
+
+  Ref Normalize(bool distribute) const override { return Factory::Action(t_, alpha_->Normalize(distribute)); }
+
+  Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    // This is a special case (in the sense that we only have a single term
+    // instead of literals) of Atomic::Flatten().
+    typedef std::unordered_set<Literal> LiteralSet;
+    LiteralSet lits;
+    QuantifierPrefix vars;
+    Term t = t_;
+    if (!t.name() && !t.sort().compound() && t.function()) {
+      const Term x = tf->CreateTerm(sf->CreateVariable(t.sort()));
+      lits.insert(Literal::Neq(t, x));
+      vars.append_exists(x);
+      t = x;
+    } else if (!t.name() && t.sort().compound() && !t.quasiprimitive()) {
+      TermMap term_to_var;
+      Term::Vector args = t.args();
+      for (size_t i = 0; i < args.size(); ++i) {
+        if (t.function()) {
+          Term old_arg = args[i];
+          Term new_arg = tf->CreateTerm(sf->CreateVariable(old_arg.sort()));
+          vars.append_exists(new_arg);
+          for (size_t j = i; j < args.size(); ++j) {
+            if (args[j] == old_arg) {
+              args[j] = new_arg;
+            }
+          }
+          lits.insert(Literal::Neq(new_arg, old_arg));
+        }
+      }
+      t = tf->CreateTerm(t.symbol(), args);
+    }
+    assert(std::all_of(lits.begin(), lits.end(), [](Literal a) {
+                       return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
+    Ref alpha = Factory::Action(t, alpha_->Flatten(nots, sf, tf));
+    if (vars.size() == 0) {
+      return alpha;
+    } else {
+      vars.prepend_not();
+      vars.append_not();
+      Ref beta = Factory::Atomic(Clause(lits.begin(), lits.end()))->Flatten(nots + 2, sf, tf);
+      return vars.PrependTo(Factory::Or(std::move(beta), std::move(alpha)));
+    }
+  }
+
+  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
+
+ private:
+  Term t_;
+  Ref alpha_;
+};
+
 Formula::Ref Formula::Factory::Atomic(const Clause& c)   { return Ref(new class Atomic(c)); }
 Formula::Ref Formula::Factory::Not(Ref alpha)            { return Ref(new class Not(std::move(alpha))); }
 Formula::Ref Formula::Factory::Or(Ref lhs, Ref rhs)    { return Ref(new class Or(std::move(lhs), std::move(rhs))); }
@@ -1012,6 +1138,7 @@ Formula::Ref Formula::Factory::Bel(belief_level k, belief_level l, Ref alpha, Re
   return Ref(new class Bel(k, l, std::move(alpha), std::move(beta), std::move(not_alpha_or_beta)));
 }
 Formula::Ref Formula::Factory::Guarantee(Ref alpha) { return Ref(new class Guarantee(std::move(alpha))); }
+Formula::Ref Formula::Factory::Action(Term t, Ref alpha) { return Ref(new class Action(t, std::move(alpha))); }
 
 inline const class Formula::Atomic& Formula::as_atomic() const {
   assert(type_ == kAtomic);
@@ -1044,6 +1171,10 @@ inline const class Formula::Bel& Formula::as_bel() const {
 inline const class Formula::Guarantee& Formula::as_guarantee() const {
   assert(type_ == kGuarantee);
   return *dynamic_cast<const class Guarantee*>(this);
+}
+inline const class Formula::Action& Formula::as_action() const {
+  assert(type_ == kAction);
+  return *dynamic_cast<const class Action*>(this);
 }
 
 }  // namespace limbo

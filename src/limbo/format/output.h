@@ -313,6 +313,9 @@ std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
     case Formula::kGuarantee:
       os << "G " << alpha.as_guarantee().arg();
       break;
+    case Formula::kAction:
+      os << "[" << alpha.as_action().t() << "] " << alpha.as_action().arg();
+      break;
   }
   return os;
 }

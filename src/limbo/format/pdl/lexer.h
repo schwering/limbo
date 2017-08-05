@@ -26,10 +26,10 @@ namespace pdl {
 
 class Token {
  public:
-  enum Id { kError, kSort, kVar, kName, kFun, kSlash, kKB, kLet, kQuery, kAssert, kRefute, kColon, kComma, kLess,
-    kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow, kDoubleRArrow, kLeftParen,
-    kRightParen, kKnow, kCons, kBel, kGuarantee, kAssign, kIf, kElse, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment,
-    kUint, kString, kIdentifier };
+  enum Id { kError, kCompound, kSort, kVar, kName, kFun, kSlash, kKB, kLet, kQuery, kAssert, kRefute, kColon, kComma,
+    kLess, kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow, kDoubleRArrow,
+    kLParen, kRParen, kLBracket, kRBracket, kBox, kKnow, kCons, kBel, kGuarantee, kAssign, kIf, kElse, kWhile, kFor,
+    kIn, kBegin, kEnd, kCall, kComment, kUint, kString, kIdentifier };
 
   Token() : id_(kError) {}
   explicit Token(Id id) : id_(id) {}
@@ -146,6 +146,7 @@ class Lexer {
   };
 
   Lexer(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {
+    lexemes_.emplace_back(Token::kCompound,     [](Word w) { return IsPrefix(w, {"Compound", "compound"}); });
     lexemes_.emplace_back(Token::kSort,         [](Word w) { return IsPrefix(w, {"Sort", "sort"}); });
     lexemes_.emplace_back(Token::kVar,          [](Word w) { return IsPrefix(w, {"Var", "Variable", "var", "variable"}); });  // NOLINT
     lexemes_.emplace_back(Token::kName,         [](Word w) { return IsPrefix(w, {"Name", "name"}); });
@@ -170,8 +171,11 @@ class Lexer {
     lexemes_.emplace_back(Token::kRArrow,       [](Word w) { return IsPrefix(w, "->"); });
     lexemes_.emplace_back(Token::kLRArrow,      [](Word w) { return IsPrefix(w, "<->"); });
     lexemes_.emplace_back(Token::kDoubleRArrow, [](Word w) { return IsPrefix(w, "==>"); });
-    lexemes_.emplace_back(Token::kLeftParen,    [](Word w) { return IsPrefix(w, "("); });
-    lexemes_.emplace_back(Token::kRightParen,   [](Word w) { return IsPrefix(w, ")"); });
+    lexemes_.emplace_back(Token::kLParen,       [](Word w) { return IsPrefix(w, "("); });
+    lexemes_.emplace_back(Token::kRParen,       [](Word w) { return IsPrefix(w, ")"); });
+    lexemes_.emplace_back(Token::kLBracket,     [](Word w) { return IsPrefix(w, "["); });
+    lexemes_.emplace_back(Token::kRBracket,     [](Word w) { return IsPrefix(w, "]"); });
+    lexemes_.emplace_back(Token::kBox,          [](Word w) { return IsPrefix(w, "[]"); });
     lexemes_.emplace_back(Token::kKnow,         [](Word w) { return IsPrefix(w, {"K", "Know", "know"}); });
     lexemes_.emplace_back(Token::kCons,         [](Word w) { return IsPrefix(w, {"M", "Cons", "cons"}); });
     lexemes_.emplace_back(Token::kBel,          [](Word w) { return IsPrefix(w, {"B", "Bel", "bel"}); });
@@ -245,6 +249,7 @@ class Lexer {
 
 std::ostream& operator<<(std::ostream& os, Token::Id t) {
   switch (t) {
+    case Token::kCompound:     return os << "Compound";
     case Token::kSort:         return os << "Sort";
     case Token::kVar:          return os << "Var";
     case Token::kName:         return os << "Name";
@@ -269,8 +274,11 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kRArrow:       return os << "->";
     case Token::kLRArrow:      return os << "<->";
     case Token::kDoubleRArrow: return os << "==>";
-    case Token::kLeftParen:    return os << "(";
-    case Token::kRightParen:   return os << ")";
+    case Token::kLParen:       return os << "(";
+    case Token::kRParen:       return os << ")";
+    case Token::kLBracket:     return os << "[";
+    case Token::kRBracket:     return os << "]";
+    case Token::kBox:          return os << "[]";
     case Token::kKnow:         return os << "K";
     case Token::kCons:         return os << "M";
     case Token::kBel:          return os << "B";

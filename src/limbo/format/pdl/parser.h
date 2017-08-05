@@ -169,21 +169,28 @@ class Parser {
     return Result<T>(Result<T>::kUnapplicable, ss.str(), begin().char_iter(), end().char_iter());
   }
 
-  // declaration --> sort <sort-id> [ , <sort-id>]*
+  // declaration --> [ compound ] sort <sort-id> [ , <sort-id>]*
   //              |  var <id> [ , <id> ]* -> <sort-id>
   //              |  name <id> [ , <id> ]* -> <sort-id>
   //              |  fun <id> [ , <id> ]* / <arity> -> <sort-id>
   Result<Action<>> declaration() {
-    if (Is(Tok(), Token::kSort)) {
+    if (Is(Tok(), Token::kCompound) || Is(Tok(), Token::kSort)) {
       Action<> a;
+      bool compound = Is(Tok(), Token::kCompound);
+      if (compound) {
+        Advance();
+        if (!Is(Tok(), Token::kSort)) {
+          return Error<Action<>>(LIMBO_MSG("Expected 'Sort'"));
+        }
+      }
       do {
         Advance();
         if (Is(Tok(), Token::kIdentifier)) {
           const std::string id = Tok().val.str();
           Advance();
-          a += [this, id](Context* ctx) {
+          a += [this, compound, id](Context* ctx) {
             if (!ctx->IsRegisteredSort(id)) {
-              ctx->RegisterSort(id);
+              ctx->RegisterSort(id, compound);
               return Success<>();
             } else {
               return Error<>(LIMBO_MSG("Sort "+ id +" is already registered"));
@@ -270,7 +277,7 @@ class Parser {
         return Error<Action<>>(LIMBO_MSG("Expected arrow and sort identifier"));
       }
     }
-    return Unapplicable<Action<>>(LIMBO_MSG("Expected 'Sort', 'Var', 'Name' or 'Fun'"));
+    return Unapplicable<Action<>>(LIMBO_MSG("Expected 'Compound', 'Sort', 'Var', 'Name' or 'Fun'"));
   }
 
   // atomic_term --> x
@@ -310,7 +317,7 @@ class Parser {
       const std::string id = Tok().val.str();
       Advance();
       std::vector<Action<Term>> args;
-      if (Is(Tok(), Token::kLeftParen)) {
+      if (Is(Tok(), Token::kLParen)) {
         Advance();
         for (;;) {
           Result<Action<Term>> t = term();
@@ -321,7 +328,7 @@ class Parser {
           if (Is(Tok(), Token::kComma)) {
             Advance();
             continue;
-          } else if (Is(Tok(), Token::kRightParen)) {
+          } else if (Is(Tok(), Token::kRParen)) {
             Advance();
             break;
           } else {
@@ -397,6 +404,7 @@ class Parser {
   //                  |  Cons < k > primary_formula
   //                  |  Bel < k , l > primary_formula => primary_formula
   //                  |  Guarantee primary_formula
+  //                  |  [ term ] primary_formula
   //                  |  ( formula )
   //                  |  abbreviation
   //                  |  literal
@@ -534,13 +542,39 @@ class Parser {
         return Success(Formula::Factory::Guarantee(std::move(alpha.val)));
       });
     }
-    if (Is(Tok(), Token::kLeftParen)) {
+    if (Is(Tok(), Token::kLBracket)) {
+      Advance();
+      Result<Action<Term>> t = term();
+      if (!t) {
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected a term in action"), t);
+      }
+      if (!Is(Tok(), Token::kRBracket)) {
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected ']'"));
+      }
+      Advance();
+      Result<Action<Formula::Ref>> alpha = primary_formula();
+      if (!alpha) {
+        return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected a primary formula within action"), alpha);
+      }
+      return Success<Action<Formula::Ref>>([this, t_a = t.val, alpha_a = alpha.val](Context* ctx) {
+        Result<Term> t = t_a.Run(ctx);
+        if (!t) {
+          return Error<Formula::Ref>(LIMBO_MSG("Expected a term in action"), t);
+        }
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+        if (!alpha) {
+          return Error<Formula::Ref>(LIMBO_MSG("Expected a primary formula within negation"), alpha);
+        }
+        return Success<Formula::Ref>(Formula::Factory::Action(t.val, std::move(alpha.val)));
+      });
+    }
+    if (Is(Tok(), Token::kLParen)) {
       Advance();
       Result<Action<Formula::Ref>> alpha = formula();
       if (!alpha) {
         return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected formula within brackets"), alpha);
       }
-      if (!Is(Tok(), Token::kRightParen)) {
+      if (!Is(Tok(), Token::kRParen)) {
         return Error<Action<Formula::Ref>>(LIMBO_MSG("Expected closing right parenthesis ')'"));
       }
       Advance();
@@ -553,7 +587,7 @@ class Parser {
       });
     }
     if (Is(Tok(), Token::kIdentifier) &&
-        !(Is(Tok(1), Token::kLeftParen) || Is(Tok(1), Token::kEquality) || Is(Tok(1), Token::kInequality))) {
+        !(Is(Tok(1), Token::kLParen) || Is(Tok(1), Token::kEquality) || Is(Tok(1), Token::kInequality))) {
       std::string id = Tok().val.str();
       Advance();
       return Success<Action<Formula::Ref>>([this, id](Context* ctx) {
@@ -696,6 +730,7 @@ class Parser {
   }
 
   // kb_formula --> KB : formula
+  //             |  KB : [] [ [atomic_term] ] term = atomic_term <-> formula
   Result<Action<>> kb_formula() {
     if (!Is(Tok(), Token::kKB)) {
       return Unapplicable<Action<>>(LIMBO_MSG("Expected 'KB'"));
@@ -705,22 +740,100 @@ class Parser {
       return Error<Action<>>(LIMBO_MSG("Expected ':'"));
     }
     Advance();
-    Result<Action<Formula::Ref>> alpha = formula();
-    if (!alpha) {
-      return Error<Action<>>(LIMBO_MSG("Expected KB formula"), alpha);
-    }
-    return Success<Action<>>([this, alpha_a = alpha.val](Context* ctx) {
-      Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+    if (Is(Tok(0), Token::kBox)) {
+      Advance();
+      // Remainder is:
+      // [ [atomic_term] ] term = atomic_term <-> formula
+      const bool ssa = Is(Tok(), Token::kLBracket);
+      Result<Action<Term>> t;
+      if (ssa) {
+        Advance();
+        t = atomic_term();
+        if (!t) {
+          return Error<Action<>>(LIMBO_MSG("Expected action variable"), t);
+        }
+        if (!Is(Tok(), Token::kRBracket)) {
+          return Error<Action<>>(LIMBO_MSG("Expected ']'"));
+        }
+        Advance();
+      }
+      Result<Action<std::unique_ptr<Literal>>> a = literal();
+      if (!a) {
+        return Error<Action<>>(LIMBO_MSG("Expected KB dynamic left-hand side literal"), a);
+      }
+      if (!Is(Tok(), Token::kLRArrow)) {
+        return Error<Action<>>(LIMBO_MSG("Expected '<->'"));
+      }
+      Advance();
+      Result<Action<Formula::Ref>> alpha = formula();
       if (!alpha) {
-        return Error<>(LIMBO_MSG("Expected KB formula"), alpha);
+        return Error<Action<>>(LIMBO_MSG("Expected KB dynamic right-hand side formula"), alpha);
       }
-      if (ctx->AddToKb(*alpha.val)) {
-        return Success<>();
-      } else {
-        return Error<>(LIMBO_MSG("Couldn't add formula to KB; is it proper+ "
-                                "(i.e., its NF must be a universally quantified clause)?"));
+      return Success<Action<>>([this, ssa, t_a = t.val, a_a = a.val, alpha_a = alpha.val](Context* ctx) {
+        Result<Term> t;
+        if (ssa) {
+          t = t_a.Run(ctx);
+          if (!t || !t.val.variable()) {
+            return Error<>(LIMBO_MSG("Expected action variable"), t);
+          }
+        }
+        Result<std::unique_ptr<Literal>> a = a_a.Run(ctx);
+        if (!a) {
+          return Error<>(LIMBO_MSG("Expected KB dynamic left-hand side literal"), a);
+        }
+        const bool ok =
+            a.val->pos() &&
+            a.val->lhs().sort() == a.val->rhs().sort() &&
+            !a.val->lhs().sort().compound() &&
+            a.val->lhs().function() &&
+            std::all_of(a.val->lhs().args().begin(), a.val->lhs().args().end(), [](Term t) { return t.variable(); });
+        if (!ok) {
+          return Error<>(LIMBO_MSG("Left-hand side literal of dynamic axiom must be of the form f(x,...) = y "
+                                   "f, y of same, non-compound sort"));
+        }
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+        if (!alpha) {
+          return Error<>(LIMBO_MSG("Expected KB dynamic right-hand side formula"), alpha);
+        }
+        Formula::SortedTermSet xs;
+        a.val->Traverse([&xs](const Term t) { if (t.variable()) { xs.insert(t); } return true; });
+        if (ssa) {
+          t.val.Traverse([&xs](const Term t) { if (t.variable()) { xs.insert(t); } return true; });
+        }
+        for (Term y : alpha.val->free_vars().values()) {
+          if (!xs.contains(y)) {
+            return Error<>(LIMBO_MSG("Free variables in the right-hand side of dynamic axiom must be bound by the "
+                                     "left-hand side"));
+          }
+        }
+        if ((ssa && ctx->Add(t.val, *a.val, *alpha.val)) ||
+            (!ssa && ctx->Add(*a.val, *alpha.val))) {
+          return Success<>();
+        } else {
+          return Error<>(LIMBO_MSG("Couldn't add formula to KB; is it proper+ "
+                                  "(i.e., its NF must be a universally quantified clause)?"));
+        }
+      });
+    } else {
+      // Remainder is:
+      // formula
+      Result<Action<Formula::Ref>> alpha = formula();
+      if (!alpha) {
+        return Error<Action<>>(LIMBO_MSG("Expected KB formula"), alpha);
       }
-    });
+      return Success<Action<>>([this, alpha_a = alpha.val](Context* ctx) {
+        Result<Formula::Ref> alpha = alpha_a.Run(ctx);
+        if (!alpha) {
+          return Error<>(LIMBO_MSG("Expected KB formula"), alpha);
+        }
+        if (ctx->Add(*alpha.val)) {
+          return Success<>();
+        } else {
+          return Error<>(LIMBO_MSG("Couldn't add formula to KB; is it proper+ "
+                                  "(i.e., its NF must be a universally quantified clause)?"));
+        }
+      });
+    }
   }
 
   // subjective_formula --> formula
@@ -746,7 +859,7 @@ class Parser {
   // query --> [ Query | Refute | Assert ] : subjective_formula
   Result<Action<>> query() {
     if (!(Is(Tok(), Token::kQuery) || Is(Tok(), Token::kNot) || Is(Tok(), Token::kForall) ||
-          Is(Tok(), Token::kExists) || Is(Tok(), Token::kLeftParen) || Is(Tok(), Token::kKnow) ||
+          Is(Tok(), Token::kExists) || Is(Tok(), Token::kLParen) || Is(Tok(), Token::kKnow) ||
           Is(Tok(), Token::kCons) || Is(Tok(), Token::kBel) || Is(Tok(), Token::kGuarantee) ||
           Is(Tok(), Token::kIdentifier)) &&
         !Is(Tok(), Token::kAssert) &&
@@ -1097,13 +1210,13 @@ class Parser {
     }
     const std::string id = Tok().val.str();
     Advance();
-    if (!Is(Tok(), Token::kLeftParen)) {
+    if (!Is(Tok(), Token::kLParen)) {
       return Error<Action<>>(LIMBO_MSG("Expected opening parentheses '('"));
     }
     std::vector<Action<Term>> ts;
     do {
       Advance();
-      if (Is(Tok(), Token::kRightParen)) {
+      if (Is(Tok(), Token::kRParen)) {
         break;
       }
       Result<Action<Term>> t = term();
@@ -1112,7 +1225,7 @@ class Parser {
       }
       ts.push_back(std::move(t.val));
     } while (Is(Tok(), Token::kComma));
-    if (!Is(Tok(), Token::kRightParen)) {
+    if (!Is(Tok(), Token::kRParen)) {
       return Error<Action<>>(LIMBO_MSG("Expected closing parentheses '('"));
     }
     Advance();
@@ -1159,8 +1272,8 @@ class Parser {
   // branch --> [ declaration | kb_formula | abbreviation | query | if_else | while_loop | for_loop | call ]
   Result<Action<>> branch() {
     typedef Result<Action<>> (Parser::*Rule)();
-    std::vector<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation, &Parser::query,
-                               &Parser::if_else, &Parser::while_loop, &Parser::for_loop, &Parser::call};
+    std::vector<Rule> rules = {&Parser::declaration, &Parser::kb_formula, &Parser::abbreviation,
+                               &Parser::query, &Parser::if_else, &Parser::while_loop, &Parser::for_loop, &Parser::call};
     for (Rule rule : rules) {
       Result<Action<>> r = (this->*rule)();
       if (r) {

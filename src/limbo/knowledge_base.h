@@ -249,6 +249,8 @@ class KnowledgeBase {
         }
         return ReduceModalities(beta);
       }
+      case Formula::kAction:
+        assert(false);
     }
     throw;
   }

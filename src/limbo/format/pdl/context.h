@@ -22,6 +22,7 @@
 #include <limbo/term.h>
 #include <limbo/formula.h>
 #include <limbo/knowledge_base.h>
+#include <limbo/action_theory.h>
 
 #include <limbo/format/output.h>
 
@@ -83,9 +84,17 @@ struct DefaultLogger {
     const bool ok;
   };
 
+  struct AddToAtData : public LogData {
+    AddToAtData(Literal a, const Formula& alpha, bool ok) : a(a), alpha(alpha), ok(ok) {}
+    AddToAtData(Term t, Literal a, const Formula& alpha, bool ok) : t(t), a(a), alpha(alpha), ok(ok) {}
+    const Term t = Term();
+    const Literal a;
+    const Formula& alpha;
+    const bool ok;
+  };
+
   struct QueryData : public LogData {
-    QueryData(const KnowledgeBase& kb, const Formula& phi, bool yes) :
-        kb(kb), phi(phi.Clone()), yes(yes) {}
+    QueryData(const KnowledgeBase& kb, const Formula& phi, bool yes) : kb(kb), phi(phi.Clone()), yes(yes) {}
     const KnowledgeBase& kb;
     const Formula::Ref phi;
     const bool yes;
@@ -102,13 +111,17 @@ struct DefaultCallback {
 template<typename Logger = DefaultLogger, typename Callback = DefaultCallback>
 class Context {
  public:
-  explicit Context(Logger p = Logger(), Callback c = Callback()) : logger_(p), callback_(c), kb_(sf(), tf()) {}
+  explicit Context(Logger p = Logger(), Callback c = Callback())
+      : logger_(p),
+        callback_(c),
+        kb_(sf(), tf()),
+        at_(sf(), tf()) {}
 
   void Call(const std::string& proc, const std::vector<Term>& args) {
     callback_(this, proc, args);
   }
 
-  Symbol::Sort CreateSort() { return sf()->CreateSort(); }
+  Symbol::Sort CreateSort(bool compound) { return !compound ? sf()->CreateSort() : sf()->CreateCompoundSort(); }
   Term CreateVariable(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateVariable(sort)); }
   Term CreateName(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateName(sort)); }
   Symbol CreateFunction(Symbol::Sort sort, Symbol::Arity arity) { return sf()->CreateFunction(sort, arity); }
@@ -131,8 +144,8 @@ class Context {
   Term LookupMetaVariable(const std::string& id) const { return meta_vars_.Find(id); }
   const Formula& LookupFormula(const std::string& id) const { return *formulas_.Find(id); }
 
-  void RegisterSort(const std::string& id) {
-    const Symbol::Sort sort = CreateSort();
+  void RegisterSort(const std::string& id, bool compound) {
+    const Symbol::Sort sort = CreateSort(compound);
     limbo::format::RegisterSort(sort, "");
     sorts_.Register(id, sort);
     logger_(DefaultLogger::RegisterSortData(id));
@@ -190,9 +203,21 @@ class Context {
   void set_distribute(bool b) { distribute_ = b; }
   bool distribute() const { return distribute_; }
 
-  bool AddToKb(const Formula& alpha) {
+  bool Add(const Formula& alpha) {
     const bool ok = kb_.Add(alpha);
     logger_(DefaultLogger::AddToKbData(alpha, ok));
+    return ok;
+  }
+
+  bool Add(const Literal a, const Formula& alpha) {
+    const bool ok = at_.Add(a, alpha);
+    logger_(DefaultLogger::AddToAtData(a, alpha, ok));
+    return ok;
+  }
+
+  bool Add(const Term t, const Literal a, const Formula& alpha) {
+    const bool ok = at_.Add(t, a, alpha);
+    logger_(DefaultLogger::AddToAtData(t, a, alpha, ok));
     return ok;
   }
 
@@ -236,6 +261,7 @@ class Context {
   Registry<Term>         meta_vars_;
   Registry<Formula::Ref> formulas_;
   KnowledgeBase          kb_;
+  ActionTheory           at_;
   bool                   distribute_ = true;
 };
 

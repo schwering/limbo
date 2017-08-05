@@ -156,6 +156,7 @@ struct Logger : public limbo::format::pdl::DefaultLogger {
   void operator()(const UnregisterData& d)             const { std::cerr << "Unregistered " << d.id << std::endl; }
   void operator()(const UnregisterMetaVariableData& d) const { std::cerr << "Unregistered meta variable " << d.id << std::endl; }
   void operator()(const AddToKbData& d)                const { std::cerr << "Added " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
+  void operator()(const AddToAtData& d)                const { std::cerr << "Added [] "; if (!d.t.null()) { std::cerr << "[" << d.t << "] "; } std::cerr << d.a << " <-> " << d.alpha << " " << (d.ok ? "" : "un") << "successfully" << std::endl; }
   void operator()(const QueryData& d)                  const {
     //for (limbo::KnowledgeBase::sphere_index p = 0; p < d.kb.n_spheres(); ++p) {
     //  std::cout << "Setup[" << p << "] = " << std::endl << d.kb.sphere(p).setup() << std::endl;

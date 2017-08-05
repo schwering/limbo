@@ -168,6 +168,7 @@ class Solver {
           case Formula::kCons:
           case Formula::kBel:
           case Formula::kGuarantee:
+          case Formula::kAction:
             assert(false);
             break;
         }
@@ -197,8 +198,8 @@ class Solver {
       case Formula::kCons:
       case Formula::kBel:
       case Formula::kGuarantee:
+      case Formula::kAction:
         assert(false);
-        return false;
     }
     throw;
   }
