@@ -244,7 +244,7 @@ class Formula {
   virtual internal::Maybe<Clause> AsUnivClause(size_t nots) const = 0;
 
   template<typename UnaryFunction>
-  Ref ModalSkolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+  Ref SkolemizeBelief(const Term::Vector& vars, const TermMap& sub, size_t nots,
                 Symbol::Factory* sf, Term::Factory* tf, UnaryFunction nested_skolemize) const {
     if (sub.empty()) {
       return Clone();
@@ -809,7 +809,7 @@ class Formula::Know : public Formula {
 
   Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
                 Symbol::Factory* sf, Term::Factory* tf) const override {
-    return ModalSkolemize(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
+    return SkolemizeBelief(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
       return Factory::Know(k_, alpha_->Skolemize({}, {}, 0, sf, tf));
     });
   }
@@ -918,7 +918,7 @@ class Formula::Cons : public Formula {
 
   Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
                 Symbol::Factory* sf, Term::Factory* tf) const override {
-    return ModalSkolemize(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
+    return SkolemizeBelief(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
       return Factory::Cons(k_, alpha_->Skolemize({}, {}, 0, sf, tf));
     });
   }
@@ -933,7 +933,7 @@ class Formula::Cons : public Formula {
         if (c.size() >= 2) {
           Ref gamma;
           for (Literal a : c) {
-            Ref delta = Factory::Know(k, Factory::Atomic(Clause{a.flip()}));
+            Ref delta = Factory::Cons(k, Factory::Atomic(Clause{a.flip()}));
             if (!gamma) {
               gamma = std::move(std::move(delta));
             } else {
@@ -1039,7 +1039,7 @@ class Formula::Bel : public Formula {
 
   Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
                 Symbol::Factory* sf, Term::Factory* tf) const override {
-    return ModalSkolemize(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
+    return SkolemizeBelief(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
       return Factory::Bel(k_, l_, ante_->Skolemize({}, {}, 0, sf, tf), conse_->Skolemize({}, {}, 0, sf, tf));
     });
   }
