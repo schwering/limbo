@@ -95,7 +95,8 @@ class IntMap {
   void Zip(const IntMap& m, BinaryFunction f) {
     size_t s = std::max(n_keys(), m.n_keys());
     for (size_t i = 0; i < s; ++i) {
-      vec_[i] = f(vec_[i], m[Key(i)]);
+      Key k = Key(i);
+      (*this)[k] = f((*this)[k], m[k]);
     }
   }
 
