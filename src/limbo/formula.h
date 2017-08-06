@@ -32,6 +32,7 @@
 #include <limbo/internal/iter.h>
 #include <limbo/internal/intmap.h>
 #include <limbo/internal/ints.h>
+#include <limbo/internal/iter.h>
 #include <limbo/internal/maybe.h>
 
 namespace limbo {
@@ -136,15 +137,22 @@ class Formula {
   }
 
   Ref NF(Symbol::Factory* sf, Term::Factory* tf, bool distribute = true) const {
-    Formula::Ref c = Clone();
-    c->Rectify(sf, tf);
-    c = c->Normalize(distribute);
-    c = c->Flatten(0, sf, tf);
+    Formula::Ref alpha = Clone();
+    alpha->Rectify(sf, tf);
+    alpha = alpha->Normalize(distribute);
+    alpha = alpha->Flatten(0, sf, tf);
     // TODO: In ex x (t = x ^ phi) and fa x (t = x -> phi), we could substitute t
     // for x and eliminate the quantifier and t = x literal provided that x does
     // not occur within a belief modality.
-    c = c->Normalize(distribute);
-    return Ref(std::move(c));
+    alpha = alpha->Normalize(distribute);
+    return Ref(std::move(alpha));
+  }
+
+  Ref Skolemize(Symbol::Factory* sf, Term::Factory* tf) const {
+    Formula::Ref alpha = Clone();
+    alpha->Rectify(sf, tf);
+    alpha = alpha->Skolemize({}, {}, 0, sf, tf);
+    return Ref(std::move(alpha));
   }
 
   internal::Maybe<Clause> AsUnivClause() const { return AsUnivClause(0); }
@@ -230,7 +238,39 @@ class Formula {
 
   virtual Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const = 0;
 
+  virtual Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                        Symbol::Factory* sf, Term::Factory* tf) const = 0;
+
   virtual internal::Maybe<Clause> AsUnivClause(size_t nots) const = 0;
+
+  template<typename UnaryFunction>
+  Ref ModalSkolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf, UnaryFunction nested_skolemize) const {
+    if (sub.empty()) {
+      return Clone();
+    }
+    const SortedTermSet& free = free_vars();
+    auto r1 = internal::filter_range(sub.begin(), sub.end(), [&free](const std::pair<Term, Term> p) {
+      return free.contains(p.first);
+    });
+    auto r2 = internal::transform_range(r1.begin(), r1.end(), [](const std::pair<Term, Term> p) {
+      return Literal::Neq(p.second, p.first);
+    });
+    const Clause c(r2.begin(), r2.end());
+    Formula::Ref alpha = nested_skolemize(sf, tf);
+    if (c.empty()) {
+      return alpha;
+    }
+    alpha = Factory::Or(Factory::Atomic(c), std::move(alpha));
+    QuantifierPrefix var_prefix;
+    for (Literal a : c) {
+      assert(a.rhs().variable());
+      var_prefix.append_exists(a.rhs());
+    }
+    var_prefix.append_not();
+    var_prefix.prepend_not();
+    return var_prefix.PrependTo(std::move(alpha));
+  }
 
  private:
   Type type_;
@@ -392,6 +432,15 @@ class Formula::Atomic : public Formula {
     }
   }
 
+  Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf) const override {
+    const Clause c = c_.Substitute([&sub](Term t) {
+      TermMap::const_iterator it;
+      return t.variable() && ((it = sub.find(t)) != sub.end()) ? internal::Just(it->second) : internal::Nothing;
+    }, tf);
+    return Factory::Atomic(c);
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 != 0 ||
         !std::all_of(c_.begin(), c_.end(), [](Literal a) {
@@ -496,6 +545,11 @@ class Formula::Or : public Formula {
     return Factory::Or(alpha_->Flatten(nots, sf, tf), beta_->Flatten(nots, sf, tf));
   }
 
+  Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Or(alpha_->Skolemize(vars, sub, nots, sf, tf), beta_->Skolemize(vars, sub, nots, sf, tf));
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 != 0) {
       return internal::Nothing;
@@ -584,6 +638,23 @@ class Formula::Exists : public Formula {
     return Factory::Exists(x_, alpha_->Flatten(nots, sf, tf));
   }
 
+  Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf) const override {
+    if (nots % 2 == 0 && sub.find(x_) == sub.end()) {
+      Term::Vector new_vars = vars;
+      new_vars.push_back(x_);
+      return Factory::Exists(x_, alpha_->Skolemize(new_vars, sub, nots, sf, tf));
+    } else {
+      Term f = tf->CreateTerm(sf->CreateFunction(x_.sort(), vars.size()), vars);
+      Term::Vector new_vars = vars;
+      new_vars.push_back(x_);
+      TermMap new_sub = sub;
+      new_sub.erase(x_);
+      new_sub.insert(std::make_pair(x_, f));
+      return alpha_->Skolemize(new_vars, new_sub, nots, sf, tf);
+    }
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 == 0) {
       return internal::Nothing;
@@ -670,6 +741,11 @@ class Formula::Not : public Formula {
     return Factory::Not(alpha_->Flatten(nots + 1, sf, tf));
   }
 
+  Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Not(alpha_->Skolemize(vars, sub, nots + 1, sf, tf));
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     return alpha_->AsUnivClause(nots + 1);
   }
@@ -729,6 +805,13 @@ class Formula::Know : public Formula {
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     Formula::Ref alpha = alpha_->Flatten(0, sf, tf);
     return Factory::Know(k_, std::move(alpha));
+  }
+
+  Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf) const override {
+    return ModalSkolemize(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
+      return Factory::Know(k_, alpha_->Skolemize({}, {}, 0, sf, tf));
+    });
   }
 
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
@@ -831,6 +914,13 @@ class Formula::Cons : public Formula {
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     Formula::Ref alpha = alpha_->Flatten(0, sf, tf);
     return Factory::Cons(k_, std::move(alpha));
+  }
+
+  Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf) const override {
+    return ModalSkolemize(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
+      return Factory::Cons(k_, alpha_->Skolemize({}, {}, 0, sf, tf));
+    });
   }
 
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
@@ -947,6 +1037,13 @@ class Formula::Bel : public Formula {
     return Factory::Bel(k_, l_, std::move(ante), std::move(conse), std::move(not_ante_or_conse));
   }
 
+  Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf) const override {
+    return ModalSkolemize(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
+      return Factory::Bel(k_, l_, ante_->Skolemize({}, {}, 0, sf, tf), conse_->Skolemize({}, {}, 0, sf, tf));
+    });
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
@@ -1009,6 +1106,11 @@ class Formula::Guarantee : public Formula {
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
     return Factory::Guarantee(alpha_->Flatten(nots, sf, tf));
+  }
+
+  Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Guarantee(alpha_->Skolemize(vars, sub, nots, sf, tf));
   }
 
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
@@ -1116,6 +1218,15 @@ class Formula::Action : public Formula {
       Ref beta = Factory::Atomic(Clause(lits.begin(), lits.end()))->Flatten(nots + 2, sf, tf);
       return vars.PrependTo(Factory::Or(std::move(beta), std::move(alpha)));
     }
+  }
+
+  Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
+                Symbol::Factory* sf, Term::Factory* tf) const override {
+    const Term t = t_.Substitute([&sub](Term t) {
+      TermMap::const_iterator it;
+      return t.variable() && ((it = sub.find(t)) != sub.end()) ? internal::Just(it->second) : internal::Nothing;
+    }, tf);
+    return Factory::Action(t, alpha_->Skolemize(vars, sub, nots, sf, tf));
   }
 
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
