@@ -52,7 +52,7 @@ class KnowledgeBase {
   typedef Formula::TermSet TermSet;
   typedef Formula::SortedTermSet SortedTermSet;
 
-  KnowledgeBase(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf), objective_(sf, tf) {
+  KnowledgeBase(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf), real_world_(sf, tf) {
     spheres_.emplace_back(sf, tf);
   }
 
@@ -60,6 +60,11 @@ class KnowledgeBase {
   KnowledgeBase& operator=(const KnowledgeBase&) = delete;
   KnowledgeBase(KnowledgeBase&&) = default;
   KnowledgeBase& operator=(KnowledgeBase&&) = default;
+
+  void AddReal(Literal a) {
+    real_facts_.push_back(Clause{a});
+    a.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
+  }
 
   void Add(const Clause& c) {
     knowledge_.push_back(c);
@@ -93,12 +98,12 @@ class KnowledgeBase {
   }
 
   bool Entails(const Formula& sigma, bool distribute = true) {
-    assert(sigma.subjective());
+    //assert(sigma.subjective());
     assert(sigma.free_vars().all_empty());
     UpdateSpheres();
     Formula::Ref phi = ReduceModalities(*sigma.NF(sf_, tf_, distribute));
     assert(phi->objective());
-    return objective_.Entails(0, *phi, Solver::kNoConsistencyGuarantee);
+    return real_world_.Entails(0, *phi, Solver::kNoConsistencyGuarantee);
   }
 
   sphere_index n_spheres() const { const_cast<KnowledgeBase&>(*this).UpdateSpheres(); return spheres_.size(); }
@@ -129,9 +134,12 @@ class KnowledgeBase {
   }
 
   void UpdateSpheres() {
-    if (n_processed_beliefs_ == beliefs_.size() && n_processed_knowledge_ == knowledge_.size()) {
+    if (n_processed_real_facts_ == real_facts_.size() &&
+        n_processed_beliefs_ == beliefs_.size() &&
+        n_processed_knowledge_ == knowledge_.size()) {
       return;
     }
+    real_world_.grounder().AddClauses(real_facts_.begin() + n_processed_real_facts_, real_facts_.end());
     if (beliefs_.empty()) {
       assert(spheres_.size() == 1);
       assert(n_processed_beliefs_ == 0);
@@ -361,11 +369,13 @@ class KnowledgeBase {
 
   Symbol::Factory* sf_;
   Term::Factory* tf_;
+  std::vector<Clause> real_facts_;
   std::vector<Clause> knowledge_;
   std::vector<Conditional> beliefs_;
   SortedTermSet names_;
   std::vector<Solver> spheres_;
-  Solver objective_;
+  Solver real_world_;
+  size_t n_processed_real_facts_ = 0;
   size_t n_processed_knowledge_ = 0;
   size_t n_processed_beliefs_ = 0;
 };
