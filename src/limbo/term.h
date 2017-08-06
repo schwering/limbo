@@ -392,8 +392,8 @@ bool Term::Unify(Term l, Term r, Substitution* sub) {
     return true;
   }
   internal::Maybe<Term> u;
-  l = (u = (*sub)(l)) ? u.val : l;
-  r = (u = (*sub)(r)) ? u.val : r;
+  l = (config & kUnifyLeft) != 0 && (u = (*sub)(l)) ? u.val : l;
+  r = (config & kUnifyRight) != 0 && (u = (*sub)(r)) ? u.val : r;
   if (l.sort() != r.sort()) {
     return false;
   }
