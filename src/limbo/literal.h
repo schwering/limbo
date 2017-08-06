@@ -163,7 +163,7 @@ class Literal {
       lhs = rhs;
       rhs = tmp;
     }
-    if (!lhs.function() && rhs.function()) {
+    if ((lhs.name() && !rhs.name()) || (!lhs.function() && rhs.function())) {
       Term tmp = lhs;
       lhs = rhs;
       rhs = tmp;

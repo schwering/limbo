@@ -127,6 +127,8 @@ class Symbol {
     Id last_variable_ = 0;
   };
 
+  Symbol() = default;
+
   bool operator==(Symbol s) const {
     assert(id_ != s.id_ || (sort_ == s.sort_ && arity_ == s.arity_));
     return id_ == s.id_;
@@ -139,6 +141,8 @@ class Symbol {
   bool variable() const { return (id_ & (0 | 1 | 2)) == 1; }
   bool function() const { return (id_ & (0 | 1 | 2)) == 2; }
 
+  bool null() const { return id_ == 0; }
+
   Id id() const { return id_ >> 2; }
   Sort sort() const { return sort_; }
   Arity arity() const { return arity_; }
@@ -150,9 +154,9 @@ class Symbol {
     assert(!function() || !variable() || arity == 0);
   }
 
-  const Id id_;
-  const Sort sort_;
-  const Arity arity_;
+  Id id_ = 0;
+  Sort sort_ = Sort(0);
+  Arity arity_ = 0;
 };
 
 class Term {
@@ -194,8 +198,8 @@ class Term {
 
   bool null()           const { return id_ == 0; }
   bool ground()         const { return atomic_name() || (function() && all_args([](Term t) { return t.ground(); })); }
-  bool primitive()      const { return function() && all_args([](Term t) { return t.atomic_name(); }); }
-  bool quasiprimitive() const { return function() && all_args([](Term t) { return t.atomic_name() || t.variable(); }); }
+  bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
+  bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
 
   bool Mentions(Term t) const { assert(quasiprimitive()); return *this == t || any_arg([t](Term tt) { return t == tt; }); }
 

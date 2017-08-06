@@ -1,0 +1,39 @@
+Sort            BOOL
+Name       T -> BOOL
+
+Sort  ENTITY
+Name  Nothing   -> ENTITY
+Name  Box       -> ENTITY
+Fun   holding/0 -> ENTITY
+Var   x         -> ENTITY
+Var   y         -> ENTITY
+
+
+Compound Sort     ACTION
+Fun   pickup/1 -> ACTION
+Name  drop     -> ACTION
+Name  look     -> ACTION
+Var   a        -> ACTION
+
+Sensor Fun seen/ACTION -> ENTITY
+
+Real: holding = Box
+
+// KB: [] poss(a) = T <-> ex x (a = pickup(x) ^ holding = Nothing) v (a = drop ^ holding /= Nothing)
+// KB: []     poss(pickup(x)) = T -> holding = Nothing
+// KB: []     poss(drop) = T      -> holding /= Nothing
+// KB: []     poss(pickup(x)) = T <- holding = Nothing
+// KB: []     poss(drop) = T      <- holding /= Nothing
+
+KB: [] seen(look) = x <-> holding = x
+
+KB: [] [a] holding = x <-> a = pickup(x) v (a = drop ^ x = Nothing) v fa y (a /= pickup(y) ^ a /= drop ^ holding = x)
+
+Assert: holding = Box
+//Assert: K<0> holding = Nothing
+Assert: K<0> REG [pickup(Box)] holding = Box
+Refute: K<0> REG [pickup(Box)] holding = Nothing
+Assert: REG [pickup(Box)] K<0> holding = Box
+Refute: REG [pickup(Box)] K<0> holding = Nothing
+Assert: REG [look] K<1> holding = Box
+
