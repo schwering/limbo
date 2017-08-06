@@ -26,10 +26,10 @@ namespace pdl {
 
 class Token {
  public:
-  enum Id { kError, kCompound, kSort, kVar, kName, kFun, kSlash, kKB, kLet, kQuery, kAssert, kRefute, kColon, kComma,
-    kLess, kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow, kDoubleRArrow,
-    kLParen, kRParen, kLBracket, kRBracket, kBox, kKnow, kCons, kBel, kGuarantee, kAssign, kIf, kElse, kWhile, kFor,
-    kIn, kBegin, kEnd, kCall, kComment, kUint, kString, kIdentifier };
+  enum Id { kError, kCompound, kSort, kVar, kName, kFun, kSlash, kSensor, kReal, kKB, kLet, kQuery, kAssert, kRefute,
+    kColon, kComma, kLess, kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow,
+    kDoubleRArrow, kLParen, kRParen, kLBracket, kRBracket, kBox, kKnow, kCons, kBel, kGuarantee, kRegress, kAssign,
+    kIf, kElse, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment, kUint, kString, kIdentifier };
 
   Token() : id_(kError) {}
   explicit Token(Id id) : id_(id) {}
@@ -152,6 +152,8 @@ class Lexer {
     lexemes_.emplace_back(Token::kName,         [](Word w) { return IsPrefix(w, {"Name", "name"}); });
     lexemes_.emplace_back(Token::kFun,          [](Word w) { return IsPrefix(w, {"Fun", "fun", "Function", "function"}); });  // NOLINT
     lexemes_.emplace_back(Token::kSlash,        [](Word w) { return IsPrefix(w, "/"); });
+    lexemes_.emplace_back(Token::kSensor,       [](Word w) { return IsPrefix(w, {"Sensor", "sensor"}); });
+    lexemes_.emplace_back(Token::kReal,         [](Word w) { return IsPrefix(w, {"Real", "real"}); });
     lexemes_.emplace_back(Token::kKB,           [](Word w) { return IsPrefix(w, {"KB", "Kb", "kb"}); });
     lexemes_.emplace_back(Token::kLet,          [](Word w) { return IsPrefix(w, {"Let", "let"}); });
     lexemes_.emplace_back(Token::kQuery,        [](Word w) { return IsPrefix(w, {"Query", "query"}); });
@@ -180,6 +182,7 @@ class Lexer {
     lexemes_.emplace_back(Token::kCons,         [](Word w) { return IsPrefix(w, {"M", "Cons", "cons"}); });
     lexemes_.emplace_back(Token::kBel,          [](Word w) { return IsPrefix(w, {"B", "Bel", "bel"}); });
     lexemes_.emplace_back(Token::kGuarantee,    [](Word w) { return IsPrefix(w, {"G", "Gua", "gua"}); });
+    lexemes_.emplace_back(Token::kRegress,      [](Word w) { return IsPrefix(w, {"REG", "Reg", "reg", "Regress", "regress"}); });  // NOLINT
     lexemes_.emplace_back(Token::kAssign,       [](Word w) { return IsPrefix(w, ":="); });
     lexemes_.emplace_back(Token::kIf,           [](Word w) { return IsPrefix(w, {"If", "if"}); });
     lexemes_.emplace_back(Token::kElse,         [](Word w) { return IsPrefix(w, {"Else", "else"}); });
@@ -255,6 +258,8 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kName:         return os << "Name";
     case Token::kFun:          return os << "Fun";
     case Token::kSlash:        return os << "/";
+    case Token::kSensor:       return os << "Sensor";
+    case Token::kReal:         return os << "Real";
     case Token::kKB:           return os << "KB";
     case Token::kLet:          return os << "Let";
     case Token::kQuery:        return os << "Query";
@@ -283,6 +288,7 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kCons:         return os << "M";
     case Token::kBel:          return os << "B";
     case Token::kGuarantee:    return os << "G";
+    case Token::kRegress:      return os << "REG";
     case Token::kAssign:       return os << ":=";
     case Token::kIf:           return os << "If";
     case Token::kElse:         return os << "Else";

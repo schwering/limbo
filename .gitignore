@@ -35,7 +35,7 @@ tests/hash
 tests/hashset
 tests/intmap
 tests/iter
-tests/kb
+tests/knowledge_base
 tests/linked
 tests/literal
 tests/Makefile

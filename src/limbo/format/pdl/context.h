@@ -59,6 +59,13 @@ struct DefaultLogger {
     const std::string sort_id;
   };
 
+  struct RegisterSensorFunctionData : public RegisterData {
+    RegisterSensorFunctionData(const std::string& id, const std::string& sort_id, const std::string& sensor_id)
+        : RegisterData(id), sort_id(sort_id), sensor_id(sensor_id) {}
+    const std::string sort_id;
+    const std::string sensor_id;
+  };
+
   struct RegisterMetaVariableData : public RegisterData {
     RegisterMetaVariableData(const std::string& id, const Term t) : RegisterData(id), term(t) {}
     const Term term;
@@ -76,6 +83,11 @@ struct DefaultLogger {
 
   struct UnregisterMetaVariableData : public UnregisterData {
     explicit UnregisterMetaVariableData(const std::string& id) : UnregisterData(id) {}
+  };
+
+  struct AddRealData : public LogData {
+    explicit AddRealData(const Literal a) : a(a) {}
+    const Literal a;
   };
 
   struct AddToKbData : public LogData {
@@ -181,6 +193,18 @@ class Context {
     logger_(DefaultLogger::RegisterFunctionData(id, arity, sort_id));
   }
 
+  void RegisterSensorFunction(const std::string& id, const std::string& sort_id, const std::string& sensor_id) {
+    if (IsRegisteredFunction(id))
+      throw std::domain_error(id);
+    const Symbol::Sort sort = LookupSort(sort_id);
+    const Symbol fun = CreateFunction(sort, 1);
+    const Symbol::Sort sensor = LookupSort(sensor_id);
+    funs_.Register(id, fun);
+    at_.AddSenseFunction(sensor, fun);
+    limbo::format::RegisterSymbol(fun, id);
+    logger_(DefaultLogger::RegisterSensorFunctionData(id, sort_id, sensor_id));
+  }
+
   void RegisterMetaVariable(const std::string& id, Term t) {
     if (IsRegisteredMetaVariable(id))
       throw std::domain_error(id);
@@ -203,6 +227,11 @@ class Context {
   void set_distribute(bool b) { distribute_ = b; }
   bool distribute() const { return distribute_; }
 
+  void AddReal(const Literal a) {
+    kb_.AddReal(a);
+    logger_(DefaultLogger::AddRealData(a));
+  }
+
   bool Add(const Formula& alpha) {
     const bool ok = kb_.Add(alpha);
     logger_(DefaultLogger::AddToKbData(alpha, ok));
@@ -219,6 +248,10 @@ class Context {
     const bool ok = at_.Add(t, a, alpha);
     logger_(DefaultLogger::AddToAtData(t, a, alpha, ok));
     return ok;
+  }
+
+  Formula::Ref Regress(const Formula& alpha) const {
+    return at_.Regress(alpha);
   }
 
   bool Query(const Formula& alpha) {
