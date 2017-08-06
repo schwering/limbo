@@ -66,6 +66,21 @@ class Formula {
     inline static Ref Bel(belief_level k, belief_level l, Ref alpha, Ref beta, Ref not_alpha_or_beta);
     inline static Ref Guarantee(Ref alpha);
     inline static Ref Action(Term t, Ref alpha);
+
+    inline static Ref And(Ref lhs, Ref rhs);
+    inline static Ref Impl(Ref lhs, Ref rhs);
+    inline static Ref Equiv(Ref lhs, Ref rhs);
+    inline static Ref Forall(Term lhs, Ref rhs);
+
+    template<typename InputIt>
+    static Ref OrAll(InputIt first, InputIt last);
+    template<typename InputIt>
+    static Ref AndAll(InputIt first, InputIt last);
+
+    template<typename InputIt>
+    static Ref Exists(InputIt first, InputIt last, Ref rhs);
+    template<typename InputIt>
+    static Ref Forall(InputIt first, InputIt last, Ref rhs);
   };
 
   class Atomic;
@@ -155,6 +170,17 @@ class Formula {
     return Ref(std::move(alpha));
   }
 
+  Ref Prenex(Symbol::Factory* sf, Term::Factory* tf) const {
+    Formula::Ref alpha = Clone();
+    alpha->Rectify(sf, tf);
+    QuantifierPrefix vars;
+    alpha = alpha->Prenex(&vars, 0, sf, tf);
+    if (!vars.even()) {
+      vars.append_not();
+    }
+    return vars.PrependTo(std::move(alpha));
+  }
+
   internal::Maybe<Clause> AsUnivClause() const { return AsUnivClause(0); }
 
   virtual bool objective() const = 0;
@@ -193,6 +219,7 @@ class Formula {
     void append_exists(Term x) { prefix_.push_back(Element{kExists, x}); }
 
     size_t size() const { return prefix_.size(); }
+
     bool even() const {
       size_t n = 0;
       for (const auto& e : prefix_) {
@@ -240,6 +267,8 @@ class Formula {
 
   virtual Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
                         Symbol::Factory* sf, Term::Factory* tf) const = 0;
+
+  virtual Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const = 0;
 
   virtual internal::Maybe<Clause> AsUnivClause(size_t nots) const = 0;
 
@@ -441,6 +470,10 @@ class Formula::Atomic : public Formula {
     return Factory::Atomic(c);
   }
 
+  Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Clone();
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 != 0 ||
         !std::all_of(c_.begin(), c_.end(), [](Literal a) {
@@ -550,6 +583,10 @@ class Formula::Or : public Formula {
     return Factory::Or(alpha_->Skolemize(vars, sub, nots, sf, tf), beta_->Skolemize(vars, sub, nots, sf, tf));
   }
 
+  Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Or(alpha_->Prenex(vars, nots, sf, tf), beta_->Prenex(vars, nots, sf, tf));
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 != 0) {
       return internal::Nothing;
@@ -655,6 +692,14 @@ class Formula::Exists : public Formula {
     }
   }
 
+  Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    if ((nots % 2 == 0) != vars->even()) {
+      vars->append_not();
+    }
+    vars->append_exists(x_);
+    return alpha_->Prenex(vars, nots, sf, tf);
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 == 0) {
       return internal::Nothing;
@@ -746,6 +791,10 @@ class Formula::Not : public Formula {
     return Factory::Not(alpha_->Skolemize(vars, sub, nots + 1, sf, tf));
   }
 
+  Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return alpha_->Prenex(vars, nots + 1, sf, tf);
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     return alpha_->AsUnivClause(nots + 1);
   }
@@ -812,6 +861,10 @@ class Formula::Know : public Formula {
     return SkolemizeBelief(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
       return Factory::Know(k_, alpha_->Skolemize({}, {}, 0, sf, tf));
     });
+  }
+
+  Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Know(k_, alpha_->Prenex(sf, tf));
   }
 
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
@@ -921,6 +974,10 @@ class Formula::Cons : public Formula {
     return SkolemizeBelief(vars, sub, nots, sf, tf, [this](Symbol::Factory* sf, Term::Factory* tf) {
       return Factory::Cons(k_, alpha_->Skolemize({}, {}, 0, sf, tf));
     });
+  }
+
+  Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Cons(k_, alpha_->Prenex(sf, tf));
   }
 
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
@@ -1044,6 +1101,10 @@ class Formula::Bel : public Formula {
     });
   }
 
+  Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Bel(k_, l_, ante_->Prenex(sf, tf), conse_->Prenex(sf, tf));
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
@@ -1111,6 +1172,10 @@ class Formula::Guarantee : public Formula {
   Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
                 Symbol::Factory* sf, Term::Factory* tf) const override {
     return Factory::Guarantee(alpha_->Skolemize(vars, sub, nots, sf, tf));
+  }
+
+  Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Guarantee(alpha_->Prenex(sf, tf));
   }
 
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
@@ -1229,6 +1294,10 @@ class Formula::Action : public Formula {
     return Factory::Action(t, alpha_->Skolemize(vars, sub, nots, sf, tf));
   }
 
+  Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Action(t_, alpha_->Prenex(vars, nots, sf, tf));
+  }
+
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
@@ -1236,8 +1305,8 @@ class Formula::Action : public Formula {
   Ref alpha_;
 };
 
-Formula::Ref Formula::Factory::Atomic(const Clause& c)   { return Ref(new class Atomic(c)); }
-Formula::Ref Formula::Factory::Not(Ref alpha)            { return Ref(new class Not(std::move(alpha))); }
+Formula::Ref Formula::Factory::Atomic(const Clause& c) { return Ref(new class Atomic(c)); }
+Formula::Ref Formula::Factory::Not(Ref alpha)          { return Ref(new class Not(std::move(alpha))); }
 Formula::Ref Formula::Factory::Or(Ref lhs, Ref rhs)    { return Ref(new class Or(std::move(lhs), std::move(rhs))); }
 Formula::Ref Formula::Factory::Exists(Term x, Ref alpha) { return Ref(new class Exists(x, std::move(alpha))); }
 Formula::Ref Formula::Factory::Know(belief_level k, Ref alpha) { return Ref(new class Know(k, std::move(alpha))); }
@@ -1250,6 +1319,65 @@ Formula::Ref Formula::Factory::Bel(belief_level k, belief_level l, Ref alpha, Re
 }
 Formula::Ref Formula::Factory::Guarantee(Ref alpha) { return Ref(new class Guarantee(std::move(alpha))); }
 Formula::Ref Formula::Factory::Action(Term t, Ref alpha) { return Ref(new class Action(t, std::move(alpha))); }
+
+Formula::Ref Formula::Factory::And(Ref lhs, Ref rhs)  { return Not(Or(Not(std::move(lhs)), Not(std::move(rhs)))); }
+Formula::Ref Formula::Factory::Impl(Ref lhs, Ref rhs) { return Or(Not(std::move(lhs)), std::move(rhs)); }
+Formula::Ref Formula::Factory::Equiv(Ref lhs, Ref rhs) {
+  Ref fwd = Impl(lhs->Clone(), rhs->Clone());
+  Ref bwd = Impl(std::move(rhs), std::move(lhs));
+  return And(std::move(fwd), std::move(bwd));
+}
+Formula::Ref Formula::Factory::Forall(Term x, Ref alpha) { return Not(Exists(x, Not(std::move(alpha)))); }
+
+template<typename InputIt>
+Formula::Ref Formula::Factory::OrAll(InputIt first, InputIt last) {
+  Formula::Ref alpha;
+  for (auto it = first; it != last; ++it) {
+    if (!alpha) {
+      alpha = std::move(*it);
+    } else {
+      alpha = Formula::Factory::Or(std::move(alpha), std::move(*it));
+    }
+  }
+  if (!alpha) {
+    alpha = Formula::Factory::Atomic(Clause{});
+  }
+  return alpha;
+}
+
+template<typename InputIt>
+Formula::Ref Formula::Factory::AndAll(InputIt first, InputIt last) {
+  Formula::Ref alpha;
+  for (auto it = first; it != last; ++it) {
+    if (!alpha) {
+      alpha = Formula::Factory::Not(std::move(*it));
+    } else {
+      alpha = Formula::Factory::Or(std::move(alpha), Formula::Factory::Not(std::move(*it)));
+    }
+  }
+  if (!alpha) {
+    alpha = Formula::Factory::Atomic(Clause{});
+  }
+  alpha = Formula::Factory::Not(std::move(alpha));
+  return alpha;
+}
+
+template<typename InputIt>
+Formula::Ref Formula::Factory::Exists(InputIt first, InputIt last, Ref alpha) {
+  for (auto it = first; it != last; ++it) {
+    alpha = Formula::Factory::Exists(*it, std::move(alpha));
+  }
+  return alpha;
+}
+
+template<typename InputIt>
+Formula::Ref Formula::Factory::Forall(InputIt first, InputIt last, Ref alpha) {
+  if (first == last) {
+    return alpha;
+  } else {
+    return Not(Exists(first, last, Not(std::move(alpha))));
+  }
+}
 
 inline const class Formula::Atomic& Formula::as_atomic() const {
   assert(type_ == kAtomic);
