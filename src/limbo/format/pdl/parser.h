@@ -169,14 +169,14 @@ class Parser {
     return Result<T>(Result<T>::kUnapplicable, ss.str(), begin().char_iter(), end().char_iter());
   }
 
-  // declaration --> [ Compound ] Sort <sort-id> [ , <sort-id>]*
+  // declaration --> [ Rigid ] Sort <sort-id> [ , <sort-id>]*
   //              |  Var <id> [ , <id> ]* -> <sort-id>
   //              |  Name <id> [ , <id> ]* -> <sort-id>
   //              |  [ Sensor ] Fun <id> [ , <id> ]* / <arity> -> <sort-id>
   Result<Action<>> declaration() {
-    if ((Is(Tok(), Token::kCompound) && Is(Tok(1), Token::kSort)) || Is(Tok(), Token::kSort)) {
+    if ((Is(Tok(), Token::kRigid) && Is(Tok(1), Token::kSort)) || Is(Tok(), Token::kSort)) {
       Action<> a;
-      bool compound = Is(Tok(), Token::kCompound);
+      bool compound = Is(Tok(), Token::kRigid);
       if (compound) {
         Advance();
       }
@@ -289,7 +289,7 @@ class Parser {
         return Error<Action<>>(LIMBO_MSG("Expected arrow and sort identifier"));
       }
     }
-    return Unapplicable<Action<>>(LIMBO_MSG("Expected 'Compound', 'Sort', 'Var', 'Name', 'Fun' or 'Sensor'"));
+    return Unapplicable<Action<>>(LIMBO_MSG("Expected 'Rigid', 'Sort', 'Var', 'Name', 'Fun' or 'Sensor'"));
   }
 
   // atomic_term --> x
@@ -830,15 +830,16 @@ class Parser {
         if (!a) {
           return Error<>(LIMBO_MSG("Expected KB dynamic left-hand side literal"), a);
         }
-        const bool ok = a.val.pos() && a.val.lhs().sort() == a.val.rhs().sort() && !a.val.lhs().sort().compound() &&
-            a.val.lhs().quasiprimitive() && (a.val.rhs().variable() || a.val.rhs().quasiprimitive());
-        if (!ok) {
+        if (!(a.val.pos() && a.val.lhs().sort() == a.val.rhs().sort() && !a.val.lhs().sort().compound())) {
           return Error<>(LIMBO_MSG("Left-hand side literal of dynamic axiom must be of the form f(x,...) = y "
                                    "f, y of same, non-compound sort"));
         }
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
           return Error<>(LIMBO_MSG("Expected KB dynamic right-hand side formula"), alpha);
+        }
+        if (!(alpha.val->objective() && !alpha.val->dynamic())) {
+          return Error<>(LIMBO_MSG("KB dynamic right-hand side formula must not contain modal operators"), alpha);
         }
         Formula::SortedTermSet xs;
         a.val.Traverse([&xs](const Term t) { if (t.variable()) { xs.insert(t); } return true; });

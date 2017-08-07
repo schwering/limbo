@@ -24,11 +24,11 @@ class ActionTheory {
 
   bool Add(const Literal a, const Formula& alpha) {
     assert(a.pos() && a.lhs().sort() == a.rhs().sort());
-    assert(a.lhs().quasiprimitive() && !a.lhs().sort().compound());
-    assert(a.rhs().variable() || a.rhs().quasiprimitive());
+    //assert(a.lhs().quasiprimitive() && !a.lhs().sort().compound());
+    //assert(a.rhs().variable() || a.rhs().quasiprimitive());
     assert(alpha.objective());
     assert(!alpha.dynamic());
-    if (AlreadyDefined(a.lhs()) || Circular(alpha, a.lhs())) {
+    if (Circular(alpha, a.lhs())) {
       return false;
     }
     defs_.push_back(Def(a, alpha.Clone()));
@@ -47,9 +47,6 @@ class ActionTheory {
     assert(a.rhs().variable() || a.rhs().quasiprimitive());
     assert(alpha.objective());
     assert(!alpha.dynamic());
-    if (AlreadyDefined(a.lhs()) || Circular(alpha)) {
-      return false;
-    }
     ssas_.push_back(SSA(t, a, alpha.Clone()));
     return true;
   }
@@ -60,16 +57,16 @@ class ActionTheory {
 
  private:
   struct Def {
-    Def(Literal a, Formula::Ref phi) : a(a), phi(std::move(phi)) {}
+    Def(Literal a, Formula::Ref psi) : a(a), psi(std::move(psi)) {}
     Literal a;
-    Formula::Ref phi;
+    Formula::Ref psi;
   };
 
   struct SSA {
-    SSA(Term t, Literal a, Formula::Ref gamma) : t(t), a(a), gamma(std::move(gamma)) {}
+    SSA(Term t, Literal a, Formula::Ref psi) : t(t), a(a), psi(std::move(psi)) {}
     Term t;
     Literal a;
-    Formula::Ref gamma;
+    Formula::Ref psi;
   };
 
   typedef internal::IntMultiMap<Symbol::Sort, Symbol> SenseFunctionMap;
@@ -85,14 +82,9 @@ class ActionTheory {
     }
   };
 
-  bool AlreadyDefined(const Term t) const {
-    return std::any_of(defs_.begin(), defs_.end(), [t](const Def& def) { return def.a.lhs() == t; }) ||
-           std::any_of(ssas_.begin(), ssas_.end(), [t](const SSA& ssa) { return ssa.a.lhs() == t; });
-  }
-
   bool Circular(const Formula& alpha, const Term t = Term()) {
     bool res;
-    alpha.Traverse([this, t, &res](const Term tt) { res = AlreadyDefined(tt) || tt == t; return true; });
+    alpha.Traverse([this, t, &res](const Term tt) { res = tt.symbol() == t.symbol(); return true; });
     return res;
   }
 
@@ -106,18 +98,6 @@ class ActionTheory {
   }
 
   Formula::Ref RegressLiteral(const Term::Vector& z, const Literal a) const {
-    std::list<Formula::Ref> regs;
-    for (const Def& def : defs_) {
-      const internal::Maybe<Term::Substitution> sub = Literal::Unify<Term::kUnifyRight>(a, def.a);
-      if (sub) {
-        Formula::Ref phi = def.phi->Clone();
-        if (!a.pos()) {
-          phi = Formula::Factory::Not(std::move(phi));
-        }
-        phi->SubstituteFree(sub.val, tf_);
-        regs.push_back(Regress(z, *phi));
-      }
-    }
     if (!z.empty()) {
       const Term t = z.back();
       const Term::Vector zz = Term::Vector(z.begin(), std::prev(z.end()));
@@ -125,19 +105,29 @@ class ActionTheory {
         internal::Maybe<Term::Substitution> sub = Literal::Unify<Term::kUnifyRight>(a, ssa.a);
         const bool ok = sub && Term::Unify<Term::kUnifyRight>(t, ssa.t, &sub.val);
         if (ok) {
-          Formula::Ref gamma = ssa.gamma->Clone();
+          Formula::Ref psi = ssa.psi->Clone();
           if (!a.pos()) {
-            gamma = Formula::Factory::Not(std::move(gamma));
+            psi = Formula::Factory::Not(std::move(psi));
           }
-          gamma->SubstituteFree(sub.val, tf_);
-          regs.push_back(Regress(zz, *gamma));
+          psi->SubstituteFree(sub.val, tf_);
+          Formula::Ref reg = Regress(zz, *psi)->Rectify(sf_, tf_);
+          return reg;
         }
       }
     }
-    if (regs.empty()) {
-      return Formula::Factory::Atomic(Clause{a});
+    for (const Def& def : defs_) {
+      const internal::Maybe<Term::Substitution> sub = Literal::Unify<Term::kUnifyRight>(a, def.a);
+      if (sub) {
+        Formula::Ref psi = def.psi->Clone();
+        if (!a.pos()) {
+          psi = Formula::Factory::Not(std::move(psi));
+        }
+        psi->SubstituteFree(sub.val, tf_);
+        Formula::Ref reg = Regress(z, *psi)->Rectify(sf_, tf_);
+        return reg;
+      }
     }
-    return Formula::Factory::AndAll(regs.begin(), regs.end());
+    return Formula::Factory::Atomic(Clause{a});
   }
 
   template<Formula::Ref (*KorM)(Formula::belief_level, Formula::Ref)>
@@ -165,7 +155,7 @@ class ActionTheory {
     // fa x (sf(t) = x -> K_k (sf(t) = x -> [t] alpha)
     return Regress(zz, *Formula::Factory::Forall(xs.begin(), xs.end(), Formula::Factory::Impl(
                 std::move(sense1),
-                (*KorM)(k, Formula::Factory::Or(std::move(sense2), std::move(t_alpha))))));
+                (*KorM)(k, Formula::Factory::Impl(std::move(sense2), std::move(t_alpha))))));
   }
 
   Formula::Ref RegressBel(const Term::Vector& z, const Formula::belief_level k, const Formula::belief_level l,

@@ -9,7 +9,7 @@ Var   x         -> ENTITY
 Var   y         -> ENTITY
 
 
-Compound Sort     ACTION
+Rigid Sort        ACTION
 Fun   pickup/1 -> ACTION
 Name  drop     -> ACTION
 Name  look     -> ACTION

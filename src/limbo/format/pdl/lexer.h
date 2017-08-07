@@ -26,7 +26,7 @@ namespace pdl {
 
 class Token {
  public:
-  enum Id { kError, kCompound, kSort, kVar, kName, kFun, kSlash, kSensor, kReal, kKB, kLet, kQuery, kAssert, kRefute,
+  enum Id { kError, kRigid, kSort, kVar, kName, kFun, kSlash, kSensor, kReal, kKB, kLet, kQuery, kAssert, kRefute,
     kColon, kComma, kLess, kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow,
     kDoubleRArrow, kLParen, kRParen, kLBracket, kRBracket, kBox, kKnow, kCons, kBel, kGuarantee, kRegress, kAssign,
     kIf, kElse, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment, kUint, kString, kIdentifier };
@@ -146,7 +146,7 @@ class Lexer {
   };
 
   Lexer(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {
-    lexemes_.emplace_back(Token::kCompound,     [](Word w) { return IsPrefix(w, {"Compound", "compound"}); });
+    lexemes_.emplace_back(Token::kRigid,        [](Word w) { return IsPrefix(w, {"Rigid", "rigid"}); });
     lexemes_.emplace_back(Token::kSort,         [](Word w) { return IsPrefix(w, {"Sort", "sort"}); });
     lexemes_.emplace_back(Token::kVar,          [](Word w) { return IsPrefix(w, {"Var", "Variable", "var", "variable"}); });  // NOLINT
     lexemes_.emplace_back(Token::kName,         [](Word w) { return IsPrefix(w, {"Name", "name"}); });
@@ -252,7 +252,7 @@ class Lexer {
 
 std::ostream& operator<<(std::ostream& os, Token::Id t) {
   switch (t) {
-    case Token::kCompound:     return os << "Compound";
+    case Token::kRigid:        return os << "Rigid";
     case Token::kSort:         return os << "Sort";
     case Token::kVar:          return os << "Var";
     case Token::kName:         return os << "Name";

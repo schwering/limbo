@@ -220,7 +220,9 @@ class Solver {
       auto merged_result = unsuccessful_result;
       for (const Term n : grounder_.rhs_names(t)) {
         Grounder::Undo undo;
-        const Setup::Result add_result = grounder_.AddClause(Clause{Literal::Eq(t, n)}, &undo);
+        const Literal a = Literal::Eq(t, n);
+        assert(!a.valid() && !a.invalid());
+        const Setup::Result add_result = grounder_.AddClause(Clause{a}, &undo);
         if (add_result == Setup::kInconsistent) {
           merged_result = !merged_result ? inconsistent_result : merge(merged_result, inconsistent_result);
           if (!merged_result) {
