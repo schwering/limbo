@@ -152,8 +152,7 @@ class Formula {
   }
 
   Ref NF(Symbol::Factory* sf, Term::Factory* tf, bool distribute = true) const {
-    Formula::Ref alpha = Clone();
-    alpha->Rectify(sf, tf);
+    Ref alpha = Rectify(sf, tf);
     alpha = alpha->Normalize(distribute);
     alpha = alpha->Flatten(0, sf, tf);
     // TODO: In ex x (t = x ^ phi) and fa x (t = x -> phi), we could substitute t
@@ -163,16 +162,25 @@ class Formula {
     return Ref(std::move(alpha));
   }
 
+  Ref Rectify(Symbol::Factory* sf, Term::Factory* tf) const {
+    TermMap tm;
+    for (Term x : free_vars()) {
+      tm.insert(std::make_pair(x, x));
+    }
+    // Rectify() renames every bound variable that also occurs free globally
+    // somewhere in the formula or is bound by another quantifier to the left
+    // of the current position.
+    return Rectify(&tm, sf, tf);
+  }
+
   Ref Skolemize(Symbol::Factory* sf, Term::Factory* tf) const {
-    Formula::Ref alpha = Clone();
-    alpha->Rectify(sf, tf);
+    Ref alpha = Rectify(sf, tf);
     alpha = alpha->Skolemize({}, {}, 0, sf, tf);
     return Ref(std::move(alpha));
   }
 
   Ref Prenex(Symbol::Factory* sf, Term::Factory* tf) const {
-    Formula::Ref alpha = Clone();
-    alpha->Rectify(sf, tf);
+    Ref alpha = Rectify(sf, tf);
     QuantifierPrefix vars;
     alpha = alpha->Prenex(&vars, 0, sf, tf);
     if (!vars.even()) {
@@ -247,17 +255,7 @@ class Formula {
   virtual void ITraverse(const ITraversal<Clause>&)  const = 0;
   virtual void ITraverse(const ITraversal<Formula>&) const = 0;
 
-  void Rectify(Symbol::Factory* sf, Term::Factory* tf) {
-    TermMap tm;
-    for (Term x : free_vars()) {
-      tm.insert(std::make_pair(x, x));
-    }
-    // Rectify() renames every bound variable that also occurs free globally
-    // somewhere in the formula or is bound by another quantifier to the left
-    // of the current position.
-    Rectify(&tm, sf, tf);
-  }
-  virtual void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) = 0;
+  virtual Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const = 0;
 
   virtual std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const = 0;
 
@@ -286,7 +284,7 @@ class Formula {
       return Literal::Neq(p.second, p.first);
     });
     const Clause c(r2.begin(), r2.end());
-    Formula::Ref alpha = nested_skolemize(sf, tf);
+    Ref alpha = nested_skolemize(sf, tf);
     if (c.empty()) {
       return alpha;
     }
@@ -306,7 +304,7 @@ class Formula {
   mutable internal::Maybe<SortedTermSet> free_vars_ = internal::Nothing;
 };
 
-Formula::Ref Formula::QuantifierPrefix::PrependTo(Formula::Ref alpha) const {
+Formula::Ref Formula::QuantifierPrefix::PrependTo(Ref alpha) const {
   for (auto it = prefix_.rbegin(); it != prefix_.rend(); ++it) {
     assert(it->type == kNot || it->type == kExists);
     if (it->type == kNot) {
@@ -362,12 +360,13 @@ class Formula::Atomic : public Formula {
   void ITraverse(const ITraversal<Clause>& f)  const override { f(c_); }
   void ITraverse(const ITraversal<Formula>& f) const override { f(*this); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
-    c_ = c_.Substitute([tm](Term t) {
+  Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
+    const Clause c = c_.Substitute([tm](Term t) {
       TermMap::const_iterator it;
       return t.variable() && ((it = tm->find(t)) != tm->end() && it->first != it->second)
           ? internal::Just(it->second) : internal::Nothing;
     }, tf);
+    return Factory::Atomic(c);
   }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
@@ -537,9 +536,8 @@ class Formula::Or : public Formula {
   void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); beta_->ITraverse(f); }
   void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); beta_->ITraverse(f); f(*this); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
-    alpha_->Rectify(tm, sf, tf);
-    beta_->Rectify(tm, sf, tf);
+  Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Or(alpha_->Rectify(tm, sf, tf), beta_->Rectify(tm, sf, tf));
   }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
@@ -642,17 +640,20 @@ class Formula::Exists : public Formula {
   void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
-    TermMap::const_iterator it = tm->find(x_);
-    if (it != tm->end()) {
+  Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
+    Formula::Ref alpha;
+    if (tm->find(x_) != tm->end()) {
       const Term old_x = x_;
+      const Term old_new_x = (*tm)[old_x];
       const Term new_x = tf->CreateTerm(sf->CreateVariable(old_x.sort()));
-      tm->insert(it, std::make_pair(old_x, new_x));
-      x_ = new_x;
+      (*tm)[old_x] = new_x;
+      alpha = Factory::Exists(new_x, alpha_->Rectify(tm, sf, tf));
+      (*tm)[old_x] = old_new_x;
     } else {
-      tm->insert(it, std::make_pair(x_, x_));
+      (*tm)[x_] = x_;
+      alpha = Factory::Exists(x_, alpha_->Rectify(tm, sf, tf));
     }
-    alpha_->Rectify(tm, sf, tf);
+    return alpha;
   }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
@@ -744,7 +745,9 @@ class Formula::Not : public Formula {
   void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
+  Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Not(alpha_->Rectify(tm, sf, tf));
+  }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     auto p = alpha_->quantifier_prefix();
@@ -836,7 +839,9 @@ class Formula::Know : public Formula {
   void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
+  Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Know(k_, alpha_->Rectify(tm, sf, tf));
+  }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     return std::make_pair(QuantifierPrefix(), this);
@@ -852,7 +857,7 @@ class Formula::Know : public Formula {
   }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    Formula::Ref alpha = alpha_->Flatten(0, sf, tf);
+    Ref alpha = alpha_->Flatten(0, sf, tf);
     return Factory::Know(k_, std::move(alpha));
   }
 
@@ -949,7 +954,9 @@ class Formula::Cons : public Formula {
   void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
+  Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Cons(k_, alpha_->Rectify(tm, sf, tf));
+  }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     return std::make_pair(QuantifierPrefix(), this);
@@ -965,7 +972,7 @@ class Formula::Cons : public Formula {
   }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    Formula::Ref alpha = alpha_->Flatten(0, sf, tf);
+    Ref alpha = alpha_->Flatten(0, sf, tf);
     return Factory::Cons(k_, std::move(alpha));
   }
 
@@ -1072,10 +1079,11 @@ class Formula::Bel : public Formula {
   void ITraverse(const ITraversal<Clause>& f)  const override { ante_->ITraverse(f); conse_->ITraverse(f); }
   void ITraverse(const ITraversal<Formula>& f) const override { ante_->ITraverse(f); conse_->ITraverse(f); f(*this); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override {
-    ante_->Rectify(tm, sf, tf);
-    conse_->Rectify(tm, sf, tf);
-    not_ante_or_conse_->Rectify(tm, sf, tf);
+  Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Bel(k_, l_,
+                        ante_->Rectify(tm, sf, tf),
+                        conse_->Rectify(tm, sf, tf),
+                        not_ante_or_conse_->Rectify(tm, sf, tf));
   }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
@@ -1083,14 +1091,16 @@ class Formula::Bel : public Formula {
   }
 
   Ref Normalize(bool distribute) const override {
-    return Factory::Bel(k_, l_, ante_->Normalize(distribute), conse_->Normalize(distribute),
+    return Factory::Bel(k_, l_,
+                        ante_->Normalize(distribute),
+                        conse_->Normalize(distribute),
                         not_ante_or_conse_->Normalize(distribute));
   }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    Formula::Ref ante = ante_->Flatten(0, sf, tf);
-    Formula::Ref conse = conse_->Flatten(0, sf, tf);
-    Formula::Ref not_ante_or_conse = not_ante_or_conse_->Flatten(0, sf, tf);
+    Ref ante = ante_->Flatten(0, sf, tf);
+    Ref conse = conse_->Flatten(0, sf, tf);
+    Ref not_ante_or_conse = not_ante_or_conse_->Flatten(0, sf, tf);
     return Factory::Bel(k_, l_, std::move(ante), std::move(conse), std::move(not_ante_or_conse));
   }
 
@@ -1157,7 +1167,9 @@ class Formula::Guarantee : public Formula {
   void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
+  Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
+    return Factory::Guarantee(alpha_->Rectify(tm, sf, tf));
+  }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     return std::make_pair(QuantifierPrefix(), this);
@@ -1234,7 +1246,14 @@ class Formula::Action : public Formula {
   void ITraverse(const ITraversal<Clause>& f)  const override { alpha_->ITraverse(f); }
   void ITraverse(const ITraversal<Formula>& f) const override { alpha_->ITraverse(f); f(*this); }
 
-  void Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) override { alpha_->Rectify(tm, sf, tf); }
+  Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
+    const Term t = t_.Substitute([tm](Term t) {
+      TermMap::const_iterator it;
+      return t.variable() && ((it = tm->find(t)) != tm->end() && it->first != it->second)
+          ? internal::Just(it->second) : internal::Nothing;
+    }, tf);
+    return Factory::Action(t, alpha_->Rectify(tm, sf, tf));
+  }
 
   std::pair<QuantifierPrefix, const Formula*> quantifier_prefix() const override {
     return std::make_pair(QuantifierPrefix(), this);
