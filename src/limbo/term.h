@@ -104,6 +104,7 @@ class Symbol {
 
     static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
       assert(id > 0);
+      assert(arity > 0 || !sort.compound());
       return Symbol((id << 2) | 2, sort, arity);
     }
 
@@ -189,15 +190,14 @@ class Term {
   inline const Vector& args() const;
 
   Symbol::Sort sort()   const { return symbol().sort(); }
-  bool atomic_name()    const { assert(symbol().name() == (!function() && ((id_ & 1) == 1))); return !function() && ((id_ & 1) == 1); }
-  bool compound_name()  const { assert((symbol().sort().compound() && primitive()) == (function() && (id_ & 1) == 1)); return function() && ((id_ & 1) == 1); }
-  bool name()           const { assert((atomic_name() || compound_name()) == (id_ & 1) == 1); return ((id_ & 1) == 1); }
+  bool atomic_name()    const { return name() && !function(); }
+  bool name()           const { return ((id_ & 1) == 1); }
   bool variable()       const { return symbol().variable(); }
   bool function()       const { return symbol().function(); }
   Symbol::Arity arity() const { return symbol().arity(); }
 
   bool null()           const { return id_ == 0; }
-  bool ground()         const { return atomic_name() || (function() && all_args([](Term t) { return t.ground(); })); }
+  bool ground()         const { return name() || (function() && all_args([](Term t) { return t.ground(); })); }
   bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
   bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
 
@@ -284,7 +284,7 @@ class Term::Factory : private Singleton<Factory> {
   Term CreateTerm(Symbol symbol, const Vector& args) {
     assert(symbol.arity() == static_cast<Symbol::Arity>(args.size()));
     assert(!symbol.sort().compound() || std::all_of(args.begin(), args.end(),
-                                                    [](Term t) { return !t.sort().compound(); }));
+                                                    [](Term t) { return !t.function(); }));
     Data* d = new Data(symbol, args);
     DataPtrSet* s = &memory_[symbol.sort()];
     auto it = s->find(d);

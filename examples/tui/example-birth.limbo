@@ -1,0 +1,24 @@
+Rigid Sort Action
+Sort Human, Result
+Fun bear/2, test/2 -> Action
+Fun spouseOf/1, motherOf/1, fatherOf/1 -> Human
+Sensor Fun sf/Action -> Result
+Name Sally, Mia, Frank, Fred -> Human
+Name Yes, No -> Result
+Var a -> Action
+Var x, y, z -> Human
+Var r -> Result
+
+Real: spouseOf(Mia) = Frank
+
+KB: spouseOf(Mia) = Frank v spouseOf(Mia) = Fred
+
+KB: [] [a] motherOf(x) = y <-> a = bear(y,x) v a /= bear(y,x) ^ motherOf(x) = y
+KB: [] [a] fatherOf(x) = y <-> ex z (a = bear(z,x) ^ spouseOf(z) = y) v fa z (a /= bear(z,x) ^ fatherOf(x) = y)
+KB: [] sf(a) = r <-> ex x ex y (a = test(x,y) ^ fatherOf(x) = y) ^ r = Yes v fa x fa y (a /= test(x,y) v fatherOf(x) /= y) ^ r = No
+
+REG [bear(Mia,Sally)] K<0> (motherOf(Sally) = Mia)
+REG [bear(Mia,Sally)] M<1> (fatherOf(Sally) /= Frank)
+REG [bear(Mia,Sally)] K<1> (fatherOf(Sally) = Frank v fatherOf(Sally) = Fred)
+REG [bear(Mia,Sally)] [test(Sally,Fred)] K<1> fatherOf(Sally) = Frank
+

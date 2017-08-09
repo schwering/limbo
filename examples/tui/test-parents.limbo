@@ -1,6 +1,6 @@
 Sort        HUMAN
 Name        Sally, Mia, Frank, Fred, Dummy -> HUMAN
-Fun         loverOf/1, motherOf/1, fatherOf/1 -> HUMAN
+Fun         spouseOf/1, motherOf/1, fatherOf/1 -> HUMAN
 Var         x, y, z -> HUMAN
 
 Rigid Sort  ACTION
@@ -8,53 +8,54 @@ Fun         bear/2 -> ACTION
 Fun         test/1 -> ACTION
 Var         a -> ACTION
 
-//Sensor Fun  sf/ACTION -> HUMAN
+Sensor Fun  sf/ACTION -> HUMAN
 
-Real: fatherOf(Sally) = Frank
+Real: spouseOf(Mia) = Frank
 
-KB: loverOf(Mia) = Frank v loverOf(Mia) = Fred
+KB: spouseOf(Mia) = Frank v spouseOf(Mia) = Fred
 
-//KB: [] sf(a) = y <-> (a = test(Sally) ^ fatherOf(Sally) = y) v (a /= test(Sally) ^ y = Dummy)
-// KB: [] sf(a) = y <-> ex x (a = test(x) ^ fatherOf(Sally) = y) v fa x (a /= test(x) ^ y = Dummy)
+// KB: [] sf(a) = y <-> (a = test(Sally) ^ fatherOf(Sally) = y) v (a /= test(Sally) ^ y = Dummy)
+KB: [] sf(a) = y <-> ex x (a = test(x) ^ fatherOf(Sally) = y) v fa x (a /= test(x) ^ y = Dummy)
 // KB: [] sf(a) = y <-> fa x (a /= test(x))
 //ex x (a = test(x) ^ fatherOf(x) = y) v fa x (a /= test(x) ^ y = Dummy)
 
 //KB: [] sf(a) = x <-> x=x
 
 KB: [] [a] motherOf(x) = y <-> a = bear(y,x) v a /= bear(y,x) ^ motherOf(x) = y
-KB: [] [a] fatherOf(x) = y <-> ex z (a = bear(z,x) ^ loverOf(z) = y) v fa z (a /= bear(z,x) ^ fatherOf(x) = y)
+KB: [] [a] fatherOf(x) = y <-> ex z (a = bear(z,x) ^ spouseOf(z) = y) v fa z (a /= bear(z,x) ^ fatherOf(x) = y)
 
-//Refute: (K<1> Ex z (test(z) = bear(Mia,Sally)))
+Refute: (K<1> Ex z (test(z) = bear(Mia,Sally)))
 
-Assert: fatherOf(Sally) = Frank
-Assert: REG K<0> (loverOf(Mia) = Frank v loverOf(Mia) = Fred)
+Assert: spouseOf(Mia) = Frank
+
+Assert: REG K<0> (spouseOf(Mia) = Frank v spouseOf(Mia) = Fred)
 Refute: REG K<2> (motherOf(Sally) = Mia)
 Refute: REG K<2> (fatherOf(Sally) = Frank v fatherOf(Sally) = Fred)
-Refute: REG ex x K<2> (fatherOf(Sally) = x)
-Assert: REG K<1> ex x (fatherOf(Sally) = x)
+Refute: REG ex x K<2> (spouseOf(Mia) = x)
+Assert: REG K<1> ex x (spouseOf(Mia) = x)
 
 Assert: REG [bear(Mia,Sally)] K<0> (motherOf(Sally) = Mia)
-//Refute: REG [bear(Mia,Sally)] K<1> (Fred /= Fred)
+Refute: REG [bear(Mia,Sally)] K<1> (Fred /= Fred)
 
-//Refute: REG [bear(Mia,Sally)] K<2> (motherOf(Sally) = Frank)
-//Refute: REG [bear(Mia,Sally)] K<2> (motherOf(Sally) = Fred)
-//Refute: REG [bear(Mia,Sally)] K<2> (fatherOf(Sally) = Frank)
-//Refute: REG [bear(Mia,Sally)] K<2> (fatherOf(Sally) = Fred)
-//Refute: REG [bear(Mia,Sally)] ex x K<2> (fatherOf(Sally) = x)
-//Assert: REG [bear(Mia,Sally)] K<1> ex x (fatherOf(Sally) = x)
-//Assert: REG K<1> [bear(Mia,Sally)] (fatherOf(Sally) = Frank v fatherOf(Sally) = Fred)
-//Refute: REG [bear(Mia,Sally)] K<0> (fatherOf(Sally) = Frank v fatherOf(Sally) = Fred)
-//Assert: REG [bear(Mia,Sally)] K<1> (fatherOf(Sally) = Frank v fatherOf(Sally) = Fred)
+Refute: REG [bear(Mia,Sally)] K<2> (motherOf(Sally) = Frank)
+Refute: REG [bear(Mia,Sally)] K<2> (motherOf(Sally) = Fred)
+Refute: REG [bear(Mia,Sally)] K<2> (fatherOf(Sally) = Frank)
+Refute: REG [bear(Mia,Sally)] K<2> (fatherOf(Sally) = Fred)
+Refute: REG [bear(Mia,Sally)] ex x K<2> (fatherOf(Sally) = x)
+Assert: REG [bear(Mia,Sally)] K<1> ex x (fatherOf(Sally) = x)
+Assert: REG K<1> [bear(Mia,Sally)] (fatherOf(Sally) = Frank v fatherOf(Sally) = Fred)
+Refute: REG [bear(Mia,Sally)] K<0> (fatherOf(Sally) = Frank v fatherOf(Sally) = Fred)
+Assert: REG [bear(Mia,Sally)] K<1> (fatherOf(Sally) = Frank v fatherOf(Sally) = Fred)
 
-//Refute: REG [bear(Mia,Sally)] [test(Sally)] K<0> fatherOf(Sally) = Frank
-//Assert: REG [bear(Mia,Sally)] [test(Sally)] K<2> fatherOf(Sally) = Frank
-//Refute: REG [bear(Mia,Sally)] [test(Sally)] K<0> fatherOf(Sally) /= Fred
-//Assert: REG [bear(Mia,Sally)] [test(Sally)] K<1> fatherOf(Sally) /= Fred
-//
-//Refute: REG [bear(Mia,Sally)] [test(Sally)] K<1> (fatherOf(Sally) = Frank ^ T /= T)
-//
-//Refute: REG [bear(Mia,Sally)] [test(Sally)] K<0> fatherOf(Sally) = Frank
-//Assert: REG [bear(Mia,Sally)] [test(Sally)] K<1> fatherOf(Sally) = Frank
-//Refute: REG [bear(Mia,Sally)] [test(Sally)] K<0> fatherOf(Sally) /= Fred
-//Assert: REG [bear(Mia,Sally)] [test(Sally)] K<1> fatherOf(Sally) /= Fred
+Refute: REG [bear(Mia,Sally)] [test(Sally)] K<0> fatherOf(Sally) = Frank
+Assert: REG [bear(Mia,Sally)] [test(Sally)] K<2> fatherOf(Sally) = Frank
+Refute: REG [bear(Mia,Sally)] [test(Sally)] K<0> fatherOf(Sally) /= Fred
+Assert: REG [bear(Mia,Sally)] [test(Sally)] K<1> fatherOf(Sally) /= Fred
+
+Refute: REG [bear(Mia,Sally)] [test(Sally)] K<1> (fatherOf(Sally) = Frank ^ Dummy /= Dummy)
+
+Refute: REG [bear(Mia,Sally)] [test(Sally)] K<0> fatherOf(Sally) = Frank
+Assert: REG [bear(Mia,Sally)] [test(Sally)] K<1> fatherOf(Sally) = Frank
+Refute: REG [bear(Mia,Sally)] [test(Sally)] K<0> fatherOf(Sally) /= Fred
+Assert: REG [bear(Mia,Sally)] [test(Sally)] K<1> fatherOf(Sally) /= Fred
 

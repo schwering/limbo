@@ -1,45 +1,49 @@
-Sort        HUMAN
-Name        Sally, Mia, Frank, Fred -> HUMAN
-Fun         loverOf/1, motherOf/1, fatherOf/1 -> HUMAN
-Var         x, y, z -> HUMAN
+Sort        Human
+Name        Sally, Mia, Frank, Fred -> Human
+Fun         spouseOf/1, motherOf/1, fatherOf/1 -> Human
+Var         x, y, z -> Human
 
-Rigid Sort  ACTION
-Fun         bear/2 -> ACTION
-Fun         test/2 -> ACTION
-Var         a -> ACTION
+Rigid Sort  Action
+Fun         bear/2 -> Action
+Fun         test/2 -> Action
+Var         a -> Action
 
-Sort        RESULT
-Name        Yes -> RESULT
-Name        No -> RESULT
-Var         r -> RESULT
-Sensor Fun  sf/ACTION -> RESULT
+Sort        Result
+Name        Yes -> Result
+Name        No -> Result
+Var         r -> Result
+Sensor Fun  sf/Action -> Result
 
 
-Real: loverOf(Mia) = Frank
+Real: spouseOf(Mia) = Frank
 
-KB: loverOf(Mia) = Frank v loverOf(Mia) = Fred
-
-KB: [] sf(a) = r <-> (ex x ex y (a = test(x,y) ^ fatherOf(x) = y) -> r = Yes) ^ (~ ex x ex y (a = test(x,y) ^ fatherOf(x) = y) -> r = No)
-// KB: [] sf(test(x,y)) = r <-> (fatherOf(x) = y -> r = Yes) ^ (fatherOf(x) /= y -> r = No)
-// KB: [] sf(a) = r <-> r = r
+KB: spouseOf(Mia) = Frank v spouseOf(Mia) = Fred
 
 KB: [] [a] motherOf(x) = y <-> a = bear(y,x) v a /= bear(y,x) ^ motherOf(x) = y
-KB: [] [a] fatherOf(x) = y <-> ex z (a = bear(z,x) ^ loverOf(z) = y) v fa z (a /= bear(z,x) ^ fatherOf(x) = y)
+KB: [] [a] fatherOf(x) = y <-> ex z (a = bear(z,x) ^ spouseOf(z) = y) v fa z (a /= bear(z,x) ^ fatherOf(x) = y)
 
-Assert: loverOf(Mia) = Frank
+// KB: [] sf(a) = r <-> (ex x ex y (a = test(x,y) ^ fatherOf(x) = y) -> r = Yes) ^ (~ ex x ex y (a = test(x,y) ^ fatherOf(x) = y) -> r = No)
+KB: [] sf(a) = r <-> ex x ex y (a = test(x,y) ^ fatherOf(x) = y ^ r = Yes) v fa x fa y (a /= test(x,y) v fatherOf(x) /= y) ^ r = No
 
-Assert: REG K<0> (loverOf(Mia) = Frank v loverOf(Mia) = Fred)
+// KB: [] sf(test(y,x)) = r <-> (fatherOf(x) = y -> r = Yes) ^ (fatherOf(x) /= y -> r = No)
+// KB: [] sf(a) = r <-> r = r
+
+Assert: spouseOf(Mia) = Frank
+
+Assert: REG K<0> (spouseOf(Mia) = Frank v spouseOf(Mia) = Fred)
 Refute: REG K<2> (motherOf(Sally) = Mia)
 Refute: REG K<2> (fatherOf(Sally) = Frank v fatherOf(Sally) = Fred)
-Refute: REG ex x K<2> (loverOf(Mia) = x)
-Assert: REG K<1> ex x (loverOf(Mia) = x)
+Refute: REG ex x K<2> (spouseOf(Mia) = x)
+Assert: REG K<1> ex x (spouseOf(Mia) = x)
 
 Assert: REG [bear(Mia,Sally)] K<0> (motherOf(Sally) = Mia)
 Refute: REG [bear(Mia,Sally)] K<2> (motherOf(Sally) = Frank)
 Refute: REG [bear(Mia,Sally)] K<2> (motherOf(Sally) = Fred)
-Refute: REG [bear(Mia,Sally)] K<2> (loverOf(Mia) = Frank)
-Refute: REG [bear(Mia,Sally)] K<2> (loverOf(Mia) = Fred)
+Refute: REG [bear(Mia,Sally)] K<2> (spouseOf(Mia) = Frank)
+Refute: REG [bear(Mia,Sally)] K<2> (spouseOf(Mia) = Fred)
 Refute: REG [bear(Mia,Sally)] K<2> (fatherOf(Sally) = Frank)
+Assert: REG [bear(Mia,Sally)] M<1> (fatherOf(Sally) /= Frank)
+Assert: REG [bear(Mia,Sally)] M<2> (fatherOf(Sally) /= Frank)
 Refute: REG [bear(Mia,Sally)] K<2> (fatherOf(Sally) = Fred)
 Refute: REG [bear(Mia,Sally)] ex x K<2> (fatherOf(Sally) = x)
 Assert: REG [bear(Mia,Sally)] K<1> ex x (fatherOf(Sally) = x)
@@ -56,6 +60,7 @@ Refute: REG [bear(Mia,Sally)] [test(Sally,Frank)] K<0> fatherOf(Sally) = Frank
 Assert: REG [bear(Mia,Sally)] [test(Sally,Frank)] K<1> fatherOf(Sally) = Frank
 Refute: REG [bear(Mia,Sally)] [test(Sally,Frank)] K<0> fatherOf(Sally) /= Fred
 Assert: REG [bear(Mia,Sally)] [test(Sally,Frank)] K<1> fatherOf(Sally) /= Fred
+Assert: REG [bear(Mia,Sally)] [test(Sally,Frank)] M<1> fatherOf(Sally) /= Fred
 
 Refute: REG [bear(Mia,Sally)] [test(Sally,Frank)] K<1> (fatherOf(Sally) = Frank ^ Yes /= Yes)
 

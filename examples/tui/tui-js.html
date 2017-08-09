@@ -50,6 +50,7 @@
     <script src="tui-js.js"></script>
     <script>
     var examples = [
+        { value: 'example-birth',                  text: 'Example: Unknown Spouse/Father' },
         { value: 'example-rich-father',            text: 'Example: Rich Father' },
         { value: 'example-unknown-father',         text: 'Example: Unknown Father' },
         { value: 'example-siblings',               text: 'Example: Siblings' },
@@ -66,6 +67,9 @@
         { value: 'test-rich-father',               text: 'Test: Rich Father' },
         { value: 'test-unknown-father',            text: 'Test: Unknown Father' },
         { value: 'test-siblings',                  text: 'Test: Siblings' },
+        { value: 'test-bat',                       text: 'Test: Basic Action Theory' },
+        { value: 'test-parents',                   text: 'Test: Parents 1' },
+        { value: 'test-parents-2',                 text: 'Test: Parents 2' },
         { value: 'test-veggie',                    text: 'Test: Veggie 1' },
         { value: 'test-veggie-with-guarantee',     text: 'Test: Veggie 2' },
     //  { value: 'test-battleship-1x4',            text: 'Test: Battleship 1x4' }, // test-battleship-1x4 test is specificially for "my" computer as it assumes a specific "random" ship placement, which is different under Javascript due to different random numbers -->
@@ -270,11 +274,20 @@ $(document).ready(function() {
 
     Module.ccall('limbo_init', 'void', [], []);
 
-    var select_ex = getParameterByName('ex');
-    if (select_ex) {
-        $('#examples option').filter(function() {
-            return $(this).val().indexOf(select_ex) != -1;
-        }).prop('selected', true);
+    var ex = getParameterByName('ex');
+    if (!ex && location.hash && location.hash.length > 0) {
+        ex = location.hash.substring(1);
+    }
+    if (ex) {
+        var found = false;
+        var prefixes = ["", "example-", "test-"];
+        for (i = 0; i < prefixes.length && !found; ++i) {
+            var select_ex = prefixes[i] + ex;
+            $('#examples option').filter(function() {
+                found = $(this).val().indexOf(select_ex) != -1;
+                return found;
+            }).prop('selected', true);
+        }
     }
 
     jQuery(function($, undefined) {

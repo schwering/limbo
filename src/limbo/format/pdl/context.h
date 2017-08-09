@@ -251,8 +251,7 @@ class Context {
   }
 
   Formula::Ref Regress(const Formula& alpha) const {
-    Formula::Ref beta = at_.Regress(alpha);
-    return beta;
+    return at_.Regress(alpha);
   }
 
   bool Query(const Formula& alpha) {
