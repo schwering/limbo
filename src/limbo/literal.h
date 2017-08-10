@@ -47,10 +47,12 @@ class Literal {
   bool pos() const { return (data_ >> 63) == 1; }
   Term rhs() const { return Term(static_cast<u32>(data_ >> 32) & ~static_cast<u32>(1 << 31)); }
 
-  bool null()           const { return data_ == 0; }
-  bool ground()         const { return lhs().ground() && rhs().ground(); }
-  bool primitive()      const { return lhs().primitive() && rhs().name(); }
-  bool quasiprimitive() const { return lhs().quasiprimitive() && (rhs().name() || rhs().variable()); }
+  bool null()            const { return data_ == 0; }
+  bool ground()          const { return lhs().ground() && rhs().ground(); }
+  bool trivial()         const { return lhs().name() && rhs().name(); }
+  bool primitive()       const { return lhs().primitive() && rhs().name(); }
+  bool quasi_trivial()   const { return lhs().quasi_name() && rhs().quasi_name(); }
+  bool quasi_primitive() const { return lhs().quasi_primitive() && rhs().quasi_name(); }
 
   Literal flip() const { return Literal(!pos(), lhs(), rhs()); }
   Literal dual() const { return Literal(pos(), rhs(), lhs()); }
@@ -163,7 +165,7 @@ class Literal {
       lhs = rhs;
       rhs = tmp;
     }
-    if ((lhs.name() && !rhs.name()) || (!lhs.function() && rhs.function())) {
+    if ((!lhs.function() && rhs.function()) || rhs.quasi_primitive()) {
       Term tmp = lhs;
       lhs = rhs;
       rhs = tmp;

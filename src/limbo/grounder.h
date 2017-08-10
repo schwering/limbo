@@ -444,6 +444,7 @@ class Grounder {
     Ply& p = new_ply();
     for (; first != last; ++first) {
       Ungrounded<Clause> uc(*first);
+      assert(uc.val.all([](Literal a) { return a.quasi_primitive() || a.quasi_trivial(); }));
       uc.val.Traverse([this, &p, &uc](Term t) {
         if (t.variable()) {
           uc.vars.insert(t);
@@ -502,7 +503,7 @@ class Grounder {
         }
         return true;
       });
-      if (ua.val.lhs().function() && !ua.val.lhs().sort().compound() && IsNewUngroundedLhsRhs(ua, Plies::kSinceSetup)) {
+      if (ua.val.lhs().function() && !ua.val.lhs().sort().rigid() && IsNewUngroundedLhsRhs(ua, Plies::kSinceSetup)) {
         last_ply().lhs_rhs.ungrounded.insert(ua);
       }
       return true;
@@ -521,7 +522,7 @@ class Grounder {
     Ply& p = new_ply();
     p.relevant.filter = true;
     alpha.Traverse([this, &p](const Term t) {
-      if (t.function() && !t.sort().compound()) {
+      if (t.function() && !t.sort().rigid()) {
         Ungrounded<Term> ut(t);
         t.Traverse([&ut](const Term x) { if (x.variable()) { ut.vars.insert(x); } return true; });
         p.relevant.ungrounded.insert(ut);
@@ -705,7 +706,7 @@ class Grounder {
   }
 
   bool IsNewUngroundedLhsRhs(const Ungrounded<Literal>& ua, Plies::Policy p) const {
-    assert(ua.val.lhs().function() && !ua.val.lhs().sort().compound());
+    assert(ua.val.lhs().function() && !ua.val.lhs().sort().rigid());
     for (const Ply& p : plies(p)) {
       if (p.lhs_rhs.ungrounded.find(ua) != p.lhs_rhs.ungrounded.end()) {
         return false;
@@ -726,7 +727,7 @@ class Grounder {
   }
 
   bool IsNewRelevantTerm(Term t, Plies::Policy p) const {
-    assert(t.ground() && t.function() && !t.sort().compound());
+    assert(t.ground() && t.function() && !t.sort().rigid());
     for (const Ply& p : plies(p)) {
       if (p.relevant.terms.contains(t)) {
         return false;
@@ -815,7 +816,7 @@ class Grounder {
 
   void UpdateLhsRhs(Literal a, Plies::Policy p) {
     assert(a.ground());
-    if (a.lhs().function() && !a.lhs().sort().compound() && IsNewLhsRhs(a, p)) {
+    if (a.lhs().function() && !a.lhs().sort().rigid() && IsNewLhsRhs(a, p)) {
       const Term t = a.lhs();
       const Term n = a.rhs();
       assert(t.ground() && n.name());
@@ -836,7 +837,7 @@ class Grounder {
 
   void UpdateRelevantTerms(Term t, Plies::Policy p) {
     assert(t.ground());
-    if (t.function() && !t.sort().compound() && IsNewRelevantTerm(t, p)) {
+    if (t.function() && !t.sort().rigid() && IsNewRelevantTerm(t, p)) {
       last_ply().relevant.terms.insert(t);
     }
   }

@@ -75,7 +75,7 @@ class Symbol {
     internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
     Id id() const { return id_; }
-    bool compound() const { return id_ % 2 == 1; }
+    bool rigid() const { return id_ % 2 == 1; }
 
    private:
     Id id_;
@@ -104,7 +104,7 @@ class Symbol {
 
     static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
       assert(id > 0);
-      assert(arity > 0 || !sort.compound());
+      assert(arity > 0 || !sort.rigid());
       return Symbol((id << 2) | 2, sort, arity);
     }
 
@@ -190,18 +190,22 @@ class Term {
   inline const Vector& args() const;
 
   Symbol::Sort sort()   const { return symbol().sort(); }
-  bool atomic_name()    const { return name() && !function(); }
-  bool name()           const { return ((id_ & 1) == 1); }
-  bool variable()       const { return symbol().variable(); }
-  bool function()       const { return symbol().function(); }
   Symbol::Arity arity() const { return symbol().arity(); }
 
-  bool null()           const { return id_ == 0; }
-  bool ground()         const { return name() || (function() && all_args([](Term t) { return t.ground(); })); }
-  bool primitive()      const { return function() && all_args([](Term t) { return t.name(); }); }
-  bool quasiprimitive() const { return function() && all_args([](Term t) { return t.name() || t.variable(); }); }
+  bool null()     const { return id_ == 0; }
+  bool name()     const { return ((id_ & 1) == 1); }
+  bool variable() const { return symbol().variable(); }
+  bool function() const { return symbol().function(); }
 
-  bool Mentions(Term t) const { assert(quasiprimitive()); return *this == t || any_arg([t](Term tt) { return t == tt; }); }
+  bool ground()    const { return name() || (function() && all_args<&Term::ground>()); }
+  bool primitive() const { return !sort().rigid() && function() && all_args<&Term::name>(); }
+
+  bool quasi_name()      const { return !function() || (sort().rigid() && no_arg<&Term::function>()); }
+  bool quasi_primitive() const { return !sort().rigid() && function() && all_args<&Term::quasi_name>(); }
+
+  bool Mentions(Term t) const {
+    return *this == t || std::any_of(args().begin(), args().end(), [t](Term tt) { return tt.Mentions(t); });
+  }
 
   template<typename UnaryFunction>
   Term Substitute(UnaryFunction theta, Factory* tf) const;
@@ -230,11 +234,11 @@ class Term {
 
   u32 id() const { return id_; }
 
-  template<typename UnaryPredicate>
-  inline bool all_args(UnaryPredicate p) const;
+  template<bool (Term::*Prop)() const>
+  inline bool all_args() const;
 
-  template<typename UnaryPredicate>
-  inline bool any_arg(UnaryPredicate p) const;
+  template<bool (Term::*Prop)() const>
+  inline bool no_arg() const;
 
   u32 id_;
 };
@@ -283,15 +287,13 @@ class Term::Factory : private Singleton<Factory> {
 
   Term CreateTerm(Symbol symbol, const Vector& args) {
     assert(symbol.arity() == static_cast<Symbol::Arity>(args.size()));
-    assert(!symbol.sort().compound() || std::all_of(args.begin(), args.end(),
-                                                    [](Term t) { return !t.function(); }));
     Data* d = new Data(symbol, args);
     DataPtrSet* s = &memory_[symbol.sort()];
     auto it = s->find(d);
     if (it == s->end()) {
       const bool name = symbol.name() ||
-          (symbol.sort().compound() && symbol.function() &&
-           std::all_of(args.begin(), args.end(), [](const Term t) { return t.atomic_name(); }));
+          (symbol.sort().rigid() && symbol.function() &&
+           std::all_of(args.begin(), args.end(), [](const Term t) { return t.name() && !t.function(); }));
       std::vector<Data*>* heap = name ? &name_heap_ : &variable_and_function_heap_;
       heap->push_back(d);
       const u32 id = (static_cast<u32>(heap->size()) << 1) | static_cast<u32>(name);
@@ -359,11 +361,25 @@ inline Term Term::arg(size_t i)         const { return data()->args[i]; }
 inline const Term::Vector& Term::args() const { return data()->args; }
 inline const Term::Data* Term::data()   const { return Factory::Instance()->get(id_); }
 
-template<typename UnaryPredicate>
-inline bool Term::all_args(UnaryPredicate p) const { return std::all_of(data()->args.begin(), data()->args.end(), p); }
+template<bool (Term::*Prop)() const>
+inline bool Term::all_args() const {
+  for (Term t : args()) {
+    if (!(t.*Prop)()) {
+      return false;
+    }
+  }
+  return true;
+}
 
-template<typename UnaryPredicate>
-inline bool Term::any_arg(UnaryPredicate p) const { return std::any_of(data()->args.begin(), data()->args.end(), p); }
+template<bool (Term::*Prop)() const>
+inline bool Term::no_arg() const {
+  for (Term t : args()) {
+    if ((t.*Prop)()) {
+      return false;
+    }
+  }
+  return true;
+}
 
 template<typename UnaryFunction>
 Term Term::Substitute(UnaryFunction theta, Factory* tf) const {

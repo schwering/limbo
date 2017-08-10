@@ -24,7 +24,7 @@ class ActionTheory {
 
   bool Add(const Literal a, const Formula& alpha) {
     assert(a.pos() && a.lhs().sort() == a.rhs().sort());
-    //assert(a.lhs().quasiprimitive() && !a.lhs().sort().compound());
+    //assert(a.lhs().quasiprimitive() && !a.lhs().sort().rigid());
     //assert(a.rhs().variable() || a.rhs().quasiprimitive());
     assert(alpha.objective());
     assert(!alpha.dynamic());
@@ -43,8 +43,8 @@ class ActionTheory {
   bool Add(const Term t, Literal a, const Formula& alpha) {
     assert(t.variable());
     assert(a.pos() && a.lhs().sort() == a.rhs().sort());
-    assert(a.lhs().quasiprimitive() && !a.lhs().sort().compound());
-    assert(a.rhs().variable() || a.rhs().quasiprimitive());
+    assert(a.lhs().quasi_primitive() && !a.lhs().sort().rigid());
+    assert(a.rhs().variable() || a.rhs().quasi_primitive());
     assert(alpha.objective());
     assert(!alpha.dynamic());
     ssas_.push_back(SSA(t, a, alpha.Clone()));
@@ -279,7 +279,7 @@ class ActionTheory {
     if (t.variable() || t.name()) {
       return t;
     }
-    if (t.sort().compound() && t.quasiprimitive()) {
+    if (t.sort().rigid() && t.quasi_primitive()) {
       return t;
     }
     auto args = internal::transform_range(t.args(), [this, &z](const Term t) { return Merge(z, t); });

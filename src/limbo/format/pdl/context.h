@@ -133,7 +133,7 @@ class Context {
     callback_(this, proc, args);
   }
 
-  Symbol::Sort CreateSort(bool compound) { return !compound ? sf()->CreateSort() : sf()->CreateCompoundSort(); }
+  Symbol::Sort CreateSort(bool rigid) { return !rigid ? sf()->CreateSort() : sf()->CreateCompoundSort(); }
   Term CreateVariable(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateVariable(sort)); }
   Term CreateName(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateName(sort)); }
   Symbol CreateFunction(Symbol::Sort sort, Symbol::Arity arity) { return sf()->CreateFunction(sort, arity); }
@@ -156,8 +156,8 @@ class Context {
   Term LookupMetaVariable(const std::string& id) const { return meta_vars_.Find(id); }
   const Formula& LookupFormula(const std::string& id) const { return *formulas_.Find(id); }
 
-  void RegisterSort(const std::string& id, bool compound) {
-    const Symbol::Sort sort = CreateSort(compound);
+  void RegisterSort(const std::string& id, bool rigid) {
+    const Symbol::Sort sort = CreateSort(rigid);
     limbo::format::RegisterSort(sort, "");
     sorts_.Register(id, sort);
     logger_(DefaultLogger::RegisterSortData(id));

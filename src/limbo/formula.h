@@ -404,11 +404,11 @@ class Formula::Atomic : public Formula {
       const auto it = queue.begin();
       const Literal a = *it;
       queue.erase(it);
-      if (a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function())) {
+      if (a.quasi_primitive() || a.quasi_trivial()) {
         lits.insert(a);
-      } else if (a.rhs().function() &&
-                 (!a.pos() || std::all_of(queue.begin(), queue.end(), [](Literal a) { return a.pos(); }))) {
-        assert(a.lhs().function());
+      } else if (!a.rhs().quasi_name() &&
+                 (true || !a.pos() || std::all_of(queue.begin(), queue.end(), [](Literal a) { return a.pos(); }))) {
+        assert(a.lhs().function() && a.rhs().function());
         const Term old_t = a.lhs().arity() < a.rhs().arity() ? a.lhs() : a.rhs();
         Term new_t;
         const TermMap::const_iterator it = term_to_var.find(old_t);
@@ -424,7 +424,7 @@ class Formula::Atomic : public Formula {
         queue.insert(new_a);
         queue.insert(new_b);
       } else {
-        assert(!a.lhs().quasiprimitive());
+        assert(!a.lhs().quasi_primitive());
         for (Term arg : a.lhs().args()) {
           if (arg.function()) {
             const Term old_arg = arg;
@@ -448,7 +448,7 @@ class Formula::Atomic : public Formula {
     }
     assert(lits.size() >= arg().size());
     assert(std::all_of(lits.begin(), lits.end(), [](Literal a) {
-                       return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
+                       return a.quasi_primitive() || a.quasi_trivial(); }));
     if (vars.size() == 0) {
       return Clone();
     } else {
@@ -476,7 +476,7 @@ class Formula::Atomic : public Formula {
   internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 != 0 ||
         !std::all_of(c_.begin(), c_.end(), [](Literal a) {
-                     return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); })) {
+                     return a.quasi_primitive() || (!a.lhs().function() && !a.rhs().function()); })) {
       return internal::Nothing;
     }
     return internal::Just(c_);
@@ -1268,12 +1268,12 @@ class Formula::Action : public Formula {
     LiteralSet lits;
     QuantifierPrefix vars;
     Term t = t_;
-    if (!t.name() && !t.sort().compound() && t.function()) {
+    if (!t.name() && !t.sort().rigid() && t.function()) {
       const Term x = tf->CreateTerm(sf->CreateVariable(t.sort()));
       lits.insert(Literal::Neq(t, x));
       vars.append_exists(x);
       t = x;
-    } else if (!t.name() && t.sort().compound() && !t.quasiprimitive()) {
+    } else if (!t.name() && t.sort().rigid() && !t.quasi_primitive()) {
       TermMap term_to_var;
       Term::Vector args = t.args();
       for (size_t i = 0; i < args.size(); ++i) {
@@ -1292,7 +1292,7 @@ class Formula::Action : public Formula {
       t = tf->CreateTerm(t.symbol(), args);
     }
     assert(std::all_of(lits.begin(), lits.end(), [](Literal a) {
-                       return a.quasiprimitive() || (!a.lhs().function() && !a.rhs().function()); }));
+                       return a.quasi_primitive() || (!a.lhs().function() && !a.rhs().function()); }));
     Ref alpha = Factory::Action(t, alpha_->Flatten(nots, sf, tf));
     if (vars.size() == 0) {
       return alpha;

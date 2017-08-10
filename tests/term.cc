@@ -51,13 +51,13 @@ TEST(TermTest, general) {
   const Term f2 = tf.CreateTerm(Symbol::Factory::CreateFunction(2, s2, 2), {n1,x2});
   const Term f3 = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s2, 1), {f1});
   const Term f4 = tf.CreateTerm(Symbol::Factory::CreateFunction(2, s2, 2), {n1,f1});
-  EXPECT_TRUE(!f1.null() && !f1.name() && !f1.variable() && f1.function() && f1.ground() && f1.primitive() && f1.quasiprimitive());
-  EXPECT_TRUE(!f2.null() && !f2.name() && !f2.variable() && f2.function() && !f2.ground() && !f2.primitive() && f2.quasiprimitive());
-  EXPECT_TRUE(!f3.null() && !f3.name() && !f3.variable() && f3.function() && f3.ground() && !f3.primitive() && !f3.quasiprimitive());
-  EXPECT_TRUE(!f4.null() && !f4.name() && !f4.variable() && f4.function() && f4.ground() && !f4.primitive() && !f4.quasiprimitive());
+  EXPECT_TRUE(!f1.null() && !f1.name() && !f1.variable() && f1.function() && f1.ground() && f1.primitive() && f1.quasi_primitive());
+  EXPECT_TRUE(!f2.null() && !f2.name() && !f2.variable() && f2.function() && !f2.ground() && !f2.primitive() && f2.quasi_primitive());
+  EXPECT_TRUE(!f3.null() && !f3.name() && !f3.variable() && f3.function() && f3.ground() && !f3.primitive() && !f3.quasi_primitive());
+  EXPECT_TRUE(!f4.null() && !f4.name() && !f4.variable() && f4.function() && f4.ground() && !f4.primitive() && !f4.quasi_primitive());
   const Term f5 = f2.Substitute(EqSubstitute(x2, f1), &tf);
   EXPECT_TRUE(f2 != f4);
-  EXPECT_TRUE(!f5.name() && !f5.variable() && f5.function() && f5.ground() && !f4.primitive() && !f4.quasiprimitive());
+  EXPECT_TRUE(!f5.name() && !f5.variable() && f5.function() && f5.ground() && !f4.primitive() && !f4.quasi_primitive());
   EXPECT_TRUE(f5 != f2);
   EXPECT_TRUE(f5 == f4);
   EXPECT_TRUE(f5 == tf.CreateTerm(Symbol::Factory::CreateFunction(2, s2, 2), {n1,f1}));

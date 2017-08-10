@@ -176,8 +176,8 @@ class Parser {
   Result<Action<>> declaration() {
     if ((Is(Tok(), Token::kRigid) && Is(Tok(1), Token::kSort)) || Is(Tok(), Token::kSort)) {
       Action<> a;
-      bool compound = Is(Tok(), Token::kRigid);
-      if (compound) {
+      bool rigid = Is(Tok(), Token::kRigid);
+      if (rigid) {
         Advance();
       }
       do {
@@ -185,9 +185,9 @@ class Parser {
         if (Is(Tok(), Token::kIdentifier)) {
           const std::string id = Tok().val.str();
           Advance();
-          a += [this, compound, id](Context* ctx) {
+          a += [this, rigid, id](Context* ctx) {
             if (!ctx->IsRegisteredSort(id)) {
-              ctx->RegisterSort(id, compound);
+              ctx->RegisterSort(id, rigid);
               return Success<>();
             } else {
               return Error<>(LIMBO_MSG("Sort "+ id +" is already registered"));
@@ -830,9 +830,9 @@ class Parser {
         if (!a) {
           return Error<>(LIMBO_MSG("Expected KB dynamic left-hand side literal"), a);
         }
-        if (!(a.val.pos() && a.val.lhs().sort() == a.val.rhs().sort() && !a.val.lhs().sort().compound())) {
+        if (!(a.val.pos() && a.val.lhs().sort() == a.val.rhs().sort() && !a.val.lhs().sort().rigid())) {
           return Error<>(LIMBO_MSG("Left-hand side literal of dynamic axiom must be of the form f(x,...) = y "
-                                   "f, y of same, non-compound sort"));
+                                   "f, y of same, non-rigid sort"));
         }
         Result<Formula::Ref> alpha = alpha_a.Run(ctx);
         if (!alpha) {
