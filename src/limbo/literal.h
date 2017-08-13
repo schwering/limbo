@@ -53,6 +53,7 @@ class Literal {
   bool primitive()       const { return lhs().primitive() && rhs().name(); }
   bool quasi_trivial()   const { return lhs().quasi_name() && rhs().quasi_name(); }
   bool quasi_primitive() const { return lhs().quasi_primitive() && rhs().quasi_name(); }
+  bool well_formed()     const { return quasi_trivial() || quasi_primitive(); }
 
   Literal flip() const { return Literal(!pos(), lhs(), rhs()); }
   Literal dual() const { return Literal(pos(), rhs(), lhs()); }

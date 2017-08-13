@@ -332,8 +332,9 @@ next:
 #endif
   }
 
-  bool ground()    const { return all([](Literal a) { return a.ground(); }); }
-  bool primitive() const { return all([](Literal a) { return a.primitive(); }); }
+  bool ground()      const { return all([](Literal a) { return a.ground(); }); }
+  bool primitive()   const { return all([](Literal a) { return a.primitive(); }); }
+  bool well_formed() const { return all([](Literal a) { return a.well_formed(); }); }
 
   bool Mentions(Literal a) const {
     return
