@@ -93,12 +93,11 @@ class KnowledgeBase {
   limbo::internal::Maybe<int> Val(Point p, int k) {
     t_.start();
     UpdateSolver();
-    const limbo::internal::Maybe<limbo::Term> r = solver().Determines(k, val(p));
+    const limbo::internal::Maybe<limbo::Term> r = solver().Determines(k, val(p), limbo::Solver::kConsistencyGuarantee);
     assert(std::all_of(limbo::internal::int_iterator<size_t>(1), limbo::internal::int_iterator<size_t>(9),
            [&](size_t i) {
-             return solver().Entails(k, *limbo::Formula::Factory::Atomic(
-                                            limbo::Clause{limbo::Literal::Eq(val(p), n(i))})) ==
-                    (r && r.val == n(i));
+             limbo::Formula::Ref f = limbo::Formula::Factory::Atomic(limbo::Clause{limbo::Literal::Eq(val(p), n(i))});
+             return solver().Entails(k, *f) == (r && r.val == n(i));
            }));
     if (r) {
       assert(!r.val.null());
@@ -116,14 +115,20 @@ class KnowledgeBase {
   void ResetTimer() { t_.reset(); }
 
  private:
-  void Add(const limbo::Literal a) { return Add(limbo::Clause{a}); }
+  void Add(const limbo::Literal a) { Add(limbo::Clause{a}); }
   void Add(const limbo::Clause& c) { clauses_.push_back(c); }
 
   void UpdateSolver() {
     if (n_processed_clauses_ == clauses_.size()) {
       return;
     }
+    for (auto it = clauses_.begin() + n_processed_clauses_; it != clauses_.end(); ++it) {
+      limbo::Formula::FlattenClause(&*it, nullptr,
+                                    limbo::Symbol::Factory::Instance(),
+                                    limbo::Term::Factory::Instance());
+    }
     solver_.grounder().AddClauses(clauses_.begin() + n_processed_clauses_, clauses_.end());
+    solver_.grounder().Consolidate();
     n_processed_clauses_ = clauses_.size();
   }
 
@@ -162,7 +167,7 @@ class KnowledgeBase {
   int max_k_;
 
   std::vector<limbo::Clause> clauses_;
-  size_t n_processed_clauses_;
+  size_t n_processed_clauses_ = 0;
 
   limbo::Solver solver_;
 

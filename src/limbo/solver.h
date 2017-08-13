@@ -2,7 +2,7 @@
 // Copyright 2016-2017 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// Solver implements objective limited belief implications. The key methods
+// Solver implements non-modal limited belief implications. The key methods
 // are Entails(), Determines(), and Consistent(), which determine whether the
 // knowledge base consisting of the clauses added with AddClause() entails a
 // query, determines a terms's denotation or is consistent with it,
@@ -40,6 +40,8 @@
 #include <limbo/internal/ints.h>
 #include <limbo/internal/maybe.h>
 
+#include <limbo/format/output.h>
+
 namespace limbo {
 
 class Solver {
@@ -59,7 +61,7 @@ class Solver {
   const Setup& setup() const { return grounder_.setup(); }
 
   bool Entails(Formula::belief_level k, const Formula& phi, bool assume_consistent = false) {
-    assert(phi.objective());
+    assert(phi.non_modal());
     assert(phi.free_vars().all_empty());
     Grounder::Undo undo1;
     if (assume_consistent) {
@@ -67,7 +69,7 @@ class Solver {
     }
     Grounder::Undo undo2;
     grounder_.PrepareForQuery(phi, &undo2);
-    const bool entailed = setup().Subsumes(Clause{}) || phi.trivially_valid() ||
+    const bool entailed = Subsumes(Clause{}) || phi.trivially_valid() ||
         Split(k, [this, &phi]() { return Reduce(phi); }, [](bool r1, bool r2) { return r1 && r2; }, true, false);
     return entailed;
   }
@@ -83,7 +85,7 @@ class Solver {
     internal::Maybe<Term> inconsistent_result = internal::Just(Term());
     internal::Maybe<Term> unsuccessful_result = internal::Nothing;
     internal::Maybe<Term> t = Split(k,
-                 [this, lhs]() { return setup().Determines(lhs); },
+                 [this, lhs]() { return Determines(lhs); },
                  [](internal::Maybe<Term> r1, internal::Maybe<Term> r2) {
                    return r1 && r2 && r1.val == r2.val ? r1 :
                           r1 && r2 && r1.val.null()    ? r2 :
@@ -95,14 +97,14 @@ class Solver {
   }
 
   bool EntailsComplete(int k, const Formula& phi, bool assume_consistent = false) {
-    assert(phi.objective());
+    assert(phi.non_modal());
     assert(phi.free_vars().all_empty());
     Formula::Ref psi = Formula::Factory::Not(phi.Clone());
     return !Consistent(k, *psi, assume_consistent);
   }
 
   bool Consistent(int k, const Formula& phi, bool assume_consistent = false) {
-    assert(phi.objective());
+    assert(phi.non_modal());
     assert(phi.free_vars().all_empty());
     Grounder::Undo undo1;
     if (assume_consistent) {
@@ -122,13 +124,13 @@ class Solver {
   typedef Formula::SortedTermSet SortedTermSet;
 
   bool Reduce(const Formula& phi) {
-    assert(phi.objective());
+    assert(phi.non_modal());
     switch (phi.type()) {
       case Formula::kAtomic: {
         const Clause c = phi.as_atomic().arg();
         assert(c.ground());
         assert(c.valid() || c.primitive());
-        return c.valid() || setup().Subsumes(c);
+        return c.valid() || Subsumes(c);
       }
       case Formula::kNot: {
         switch (phi.as_not().arg().type()) {
@@ -214,7 +216,7 @@ class Solver {
     }
     bool recursed = false;
     for (const Term t : grounder_.lhs_terms()) {
-      if (setup().Determines(t)) {
+      if (Determines(t)) {
         continue;
       }
       auto merged_result = unsuccessful_result;
@@ -254,7 +256,7 @@ next_term:
 
   template<typename GoalPredicate>
   bool Fix(int k, GoalPredicate goal) {
-    if (setup().Subsumes(Clause{})) {
+    if (Subsumes(Clause{})) {
       return false;
     }
     if (k > 0) {
@@ -284,7 +286,29 @@ next_term:
         }
       }
     }
-    return setup().Consistent() && goal();
+    return Consistent() && goal();
+  }
+
+  bool Subsumes(const Clause& c) const {
+    if (grounder_.relevance_filter()) {
+      auto r = grounder_.relevant_clauses();
+      return setup().Subsumes(c, r.begin(), r.end());
+    } else {
+      return setup().Subsumes(c);
+    }
+  }
+
+  internal::Maybe<Term> Determines(const Term t) const {
+    return setup().Determines(t);
+  }
+
+  bool Consistent() const {
+    if (grounder_.relevance_filter()) {
+      auto r = grounder_.relevant_clauses();
+      return setup().Consistent(r.begin(), r.end());
+    } else {
+      return setup().Consistent();
+    }
   }
 
   Term::Factory* tf_;

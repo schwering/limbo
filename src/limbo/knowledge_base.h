@@ -67,6 +67,7 @@ class KnowledgeBase {
   }
 
   void Add(const Clause& c) {
+    assert(c.well_formed());
     knowledge_.push_back(c);
     c.Traverse([this](Term t) { if (t.name()) names_.insert(t); return true; });
   }
@@ -98,7 +99,6 @@ class KnowledgeBase {
   }
 
   bool Entails(const Formula& sigma, bool distribute = true) {
-    //assert(sigma.subjective());
     assert(sigma.free_vars().all_empty());
     UpdateSpheres();
     Formula::Ref phi = ReduceModalities(*sigma.NF(sf_, tf_, distribute));

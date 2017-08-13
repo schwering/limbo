@@ -22,6 +22,10 @@ namespace limbo {
 class ActionTheory {
  public:
   ActionTheory(Symbol::Factory* sf, Term::Factory* tf) : sf_(sf), tf_(tf) {}
+  ActionTheory(const ActionTheory&) = delete;
+  ActionTheory& operator=(const ActionTheory&) = delete;
+  ActionTheory(ActionTheory&&) = default;
+  ActionTheory& operator=(ActionTheory&&) = default;
 
   bool Add(const Literal a, const Formula& alpha) {
     assert(a.pos() && a.lhs().sort() == a.rhs().sort());

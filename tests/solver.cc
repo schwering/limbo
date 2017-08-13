@@ -147,6 +147,7 @@ TEST(SolverTest, KR2016) {
   //std::cout << *Formula::Factory::Atomic(Clause{father(bestFriend(mary)) == george}) << std::endl;
   //std::cout << *Formula::Factory::Atomic(Clause{father(bestFriend(mary)) == george})->NF(ctx.sf(), ctx.tf()) << std::endl;
   //EXPECT_FALSE(solver.Entails(0, *Formula::Factory::Atomic(Clause{father(bestFriend(mary)) == george})->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_TRUE(solver.Entails(0, *(father(bestFriend(mary)) == george)->NF(ctx.sf(), ctx.tf()), Solver::kNoConsistencyGuarantee));
   EXPECT_TRUE(solver.Entails(0, *(father(bestFriend(mary)) == george)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
   EXPECT_TRUE(solver.Entails(1, *(father(bestFriend(mary)) == george)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
 }

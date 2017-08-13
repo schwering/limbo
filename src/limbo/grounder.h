@@ -28,7 +28,6 @@
 #include <algorithm>
 #include <list>
 #include <memory>
-#include <queue>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -45,11 +44,14 @@
 #include <limbo/internal/iter.h>
 #include <limbo/internal/maybe.h>
 
+#include <limbo/format/output.h>
+
 namespace limbo {
 
 class Grounder {
  public:
   typedef internal::size_t size_t;
+  typedef Setup::ClauseRange::Index ClauseIndex;
 
   template<Symbol (Symbol::Factory::*CreateSymbol)(Symbol::Sort)>
   class Pool {
@@ -98,6 +100,11 @@ class Grounder {
     typedef std::vector<Ungrounded> Vector;
     typedef std::unordered_set<Ungrounded, Hash> Set;
 
+    Ungrounded(const Ungrounded&) = default;
+    Ungrounded& operator=(const Ungrounded&) = default;
+    Ungrounded(Ungrounded&&) = default;
+    Ungrounded& operator=(Ungrounded&&) = default;
+
     bool operator==(const Ungrounded& u) const { return val == u.val; }
     bool operator!=(const Ungrounded& u) const { return !(*this != u); }
 
@@ -120,14 +127,9 @@ class Grounder {
 
     struct {
       Ungrounded<Clause>::Vector ungrounded;
-      std::unique_ptr<Setup> full_setup;
       Setup::ShallowCopy shallow_setup;
+      std::unordered_map<Term, std::unordered_set<ClauseIndex>> with_term;
     } clauses;
-    struct {
-      bool filter = false;  // enabled after consistency guarantee
-      Ungrounded<Term>::Set ungrounded;
-      SortedTermSet terms;
-    } relevant;
     struct {
       SortedTermSet mentioned;       // names mentioned in clause or prepared-for query (but are not plus-names)
       SortedTermSet plus_max;        // plus-names that may be used for multiple purposes
@@ -138,6 +140,12 @@ class Grounder {
       Ungrounded<Literal>::Set ungrounded;  // literals in prepared-for query
       std::unordered_map<Term, std::unordered_set<Term>> map;  // grounded lhs-rhs index for clauses, prepared-for query
     } lhs_rhs;
+    struct {
+      bool filter = false;  // enabled after consistency guarantee
+      Ungrounded<Term>::Set ungrounded;
+      std::unordered_set<Term> terms;
+      std::unordered_set<ClauseIndex> clauses;
+    } relevant;
     bool do_not_add_if_inconsistent = false;  // enabled for fix-literals
 
    private:
@@ -148,12 +156,11 @@ class Grounder {
 
   struct Plies {
     typedef Ply::List::const_reverse_iterator iterator;
-    enum Policy { kAll, kSinceSetup, kNew, kOld };
+    enum Policy { kAll, kNew, kOld };
 
     iterator begin() const {
       switch (policy) {
         case kAll:
-        case kSinceSetup:
         case kNew:
           return owner->plies_.rbegin();
         case kOld:
@@ -167,15 +174,6 @@ class Grounder {
         case kAll:
         case kOld:
           return owner->plies_.rend();
-        case kSinceSetup: {
-          const iterator e = owner->plies_.rend();
-          for (auto it = begin(); it != e; ++it) {
-            if (it->clauses.full_setup) {
-              return ++it;
-            }
-          }
-          return e;
-        }
         case kNew:
           return std::next(begin());
       }
@@ -235,16 +233,34 @@ class Grounder {
       const Plies* plies;
     };
 
-    typedef internal::flatten_iterator<Plies::iterator, unique_term_iterator, Begin, End> iterator;
+    struct IsRelevant {
+      explicit IsRelevant(const Grounder* owner) : owner(owner) {}
+      bool operator()(const Term t) const { return !owner || !owner->IsNewRelevantTerm(t, Plies::kAll); }
+     private:
+      const Grounder* owner;
+    };
 
-    iterator begin() const { return iterator(plies.begin(), plies.end(), Begin(&plies), End(&plies)); }
-    iterator end()   const { return iterator(plies.end(),   plies.end(), Begin(&plies), End(&plies)); }
+    typedef internal::flatten_iterator<Plies::iterator, unique_term_iterator, Begin, End> flat_iterator;
+    typedef internal::filter_iterator<flat_iterator, IsRelevant> iterator;
+
+    iterator begin() const {
+      auto b = flat_iterator(plies.begin(), plies.end(), Begin(&plies), End(&plies));
+      auto e = flat_iterator(plies.end(), plies.end(), Begin(&plies), End(&plies));
+      return iterator(b, e, is_relevant);
+    }
+
+    iterator end() const {
+      auto e = flat_iterator(plies.end(), plies.end(), Begin(&plies), End(&plies));
+      return iterator(e, e, is_relevant);
+    }
 
    private:
     friend class Grounder;
 
-    LhsTerms(const Grounder* owner, Plies::Policy policy) : plies(owner, policy) {}
+    LhsTerms(const Grounder* owner, Plies::Policy policy)
+        : is_relevant(owner->relevance_filter() ? owner : nullptr), plies(owner, policy) {}
 
+    const IsRelevant is_relevant;
     const Plies plies;
   };
 
@@ -345,6 +361,84 @@ class Grounder {
     const Plies plies;
   };
 
+  struct ClausesWithTerm {
+    typedef std::unordered_set<ClauseIndex>::const_iterator clause_iterator;
+
+    struct Begin {
+      Begin(Term t, clause_iterator end) : t(t), end(end) {}
+      clause_iterator operator()(const Ply& p) const {
+        auto it = p.clauses.with_term.find(t);
+        return it != p.clauses.with_term.end() ? it->second.begin() : end;
+      }
+     private:
+      Term t;
+      clause_iterator end;
+    };
+
+    struct End {
+      End(Term t, clause_iterator end) : t(t), end(end) {}
+      clause_iterator operator()(const Ply& p) const {
+        auto it = p.clauses.with_term.find(t);
+        return it != p.clauses.with_term.end() ? it->second.end() : end;
+      }
+     private:
+      Term t;
+      clause_iterator end;
+    };
+
+    typedef internal::flatten_iterator<Plies::iterator, clause_iterator, Begin, End> iterator;
+
+    ClausesWithTerm(const Grounder* owner, Term t, Plies::Policy policy) : owner(owner), plies(owner, policy), t(t) {}
+
+    iterator begin() const { return iterator(plies.begin(), plies.end(), Begin(t, cs.end()), End(t, cs.end())); }
+    iterator end()   const { return iterator(plies.end(), plies.end(), Begin(t, cs.end()), End(t, cs.end())); }
+
+   private:
+    const Grounder* const owner;
+    const Plies plies;
+    const Term t;
+    const std::unordered_set<ClauseIndex> cs = {};
+  };
+
+  struct RelevantTerms {
+    typedef std::unordered_set<Term>::const_iterator term_iterator;
+
+    struct Begin { term_iterator operator()(const Ply& p) const { return p.relevant.terms.begin(); } };
+    struct End   { term_iterator operator()(const Ply& p) const { return p.relevant.terms.end(); } };
+
+    typedef internal::flatten_iterator<Plies::iterator, term_iterator, Begin, End> iterator;
+
+    iterator begin() const { return iterator(plies.begin(), plies.end()); }
+    iterator end()   const { return iterator(plies.end(), plies.end()); }
+
+   private:
+    friend class Grounder;
+
+    RelevantTerms(const Grounder* owner, Plies::Policy policy) : owner(owner), plies(owner, policy) {}
+
+    const Grounder* const owner;
+    const Plies plies;
+  };
+
+  struct RelevantClauses {
+    typedef std::unordered_set<ClauseIndex>::const_iterator clause_iterator;
+
+    struct Begin { clause_iterator operator()(const Ply& p) const { return p.relevant.clauses.begin(); } };
+    struct End   { clause_iterator operator()(const Ply& p) const { return p.relevant.clauses.end(); } };
+
+    typedef internal::flatten_iterator<Plies::iterator, clause_iterator, Begin, End> iterator;
+
+    iterator begin() const { return iterator(plies.begin(), plies.end()); }
+    iterator end()   const { return iterator(plies.end(), plies.end()); }
+
+   private:
+    friend class Grounder;
+
+    RelevantClauses(const Grounder* owner, Plies::Policy policy) : plies(owner, policy) {}
+
+    const Plies plies;
+  };
+
   class Undo {
    public:
     Undo() = default;
@@ -367,7 +461,8 @@ class Grounder {
     Grounder* owner_ = nullptr;
   };
 
-  Grounder(Symbol::Factory* sf, Term::Factory* tf) : tf_(tf), name_pool_(sf, tf), var_pool_(sf, tf) {}
+  Grounder(Symbol::Factory* sf, Term::Factory* tf)
+      : tf_(tf), name_pool_(sf, tf), var_pool_(sf, tf), setup_(new Setup()) {}
   Grounder(const Grounder&) = delete;
   Grounder& operator=(const Grounder&) = delete;
   Grounder(Grounder&&) = default;
@@ -380,7 +475,7 @@ class Grounder {
 
   NamePool& temp_name_pool() { return name_pool_; }
 
-  const Setup& setup() const { return plies_.empty() ? dummy_setup_ : last_ply().clauses.shallow_setup.setup(); }
+  const Setup& setup() const { return *setup_; }
 
   // 1. AddClause(c):
   // New ply.
@@ -444,7 +539,7 @@ class Grounder {
     Ply& p = new_ply();
     for (; first != last; ++first) {
       Ungrounded<Clause> uc(*first);
-      assert(uc.val.all([](Literal a) { return a.quasi_primitive() || a.quasi_trivial(); }));
+      assert(uc.val.well_formed());
       uc.val.Traverse([this, &p, &uc](Term t) {
         if (t.variable()) {
           uc.vars.insert(t);
@@ -460,8 +555,8 @@ class Grounder {
         }
         return true;
       });
-      p.clauses.ungrounded.push_back(uc);
       CreateMaxPlusNames(uc.vars, 1);
+      p.clauses.ungrounded.push_back(std::move(uc));
     }
     CreateNewPlusNames(p.names.plus_mentioned);
     p.do_not_add_if_inconsistent = do_not_add_if_inconsistent;
@@ -503,8 +598,8 @@ class Grounder {
         }
         return true;
       });
-      if (ua.val.lhs().function() && !ua.val.lhs().sort().rigid() && IsNewUngroundedLhsRhs(ua, Plies::kSinceSetup)) {
-        last_ply().lhs_rhs.ungrounded.insert(ua);
+      if (ua.val.lhs().function() && !ua.val.lhs().sort().rigid() && IsNewUngroundedLhsRhs(ua, Plies::kAll)) {
+        last_ply().lhs_rhs.ungrounded.insert(std::move(ua));
       }
       return true;
     });
@@ -516,16 +611,14 @@ class Grounder {
     }
   }
 
-  void GuaranteeConsistency(const Formula& alpha, Undo* undo) {
-    // Collect ungrounded terms from query.
-    // Close under terms in current setup.
+  void GuaranteeConsistency(const Formula& alpha, Undo* undo = nullptr) {
     Ply& p = new_ply();
     p.relevant.filter = true;
     alpha.Traverse([this, &p](const Term t) {
-      if (t.function() && !t.sort().rigid()) {
+      if (t.quasi_primitive()) {
         Ungrounded<Term> ut(t);
         t.Traverse([&ut](const Term x) { if (x.variable()) { ut.vars.insert(x); } return true; });
-        p.relevant.ungrounded.insert(ut);
+        p.relevant.ungrounded.insert(std::move(ut));
       }
       return false;
     });
@@ -534,23 +627,19 @@ class Grounder {
         p.relevant.terms.insert(g);
       }
     }
-    CloseRelevanceUnderClauses(p.clauses.shallow_setup.setup().clauses(), Plies::kNew);
-    GroundNewSetup();
+    CloseRelevance(Plies::kAll);
     if (undo) {
       *undo = Undo(this);
     }
   }
 
   void GuaranteeConsistency(Term t, Undo* undo) {
-    // Add t to ungrounded terms from query.
-    // Close under terms in current setup.
     assert(t.primitive());
     Ply& p = new_ply();
     p.relevant.filter = true;
     p.relevant.ungrounded.insert(Ungrounded<Term>(t));
     p.relevant.terms.insert(t);
-    CloseRelevanceUnderClauses(p.clauses.shallow_setup.setup().clauses(), Plies::kNew);
-    GroundNewSetup();
+    CloseRelevance(Plies::kAll);
     if (undo) {
       *undo = Undo(this);
     }
@@ -558,7 +647,7 @@ class Grounder {
 
   void UndoLast() { pop_ply(); }
 
-  void Consolidate() { MergePlies(true); }
+  void Consolidate() { MergePlies(); }
 
   Literal Variablify(Literal a) {
     assert(a.ground());
@@ -577,8 +666,14 @@ class Grounder {
 
   LhsTerms lhs_terms(Plies::Policy p = Plies::kAll) const { return LhsTerms(this, p); }
   // The additional name must not be used after RhsName's death.
-  RhsNames rhs_names(Term t, Plies::Policy p = Plies::kSinceSetup) { return RhsNames(this, t, p); }
+  RhsNames rhs_names(Term t, Plies::Policy p = Plies::kAll) { return RhsNames(this, t, p); }
   Names names(Symbol::Sort sort, Plies::Policy p = Plies::kAll) const { return Names(this, sort, p); }
+
+  ClausesWithTerm clauses_with_term(Term t, Plies::Policy p = Plies::kAll) const { return ClausesWithTerm(this, t, p); }
+
+  bool relevance_filter() const { return !plies_.empty() && last_ply().relevant.filter; }
+  RelevantTerms relevant_terms(Plies::Policy p = Plies::kAll) const { return RelevantTerms(this, p); }
+  RelevantClauses relevant_clauses(Plies::Policy p = Plies::kAll) const { return RelevantClauses(this, p); }
 
  private:
   template<typename T>
@@ -663,35 +758,25 @@ class Grounder {
   Groundings<T> groundings(const T* o, const SortedTermSet* vars, Plies::Policy p = Plies::kAll) const {
     return groundings(o, vars, Term(), Term(), p);
   }
+
   template<typename T>
   Groundings<T> groundings(const T* o, const SortedTermSet* vars, Term x, Term n, Plies::Policy p = Plies::kAll) const {
     return Groundings<T>(this, o, vars, x, n, p);
   }
 
   Ply& new_ply() {
-    if (plies_.empty()) {
-      plies_.push_back(Ply());
-      Ply& p = plies_.back();
-      p.clauses.full_setup = std::unique_ptr<Setup>(new Setup());
-      p.clauses.shallow_setup = p.clauses.full_setup->shallow_copy();
-      return p;
-    } else {
-      Ply& last_p = last_ply();
-      plies_.push_back(Ply());
-      Ply& p = plies_.back();
-      p.clauses.shallow_setup = last_p.clauses.shallow_setup.setup().shallow_copy();
-      p.relevant.filter = last_p.relevant.filter;
-      return p;
-    }
+    const bool filter = relevance_filter();
+    plies_.push_back(Ply());
+    Ply& p = plies_.back();
+    p.clauses.shallow_setup = setup_->shallow_copy();
+    p.relevant.filter = filter;
+    return p;
   }
 
   Plies plies(Plies::Policy p = Plies::kAll) const { return Plies(this, p); }
 
   Ply& last_ply() { assert(!plies_.empty()); return plies_.back(); }
   const Ply& last_ply() const { assert(!plies_.empty()); return plies_.back(); }
-
-  Setup& last_setup() { return last_ply().clauses.shallow_setup.setup(); }
-  const Setup& last_setup() const { return last_ply().clauses.shallow_setup.setup(); }
 
   void pop_ply() {
     assert(!plies_.empty());
@@ -727,26 +812,24 @@ class Grounder {
   }
 
   bool IsNewRelevantTerm(Term t, Plies::Policy p) const {
+    assert(relevance_filter());
     assert(t.ground() && t.function() && !t.sort().rigid());
     for (const Ply& p : plies(p)) {
-      if (p.relevant.terms.contains(t)) {
+      if (p.relevant.terms.count(t) > 0) {
         return false;
       }
     }
     return true;
   }
 
-  bool IsRelevantClause(const Clause& c, Plies::Policy p) const {
-    if (!last_ply().relevant.filter) {
-      return true;
-    }
+  bool IsNewRelevantClause(ClauseIndex i, Plies::Policy p) const {
+    assert(relevance_filter());
     for (const Ply& p : plies(p)) {
-      if (!p.relevant.terms.all_empty() &&
-          c.any([&p](const Literal a) { return !a.lhs().name() && p.relevant.terms.contains(a.lhs()); })) {
-        return true;
+      if (!p.relevant.filter || p.relevant.clauses.count(i) > 0) {
+        return false;
       }
     }
-    return false;
+    return true;
   }
 
   size_t nMaxPlusNames(Symbol::Sort sort) const {
@@ -814,6 +897,17 @@ class Grounder {
     }
   }
 
+  void UpdateWithTerm(const Clause& c, ClauseIndex i) {
+    assert(c.ground());
+    assert(c.primitive());
+    Ply& p = last_ply();
+    for (const Literal a : c) {
+      const Term t = a.lhs();
+      assert(t.primitive());
+      p.clauses.with_term[t].insert(i);
+    }
+  }
+
   void UpdateLhsRhs(Literal a, Plies::Policy p) {
     assert(a.ground());
     if (a.lhs().function() && !a.lhs().sort().rigid() && IsNewLhsRhs(a, p)) {
@@ -821,11 +915,7 @@ class Grounder {
       const Term n = a.rhs();
       assert(t.ground() && n.name());
       Ply& p = last_ply();
-      auto it = p.lhs_rhs.map.find(t);
-      if (it == p.lhs_rhs.map.end()) {
-        it = p.lhs_rhs.map.insert(std::make_pair(t, std::unordered_set<Term>())).first;
-      }
-      it->second.insert(n);
+      p.lhs_rhs.map[t].insert(n);
     }
   }
 
@@ -837,7 +927,8 @@ class Grounder {
 
   void UpdateRelevantTerms(Term t, Plies::Policy p) {
     assert(t.ground());
-    if (t.function() && !t.sort().rigid() && IsNewRelevantTerm(t, p)) {
+    assert(relevance_filter());
+    if (t.primitive() && IsNewRelevantTerm(t, p)) {
       last_ply().relevant.terms.insert(t);
     }
   }
@@ -845,6 +936,7 @@ class Grounder {
   bool UpdateRelevantTerms(const Clause& c, Plies::Policy p) {
     assert(c.ground());
     assert(!c.valid());
+    assert(relevance_filter());
     if (c.any([this, p](const Literal a) { return !IsNewRelevantTerm(a.lhs(), p); })) {
       c.all([this, p](const Literal a) {
         UpdateRelevantTerms(a.lhs(), p);
@@ -856,25 +948,40 @@ class Grounder {
     }
   }
 
-  template<typename ClauseRange>
-  void CloseRelevanceUnderClauses(ClauseRange r, Plies::Policy p) {
-    std::unordered_set<size_t> clauses;
-    for (size_t i : r) {
-      clauses.insert(i);
-    }
-rescan:
-    for (auto it = clauses.begin(); it != clauses.end(); ++it) {
-      const Clause c = last_ply().clauses.shallow_setup.setup().clause(*it);
-      bool relevant = UpdateRelevantTerms(c, p);
-      if (relevant) {
-        clauses.erase(it);
-        goto rescan;
+  void CloseRelevance(Plies::Policy policy) {
+    Ply& p = last_ply();
+    assert(p.relevant.filter);
+    auto r = relevant_terms();
+    std::unordered_set<Term> queue(r.begin(), r.end());
+    const Setup& s = *setup_;
+    while (!queue.empty()) {
+      const auto it = queue.begin();
+      const Term t = *it;
+      queue.erase(it);
+      for (const ClauseIndex i : clauses_with_term(t, policy)) {
+        assert(s.clause(i).MentionsLhs(t));
+        if (policy != Plies::kAll || !IsNewRelevantClause(i, Plies::kAll)) {
+          const bool inserted = p.relevant.clauses.insert(i).second;
+          if (inserted) {
+            p.relevant.clauses.insert(i);
+            for (const Literal a : s.clause(i)) {
+              assert(a.primitive());
+              const Term t = a.lhs();
+              if (policy != Plies::kAll || IsNewRelevantTerm(t, Plies::kAll)) {
+                const bool inserted = p.relevant.terms.insert(t).second;
+                if (!inserted) {
+                  queue.insert(t);
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
 
   bool InconsistencyCheck(const Ply& p, const Clause& c) {
-    return !p.do_not_add_if_inconsistent || !c.unit() || !last_setup().Subsumes(Clause{c[0].flip()});
+    return !p.do_not_add_if_inconsistent || !c.unit() || !setup_->Subsumes(Clause{c[0].flip()});
   }
 
   template<typename UnaryFunction, typename UnaryPredicate>
@@ -947,11 +1054,12 @@ rescan:
     // Add f(.)=n, f(.)/=n pairs from newly grounded clauses to lhs_rhs.
     Setup::Result add_result = Setup::kSubsumed;
     Ply& p = last_ply();
+    Setup& s = *setup_;
     ForEachNewGrounding(
-        [](const Ply& p) { return p.clauses.ungrounded; },
-        [this](const Clause& c, const Ply& p, Setup::Result* add_result) {
+        [](const Ply& p) -> auto& { return p.clauses.ungrounded; },
+        [this, &s](const Clause& c, const Ply& p, Setup::Result* add_result) {
           if (!c.valid() && InconsistencyCheck(p, c)) {
-            const Setup::Result r = last_setup().AddClause(c);
+            const Setup::Result r = s.AddClause(c);
             update_result(add_result, r);
           }
         },
@@ -959,110 +1067,69 @@ rescan:
     if (add_result == Setup::kInconsistent) {
       return add_result;
     }
+    if (plies_.size() == 1) {
+      s.Minimize();
+    } else if (minimize) {
+      p.clauses.shallow_setup.Minimize();
+    }
+    for (ClauseIndex i : p.clauses.shallow_setup.new_clauses()) {
+      const Clause c = s.clause(i);
+      UpdateLhsRhs(c, Plies::kAll);
+      UpdateWithTerm(c, i);
+    }
+    ForEachNewGrounding(
+        [](const Ply& p) -> auto& { return p.lhs_rhs.ungrounded; },
+        [this](const Literal a, const Ply&, Setup::Result*) {
+          UpdateLhsRhs(a, Plies::kAll);
+        });
     if (p.relevant.filter) {
       ForEachNewGrounding(
           [](const Ply& p) { return p.relevant.ungrounded; },
           [this](const Term t, const Ply&, Setup::Result*) {
-            UpdateRelevantTerms(t, Plies::kSinceSetup);
+            UpdateRelevantTerms(t, Plies::kAll);
           });
-      CloseRelevanceUnderClauses(p.clauses.shallow_setup.new_clauses(), Plies::kSinceSetup);
-      std::vector<Clause> new_clauses;
-      Setup& s = last_setup();
-      for (size_t i : p.clauses.shallow_setup.new_clauses()) {
-        new_clauses.push_back(s.clause(i));
-      }
-      p.clauses.shallow_setup.Kill();
-      p.clauses.shallow_setup = s.shallow_copy();
-      for (const Clause& c : new_clauses) {
-        if (IsRelevantClause(c, Plies::kSinceSetup)) {
-          const Setup::Result r = s.AddClause(c);
-          update_result(&add_result, r);
-          assert(r != Setup::kInconsistent);
-        }
-      }
+      CloseRelevance(Plies::kNew);
     }
-    if (p.clauses.full_setup) {
-      p.clauses.full_setup->Minimize();
-    } else if (minimize) {
-      p.clauses.shallow_setup.Minimize();
-    }
-    for (size_t i : p.clauses.shallow_setup.new_clauses()) {
-      UpdateLhsRhs(last_setup().clause(i), Plies::kSinceSetup);
-    }
-    ForEachNewGrounding(
-        [](const Ply& p) { return p.lhs_rhs.ungrounded; },
-        [this](const Literal a, const Ply&, Setup::Result*) {
-          UpdateLhsRhs(a, Plies::kSinceSetup);
-        });
     return add_result;
   }
 
-  void GroundNewSetup(bool minimize = false) {
-    // Ground all clauses for all names.
-    Ply& p = last_ply();
-    assert(p.relevant.filter);
-    assert(p.clauses.ungrounded.empty());
-    assert(p.names.mentioned.all_empty() && p.names.plus_new.all_empty() && p.names.plus_max.all_empty());
-    const Setup& old_s = p.clauses.shallow_setup.setup();
-    std::unique_ptr<Setup> new_s(new Setup());
-    for (size_t i : old_s.clauses()) {
-      const Clause c = old_s.clause(i);
-      if (IsRelevantClause(c, Plies::kNew)) {
-        UpdateLhsRhs(c, Plies::kNew);
-        new_s->AddClause(c);
-      }
-    }
-    if (minimize) {
-      new_s->Minimize();
-    }
-    p.clauses.full_setup = std::move(new_s);
-    p.clauses.shallow_setup = p.clauses.full_setup->shallow_copy();
-  }
-
-  void MergePlies(bool minimize) {
+  void MergePlies() {
     assert(!plies_.empty());
-    auto p = plies_.end();
-    for (auto it = plies_.begin(); it != plies_.end(); ++it) {
-      if (it->clauses.full_setup) {
-        p = it;
-      }
-    }
+    auto p = plies_.begin();
     if (p == plies_.end()) {
       return;
     }
-    bool after = false;
-    for (auto it = plies_.begin(); it != plies_.end(); ++it) {
+    for (auto it = std::next(p); it != plies_.end(); ++it) {
       assert(!it->do_not_add_if_inconsistent);
-      if (it == p) {
-        after = true;
-        continue;
-      }
-      p->clauses.ungrounded.insert(p->clauses.ungrounded.end(),
-                                   it->clauses.ungrounded.begin(), it->clauses.ungrounded.end());
+      it->clauses.shallow_setup.Immortalize();
+      std::move(it->clauses.ungrounded.begin(), it->clauses.ungrounded.end(), std::inserter(p->clauses.ungrounded, p->clauses.ungrounded.end()));
+      std::move(it->clauses.with_term.begin(), it->clauses.with_term.end(), std::inserter(p->clauses.with_term, p->clauses.with_term.end()));
       p->names.mentioned.insert(it->names.mentioned);
       p->names.plus_max.insert(it->names.plus_max);
       p->names.plus_new.insert(it->names.plus_new);
       p->names.plus_mentioned.insert(it->names.plus_mentioned);
-      if (after) {
-        assert(!it->clauses.full_setup);
-        p->clauses.shallow_setup.Immortalize();
-        p->relevant.ungrounded.insert(it->relevant.ungrounded.begin(), it->relevant.ungrounded.end());
-        p->relevant.terms.insert(it->relevant.terms);
-        p->lhs_rhs.ungrounded.insert(it->lhs_rhs.ungrounded.begin(), it->lhs_rhs.ungrounded.end());
-        for (auto& lhs_rhs : it->lhs_rhs.map) {
-          auto lhs = p->lhs_rhs.map.find(lhs_rhs.first);
-          if (lhs == p->lhs_rhs.map.end()) {
-            p->lhs_rhs.map.insert(lhs_rhs);
-          } else {
-            lhs->second.insert(lhs_rhs.second.begin(), lhs_rhs.second.end());
-          }
+      p->relevant.filter |= it->relevant.filter;
+      std::move(it->relevant.ungrounded.begin(), it->relevant.ungrounded.end(), std::inserter(p->relevant.ungrounded, p->relevant.ungrounded.end()));
+      std::move(it->relevant.terms.begin(), it->relevant.terms.end(), std::inserter(p->relevant.terms, p->relevant.terms.end()));
+      std::move(it->relevant.clauses.begin(), it->relevant.clauses.end(), std::inserter(p->relevant.clauses, p->relevant.clauses.end()));
+      std::move(it->lhs_rhs.ungrounded.begin(), it->lhs_rhs.ungrounded.end(), std::inserter(p->lhs_rhs.ungrounded, p->lhs_rhs.ungrounded.end()));
+      for (auto& lhs_rhs : it->lhs_rhs.map) {
+        auto lhs = p->lhs_rhs.map.find(lhs_rhs.first);
+        if (lhs == p->lhs_rhs.map.end()) {
+          p->lhs_rhs.map.insert(std::move(lhs_rhs));
+        } else {
+          std::move(lhs_rhs.second.begin(), lhs_rhs.second.end(), std::inserter(lhs->second, lhs->second.end()));
         }
       }
     }
+#if 0
     if (minimize) {
       p->clauses.full_setup->Minimize();
       p->clauses.shallow_setup = p->clauses.full_setup->shallow_copy();
+      // TODO re-compute p->relevant.clauses and p->clauses.with_term, for the indices may have changed
     }
+#endif
+
     plies_.erase(plies_.begin(), p);
     plies_.erase(std::next(p), plies_.end());
     assert(plies_.size() == 1);
@@ -1072,7 +1139,7 @@ rescan:
   NamePool name_pool_;
   VariablePool var_pool_;
   Ply::List plies_;
-  Setup dummy_setup_;
+  std::unique_ptr<Setup> setup_;
 };
 
 }  // namespace limbo

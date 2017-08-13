@@ -92,6 +92,114 @@ class Formula {
   class Guarantee;
   class Action;
 
+  class QuantifierPrefix {
+   public:
+    void prepend_not() { prefix_.push_front(Element{kNot}); }
+    void append_not() { prefix_.push_back(Element{kNot}); }
+    void prepend_exists(Term x) { prefix_.push_front(Element{kExists, x}); }
+    void append_exists(Term x) { prefix_.push_back(Element{kExists, x}); }
+
+    size_t size() const { return prefix_.size(); }
+
+    bool even() const {
+      size_t n = 0;
+      for (const auto& e : prefix_) {
+        if (e.type == kNot) {
+          ++n;
+        }
+      }
+      return n % 2 == 0;
+    }
+
+    Ref PrependTo(Ref alpha) const;
+
+   private:
+    struct Element { Type type; Term x; };
+    std::list<Element> prefix_;
+  };
+
+  static void FlattenClause(Clause* c, QuantifierPrefix* p, Symbol::Factory* sf, Term::Factory* tf) {
+    assert(c != nullptr && sf != nullptr && tf != nullptr);
+    // The following two expressions are equivalent provided that x1 ... xN do
+    // not occur in t1 ... tN:
+    // (1)  Fa x1 ... Fa xN (t1 != x1 || ... || tN != xN || c)
+    // (2)  Ex x1 ... Ex xN (t1 == x1 && ... && tN == xN && c)
+    // From the reasoner's point of view, (1) is preferable because it's a bigger
+    // clause. This method generates clauses of the form (1).
+    typedef std::unordered_set<Literal> LiteralSet;
+    LiteralSet queue;
+    LiteralSet lits;
+    TermMap term_to_var;
+    for (Literal a : static_cast<const Clause&>(*c)) {
+      if (a.well_formed()) {
+        lits.insert(a);
+      } else {
+        queue.insert(a);
+      }
+    }
+    if (queue.empty()) {
+      return;
+    }
+    for (Literal a : static_cast<const Clause&>(*c)) {
+      if (!a.pos() && a.lhs().function() && a.rhs().variable()) {
+        term_to_var[a.lhs()] = a.rhs();
+      }
+    }
+    while (!queue.empty()) {
+      const auto it = queue.begin();
+      const Literal a = *it;
+      queue.erase(it);
+      if (a.well_formed()) {
+        lits.insert(a);
+      } else if (!a.rhs().quasi_name() &&
+                 (true || !a.pos() || std::all_of(queue.begin(), queue.end(), [](Literal a) { return a.pos(); }))) {
+        assert(a.lhs().function() && a.rhs().function());
+        const Term old_t = a.lhs().arity() < a.rhs().arity() ? a.lhs() : a.rhs();
+        Term new_t;
+        const TermMap::const_iterator it = term_to_var.find(old_t);
+        if (it != term_to_var.end()) {
+          new_t = it->second;
+        } else {
+          new_t = tf->CreateTerm(sf->CreateVariable(old_t.sort()));
+          term_to_var[old_t] = new_t;
+          if (p) {
+            p->append_exists(new_t);
+          }
+        }
+        const Literal new_a = a.Substitute(Term::Substitution(old_t, new_t), tf);
+        const Literal new_b = Literal::Neq(new_t, old_t);
+        queue.insert(new_a);
+        queue.insert(new_b);
+      } else {
+        assert(!a.lhs().quasi_primitive());
+        for (Term arg : a.lhs().args()) {
+          if (arg.function()) {
+            const Term old_arg = arg;
+            Term new_arg;
+            const TermMap::const_iterator it = term_to_var.find(old_arg);
+            if (it != term_to_var.end()) {
+              new_arg = it->second;
+            } else {
+              new_arg = tf->CreateTerm(sf->CreateVariable(old_arg.sort()));
+              term_to_var[old_arg] = new_arg;
+              if (p) {
+                p->append_exists(new_arg);
+              }
+            }
+            const Literal new_a = a.Substitute(Term::Substitution(old_arg, new_arg), tf);
+            const Literal new_b = Literal::Neq(new_arg, old_arg);
+            queue.insert(new_a);
+            queue.insert(new_b);
+            break;
+          }
+        }
+      }
+    }
+    assert(lits.size() >= c->size());
+    *c = Clause(lits.begin(), lits.end());
+    assert(c->well_formed());
+  }
+
   Formula(const Formula&) = delete;
   Formula& operator=(const Formula&) = delete;
   Formula(Formula&&) = default;
@@ -190,6 +298,7 @@ class Formula {
 
   internal::Maybe<Clause> AsUnivClause() const { return AsUnivClause(0); }
 
+  virtual bool non_modal() const = 0;
   virtual bool objective() const = 0;
   virtual bool subjective() const = 0;
   virtual bool dynamic() const = 0;
@@ -217,32 +326,6 @@ class Formula {
   };
 
   typedef std::unordered_map<Term, Term> TermMap;
-
-  class QuantifierPrefix {
-   public:
-    void prepend_not() { prefix_.push_front(Element{kNot}); }
-    void append_not() { prefix_.push_back(Element{kNot}); }
-    void prepend_exists(Term x) { prefix_.push_front(Element{kExists, x}); }
-    void append_exists(Term x) { prefix_.push_back(Element{kExists, x}); }
-
-    size_t size() const { return prefix_.size(); }
-
-    bool even() const {
-      size_t n = 0;
-      for (const auto& e : prefix_) {
-        if (e.type == kNot) {
-          ++n;
-        }
-      }
-      return n % 2 == 0;
-    }
-
-    Ref PrependTo(Ref alpha) const;
-
-   private:
-    struct Element { Type type; Term x; };
-    std::list<Element> prefix_;
-  };
 
   explicit Formula(Type type) : type_(type) {}
 
@@ -331,6 +414,7 @@ class Formula::Atomic : public Formula {
     return m;
   }
 
+  bool non_modal() const override { return true; }
   bool objective() const override { return true; }
   bool subjective() const override {
     return std::all_of(c_.begin(), c_.end(), [](Literal a) { return !a.lhs().function() && !a.rhs().function(); });
@@ -375,88 +459,22 @@ class Formula::Atomic : public Formula {
   Ref Normalize(bool distribute) const override { return Clone(); }
 
   Ref Flatten(size_t nots, Symbol::Factory* sf, Term::Factory* tf) const override {
-    // The following two expressions are equivalent provided that x1 ... xN do
-    // not occur in t1 ... tN:
-    // (1)  Fa x1 ... Fa xN (t1 != x1 || ... || tN != xN || c)
-    // (2)  Ex x1 ... Ex xN (t1 == x1 && ... && tN == xN && c)
-    // From the reasoner's point of view, (1) is preferable because it's a bigger
-    // clause.
-    // This method generates clauses of the form (1). However, when c is nested in
-    // an odd number of negations, the result is equivalent to (2). In the special
-    // case where c is a unit clause, we can still keep the clausal structure of
-    // the transformed formula. For the following is equivalent: we negate the
-    // literal in the unit clause, apply the transformation to the new unit
-    // clause, and prepend another negation to the transformed formula.
-    typedef std::unordered_set<Literal> LiteralSet;
-    const bool add_double_negation = nots % 2 == 1 && arg().unit();
-    const Clause c = add_double_negation ? Clause(arg().first().flip()) : arg();
-    LiteralSet queue(c.begin(), c.end());
-    TermMap term_to_var;
-    for (Literal a : queue) {
-      if (!a.pos() && a.lhs().function() && a.rhs().variable()) {
-        term_to_var[a.lhs()] = a.rhs();
-      }
+    // FlattenClause() generates a new clause with universally quantified
+    // variables. When we're in a negated context, this means we have a
+    // conjunction with existentially quantified variables. When we have
+    // a unit clause, we can do the negation within the clause and still
+    // obtain universals.
+    // Question: is there real any advantage? We're talking unit clauses
+    // here.
+    const bool negated_already = nots % 2 == 1 && arg().unit();
+    Clause c = negated_already ? Clause(arg().first().flip()) : arg();
+    QuantifierPrefix p;
+    FlattenClause(&c, &p, sf, tf);
+    if (!negated_already) {
+      p.prepend_not();
     }
-    LiteralSet lits;
-    QuantifierPrefix vars;
-    while (!queue.empty()) {
-      const auto it = queue.begin();
-      const Literal a = *it;
-      queue.erase(it);
-      if (a.quasi_primitive() || a.quasi_trivial()) {
-        lits.insert(a);
-      } else if (!a.rhs().quasi_name() &&
-                 (true || !a.pos() || std::all_of(queue.begin(), queue.end(), [](Literal a) { return a.pos(); }))) {
-        assert(a.lhs().function() && a.rhs().function());
-        const Term old_t = a.lhs().arity() < a.rhs().arity() ? a.lhs() : a.rhs();
-        Term new_t;
-        const TermMap::const_iterator it = term_to_var.find(old_t);
-        if (it != term_to_var.end()) {
-          new_t = it->second;
-        } else {
-          new_t = tf->CreateTerm(sf->CreateVariable(old_t.sort()));
-          term_to_var[old_t] = new_t;
-          vars.append_exists(new_t);
-        }
-        const Literal new_a = a.Substitute(Term::Substitution(old_t, new_t), tf);
-        const Literal new_b = Literal::Neq(new_t, old_t);
-        queue.insert(new_a);
-        queue.insert(new_b);
-      } else {
-        assert(!a.lhs().quasi_primitive());
-        for (Term arg : a.lhs().args()) {
-          if (arg.function()) {
-            const Term old_arg = arg;
-            Term new_arg;
-            const TermMap::const_iterator it = term_to_var.find(old_arg);
-            if (it != term_to_var.end()) {
-              new_arg = it->second;
-            } else {
-              new_arg = tf->CreateTerm(sf->CreateVariable(old_arg.sort()));
-              term_to_var[old_arg] = new_arg;
-              vars.append_exists(new_arg);
-            }
-            const Literal new_a = a.Substitute(Term::Substitution(old_arg, new_arg), tf);
-            const Literal new_b = Literal::Neq(new_arg, old_arg);
-            queue.insert(new_a);
-            queue.insert(new_b);
-            break;
-          }
-        }
-      }
-    }
-    assert(lits.size() >= arg().size());
-    assert(std::all_of(lits.begin(), lits.end(), [](Literal a) {
-                       return a.quasi_primitive() || a.quasi_trivial(); }));
-    if (vars.size() == 0) {
-      return Clone();
-    } else {
-      if (!add_double_negation) {
-        vars.prepend_not();
-      }
-      vars.append_not();
-      return vars.PrependTo(Factory::Atomic(Clause(lits.begin(), lits.end())));
-    }
+    p.append_not();
+    return p.PrependTo(Factory::Atomic(c));
   }
 
   Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
@@ -506,6 +524,7 @@ class Formula::Or : public Formula {
     return m;
   }
 
+  bool non_modal() const override { return alpha_->non_modal() && beta_->non_modal(); }
   bool objective() const override { return alpha_->objective() && beta_->objective(); }
   bool subjective() const override { return alpha_->subjective() && beta_->subjective(); }
   bool dynamic() const override { return alpha_->dynamic() || beta_->dynamic(); }
@@ -615,6 +634,7 @@ class Formula::Exists : public Formula {
 
   SortCount n_vars() const override { return alpha_->n_vars(); }
 
+  bool non_modal() const override { return alpha_->non_modal(); }
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
   bool dynamic() const override { return alpha_->dynamic(); }
@@ -724,6 +744,7 @@ class Formula::Not : public Formula {
 
   SortCount n_vars() const override { return alpha_->n_vars(); }
 
+  bool non_modal() const override { return alpha_->non_modal(); }
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
   bool dynamic() const override { return alpha_->dynamic(); }
@@ -818,6 +839,7 @@ class Formula::Know : public Formula {
 
   SortCount n_vars() const override { return alpha_->n_vars(); }
 
+  bool non_modal() const override { return false; }
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
   bool dynamic() const override { return alpha_->dynamic(); }
@@ -933,6 +955,7 @@ class Formula::Cons : public Formula {
 
   SortCount n_vars() const override { return alpha_->n_vars(); }
 
+  bool non_modal() const override { return false; }
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
   bool dynamic() const override { return alpha_->dynamic(); }
@@ -1048,6 +1071,7 @@ class Formula::Bel : public Formula {
 
   SortCount n_vars() const override { return not_ante_or_conse_->n_vars(); }
 
+  bool non_modal() const override { return false; }
   bool objective() const override { return false; }
   bool subjective() const override { return true; }
   bool dynamic() const override { return not_ante_or_conse_->dynamic(); }
@@ -1144,6 +1168,7 @@ class Formula::Guarantee : public Formula {
 
   SortCount n_vars() const override { return alpha_->n_vars(); }
 
+  bool non_modal() const override { return false; }
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
   bool dynamic() const override { return alpha_->dynamic(); }
@@ -1215,6 +1240,7 @@ class Formula::Action : public Formula {
     return m;
   }
 
+  bool non_modal() const override { return false; }
   bool objective() const override { return alpha_->objective(); }
   bool subjective() const override { return alpha_->subjective(); }
   bool dynamic() const override { return false; }

@@ -17,7 +17,7 @@ using namespace limbo::format;
 
 std::unordered_set<Clause> unique(const Setup& s) {
   std::unordered_set<Clause> set;
-  for (size_t i : s.clauses()) {
+  for (auto i : s.clauses()) {
     set.insert(s.clause(i));
   }
   return set;
@@ -89,7 +89,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
   const Term gn2 = tf.CreateTerm(s_f, {n2});
   {
     Grounder g(&sf, &tf);
-    //EXPECT_EQ(S(g.setup()), ClauseSet({}));
+    Grounder h(&sf, &tf);
     g.AddClause(Clause{Literal::Eq(a, m1)});
     EXPECT_EQ(S(g.setup()), ClauseSet({Clause({Literal::Eq(a, m1)})}));
     EXPECT_EQ(S(g.names(sa)), TermSet({m1}));
@@ -101,7 +101,6 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     EXPECT_EQ(S(g.rhs_names(fm2)), TermSet({}) + 1);
     EXPECT_EQ(S(g.rhs_names(fn1)), TermSet({}) + 1);
     EXPECT_EQ(S(g.rhs_names(fn2)), TermSet({}) + 1);
-    //EXPECT_EQ(S(g.lhs_rhs_literals()), LiteralSet({Literal::Eq(a, m1)}));
     g.AddClause(Clause{Literal::Eq(a, m1)});
     EXPECT_EQ(S(g.setup()), ClauseSet({Clause({Literal::Eq(a, m1)})}));
     EXPECT_EQ(S(g.names(sa)), TermSet({m1}));
@@ -113,7 +112,6 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     EXPECT_EQ(S(g.rhs_names(fm2)), TermSet({}) + 1);
     EXPECT_EQ(S(g.rhs_names(fn1)), TermSet({}) + 1);
     EXPECT_EQ(S(g.rhs_names(fn2)), TermSet({}) + 1);
-    //EXPECT_EQ(S(g.lhs_rhs_literals()), LiteralSet{Literal::Eq(a, m1)});
     g.AddClause(Clause{Literal::Eq(fm1, m1), Literal::Eq(fm1, m2), Literal::Eq(fn1, m2)});
     EXPECT_EQ(S(g.setup()), ClauseSet({Clause({Literal::Eq(a, m1)}), Clause({Literal::Eq(fm1, m1), Literal::Eq(fm1, m2), Literal::Eq(fn1, m2)})}));
     EXPECT_EQ(S(g.names(sa)), TermSet({m1, m2}));
@@ -125,7 +123,74 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     EXPECT_EQ(S(g.rhs_names(fm2)), TermSet({}) + 1);
     EXPECT_EQ(S(g.rhs_names(fn1)), TermSet({m2}) + 1);
     EXPECT_EQ(S(g.rhs_names(fn2)), TermSet({}) + 1);
-    //EXPECT_EQ(S(g.lhs_rhs_literals()), LiteralSet({Literal::Eq(a, m1), Literal::Eq(fm1, m1), Literal::Eq(fm1, m2), Literal::Eq(fn1, m2)}));
+  }
+}
+
+TEST(GrounderTest, Ground_SplitTerms_Names_Consolidated) {
+  Symbol::Factory& sf = *Symbol::Factory::Instance();
+  Term::Factory& tf = *Term::Factory::Instance();
+  const Symbol::Sort sa = sf.CreateSort();                  RegisterSort(sa, "");
+  const Symbol::Sort sb = sf.CreateSort();                  RegisterSort(sb, "");
+  const Term m1 = tf.CreateTerm(sf.CreateName(sa));         RegisterSymbol(m1.symbol(), "m1");
+  const Term m2 = tf.CreateTerm(sf.CreateName(sa));         RegisterSymbol(m2.symbol(), "m2");
+  const Term n1 = tf.CreateTerm(sf.CreateName(sb));         RegisterSymbol(n1.symbol(), "n1");
+  const Term n2 = tf.CreateTerm(sf.CreateName(sb));         RegisterSymbol(n2.symbol(), "n2");
+  const Term x1 = tf.CreateTerm(sf.CreateVariable(sa));     RegisterSymbol(x1.symbol(), "x1");
+  const Term x2 = tf.CreateTerm(sf.CreateVariable(sa));     RegisterSymbol(x2.symbol(), "x2");
+  const Term y1 = tf.CreateTerm(sf.CreateVariable(sb));     RegisterSymbol(y1.symbol(), "y1");
+  const Symbol s_a = sf.CreateFunction(sa, 0);              RegisterSymbol(s_a, "a");
+  const Symbol s_b = sf.CreateFunction(sb, 0);              RegisterSymbol(s_b, "b");
+  const Symbol s_f = sf.CreateFunction(sa, 1);              RegisterSymbol(s_f, "f");
+  const Symbol s_g = sf.CreateFunction(sb, 1);              RegisterSymbol(s_g, "g");
+  const Term a = tf.CreateTerm(s_a, {});
+  const Term b = tf.CreateTerm(s_b, {});
+  const Term fm1 = tf.CreateTerm(s_f, {m1});
+  const Term fm2 = tf.CreateTerm(s_f, {m2});
+  const Term fn1 = tf.CreateTerm(s_f, {n1});
+  const Term fn2 = tf.CreateTerm(s_f, {n2});
+  const Term gm1 = tf.CreateTerm(s_f, {m1});
+  const Term gm2 = tf.CreateTerm(s_f, {m2});
+  const Term gn1 = tf.CreateTerm(s_f, {n1});
+  const Term gn2 = tf.CreateTerm(s_f, {n2});
+  {
+    Grounder g(&sf, &tf);
+    Grounder h(&sf, &tf);
+    g.AddClause(Clause{Literal::Eq(a, m1)});
+    g.Consolidate();
+    EXPECT_EQ(S(g.setup()), ClauseSet({Clause({Literal::Eq(a, m1)})}));
+    EXPECT_EQ(S(g.names(sa)), TermSet({m1}));
+    EXPECT_EQ(S(g.names(sb)), TermSet({}));
+    EXPECT_EQ(S(g.lhs_terms()), TermSet({a}));
+    EXPECT_EQ(S(g.rhs_names(a)), TermSet({m1}) + 1);
+    EXPECT_EQ(S(g.rhs_names(b)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm1)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm2)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn1)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn2)), TermSet({}) + 1);
+    g.AddClause(Clause{Literal::Eq(a, m1)});
+    g.Consolidate();
+    EXPECT_EQ(S(g.setup()), ClauseSet({Clause({Literal::Eq(a, m1)})}));
+    EXPECT_EQ(S(g.names(sa)), TermSet({m1}));
+    EXPECT_EQ(S(g.names(sb)), TermSet({}));
+    EXPECT_EQ(S(g.lhs_terms()), TermSet({a}));
+    EXPECT_EQ(S(g.rhs_names(a)), TermSet({m1}) + 1);
+    EXPECT_EQ(S(g.rhs_names(b)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm1)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm2)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn1)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn2)), TermSet({}) + 1);
+    g.AddClause(Clause{Literal::Eq(fm1, m1), Literal::Eq(fm1, m2), Literal::Eq(fn1, m2)});
+    g.Consolidate();
+    EXPECT_EQ(S(g.setup()), ClauseSet({Clause({Literal::Eq(a, m1)}), Clause({Literal::Eq(fm1, m1), Literal::Eq(fm1, m2), Literal::Eq(fn1, m2)})}));
+    EXPECT_EQ(S(g.names(sa)), TermSet({m1, m2}));
+    EXPECT_EQ(S(g.names(sb)), TermSet({n1}));
+    EXPECT_EQ(S(g.lhs_terms()), TermSet({a, fm1, fn1}));
+    EXPECT_EQ(S(g.rhs_names(a)), TermSet({m1}) + 1);
+    EXPECT_EQ(S(g.rhs_names(b)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm1)), TermSet({m1, m2}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fm2)), TermSet({}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn1)), TermSet({m2}) + 1);
+    EXPECT_EQ(S(g.rhs_names(fn2)), TermSet({}) + 1);
   }
 }
 

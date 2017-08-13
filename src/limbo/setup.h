@@ -106,7 +106,7 @@ class Setup {
     iterator end()   const { return iterator(int_iterator(last1),  int_iterator(last1), int_iterator(last2)); }
 
    private:
-    static constexpr size_t kFlag = (size_t(1) << 63);
+    static constexpr size_t kFlag = (size_t(1) << (sizeof(size_t) * 8 - 1));
 
     Index first1;
     Index last1;

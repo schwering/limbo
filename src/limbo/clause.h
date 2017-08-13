@@ -137,7 +137,7 @@ class Clause {
   }
 
   Literal first() const { return lits1_[0]; }
-  Literal last()  const { return operator[](size() - 1); }
+  Literal last()  const { return (*this)[size() - 1]; }
 
   bool   empty() const { return size() == 0; }
   bool   unit()  const { return size() == 1; }

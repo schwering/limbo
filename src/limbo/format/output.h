@@ -9,6 +9,7 @@
 #include <array>
 #include <algorithm>
 #include <list>
+#include <iostream>
 #include <map>
 #include <ostream>
 #include <set>
@@ -475,6 +476,9 @@ std::ostream& operator<<(std::ostream& os, const internal::Integer<T>& i) {
 
 }  // namespace format
 }  // namespace limbo
+
+using limbo::format::operator<<;
+using limbo::format::print_range;
 
 #ifndef LIMBO_FORMAT_OUTPUT_H_
 #define LIMBO_FORMAT_OUTPUT_H_

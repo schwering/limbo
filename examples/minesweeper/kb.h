@@ -125,10 +125,10 @@ class KnowledgeBase {
 #else
     limbo::Formula::Ref yes_mine = limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(true, p)});
     limbo::Formula::Ref no_mine = limbo::Formula::Factory::Atomic(limbo::Clause{MineLit(false, p)});
-    if (solver().Entails(k, *yes_mine, limbo::Solver::kConsistencyGuarantee)) {
+    if (solver().Entails(k, *yes_mine, limbo::Solver::kNoConsistencyGuarantee)) {
       assert(g_->mine(p));
       r = limbo::internal::Just(true);
-    } else if (solver().Entails(k, *no_mine, limbo::Solver::kConsistencyGuarantee)) {
+    } else if (solver().Entails(k, *no_mine, limbo::Solver::kNoConsistencyGuarantee)) {
       assert(!g_->mine(p));
       r = limbo::internal::Just(false);
     }
@@ -220,7 +220,7 @@ class KnowledgeBase {
     }
   }
 
-  void Add(const limbo::Literal a) { return Add(limbo::Clause{a}); }
+  void Add(const limbo::Literal a) { Add(limbo::Clause{a}); }
 
   void Add(const limbo::Clause& c) {
 #ifdef USE_DETERMINES
@@ -239,7 +239,13 @@ class KnowledgeBase {
     if (n_processed_clauses_ == clauses_.size()) {
       return;
     }
+    for (auto it = clauses_.begin() + n_processed_clauses_; it != clauses_.end(); ++it) {
+      limbo::Formula::FlattenClause(&*it, nullptr,
+                                    limbo::Symbol::Factory::Instance(),
+                                    limbo::Term::Factory::Instance());
+    }
     solver_.grounder().AddClauses(clauses_.begin() + n_processed_clauses_, clauses_.end());
+    //solver_.grounder().Consolidate();
     n_processed_clauses_ = clauses_.size();
   }
 
@@ -267,7 +273,7 @@ class KnowledgeBase {
   size_t max_k_;
 
   std::vector<limbo::Clause> clauses_;
-  size_t n_processed_clauses_;
+  size_t n_processed_clauses_ = 0;
 
   limbo::Solver solver_;
 

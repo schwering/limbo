@@ -1,7 +1,7 @@
 add_executable (minesweeper minesweeper.cc)
 target_link_libraries (minesweeper LINK_PUBLIC limbo)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_DETERMINES")
+#set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_DETERMINES")
 #set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEND_GAME_CLAUSES")
 
 find_package (Emscripten)

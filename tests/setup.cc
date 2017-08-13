@@ -33,7 +33,7 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
     EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)})), limbo::Setup::kOk);
     EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), limbo::Setup::kOk);
     EXPECT_TRUE(s0.Consistent());
-    for (size_t i : s0.clauses()) {
+    for (auto i : s0.clauses()) {
       EXPECT_TRUE(s0.Subsumes(s0.clause(i)));
     }
     EXPECT_FALSE(s0.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
@@ -48,7 +48,7 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
       s1.Minimize();
       EXPECT_EQ(dist(s1.clauses()), 4);
       EXPECT_TRUE(!s1.Consistent());
-      for (const size_t i : s1.clauses()) {
+      for (const auto i : s1.clauses()) {
         EXPECT_TRUE(s1.Subsumes(s1.clause(i)));
       }
       EXPECT_FALSE(s1.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
@@ -58,7 +58,7 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
         EXPECT_EQ(s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})), limbo::Setup::kOk);
         EXPECT_EQ(dist(s2.clauses()), 5);
         EXPECT_TRUE(!s2.Consistent());
-        for (const size_t i : s2.clauses()) {
+        for (const auto i : s2.clauses()) {
           EXPECT_TRUE(s2.Subsumes(s2.clause(i)));
         }
 
