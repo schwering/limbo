@@ -524,7 +524,7 @@ class mapping_iterator {
   typedef CodomainInputIt codomain_iterator;
 
   struct value_type {
-    value_type(const mapping_iterator* owner) : owner(owner) {}
+    explicit value_type(const mapping_iterator* owner) : owner(owner) {}
 
     internal::Maybe<codomain_type> operator()(domain_type x) const {
       auto it = owner->dcd_.find(x);

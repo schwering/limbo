@@ -8,6 +8,7 @@
 
 #include <list>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <limbo/formula.h>
@@ -24,8 +25,6 @@ class ActionTheory {
 
   bool Add(const Literal a, const Formula& alpha) {
     assert(a.pos() && a.lhs().sort() == a.rhs().sort());
-    //assert(a.lhs().quasiprimitive() && !a.lhs().sort().rigid());
-    //assert(a.rhs().variable() || a.rhs().quasiprimitive());
     assert(alpha.objective());
     assert(!alpha.dynamic());
     if (Circular(alpha, a.lhs())) {

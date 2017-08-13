@@ -186,20 +186,18 @@ class Term {
   internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
   inline Symbol symbol()      const;
-  inline Term arg(size_t i)   const;
   inline const Vector& args() const;
 
   Symbol::Sort sort()   const { return symbol().sort(); }
   Symbol::Arity arity() const { return symbol().arity(); }
+  Term arg(size_t i)    const { return args()[i]; }
 
-  bool null()     const { return id_ == 0; }
-  bool name()     const { return ((id_ & 1) == 1); }
-  bool variable() const { return symbol().variable(); }
-  bool function() const { return symbol().function(); }
-
-  bool ground()    const { return name() || (function() && all_args<&Term::ground>()); }
-  bool primitive() const { return !sort().rigid() && function() && all_args<&Term::name>(); }
-
+  bool null()            const { return id_ == 0; }
+  bool name()            const { return ((id_ & 1) == 1); }
+  bool variable()        const { return symbol().variable(); }
+  bool function()        const { return symbol().function(); }
+  bool ground()          const { return name() || (function() && all_args<&Term::ground>()); }
+  bool primitive()       const { return !sort().rigid() && function() && all_args<&Term::name>(); }
   bool quasi_name()      const { return !function() || (sort().rigid() && no_arg<&Term::function>()); }
   bool quasi_primitive() const { return !sort().rigid() && function() && all_args<&Term::quasi_name>(); }
 
@@ -225,7 +223,6 @@ class Term {
   friend class Literal;
 
   typedef internal::u32 u32;
-
   struct Data;
 
   explicit Term(u32 id) : id_(id) {}
@@ -235,10 +232,24 @@ class Term {
   u32 id() const { return id_; }
 
   template<bool (Term::*Prop)() const>
-  inline bool all_args() const;
+  inline bool all_args() const {
+    for (const Term t : args()) {
+      if (!(t.*Prop)()) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   template<bool (Term::*Prop)() const>
-  inline bool no_arg() const;
+  inline bool no_arg() const {
+    for (const Term t : args()) {
+      if ((t.*Prop)()) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   u32 id_;
 };
@@ -357,29 +368,8 @@ struct Term::Substitution {
 };
 
 inline Symbol Term::symbol()            const { return data()->symbol; }
-inline Term Term::arg(size_t i)         const { return data()->args[i]; }
 inline const Term::Vector& Term::args() const { return data()->args; }
 inline const Term::Data* Term::data()   const { return Factory::Instance()->get(id_); }
-
-template<bool (Term::*Prop)() const>
-inline bool Term::all_args() const {
-  for (Term t : args()) {
-    if (!(t.*Prop)()) {
-      return false;
-    }
-  }
-  return true;
-}
-
-template<bool (Term::*Prop)() const>
-inline bool Term::no_arg() const {
-  for (Term t : args()) {
-    if ((t.*Prop)()) {
-      return false;
-    }
-  }
-  return true;
-}
 
 template<typename UnaryFunction>
 Term Term::Substitute(UnaryFunction theta, Factory* tf) const {

@@ -353,7 +353,8 @@ next:
 
   template<typename UnaryPredicate>
   bool any(UnaryPredicate p) const {
-    for (size_t i = 0; i < size(); ++i) {
+    const size_t s = size();
+    for (size_t i = 0; i < s; ++i) {
       if (p((*this)[i])) {
         return true;
       }
@@ -363,7 +364,8 @@ next:
 
   template<typename UnaryPredicate>
   bool all(UnaryPredicate p) const {
-    for (size_t i = 0; i < size(); ++i) {
+    const size_t s = size();
+    for (size_t i = 0; i < s; ++i) {
       if (!p((*this)[i])) {
         return false;
       }
@@ -415,6 +417,7 @@ next:
 
   void Nullify(size_t i) {
     (*this)[i] = Literal();
+    assert((*this)[i].null());
   }
 
   void RemoveNulls() {

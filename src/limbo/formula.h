@@ -32,7 +32,6 @@
 #include <limbo/internal/iter.h>
 #include <limbo/internal/intmap.h>
 #include <limbo/internal/ints.h>
-#include <limbo/internal/iter.h>
 #include <limbo/internal/maybe.h>
 
 namespace limbo {

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <limbo/setup.h>
@@ -50,6 +51,16 @@ static bool parse(ForwardIt begin, ForwardIt end, Context* ctx) {
   if (!exec_result) {
     std::cout << in_color(exec_result.str(), RED) << std::endl;
     return false;
+  }
+  return true;
+}
+
+template<typename Context>
+static bool parse_line_by_line(std::istream* stream, Context* ctx) {
+  for (std::string line; std::getline(*stream, line); ) {
+    if (!parse(line.begin(), line.end(), ctx)) {
+      return false;
+    }
   }
   return true;
 }
@@ -187,11 +198,16 @@ int main(int argc, char** argv) {
   ReadBehavior read_behavior = kNothing;
   bool help = false;
   bool after_flags = false;
+  bool line_by_line = false;
   std::vector<std::string> args;
   for (int i = 1; i < argc; ++i) {
     std::string s(argv[i]);
     if (!after_flags && (s == "-h" || s == "--help")) {
       help = true;
+    } else if (!after_flags && (s == "-l" || s == "--line-by-line")) {
+      line_by_line = true;
+    } else if (!after_flags && (s == "-a" || s == "--all-at-once")) {
+      line_by_line = false;
     } else if (!after_flags && (s == "-s" || s == "--stdin")) {
       read_behavior = kStdin;
     } else if (!after_flags && (s == "-i" || s == "--interactive")) {
@@ -212,6 +228,8 @@ int main(int argc, char** argv) {
     std::cout << "Usage: " << argv[0] << " [[-s | --stdin]] file [file ...]]" << std::endl;
     std::cout << "      -i   --interactive   after reading the files the program reads to stdin interactively" << std::endl;
     std::cout << "      -s   --stdin         after reading the files the program reads to stdin" << std::endl;
+    std::cout << "      -l   --line-by-line  read and parse input line by line (fast than all-at-once)" << std::endl;
+    std::cout << "      -a   --all-at-once   read and parse input all at once (can deal with new-lines, default)" << std::endl;
     std::cout << "If there is no file argument, content is read from stdin." << std::endl;
     return kHelpCode;
   }
@@ -226,14 +244,16 @@ int main(int argc, char** argv) {
       std::cerr << "Cannot open file " << arg << std::endl;
       return kFailCode;
     }
-    const bool succ = parse(stream_iterator(stream), stream_iterator(), &ctx);
+    const bool succ = line_by_line ? parse_line_by_line(&stream, &ctx)
+        : parse(stream_iterator(stream), stream_iterator(), &ctx);
     if (!succ) {
       return kFailCode;
     }
   }
 
   if (read_behavior == kStdin) {
-    const bool succ = parse(stream_iterator(std::cin), stream_iterator(), &ctx);
+    const bool succ = line_by_line ? parse_line_by_line(&std::cin, &ctx)
+        : parse(stream_iterator(std::cin), stream_iterator(), &ctx);
     if (!succ) {
       return kFailCode;
     }
