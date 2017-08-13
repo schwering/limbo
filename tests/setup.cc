@@ -33,7 +33,6 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
     EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)})), limbo::Setup::kOk);
     EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), limbo::Setup::kOk);
     EXPECT_TRUE(s0.Consistent());
-    EXPECT_TRUE(s0.LocallyConsistent({fm,fn}));
     for (size_t i : s0.clauses()) {
       EXPECT_TRUE(s0.Subsumes(s0.clause(i)));
     }

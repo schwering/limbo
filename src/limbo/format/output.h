@@ -21,6 +21,7 @@
 #include <limbo/term.h>
 
 #include <limbo/internal/compar.h>
+#include <limbo/internal/ints.h>
 #include <limbo/internal/iter.h>
 #include <limbo/internal/maybe.h>
 
@@ -127,9 +128,14 @@ std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set
 #endif  // LIMBO_INTERNAL_HASHSET_H_
 
 #ifdef LIMBO_INTERNAL_MAYBE_H_
-template<typename K, typename T>
+template<typename T>
 std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m);
 #endif  // LIMBO_INTERNAL_MAYBE_H_
+
+#ifdef LIMBO_INTERNAL_INTS_H_
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const internal::Integer<T>& i);
+#endif  // LIMBO_INTERNAL_INTS_H_
 
 #ifdef LIMBO_TERM_H_
 #ifndef LIMBO_TERM_OUTPUT
@@ -235,7 +241,7 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
 #define LIMBO_SETUP_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
   auto is = s.clauses();
-  auto cs = internal::transform_range(is.begin(), is.end(), [&s](size_t i) { return s.clause(i); });
+  auto cs = internal::transform_range(is.begin(), is.end(), [&s](Setup::ClauseRange::Index i) { return s.clause(i); });
   return print_range(os, cs, "{ ", "\n}", "\n, ");
 }
 #endif  // LIMBO_SETUP_OUTPUT
@@ -455,6 +461,17 @@ std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
 }
 #endif  // LIMBO_INTERNAL_MAYBE_OUTPUT
 #endif  // LIMBO_INTERNAL_MAYBE_H_
+
+#ifdef LIMBO_INTERNAL_INTS_H_
+#ifndef LIMBO_INTERNAL_INTS_OUTPUT
+#define LIMBO_INTERNAL_INTS_OUTPUT
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const internal::Integer<T>& i) {
+  os << T(i);
+  return os;
+}
+#endif  // LIMBO_INTERNAL_INTS_OUTPUT
+#endif  // LIMBO_INTERNAL_INTS_H_
 
 }  // namespace format
 }  // namespace limbo

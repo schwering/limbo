@@ -81,42 +81,41 @@ class Setup {
 
   enum Result { kOk, kSubsumed, kInconsistent };
 
-  template<typename UnaryFunction = internal::Identity>
   struct ClauseRange {
-    typedef internal::int_iterator<size_t, UnaryFunction> iterator;
+    typedef internal::Integer<size_t> Index;
+    typedef internal::int_iterator<Index> int_iterator;
+    typedef internal::joined_iterator<int_iterator> iterator;
 
-    explicit ClauseRange(size_t last, UnaryFunction func = UnaryFunction()) : last(last), func(func) {}
-    iterator begin() const { return iterator(0, func); }
-    iterator end()   const { return iterator(last, func); }
+    static bool is_empty_clause(Index i) { return size_t(i) == ~size_t(0); }
+    static bool is_unit(Index i) { return (size_t(i) & kFlag) == 0; }
+    static bool is_clause(Index i) { return (size_t(i) & kFlag) != 0; }
+    static size_t index(Index i) { assert(is_unit(i) || is_clause(i)); return size_t(i) & ~kFlag; }
+
+    ClauseRange(bool last_empty_clause, size_t last_unit, size_t last_clause)
+        : ClauseRange(false, last_empty_clause, 0, last_unit, 0, last_clause) {}
+
+    ClauseRange(bool first_empty_clause, bool last_empty_clause,
+                size_t first_unit, size_t last_unit,
+                size_t first_clause, size_t last_clause)
+        : first1(Index(last_empty_clause ? (first_empty_clause ? 0 : ~size_t(0)) : first_unit)),
+          last1(Index(last_empty_clause ? 0 : last_unit)),
+          first2(Index(last_empty_clause ? 0 : (first_clause | kFlag))),
+          last2(Index(last_empty_clause ? 0 : (last_clause | kFlag))) {}
+
+    iterator begin() const { return iterator(int_iterator(first1), int_iterator(last1), int_iterator(first2)); }
+    iterator end()   const { return iterator(int_iterator(last1),  int_iterator(last1), int_iterator(last2)); }
 
    private:
-    size_t last;
-    UnaryFunction func;
+    static constexpr size_t kFlag = (size_t(1) << 63);
+
+    Index first1;
+    Index last1;
+    Index first2;
+    Index last2;
   };
 
   class ShallowCopy {
    public:
-    struct GlobalIndex {
-      GlobalIndex(const Setup* s, bool empty_clause, size_t n_units, size_t n_clauses)
-          : s(s), empty_clause(empty_clause), n_units(n_units), n_clauses(n_clauses) {}
-
-      size_t operator()(size_t i) const {
-        if (i >= s->empty_clause_ - empty_clause + s->units_.size() - n_units) {
-          return empty_clause + n_units + n_clauses + i;
-        }
-        if (i >= s->empty_clause_ - empty_clause) {
-          return empty_clause + n_units + i;
-        }
-        return i;
-      }
-
-     private:
-      const Setup* s = nullptr;
-      bool empty_clause;
-      size_t n_units;
-      size_t n_clauses;
-    };
-
     ShallowCopy() = default;
     ShallowCopy(const ShallowCopy&) = delete;
     ShallowCopy& operator=(const ShallowCopy&) = delete;
@@ -154,12 +153,10 @@ class Setup {
       assert(data_.n_units <= setup_->units_.size());
     }
 
-    ClauseRange<GlobalIndex> new_clauses() const {
-      const size_t last =
-          setup_->empty_clause_ - data_.empty_clause +
-          setup_->units_.size() - data_.n_units +
-          setup_->clauses_.size() - data_.n_clauses;
-      return ClauseRange<GlobalIndex>(last, GlobalIndex(setup_, data_.empty_clause, data_.n_units, data_.n_clauses));
+    ClauseRange new_clauses() const {
+      return ClauseRange(data_.empty_clause, setup_->empty_clause_,
+                         data_.n_units, setup_->units_.size(),
+                         data_.n_clauses, setup_->clauses_.size());
     }
 
    private:
@@ -266,7 +263,49 @@ class Setup {
     if (c.unit() && c.first().pos()) {
       return false;
     }
-    return ClausesSubsume(c);
+    assert(c.size() >= 1 && (c.size() >= 2 || !c.first().pos()));
+    for (size_t i = 0; i < clauses_.size(); ++i) {
+      if (Clause::Subsumes(clauses_.watched(i).a, clauses_.watched(i).b, c)) {
+        Clause d = clauses_[i];
+        d.PropagateUnits(units_.set());
+        if (Clause::Subsumes(d, c)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  template<typename InputIt>
+  bool Subsumes(const Clause& c, InputIt first_clause, InputIt last_clause) const {
+    assert(c.ground());
+    if (empty_clause_) {
+      return true;
+    }
+    if (c.empty()) {
+      return false;
+    }
+    if (!c.primitive()) {
+      return c.valid();
+    }
+    for (auto it = first_clause; it != last_clause; ++it) {
+      const ClauseRange::Index index = *it;
+      const size_t i = ClauseRange::index(index);
+      if (ClauseRange::is_unit(index)) {
+        if (Clause::Subsumes(units_[i], c)) {
+          return true;
+        }
+      } else {
+        if (Clause::Subsumes(clauses_.watched(i).a, clauses_.watched(i).b, c)) {
+          Clause d = clauses_[i];
+          d.PropagateUnits(units_.set());
+          if (Clause::Subsumes(d, c)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   bool Consistent() const {
@@ -274,31 +313,22 @@ class Setup {
       return false;
     }
     std::unordered_set<Literal, Literal::LhsHash> lits;
-    for (size_t i : clauses()) {
+    for (ClauseRange::Index i : clauses()) {
       const Clause c = clause(i);
       lits.insert(c.begin(), c.end());
     }
     return ConsistentSet(lits);
   }
 
-  bool LocallyConsistent(const std::unordered_set<Term>& ts) const {
-    assert(std::all_of(ts.begin(), ts.end(), [](Term t) { return t.primitive(); }));
-#ifdef BLOOM
-    internal::BloomSet<Term> bs;
-    for (Term t : ts) {
-      bs.Add(t);
+  template<typename InputIt>
+  bool Consistent(InputIt first_clause, InputIt last_clause) const {
+    if (empty_clause_) {
+      return false;
     }
-#endif
     std::unordered_set<Literal, Literal::LhsHash> lits;
-    for (size_t i : clauses()) {
-      const Clause c = clause(i);
-      if (
-#ifdef BLOOM
-          bs.PossiblyOverlaps(c.lhs_bloom()) &&
-#endif
-          std::any_of(c.begin(), c.end(), [&ts](Literal a) { return ts.find(a.lhs()) != ts.end(); })) {
-        lits.insert(c.begin(), c.end());
-      }
+    for (InputIt it = first_clause; it != last_clause; ++it) {
+      const Clause c = clause(*it);
+      lits.insert(c.begin(), c.end());
     }
     return ConsistentSet(lits);
   }
@@ -313,20 +343,21 @@ class Setup {
     return empty_clause_ ? internal::Just(Term()) : units_.Determines(lhs);
   }
 
-  ClauseRange<> clauses() const { return ClauseRange<>(empty_clause_ + units_.size() + clauses_.size()); }
+  ClauseRange clauses() const { return ClauseRange(empty_clause_, units_.size(), clauses_.size()); }
 
-  Clause clause(size_t i) const {
-    if (i == 0 && empty_clause_) {
+  const Clause clause(ClauseRange::Index i) const {
+    if (ClauseRange::is_empty_clause(i)) {
+      assert(empty_clause_);
       return Clause();
     }
-    i -= empty_clause_ ? 1 : 0;
-    if (i < units_.size()) {
-      return Clause(units_[i]);
+    if (ClauseRange::is_unit(i)) {
+      return Clause(units_[ClauseRange::index(i)]);
+    } else {
+      assert(ClauseRange::is_clause(i));
+      Clause c = clauses_[ClauseRange::index(i)];
+      c.PropagateUnits(units_.set());
+      return c;
     }
-    i -= units_.size();
-    Clause c = clauses_[i];
-    c.PropagateUnits(units_.set());
-    return c;
   }
 
  private:
@@ -486,20 +517,6 @@ class Setup {
     std::unordered_set<Literal, Literal::LhsHash> set_;
     size_t n_orig_ = 0;
   };
-
-  bool ClausesSubsume(const Clause& d) const {
-    assert(d.size() >= 1 && (d.size() >= 2 || !d.first().pos()));
-    for (size_t i = 0; i < clauses_.size(); ++i) {
-      if (Clause::Subsumes(clauses_.watched(i).a, clauses_.watched(i).b, d)) {
-        Clause c = clauses_[i];
-        c.PropagateUnits(units_.set());
-        if (Clause::Subsumes(c, d)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
 
   static bool ConsistentSet(const std::unordered_set<Literal, Literal::LhsHash>& lits) {
     for (const Literal a : lits) {

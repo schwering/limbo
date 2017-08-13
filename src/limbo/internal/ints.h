@@ -9,6 +9,8 @@
 
 #include <cstdint>
 
+#include <utility>
+
 namespace limbo {
 namespace internal {
 
@@ -22,8 +24,55 @@ typedef std::size_t size_t;
 typedef std::uintptr_t uptr_t;
 typedef std::intptr_t iptr_t;
 
+template<typename T>
+struct Integer {
+  Integer() = default;
+  explicit Integer(size_t i) : i(i) {}
+  explicit operator T() const { return i; }
+
+  Integer& operator++() { ++i; return *this; }
+  Integer& operator--() { --i; return *this; }
+
+  Integer operator++(int) { size_t j = i; ++i; return Integer(j); }
+  Integer operator--(int) { size_t j = i; --i; return Integer(j); }
+
+  Integer& operator+=(Integer j) { i += j.i; return *this; }
+  Integer& operator-=(Integer j) { i -= j.i; return *this; }
+
+  Integer operator+(Integer j) const { return Integer(i + j.i); }
+  Integer operator-(Integer j) const { return Integer(i - j.i); }
+  Integer operator*(Integer j) const { return Integer(i * j.i); }
+  Integer operator/(Integer j) const { return Integer(i / j.i); }
+
+  bool operator< (Integer j) const { return i < j.i; }
+  bool operator<=(Integer j) const { return i <= j.i; }
+  bool operator!=(Integer j) const { return i != j.i; }
+  bool operator==(Integer j) const { return i == j.i; }
+  bool operator> (Integer j) const { return i > j.i; }
+  bool operator>=(Integer j) const { return i >= j.i; }
+
+ private:
+  T i;
+};
+
 }  // namespace internal
 }  // namespace limbo
+
+
+namespace std {
+
+template<typename T>
+struct equal_to<limbo::internal::Integer<T>> {
+  bool operator()(limbo::internal::Integer<T> i, limbo::internal::Integer<T> j) const { return i == j; }
+};
+
+template<typename T>
+struct hash<limbo::internal::Integer<T>> {
+  size_t operator()(limbo::internal::Integer<T> i) const { return size_t(T(i)); }
+};
+
+}  // namespace std
+
 
 #endif  // LIMBO_INTERNAL_INTS_H_
 
