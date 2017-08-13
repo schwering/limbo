@@ -127,7 +127,9 @@ class IntMultiMap {
 
   void insert(const IntMultiMap& m) {
     for (Key key : m.keys()) {
-      (*this)[key].insert(map_[key].begin(), map_[key].end());
+      size_ -= (*this)[key].size();
+      (*this)[key].insert(m.map_[key].begin(), m.map_[key].end());
+      size_ += (*this)[key].size();
     }
   }
 
