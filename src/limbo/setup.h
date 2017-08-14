@@ -78,6 +78,8 @@ namespace limbo {
 class Setup {
  public:
   typedef internal::size_t size_t;
+  template<typename T>
+  using Maybe = internal::Maybe<T>;
 
   enum Result { kOk, kSubsumed, kInconsistent };
 
@@ -201,14 +203,16 @@ class Setup {
     assert(c.primitive());
     assert(!c.valid());
     units_.UnsealOriginalUnits();  // undo units_.SealOriginalUnits() called by Minimize()
-    c.PropagateUnits(units_.set());
-    if (c.size() == 0) {
+    const Clause::Result pr = c.PropagateUnits(units_.set());
+    if (pr == Clause::kSubsumed) {
+      return kSubsumed;
+    } else if (c.size() == 0) {
       empty_clause_ = true;
       return kInconsistent;
     } else if (c.size() == 1) {
-      Result r = AddUnit(c.first());
-      empty_clause_ |= r == kInconsistent;
-      return r;
+      const Result ur = AddUnit(c.first());
+      empty_clause_ |= ur == kInconsistent;
+      return ur;
     } else {
       clauses_.Add(c);
       return kOk;
@@ -222,26 +226,29 @@ class Setup {
       return kInconsistent;
     }
     size_t n_propagated = units_.size();
-    const Result r = units_.Add(a);
-    empty_clause_ = r == kInconsistent;
+    const Result ur = units_.Add(a);
+    empty_clause_ = ur == kInconsistent;
     for (; n_propagated < units_.size() && !empty_clause_; ++n_propagated) {
       a = units_[n_propagated];
       for (size_t i = 0; i < clauses_.size() && !empty_clause_; ++i) {
         if (Literal::Complementary(clauses_.watched(i).a, a) ||
             Literal::Complementary(clauses_.watched(i).b, a)) {
           Clause c = clauses_[i];
-          c.PropagateUnits(units_.set());
-          if (c.size() == 0) {
-            empty_clause_ = true;
-          } else if (c.size() == 1) {
-            empty_clause_ = units_.Add(c.first()) == kInconsistent;
-          } else {
-            clauses_.Watch(i, c.first(), c.last());
+          const Clause::Result pr = c.PropagateUnits(units_.set());
+          if (pr == Clause::kPropagated) {
+            if (c.size() == 0) {
+              empty_clause_ = true;
+            } else if (c.size() == 1) {
+              const Result ur = units_.Add(c.first());
+              empty_clause_ = ur == kInconsistent;
+            } else {
+              clauses_.Watch(i, c.first(), c.last());
+            }
           }
         }
       }
     }
-    return empty_clause_ ? kInconsistent : r;
+    return empty_clause_ ? kInconsistent : ur;
   }
 
   bool Subsumes(const Clause& c) const {
@@ -267,8 +274,9 @@ class Setup {
     for (size_t i = 0; i < clauses_.size(); ++i) {
       if (Clause::Subsumes(clauses_.watched(i).a, clauses_.watched(i).b, c)) {
         Clause d = clauses_[i];
-        d.PropagateUnits(units_.set());
-        if (Clause::Subsumes(d, c)) {
+        const Clause::Result pr = d.PropagateUnits(units_.set());
+        assert(pr != Clause::kSubsumed);
+        if (pr == Clause::kSubsumed || Clause::Subsumes(d, c)) {
           return true;
         }
       }
@@ -298,8 +306,8 @@ class Setup {
       } else {
         if (Clause::Subsumes(clauses_.watched(i).a, clauses_.watched(i).b, c)) {
           Clause d = clauses_[i];
-          d.PropagateUnits(units_.set());
-          if (Clause::Subsumes(d, c)) {
+          const Clause::Result pr = d.PropagateUnits(units_.set());
+          if (pr == Clause::kSubsumed || Clause::Subsumes(d, c)) {
             return true;
           }
         }
@@ -314,8 +322,10 @@ class Setup {
     }
     std::unordered_set<Literal, Literal::LhsHash> lits;
     for (ClauseRange::Index i : clauses()) {
-      const Clause c = clause(i);
-      lits.insert(c.begin(), c.end());
+      const Maybe<Clause> c = clause(i);
+      if (c) {
+        lits.insert(c.val.begin(), c.val.end());
+      }
     }
     return ConsistentSet(lits);
   }
@@ -327,8 +337,10 @@ class Setup {
     }
     std::unordered_set<Literal, Literal::LhsHash> lits;
     for (InputIt it = first_clause; it != last_clause; ++it) {
-      const Clause c = clause(*it);
-      lits.insert(c.begin(), c.end());
+      const Maybe<Clause> c = clause(*it);
+      if (c) {
+        lits.insert(c.val.begin(), c.val.end());
+      }
     }
     return ConsistentSet(lits);
   }
@@ -338,25 +350,30 @@ class Setup {
   const std::unordered_set<Literal, Literal::LhsHash>& units() const { return units_.set(); }
   const std::vector<Clause>& non_units() const { return clauses_.vec(); }
 
-  internal::Maybe<Term> Determines(Term lhs) const {
+  Maybe<Term> Determines(Term lhs) const {
     assert(lhs.primitive());
     return empty_clause_ ? internal::Just(Term()) : units_.Determines(lhs);
   }
 
   ClauseRange clauses() const { return ClauseRange(empty_clause_, units_.size(), clauses_.size()); }
 
-  const Clause clause(ClauseRange::Index i) const {
+  const Maybe<Clause> clause(ClauseRange::Index i) const {
     if (ClauseRange::is_empty_clause(i)) {
       assert(empty_clause_);
-      return Clause();
+      return internal::Just(Clause());
     }
     if (ClauseRange::is_unit(i)) {
-      return Clause(units_[ClauseRange::index(i)]);
+      const Literal a = units_[ClauseRange::index(i)];
+      if (!a.pos() && units_.Determines(a.lhs())) {
+        return internal::Nothing;
+      } else {
+        return internal::Just(Clause(a));
+      }
     } else {
       assert(ClauseRange::is_clause(i));
       Clause c = clauses_[ClauseRange::index(i)];
-      c.PropagateUnits(units_.set());
-      return c;
+      const Clause::Result pr = c.PropagateUnits(units_.set());
+      return pr != Clause::kSubsumed ? internal::Just(c) : internal::Nothing;
     }
   }
 
@@ -489,7 +506,7 @@ class Setup {
       n_orig_ = 0;
     }
 
-    internal::Maybe<Term> Determines(Term t) const {
+    Maybe<Term> Determines(Term t) const {
       assert(t.primitive());
       const auto orig_end = vec_.begin() + n_orig_;
       const auto orig_begin = std::lower_bound(vec_.begin(), orig_end, Literal::Min(t));
@@ -535,7 +552,7 @@ class Setup {
     return true;
   }
 
-  void Minimize(size_t n_clauses, size_t n_units) {
+  void Minimize(const size_t n_clauses, const size_t n_units) {
     assert(n_clauses + n_units > 0 || saved_ == 0);
     if (empty_clause_) {
       clauses_.Resize(n_clauses);
@@ -546,19 +563,17 @@ class Setup {
       const Literal a = units_[i];
       if (!a.pos()) {
         units_.Erase(i);
-        Result r = units_.Add(a);
-        assert(r != kInconsistent), (void) r;
+        const Result ur = units_.Add(a);
+        assert(ur != kInconsistent), (void) ur;
       }
     }
     for (size_t i = clauses_.size(); i > n_clauses; --i) {
       Clause c;
       std::swap(c, clauses_[i - 1]);
-      c.PropagateUnits(units_.set());
-      assert(!c.empty());
-      assert(c.size() >= 2 ||
-             any_of(units_.vec().begin(), units_.vec().end(), [&c](Literal a) { return a.Subsumes(c.first()); }));
+      const Clause::Result pr = c.PropagateUnits(units_.set());
+      assert(c.size() >= 1 && (pr == Clause::kPropagated || c.size() >= 2));
       clauses_.Erase(i - 1);
-      if (c.size() >= 2 && !Subsumes(c)) {
+      if (pr != Clause::kSubsumed && c.size() >= 2) {
         clauses_.Add(c);
       }
     }

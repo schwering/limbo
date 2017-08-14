@@ -97,7 +97,7 @@ class Literal {
   static bool Complementary(const Literal a, const Literal b) {
     assert(a.primitive());
     assert(b.primitive());
-    return (a.lhs() == b.lhs() && a.rhs() == b.rhs() && a.pos() != b.pos()) ||
+    return (a.lhs() == b.lhs() && a.pos() != b.pos() && a.rhs() == b.rhs()) ||
            (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
   }
 

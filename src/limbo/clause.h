@@ -46,6 +46,8 @@ class Clause {
   typedef internal::size_t size_t;
   typedef internal::array_iterator<const Clause, const Literal> const_iterator;
 
+  enum Result { kUnchanged, kPropagated, kSubsumed };
+
   Clause() = default;
 
   explicit Clause(const Literal a) : size_(!a.invalid() ? 1 : 0) {
@@ -240,103 +242,105 @@ next:
 
   bool Subsumes(const Clause& c) const { return Subsumes(*this, c); }
 
-  void PropagateUnit(const Literal b) {
+  Result PropagateUnit(const Literal a) {
     assert(primitive());
-    assert(b.primitive());
+    assert(a.primitive());
     assert(!valid());
-    assert(!b.valid() && !b.invalid());
+    assert(!a.valid() && !a.invalid());
+    Result r = kUnchanged;
 #ifdef BLOOM
-    if (!lhs_bloom_.PossiblyContains(b.lhs())) {
-      return;
+    if (!lhs_bloom_.PossiblyContains(a.lhs())) {
+      return r;
     }
 #endif
     for (size_t i = 0; i < size(); ++i) {
-      const Literal a = (*this)[i];
-      if (Literal::Complementary(a, b)) {
+      const Literal b = (*this)[i];
+      if (a.Subsumes(b)) {
+        return kSubsumed;
+      } else if (Literal::Complementary(a, b)) {
         Nullify(i);
+        r = kPropagated;
       }
     }
     RemoveNulls();
 #ifdef BLOOM
     InitBloom();
 #endif
+    return r;
   }
 
-  void PropagateUnits(const std::set<Literal>& units) {
+  template<typename InputIt>
+  Result PropagateUnits(InputIt first, InputIt last) {
     assert(primitive());
     assert(!valid());
-    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
-    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.invalid(); }));
-    auto it = units.begin();
-    auto end = units.end();
+    assert(std::all_of(first, last, [](const Literal a) { return a.primitive(); }));
+    assert(std::all_of(first, last, [](const Literal a) { return !a.valid() && !a.invalid(); }));
+    Result r = kUnchanged;
     for (size_t i = 0; i < size(); ++i) {
-      const Literal a = (*this)[i];
-      for (; it != end && a.lhs() > it->lhs(); ++it) {}
-      for (auto jt = it; jt != end && a.lhs() == jt->lhs(); ++jt) {
-        if (Literal::Complementary(a, *jt)) {
-          Nullify(i);
-          break;
+      const Literal b = (*this)[i];
+      for (; first != last && b.lhs() > first->lhs(); ++first) {}
+      bool complementary = false;
+      for (auto jt = first; jt != last && b.lhs() == jt->lhs(); ++jt) {
+        const Literal a = *jt;
+        if (a.Subsumes(b)) {
+          return kSubsumed;
+        } else if (Literal::Complementary(a, b)) {
+          complementary = true;
         }
       }
+      if (complementary) {
+        Nullify(i);
+        r = kPropagated;
+      }
     }
-    RemoveNulls();
+    if (r == kPropagated) {
+      RemoveNulls();
 #ifdef BLOOM
-    InitBloom();
+      InitBloom();
 #endif
+    }
+    return r;
   }
 
-  void PropagateUnits(const std::unordered_set<Literal, Literal::LhsHash>& units) {
+  Result PropagateUnits(const std::unordered_set<Literal, Literal::LhsHash>& units) {
     assert(primitive());
     assert(!valid());
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.invalid(); }));
+    Result r = kUnchanged;
     for (size_t i = 0; i < size(); ++i) {
-      const Literal a = (*this)[i];
+      const Literal b = (*this)[i];
       if (units.bucket_count() > 0) {
-        auto bucket = units.bucket(a);
+        auto bucket = units.bucket(b);
+        bool complementary = false;
         for (auto it = units.begin(bucket), end = units.end(bucket); it != end; ++it) {
-          if (Literal::Complementary(a, *it)) {
-            Nullify(i);
-            break;
+          const Literal a = *it;
+          if (a.Subsumes(b)) {
+            return kSubsumed;
+          } else if (Literal::Complementary(b, a)) {
+            complementary = true;
           }
         }
-      }
-    }
-    RemoveNulls();
-#ifdef BLOOM
-    InitBloom();
-#endif
-  }
-
-  void PropagateUnits(const std::vector<Literal>& units) {
-    assert(primitive());
-    assert(!valid());
-    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
-    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.invalid(); }));
-    for (Literal b : units) {
-#ifdef BLOOM
-      if (!lhs_bloom_.PossiblyContains(b.lhs())) {
-        continue;
-      }
-#endif
-      for (size_t i = 0; i < size(); ++i) {
-        const Literal a = (*this)[i];
-        if (!a.null() && Literal::Complementary(a, b)) {
+        if (complementary) {
           Nullify(i);
+          r = kPropagated;
         }
       }
     }
-    RemoveNulls();
+    if (r == kPropagated) {
+      RemoveNulls();
 #ifdef BLOOM
-    InitBloom();
+      InitBloom();
 #endif
+    }
+    return r;
   }
 
-  bool ground()      const { return all([](Literal a) { return a.ground(); }); }
-  bool primitive()   const { return all([](Literal a) { return a.primitive(); }); }
-  bool well_formed() const { return all([](Literal a) { return a.well_formed(); }); }
+  bool ground()      const { return all([](const Literal a) { return a.ground(); }); }
+  bool primitive()   const { return all([](const Literal a) { return a.primitive(); }); }
+  bool well_formed() const { return all([](const Literal a) { return a.well_formed(); }); }
 
-  bool Mentions(Literal a) const {
+  bool Mentions(const Literal a) const {
     return
 #ifdef BLOOM
         lhs_bloom_.PossiblyContains(a.lhs()) &&

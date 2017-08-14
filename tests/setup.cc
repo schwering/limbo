@@ -13,8 +13,33 @@ namespace limbo {
 
 using namespace limbo::format;
 
-template<typename T>
-size_t dist(T r) { return std::distance(r.begin(), r.end()); }
+typedef std::vector<Clause> ClauseVector;
+typedef std::unordered_set<Clause> ClauseSet;
+
+ClauseVector V(const Setup& s) {
+  ClauseVector vec;
+  for (auto i : s.clauses()) {
+    const internal::Maybe<Clause> c = s.clause(i);
+    if (c) {
+      vec.push_back(c.val);
+    }
+  }
+  return vec;
+}
+
+ClauseSet S(const Setup& s) {
+  ClauseSet set;
+  for (auto i : s.clauses()) {
+    const internal::Maybe<Clause> c = s.clause(i);
+    if (c) {
+      set.insert(c.val);
+    }
+  }
+  return set;
+}
+
+size_t length(const Setup& s) { return V(s).size(); }
+size_t unique_length(const Setup& s) { return S(s).size(); }
 
 TEST(SetupTest, Subsumes_Consistent_clauses) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
@@ -34,7 +59,8 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
     EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), limbo::Setup::kOk);
     EXPECT_TRUE(s0.Consistent());
     for (auto i : s0.clauses()) {
-      EXPECT_TRUE(s0.Subsumes(s0.clause(i)));
+      EXPECT_TRUE(s0.clause(i));
+      EXPECT_TRUE(s0.Subsumes(s0.clause(i).val));
     }
     EXPECT_FALSE(s0.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
@@ -44,30 +70,37 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
       EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), limbo::Setup::kOk);
       EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(fn,n)})), limbo::Setup::kOk);
       EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(gn,n)})), limbo::Setup::kOk);
-      EXPECT_EQ(dist(s1.clauses()), 6);
+      EXPECT_EQ(length(s1), 6);
+      EXPECT_EQ(unique_length(s1), 4);
       s1.Minimize();
-      EXPECT_EQ(dist(s1.clauses()), 4);
+      EXPECT_EQ(length(s1), 6);
+      EXPECT_EQ(unique_length(s1), 4);
       EXPECT_TRUE(!s1.Consistent());
       for (const auto i : s1.clauses()) {
-        EXPECT_TRUE(s1.Subsumes(s1.clause(i)));
+        EXPECT_TRUE(s1.clause(i));
+        EXPECT_TRUE(s1.Subsumes(s1.clause(i).val));
       }
       EXPECT_FALSE(s1.Subsumes(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})));
 
       {
         limbo::Setup& s2 = s1;
         EXPECT_EQ(s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})), limbo::Setup::kOk);
-        EXPECT_EQ(dist(s2.clauses()), 5);
+        EXPECT_EQ(length(s2), 7);
+        EXPECT_EQ(unique_length(s2), 5);
         EXPECT_TRUE(!s2.Consistent());
         for (const auto i : s2.clauses()) {
-          EXPECT_TRUE(s2.Subsumes(s2.clause(i)));
+          EXPECT_TRUE(s2.clause(i));
+          EXPECT_TRUE(s2.Subsumes(s2.clause(i).val));
         }
 
         {
           limbo::Setup& s3 = s2;
           EXPECT_EQ(s3.AddClause(Clause({Literal::Neq(a,m)})), limbo::Setup::kOk);
-          EXPECT_EQ(dist(s3.clauses()), 5+1+1+2+2);
+          EXPECT_EQ(length(s3), 5);
+          EXPECT_EQ(unique_length(s3), 5);
           s3.Minimize();
-          EXPECT_EQ(dist(s3.clauses()), 5);
+          EXPECT_EQ(length(s3), 5);
+          EXPECT_EQ(unique_length(s3), 5);
           //EXPECT_TRUE(s3.Consistent());
         }
       }

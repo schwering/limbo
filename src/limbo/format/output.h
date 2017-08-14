@@ -242,7 +242,8 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
 #define LIMBO_SETUP_OUTPUT
 std::ostream& operator<<(std::ostream& os, const Setup& s) {
   auto is = s.clauses();
-  auto cs = internal::transform_range(is.begin(), is.end(), [&s](Setup::ClauseRange::Index i) { return s.clause(i); });
+  auto mcs = internal::transform_range(is.begin(), is.end(), [&s](Setup::ClauseRange::Index i) { return s.clause(i); });
+  auto cs = internal::filter_range(mcs.begin(), mcs.end(), [](const internal::Maybe<Clause>& m) { return m.yes; });
   return print_range(os, cs, "{ ", "\n}", "\n, ");
 }
 #endif  // LIMBO_SETUP_OUTPUT

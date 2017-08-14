@@ -15,15 +15,26 @@ namespace limbo {
 
 using namespace limbo::format;
 
-std::unordered_set<Clause> unique(const Setup& s) {
-  std::unordered_set<Clause> set;
+typedef std::unordered_set<Clause> ClauseSet;
+typedef std::unordered_set<Term> TermSet;
+typedef std::unordered_set<Literal> LiteralSet;
+
+ClauseSet S(const Setup& s) {
+  ClauseSet set;
   for (auto i : s.clauses()) {
-    set.insert(s.clause(i));
+    const internal::Maybe<Clause> c = s.clause(i);
+    if (c) {
+      set.insert(c.val);
+    }
   }
   return set;
 }
+TermSet S(const Grounder::Names& ns) { return TermSet(ns.begin(), ns.end()); }
+TermSet S(const Grounder::LhsTerms& ts) { return TermSet(ts.begin(), ts.end()); }
+TermSet S(const Grounder::RhsNames& ns) { return TermSet(ns.begin(), ns.end()); }
+//LiteralSet S(const Grounder::LhsRhsLiterals& as) { return LiteralSet(as.begin(), as.end()); }
 
-size_t unique_length(const Setup& s) { return unique(s).size(); }
+size_t unique_length(const Setup& s) { return S(s).size(); }
 
 template<typename T>
 size_t length(T r) {
@@ -33,22 +44,6 @@ size_t length(T r) {
   }
   return n;
 }
-
-typedef std::unordered_set<Clause> ClauseSet;
-typedef std::unordered_set<Term> TermSet;
-typedef std::unordered_set<Literal> LiteralSet;
-
-ClauseSet S(const Setup& s) {
-  ClauseSet set;
-  for (auto i : s.clauses()) {
-    set.insert(s.clause(i));
-  }
-  return set;
-}
-TermSet S(const Grounder::Names& ns) { return TermSet(ns.begin(), ns.end()); }
-TermSet S(const Grounder::LhsTerms& ts) { return TermSet(ts.begin(), ts.end()); }
-TermSet S(const Grounder::RhsNames& ns) { return TermSet(ns.begin(), ns.end()); }
-//LiteralSet S(const Grounder::LhsRhsLiterals& as) { return LiteralSet(as.begin(), as.end()); }
 
 std::pair<TermSet, size_t> operator+(const TermSet& ts, size_t n) { return std::make_pair(ts, n); }
 
