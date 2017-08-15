@@ -31,7 +31,6 @@
 
 #include <cassert>
 
-#include <algorithm>
 #include <functional>
 #include <memory>
 #include <unordered_map>

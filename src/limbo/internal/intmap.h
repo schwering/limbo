@@ -12,7 +12,6 @@
 #define LIMBO_INTERNAL_INTMAP_H_
 
 #include <algorithm>
-#include <iterator>
 #include <type_traits>
 #include <unordered_set>
 #include <utility>

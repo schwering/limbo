@@ -26,10 +26,8 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
-#include <set>
 #include <unordered_set>
 #include <utility>
-#include <vector>
 
 #include <limbo/literal.h>
 

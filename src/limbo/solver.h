@@ -27,8 +27,6 @@
 
 #include <cassert>
 
-#include <iterator>
-#include <list>
 #include <unordered_set>
 
 #include <limbo/formula.h>

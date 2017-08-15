@@ -28,7 +28,6 @@
 #include <algorithm>
 #include <list>
 #include <memory>
-#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -1110,17 +1109,23 @@ class Grounder {
     for (auto it = std::next(p); it != plies_.end(); ++it) {
       assert(!it->do_not_add_if_inconsistent);
       it->clauses.shallow_setup.Immortalize();
-      std::move(it->clauses.ungrounded.begin(), it->clauses.ungrounded.end(), std::inserter(p->clauses.ungrounded, p->clauses.ungrounded.end()));
-      std::move(it->clauses.with_term.begin(), it->clauses.with_term.end(), std::inserter(p->clauses.with_term, p->clauses.with_term.end()));
+      std::move(it->clauses.ungrounded.begin(), it->clauses.ungrounded.end(),
+                std::inserter(p->clauses.ungrounded, p->clauses.ungrounded.end()));
+      std::move(it->clauses.with_term.begin(), it->clauses.with_term.end(),
+                std::inserter(p->clauses.with_term, p->clauses.with_term.end()));
       p->names.mentioned.insert(it->names.mentioned);
       p->names.plus_max.insert(it->names.plus_max);
       p->names.plus_new.insert(it->names.plus_new);
       p->names.plus_mentioned.insert(it->names.plus_mentioned);
       p->relevant.filter |= it->relevant.filter;
-      std::move(it->relevant.ungrounded.begin(), it->relevant.ungrounded.end(), std::inserter(p->relevant.ungrounded, p->relevant.ungrounded.end()));
-      std::move(it->relevant.terms.begin(), it->relevant.terms.end(), std::inserter(p->relevant.terms, p->relevant.terms.end()));
-      std::move(it->relevant.clauses.begin(), it->relevant.clauses.end(), std::inserter(p->relevant.clauses, p->relevant.clauses.end()));
-      std::move(it->lhs_rhs.ungrounded.begin(), it->lhs_rhs.ungrounded.end(), std::inserter(p->lhs_rhs.ungrounded, p->lhs_rhs.ungrounded.end()));
+      std::move(it->relevant.ungrounded.begin(), it->relevant.ungrounded.end(),
+                std::inserter(p->relevant.ungrounded, p->relevant.ungrounded.end()));
+      std::move(it->relevant.terms.begin(), it->relevant.terms.end(),
+                std::inserter(p->relevant.terms, p->relevant.terms.end()));
+      std::move(it->relevant.clauses.begin(), it->relevant.clauses.end(),
+                std::inserter(p->relevant.clauses, p->relevant.clauses.end()));
+      std::move(it->lhs_rhs.ungrounded.begin(), it->lhs_rhs.ungrounded.end(),
+                std::inserter(p->lhs_rhs.ungrounded, p->lhs_rhs.ungrounded.end()));
       for (auto& lhs_rhs : it->lhs_rhs.map) {
         auto lhs = p->lhs_rhs.map.find(lhs_rhs.first);
         if (lhs == p->lhs_rhs.map.end()) {
