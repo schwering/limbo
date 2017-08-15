@@ -298,13 +298,13 @@ class ActionTheory {
     return a.pos() ? Literal::Eq(lhs, rhs) : Literal::Neq(lhs, rhs);
   }
 
-  std::vector<Term> Reverse(const Term t) {
+  Term::Vector Reverse(const Term t) {
     auto it = merged_reverse_.find(t.symbol());
     if (it == merged_reverse_.end()) {
       return std::vector<Term>{t};
     }
     LongSymbol symbols = it->second;
-    std::vector<Term> terms;
+    Term::Vector terms;
     terms.reserve(symbols.size());
     Term::Vector::const_iterator first_arg = t.args().begin();
     for (internal::Maybe<Symbol> ms : symbols) {

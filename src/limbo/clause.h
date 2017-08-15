@@ -162,10 +162,6 @@ class Clause {
   }
   bool invalid() const { return empty(); }
 
-#ifdef BLOOM
-  internal::BloomSet<Term> lhs_bloom() const { return lhs_bloom_; }
-#endif
-
   static bool Subsumes(const Literal a, const Clause c) {
     assert(a.primitive());
     assert(c.primitive());

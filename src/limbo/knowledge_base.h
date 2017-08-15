@@ -48,7 +48,6 @@ class KnowledgeBase {
  public:
   typedef internal::size_t size_t;
   typedef size_t sphere_index;
-  typedef Formula::belief_level belief_level;
   typedef Formula::TermSet TermSet;
   typedef Formula::SortedTermSet SortedTermSet;
 
@@ -115,6 +114,8 @@ class KnowledgeBase {
   const TermSet& mentioned_names(Symbol::Sort sort) const { return names_[sort]; }
 
  private:
+  typedef Formula::belief_level belief_level;
+
   struct Conditional {
     belief_level k;
     belief_level l;

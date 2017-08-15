@@ -235,7 +235,7 @@ class Grounder {
 
     struct IsRelevant {
       explicit IsRelevant(const Grounder* owner) : owner(owner) {}
-      bool operator()(const Term t) const { return !owner || !owner->IsNewRelevantTerm(t, Plies::kAll); }
+      bool operator()(const Term t) const { return owner->IsRelevantTerm(t); }
      private:
       const Grounder* owner;
     };
@@ -258,7 +258,7 @@ class Grounder {
     friend class Grounder;
 
     LhsTerms(const Grounder* owner, Plies::Policy policy)
-        : is_relevant(owner->relevance_filter() ? owner : nullptr), plies(owner, policy) {}
+        : is_relevant(owner), plies(owner, policy) {}
 
     const IsRelevant is_relevant;
     const Plies plies;
@@ -598,7 +598,7 @@ class Grounder {
         }
         return true;
       });
-      if (ua.val.lhs().function() && !ua.val.lhs().sort().rigid() && IsNewUngroundedLhsRhs(ua, Plies::kAll)) {
+      if (ua.val.lhs().function() && !ua.val.lhs().sort().rigid() && !IsUngroundedLhsRhs(ua, Plies::kAll)) {
         last_ply().lhs_rhs.ungrounded.insert(std::move(ua));
       }
       return true;
@@ -790,47 +790,50 @@ class Grounder {
     plies_.pop_back();
   }
 
-  bool IsNewUngroundedLhsRhs(const Ungrounded<Literal>& ua, Plies::Policy p) const {
+  bool IsUngroundedLhsRhs(const Ungrounded<Literal>& ua, Plies::Policy p) const {
     assert(ua.val.lhs().function() && !ua.val.lhs().sort().rigid());
     for (const Ply& p : plies(p)) {
-      if (p.lhs_rhs.ungrounded.find(ua) != p.lhs_rhs.ungrounded.end()) {
-        return false;
+      if (p.lhs_rhs.ungrounded.count(ua) > 0) {
+        return true;
       }
     }
-    return true;
+    return false;
   }
 
-  bool IsNewLhsRhs(Literal a, Plies::Policy p) const {
+  bool IsLhsRhs(Literal a) const {
     assert(a.primitive());
-    for (const Ply& p : plies(p)) {
+    for (const Ply& p : plies_) {
       auto it = p.lhs_rhs.map.find(a.lhs());
-      if (it != p.lhs_rhs.map.end() && it->second.find(a.rhs()) != it->second.end()) {
-        return false;
+      if (it != p.lhs_rhs.map.end() && it->second.count(a.rhs()) > 0) {
+        return true;
       }
     }
-    return true;
+    return false;
   }
 
-  bool IsNewRelevantTerm(Term t, Plies::Policy p) const {
-    assert(relevance_filter());
+  bool IsRelevantTerm(Term t) const {
     assert(t.ground() && t.function() && !t.sort().rigid());
-    for (const Ply& p : plies(p)) {
+    if (!relevance_filter()) {
+      return true;
+    }
+    for (const Ply& p : plies_) {
       if (p.relevant.terms.count(t) > 0) {
-        return false;
+        return true;
       }
     }
-    return true;
+    return false;
   }
 
-  bool IsNewRelevantClause(ClauseIndex i, Plies::Policy p) const {
+  bool IsRelevantClause(ClauseIndex i) const {
     assert(relevance_filter());
-    for (const Ply& p : plies(p)) {
+    for (const Ply& p : plies_) {
       if (!p.relevant.filter || p.relevant.clauses.count(i) > 0) {
-        return false;
+        return true;
       }
     }
-    return true;
+    return false;
   }
+
 
   size_t nMaxPlusNames(Symbol::Sort sort) const {
     size_t n_names = 0;
@@ -908,9 +911,9 @@ class Grounder {
     }
   }
 
-  void UpdateLhsRhs(Literal a, Plies::Policy p) {
+  void UpdateLhsRhs(Literal a) {
     assert(a.ground());
-    if (a.lhs().function() && !a.lhs().sort().rigid() && IsNewLhsRhs(a, p)) {
+    if (a.lhs().function() && !a.lhs().sort().rigid() && !IsLhsRhs(a)) {
       const Term t = a.lhs();
       const Term n = a.rhs();
       assert(t.ground() && n.name());
@@ -919,27 +922,27 @@ class Grounder {
     }
   }
 
-  void UpdateLhsRhs(const Clause& c, Plies::Policy p) {
+  void UpdateLhsRhs(const Clause& c) {
     for (const Literal a : c) {
-      UpdateLhsRhs(a, p);
+      UpdateLhsRhs(a);
     }
   }
 
-  void UpdateRelevantTerms(Term t, Plies::Policy p) {
+  void UpdateRelevantTerms(Term t) {
     assert(t.ground());
     assert(relevance_filter());
-    if (t.primitive() && IsNewRelevantTerm(t, p)) {
+    if (t.primitive() && !IsRelevantTerm(t)) {
       last_ply().relevant.terms.insert(t);
     }
   }
 
-  bool UpdateRelevantTerms(const Clause& c, Plies::Policy p) {
+  bool UpdateRelevantTerms(const Clause& c) {
     assert(c.ground());
     assert(!c.valid());
     assert(relevance_filter());
-    if (c.any([this, p](const Literal a) { return !IsNewRelevantTerm(a.lhs(), p); })) {
-      c.all([this, p](const Literal a) {
-        UpdateRelevantTerms(a.lhs(), p);
+    if (c.any([this](const Literal a) { return IsRelevantTerm(a.lhs()); })) {
+      c.all([this](const Literal a) {
+        UpdateRelevantTerms(a.lhs());
         return true;
       });
       return true;
@@ -959,18 +962,21 @@ class Grounder {
       const Term t = *it;
       queue.erase(it);
       for (const ClauseIndex i : clauses_with_term(t, policy)) {
-        assert(s.clause(i).MentionsLhs(t));
-        if (policy != Plies::kAll || !IsNewRelevantClause(i, Plies::kAll)) {
-          const bool inserted = p.relevant.clauses.insert(i).second;
-          if (inserted) {
-            p.relevant.clauses.insert(i);
-            for (const Literal a : s.clause(i)) {
-              assert(a.primitive());
-              const Term t = a.lhs();
-              if (policy != Plies::kAll || IsNewRelevantTerm(t, Plies::kAll)) {
-                const bool inserted = p.relevant.terms.insert(t).second;
-                if (!inserted) {
-                  queue.insert(t);
+        const internal::Maybe<Clause> c = s.clause(i);
+        if (c) {
+          assert(c.val.MentionsLhs(t));
+          if (policy != Plies::kAll || IsRelevantClause(i)) {
+            const bool inserted = p.relevant.clauses.insert(i).second;
+            if (inserted) {
+              p.relevant.clauses.insert(i);
+              for (const Literal a : c.val) {
+                assert(a.primitive());
+                const Term t = a.lhs();
+                if (policy != Plies::kAll || !IsRelevantTerm(t)) {
+                  const bool inserted = p.relevant.terms.insert(t).second;
+                  if (!inserted) {
+                    queue.insert(t);
+                  }
                 }
               }
             }
@@ -1073,20 +1079,22 @@ class Grounder {
       p.clauses.shallow_setup.Minimize();
     }
     for (ClauseIndex i : p.clauses.shallow_setup.new_clauses()) {
-      const Clause c = s.clause(i);
-      UpdateLhsRhs(c, Plies::kAll);
-      UpdateWithTerm(c, i);
+      const internal::Maybe<Clause> c = s.clause(i);
+      if (c) {
+        UpdateLhsRhs(c.val);
+        UpdateWithTerm(c.val, i);
+      }
     }
     ForEachNewGrounding(
         [](const Ply& p) -> auto& { return p.lhs_rhs.ungrounded; },
         [this](const Literal a, const Ply&, Setup::Result*) {
-          UpdateLhsRhs(a, Plies::kAll);
+          UpdateLhsRhs(a);
         });
     if (p.relevant.filter) {
       ForEachNewGrounding(
           [](const Ply& p) { return p.relevant.ungrounded; },
           [this](const Term t, const Ply&, Setup::Result*) {
-            UpdateRelevantTerms(t, Plies::kAll);
+            UpdateRelevantTerms(t);
           });
       CloseRelevance(Plies::kNew);
     }

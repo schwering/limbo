@@ -33,9 +33,8 @@ namespace limbo {
 
 class Literal {
  public:
-  typedef internal::size_t size_t;
-  typedef internal::u32 u32;
-  typedef internal::u64 u64;
+  template<typename T>
+  using Maybe = internal::Maybe<T>;
   struct LhsHash;
 
   static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
@@ -121,14 +120,14 @@ class Literal {
   }
 
   template<Term::UnificationConfiguration config = Term::kDefaultConfig>
-  static internal::Maybe<Term::Substitution> Unify(Literal a, Literal b) {
+  static Maybe<Term::Substitution> Unify(Literal a, Literal b) {
     Term::Substitution sub;
     bool ok = Term::Unify<config>(a.lhs(), b.lhs(), &sub) &&
               Term::Unify<config>(a.rhs(), b.rhs(), &sub);
     return ok ? internal::Just(sub) : internal::Nothing;
   }
 
-  static internal::Maybe<Term::Substitution> Isomorphic(Literal a, Literal b) {
+  static Maybe<Term::Substitution> Isomorphic(Literal a, Literal b) {
     Term::Substitution sub;
     bool ok = Term::Isomorphic(a.lhs(), b.lhs(), &sub);
     if (ok) {
@@ -136,7 +135,7 @@ class Literal {
         sub.Add(a.rhs(), b.rhs());
         ok = true;
       } else {
-        const internal::Maybe<Term> ar = sub(a.rhs());
+        const Maybe<Term> ar = sub(a.rhs());
         ok = ar && ar == sub(b.rhs());
       }
     }
@@ -150,6 +149,9 @@ class Literal {
   }
 
  private:
+  typedef internal::u32 u32;
+  typedef internal::u64 u64;
+
   explicit Literal(Term lhs) {
     // Shall be the operator<-minimum of all Literals with lhs.
     data_ = static_cast<u64>(lhs.id());

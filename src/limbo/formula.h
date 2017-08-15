@@ -45,6 +45,8 @@ class Formula {
   typedef SortedTermSet::Bucket TermSet;
   typedef internal::IntMap<Symbol::Sort, size_t> SortCount;
   typedef unsigned int belief_level;
+  template<typename T>
+  using Maybe = internal::Maybe<T>;
   enum Type { kAtomic, kNot, kOr, kExists, kKnow, kCons, kBel, kGuarantee, kAction };
 
   class Factory {
@@ -238,7 +240,7 @@ class Formula {
     class FreeSubstitution : public ISubstitution {
      public:
       explicit FreeSubstitution(UnaryFunction func) : func_(func) {}
-      internal::Maybe<Term> operator()(Term t) const override { return !bound(t) ? func_(t) : internal::Nothing; }
+      Maybe<Term> operator()(Term t) const override { return !bound(t) ? func_(t) : internal::Nothing; }
      private:
       UnaryFunction func_;
     };
@@ -296,7 +298,7 @@ class Formula {
     return vars.PrependTo(std::move(alpha));
   }
 
-  internal::Maybe<Clause> AsUnivClause() const { return AsUnivClause(0); }
+  Maybe<Clause> AsUnivClause() const { return AsUnivClause(0); }
 
   virtual bool non_modal() const = 0;
   virtual bool objective() const = 0;
@@ -310,7 +312,7 @@ class Formula {
   class ISubstitution {
    public:
     virtual ~ISubstitution() {}
-    virtual internal::Maybe<Term> operator()(Term t) const = 0;
+    virtual Maybe<Term> operator()(Term t) const = 0;
     void Bind(Term t) const { bound_.insert(t); }
     void Unbind(Term t) const { bound_.erase(t); }
     bool bound(Term t) const { return bound_.contains(t); }
@@ -350,7 +352,7 @@ class Formula {
 
   virtual Ref Prenex(QuantifierPrefix* vars, size_t nots, Symbol::Factory* sf, Term::Factory* tf) const = 0;
 
-  virtual internal::Maybe<Clause> AsUnivClause(size_t nots) const = 0;
+  virtual Maybe<Clause> AsUnivClause(size_t nots) const = 0;
 
   template<typename UnaryFunction>
   Ref SkolemizeBelief(const Term::Vector& vars, const TermMap& sub, size_t nots,
@@ -383,7 +385,7 @@ class Formula {
 
  private:
   Type type_;
-  mutable internal::Maybe<SortedTermSet> free_vars_ = internal::Nothing;
+  mutable Maybe<SortedTermSet> free_vars_ = internal::Nothing;
 };
 
 Formula::Ref Formula::QuantifierPrefix::PrependTo(Ref alpha) const {
@@ -490,7 +492,7 @@ class Formula::Atomic : public Formula {
     return Clone();
   }
 
-  internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
+  Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 != 0 ||
         !std::all_of(c_.begin(), c_.end(), [](Literal a) {
                      return a.quasi_primitive() || (!a.lhs().function() && !a.rhs().function()); })) {
@@ -603,12 +605,12 @@ class Formula::Or : public Formula {
     return Factory::Or(alpha_->Prenex(vars, nots, sf, tf), beta_->Prenex(vars, nots, sf, tf));
   }
 
-  internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
+  Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 != 0) {
       return internal::Nothing;
     }
-    const internal::Maybe<Clause> c1 = alpha_->AsUnivClause(nots);
-    const internal::Maybe<Clause> c2 = beta_->AsUnivClause(nots);
+    const Maybe<Clause> c1 = alpha_->AsUnivClause(nots);
+    const Maybe<Clause> c2 = beta_->AsUnivClause(nots);
     if (!c1 || !c2) {
       return internal::Nothing;
     }
@@ -720,7 +722,7 @@ class Formula::Exists : public Formula {
     return alpha_->Prenex(vars, nots, sf, tf);
   }
 
-  internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
+  Maybe<Clause> AsUnivClause(size_t nots) const override {
     if (nots % 2 == 0) {
       return internal::Nothing;
     }
@@ -818,7 +820,7 @@ class Formula::Not : public Formula {
     return alpha_->Prenex(vars, nots + 1, sf, tf);
   }
 
-  internal::Maybe<Clause> AsUnivClause(size_t nots) const override {
+  Maybe<Clause> AsUnivClause(size_t nots) const override {
     return alpha_->AsUnivClause(nots + 1);
   }
 
@@ -893,7 +895,7 @@ class Formula::Know : public Formula {
     return Factory::Know(k_, alpha_->Prenex(sf, tf));
   }
 
-  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
+  Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
   static Ref DistK(belief_level k, Ref alpha) {
@@ -1009,7 +1011,7 @@ class Formula::Cons : public Formula {
     return Factory::Cons(k_, alpha_->Prenex(sf, tf));
   }
 
-  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
+  Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
   static Ref DistM(belief_level k, Ref alpha) {
@@ -1138,7 +1140,7 @@ class Formula::Bel : public Formula {
     return Factory::Bel(k_, l_, ante_->Prenex(sf, tf), conse_->Prenex(sf, tf));
   }
 
-  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
+  Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
   Bel(belief_level k, belief_level l, Ref antecedent, Ref consequent, Ref not_antecedent_or_consequent) :
@@ -1214,7 +1216,7 @@ class Formula::Guarantee : public Formula {
     return Factory::Guarantee(alpha_->Prenex(sf, tf));
   }
 
-  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
+  Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
   Ref alpha_;
@@ -1342,7 +1344,7 @@ class Formula::Action : public Formula {
     return Factory::Action(t_, alpha_->Prenex(vars, nots, sf, tf));
   }
 
-  internal::Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
+  Maybe<Clause> AsUnivClause(size_t nots) const override { return internal::Nothing; }
 
  private:
   Term t_;

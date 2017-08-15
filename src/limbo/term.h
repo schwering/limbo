@@ -167,6 +167,8 @@ class Term {
   struct Substitution;
   typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
   typedef internal::i8 UnificationConfiguration;
+  template<typename T>
+  using Maybe = internal::Maybe<T>;
 
   static constexpr UnificationConfiguration kUnifyLeft = (1 << 0);
   static constexpr UnificationConfiguration kUnifyRight = (1 << 1);
@@ -211,10 +213,10 @@ class Term {
   template<Term::UnificationConfiguration config = Term::kDefaultConfig>
   static bool Unify(Term l, Term r, Substitution* sub);
   template<Term::UnificationConfiguration config = Term::kDefaultConfig>
-  static internal::Maybe<Substitution> Unify(Term l, Term r);
+  static Maybe<Substitution> Unify(Term l, Term r);
 
   static bool Isomorphic(Term l, Term r, Substitution* sub);
-  static internal::Maybe<Substitution> Isomorphic(Term l, Term r);
+  static Maybe<Substitution> Isomorphic(Term l, Term r);
 
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
@@ -346,7 +348,7 @@ struct Term::Substitution {
   Substitution(Term old, Term sub) { Add(old, sub); }
 
   bool Add(Term old, Term sub) {
-    internal::Maybe<Term> bef = operator()(old);
+    Maybe<Term> bef = operator()(old);
     if (!bef) {
       subs_.push_back(std::make_pair(old, sub));
       return true;
@@ -355,7 +357,7 @@ struct Term::Substitution {
     }
   }
 
-  internal::Maybe<Term> operator()(const Term t) const {
+  Maybe<Term> operator()(const Term t) const {
     for (auto p : subs_) {
       if (p.first == t) {
         return internal::Just(p.second);
@@ -373,7 +375,7 @@ inline const Term::Data* Term::data()   const { return Factory::Instance()->get(
 
 template<typename UnaryFunction>
 Term Term::Substitute(UnaryFunction theta, Factory* tf) const {
-  internal::Maybe<Term> t = theta(*this);
+  Maybe<Term> t = theta(*this);
   if (t) {
     return t.val;
   } else if (arity() > 0) {
@@ -397,7 +399,7 @@ bool Term::Unify(Term l, Term r, Substitution* sub) {
   if (l == r) {
     return true;
   }
-  internal::Maybe<Term> u;
+  Maybe<Term> u;
   l = (config & kUnifyLeft) != 0 && (u = (*sub)(l)) ? u.val : l;
   r = (config & kUnifyRight) != 0 && (u = (*sub)(r)) ? u.val : r;
   if (l.sort() != r.sort()) {

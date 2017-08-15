@@ -46,6 +46,9 @@ namespace limbo {
 
 class Solver {
  public:
+  template<typename T>
+  using Maybe = internal::Maybe<T>;
+
   static constexpr bool kConsistencyGuarantee = true;
   static constexpr bool kNoConsistencyGuarantee = false;
 
@@ -74,7 +77,7 @@ class Solver {
     return entailed;
   }
 
-  internal::Maybe<Term> Determines(Formula::belief_level k, Term lhs, bool assume_consistent = false) {
+  Maybe<Term> Determines(Formula::belief_level k, Term lhs, bool assume_consistent = false) {
     assert(lhs.primitive());
     Grounder::Undo undo1;
     if (assume_consistent) {
@@ -82,17 +85,17 @@ class Solver {
     }
     Grounder::Undo undo2;
     grounder_.PrepareForQuery(lhs, &undo2);
-    internal::Maybe<Term> inconsistent_result = internal::Just(Term());
-    internal::Maybe<Term> unsuccessful_result = internal::Nothing;
-    internal::Maybe<Term> t = Split(k,
-                 [this, lhs]() { return Determines(lhs); },
-                 [](internal::Maybe<Term> r1, internal::Maybe<Term> r2) {
-                   return r1 && r2 && r1.val == r2.val ? r1 :
-                          r1 && r2 && r1.val.null()    ? r2 :
-                          r1 && r2 && r2.val.null()    ? r1 :
-                                                         internal::Nothing;
-                 },
-                 inconsistent_result, unsuccessful_result);
+    Maybe<Term> inconsistent_result = internal::Just(Term());
+    Maybe<Term> unsuccessful_result = internal::Nothing;
+    Maybe<Term> t = Split(k,
+                          [this, lhs]() { return Determines(lhs); },
+                          [](Maybe<Term> r1, Maybe<Term> r2) {
+                            return r1 && r2 && r1.val == r2.val ? r1 :
+                                   r1 && r2 && r1.val.null()    ? r2 :
+                                   r1 && r2 && r2.val.null()    ? r1 :
+                                                                  internal::Nothing;
+                          },
+                          inconsistent_result, unsuccessful_result);
     return t;
   }
 
@@ -116,10 +119,6 @@ class Solver {
   }
 
  private:
-#ifdef FRIEND_TEST
-  FRIEND_TEST(SolverTest, Constants);
-#endif
-
   typedef internal::size_t size_t;
   typedef Formula::SortedTermSet SortedTermSet;
 
@@ -298,7 +297,7 @@ next_term:
     }
   }
 
-  internal::Maybe<Term> Determines(const Term t) const {
+  Maybe<Term> Determines(const Term t) const {
     return setup().Determines(t);
   }
 

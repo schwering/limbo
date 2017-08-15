@@ -77,13 +77,13 @@ namespace limbo {
 
 class Setup {
  public:
-  typedef internal::size_t size_t;
   template<typename T>
   using Maybe = internal::Maybe<T>;
 
   enum Result { kOk, kSubsumed, kInconsistent };
 
   struct ClauseRange {
+    typedef internal::size_t size_t;
     typedef internal::Integer<size_t> Index;
     typedef internal::int_iterator<Index> int_iterator;
     typedef internal::joined_iterator<int_iterator> iterator;
@@ -379,6 +379,8 @@ class Setup {
 
  private:
   friend ShallowCopy;
+
+  typedef internal::size_t size_t;
 
   struct Watched {
     Watched() = default;
