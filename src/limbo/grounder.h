@@ -165,7 +165,7 @@ class Grounder {
         case kOld:
           return std::next(owner->plies_.rbegin());
       }
-      return owner->plies_.rbegin();
+      throw;
     }
 
     iterator end() const {
@@ -176,6 +176,7 @@ class Grounder {
         case kNew:
           return std::next(begin());
       }
+      throw;
     }
 
    private:
@@ -663,16 +664,18 @@ class Grounder {
     }, tf_);
   }
 
-  LhsTerms lhs_terms(Plies::Policy p = Plies::kAll) const { return LhsTerms(this, p); }
+  LhsTerms lhs_terms(Plies::Policy policy = Plies::kAll) const { return LhsTerms(this, policy); }
   // The additional name must not be used after RhsName's death.
-  RhsNames rhs_names(Term t, Plies::Policy p = Plies::kAll) { return RhsNames(this, t, p); }
-  Names names(Symbol::Sort sort, Plies::Policy p = Plies::kAll) const { return Names(this, sort, p); }
+  RhsNames rhs_names(Term t, Plies::Policy policy = Plies::kAll) { return RhsNames(this, t, policy); }
+  Names names(Symbol::Sort sort, Plies::Policy policy = Plies::kAll) const { return Names(this, sort, policy); }
 
-  ClausesWithTerm clauses_with_term(Term t, Plies::Policy p = Plies::kAll) const { return ClausesWithTerm(this, t, p); }
+  ClausesWithTerm clauses_with_term(Term t, Plies::Policy policy = Plies::kAll) const {
+    return ClausesWithTerm(this, t, policy);
+  }
 
   bool relevance_filter() const { return !plies_.empty() && last_ply().relevant.filter; }
-  RelevantTerms relevant_terms(Plies::Policy p = Plies::kAll) const { return RelevantTerms(this, p); }
-  RelevantClauses relevant_clauses(Plies::Policy p = Plies::kAll) const { return RelevantClauses(this, p); }
+  RelevantTerms relevant_terms(Plies::Policy policy = Plies::kAll) const { return RelevantTerms(this, policy); }
+  RelevantClauses relevant_clauses(Plies::Policy policy = Plies::kAll) const { return RelevantClauses(this, policy); }
 
  private:
   template<typename T>
@@ -740,8 +743,8 @@ class Grounder {
 
     typedef internal::transform_iterator<typename Assignments::iterator, Ground> iterator;
 
-    Groundings(const Grounder* owner, const T* obj, const SortedTermSet* vars, Term x, Term n, Plies::Policy p)
-        : x(x), n(n), assignments(owner, vars, p, x, n), ground(owner->tf_, obj, x, n) {}
+    Groundings(const Grounder* owner, const T* obj, const SortedTermSet* vars, Term x, Term n, Plies::Policy policy)
+        : x(x), n(n), assignments(owner, vars, policy, x, n), ground(owner->tf_, obj, x, n) {}
 
     iterator begin() const { return iterator(assignments.begin(), ground); }
     iterator end()   const { return iterator(assignments.end(), ground); }
@@ -754,13 +757,14 @@ class Grounder {
   };
 
   template<typename T>
-  Groundings<T> groundings(const T* o, const SortedTermSet* vars, Plies::Policy p = Plies::kAll) const {
-    return groundings(o, vars, Term(), Term(), p);
+  Groundings<T> groundings(const T* o, const SortedTermSet* vars, Plies::Policy policy = Plies::kAll) const {
+    return groundings(o, vars, Term(), Term(), policy);
   }
 
   template<typename T>
-  Groundings<T> groundings(const T* o, const SortedTermSet* vars, Term x, Term n, Plies::Policy p = Plies::kAll) const {
-    return Groundings<T>(this, o, vars, x, n, p);
+  Groundings<T> groundings(const T* o, const SortedTermSet* vars, Term x, Term n,
+                           Plies::Policy policy = Plies::kAll) const {
+    return Groundings<T>(this, o, vars, x, n, policy);
   }
 
   Ply& new_ply() {
@@ -772,7 +776,7 @@ class Grounder {
     return p;
   }
 
-  Plies plies(Plies::Policy p = Plies::kAll) const { return Plies(this, p); }
+  Plies plies(Plies::Policy policy = Plies::kAll) const { return Plies(this, policy); }
 
   Ply& last_ply() { assert(!plies_.empty()); return plies_.back(); }
   const Ply& last_ply() const { assert(!plies_.empty()); return plies_.back(); }
@@ -789,9 +793,9 @@ class Grounder {
     plies_.pop_back();
   }
 
-  bool IsUngroundedLhsRhs(const Ungrounded<Literal>& ua, Plies::Policy p) const {
+  bool IsUngroundedLhsRhs(const Ungrounded<Literal>& ua, Plies::Policy policy) const {
     assert(ua.val.lhs().function() && !ua.val.lhs().sort().rigid());
-    for (const Ply& p : plies(p)) {
+    for (const Ply& p : plies(policy)) {
       if (p.lhs_rhs.ungrounded.count(ua) > 0) {
         return true;
       }

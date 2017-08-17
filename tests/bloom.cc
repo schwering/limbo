@@ -82,18 +82,18 @@ TEST(BloomFilterTest, hash) {
 
 TEST(BloomFilterTest, hash) {
   const uint64_t x = 0xFF03FF02FF01FF00;
-  EXPECT_EQ(BloomFilter::index<0>(x), 0x00);
-  EXPECT_EQ(BloomFilter::index<1>(x), 0x3F);
-  EXPECT_EQ(BloomFilter::index<2>(x), 0x01);
-  EXPECT_EQ(BloomFilter::index<3>(x), 0x3F);
-  EXPECT_EQ(BloomFilter::index<4>(x), 0x02);
-  EXPECT_EQ(BloomFilter::index<5>(x), 0x3F);
-  EXPECT_EQ(BloomFilter::index<6>(x), 0x03);
-  EXPECT_EQ(BloomFilter::index<7>(x), 0x3F);
-  EXPECT_EQ(BloomFilter::index<0>(static_cast<uint64_t>(64)), 0);
-  EXPECT_EQ(BloomFilter::index<0>(static_cast<uint64_t>(63)), 63);
-  EXPECT_EQ(BloomFilter::index<7>(static_cast<uint64_t>(64) << (7*8)), 0);
-  EXPECT_EQ(BloomFilter::index<7>(static_cast<uint64_t>(63) << (7*8)), 63);
+  EXPECT_EQ(BloomFilter::index<0>(x), 0x00u);
+  EXPECT_EQ(BloomFilter::index<1>(x), 0x3Fu);
+  EXPECT_EQ(BloomFilter::index<2>(x), 0x01u);
+  EXPECT_EQ(BloomFilter::index<3>(x), 0x3Fu);
+  EXPECT_EQ(BloomFilter::index<4>(x), 0x02u);
+  EXPECT_EQ(BloomFilter::index<5>(x), 0x3Fu);
+  EXPECT_EQ(BloomFilter::index<6>(x), 0x03u);
+  EXPECT_EQ(BloomFilter::index<7>(x), 0x3Fu);
+  EXPECT_EQ(BloomFilter::index<0>(u64(64)), 0u);
+  EXPECT_EQ(BloomFilter::index<0>(u64(63)), 63u);
+  EXPECT_EQ(BloomFilter::index<7>(u64(64) << (7*8)), 0u);
+  EXPECT_EQ(BloomFilter::index<7>(u64(63) << (7*8)), 63u);
 }
 
 }  // namespace internal

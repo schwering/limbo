@@ -34,8 +34,8 @@ TEST(TermTest, general) {
   EXPECT_TRUE(n1 != tf.CreateTerm(Symbol::Factory::CreateName(2, s1)) && n2 == tf.CreateTerm(Symbol::Factory::CreateName(2, s1)));
   EXPECT_TRUE(!n1.null() && n1.name() && !n1.variable() && !n1.function());
   EXPECT_TRUE(!n2.null() && n2.name() && !n2.variable() && !n2.function());
-  EXPECT_EQ(n1.symbol().id(), 1);
-  EXPECT_EQ(n2.symbol().id(), 2);
+  EXPECT_EQ(n1.symbol().id(), 1u);
+  EXPECT_EQ(n2.symbol().id(), 2u);
 
   const Term x1 = tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1));
   const Term x2 = tf.CreateTerm(Symbol::Factory::CreateVariable(2, s1));
@@ -44,8 +44,8 @@ TEST(TermTest, general) {
   EXPECT_TRUE(n1 != x1 && n1 != x2 && n2 != x1 && n2 != x2);
   EXPECT_TRUE(x1 == tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1)) && x2 != tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1)));
   EXPECT_TRUE(x1 != tf.CreateTerm(Symbol::Factory::CreateVariable(2, s1)) && x2 == tf.CreateTerm(Symbol::Factory::CreateVariable(2, s1)));
-  EXPECT_EQ(x1.symbol().id(), 1);
-  EXPECT_EQ(x2.symbol().id(), 2);
+  EXPECT_EQ(x1.symbol().id(), 1u);
+  EXPECT_EQ(x2.symbol().id(), 2u);
 
   const Term f1 = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s1, 1), {n1});
   const Term f2 = tf.CreateTerm(Symbol::Factory::CreateFunction(2, s2, 2), {n1,x2});
@@ -61,10 +61,10 @@ TEST(TermTest, general) {
   EXPECT_TRUE(f5 != f2);
   EXPECT_TRUE(f5 == f4);
   EXPECT_TRUE(f5 == tf.CreateTerm(Symbol::Factory::CreateFunction(2, s2, 2), {n1,f1}));
-  EXPECT_EQ(f1.symbol().id(), 1);
-  EXPECT_EQ(f2.symbol().id(), 2);
-  EXPECT_EQ(f3.symbol().id(), 1);
-  EXPECT_EQ(f4.symbol().id(), 2);
+  EXPECT_EQ(f1.symbol().id(), 1u);
+  EXPECT_EQ(f2.symbol().id(), 2u);
+  EXPECT_EQ(f3.symbol().id(), 1u);
+  EXPECT_EQ(f4.symbol().id(), 2u);
 
   typedef std::unordered_set<Term> TermSet;
   TermSet terms;

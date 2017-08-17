@@ -220,6 +220,7 @@ class ActionTheory {
         return Regress(zz, alpha.as_action().arg());
       }
     }
+    throw;
   }
 
   template<typename InputIt>

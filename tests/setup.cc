@@ -70,11 +70,11 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
       EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), limbo::Setup::kOk);
       EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(fn,n)})), limbo::Setup::kOk);
       EXPECT_EQ(s1.AddClause(Clause({Literal::Neq(a,n), Literal::Eq(gn,n)})), limbo::Setup::kOk);
-      EXPECT_EQ(length(s1), 6);
-      EXPECT_EQ(unique_length(s1), 4);
+      EXPECT_EQ(length(s1), 6u);
+      EXPECT_EQ(unique_length(s1), 4u);
       s1.Minimize();
-      EXPECT_EQ(length(s1), 6);
-      EXPECT_EQ(unique_length(s1), 4);
+      EXPECT_EQ(length(s1), 6u);
+      EXPECT_EQ(unique_length(s1), 4u);
       EXPECT_TRUE(!s1.Consistent());
       for (const auto i : s1.clauses()) {
         EXPECT_TRUE(s1.clause(i));
@@ -85,8 +85,8 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
       {
         limbo::Setup& s2 = s1;
         EXPECT_EQ(s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})), limbo::Setup::kOk);
-        EXPECT_EQ(length(s2), 7);
-        EXPECT_EQ(unique_length(s2), 5);
+        EXPECT_EQ(length(s2), 7u);
+        EXPECT_EQ(unique_length(s2), 5u);
         EXPECT_TRUE(!s2.Consistent());
         for (const auto i : s2.clauses()) {
           EXPECT_TRUE(s2.clause(i));
@@ -96,11 +96,11 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
         {
           limbo::Setup& s3 = s2;
           EXPECT_EQ(s3.AddClause(Clause({Literal::Neq(a,m)})), limbo::Setup::kOk);
-          EXPECT_EQ(length(s3), 5);
-          EXPECT_EQ(unique_length(s3), 5);
+          EXPECT_EQ(length(s3), 5u);
+          EXPECT_EQ(unique_length(s3), 5u);
           s3.Minimize();
-          EXPECT_EQ(length(s3), 5);
-          EXPECT_EQ(unique_length(s3), 5);
+          EXPECT_EQ(length(s3), 5u);
+          EXPECT_EQ(unique_length(s3), 5u);
           //EXPECT_TRUE(s3.Consistent());
         }
       }
