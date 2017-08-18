@@ -301,11 +301,69 @@ next_term:
 
   bool Consistent() const {
     if (grounder_.relevance_filter()) {
-      auto r = grounder_.relevant_clauses();
-      return setup().Consistent(r.begin(), r.end());
+      auto clauses = grounder_.relevant_clauses();
+      return Consistent(clauses.begin(), clauses.end(),
+                        [this](const Symbol::Sort sort) { return grounder_.names(sort); });
     } else {
-      return setup().Consistent();
+      return Consistent([this](const Symbol::Sort sort) { return grounder_.names(sort); });
     }
+  }
+
+  template<typename UnaryFunction>
+  bool Consistent(UnaryFunction names) const {
+    if (grounder_.setup().contains_empty_clause()) {
+      return false;
+    }
+    std::unordered_set<Literal, Literal::LhsHash> lits;
+    for (Setup::ClauseRange::Index i : grounder_.setup().clauses()) {
+      const Maybe<Clause> c = grounder_.setup().clause(i);
+      if (c) {
+        lits.insert(c.val.begin(), c.val.end());
+      }
+    }
+    return ConsistentSet(lits, names);
+  }
+
+  template<typename ClauseInputIt, typename UnaryFunction>
+  bool Consistent(ClauseInputIt first_clause, ClauseInputIt last_clause, UnaryFunction names) const {
+    if (grounder_.setup().contains_empty_clause()) {
+      return false;
+    }
+    std::unordered_set<Literal, Literal::LhsHash> lits;
+    for (auto it = first_clause; it != last_clause; ++it) {
+      const Maybe<Clause> c = grounder_.setup().clause(*it);
+      if (c) {
+        lits.insert(c.val.begin(), c.val.end());
+      }
+    }
+    return ConsistentSet(lits, names);
+  }
+
+  template<typename UnaryFunction>
+  static bool ConsistentSet(const std::unordered_set<Literal, Literal::LhsHash>& lits, UnaryFunction names) {
+    std::unordered_set<Term> lhss;
+    for (const Literal a : lits) {
+      assert(lits.bucket_count() > 0);
+      const size_t bucket = lits.bucket(a);
+      const auto begin = lits.begin(bucket);
+      const auto end = lits.end(bucket);
+      for (auto it = begin; it != end; ++it) {
+        const Literal b = *it;
+        assert(Literal::Complementary(a, b) == Literal::Complementary(b, a));
+        if (Literal::Complementary(a, b)) {
+          return false;
+        }
+      }
+      lhss.insert(a.lhs());
+    }
+    for (const Term t : lhss) {
+      for (const Term n : names(t.sort())) {
+        if (lits.count(Literal::Neq(t, n)) == 0) {
+          break;
+        }
+      }
+    }
+    return true;
   }
 
   Term::Factory* tf_;

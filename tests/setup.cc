@@ -41,7 +41,7 @@ ClauseSet S(const Setup& s) {
 size_t length(const Setup& s) { return V(s).size(); }
 size_t unique_length(const Setup& s) { return S(s).size(); }
 
-TEST(SetupTest, Subsumes_Consistent_clauses) {
+TEST(SetupTest, Subsumes_clauses) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
   const Symbol::Sort s1 = sf.CreateSort(); RegisterSort(s1, "");
@@ -57,7 +57,6 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
     limbo::Setup s0;
     EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(fn,n), Literal::Eq(fm,m)})), limbo::Setup::kOk);
     EXPECT_EQ(s0.AddClause(Clause({Literal::Neq(gn,n), Literal::Eq(gm,m)})), limbo::Setup::kOk);
-    EXPECT_TRUE(s0.Consistent());
     for (auto i : s0.clauses()) {
       EXPECT_TRUE(s0.clause(i));
       EXPECT_TRUE(s0.Subsumes(s0.clause(i).val));
@@ -75,7 +74,6 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
       s1.Minimize();
       EXPECT_EQ(length(s1), 6u);
       EXPECT_EQ(unique_length(s1), 4u);
-      EXPECT_TRUE(!s1.Consistent());
       for (const auto i : s1.clauses()) {
         EXPECT_TRUE(s1.clause(i));
         EXPECT_TRUE(s1.Subsumes(s1.clause(i).val));
@@ -87,7 +85,6 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
         EXPECT_EQ(s2.AddClause(Clause({Literal::Eq(a,m), Literal::Eq(a,n)})), limbo::Setup::kOk);
         EXPECT_EQ(length(s2), 7u);
         EXPECT_EQ(unique_length(s2), 5u);
-        EXPECT_TRUE(!s2.Consistent());
         for (const auto i : s2.clauses()) {
           EXPECT_TRUE(s2.clause(i));
           EXPECT_TRUE(s2.Subsumes(s2.clause(i).val));
@@ -101,7 +98,6 @@ TEST(SetupTest, Subsumes_Consistent_clauses) {
           s3.Minimize();
           EXPECT_EQ(length(s3), 5u);
           EXPECT_EQ(unique_length(s3), 5u);
-          //EXPECT_TRUE(s3.Consistent());
         }
       }
     }

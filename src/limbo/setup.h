@@ -316,35 +316,6 @@ class Setup {
     return false;
   }
 
-  bool Consistent() const {
-    if (empty_clause_) {
-      return false;
-    }
-    std::unordered_set<Literal, Literal::LhsHash> lits;
-    for (ClauseRange::Index i : clauses()) {
-      const Maybe<Clause> c = clause(i);
-      if (c) {
-        lits.insert(c.val.begin(), c.val.end());
-      }
-    }
-    return ConsistentSet(lits);
-  }
-
-  template<typename InputIt>
-  bool Consistent(InputIt first_clause, InputIt last_clause) const {
-    if (empty_clause_) {
-      return false;
-    }
-    std::unordered_set<Literal, Literal::LhsHash> lits;
-    for (InputIt it = first_clause; it != last_clause; ++it) {
-      const Maybe<Clause> c = clause(*it);
-      if (c) {
-        lits.insert(c.val.begin(), c.val.end());
-      }
-    }
-    return ConsistentSet(lits);
-  }
-
   bool contains_empty_clause() const { return empty_clause_; }
 
   const std::unordered_set<Literal, Literal::LhsHash>& units() const { return units_.set(); }
@@ -536,23 +507,6 @@ class Setup {
     std::unordered_set<Literal, Literal::LhsHash> set_;
     size_t n_orig_ = 0;
   };
-
-  static bool ConsistentSet(const std::unordered_set<Literal, Literal::LhsHash>& lits) {
-    for (const Literal a : lits) {
-      assert(lits.bucket_count() > 0);
-      const size_t bucket = lits.bucket(a);
-      const auto begin = lits.begin(bucket);
-      const auto end   = lits.end(bucket);
-      for (auto it = begin; it != end; ++it) {
-        const Literal b = *it;
-        assert(Literal::Complementary(a, b) == Literal::Complementary(b, a));
-        if (Literal::Complementary(a, b)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
 
   void Minimize(const size_t n_clauses, const size_t n_units) {
     assert(n_clauses + n_units > 0 || saved_ == 0);
