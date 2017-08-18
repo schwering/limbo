@@ -241,26 +241,28 @@ next:
     assert(a.primitive());
     assert(!valid());
     assert(!a.valid() && !a.invalid());
-    Result r = kUnchanged;
+    size_t n_nulls = 0;
 #ifdef BLOOM
     if (!lhs_bloom_.PossiblyContains(a.lhs())) {
-      return r;
+      return kUnchanged;
     }
 #endif
     for (size_t i = 0; i < size(); ++i) {
       const Literal b = (*this)[i];
       if (a.Subsumes(b)) {
+        if (n_nulls > 0) {
+          RemoveNulls();
+        }
         return kSubsumed;
       } else if (Literal::Complementary(a, b)) {
         Nullify(i);
-        r = kPropagated;
+        ++n_nulls;
       }
     }
-    RemoveNulls();
-#ifdef BLOOM
-    InitBloom();
-#endif
-    return r;
+    if (n_nulls > 0) {
+      RemoveNulls();
+    }
+    return n_nulls > 0 ? kPropagated : kUnchanged;
   }
 
   template<typename InputIt>
@@ -269,7 +271,7 @@ next:
     assert(!valid());
     assert(std::all_of(first, last, [](const Literal a) { return a.primitive(); }));
     assert(std::all_of(first, last, [](const Literal a) { return !a.valid() && !a.invalid(); }));
-    Result r = kUnchanged;
+    size_t n_nulls = 0;
     for (size_t i = 0; i < size(); ++i) {
       const Literal b = (*this)[i];
       for (; first != last && b.lhs() > first->lhs(); ++first) {}
@@ -277,6 +279,9 @@ next:
       for (auto jt = first; jt != last && b.lhs() == jt->lhs(); ++jt) {
         const Literal a = *jt;
         if (a.Subsumes(b)) {
+          if (n_nulls > 0) {
+            RemoveNulls();
+          }
           return kSubsumed;
         } else if (Literal::Complementary(a, b)) {
           complementary = true;
@@ -284,16 +289,13 @@ next:
       }
       if (complementary) {
         Nullify(i);
-        r = kPropagated;
+        ++n_nulls;
       }
     }
-    if (r == kPropagated) {
+    if (n_nulls > 0) {
       RemoveNulls();
-#ifdef BLOOM
-      InitBloom();
-#endif
     }
-    return r;
+    return n_nulls > 0 ? kPropagated : kUnchanged;
   }
 
   Result PropagateUnits(const std::unordered_set<Literal, Literal::LhsHash>& units) {
@@ -301,7 +303,7 @@ next:
     assert(!valid());
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.invalid(); }));
-    Result r = kUnchanged;
+    size_t n_nulls = 0;
     for (size_t i = 0; i < size(); ++i) {
       const Literal b = (*this)[i];
       if (units.bucket_count() > 0) {
@@ -310,6 +312,9 @@ next:
         for (auto it = units.begin(bucket), end = units.end(bucket); it != end; ++it) {
           const Literal a = *it;
           if (a.Subsumes(b)) {
+            if (n_nulls > 0) {
+              RemoveNulls();
+            }
             return kSubsumed;
           } else if (Literal::Complementary(b, a)) {
             complementary = true;
@@ -317,17 +322,14 @@ next:
         }
         if (complementary) {
           Nullify(i);
-          r = kPropagated;
+          ++n_nulls;
         }
       }
     }
-    if (r == kPropagated) {
+    if (n_nulls > 0) {
       RemoveNulls();
-#ifdef BLOOM
-      InitBloom();
-#endif
     }
-    return r;
+    return n_nulls > 0 ? kPropagated : kUnchanged;
   }
 
   bool ground()      const { return all([](const Literal a) { return a.ground(); }); }
@@ -422,6 +424,9 @@ next:
   void RemoveNulls() {
     iterator new_end = std::remove_if(begin(), end(), [](const Literal a) { return a.null(); });
     size_ = new_end - begin();
+#ifdef BLOOM
+    InitBloom();
+#endif
     assert(!any([](Literal a) { return a.null(); }));
   }
 

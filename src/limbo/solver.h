@@ -38,8 +38,6 @@
 #include <limbo/internal/ints.h>
 #include <limbo/internal/maybe.h>
 
-#include <limbo/format/output.h>
-
 namespace limbo {
 
 class Solver {

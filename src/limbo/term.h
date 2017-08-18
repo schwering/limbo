@@ -252,7 +252,7 @@ class Term {
     return true;
   }
 
-  u32 id_;
+  u32 id_ = 0;
 };
 
 struct Term::Data {
@@ -298,6 +298,7 @@ class Term::Factory : private Singleton<Factory> {
   }
 
   Term CreateTerm(Symbol symbol, const Vector& args) {
+    assert(!symbol.null() && std::all_of(args.begin(), args.end(), [](const Term t) { return !t.null(); }));
     assert(symbol.arity() == static_cast<Symbol::Arity>(args.size()));
     Data* d = new Data(symbol, args);
     DataPtrSet* s = &memory_[symbol.sort()];
