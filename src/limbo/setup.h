@@ -328,6 +328,19 @@ class Setup {
 
   ClauseRange clauses() const { return ClauseRange(empty_clause_, units_.size(), clauses_.size()); }
 
+  const Clause raw_clause(ClauseRange::Index i) const {
+    if (ClauseRange::is_empty_clause(i)) {
+      assert(empty_clause_);
+      return Clause();
+    }
+    if (ClauseRange::is_unit(i)) {
+      return Clause(units_[ClauseRange::index(i)]);
+    } else {
+      assert(ClauseRange::is_clause(i));
+      return clauses_[ClauseRange::index(i)];
+    }
+  }
+
   const Maybe<Clause> clause(ClauseRange::Index i) const {
     if (ClauseRange::is_empty_clause(i)) {
       assert(empty_clause_);
@@ -440,7 +453,7 @@ class Setup {
           }
         }
       }
-      assert(set_.find(a) == set_.end());
+      assert(set_.count(a) == 0);
       assert(std::find(vec_.begin(), vec_.end(), a) == vec_.end());
       set_.insert(a);
       vec_.push_back(a);

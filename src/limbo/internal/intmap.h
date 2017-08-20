@@ -143,7 +143,7 @@ class IntMultiMap {
 
   bool contains(Key key, const T& val) const {
     const Bucket& s = map_[key];
-    return s.find(val) != s.end();
+    return s.count(val) > 0;
   }
 
   size_t n_keys() const { return map_.n_keys(); }

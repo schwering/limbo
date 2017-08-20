@@ -662,7 +662,7 @@ class Formula::Exists : public Formula {
 
   Ref Rectify(TermMap* tm, Symbol::Factory* sf, Term::Factory* tf) const override {
     Formula::Ref alpha;
-    if (tm->find(x_) != tm->end()) {
+    if (tm->count(x_) > 0) {
       const Term old_x = x_;
       const Term old_new_x = (*tm)[old_x];
       const Term new_x = tf->CreateTerm(sf->CreateVariable(old_x.sort()));
@@ -698,7 +698,7 @@ class Formula::Exists : public Formula {
 
   Ref Skolemize(const Term::Vector& vars, const TermMap& sub, size_t nots,
                 Symbol::Factory* sf, Term::Factory* tf) const override {
-    if (nots % 2 == 0 && sub.find(x_) == sub.end()) {
+    if (nots % 2 == 0 && sub.count(x_) == 0) {
       Term::Vector new_vars = vars;
       new_vars.push_back(x_);
       return Factory::Exists(x_, alpha_->Skolemize(new_vars, sub, nots, sf, tf));
