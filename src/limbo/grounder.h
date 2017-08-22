@@ -993,11 +993,30 @@ class Grounder {
     }
   }
 
+  void MarkAsRelevant(const ClauseIndex i) {
+    std::unordered_set<ClauseIndex> connected;
+    bool relevant = true;
+    TraverseConnected(i, [this, &connected, &relevant](const ClauseIndex i, const internal::Maybe<Clause>& c) {
+      if (!c || c.val.unit() || connected.count(i) > 0) {
+        return false;
+      }
+      if (c && IsRelevantClause(i)) {
+        return false;
+      }
+      connected.insert(i);
+      return true;
+    });
+    Ply& p = last_ply();
+    for (const ClauseIndex i : connected) {
+      p.relevant.clauses[i] = true;
+    }
+  }
+
   void MarkIfRelevant(const ClauseIndex i) {
     std::unordered_set<ClauseIndex> connected;
     bool relevant = false;
     TraverseConnected(i, [this, &connected, &relevant](const ClauseIndex i, const internal::Maybe<Clause>& c) {
-      if (connected.count(i) > 0) {
+      if (!c || c.val.unit() || connected.count(i) > 0) {
         return false;
       }
       if (c && IsRelevantClause(i)) {
@@ -1047,7 +1066,7 @@ class Grounder {
     for (Term t : p.relevant.query_terms) {
       for (ClauseIndex i : clauses_with_term(t)) {
         if (!IsRelevantClause(i)) {
-          MarkIfRelevant(i);
+          MarkAsRelevant(i);
         }
       }
     }

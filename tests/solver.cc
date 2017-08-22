@@ -173,7 +173,9 @@ TEST(SolverTest, ECAI2016Sound) {
   solver.grounder().AddClause(( Aussie != T ||  Eats(roo) == T ).as_clause());
   solver.grounder().AddClause(( Italian == T ||  Veggie == T ).as_clause());
   EXPECT_FALSE(solver.Entails(0, *(Aussie != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_FALSE(solver.Entails(0, *(Aussie != T)->NF(ctx.sf(), ctx.tf()), Solver::kNoConsistencyGuarantee));
   EXPECT_TRUE(solver.Entails(1, *(Aussie != T)->NF(ctx.sf(), ctx.tf()), Solver::kConsistencyGuarantee));
+  EXPECT_TRUE(solver.Entails(1, *(Aussie != T)->NF(ctx.sf(), ctx.tf()), Solver::kNoConsistencyGuarantee));
 }
 
 TEST(SolverTest, ECAI2016Complete) {
