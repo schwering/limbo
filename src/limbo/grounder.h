@@ -141,7 +141,6 @@ class Grounder {
       bool filter = false;  // enabled after consistency guarantee
       Ungrounded<Term>::Set ungrounded;
       std::unordered_set<Term> query_terms;
-      std::unordered_map<Term, bool> terms;  // (t,true) means t is relevant until a later ply has (t,false)
       std::unordered_map<ClauseIndex, bool> clauses;  // (i,true) means i is relevant until a later ply has (i,false)
     } relevant;
     bool do_not_add_if_inconsistent = false;  // enabled for fix-literals
@@ -397,37 +396,6 @@ class Grounder {
     const Plies plies;
     const Term t;
     const std::unordered_set<ClauseIndex> cs = {};
-  };
-
-  struct RelevantTerms {
-    struct First { Term operator()(const std::pair<Term, bool> p) const { return p.first; } };
-    struct Second { bool operator()(const std::pair<Term, bool> p) const { return p.second; } };
-    typedef internal::filter_iterator<std::unordered_map<Term, bool>::const_iterator, Second> pair_iterator;
-    typedef internal::transform_iterator<pair_iterator, First> term_iterator;
-
-    struct Begin {
-      term_iterator operator()(const Ply& p) const {
-        return term_iterator(pair_iterator(p.relevant.terms.begin(), p.relevant.terms.end()));
-      }
-    };
-    struct End {
-      term_iterator operator()(const Ply& p) const {
-        return term_iterator(pair_iterator(p.relevant.terms.end(), p.relevant.terms.end()));
-      }
-    };
-
-    typedef internal::flatten_iterator<Plies::iterator, term_iterator, Begin, End> iterator;
-
-    iterator begin() const { return iterator(plies.begin(), plies.end()); }
-    iterator end()   const { return iterator(plies.end(), plies.end()); }
-
-   private:
-    friend class Grounder;
-
-    RelevantTerms(const Grounder* owner, Plies::Policy policy) : owner(owner), plies(owner, policy) {}
-
-    const Grounder* const owner;
-    const Plies plies;
   };
 
   struct RelevantClauses {
@@ -695,7 +663,6 @@ class Grounder {
   }
 
   bool relevance_filter() const { return !plies_.empty() && last_ply().relevant.filter; }
-  RelevantTerms relevant_terms(Plies::Policy policy = Plies::kAll) const { return RelevantTerms(this, policy); }
   RelevantClauses relevant_clauses(Plies::Policy policy = Plies::kAll) const { return RelevantClauses(this, policy); }
 
  private:
@@ -835,7 +802,7 @@ class Grounder {
     return false;
   }
 
-  bool IsRelevantQueryTerm(Term t) const {
+  bool IsImmediatelyRelevantTerm(Term t) const {
     assert(t.ground() && t.function() && !t.name());
     if (!relevance_filter()) {
       return true;
@@ -857,14 +824,23 @@ class Grounder {
     if (!relevance_filter()) {
       return true;
     }
-    for (auto it = plies_.rbegin(); it != plies_.rend(); ++it) {
-      const Ply& p = *it;
-      if (!p.relevant.filter) {
-        return false;
+    const Setup& s = *setup_;
+    for (const ClauseIndex i : clauses_with_term(t)) {
+      const internal::Maybe<Clause> c = s.clause(i);
+      if (c && c.val.MentionsLhs(t) && IsRelevantClause(i)) {
+        return true;
       }
-      auto jt = p.relevant.terms.find(t);
-      if (jt != p.relevant.terms.end()) {
-        return jt->second;
+    }
+    return false;
+  }
+
+  bool IsImmediatelyRelevantClause(const Clause& c) const {
+    if (!relevance_filter()) {
+      return true;
+    }
+    for (const Literal a : c) {
+      if (IsImmediatelyRelevantTerm(a.lhs())) {
+        return true;
       }
     }
     return false;
@@ -981,11 +957,83 @@ class Grounder {
     }
   }
 
-  void UpdateRelevantQueryTerms(Term t) {
+  void UpdateImmediatelyRelevantTerm(Term t) {
     assert(t.ground());
     assert(relevance_filter());
-    if (t.primitive() && !IsRelevantTerm(t)) {
+    if (t.primitive() && !IsImmediatelyRelevantTerm(t)) {
       last_ply().relevant.query_terms.insert(t);
+    }
+  }
+
+  template<typename UnaryPredicate>
+  void TraverseConnected(const ClauseIndex i, UnaryPredicate visit) const {
+    std::unordered_map<ClauseIndex, internal::Maybe<Clause>> q;
+    const Setup& s = *setup_;
+    {
+      const internal::Maybe<Clause> c = s.clause(i);
+      if (c) {
+        q[i] = c;
+      }
+    }
+    while (!q.empty()) {
+      const auto p = *q.begin();
+      q.erase(q.begin());
+      const ClauseIndex i = p.first;
+      const internal::Maybe<Clause>& c = p.second;
+      if (visit(i, c)) {
+        for (const Literal a : c.val) {
+          const Term t = a.lhs();
+          for (const ClauseIndex j : clauses_with_term(t)) {
+            if (c && q.count(j) == 0 && c.val.MentionsLhs(t)) {
+              q[j] = s.clause(j);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  void MarkIfRelevant(const ClauseIndex i) {
+    std::unordered_set<ClauseIndex> connected;
+    bool relevant = false;
+    TraverseConnected(i, [this, &connected, &relevant](const ClauseIndex i, const internal::Maybe<Clause>& c) {
+      if (connected.count(i) > 0) {
+        return false;
+      }
+      if (c && IsRelevantClause(i)) {
+        relevant = true;
+        return false;
+      }
+      connected.insert(i);
+      return true;
+    });
+    if (relevant) {
+      Ply& p = last_ply();
+      for (const ClauseIndex i : connected) {
+        p.relevant.clauses[i] = true;
+      }
+    }
+  }
+
+  void MarkIfIrrelevant(const ClauseIndex i) {
+    std::unordered_set<ClauseIndex> connected;
+    bool relevant = false;
+    TraverseConnected(i, [this, &connected, &relevant](const ClauseIndex i, const internal::Maybe<Clause>& c) {
+      if (connected.count(i) > 0) {
+        return false;
+      }
+      if (c && IsImmediatelyRelevantClause(c.val)) {
+        relevant = true;
+        return false;
+      }
+      connected.insert(i);
+      return true;
+    });
+    if (!relevant) {
+      Ply& p = last_ply();
+      for (const ClauseIndex i : connected) {
+        p.relevant.clauses[i] = false;
+      }
     }
   }
 
@@ -993,111 +1041,31 @@ class Grounder {
     Ply& p = last_ply();
     assert(p.relevant.filter);
     const Setup& s = *setup_;
-    {
-      // Branch out from newly grounded relevant terms and mark reached terms
-      // and clauses as relevant.
-      std::unordered_set<Term> queue = p.relevant.query_terms;
-      while (!queue.empty()) {
-        const Term t = *queue.begin();
-        queue.erase(queue.begin());
-        if (!IsRelevantTerm(t)) {
-          p.relevant.terms[t] = true;
-          //std::cout << "ADDED " << t << std::endl;
-          for (const ClauseIndex i : clauses_with_term(t)) {
-            //std::cout << "contained in " << i << " = " << s.clause(i) << std::endl;
-            const internal::Maybe<Clause> c = s.clause(i);
-            if (c && c.val.MentionsLhs(t) && !IsRelevantClause(i)) {
-              p.relevant.clauses[i] = true;
-              //std::cout << "ADDED " << i << std::endl;
-              for (const Literal a : c.val) {
-                const Term t = a.lhs();
-                queue.insert(t);
-              }
-            }
-          }
+    // When there are new relevant terms or new clauses, we need to explore
+    // their neighborhood and look for a relevant clause among the connected
+    // ones.
+    for (Term t : p.relevant.query_terms) {
+      for (ClauseIndex i : clauses_with_term(t)) {
+        if (!IsRelevantClause(i)) {
+          MarkIfRelevant(i);
         }
       }
     }
-    {
-      // New unit clauses may reduce other clauses. Branch out from these unit
-      // clauses and mark all reached terms and clauses as irrelevant (which
-      // be a mistake, which will be rectified in the next step).
-      std::unordered_set<Term> queue;
-      for (const ClauseIndex i : p.clauses.shallow_setup.new_clauses()) {
-        const internal::Maybe<Clause> c = s.clause(i);
-        if (c && c.val.unit()) {
-          const Term t = c.val.first().lhs();
-          queue.insert(t);
-        }
-      }
-      while (!queue.empty()) {
-        const Term t = *queue.begin();
-        queue.erase(queue.begin());
-        if (IsRelevantTerm(t) && !IsRelevantQueryTerm(t)) {
-          p.relevant.terms[t] = false;
-          //std::cout << "REMOVED " << t << std::endl;
-          for (const ClauseIndex i : clauses_with_term(t)) {
-            const internal::Maybe<Clause> c = s.clause(i);
-            if ((!c || !c.val.MentionsLhs(t)) && IsRelevantClause(i)) {
-              p.relevant.clauses[i] = false;
-              //std::cout << "REMOVED " << i << " = " << s.clause(i) << std::endl;
-              for (const Literal a : s.raw_clause(i)) {
-                const Term t = a.lhs();
-                queue.insert(t);
-              }
-            }
-          }
-        }
+    for (ClauseIndex i : p.clauses.shallow_setup.new_clauses()) {
+      if (!IsRelevantClause(i)) {
+        MarkIfRelevant(i);
       }
     }
-    {
-      for (const auto tr : p.relevant.terms) {
-        const Term t = tr.first;
-        //std::cout << "might re-add " << t << std::endl;
-        if (!IsRelevantTerm(t)) {
-          std::unordered_set<Term> queue{t};
-          std::unordered_set<Term> nodes;
-          std::unordered_set<ClauseIndex> edges;
-          bool relevant = false;
-          while (!queue.empty()) {
-            const Term t = *queue.begin();
-            queue.erase(queue.begin());
-            for (const ClauseIndex i : clauses_with_term(t)) {
-              const internal::Maybe<Clause> c = s.clause(i);
-              if (IsRelevantClause(i)) {
-                assert(c);
-                relevant = true;
-              } else if (edges.count(i) == 0 && c) {
-                edges.insert(i);
-                for (const Literal a : c.val) {
-                  const Term t = a.lhs();
-                  bool inserted = nodes.insert(t).second;
-                  if (inserted) {
-                    queue.insert(t);
-                  }
-                }
-              }
-            }
-          }
-          if (relevant) {
-            for (const ClauseIndex i : edges) {
-              assert(!IsRelevantClause(i));
-              p.relevant.clauses[i] = true;
-              //std::cout << "RE-ADDED " << i << " = " << s.clause(i) << std::endl;
-            }
-            for (const Term t : nodes) {
-              assert(!IsRelevantTerm(t));
-              p.relevant.terms[t] = true;
-              //std::cout << "RE-ADDED " << t << std::endl;
-            }
-          }
-        }
+    // When there are new unit clauses, we have to check all clauses that
+    // previously contained one of the unit terms for irrelevance.
+    for (ClauseIndex i : p.clauses.shallow_setup.new_units()) {
+      const internal::Maybe<Clause> c = s.clause(i);
+      assert(c && c.val.unit());
+      const Term t = c.val.first().lhs();
+      for (ClauseIndex i : clauses_with_term(t)) {
+        MarkIfIrrelevant(i);
       }
     }
-    //std::cout << "Relevant terms: "; for (const Ply& p : plies_) { for (const Term t : p.relevant.query_terms) { std::cout << t << "  "; } } std::cout << std::endl;
-    //std::cout << "Relevant terms: "; for (const Term t : relevant_terms()) { std::cout << t << "  "; } std::cout << std::endl;
-    //std::cout << "Relevant clauses: "; for (const Ply& p : plies_) { for (const auto p : p.relevant.clauses) { if (p.second) std::cout << s.clause(p.first) << "  "; } } std::cout << std::endl;
-    //std::cout << "Irrelevant clauses: "; for (const Ply& p : plies_) { for (const auto p : p.relevant.clauses) { if (!p.second) std::cout << s.clause(p.first) << "  "; } } std::cout << std::endl;
   }
 
   bool InconsistencyCheck(const Ply& p, const Clause& c) {
@@ -1208,7 +1176,7 @@ class Grounder {
       ForEachNewGrounding(
           [](const Ply& p) { return p.relevant.ungrounded; },
           [this](const Term t, const Ply&, Setup::Result*) {
-            UpdateRelevantQueryTerms(t);
+            UpdateImmediatelyRelevantTerm(t);
           });
       CloseRelevance();
     }
@@ -1235,8 +1203,6 @@ class Grounder {
       p->relevant.filter |= it->relevant.filter;
       std::move(it->relevant.ungrounded.begin(), it->relevant.ungrounded.end(),
                 std::inserter(p->relevant.ungrounded, p->relevant.ungrounded.end()));
-      std::move(it->relevant.terms.begin(), it->relevant.terms.end(),
-                std::inserter(p->relevant.terms, p->relevant.terms.end()));
       std::move(it->relevant.clauses.begin(), it->relevant.clauses.end(),
                 std::inserter(p->relevant.clauses, p->relevant.clauses.end()));
       std::move(it->lhs_rhs.ungrounded.begin(), it->lhs_rhs.ungrounded.end(),

@@ -155,6 +155,18 @@ class Setup {
       assert(data_.n_units <= setup_->units_.size());
     }
 
+    ClauseRange new_units() const {
+      return ClauseRange(false, data_.empty_clause,
+                         data_.n_units, setup_->units_.size(),
+                         0, 0);
+    }
+
+    ClauseRange old_clauses() const {
+      return ClauseRange(false, data_.empty_clause,
+                         0, data_.n_units,
+                         0, data_.n_clauses);
+    }
+
     ClauseRange new_clauses() const {
       return ClauseRange(data_.empty_clause, setup_->empty_clause_,
                          data_.n_units, setup_->units_.size(),
