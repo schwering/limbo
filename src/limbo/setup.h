@@ -308,6 +308,15 @@ class Setup {
     if (!c.primitive()) {
       return c.valid();
     }
+    for (size_t i = 0; i < units_.size(); ++i) {
+      if (Clause::Subsumes(units_[i], c)) {
+        return true;
+      }
+    }
+    if (c.unit() && c.first().pos()) {
+      return false;
+    }
+    assert(c.size() >= 1 && (c.size() >= 2 || !c.first().pos()));
     for (auto it = first_clause; it != last_clause; ++it) {
       const ClauseRange::Index index = *it;
       const size_t i = ClauseRange::index(index);

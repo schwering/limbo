@@ -327,7 +327,7 @@ next_term:
     if (grounder_.setup().contains_empty_clause()) {
       return false;
     }
-    std::unordered_set<Literal, Literal::LhsHash> lits;
+    std::unordered_set<Literal, Literal::LhsHash> lits = grounder_.setup().units();
     for (auto it = first_clause; it != last_clause; ++it) {
       const Maybe<Clause> c = grounder_.setup().clause(*it);
       if (c) {
