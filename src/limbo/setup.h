@@ -552,10 +552,15 @@ class Setup {
       Clause c;
       std::swap(c, clauses_[i - 1]);
       const Clause::Result pr = c.PropagateUnits(units_.set());
-      assert(c.size() >= 1 && (pr == Clause::kPropagated || c.size() >= 2));
-      clauses_.Erase(i - 1);
-      if (pr != Clause::kSubsumed && c.size() >= 2) {
-        clauses_.Add(c);
+      if (pr == Clause::kUnchanged) {
+        assert(c.size() >= 2);
+        std::swap(c, clauses_[i - 1]);
+      } else {
+        assert(c.size() >= 1);
+        clauses_.Erase(i - 1);
+        if (pr == Clause::kPropagated && c.size() >= 2) {
+          clauses_.Add(c);
+        }
       }
     }
   }
