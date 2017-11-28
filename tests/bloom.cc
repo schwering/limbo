@@ -15,8 +15,8 @@ using namespace limbo::format;
 TEST(BloomFilterTest, Subset_Contains) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();
-  const Symbol::Sort s2 = sf.CreateSort();
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();
+  const Symbol::Sort s2 = sf.CreateNonrigidSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));
   const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));

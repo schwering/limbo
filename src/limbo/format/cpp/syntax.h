@@ -75,8 +75,11 @@ class Context {
  public:
   Context() : solver_(sf(), tf()) {}
 
-  Symbol::Sort CreateSort() {
-    return sf()->CreateSort();
+  Symbol::Sort CreateNonrigidSort() {
+    return sf()->CreateNonrigidSort();
+  }
+  Symbol::Sort CreateRigidSort() {
+    return sf()->CreateRigidSort();
   }
   HiTerm CreateName(Symbol::Sort sort) {
     return HiTerm(tf()->CreateTerm(sf()->CreateName(sort)));

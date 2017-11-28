@@ -44,7 +44,7 @@ size_t unique_length(const Setup& s) { return S(s).size(); }
 TEST(SetupTest, Subsumes_clauses) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort(); RegisterSort(s1, "");
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();    RegisterSort(s1, "");
   const Term n = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
   const Term m = tf.CreateTerm(Symbol::Factory::CreateName(2, s1));
   const Term a = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s1, 0), {});

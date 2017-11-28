@@ -23,7 +23,7 @@ typedef Formula::Factory F;
 TEST(FormulaTest, substitution) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));
   const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
@@ -50,9 +50,9 @@ TEST(FormulaTest, substitution) {
 TEST(Formula, NF) {
   Context ctx;
   Term::Factory& tf = *ctx.tf();
-  auto BOOL = ctx.CreateSort();
+  auto BOOL = ctx.CreateNonrigidSort();
   auto True = ctx.CreateName(BOOL);                 REGISTER_SYMBOL(True);
-  auto HUMAN = ctx.CreateSort();
+  auto HUMAN = ctx.CreateNonrigidSort();
   auto Father = ctx.CreateFunction(HUMAN, 1);       REGISTER_SYMBOL(Father);
   auto Mother = ctx.CreateFunction(HUMAN, 1);       REGISTER_SYMBOL(Mother);
   auto IsParentOf = ctx.CreateFunction(BOOL, 2);    REGISTER_SYMBOL(IsParentOf);

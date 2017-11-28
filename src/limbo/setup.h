@@ -233,7 +233,7 @@ class Setup {
 
   Result AddUnit(Literal a) {
     assert(a.primitive());
-    assert(!a.valid() && !a.invalid());
+    assert(!a.valid() && !a.unsatisfiable());
     if (empty_clause_) {
       return kInconsistent;
     }

@@ -20,7 +20,7 @@ class KnowledgeBase {
   KnowledgeBase(const Game* g, int max_k)
       : max_k_(max_k),
         solver_(limbo::Symbol::Factory::Instance(), limbo::Term::Factory::Instance()),
-        VAL_(CreateSort()),
+        VAL_(CreateNonrigidSort()),
         val_(CreateFunctionSymbol(VAL_, 2)) {
     limbo::format::RegisterSort(VAL_, "");
     limbo::format::RegisterSymbol(val_, "val");
@@ -144,8 +144,8 @@ class KnowledgeBase {
     return CreateFunction(val_, limbo::Term::Vector{vals_[x-1], vals_[y-1]});
   }
 
-  limbo::Symbol::Sort CreateSort() const {
-    return limbo::Symbol::Factory::Instance()->CreateSort();
+  limbo::Symbol::Sort CreateNonrigidSort() const {
+    return limbo::Symbol::Factory::Instance()->CreateNonrigidSort();
   }
 
   limbo::Symbol CreateFunctionSymbol(limbo::Symbol::Sort sort, limbo::Symbol::Arity arity) const {

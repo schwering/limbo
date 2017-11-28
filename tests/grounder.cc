@@ -59,8 +59,8 @@ bool operator==(const TermSet& ts, const std::pair<TermSet, size_t>& p) {
 TEST(GrounderTest, Ground_SplitTerms_Names) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort sa = sf.CreateSort();                  RegisterSort(sa, "");
-  const Symbol::Sort sb = sf.CreateSort();                  RegisterSort(sb, "");
+  const Symbol::Sort sa = sf.CreateNonrigidSort();          RegisterSort(sa, "");
+  const Symbol::Sort sb = sf.CreateNonrigidSort();          RegisterSort(sb, "");
   const Term m1 = tf.CreateTerm(sf.CreateName(sa));         RegisterSymbol(m1.symbol(), "m1");
   const Term m2 = tf.CreateTerm(sf.CreateName(sa));         RegisterSymbol(m2.symbol(), "m2");
   const Term n1 = tf.CreateTerm(sf.CreateName(sb));         RegisterSymbol(n1.symbol(), "n1");
@@ -124,8 +124,8 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 TEST(GrounderTest, Ground_SplitTerms_Names_Consolidated) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort sa = sf.CreateSort();                  RegisterSort(sa, "");
-  const Symbol::Sort sb = sf.CreateSort();                  RegisterSort(sb, "");
+  const Symbol::Sort sa = sf.CreateNonrigidSort();          RegisterSort(sa, "");
+  const Symbol::Sort sb = sf.CreateNonrigidSort();          RegisterSort(sb, "");
   const Term m1 = tf.CreateTerm(sf.CreateName(sa));         RegisterSymbol(m1.symbol(), "m1");
   const Term m2 = tf.CreateTerm(sf.CreateName(sa));         RegisterSymbol(m2.symbol(), "m2");
   const Term n1 = tf.CreateTerm(sf.CreateName(sb));         RegisterSymbol(n1.symbol(), "n1");
@@ -193,8 +193,8 @@ TEST(GrounderTest, Ground_SplitTerms_Names_Consolidated) {
 TEST(GrounderTest, Ground_SplitTerms_Names) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();                  RegisterSort(s1, "");
-  const Symbol::Sort s2 = sf.CreateSort();                  RegisterSort(s2, "");
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();          RegisterSort(s1, "");
+  const Symbol::Sort s2 = sf.CreateNonrigidSort();          RegisterSort(s2, "");
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n1.symbol(), "n1");
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n2.symbol(), "n2");
   const Term n3 = tf.CreateTerm(sf.CreateName(s2));         RegisterSymbol(n3.symbol(), "n3");
@@ -231,7 +231,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(n1,n1)}));
     const limbo::Setup& s = g.setup();
-    // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
+    // Grounding should be [n1/=n1]. The clause is unsatisfiable and hence boiled
     // down to [].
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_FALSE(s.Consistent());
@@ -250,7 +250,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(x1, x1)}));
     const limbo::Setup& s = g.setup();
-    // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
+    // Grounding should be [n1/=n1]. The clause is unsatisfiable and hence boiled
     // down to [].
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_FALSE(s.Consistent());
@@ -261,7 +261,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     g.AddClause(Clause({Literal::Eq(n1, x1)}));
     const limbo::Setup& s = g.setup();
     // Grounding should be [n1=n1], [n3=n1]. The first clause is valid and
-    // hence skipped. The second is invalid and hence boiled down to [].
+    // hence skipped. The second is unsatisfiable and hence boiled down to [].
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_FALSE(s.Consistent());
   }
@@ -271,7 +271,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     g.AddClause(Clause({Literal::Neq(n1, x1)}));
     const limbo::Setup& s = g.setup();
     // Grounding should be [n1/=n1], [n3/=n1]. The second clause is valid and
-    // hence skipped. The first is invalid and hence boiled down to [].
+    // hence skipped. The first is unsatisfiable and hence boiled down to [].
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_FALSE(s.Consistent());
   }
@@ -281,7 +281,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     g.AddClause(Clause({Literal::Eq(x1, x2)}));
     const limbo::Setup& s = g.setup();
     // Grounding should be [n1=n1], [n3=2], [n1=n3], [n3=n1]. The former two
-    // clauses are valid and hence skipped. The latter ones are invalid and
+    // clauses are valid and hence skipped. The latter ones are unsatisfiable and
     // hence boiled down to [].
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_FALSE(s.Consistent());
@@ -291,7 +291,7 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
     Grounder g(&sf, &tf);
     g.AddClause(Clause({Literal::Neq(x1, x1)}));
     const limbo::Setup& s = g.setup();
-    // Grounding should be [n1/=n1]. The clause is invalid and hence boiled
+    // Grounding should be [n1/=n1]. The clause is unsatisfiable and hence boiled
     // down to [].
     EXPECT_EQ(unique_length(s), 1);
     EXPECT_FALSE(s.Consistent());
@@ -504,8 +504,8 @@ TEST(GrounderTest, Ground_SplitTerms_Names) {
 TEST(GrounderTest, Assignments) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();                  RegisterSort(s1, "");
-  const Symbol::Sort s2 = sf.CreateSort();                  RegisterSort(s2, "");
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();          RegisterSort(s1, "");
+  const Symbol::Sort s2 = sf.CreateNonrigidSort();          RegisterSort(s2, "");
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n1.symbol(), "n1");
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));         RegisterSymbol(n2.symbol(), "n2");
   const Term n3 = tf.CreateTerm(sf.CreateName(s2));         RegisterSymbol(n3.symbol(), "n3");
@@ -574,9 +574,9 @@ TEST(GrounderTest, Assignments) {
 TEST(GrounderTest, Ground_SplitNames) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort Bool = sf.CreateSort();                            RegisterSort(Bool, "");
-  const Symbol::Sort Human = sf.CreateSort();                           RegisterSort(Human, "");
-  const Symbol::Sort Animal = sf.CreateSort();                          RegisterSort(Animal, "");
+  const Symbol::Sort Bool = sf.CreateNonrigidSort();                    RegisterSort(Bool, "");
+  const Symbol::Sort Human = sf.CreateNonrigidSort();                   RegisterSort(Human, "");
+  const Symbol::Sort Animal = sf.CreateNonrigidSort();                  RegisterSort(Animal, "");
   //
   const Term T          = tf.CreateTerm(sf.CreateName(Bool));           RegisterSymbol(T.symbol(), "T");
   //const Term F          = tf.CreateTerm(sf.CreateName(Bool));
@@ -635,9 +635,9 @@ TEST(GrounderTest, Ground_SplitNames) {
 TEST(GrounderTest, Ground_SplitNames_iterated) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort Bool = sf.CreateSort();                            RegisterSort(Bool, "");
-  const Symbol::Sort Human = sf.CreateSort();                           RegisterSort(Human, "");
-  const Symbol::Sort Animal = sf.CreateSort();                          RegisterSort(Animal, "");
+  const Symbol::Sort Bool = sf.CreateNonrigidSort();                    RegisterSort(Bool, "");
+  const Symbol::Sort Human = sf.CreateNonrigidSort();                   RegisterSort(Human, "");
+  const Symbol::Sort Animal = sf.CreateNonrigidSort();                  RegisterSort(Animal, "");
   //
   const Term T          = tf.CreateTerm(sf.CreateName(Bool));           RegisterSymbol(T.symbol(), "T");
   //const Term F          = tf.CreateTerm(sf.CreateName(Bool));

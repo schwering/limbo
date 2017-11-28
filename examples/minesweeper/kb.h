@@ -53,9 +53,9 @@ class KnowledgeBase {
       : g_(g),
         max_k_(max_k),
         solver_(limbo::Symbol::Factory::Instance(), limbo::Term::Factory::Instance()),
-        Bool(CreateSort()),
-        XPos(CreateSort()),
-        YPos(CreateSort()),
+        Bool(CreateNonrigidSort()),
+        XPos(CreateNonrigidSort()),
+        YPos(CreateNonrigidSort()),
         T(CreateName(Bool)),
 #ifdef USE_DETERMINES
         F(CreateName(Bool)),
@@ -249,8 +249,8 @@ class KnowledgeBase {
     n_processed_clauses_ = clauses_.size();
   }
 
-  limbo::Symbol::Sort CreateSort() const {
-    return limbo::Symbol::Factory::Instance()->CreateSort();
+  limbo::Symbol::Sort CreateNonrigidSort() const {
+    return limbo::Symbol::Factory::Instance()->CreateNonrigidSort();
   }
 
   limbo::Symbol CreateFunctionSymbol(limbo::Symbol::Sort sort, limbo::Symbol::Arity arity) const {

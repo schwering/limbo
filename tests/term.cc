@@ -22,8 +22,8 @@ struct EqSubstitute {
 TEST(TermTest, general) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();
-  const Symbol::Sort s2 = sf.CreateSort();
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();
+  const Symbol::Sort s2 = sf.CreateNonrigidSort();
   EXPECT_EQ(s1, s1);
   EXPECT_EQ(s2, s2);
   EXPECT_TRUE(s1 != s2);
@@ -85,8 +85,8 @@ TEST(TermTest, general) {
 TEST(TermTest, Unify) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s = sf.CreateSort();
-  const Symbol::Sort ss = sf.CreateSort();
+  const Symbol::Sort s = sf.CreateNonrigidSort();
+  const Symbol::Sort ss = sf.CreateNonrigidSort();
 
   const Term n1 = tf.CreateTerm(sf.CreateName(s));
   const Term n2 = tf.CreateTerm(sf.CreateName(s));
@@ -132,7 +132,7 @@ TEST(TermTest, Unify) {
 TEST(TermTest, Isomorphic) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s = sf.CreateSort();
+  const Symbol::Sort s = sf.CreateNonrigidSort();
 
   const Term n1 = tf.CreateTerm(sf.CreateName(s));
   const Term n2 = tf.CreateTerm(sf.CreateName(s));

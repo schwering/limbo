@@ -770,7 +770,7 @@ class Parser {
       if (!a) {
         return Error<>(LIMBO_MSG("Expected real world literal"), a);
       }
-      if (!a.val.ground() || a.val.invalid()) {
+      if (!a.val.ground() || a.val.unsatisfiable()) {
         return Error<>(LIMBO_MSG("Real world literal must be ground and satisfiable"));
       }
       ctx->AddReal(a.val);

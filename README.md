@@ -35,7 +35,7 @@ Where to go from here?
 * You could have a look at one of the [papers](#references) on the
   theory behind Limbo.
 * You could also send [me](http://www.cse.unsw.edu.au/~cschwering/) an email:
-  c.*my Github username*@unsw.edu.au.
+  c.schwering@unsw.edu.au.
 
 ## Features
 

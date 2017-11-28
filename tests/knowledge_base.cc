@@ -21,8 +21,8 @@ inline void RegisterSymbol(Term t, const std::string& n) {
 TEST(KnowledgeBaseTest, ECAI2016Sound_Guarantee) {
   Context ctx;
   KnowledgeBase kb(ctx.sf(), ctx.tf());
-  auto Bool = ctx.CreateSort();                   RegisterSort(Bool, "");
-  auto Food = ctx.CreateSort();                   RegisterSort(Food, "");
+  auto Bool = ctx.CreateNonrigidSort();           RegisterSort(Bool, "");
+  auto Food = ctx.CreateNonrigidSort();           RegisterSort(Food, "");
   auto T = ctx.CreateName(Bool);                  REGISTER_SYMBOL(T);
   auto Aussie = ctx.CreateFunction(Bool, 0)();    REGISTER_SYMBOL(Aussie);
   auto Italian = ctx.CreateFunction(Bool, 0)();   REGISTER_SYMBOL(Italian);
@@ -49,8 +49,8 @@ TEST(KnowledgeBaseTest, ECAI2016Sound_Guarantee) {
 TEST(KnowledgeBaseTest, ECAI2016Sound_NoGuarantee) {
   Context ctx;
   KnowledgeBase kb(ctx.sf(), ctx.tf());
-  auto Bool = ctx.CreateSort();                   RegisterSort(Bool, "");
-  auto Food = ctx.CreateSort();                   RegisterSort(Food, "");
+  auto Bool = ctx.CreateNonrigidSort();           RegisterSort(Bool, "");
+  auto Food = ctx.CreateNonrigidSort();           RegisterSort(Food, "");
   auto T = ctx.CreateName(Bool);                  REGISTER_SYMBOL(T);
   auto Aussie = ctx.CreateFunction(Bool, 0)();    REGISTER_SYMBOL(Aussie);
   auto Italian = ctx.CreateFunction(Bool, 0)();   REGISTER_SYMBOL(Italian);

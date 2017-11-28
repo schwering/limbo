@@ -48,7 +48,7 @@ class Clause {
 
   Clause() = default;
 
-  explicit Clause(const Literal a) : size_(!a.invalid() ? 1 : 0) {
+  explicit Clause(const Literal a) : size_(!a.unsatisfiable() ? 1 : 0) {
     lits1_[0] = a;
 #ifdef BLOOM
     InitBloom();
@@ -83,7 +83,7 @@ class Clause {
 #ifdef BLOOM
     lhs_bloom_ = c.lhs_bloom_;
 #endif
-    assert(!any([](Literal a) { return a.invalid(); }));
+    assert(!any([](Literal a) { return a.unsatisfiable(); }));
     assert(*this == c);
   }
 
@@ -100,7 +100,7 @@ class Clause {
 #ifdef BLOOM
     lhs_bloom_ = c.lhs_bloom_;
 #endif
-    assert(!any([](Literal a) { return a.invalid(); }));
+    assert(!any([](Literal a) { return a.unsatisfiable(); }));
     return *this;
   }
 
@@ -158,7 +158,7 @@ class Clause {
     }
     return false;
   }
-  bool invalid() const { return empty(); }
+  bool unsatisfiable() const { return empty(); }
 
   static bool Subsumes(const Literal a, const Clause c) {
     assert(a.primitive());
@@ -240,7 +240,7 @@ next:
     assert(primitive());
     assert(a.primitive());
     assert(!valid());
-    assert(!a.valid() && !a.invalid());
+    assert(!a.valid() && !a.unsatisfiable());
     size_t n_nulls = 0;
 #ifdef BLOOM
     if (!lhs_bloom_.PossiblyContains(a.lhs())) {
@@ -270,7 +270,7 @@ next:
     assert(primitive());
     assert(!valid());
     assert(std::all_of(first, last, [](const Literal a) { return a.primitive(); }));
-    assert(std::all_of(first, last, [](const Literal a) { return !a.valid() && !a.invalid(); }));
+    assert(std::all_of(first, last, [](const Literal a) { return !a.valid() && !a.unsatisfiable(); }));
     size_t n_nulls = 0;
     for (size_t i = 0; i < size(); ++i) {
       const Literal b = (*this)[i];
@@ -302,7 +302,7 @@ next:
     assert(primitive());
     assert(!valid());
     assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
-    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.invalid(); }));
+    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.unsatisfiable(); }));
     size_t n_nulls = 0;
     for (size_t i = 0; i < size(); ++i) {
       const Literal b = (*this)[i];
@@ -431,11 +431,11 @@ next:
   }
 
   void Minimize() {
-    iterator new_end = std::remove_if(begin(), end(), [](const Literal a) { return a.invalid(); });
+    iterator new_end = std::remove_if(begin(), end(), [](const Literal a) { return a.unsatisfiable(); });
     std::sort(begin(), new_end);
     new_end = std::unique(begin(), new_end);
     size_ = new_end - begin();
-    assert(!any([](Literal a) { return a.invalid(); }));
+    assert(!any([](Literal a) { return a.unsatisfiable(); }));
   }
 
 #ifdef BLOOM

@@ -13,8 +13,8 @@ using namespace limbo::format;
 TEST(LiteralTest, general) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();
-  const Symbol::Sort s2 = sf.CreateSort();
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();
+  const Symbol::Sort s2 = sf.CreateNonrigidSort();
   const Term n1 = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
   const Term n2 = tf.CreateTerm(Symbol::Factory::CreateName(2, s1));
   const Term x1 = tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1));
@@ -77,13 +77,13 @@ TEST(LiteralTest, general) {
   EXPECT_TRUE(!Literal::Neq(f1,n1).valid());
   EXPECT_TRUE(Literal::Neq(f1,f2).valid());
 
-  EXPECT_TRUE(!Literal::Eq(n1,n1).invalid());
-  EXPECT_TRUE(Literal::Neq(n1,n1).invalid());
-  EXPECT_TRUE(!Literal::Eq(f1,f1).invalid());
-  EXPECT_TRUE(Literal::Eq(f1,f2).invalid());
-  EXPECT_TRUE(Literal::Neq(f1,f1).invalid());
-  EXPECT_TRUE(!Literal::Neq(f1,n1).invalid());
-  EXPECT_TRUE(!Literal::Neq(f1,f2).invalid());
+  EXPECT_TRUE(!Literal::Eq(n1,n1).unsatisfiable());
+  EXPECT_TRUE(Literal::Neq(n1,n1).unsatisfiable());
+  EXPECT_TRUE(!Literal::Eq(f1,f1).unsatisfiable());
+  EXPECT_TRUE(Literal::Eq(f1,f2).unsatisfiable());
+  EXPECT_TRUE(Literal::Neq(f1,f1).unsatisfiable());
+  EXPECT_TRUE(!Literal::Neq(f1,n1).unsatisfiable());
+  EXPECT_TRUE(!Literal::Neq(f1,f2).unsatisfiable());
 
   EXPECT_TRUE(!Literal::Valid(Literal::Eq(f1, n1), Literal::Eq(f1, n1)));
   EXPECT_TRUE(!Literal::Valid(Literal::Eq(f1, n1), Literal::Neq(f1, n2)));

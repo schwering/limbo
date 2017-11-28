@@ -305,7 +305,7 @@ class Formula {
   virtual bool dynamic() const = 0;
   virtual bool quantified_in() const = 0;
   virtual bool trivially_valid() const = 0;
-  virtual bool trivially_invalid() const = 0;
+  virtual bool trivially_unsatisfiable() const = 0;
 
  protected:
   class ISubstitution {
@@ -423,7 +423,7 @@ class Formula::Atomic : public Formula {
   bool dynamic() const override { return false; }
   bool quantified_in() const override { return false; }
   bool trivially_valid() const override { return c_.valid(); }
-  bool trivially_invalid() const override { return c_.invalid(); }
+  bool trivially_unsatisfiable() const override { return c_.unsatisfiable(); }
 
  protected:
   friend class Factory;
@@ -531,7 +531,9 @@ class Formula::Or : public Formula {
   bool dynamic() const override { return alpha_->dynamic() || beta_->dynamic(); }
   bool quantified_in() const override { return alpha_->quantified_in() || beta_->quantified_in(); }
   bool trivially_valid() const override { return alpha_->trivially_valid() || beta_->trivially_valid(); }
-  bool trivially_invalid() const override { return alpha_->trivially_invalid() && beta_->trivially_invalid(); }
+  bool trivially_unsatisfiable() const override {
+    return alpha_->trivially_unsatisfiable() && beta_->trivially_unsatisfiable();
+  }
 
  protected:
   friend class Factory;
@@ -641,7 +643,7 @@ class Formula::Exists : public Formula {
   bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return alpha_->quantified_in(); }
   bool trivially_valid() const override { return alpha_->trivially_valid(); }
-  bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
+  bool trivially_unsatisfiable() const override { return alpha_->trivially_unsatisfiable(); }
 
  protected:
   friend class Factory;
@@ -750,8 +752,8 @@ class Formula::Not : public Formula {
   bool subjective() const override { return alpha_->subjective(); }
   bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return false; }
-  bool trivially_valid() const override { return alpha_->trivially_invalid(); }
-  bool trivially_invalid() const override { return alpha_->trivially_valid(); }
+  bool trivially_valid() const override { return alpha_->trivially_unsatisfiable(); }
+  bool trivially_unsatisfiable() const override { return alpha_->trivially_valid(); }
 
  protected:
   friend class Factory;
@@ -846,7 +848,7 @@ class Formula::Know : public Formula {
   bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return !free_vars().all_empty(); }
   bool trivially_valid() const override { return alpha_->trivially_valid(); }
-  bool trivially_invalid() const override { return false; }
+  bool trivially_unsatisfiable() const override { return false; }
 
  protected:
   friend class Factory;
@@ -962,7 +964,7 @@ class Formula::Cons : public Formula {
   bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return !free_vars().all_empty(); }
   bool trivially_valid() const override { return false; }
-  bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
+  bool trivially_unsatisfiable() const override { return alpha_->trivially_unsatisfiable(); }
 
  protected:
   friend class Factory;
@@ -1078,7 +1080,7 @@ class Formula::Bel : public Formula {
   bool dynamic() const override { return not_ante_or_conse_->dynamic(); }
   bool quantified_in() const override { return !free_vars().all_empty(); }
   bool trivially_valid() const override { return not_ante_or_conse_->trivially_valid(); }
-  bool trivially_invalid() const override { return false; }
+  bool trivially_unsatisfiable() const override { return false; }
 
  protected:
   friend class Factory;
@@ -1175,7 +1177,7 @@ class Formula::Guarantee : public Formula {
   bool dynamic() const override { return alpha_->dynamic(); }
   bool quantified_in() const override { return alpha_->quantified_in(); }
   bool trivially_valid() const override { return alpha_->trivially_valid(); }
-  bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
+  bool trivially_unsatisfiable() const override { return alpha_->trivially_unsatisfiable(); }
 
  protected:
   friend class Factory;
@@ -1247,7 +1249,7 @@ class Formula::Action : public Formula {
   bool dynamic() const override { return false; }
   bool quantified_in() const override { return alpha_->quantified_in(); }
   bool trivially_valid() const override { return alpha_->trivially_valid(); }
-  bool trivially_invalid() const override { return alpha_->trivially_invalid(); }
+  bool trivially_unsatisfiable() const override { return alpha_->trivially_unsatisfiable(); }
 
  protected:
   friend class Factory;

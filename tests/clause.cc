@@ -35,11 +35,11 @@ static std::pair<Clause::Result, Clause> PropagateUnits(Clause c, const std::uno
   return std::make_pair(r, c);
 }
 
-TEST(ClauseTest, valid_invalid) {
+TEST(ClauseTest, valid_unsatisfiable) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();
-  const Symbol::Sort s2 = sf.CreateSort();
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();
+  const Symbol::Sort s2 = sf.CreateNonrigidSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));
   //const Term x1 = tf.CreateTerm(sf.CreateVariable(s1));
@@ -52,33 +52,33 @@ TEST(ClauseTest, valid_invalid) {
   //const Term f3 = tf.CreateTerm(g, {n1});
   //const Term f4 = tf.CreateTerm(h, {n1,f1});
 
-  EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid()   && !Clause({Literal::Eq(n1,n1)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid() && Clause({Literal::Neq(n1,n1)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Eq(f1,f1)}).valid()   && !Clause({Literal::Eq(f1,f1)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(f1,f1)}).valid() && Clause({Literal::Neq(f1,f1)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(f1,n1)}).valid() && !Clause({Literal::Neq(f1,n1)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Neq(f1,f2)}).valid()  && !Clause({Literal::Neq(f1,f2)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).valid()    && !Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).valid()   && !Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).valid() && Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid()   && !Clause({Literal::Eq(n1,n1)}).unsatisfiable());
+  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid() && Clause({Literal::Neq(n1,n1)}).unsatisfiable());
+  EXPECT_TRUE(Clause({Literal::Eq(f1,f1)}).valid()   && !Clause({Literal::Eq(f1,f1)}).unsatisfiable());
+  EXPECT_TRUE(!Clause({Literal::Neq(f1,f1)}).valid() && Clause({Literal::Neq(f1,f1)}).unsatisfiable());
+  EXPECT_TRUE(!Clause({Literal::Neq(f1,n1)}).valid() && !Clause({Literal::Neq(f1,n1)}).unsatisfiable());
+  EXPECT_TRUE(Clause({Literal::Neq(f1,f2)}).valid()  && !Clause({Literal::Neq(f1,f2)}).unsatisfiable());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).valid()    && !Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).unsatisfiable());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).valid()   && !Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).unsatisfiable());
+  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).valid() && Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).unsatisfiable());
 
-  EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid()   && !Clause({Literal::Eq(n1,n1)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid() && Clause({Literal::Neq(n1,n1)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Eq(f1,f1)}).valid()   && !Clause({Literal::Eq(f1,f1)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(f1,f1)}).valid() && Clause({Literal::Neq(f1,f1)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(f1,n1)}).valid() && !Clause({Literal::Neq(f1,n1)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Neq(f1,f2)}).valid()  && !Clause({Literal::Neq(f1,f2)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).valid()    && !Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).invalid());
-  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).valid()   && !Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).invalid());
-  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).valid() && Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).invalid());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1)}).valid()   && !Clause({Literal::Eq(n1,n1)}).unsatisfiable());
+  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1)}).valid() && Clause({Literal::Neq(n1,n1)}).unsatisfiable());
+  EXPECT_TRUE(Clause({Literal::Eq(f1,f1)}).valid()   && !Clause({Literal::Eq(f1,f1)}).unsatisfiable());
+  EXPECT_TRUE(!Clause({Literal::Neq(f1,f1)}).valid() && Clause({Literal::Neq(f1,f1)}).unsatisfiable());
+  EXPECT_TRUE(!Clause({Literal::Neq(f1,n1)}).valid() && !Clause({Literal::Neq(f1,n1)}).unsatisfiable());
+  EXPECT_TRUE(Clause({Literal::Neq(f1,f2)}).valid()  && !Clause({Literal::Neq(f1,f2)}).unsatisfiable());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).valid()    && !Clause({Literal::Eq(n1,n1), Literal::Eq(n2,n2)}).unsatisfiable());
+  EXPECT_TRUE(Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).valid()   && !Clause({Literal::Eq(n1,n1), Literal::Neq(n2,n2)}).unsatisfiable());
+  EXPECT_TRUE(!Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).valid() && Clause({Literal::Neq(n1,n1), Literal::Neq(n2,n2)}).unsatisfiable());
 }
 
 
 TEST(ClauseTest, Subsumes) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();
-  const Symbol::Sort s2 = sf.CreateSort();
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();
+  const Symbol::Sort s2 = sf.CreateNonrigidSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));
   const Term n3 = tf.CreateTerm(sf.CreateName(s2));
@@ -109,8 +109,8 @@ TEST(ClauseTest, Subsumes) {
 TEST(ClauseTest, Subsumes1) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();
-  const Symbol::Sort s2 = sf.CreateSort();
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();
+  const Symbol::Sort s2 = sf.CreateNonrigidSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));
   const Term n3 = tf.CreateTerm(sf.CreateName(s2));
@@ -165,8 +165,8 @@ TEST(ClauseTest, Subsumes1) {
 TEST(ClauseTest, Subsumes2) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();
-  //const Symbol::Sort s2 = sf.CreateSort();
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();
+  //const Symbol::Sort s2 = sf.CreateNonrigidSort();
   const Term n = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
   const Term m = tf.CreateTerm(Symbol::Factory::CreateName(2, s1));
   const Term a = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s1, 0), {});
@@ -185,7 +185,7 @@ TEST(ClauseTest, Subsumes2) {
 TEST(ClauseTest, Subsumes3) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort Bool = sf.CreateSort();
+  const Symbol::Sort Bool = sf.CreateNonrigidSort();
   const Term T = tf.CreateTerm(sf.CreateName(Bool));
   const Term F = tf.CreateTerm(sf.CreateName(Bool));
   const Term P = tf.CreateTerm(sf.CreateFunction(Bool, 0));
@@ -199,8 +199,8 @@ TEST(ClauseTest, Subsumes3) {
 TEST(ClauseTest, Propagate) {
   Symbol::Factory& sf = *Symbol::Factory::Instance();
   Term::Factory& tf = *Term::Factory::Instance();
-  const Symbol::Sort s1 = sf.CreateSort();
-  const Symbol::Sort s2 = sf.CreateSort();
+  const Symbol::Sort s1 = sf.CreateNonrigidSort();
+  const Symbol::Sort s2 = sf.CreateNonrigidSort();
   const Term n1 = tf.CreateTerm(sf.CreateName(s1));
   const Term n2 = tf.CreateTerm(sf.CreateName(s1));
   const Term n3 = tf.CreateTerm(sf.CreateName(s2));

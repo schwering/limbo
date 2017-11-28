@@ -111,7 +111,7 @@ class Solver {
     }
     Grounder::Undo undo2;
     grounder_.PrepareForQuery(phi, &undo2);
-    return !phi.trivially_invalid() && Fix(k, [this, &phi]() { return Reduce(phi); });
+    return !phi.trivially_unsatisfiable() && Fix(k, [this, &phi]() { return Reduce(phi); });
   }
 
  private:
@@ -218,7 +218,7 @@ class Solver {
       for (const Term n : grounder_.rhs_names(t)) {
         Grounder::Undo undo;
         const Literal a = Literal::Eq(t, n);
-        assert(!a.valid() && !a.invalid());
+        assert(!a.valid() && !a.unsatisfiable());
         const Setup::Result add_result = grounder_.AddClause(Clause{a}, &undo);
         if (add_result == Setup::kInconsistent) {
           merged_result = !merged_result ? inconsistent_result : merge(merged_result, inconsistent_result);

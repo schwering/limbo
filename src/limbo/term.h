@@ -61,8 +61,8 @@ class Symbol {
    public:
     typedef internal::u8 Id;
 
-    static Sort Simple(Id id) { return Sort(2 * id); }
-    static Sort Compound(Id id) { return Sort(2 * id + 1); }
+    static Sort Nonrigid(Id id) { return Sort(2 * id); }
+    static Sort Rigid(Id id) { return Sort(2 * id + 1); }
 
     explicit Sort(Id id) : id_(id) {}
     explicit operator Id() const { return id_; }
@@ -107,8 +107,8 @@ class Symbol {
       return Symbol((id << 2) | 2, sort, arity);
     }
 
-    Sort CreateSort()         { return Sort::Simple(last_sort_++); }
-    Sort CreateCompoundSort() { return Sort::Compound(last_sort_++); }
+    Sort CreateNonrigidSort() { return Sort::Nonrigid(last_sort_++); }
+    Sort CreateRigidSort()    { return Sort::Rigid(last_sort_++); }
 
     Symbol CreateName(Sort sort)                  { return CreateName(++last_name_, sort); }
     Symbol CreateVariable(Sort sort)              { return CreateVariable(++last_variable_, sort); }

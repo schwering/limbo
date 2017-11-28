@@ -74,8 +74,8 @@ class Literal {
            (!pos() && lhs().sort() != rhs().sort());
   }
 
-  // invalid() holds for (t != t) and (n1 = n2) and (t1 = t2) if t1, t2 have different sorts.
-  bool invalid() const {
+  // unsatisfiable() holds for (t != t) and (n1 = n2) and (t1 = t2) if t1, t2 have different sorts.
+  bool unsatisfiable() const {
     return (!pos() && lhs() == rhs()) ||
            (pos() && lhs().name() && rhs().name() && lhs() != rhs()) ||
            (pos() && lhs().sort() != rhs().sort());

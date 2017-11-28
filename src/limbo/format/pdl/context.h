@@ -133,7 +133,7 @@ class Context {
     callback_(this, proc, args);
   }
 
-  Symbol::Sort CreateSort(bool rigid) { return !rigid ? sf()->CreateSort() : sf()->CreateCompoundSort(); }
+  Symbol::Sort CreateSort(bool rigid) { return !rigid ? sf()->CreateNonrigidSort() : sf()->CreateRigidSort(); }
   Term CreateVariable(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateVariable(sort)); }
   Term CreateName(Symbol::Sort sort) { return tf()->CreateTerm(sf()->CreateName(sort)); }
   Symbol CreateFunction(Symbol::Sort sort, Symbol::Arity arity) { return sf()->CreateFunction(sort, arity); }
