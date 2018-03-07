@@ -6,11 +6,11 @@
 // If one of either terms in a literal is a function, then the left-hand side
 // is a function.
 //
-// The most important operations are Complementary() and Subsumes() checks,
-// which are only defined for primitive literals. Note that the operations
-// PropagateUnit() and Subsumes() from the Clause class use hashing to speed
-// them up and therefore depend on their inner workings. In other words: when
-// you modify them, double-check with the Clause class.
+// The most important operations are Complementary() and [Properly]Subsumes()
+// checks, which are only defined for primitive literals. Note that the
+// operations PropagateUnit() and Subsumes() from the Clause class use hashing to
+// speed them up and therefore depend on their inner workings. In other words:
+// when you modify them, double-check with the Clause class.
 //
 // Due to the memory-wise lightweight representation of terms, copying or
 // comparing literals is very fast.
@@ -81,11 +81,15 @@ class Literal {
            (pos() && lhs().sort() != rhs().sort());
   }
 
+  // Valid(a, b) holds when a, b match one of the following:
+  // (t1 = t2), (t1 != t2)
+  // (t1 != t2), (t1 = t2)
+  // (t1 != n1), (t1 != n2) for distinct n1, n2.
   static bool Valid(const Literal a, const Literal b) {
     assert(a.primitive());
     assert(b.primitive());
     return (a.lhs() == b.lhs() && a.pos() != b.pos() && a.rhs() == b.rhs()) ||
-           (a.lhs() == b.lhs() && !a.pos() && !b.pos() && a.rhs() != b.rhs());
+           (a.lhs() == b.lhs() && !a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
   }
 
   // Complementary(a, b) holds when a, b match one of the following:
@@ -99,19 +103,16 @@ class Literal {
            (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
   }
 
-  // Subsumes(a, b) holds when a, b match one of the following:
-  // (t1 = t2), (t1 = t2)
-  // (t1 = n1), (t1 != n2) for distinct n1, n2.
-  static bool Subsumes(Literal a, Literal b) {
-    assert(a.primitive());
-    assert(b.primitive());
-    return a == b ||
-           (a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
+  // ProperlySubsumes(a, b) holds when a is (t1 = n1) and b is (t1 != n2) for distinct n1, n2.
+  static bool ProperlySubsumes(Literal a, Literal b) {
+    return a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs();
   }
 
-  bool Subsumes(Literal b) const {
-    return Subsumes(*this, b);
-  }
+  static bool Subsumes(Literal a, Literal b) { return a == b || ProperlySubsumes(a, b); }
+
+  bool Subsumes(Literal b) const { return Subsumes(*this, b); }
+
+  bool ProperlySubsumes(Literal b) const { return ProperlySubsumes(*this, b); }
 
   template<typename UnaryFunction>
   Literal Substitute(UnaryFunction theta, Term::Factory* tf) const {

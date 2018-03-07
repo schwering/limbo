@@ -8,6 +8,10 @@
 // Thus, and since clauses are immutable, they represent sets of literals. Note
 // that copying and comparing clauses is more expensive than for literals.
 //
+// Clauses are always normalized, that is, no literal subsumes another literal.
+// An unsatisfiable clause is always empty, and a clause with a valid literal is
+// a unit clause.
+//
 // Perhaps the most important operations are PropagateUnit[s]() and Subsumes(),
 // which are only defined for primitive clauses and literals. Thus all involved
 // literals mention a primitive term on the left-hand side. By definition of
@@ -69,7 +73,7 @@ class Clause {
     for (size_t i = 0; it != end; ) {
       lits2_[i++] = *it++;
     }
-    Minimize();
+    Normalize();
 #ifdef BLOOM
     InitBloom();
 #endif
@@ -144,20 +148,20 @@ class Clause {
   size_t size()  const { return size_; }
 
   bool valid() const {
+    if (unit() && first().valid()) {
+      return true;
+    }
+    const Clause& c = *this;
     for (size_t i = 0; i < size(); ++i) {
-      if ((*this)[i].valid()) {
-        return true;
-      }
-      if ((*this)[i].primitive()) {
-        for (size_t j = i + 1; j < size() && (*this)[j].primitive() && (*this)[i].lhs() == (*this)[j].lhs(); ++j) {
-          if (Literal::Valid((*this)[i], (*this)[j])) {
-            return true;
-          }
+      for (size_t j = i + 1; j < size() && c[i].lhs() == c[j].lhs(); ++j) {
+        if (Literal::Valid(c[i], c[j])) {
+          return true;
         }
       }
     }
     return false;
   }
+
   bool unsatisfiable() const { return empty(); }
 
   static bool Subsumes(const Literal a, const Clause c) {
@@ -430,12 +434,40 @@ next:
     assert(!any([](Literal a) { return a.null(); }));
   }
 
-  void Minimize() {
-    iterator new_end = std::remove_if(begin(), end(), [](const Literal a) { return a.unsatisfiable(); });
-    std::sort(begin(), new_end);
-    new_end = std::unique(begin(), new_end);
-    size_ = new_end - begin();
-    assert(!any([](Literal a) { return a.unsatisfiable(); }));
+  void Normalize() {
+    Clause& c = *this;
+    size_t j = 0;
+    for (size_t i = 0; i < size(); ++i) {
+      if (c[i].valid()) {
+        c[0] = c[i];
+        size_ = 1;
+        return;
+      }
+      if (c[i].unsatisfiable()) {
+        goto skip;
+      }
+      for (size_t k = 0; k < j; ++k) {
+        if (c[i].Subsumes(c[k])) {
+          goto skip;
+        }
+      }
+      for (size_t k = i + 1; k < size(); ++k) {
+        if (c[i].ProperlySubsumes(c[k])) {
+          goto skip;
+        }
+      }
+      {
+        const Literal a = c[i];
+        size_t k = j++;
+        for (; k > 0 && a < c[k - 1]; --k) {
+          c[k] = c[k - 1];
+        }
+        c[k] = a;
+      }
+skip:
+      {}
+    }
+    size_ = j;
   }
 
 #ifdef BLOOM

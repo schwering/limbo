@@ -147,7 +147,7 @@ std::ostream& operator<<(std::ostream& os, const Symbol s) {
   if (sort_name) {
     os << sort_name.val << (sort_name.val.length() > 0 ? "." : "");
   } else {
-    os << s.sort().id() << ".";
+    os << static_cast<int>(s.sort().id()) << ".";
   }
   if (symbol_name) {
     os << symbol_name.val;

@@ -97,7 +97,7 @@ For more theoretical background see the papers linked below.
 
 Interesting KR concepts to be added include:
 
-* Actions (possible as in [4], but rather through regression and progression).
+* Progression for actions.
 * Sensing and/or belief revision.
 * Multiple agents.
 
@@ -127,28 +127,37 @@ $ make test
 ## References
 
 The first paper is the most recent one and describes the theory behind Limbo.
+I'm working on a technical report that includes new development since (and fixes a bunch of bugs in the extended version).
 Many of the ideas were introduced in the earlier papers linked below.
 
 1.  A Reasoning System for a First-Order Logic of Limited Belief. <br>
    C. Schwering. <br>
-   In *Proc. IJCAI*, 2017 (to appear). <br>
+   In *Proc. IJCAI*, 2017. <br>
    [pdf](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017.pdf),
    [proofs](https://arxiv.org/abs/1705.01817),
    [slides](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017-slides.pdf)
-2. Decidable Reasoning in a Logic of Limited Belief with Function Symbols. <br>
+2. Limbo: A Reasoning System for Limited Belief <br>
+   C. Schwering. <br>
+   In *Proc. IJCAI*, 2017. <br>
+   [pdf](http://www.cse.unsw.edu.au/~cschwering/ijcai-2017-demo.pdf)
+3. Reasoning in the Situation Calculus with Limited Belief <br>
+   C. Schwering. <br>
+   Commonsense, 2017. <br>
+   [pdf](http://www.cse.unsw.edu.au/~cschwering/commonsense-2017.pdf)
+4. Decidable Reasoning in a Logic of Limited Belief with Function Symbols. <br>
    G. Lakemeyer and H. Levesque. <br>
    In *Proc. KR*, 2016. <br>
    [pdf](https://kbsg.rwth-aachen.de/sites/kbsg/files/LakemeyerLevesque2016.pdf)
-3. Decidable Reasoning in a First-Order Logic of Limited Conditional Belief. <br>
+5. Decidable Reasoning in a First-Order Logic of Limited Conditional Belief. <br>
    C. Schwering and G. Lakemeyer. <br>
    In *Proc. ECAI*, 2016. <br>
    [pdf](http://www.cse.unsw.edu.au/~cschwering/ecai-2016.pdf),
    [slides](http://www.cse.unsw.edu.au/~cschwering/ecai-2016-slides.pdf)
-4. Decidable Reasoning in a Fragment of the Epistemic Situation Calculus. <br>
+6. Decidable Reasoning in a Fragment of the Epistemic Situation Calculus. <br>
    G. Lakemeyer and H. Levesque. <br>
    In *Proc. KR*, 2014. <br>
    [pdf](https://pdfs.semanticscholar.org/8ac9/a2955895cd391ec2b62d8210ee8206979f4a.pdf)
-5. Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals. <br>
+7. Decidable Reasoning in a Logic of Limited Belief with Introspection and Unknown Individuals. <br>
    G. Lakemeyer and H. Levesque. <br>
    In *Proc. IJCAI*, 2013. <br>
    [pdf](https://pdfs.semanticscholar.org/387c/951016c68aaf8ce36bb87e5ea4d1ef42405d.pdf)
