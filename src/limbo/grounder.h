@@ -1079,10 +1079,12 @@ class Grounder {
     // previously contained one of the unit terms for irrelevance.
     for (ClauseIndex i : p.clauses.shallow_setup.new_units()) {
       const internal::Maybe<Clause> c = s.clause(i);
-      assert(c && c.val.unit());
-      const Term t = c.val.first().lhs();
-      for (ClauseIndex i : clauses_with_term(t)) {
-        MarkIfIrrelevant(i);
+      assert(!c || c.val.unit());
+      if (c) {
+        const Term t = c.val.first().lhs();
+        for (ClauseIndex i : clauses_with_term(t)) {
+          MarkIfIrrelevant(i);
+        }
       }
     }
   }
