@@ -12,19 +12,36 @@
 //
 // The implementation aims to keep Terms as lightweight as possible to
 // facilitate extremely fast copying and comparison. For that reason, Terms
-// are interned and represented only with an index in the heap structure.
-// Creating a Term a second time yields the same index.
+// are interned and represented only with an integer id that determines the
+// index of the full structure in a heap structure. Creating a Term a second
+// time yields the same id and hence also the same index. Note that for
+// the index does not uniquely identify every term (see below).
 //
-// Using an index as opposed to a memory address gives us more control over how
-// the representation of the Term looks like. In particular, it gets us the
-// following advantages: fast yet deterministic (wrt multiple executions)
-// hashing; smaller representation (31 bit); possibility to represent
-// information in the index.
+// This id as opposed to a memory address keeps the representation lightweight,
+// makes hashing deterministic over multiple runs of the program, and allows
+// us to store some often-used information in the bits of the id.
 //
-// Literal is a friend class of Term and builds on the memory layout of Term.
-// In particular, exploits that Term::name() is encoded in Term::id(). That way
-// certain operations on Terms and Literals can be expressed as bitwise
-// operations on their integer representations.
+// The id is a 31 bit number. We do not use the 32nd bit of the underlying
+// integer to help the friend class Literal, which therefore can squeeze two
+// terms and the sign of the literal into a 64 bit integer.
+//
+// The left-most bits of the id are not used for indexing but for
+// classification of the term. We store whether or not the term is a primitive
+// term, a name, a variable, or any other term.
+//
+// The reason for storing whether a term a name is that it is an extremely
+// often accessed property in the subsumption and complementarity tests of
+// literals; the encoding in the id avoids indirect lookups in the full
+// representation. The reason for storing also the primitive property in a bit
+// is that therefore we can store primitive terms and names (and variables and
+// all other terms) on individual heaps, which keeps the indices of primitive
+// terms and names small, so that arrays can be used to implement maps from
+// from primtivie terms or names, respectively, to some other type.
+//
+// Since we can assume that there the number of primitive terms is much larger
+// than the number of names, and the number of names is much larger than the
+// number of variables and non-primitive terms, this encoding is
+// space-efficient.
 
 #ifndef LIMBO_TERM_H_
 #define LIMBO_TERM_H_
@@ -61,8 +78,8 @@ class Symbol {
    public:
     typedef internal::u8 Id;
 
-    static Sort Nonrigid(Id id) { return Sort(2 * id); }
-    static Sort Rigid(Id id) { return Sort(2 * id + 1); }
+    static Sort Nonrigid(Id id) { assert((id & kBitMaskRigid) == 0); return Sort(id & ~kBitMaskRigid); }
+    static Sort Rigid(Id id)    { assert((id & kBitMaskRigid) == 0); return Sort(id | kBitMaskRigid); }
 
     explicit Sort(Id id) : id_(id) {}
     explicit operator Id() const { return id_; }
@@ -73,10 +90,13 @@ class Symbol {
 
     internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
+    bool rigid() const { return (id_ & kBitMaskRigid) != 0; }
+
     Id id() const { return id_; }
-    bool rigid() const { return id_ % 2 == 1; }
 
    private:
+    static constexpr Id kBitMaskRigid = 1 << (sizeof(Id) * 8 - 1);
+
     Id id_;
   };
 
@@ -91,20 +111,20 @@ class Symbol {
 
     static void Reset() { instance = nullptr; }
 
-    static Symbol CreateName(Id id, Sort sort) {
-      assert(id > 0);
-      return Symbol((id << 2) | 0, sort, 0);
+    static Symbol CreateName(Id index, Sort sort) {
+      assert(index > 0 && (index & (kBitMaskFunction | kBitMaskName)) == 0);
+      return Symbol(index | kBitMaskName, sort, 0);
     }
 
-    static Symbol CreateVariable(Id id, Sort sort) {
-      assert(id > 0);
-      return Symbol((id << 2) | 1, sort, 0);
+    static Symbol CreateVariable(Id index, Sort sort) {
+      assert(index > 0 && (index & (kBitMaskFunction | kBitMaskName)) == 0);
+      return Symbol(index, sort, 0);
     }
 
-    static Symbol CreateFunction(Id id, Sort sort, Arity arity) {
-      assert(id > 0);
+    static Symbol CreateFunction(Id index, Sort sort, Arity arity) {
+      assert(index > 0 && (index & (kBitMaskFunction | kBitMaskName)) == 0);
       assert(arity > 0 || !sort.rigid());
-      return Symbol((id << 2) | 2, sort, arity);
+      return Symbol(index | kBitMaskFunction, sort, arity);
     }
 
     Sort CreateNonrigidSort() { return Sort::Nonrigid(last_sort_++); }
@@ -137,17 +157,22 @@ class Symbol {
 
   internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
-  bool name()     const { return (id_ & (0 | 1 | 2)) == 0; }
-  bool variable() const { return (id_ & (0 | 1 | 2)) == 1; }
-  bool function() const { return (id_ & (0 | 1 | 2)) == 2; }
+  bool name()     const { return (id_ & kBitMaskName) != 0; }
+  bool variable() const { return !name() && !function(); }
+  bool function() const { return (id_ & kBitMaskFunction) != 0; }
 
   bool null() const { return id_ == 0; }
 
-  Id id() const { return id_ >> 2; }
   Sort sort() const { return sort_; }
   Arity arity() const { return arity_; }
 
+  Id id() const { return id_; }
+  Id index() const { return id_ & ~(kBitMaskFunction | kBitMaskName); }
+
  private:
+  static constexpr Id kBitMaskFunction = 1 << (sizeof(Id) * 8 - 1);
+  static constexpr Id kBitMaskName     = 1 << (sizeof(Id) * 8 - 2);
+
   Symbol(Id id, Sort sort, Arity arity) : id_(id), sort_(sort), arity_(arity) {
     assert(sort.id() >= 0);
     assert(arity >= 0);
@@ -169,10 +194,10 @@ class Term {
   template<typename T>
   using Maybe = internal::Maybe<T>;
 
-  static constexpr UnificationConfiguration kUnifyLeft = (1 << 0);
-  static constexpr UnificationConfiguration kUnifyRight = (1 << 1);
-  static constexpr UnificationConfiguration kOccursCheck = (1 << 4);
-  static constexpr UnificationConfiguration kUnifyTwoWay = kUnifyLeft | kUnifyRight;
+  static constexpr UnificationConfiguration kUnifyLeft     = (1 << 0);
+  static constexpr UnificationConfiguration kUnifyRight    = (1 << 1);
+  static constexpr UnificationConfiguration kOccursCheck   = (1 << 4);
+  static constexpr UnificationConfiguration kUnifyTwoWay   = kUnifyLeft | kUnifyRight;
   static constexpr UnificationConfiguration kDefaultConfig = kUnifyTwoWay;
 
   Term() = default;
@@ -194,13 +219,13 @@ class Term {
   Term arg(size_t i)    const { return args()[i]; }
 
   bool null()            const { return id_ == 0; }
-  bool name()            const { return ((id_ & 1) == 1); }
-  bool variable()        const { return symbol().variable(); }
-  bool function()        const { return symbol().function(); }
-  bool ground()          const { return name() || (function() && all_args<&Term::ground>()); }
-  bool primitive()       const { return !sort().rigid() && function() && all_args<&Term::name>(); }
+  bool name()            const { return !primitive() && (id_ & kBitMaskName) != 0; }
+  bool variable()        const { return !primitive() && !name() && (id_ & kBitMaskVariable) != 0; }
+  bool function()        const { return !name() && !variable(); }
+  bool primitive()       const { return (id_ & kBitMaskPrimitive) != 0; }
   bool quasi_name()      const { return !function() || (sort().rigid() && no_arg<&Term::function>()); }
-  bool quasi_primitive() const { return !sort().rigid() && function() && all_args<&Term::quasi_name>(); }
+  bool quasi_primitive() const { return function() && !sort().rigid() && all_args<&Term::quasi_name>(); }
+  bool ground()          const { return primitive() || name() || (function() && all_args<&Term::ground>()); }
 
   bool Mentions(Term t) const {
     return *this == t || std::any_of(args().begin(), args().end(), [t](Term tt) { return tt.Mentions(t); });
@@ -223,14 +248,32 @@ class Term {
  private:
   friend class Literal;
 
-  typedef internal::u32 u32;
+  typedef internal::u32 Id;
   struct Data;
 
-  explicit Term(u32 id) : id_(id) {}
+  static constexpr Id kBitMaskUnused    = 1U << (sizeof(Id) * 8 - 1);
+  static constexpr Id kBitMaskPrimitive = 1U << (sizeof(Id) * 8 - 2);
+  static constexpr Id kBitMaskName      = 1U << (sizeof(Id) * 8 - 3);
+  static constexpr Id kBitMaskVariable  = 1U << (sizeof(Id) * 8 - 4);
+  static constexpr Id kBitMaskOther     = 1U << (sizeof(Id) * 8 - 5);
+
+  explicit Term(Id id) : id_(id) {}
 
   inline const Data* data() const;
 
-  u32 id() const { return id_; }
+  Id id() const { return id_; }
+  Id index() const {
+    if ((id_ & kBitMaskPrimitive) != 0) {
+      return id_ & ~kBitMaskPrimitive;
+    } else if ((id_ & kBitMaskName) != 0) {
+      return id_ & ~kBitMaskName;
+    } else if ((id_ & kBitMaskVariable) != 0) {
+      return id_ & ~kBitMaskVariable;
+    } else {
+      assert((id_ & kBitMaskOther) != 0);
+      return id_ & ~kBitMaskOther;
+    }
+  }
 
   template<bool (Term::*Prop)() const>
   inline bool all_args() const {
@@ -252,7 +295,7 @@ class Term {
     return true;
   }
 
-  u32 id_ = 0;
+  Id id_ = 0;
 };
 
 struct Term::Data {
@@ -285,17 +328,21 @@ class Term::Factory : private Singleton<Factory> {
   static void Reset() { instance = nullptr; }
 
   ~Factory() {
-    for (Data* data : name_heap_) {
+    for (Data* data : heap_primitive_) {
       delete data;
     }
-    for (Data* data : variable_and_function_heap_) {
+    for (Data* data : heap_name_) {
+      delete data;
+    }
+    for (Data* data : heap_variable_) {
+      delete data;
+    }
+    for (Data* data : heap_rest_) {
       delete data;
     }
   }
 
-  Term CreateTerm(Symbol symbol) {
-    return CreateTerm(symbol, {});
-  }
+  Term CreateTerm(Symbol symbol) { return CreateTerm(symbol, {}); }
 
   Term CreateTerm(Symbol symbol, const Vector& args) {
     assert(!symbol.null() && std::all_of(args.begin(), args.end(), [](const Term t) { return !t.null(); }));
@@ -304,26 +351,50 @@ class Term::Factory : private Singleton<Factory> {
     DataPtrSet* s = &memory_[symbol.sort()];
     auto it = s->find(d);
     if (it == s->end()) {
-      const bool name = symbol.name() ||
-          (symbol.sort().rigid() && symbol.function() &&
-           std::all_of(args.begin(), args.end(), [](const Term t) { return t.name() && !t.function(); }));
-      std::vector<Data*>* heap = name ? &name_heap_ : &variable_and_function_heap_;
-      heap->push_back(d);
-      const u32 id = (static_cast<u32>(heap->size()) << 1) | static_cast<u32>(name);
+      auto all_args = [&args](auto p){ return std::all_of(args.begin(), args.end(), [&p](const Term t) { return p(t); }); };
+      const Symbol::Sort sort = symbol.sort();
+      Id id;
+      if (!sort.rigid() && symbol.function() && all_args([](const Term t) { return t.name(); })) {
+        assert((heap_primitive_.size() & (kBitMaskUnused | kBitMaskPrimitive)) == 0);
+        id = static_cast<Id>(heap_primitive_.size());
+        heap_primitive_.push_back(d);
+        id |= kBitMaskPrimitive;
+      } else if (symbol.name() || (sort.rigid() && symbol.function() && all_args([](const Term t) { return t.name() && !t.function(); }))) {
+        assert((heap_name_.size() & (kBitMaskUnused | kBitMaskPrimitive | kBitMaskName)) == 0);
+        id = static_cast<Id>(heap_name_.size());
+        heap_name_.push_back(d);
+        id |= kBitMaskName;
+      } else if (symbol.variable()) {
+        assert((heap_variable_.size() & (kBitMaskUnused | kBitMaskPrimitive | kBitMaskName | kBitMaskVariable)) == 0);
+        id = static_cast<Id>(heap_variable_.size());
+        heap_variable_.push_back(d);
+        id |= kBitMaskVariable;
+      } else {
+        assert((heap_rest_.size() & (kBitMaskUnused | kBitMaskPrimitive | kBitMaskName | kBitMaskVariable | kBitMaskOther)) == 0);
+        id = static_cast<Id>(heap_rest_.size());
+        heap_rest_.push_back(d);
+        id |= kBitMaskOther;
+      }
       s->insert(std::make_pair(d, id));
       return Term(id);
     } else {
-      const u32 id = it->second;
+      const Id id = it->second;
       delete d;
       return Term(id);
     }
   }
 
-  const Data* get(u32 id) const {
-    if ((id & 1) == 1) {
-      return name_heap_[(id >> 1) - 1];
+  const Data* get_data(Term t) const {
+    const Id id = t.id();
+    const Id index = t.index();
+    if ((id & kBitMaskPrimitive) != 0) {
+      return heap_primitive_[index];
+    } else if ((id & kBitMaskName) != 0) {
+      return heap_name_[index];
+    } else if ((id & kBitMaskVariable) != 0) {
+      return heap_variable_[index];
     } else {
-      return variable_and_function_heap_[(id >> 1) - 1];
+      return heap_rest_[index];
     }
   }
 
@@ -337,10 +408,12 @@ class Term::Factory : private Singleton<Factory> {
   Factory(Factory&&) = delete;
   Factory& operator=(Factory&&) = delete;
 
-  typedef std::unordered_map<Data*, u32, DataPtrHash, DataPtrEquals> DataPtrSet;
+  typedef std::unordered_map<Data*, Id, DataPtrHash, DataPtrEquals> DataPtrSet;
   internal::IntMap<Symbol::Sort, DataPtrSet> memory_;
-  std::vector<Data*> name_heap_;
-  std::vector<Data*> variable_and_function_heap_;
+  std::vector<Data*> heap_primitive_;
+  std::vector<Data*> heap_name_;
+  std::vector<Data*> heap_variable_;
+  std::vector<Data*> heap_rest_;
 };
 
 struct Term::Substitution {
@@ -371,7 +444,7 @@ struct Term::Substitution {
 
 inline Symbol Term::symbol()            const { return data()->symbol; }
 inline const Term::Vector& Term::args() const { return data()->args; }
-inline const Term::Data* Term::data()   const { return Factory::Instance()->get(id_); }
+inline const Term::Data* Term::data()   const { return Factory::Instance()->get_data(*this); }
 
 template<typename UnaryFunction>
 Term Term::Substitute(UnaryFunction theta, Factory* tf) const {

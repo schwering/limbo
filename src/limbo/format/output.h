@@ -159,7 +159,7 @@ std::ostream& operator<<(std::ostream& os, const Symbol s) {
     } else if (s.variable()) {
       os << 'x';
     }
-    os << s.id();
+    os << s.index();
   }
   return os;
 }

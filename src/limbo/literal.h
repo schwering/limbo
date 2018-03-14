@@ -12,8 +12,8 @@
 // speed them up and therefore depend on their inner workings. In other words:
 // when you modify them, double-check with the Clause class.
 //
-// Due to the memory-wise lightweight representation of terms, copying or
-// comparing literals is very fast.
+// Literal is a friend class of Term and builds on Term's memory layout. This
+// makes Literals very lightweight for fast copying and comparing of Literals.
 
 #ifndef LIMBO_LITERAL_H_
 #define LIMBO_LITERAL_H_
@@ -41,30 +41,30 @@ class Literal {
 
   Literal() = default;
 
-  Term lhs() const { return Term(static_cast<u32>(data_)); }
-  bool pos() const { return (data_ >> 63) == 1; }
-  Term rhs() const { return Term(static_cast<u32>(data_ >> 32) & ~static_cast<u32>(1 << 31)); }
+  Term lhs() const { return Term(static_cast<Term::Id>((id_ & kBitMaskLhs) >> kFirstBitLhs)); }
+  bool pos() const { return (id_ & kBitMaskPos) != 0; }
+  Term rhs() const { return Term(static_cast<Term::Id>((id_ & kBitMaskRhs) >> kFirstBitRhs)); }
 
-  bool null()            const { return data_ == 0; }
-  bool ground()          const { return lhs().ground() && rhs().ground(); }
+  bool null()            const { return id_ == 0; }
   bool trivial()         const { return lhs().name() && rhs().name(); }
   bool primitive()       const { return lhs().primitive() && rhs().name(); }
   bool quasi_trivial()   const { return lhs().quasi_name() && rhs().quasi_name(); }
   bool quasi_primitive() const { return lhs().quasi_primitive() && rhs().quasi_name(); }
   bool well_formed()     const { return quasi_trivial() || quasi_primitive(); }
+  bool ground()          const { return lhs().ground() && rhs().ground(); }
 
-  Literal flip() const { return Literal(!pos(), lhs(), rhs()); }
+  Literal flip() const { return Literal(id_ ^ kBitMaskPos); }
   Literal dual() const { return Literal(pos(), rhs(), lhs()); }
 
   bool operator==(Literal a) const { return pos() == a.pos() && lhs() == a.lhs() && rhs() == a.rhs(); }
   bool operator!=(Literal a) const { return !(*this == a); }
-  bool operator<(Literal a) const { return lhs() < a.lhs() || (lhs() == a.lhs() && data_ < a.data_); }
+  bool operator<(Literal a) const { return lhs() < a.lhs() || (lhs() == a.lhs() && id_ < a.id_); }
 
   static Literal Min(Term lhs) { return Literal(lhs); }
 
   internal::hash32_t hash() const {
-    return internal::jenkins_hash(static_cast<u32>(data_ >> 32)) ^
-           internal::jenkins_hash(static_cast<u32>(data_));
+    return internal::jenkins_hash(static_cast<Term::Id>(id_ >> 32)) ^
+           internal::jenkins_hash(static_cast<Term::Id>(id_));
   }
 
   // valid() holds for (t = t) and (n1 != n2) and (t1 != t2) if t1, t2 have different sorts.
@@ -86,8 +86,6 @@ class Literal {
   // (t1 != t2), (t1 = t2)
   // (t1 != n1), (t1 != n2) for distinct n1, n2.
   static bool Valid(const Literal a, const Literal b) {
-    assert(a.primitive());
-    assert(b.primitive());
     return (a.lhs() == b.lhs() && a.pos() != b.pos() && a.rhs() == b.rhs()) ||
            (a.lhs() == b.lhs() && !a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
   }
@@ -97,8 +95,6 @@ class Literal {
   // (t1 != t2), (t1 = t2)
   // (t = n1), (t = n2) for distinct n1, n2.
   static bool Complementary(const Literal a, const Literal b) {
-    assert(a.primitive());
-    assert(b.primitive());
     return (a.lhs() == b.lhs() && a.pos() != b.pos() && a.rhs() == b.rhs()) ||
            (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
   }
@@ -149,12 +145,20 @@ class Literal {
   }
 
  private:
-  typedef internal::u32 u32;
-  typedef internal::u64 u64;
+  typedef internal::u64 Id;
+
+  // Lhs should occupy first bits so "lhs = null" is the minimum wrt operator< for all Literals with lhs.
+  static constexpr Id kFirstBitPos = sizeof(Id) * 8 - 1;
+  static constexpr Id kFirstBitLhs = 0;
+  static constexpr Id kFirstBitRhs = sizeof(Term::Id) * 8;
+  static constexpr Id kBitMaskPos  = 1UL << kFirstBitPos;
+  static constexpr Id kBitMaskLhs  = ((1UL << (sizeof(Term::Id) * 8 - 1)) - 1) << kFirstBitLhs;
+  static constexpr Id kBitMaskRhs  = ((1UL << (sizeof(Term::Id) * 8 - 1)) - 1) << kFirstBitRhs;
+
+  explicit Literal(Id id) : id_(id) {}
 
   explicit Literal(Term lhs) {
-    // Shall be the operator<-minimum of all Literals with lhs.
-    data_ = static_cast<u64>(lhs.id());
+    id_ = static_cast<Id>(lhs.id()) << kFirstBitLhs;
     assert(this->lhs() == lhs);
     assert(this->rhs().null());
     assert(!this->pos());
@@ -174,15 +178,15 @@ class Literal {
       rhs = tmp;
     }
     assert(!rhs.function() || lhs.function());
-    data_ = static_cast<u64>(lhs.id()) |
-           (static_cast<u64>(pos) << 63) |
-           (static_cast<u64>(rhs.id()) << 32);
+    id_ = (static_cast<Id>(lhs.id()) << kFirstBitLhs) |
+            (static_cast<Id>(pos)      << kFirstBitPos) |
+            (static_cast<Id>(rhs.id()) << kFirstBitRhs);
     assert(this->lhs() == lhs);
     assert(this->rhs() == rhs);
     assert(this->pos() == pos);
   }
 
-  u64 data_;
+  Id id_;
 };
 
 struct Literal::LhsHash {
