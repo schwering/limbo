@@ -112,17 +112,17 @@ class Symbol {
     static void Reset() { instance = nullptr; }
 
     static Symbol CreateName(Id index, Sort sort) {
-      assert(index > 0 && (index & (kBitMaskFunction | kBitMaskName)) == 0);
+      assert((index & (kBitMaskName | kBitMaskFunction | kBitMaskVariable)) == 0);
       return Symbol(index | kBitMaskName, sort, 0);
     }
 
     static Symbol CreateVariable(Id index, Sort sort) {
-      assert(index > 0 && (index & (kBitMaskFunction | kBitMaskName)) == 0);
-      return Symbol(index, sort, 0);
+      assert((index & (kBitMaskName | kBitMaskFunction | kBitMaskVariable)) == 0);
+      return Symbol(index | kBitMaskVariable, sort, 0);
     }
 
     static Symbol CreateFunction(Id index, Sort sort, Arity arity) {
-      assert(index > 0 && (index & (kBitMaskFunction | kBitMaskName)) == 0);
+      assert((index & (kBitMaskName | kBitMaskFunction | kBitMaskVariable)) == 0);
       assert(arity > 0 || !sort.rigid());
       return Symbol(index | kBitMaskFunction, sort, arity);
     }
@@ -130,9 +130,9 @@ class Symbol {
     Sort CreateNonrigidSort() { return Sort::Nonrigid(last_sort_++); }
     Sort CreateRigidSort()    { return Sort::Rigid(last_sort_++); }
 
-    Symbol CreateName(Sort sort)                  { return CreateName(++last_name_, sort); }
-    Symbol CreateVariable(Sort sort)              { return CreateVariable(++last_variable_, sort); }
-    Symbol CreateFunction(Sort sort, Arity arity) { return CreateFunction(++last_function_, sort, arity); }
+    Symbol CreateName(Sort sort)                  { return CreateName(last_name_++, sort); }
+    Symbol CreateVariable(Sort sort)              { return CreateVariable(last_variable_++, sort); }
+    Symbol CreateFunction(Sort sort, Arity arity) { return CreateFunction(last_function_++, sort, arity); }
 
    private:
     Factory() = default;
@@ -158,7 +158,7 @@ class Symbol {
   internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
   bool name()     const { return (id_ & kBitMaskName) != 0; }
-  bool variable() const { return !name() && !function(); }
+  bool variable() const { return (id_ & kBitMaskVariable) != 0; }
   bool function() const { return (id_ & kBitMaskFunction) != 0; }
 
   bool null() const { return id_ == 0; }
@@ -167,11 +167,21 @@ class Symbol {
   Arity arity() const { return arity_; }
 
   Id id() const { return id_; }
-  Id index() const { return id_ & ~(kBitMaskFunction | kBitMaskName); }
+  Id index() const {
+    if ((id_ & kBitMaskName) != 0) {
+      return id_ & ~kBitMaskName;
+    } else if ((id_ & kBitMaskFunction) != 0) {
+      return id_ & ~kBitMaskFunction;
+    } else {
+      assert((id_ & kBitMaskVariable) != 0);
+      return id_ & ~kBitMaskVariable;
+    }
+  }
 
  private:
-  static constexpr Id kBitMaskFunction = 1 << (sizeof(Id) * 8 - 1);
-  static constexpr Id kBitMaskName     = 1 << (sizeof(Id) * 8 - 2);
+  static constexpr Id kBitMaskName     = 1 << (sizeof(Id) * 8 - 1);
+  static constexpr Id kBitMaskFunction = 1 << (sizeof(Id) * 8 - 2);
+  static constexpr Id kBitMaskVariable = 1 << (sizeof(Id) * 8 - 3);
 
   Symbol(Id id, Sort sort, Arity arity) : id_(id), sort_(sort), arity_(arity) {
     assert(sort.id() >= 0);
@@ -351,7 +361,9 @@ class Term::Factory : private Singleton<Factory> {
     DataPtrSet* s = &memory_[symbol.sort()];
     auto it = s->find(d);
     if (it == s->end()) {
-      auto all_args = [&args](auto p){ return std::all_of(args.begin(), args.end(), [&p](const Term t) { return p(t); }); };
+      auto all_args = [&args](auto p) {
+        return std::all_of(args.begin(), args.end(), [&p](const Term t) { return p(t); });
+      };
       const Symbol::Sort sort = symbol.sort();
       Id id;
       if (!sort.rigid() && symbol.function() && all_args([](const Term t) { return t.name(); })) {
@@ -359,7 +371,8 @@ class Term::Factory : private Singleton<Factory> {
         id = static_cast<Id>(heap_primitive_.size());
         heap_primitive_.push_back(d);
         id |= kBitMaskPrimitive;
-      } else if (symbol.name() || (sort.rigid() && symbol.function() && all_args([](const Term t) { return t.name() && !t.function(); }))) {
+      } else if (symbol.name() || (sort.rigid() && symbol.function() &&
+                                   all_args([](const Term t) { return t.name() && !t.function(); }))) {
         assert((heap_name_.size() & (kBitMaskUnused | kBitMaskPrimitive | kBitMaskName)) == 0);
         id = static_cast<Id>(heap_name_.size());
         heap_name_.push_back(d);
@@ -370,7 +383,8 @@ class Term::Factory : private Singleton<Factory> {
         heap_variable_.push_back(d);
         id |= kBitMaskVariable;
       } else {
-        assert((heap_rest_.size() & (kBitMaskUnused | kBitMaskPrimitive | kBitMaskName | kBitMaskVariable | kBitMaskOther)) == 0);
+        assert((heap_rest_.size() & (kBitMaskUnused | kBitMaskPrimitive | kBitMaskName | kBitMaskVariable |
+                                     kBitMaskOther)) == 0);
         id = static_cast<Id>(heap_rest_.size());
         heap_rest_.push_back(d);
         id |= kBitMaskOther;

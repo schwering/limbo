@@ -28,29 +28,29 @@ TEST(TermTest, general) {
   EXPECT_EQ(s2, s2);
   EXPECT_TRUE(s1 != s2);
 
-  const Term n1 = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
-  const Term n2 = tf.CreateTerm(Symbol::Factory::CreateName(2, s1));
-  EXPECT_TRUE(n1 == tf.CreateTerm(Symbol::Factory::CreateName(1, s1)) && n2 != tf.CreateTerm(Symbol::Factory::CreateName(1, s1)));
-  EXPECT_TRUE(n1 != tf.CreateTerm(Symbol::Factory::CreateName(2, s1)) && n2 == tf.CreateTerm(Symbol::Factory::CreateName(2, s1)));
+  const Term n1 = tf.CreateTerm(Symbol::Factory::CreateName(0, s1));
+  const Term n2 = tf.CreateTerm(Symbol::Factory::CreateName(1, s1));
+  EXPECT_TRUE(n1 == tf.CreateTerm(Symbol::Factory::CreateName(0, s1)) && n2 != tf.CreateTerm(Symbol::Factory::CreateName(0, s1)));
+  EXPECT_TRUE(n1 != tf.CreateTerm(Symbol::Factory::CreateName(1, s1)) && n2 == tf.CreateTerm(Symbol::Factory::CreateName(1, s1)));
   EXPECT_TRUE(!n1.null() && n1.name() && !n1.variable() && !n1.function());
   EXPECT_TRUE(!n2.null() && n2.name() && !n2.variable() && !n2.function());
-  EXPECT_EQ(n1.symbol().index(), 1u);
-  EXPECT_EQ(n2.symbol().index(), 2u);
+  EXPECT_EQ(n1.symbol().index(), 0u);
+  EXPECT_EQ(n2.symbol().index(), 1u);
 
-  const Term x1 = tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1));
-  const Term x2 = tf.CreateTerm(Symbol::Factory::CreateVariable(2, s1));
+  const Term x1 = tf.CreateTerm(Symbol::Factory::CreateVariable(0, s1));
+  const Term x2 = tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1));
   EXPECT_TRUE(!x1.null() && !x1.name() && x1.variable() && !x1.function());
   EXPECT_TRUE(!x2.null() && !x2.name() && x2.variable() && !x2.function());
   EXPECT_TRUE(n1 != x1 && n1 != x2 && n2 != x1 && n2 != x2);
-  EXPECT_TRUE(x1 == tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1)) && x2 != tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1)));
-  EXPECT_TRUE(x1 != tf.CreateTerm(Symbol::Factory::CreateVariable(2, s1)) && x2 == tf.CreateTerm(Symbol::Factory::CreateVariable(2, s1)));
-  EXPECT_EQ(x1.symbol().index(), 1u);
-  EXPECT_EQ(x2.symbol().index(), 2u);
+  EXPECT_TRUE(x1 == tf.CreateTerm(Symbol::Factory::CreateVariable(0, s1)) && x2 != tf.CreateTerm(Symbol::Factory::CreateVariable(0, s1)));
+  EXPECT_TRUE(x1 != tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1)) && x2 == tf.CreateTerm(Symbol::Factory::CreateVariable(1, s1)));
+  EXPECT_EQ(x1.symbol().index(), 0u);
+  EXPECT_EQ(x2.symbol().index(), 1u);
 
-  const Term f1 = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s1, 1), {n1});
-  const Term f2 = tf.CreateTerm(Symbol::Factory::CreateFunction(2, s2, 2), {n1,x2});
-  const Term f3 = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s2, 1), {f1});
-  const Term f4 = tf.CreateTerm(Symbol::Factory::CreateFunction(2, s2, 2), {n1,f1});
+  const Term f1 = tf.CreateTerm(Symbol::Factory::CreateFunction(0, s1, 1), {n1});
+  const Term f2 = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s2, 2), {n1,x2});
+  const Term f3 = tf.CreateTerm(Symbol::Factory::CreateFunction(0, s2, 1), {f1});
+  const Term f4 = tf.CreateTerm(Symbol::Factory::CreateFunction(1, s2, 2), {n1,f1});
   EXPECT_TRUE(!f1.null() && !f1.name() && !f1.variable() && f1.function() && f1.ground() && f1.primitive() && f1.quasi_primitive());
   EXPECT_TRUE(!f2.null() && !f2.name() && !f2.variable() && f2.function() && !f2.ground() && !f2.primitive() && f2.quasi_primitive());
   EXPECT_TRUE(!f3.null() && !f3.name() && !f3.variable() && f3.function() && f3.ground() && !f3.primitive() && !f3.quasi_primitive());
@@ -60,11 +60,11 @@ TEST(TermTest, general) {
   EXPECT_TRUE(!f5.name() && !f5.variable() && f5.function() && f5.ground() && !f4.primitive() && !f4.quasi_primitive());
   EXPECT_TRUE(f5 != f2);
   EXPECT_TRUE(f5 == f4);
-  EXPECT_TRUE(f5 == tf.CreateTerm(Symbol::Factory::CreateFunction(2, s2, 2), {n1,f1}));
-  EXPECT_EQ(f1.symbol().index(), 1u);
-  EXPECT_EQ(f2.symbol().index(), 2u);
-  EXPECT_EQ(f3.symbol().index(), 1u);
-  EXPECT_EQ(f4.symbol().index(), 2u);
+  EXPECT_TRUE(f5 == tf.CreateTerm(Symbol::Factory::CreateFunction(1, s2, 2), {n1,f1}));
+  EXPECT_EQ(f1.symbol().index(), 0u);
+  EXPECT_EQ(f2.symbol().index(), 1u);
+  EXPECT_EQ(f3.symbol().index(), 0u);
+  EXPECT_EQ(f4.symbol().index(), 1u);
 
   typedef std::unordered_set<Term> TermSet;
   TermSet terms;
