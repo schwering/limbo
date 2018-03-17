@@ -112,17 +112,17 @@ class Symbol {
     static void Reset() { instance = nullptr; }
 
     static Symbol CreateName(Id index, Sort sort) {
-      assert((index & (kBitMaskName | kBitMaskFunction | kBitMaskVariable)) == 0);
+      assert(index == lower(index, kBitMaskName));
       return Symbol(index | kBitMaskName, sort, 0);
     }
 
     static Symbol CreateVariable(Id index, Sort sort) {
-      assert((index & (kBitMaskName | kBitMaskFunction | kBitMaskVariable)) == 0);
+      assert(index == lower(index, kBitMaskVariable));
       return Symbol(index | kBitMaskVariable, sort, 0);
     }
 
     static Symbol CreateFunction(Id index, Sort sort, Arity arity) {
-      assert((index & (kBitMaskName | kBitMaskFunction | kBitMaskVariable)) == 0);
+      assert(index == lower(index, kBitMaskFunction));
       assert(arity > 0 || !sort.rigid());
       return Symbol(index | kBitMaskFunction, sort, arity);
     }
@@ -157,9 +157,9 @@ class Symbol {
 
   internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
-  bool name()     const { return (id_ & kBitMaskName) != 0; }
-  bool variable() const { return (id_ & kBitMaskVariable) != 0; }
-  bool function() const { return (id_ & kBitMaskFunction) != 0; }
+  bool name()     const { return is_highest(id_, kBitMaskName); }
+  bool variable() const { return is_highest(id_, kBitMaskVariable); }
+  bool function() const { return is_highest(id_, kBitMaskFunction); }
 
   bool null() const { return id_ == 0; }
 
@@ -168,13 +168,13 @@ class Symbol {
 
   Id id() const { return id_; }
   Id index() const {
-    if ((id_ & kBitMaskName) != 0) {
-      return id_ & ~kBitMaskName;
-    } else if ((id_ & kBitMaskFunction) != 0) {
-      return id_ & ~kBitMaskFunction;
+    if (is_highest(id_, kBitMaskName)) {
+      return lower(id_, kBitMaskName);
+    } else if (is_highest(id_, kBitMaskFunction)) {
+      return lower(id_, kBitMaskFunction);
     } else {
-      assert((id_ & kBitMaskVariable) != 0);
-      return id_ & ~kBitMaskVariable;
+      assert(is_highest(id_, kBitMaskVariable));
+      return lower(id_, kBitMaskVariable);
     }
   }
 
@@ -182,6 +182,9 @@ class Symbol {
   static constexpr Id kBitMaskName     = 1 << (sizeof(Id) * 8 - 1);
   static constexpr Id kBitMaskFunction = 1 << (sizeof(Id) * 8 - 2);
   static constexpr Id kBitMaskVariable = 1 << (sizeof(Id) * 8 - 3);
+
+  static constexpr bool is_highest(Id id, Id bit_mask) { return (id & ~(bit_mask - 1)) == bit_mask; }
+  static constexpr Id lower(Id id, Id bit_mask) { return id & (bit_mask - 1); }
 
   Symbol(Id id, Sort sort, Arity arity) : id_(id), sort_(sort), arity_(arity) {
     assert(sort.id() >= 0);
@@ -229,10 +232,10 @@ class Term {
   Term arg(size_t i)    const { return args()[i]; }
 
   bool null()            const { return id_ == 0; }
-  bool name()            const { return !primitive() && (id_ & kBitMaskName) != 0; }
-  bool variable()        const { return !primitive() && !name() && (id_ & kBitMaskVariable) != 0; }
+  bool name()            const { return is_highest(id_, kBitMaskName); }
+  bool variable()        const { return is_highest(id_, kBitMaskVariable); }
   bool function()        const { return !name() && !variable(); }
-  bool primitive()       const { return (id_ & kBitMaskPrimitive) != 0; }
+  bool primitive()       const { return is_highest(id_, kBitMaskPrimitive); }
   bool quasi_name()      const { return !function() || (sort().rigid() && no_arg<&Term::function>()); }
   bool quasi_primitive() const { return function() && !sort().rigid() && all_args<&Term::quasi_name>(); }
   bool ground()          const { return primitive() || name() || (function() && all_args<&Term::ground>()); }
@@ -267,21 +270,24 @@ class Term {
   static constexpr Id kBitMaskVariable  = 1U << (sizeof(Id) * 8 - 4);
   static constexpr Id kBitMaskOther     = 1U << (sizeof(Id) * 8 - 5);
 
+  static constexpr bool is_highest(Id id, Id bit_mask) { return (id & ~(bit_mask - 1)) == bit_mask; }
+  static constexpr Id lower(Id id, Id bit_mask) { return id & (bit_mask - 1); }
+
   explicit Term(Id id) : id_(id) {}
 
   inline const Data* data() const;
 
   Id id() const { return id_; }
   Id index() const {
-    if ((id_ & kBitMaskPrimitive) != 0) {
-      return id_ & ~kBitMaskPrimitive;
-    } else if ((id_ & kBitMaskName) != 0) {
-      return id_ & ~kBitMaskName;
-    } else if ((id_ & kBitMaskVariable) != 0) {
-      return id_ & ~kBitMaskVariable;
+    if (is_highest(id_, kBitMaskPrimitive)) {
+      return lower(id_, kBitMaskPrimitive);
+    } else if (is_highest(id_, kBitMaskName)) {
+      return lower(id_, kBitMaskName);
+    } else if (is_highest(id_, kBitMaskVariable)) {
+      return lower(id_, kBitMaskVariable);
     } else {
-      assert((id_ & kBitMaskOther) != 0);
-      return id_ & ~kBitMaskOther;
+      assert(is_highest(id_, kBitMaskOther));
+      return lower(id_, kBitMaskOther);
     }
   }
 
@@ -347,7 +353,7 @@ class Term::Factory : private Singleton<Factory> {
     for (Data* data : heap_variable_) {
       delete data;
     }
-    for (Data* data : heap_rest_) {
+    for (Data* data : heap_other_) {
       delete data;
     }
   }
@@ -367,26 +373,25 @@ class Term::Factory : private Singleton<Factory> {
       const Symbol::Sort sort = symbol.sort();
       Id id;
       if (!sort.rigid() && symbol.function() && all_args([](const Term t) { return t.name(); })) {
-        assert((heap_primitive_.size() & (kBitMaskUnused | kBitMaskPrimitive)) == 0);
+        assert(heap_primitive_.size() == lower(heap_primitive_.size(), kBitMaskPrimitive));
         id = static_cast<Id>(heap_primitive_.size());
         heap_primitive_.push_back(d);
         id |= kBitMaskPrimitive;
       } else if (symbol.name() || (sort.rigid() && symbol.function() &&
                                    all_args([](const Term t) { return t.name() && !t.function(); }))) {
-        assert((heap_name_.size() & (kBitMaskUnused | kBitMaskPrimitive | kBitMaskName)) == 0);
+        assert(heap_name_.size() == lower(heap_name_.size(), kBitMaskName));
         id = static_cast<Id>(heap_name_.size());
         heap_name_.push_back(d);
         id |= kBitMaskName;
       } else if (symbol.variable()) {
-        assert((heap_variable_.size() & (kBitMaskUnused | kBitMaskPrimitive | kBitMaskName | kBitMaskVariable)) == 0);
+        assert(heap_variable_.size() == lower(heap_variable_.size(), kBitMaskVariable));
         id = static_cast<Id>(heap_variable_.size());
         heap_variable_.push_back(d);
         id |= kBitMaskVariable;
       } else {
-        assert((heap_rest_.size() & (kBitMaskUnused | kBitMaskPrimitive | kBitMaskName | kBitMaskVariable |
-                                     kBitMaskOther)) == 0);
-        id = static_cast<Id>(heap_rest_.size());
-        heap_rest_.push_back(d);
+        assert(heap_other_.size() == lower(heap_other_.size(), kBitMaskOther));
+        id = static_cast<Id>(heap_other_.size());
+        heap_other_.push_back(d);
         id |= kBitMaskOther;
       }
       s->insert(std::make_pair(d, id));
@@ -401,14 +406,14 @@ class Term::Factory : private Singleton<Factory> {
   const Data* get_data(Term t) const {
     const Id id = t.id();
     const Id index = t.index();
-    if ((id & kBitMaskPrimitive) != 0) {
+    if (is_highest(id, kBitMaskPrimitive)) {
       return heap_primitive_[index];
-    } else if ((id & kBitMaskName) != 0) {
+    } else if (is_highest(id, kBitMaskName)) {
       return heap_name_[index];
-    } else if ((id & kBitMaskVariable) != 0) {
+    } else if (is_highest(id, kBitMaskVariable)) {
       return heap_variable_[index];
     } else {
-      return heap_rest_[index];
+      return heap_other_[index];
     }
   }
 
@@ -427,7 +432,7 @@ class Term::Factory : private Singleton<Factory> {
   std::vector<Data*> heap_primitive_;
   std::vector<Data*> heap_name_;
   std::vector<Data*> heap_variable_;
-  std::vector<Data*> heap_rest_;
+  std::vector<Data*> heap_other_;
 };
 
 struct Term::Substitution {
