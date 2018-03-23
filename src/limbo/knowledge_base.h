@@ -350,6 +350,7 @@ class KnowledgeBase {
                             SortedTermSet* names,
                             BinaryPredicate if_no_free_vars) {
     // (x != n1 && ... && x != nK -> RES(p, phi^x_n0)^n0_x) in clausal form
+    // TODO If x.sort().rigid(), more than one name needs to be considered.
     Term n0 = spheres_[p].grounder().temp_name_pool().Create(x.sort());
     phi->SubstituteFree(Term::Substitution(x, n0), tf_);
     names->insert(n0);

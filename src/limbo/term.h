@@ -209,7 +209,7 @@ class Term {
 
   static constexpr UnificationConfiguration kUnifyLeft     = (1 << 0);
   static constexpr UnificationConfiguration kUnifyRight    = (1 << 1);
-  static constexpr UnificationConfiguration kOccursCheck   = (1 << 4);
+  static constexpr UnificationConfiguration kOccursCheck   = (1 << 2);
   static constexpr UnificationConfiguration kUnifyTwoWay   = kUnifyLeft | kUnifyRight;
   static constexpr UnificationConfiguration kDefaultConfig = kUnifyTwoWay;
 
