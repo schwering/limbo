@@ -147,21 +147,7 @@ class Clause {
   bool   unit()  const { return size() == 1; }
   size_t size()  const { return size_; }
 
-  bool valid() const {
-    if (unit() && first().valid()) {
-      return true;
-    }
-    const Clause& c = *this;
-    for (size_t i = 0; i < size(); ++i) {
-      for (size_t j = i + 1; j < size() && c[i].lhs() == c[j].lhs(); ++j) {
-        if (Literal::Valid(c[i], c[j])) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
+  bool valid()         const { return unit() && first().valid(); }
   bool unsatisfiable() const { return empty(); }
 
   static bool Subsumes(const Literal a, const Clause c) {
@@ -447,6 +433,11 @@ next:
         goto skip;
       }
       for (size_t k = 0; k < j; ++k) {
+        if (Literal::Valid(c[i], c[k])) {
+          c[0] = Literal::Eq(c[i].rhs(), c[i].rhs());
+          size_ = 1;
+          return;
+        }
         if (c[i].Subsumes(c[k])) {
           goto skip;
         }

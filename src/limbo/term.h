@@ -167,7 +167,8 @@ class Symbol {
   Arity arity() const { return arity_; }
 
   Id id() const { return id_; }
-  Id index() const {
+
+  size_t index() const {
     if (is_highest(id_, kBitMaskName)) {
       return lower(id_, kBitMaskName);
     } else if (is_highest(id_, kBitMaskFunction)) {
@@ -258,6 +259,19 @@ class Term {
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
 
+  size_t index() const {
+    if (is_highest(id_, kBitMaskPrimitive)) {
+      return lower(id_, kBitMaskPrimitive);
+    } else if (is_highest(id_, kBitMaskName)) {
+      return lower(id_, kBitMaskName);
+    } else if (is_highest(id_, kBitMaskVariable)) {
+      return lower(id_, kBitMaskVariable);
+    } else {
+      assert(is_highest(id_, kBitMaskOther));
+      return lower(id_, kBitMaskOther);
+    }
+  }
+
  private:
   friend class Literal;
 
@@ -278,18 +292,6 @@ class Term {
   inline const Data* data() const;
 
   Id id() const { return id_; }
-  Id index() const {
-    if (is_highest(id_, kBitMaskPrimitive)) {
-      return lower(id_, kBitMaskPrimitive);
-    } else if (is_highest(id_, kBitMaskName)) {
-      return lower(id_, kBitMaskName);
-    } else if (is_highest(id_, kBitMaskVariable)) {
-      return lower(id_, kBitMaskVariable);
-    } else {
-      assert(is_highest(id_, kBitMaskOther));
-      return lower(id_, kBitMaskOther);
-    }
-  }
 
   template<bool (Term::*Prop)() const>
   inline bool all_args() const {
@@ -311,7 +313,7 @@ class Term {
     return true;
   }
 
-  Id id_ = 0;
+  Id id_;
 };
 
 struct Term::Data {
@@ -405,7 +407,7 @@ class Term::Factory : private Singleton<Factory> {
 
   const Data* get_data(Term t) const {
     const Id id = t.id();
-    const Id index = t.index();
+    const size_t index = t.index();
     if (is_highest(id, kBitMaskPrimitive)) {
       return heap_primitive_[index];
     } else if (is_highest(id, kBitMaskName)) {
