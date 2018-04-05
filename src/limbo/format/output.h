@@ -192,6 +192,7 @@ std::ostream& operator<<(std::ostream& os, const Literal a) {
 #ifdef LIMBO_CLAUSE_H_
 #ifndef LIMBO_CLAUSE_OUTPUT
 #define LIMBO_CLAUSE_OUTPUT
+#ifdef SORT_CLAUSES
 std::ostream& operator<<(std::ostream& os, const Clause& c) {
   struct PrintLiteralComparator {
     struct PrintTermComparator {
@@ -234,6 +235,11 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
   std::sort(vec.begin(), vec.end(), PrintLiteralComparator());
   return print_range(os, vec, "[", "]", " \u2228 ");
 }
+#else
+std::ostream& operator<<(std::ostream& os, const Clause& c) {
+  return print_range(os, c, "[", "]", " \u2228 ");
+}
+#endif  // SORT_CLAUSES
 #endif  // LIMBO_OUTPUT_CLAUSE
 #endif  // LIMBO_CLAUSE_H_
 

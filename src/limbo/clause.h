@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014-2017 Christoph Schwering
+// Copyright 2014-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A clause is a set of literals. Clauses are immutable.
@@ -171,6 +171,8 @@ class Clause {
 
   static bool Subsumes(const Literal a, const Literal b, const Clause c) {
     assert(a < b);
+    assert(a.primitive());
+    assert(b.primitive());
     assert(c.primitive());
 #ifdef BLOOM
     if (!c.lhs_bloom_.PossiblyContains(a.lhs()) || !c.lhs_bloom_.PossiblyContains(b.lhs())) {

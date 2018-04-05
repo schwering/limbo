@@ -100,7 +100,7 @@ TEST(ClauseTest, normalization) {
   EXPECT_EQ(Clause({Literal::Neq(n1,n1)}), Clause({}));
 
   EXPECT_EQ(Clause({Literal::Eq(f1,n1), Literal::Eq(f1,n2)}).size(), 2);
-  EXPECT_EQ(Clause({Literal::Neq(f1,n1), Literal::Neq(f1,n2)}).size(), 2);
+  EXPECT_EQ(Clause({Literal::Neq(f1,n1), Literal::Neq(f1,n2)}).size(), 1);
 
   EXPECT_EQ(Clause({Literal::Eq(f1,n1), Literal::Neq(f1,n2)}), Clause({Literal::Neq(f1,n2)}));
   EXPECT_EQ(Clause({Literal::Neq(f1,n2), Literal::Eq(f1,n1)}), Clause({Literal::Neq(f1,n2)}));

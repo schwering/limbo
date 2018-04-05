@@ -26,10 +26,11 @@ namespace internal {
 template<typename Key, typename T>
 class IntMap {
  public:
-  typedef std::vector<T> Vec;
-  typedef typename Vec::value_type value_type;
-  typedef typename Vec::reference reference;
-  typedef typename Vec::const_reference const_reference;
+  using Vec = std::vector<T>;
+  using size_type = int;
+  using value_type = typename Vec::value_type;
+  using reference = typename Vec::reference;
+  using const_reference = typename Vec::const_reference;
 
   void set_null_value(const T& null) { null_ = null; }
 
@@ -37,23 +38,21 @@ class IntMap {
   bool operator!=(const IntMap& a) const { return !(*this == a); }
 
   reference operator[](Key key) {
-    const typename Vec::size_type key_int = typename Vec::size_type(key);
+    const size_type key_int = size_type(key);
     if (key_int >= n_keys()) {
       vec_.resize(key_int + 1, null_);
     }
     return vec_[key_int];
   }
 
-  typename Vec::const_reference operator[](Key key) const {
-    return const_cast<IntMap&>(*this)[key];
-  }
+  typename Vec::const_reference operator[](Key key) const { return const_cast<IntMap&>(*this)[key]; }
 
-  size_t n_keys() const { return vec_.size(); }
+  int n_keys() const { return vec_.size(); }
 
   struct Keys {
-    struct Cast { Key operator()(size_t key) const { return Key(key); } };
-    typedef internal::int_iterator<size_t> int_iterator;
-    typedef internal::transform_iterator<int_iterator, Cast> iterator;
+    struct Cast { Key operator()(int key) const { return Key(key); } };
+    using int_iterator = internal::int_iterator<int>;
+    using iterator = internal::transform_iterator<int_iterator, Cast>;
     explicit Keys(const IntMap* owner) : owner(owner) {}
     iterator begin() const { return iterator(int_iterator(0)); }
     iterator end()   const { return iterator(int_iterator(owner->n_keys())); }
@@ -83,8 +82,7 @@ class IntMap {
   template<typename BinaryFunction>
   static IntMap Zip(const IntMap& m1, const IntMap& m2, BinaryFunction f) {
     IntMap m;
-    size_t s = std::max(m1.n_keys(), m2.n_keys());
-    for (size_t i = 0; i < s; ++i) {
+    for (int i = 0, s = std::max(m1.n_keys(), m2.n_keys()); i < s; ++i) {
       m[i] = f(m1[i], m2[i]);
     }
     return m;
@@ -92,8 +90,7 @@ class IntMap {
 
   template<typename BinaryFunction>
   void Zip(const IntMap& m, BinaryFunction f) {
-    size_t s = std::max(n_keys(), m.n_keys());
-    for (size_t i = 0; i < s; ++i) {
+    for (int i = 0, s = std::max(n_keys(), m.n_keys()); i < s; ++i) {
       Key k = Key(i);
       (*this)[k] = f((*this)[k], m[k]);
     }
@@ -117,17 +114,17 @@ class IntMultiMap {
         Bucket& operator[](Key key)       { return map_[key]; }
   const Bucket& operator[](Key key) const { return map_[key]; }
 
-  size_t insert(Key key, const T& val) {
+  int insert(Key key, const T& val) {
     auto p = map_[key].insert(val);
-    size_t n = p.second ? 1 : 0;
+    int n = p.second ? 1 : 0;
     size_ += n;
     return n;
   }
 
-  size_t insert(const IntMultiMap& m) {
-    size_t n = 0;
+  int insert(const IntMultiMap& m) {
+    int n = 0;
     for (Key key : m.keys()) {
-      const size_t old_size = (*this)[key].size();
+      const int old_size = (*this)[key].size();
       (*this)[key].insert(m.map_[key].begin(), m.map_[key].end());
       n += (*this)[key].size() - old_size;
     }
@@ -135,8 +132,8 @@ class IntMultiMap {
     return n;
   }
 
-  size_t erase(Key key, const T& val) {
-    const size_t n = map_[key].erase(val);
+  int erase(Key key, const T& val) {
+    const int n = map_[key].erase(val);
     size_ -= n;
     return n;
   }
@@ -146,8 +143,8 @@ class IntMultiMap {
     return s.count(val) > 0;
   }
 
-  size_t n_keys() const { return map_.n_keys(); }
-  size_t n_values(Key key) const { return map_[key].size(); }
+  int n_keys() const { return map_.n_keys(); }
+  int n_values(Key key) const { return map_[key].size(); }
 
   typedef typename Base::Keys Keys;
 
@@ -185,11 +182,11 @@ class IntMultiMap {
   Values values() const { return Values(this); }
 
   bool all_empty() const { return size_ == 0; }
-  size_t total_size() const { return size_; }
+  int total_size() const { return size_; }
 
  private:
   Base map_;
-  size_t size_ = 0;
+  int size_ = 0;
 };
 
 template<typename T, typename UnaryFunction, typename Key = typename std::result_of<UnaryFunction(T)>::type>
@@ -208,25 +205,25 @@ class IntMultiSet {
         Bucket& operator[](Key key)       { return map_[key]; }
   const Bucket& operator[](Key key) const { return map_[key]; }
 
-  size_t insert(const T& val) { return map_.insert(key_(val), val); }
+  int insert(const T& val) { return map_.insert(key_(val), val); }
 
-  size_t insert(const IntMultiSet& m) { return map_.insert(m.map_); }
+  int insert(const IntMultiSet& m) { return map_.insert(m.map_); }
 
   template<typename Collection>
-  size_t insert(const Collection& vals) { return map_.insert(vals); }
+  int insert(const Collection& vals) { return map_.insert(vals); }
 
-  size_t erase(const T& val) { return map_.erase(key_(val), val); }
+  int erase(const T& val) { return map_.erase(key_(val), val); }
 
   bool contains(const T& val) const { return map_.contains(key_(val), val); }
 
-  size_t n_keys() const { return map_.n_keys(); }
-  size_t n_values(Key key) const { return map_[key].size(); }
+  int n_keys() const { return map_.n_keys(); }
+  int n_values(Key key) const { return map_[key].size(); }
 
-  typedef typename Parent::Keys Keys;
-  typedef typename Parent::value_iterator value_iterator;
-  typedef typename Parent::ValuesForKey ValuesForKey;
-  typedef typename Parent::all_values_iterator all_values_iterator;
-  typedef typename Parent::Values Values;
+  using Keys = typename Parent::Keys;
+  using value_iterator = typename Parent::value_iterator;
+  using ValuesForKey = typename Parent::ValuesForKey;
+  using all_values_iterator = typename Parent::all_values_iterator;
+  using Values = typename Parent::Values;
 
   Keys keys() const { return map_.keys(); }
   value_iterator begin(Key key) const { return map_[key].begin(); }
@@ -239,7 +236,7 @@ class IntMultiSet {
   all_values_iterator end()   const { return values().end(); }
 
   bool all_empty() const { return map_.all_empty(); }
-  size_t total_size() const { return map_.total_size(); }
+  int total_size() const { return map_.total_size(); }
 
  private:
   UnaryFunction key_;

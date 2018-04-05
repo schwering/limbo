@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014-2017 Christoph Schwering
+// Copyright 2014-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A literal is an (in)equality expression of two terms. Literals are immutable.
@@ -32,12 +32,14 @@ namespace limbo {
 
 class Literal {
  public:
+  using Id = internal::u64;
   template<typename T>
   using Maybe = internal::Maybe<T>;
   struct LhsHash;
 
   static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
   static Literal Neq(Term lhs, Term rhs) { return Literal(false, lhs, rhs); }
+  static Literal FromId(Id id) { return Literal(id); }
 
   Literal() = default;
 
@@ -56,7 +58,7 @@ class Literal {
   Literal flip() const { return Literal(id_ ^ kBitMaskPos); }
   Literal dual() const { return Literal(pos(), rhs(), lhs()); }
 
-  bool operator==(Literal a) const { return pos() == a.pos() && lhs() == a.lhs() && rhs() == a.rhs(); }
+  bool operator==(Literal a) const { return id_ == a.id_; }
   bool operator!=(Literal a) const { return !(*this == a); }
   bool operator<(Literal a) const { return lhs() < a.lhs() || (lhs() == a.lhs() && id_ < a.id_); }
 
@@ -95,13 +97,17 @@ class Literal {
   // (t1 != t2), (t1 = t2)
   // (t = n1), (t = n2) for distinct n1, n2.
   static bool Complementary(const Literal a, const Literal b) {
+    assert(a.rhs().name());
+    assert(b.rhs().name());
     return (a.lhs() == b.lhs() && a.pos() != b.pos() && a.rhs() == b.rhs()) ||
-           (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
+           (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs() != b.rhs());
   }
 
   // ProperlySubsumes(a, b) holds when a is (t1 = n1) and b is (t1 != n2) for distinct n1, n2.
   static bool ProperlySubsumes(Literal a, Literal b) {
-    return a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs();
+    assert(a.rhs().name());
+    assert(b.rhs().name());
+    return a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs() != b.rhs();
   }
 
   static bool Subsumes(Literal a, Literal b) { return a == b || ProperlySubsumes(a, b); }
@@ -145,15 +151,13 @@ class Literal {
   }
 
  private:
-  typedef internal::u64 Id;
-
   // Lhs should occupy first bits so "lhs = null" is the minimum wrt operator< for all Literals with lhs.
-  static constexpr Id kFirstBitPos = sizeof(Id) * 8 - 1;
-  static constexpr Id kFirstBitLhs = 0;
-  static constexpr Id kFirstBitRhs = sizeof(Term::Id) * 8;
-  static constexpr Id kBitMaskPos  = 1UL << kFirstBitPos;
-  static constexpr Id kBitMaskLhs  = ((1UL << (sizeof(Term::Id) * 8 - 1)) - 1) << kFirstBitLhs;
-  static constexpr Id kBitMaskRhs  = ((1UL << (sizeof(Term::Id) * 8 - 1)) - 1) << kFirstBitRhs;
+  static constexpr Id kFirstBitLhs   = 0;
+  static constexpr Id kFirstBitRhs   = sizeof(Term::Id) * 8;
+  static constexpr Id kBitMaskPos    = Term::kBitMaskUnused + kFirstBitLhs;
+  static constexpr Id kBitMaskUnused = Term::kBitMaskUnused + kFirstBitRhs;
+  static constexpr Id kBitMaskLhs    = ((1UL << (sizeof(Term::Id) * 8 - 1)) - 1) << kFirstBitLhs;
+  static constexpr Id kBitMaskRhs    = ((1UL << (sizeof(Term::Id) * 8 - 1)) - 1) << kFirstBitRhs;
 
   explicit Literal(Id id) : id_(id) {}
 
@@ -178,9 +182,9 @@ class Literal {
       rhs = tmp;
     }
     assert(!rhs.function() || lhs.function());
-    id_ = (static_cast<Id>(lhs.id()) << kFirstBitLhs) |
-            (static_cast<Id>(pos)      << kFirstBitPos) |
-            (static_cast<Id>(rhs.id()) << kFirstBitRhs);
+    id_ = (static_cast<Id>(pos) * kBitMaskPos) |
+          (static_cast<Id>(lhs.id()) << kFirstBitLhs) |
+          (static_cast<Id>(rhs.id()) << kFirstBitRhs);
     assert(this->lhs() == lhs);
     assert(this->rhs() == rhs);
     assert(this->pos() == pos);

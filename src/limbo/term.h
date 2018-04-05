@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016-2017 Christoph Schwering
+// Copyright 2016-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Symbols are the non-logical symbols of the language: variables, standard
@@ -71,19 +71,19 @@ std::unique_ptr<T> Singleton<T>::instance;
 
 class Symbol {
  public:
-  typedef internal::u32 Id;
-  typedef internal::u8 Arity;
+  using Id = internal::u32;
+  using Arity = internal::u8;
 
   class Sort {
    public:
-    typedef internal::u8 Id;
+    using Id = internal::u8;
 
     static Sort Nonrigid(Id id) { assert((id & kBitMaskRigid) == 0); return Sort(id & ~kBitMaskRigid); }
     static Sort Rigid(Id id)    { assert((id & kBitMaskRigid) == 0); return Sort(id | kBitMaskRigid); }
 
     explicit Sort(Id id) : id_(id) {}
     explicit operator Id() const { return id_; }
-    explicit operator internal::size_t() const { return id_; }
+    explicit operator int() const { return id_; }
 
     bool operator==(const Sort s) const { return id_ == s.id_; }
     bool operator!=(const Sort s) const { return id_ != s.id_; }
@@ -93,6 +93,7 @@ class Symbol {
     bool rigid() const { return (id_ & kBitMaskRigid) != 0; }
 
     Id id() const { return id_; }
+    int index() const { return id_ & ~kBitMaskRigid; }
 
    private:
     static constexpr Id kBitMaskRigid = 1 << (sizeof(Id) * 8 - 1);
@@ -168,7 +169,7 @@ class Symbol {
 
   Id id() const { return id_; }
 
-  size_t index() const {
+  int index() const {
     if (is_highest(id_, kBitMaskName)) {
       return lower(id_, kBitMaskName);
     } else if (is_highest(id_, kBitMaskFunction)) {
@@ -200,11 +201,10 @@ class Symbol {
 
 class Term {
  public:
-  typedef internal::size_t size_t;
   class Factory;
   struct Substitution;
-  typedef std::vector<Term> Vector;  // using Vector within Term will be legal in C++17, but seems to be illegal before
-  typedef internal::i8 UnificationConfiguration;
+  using Vector = std::vector<Term>;  // using Vector within Term will be legal in C++17, but seems to be illegal before
+  using UnificationConfiguration = internal::i8;
   template<typename T>
   using Maybe = internal::Maybe<T>;
 
@@ -230,7 +230,7 @@ class Term {
 
   Symbol::Sort sort()   const { return symbol().sort(); }
   Symbol::Arity arity() const { return symbol().arity(); }
-  Term arg(size_t i)    const { return args()[i]; }
+  Term arg(int i)       const { return args()[i]; }
 
   bool null()            const { return id_ == 0; }
   bool name()            const { return is_highest(id_, kBitMaskName); }
@@ -259,7 +259,8 @@ class Term {
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
 
-  size_t index() const {
+  int index() const {
+    assert(!null());
     if (is_highest(id_, kBitMaskPrimitive)) {
       return lower(id_, kBitMaskPrimitive);
     } else if (is_highest(id_, kBitMaskName)) {
@@ -275,7 +276,7 @@ class Term {
  private:
   friend class Literal;
 
-  typedef internal::u32 Id;
+  using Id = internal::u32;
   struct Data;
 
   static constexpr Id kBitMaskUnused    = 1U << (sizeof(Id) * 8 - 1);
@@ -407,7 +408,7 @@ class Term::Factory : private Singleton<Factory> {
 
   const Data* get_data(Term t) const {
     const Id id = t.id();
-    const size_t index = t.index();
+    const int index = t.index();
     if (is_highest(id, kBitMaskPrimitive)) {
       return heap_primitive_[index];
     } else if (is_highest(id, kBitMaskName)) {
@@ -429,7 +430,7 @@ class Term::Factory : private Singleton<Factory> {
   Factory(Factory&&) = delete;
   Factory& operator=(Factory&&) = delete;
 
-  typedef std::unordered_map<Data*, Id, DataPtrHash, DataPtrEquals> DataPtrSet;
+  using DataPtrSet = std::unordered_map<Data*, Id, DataPtrHash, DataPtrEquals>;
   internal::IntMap<Symbol::Sort, DataPtrSet> memory_;
   std::vector<Data*> heap_primitive_;
   std::vector<Data*> heap_name_;
@@ -500,7 +501,7 @@ bool Term::Unify(Term l, Term r, Substitution* sub) {
     return false;
   }
   if (l.symbol() == r.symbol()) {
-    for (size_t i = 0; i < l.arity(); ++i) {
+    for (int i = 0; i < l.arity(); ++i) {
       if (!Unify<config>(l.arg(i), r.arg(i), sub)) {
         return false;
       }

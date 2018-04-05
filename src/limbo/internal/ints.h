@@ -24,6 +24,7 @@ typedef std::uint64_t u64;
 typedef std::size_t size_t;
 typedef std::uintptr_t uptr_t;
 typedef std::intptr_t iptr_t;
+typedef unsigned int uint_t;
 
 template<typename T>
 struct Integer {
