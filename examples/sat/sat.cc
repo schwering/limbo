@@ -48,6 +48,7 @@ static void LoadCnf(std::istream& stream,
   Symbol::Factory* sf = Symbol::Factory::Instance();
   Term::Factory* tf = Term::Factory::Instance();
   const Symbol::Sort sort = sf->CreateNonrigidSort();  // for now, we use a single sort for everything
+  limbo::format::RegisterSort(sort, "");
   Term T;
   Term F;
   cnf->clear();
@@ -64,12 +65,12 @@ static void LoadCnf(std::istream& stream,
       F = tf->CreateTerm(sf->CreateName(sort));
       names->push_back(T);
       names->push_back(F);
-      limbo::format::RegisterSort(sort, "");
       limbo::format::RegisterSymbol(T.symbol(), "T");
       limbo::format::RegisterSymbol(F.symbol(), "F");
       n_names = -1;
       *extra_name = F;
-    } else if (sscanf(line.c_str(), "p fcnf %d %d %d", &n_funcs, &n_names, &n_clauses) == 2) {  // functional CNF
+    } else if (sscanf(line.c_str(), "p fcnf %d %d %d", &n_funcs, &n_names, &n_clauses) == 3) {  // functional CNF
+      std::cout << "funcs size " << funcs->size() << std::endl;
       CreateTerms([tf, sf, sort]() { return tf->CreateTerm(sf->CreateFunction(sort, 0)); }, n_funcs, funcs);
       CreateTerms([tf, sf, sort]() { return tf->CreateTerm(sf->CreateName(sort)); }, n_names + 1, names);
       *extra_name = names->back();
@@ -92,6 +93,7 @@ static void LoadCnf(std::istream& stream,
       char eq = '\0';
       for (std::istringstream iss(line); (iss >> i >> eq >> j) && eq == '='; ) {
         assert(j >= 1);
+        std::cout << i << " ==> " << (i < 0 ? -i : i) - 1 << " of " << funcs->size() << std::endl;
         const Term f = (*funcs)[(i < 0 ? -i : i) - 1];
         const Term n = (*names)[j - 1];
         const Literal a = i < 0 ? Literal::Neq(f, n) : Literal::Eq(f, n);
@@ -99,6 +101,8 @@ static void LoadCnf(std::istream& stream,
       }
       if (eq == '=') {
         cnf->push_back(lits);
+      } else {
+        std::cerr << "Parse error: '" << line << "'" << std::endl;
       }
     }
   }

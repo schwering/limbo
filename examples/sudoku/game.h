@@ -108,6 +108,19 @@ class Game {
     return true;
   }
 
+  void PrintDimacs(std::ostream* os) {
+    *os << "c Sudoku instance" << std::endl;
+    for (size_t x = 1; x <= 9; ++x) {
+      for (size_t y = 1; y <= 9; ++y) {
+        int i = x + (y - 1) * 9;
+        int j = get(x, y);
+        if (1 <= j && j <= 9) {
+          *os << (i < 10 ? " " : "") << ' ' << i << '=' << j << ' ' << '0' << std::endl;
+        }
+      }
+    }
+  }
+
  private:
   int cells_[9][9];
 };

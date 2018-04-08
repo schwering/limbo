@@ -17,7 +17,7 @@
 
 class KnowledgeBase {
  public:
-  KnowledgeBase(const Game* g, int max_k)
+  explicit KnowledgeBase(int max_k)
       : max_k_(max_k),
         solver_(limbo::Symbol::Factory::Instance(), limbo::Term::Factory::Instance()),
         VAL_(CreateNonrigidSort()),
@@ -72,6 +72,9 @@ class KnowledgeBase {
         Add(limbo::Clause(lits.begin(), lits.end()));
       }
     }
+  }
+
+  void InitGame(const Game* g) {
     for (std::size_t x = 1; x <= 9; ++x) {
       for (std::size_t y = 1; y <= 9; ++y) {
         int i = g->get(Point(x, y));
@@ -113,6 +116,46 @@ class KnowledgeBase {
 
   const Timer& timer() const { return t_; }
   void ResetTimer() { t_.reset(); }
+
+  void PrintDimacs(std::ostream* os) {
+    using namespace limbo;
+    using namespace limbo::format;
+    using namespace limbo::internal;
+    std::unordered_set<Clause> cs;
+    for (auto i : setup().clauses()) {
+      const Maybe<Clause> c = setup().clause(i);
+      if (c) {
+        cs.insert(c.val);
+      }
+    }
+    *os << "p fcnf 81 9 " << (cs.size() + 81) << std::endl;
+    *os << "c Sudoku rules" << std::endl;
+    for (const Clause& c : cs) {
+      for (Literal a : c) {
+        int i = 0;
+        for (std::size_t x = 1; x <= 9; ++x) {
+          for (std::size_t y = 1; y <= 9; ++y) {
+            if (a.lhs() == val(x, y)) {
+              i = x + (y - 1) * 9;
+            }
+          }
+        }
+        int j = 0;
+        for (std::size_t m = 1; m <= 9; ++m) {
+          if (a.rhs() == n(m)) {
+            j = m;
+          }
+        }
+        if (i == 0 || j == 0) {
+          goto next;
+        }
+        *os << (i < 10 ? " " : "") << (a.pos() ? ' ' : '-') << i << '=' << j << ' ';
+      }
+      *os << '0' << std::endl;
+      std::cout << "c " << c << std::endl;
+next: {}
+    }
+  }
 
  private:
   void Add(const limbo::Literal a) { Add(limbo::Clause{a}); }

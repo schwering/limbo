@@ -17,10 +17,12 @@
 #include "printer.h"
 #include "timer.h"
 
-inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::ostream* os) {
+inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::ostream* os, bool print_dimacs = false) {
   Timer timer_overall;
   Game g(cfg);
-  KnowledgeBase kb(&g, max_k);
+  KnowledgeBase kb(max_k);
+  if (print_dimacs) { kb.PrintDimacs(os); g.PrintDimacs(os); }
+  kb.InitGame(&g);
   KnowledgeBaseAgent agent(&g, &kb);
   SimplePrinter printer(&colors, os);
   std::vector<int> split_counts;
@@ -29,7 +31,6 @@ inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::o
   *os << "Initial Sudoku:" << std::endl;
   *os << std::endl;
   printer.Print(g);
-  *os << std::endl;
   do {
     Timer timer_turn;
     timer_turn.start();
@@ -71,7 +72,7 @@ int main(int argc, char *argv[]) {
   }
   const char* cfg = argv[1];
   int max_k = atoi(argv[2]);
-  bool solved = Play(cfg, max_k, TerminalColors(), &std::cout);
+  bool solved = Play(cfg, max_k, TerminalColors(), &std::cout, true);
   return solved ? 0 : 1;
 }
 
