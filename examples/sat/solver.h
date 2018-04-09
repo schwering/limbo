@@ -215,7 +215,6 @@ class Solver {
         analyze_learnt_.clear();
         level_t btlevel;
         Analyze(conflict, &analyze_learnt_, &btlevel);
-        //std::cout << "Learnt " << *learnt_c << ", backtracking to " << btlevel << std::endl;
         Backtrack(btlevel);
         if (analyze_learnt_.size() == 1) {
           const Literal a = analyze_learnt_[0];
@@ -240,20 +239,10 @@ class Solver {
         }
         const Term n = CandidateName(f);
         if (n.null()) {
-          //std::cout << f << std::endl;
-          //for (int i = 0; i < names_[f.sort()].size(); ++i) {
-          //  const Term n = names_[f.sort()][i];
-          //  if (!n.null()) {
-          //    const Literal a = Literal::Eq(f, n);
-          //    std::cout << a << ": " << satisfies(a) << std::endl;
-          //    std::cout << a.flip() << ": " << satisfies(a.flip()) << std::endl;
-          //  }
-          //}
           return false;
         }
         NewLevel();
         Enqueue(Literal::Eq(f, n), kNullRef);
-        //std::cout << current_level() << ": " << f << " = " << n << std::endl;
       }
     }
   }
@@ -320,8 +309,6 @@ class Solver {
       Literal a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
-    //assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](Clause* c) { return std::any_of(watchers_[(*c)[0].lhs()].begin(), watchers_[(*c)[0].lhs()].end(), [this, c](cref_t cr) { return c == clauses_[cr]; }); }));
-    //assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](Clause* c) { return std::any_of(watchers_[(*c)[1].lhs()].begin(), watchers_[(*c)[1].lhs()].end(), [this, c](cref_t cr) { return c == clauses_[cr]; }); }));
     assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](Clause* c) { return satisfies(*c) || !falsifies((*c)[0]) || std::all_of(c->begin()+2, c->end(), [this](Literal a) { return falsifies(a); }); }));
     assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](Clause* c) { return satisfies(*c) || !falsifies((*c)[1]) || std::all_of(c->begin()+2, c->end(), [this](Literal a) { return falsifies(a); }); }));
     return conflict;
@@ -382,7 +369,6 @@ class Solver {
         assert(std::all_of(c.begin(), c.end(), [this](Literal a) { return falsifies(a); }));
       } else if (w[0] || w[1]) {
         const Literal b = c[static_cast<int>(w[0])];
-        //std::cout << current_level() << ": " << b << " by propagation from " << c << std::endl;
         Enqueue(b, cr);
         assert(std::all_of(c.begin(), c.end(), [this, b](Literal a) { return a == b ? satisfies(a) : falsifies(a); }));
       } else {
@@ -392,7 +378,6 @@ class Solver {
       }
     }
     ws.resize(cr_ptr2 - ws.begin());
-    //assert(conflict == kNullRef || std::all_of(clauses_[conflict]->begin(), clauses_[conflict]->end(), [this](Literal a) { return falsifies(a); }));
     return conflict;
   }
 
@@ -489,15 +474,8 @@ class Solver {
         return data_[f][n].wanted;
       };
 
-      //std::cout << std::endl;
-      //std::unordered_map<Literal, int> fup;
       do {
-        //if (conflict == kNullRef) {
-        //  for (Literal x : trail_) { std::cout << "Trail: " << level_of(x) << ": " << x << (reason_of(x) != kNullRef ? " caused by propagation" : "") << std::endl; }
-        //}
         assert(conflict != kNullRef);
-        //std::cout << "Conflict clause " << *clauses_[conflict] << " at level " << current_level() << std::endl;
-        //bool found = false;
         for (Literal a : *clauses_[conflict]) {
           if (trail_a == a) {
           continue;
@@ -509,80 +487,28 @@ class Solver {
           continue;
         }
         if (l < current_level()) {
-          //std::cout << "Adding " << a << " from " << l << std::endl;
           learnt->push_back(a);
           see_subsuming(a);
           Bump(a.lhs());
         } else if (l == current_level()) {
-          //++fup[a];
-          //std::cout << "Noding " << a << " from " << l << std::endl;
           ++depth;
           want_complementary_on_level(a, l);
           Bump(a.lhs());
         }
       }
-      //if (depth == 0) {
-      //  std::cout << "TRAIL:" << std::endl;
-      //  for (int i = 0; i < trail_.size(); ++i) {
-      //    const Literal a = trail_[i];
-      //    std::cout << "Trail literal " << i << " " << a << " from level " << level_of(a) << " " << (data_[a.lhs()][a.rhs()].wanted ? "wanted" : "not wanted") << std::endl;
-      //  }
-      //  std::cout << "CLAUSE:" << std::endl;
-      //  for (Literal a : *clauses_[conflict]) {
-      //    std::cout << a << " from level " << (a == trail_a ? level_of(a) : level_of_complementary(a)) << " " << (data_[a.lhs()][a.rhs()].seen_subsumed ? "seen_subsumed" : "not seen_subsumed") << " " << (falsifies(a, 39) ? "" : "not ") << "falsified at level 39" << std::endl;
-      //  }
-      //  std::cout << "TRAIL_LIT: " << trail_a << std::endl;
-      //  std::cout << "level: " << current_level() << std::endl;
-      //  for (level_t l = 0; l <= current_level(); ++l) {
-      //    std::cout << "falsified at level " << l << ": " << falsifies(*clauses_[conflict], l) << std::endl;
-      //  }
-      //}
       assert(depth > 0);
-      //if (!found) {
-      //  for (int i = 0; i < trail_.size(); ++i) {
-      //    std::cout << "Trail literal " << i << " " << trail_[i] << " from level " << level_of(trail_[i]) << " " << (data_[trail_[i].lhs()][trail_[i].rhs()].wanted ? "wanted" : "not wanted") << std::endl;
-      //  }
-      //  for (Literal a : *clauses_[conflict]) {
-      //    std::cout << a << " [" << (a == trail_a ? level_of(a) : level_of_complementary(a)) << "] ";
-      //  }
-      //  std::cout << std::endl;
-      //  std::cout << "trail_a == " << trail_a << std::endl;
-      //  std::cout << "current_level() == " << current_level() << std::endl;
-      //}
-      //assert(found);
 
-      //const int prev_trail_index = trail_i;
       while (!wanted(trail_[trail_i--])) {
-        //if (trail_i < 0) {
-        //  for (int i = 0; i < trail_.size(); ++i) {
-        //    if (data_[trail_[i].lhs()][trail_[i].rhs()].wanted) {
-        //      std::cout << "Trail literal " << i << " " << trail_[i] << " " << (data_[trail_[i].lhs()][trail_[i].rhs()].wanted ? "wanted" : "not wanted") << std::endl;
-        //    }
-        //  }
-        //  std::cout << "Follow-ups with depth " << depth << " out of " << fup << std::endl;
-        //  std::cout << "Previous one was " << prev_trail_index << " " << trail_[prev_trail_index] << std::endl;
-        //}
         assert(trail_i >= 0);
       }
       trail_a = trail_[trail_i + 1];
       data_[trail_a.lhs()][trail_a.rhs()].wanted = false;
-      //for (const auto p : fup) {
-      //  if (Literal::Complementary(p.first, trail_a)) {
-      //    fup[p.first]--;
-      //    break;
-      //  }
-      //}
       --depth;
-      //std::cout << "Follow-up " << trail_a << " from level " << level_of(trail_a) << " with depth " << depth << std::endl;
       conflict = reason_of(trail_a);
     } while (depth > 0);
     (*learnt)[0] = trail_a.flip();
 
     for (const Literal a : (*learnt)) {
-      //const Literal a = (*learnt)[i];
-      //if (a.lhs().null() || a.rhs().null()) {
-      //  std::cout << a << std::endl;
-      //}
       data_[a.lhs()][a.rhs()].seen_subsumed = false;
     }
 
@@ -620,7 +546,6 @@ class Solver {
     const Term n = a.rhs();
     const Term m = model_[f];
     if (m.null() && (a.pos() || !data_[f][n].model_neq)) {
-      //std::cout << "Enqueue("<<a<<")" << std::endl;
       assert(!satisfies(a));
       trail_.push_back(a);
       if (a.pos()) {
@@ -636,7 +561,6 @@ class Solver {
   }
 
   void Backtrack(level_t l) {
-    //std::cout << "backtracking to " << l << " from " << current_level() << std::endl;
     for (auto a = trail_.cbegin() + level_size_[l], e = trail_.cend(); a != e; ++a) {
       const Term f = a->lhs();
       const Term n = a->rhs();
@@ -652,10 +576,6 @@ class Solver {
   }
 
   Term CandidateName(Term f) const {
-    //if (!f.null() && !model_[f].null()) {
-    //  const Term m = model_[f];
-    //  std::cout << Literal::Eq(f,m) << " " << (satisfies(Literal::Eq(f,m)) ? "satisfied" : "not satisfied") << data_[f][m].level << std::endl;
-    //}
     assert(!f.null() && model_[f].null());
     for (Term n : names_[f.sort()]) {
       if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
