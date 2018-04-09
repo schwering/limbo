@@ -32,11 +32,8 @@ class Clause {
   class Factory;
 
   static Clause* New(Literal a) { return new Clause(a); }
-  static Clause* New(const std::vector<Literal>& as) { return New(as.size(), as.data()); }
-  static Clause* New(int size, const Literal* first) {
-    void* ptr = std::malloc(sizeof(Clause) + sizeof(Literal) * size);
-    return new (ptr) Clause(size, first);
-  }
+  static Clause* New(const std::vector<Literal>& as) { return New(as.size(), as.data(), false); }
+  static Clause* NewNormalized(const std::vector<Literal>& as) { return New(as.size(), as.data(), true); }
   static void Delete(Clause* c) { free(c); }
 
   bool operator==(const Clause& c) const {
@@ -109,7 +106,37 @@ next: {}
     return New(size(), r.begin(), r.end());
   }
 
+#ifndef NDEBUG
+  bool Normalized() {
+    for (int i = 0; i < h_.size; ++i) {
+      if (as_[i].valid() && (h_.size != 1 || as_[i].lhs() != as_[i].rhs())) {
+        return false;
+      }
+      if (as_[i].unsatisfiable()) {
+        return false;
+      }
+      for (int j = 0; j < h_.size; ++j) {
+        if (i == j) {
+          continue;
+        }
+        if (Literal::Valid(as_[i], as_[j])) {
+          return false;
+        }
+        if (as_[i].Subsumes(as_[j])) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+#endif
+
  private:
+  static Clause* New(int size, const Literal* first, bool normalized) {
+    void* ptr = std::malloc(sizeof(Clause) + sizeof(Literal) * size);
+    return new (ptr) Clause(size, first, normalized);
+  }
+
   Clause() = default;
 
   explicit Clause(const Literal a) {
@@ -119,12 +146,16 @@ next: {}
     } else {
       h_.size = 0;
     }
+    assert(Normalized());
   }
 
-  Clause(int size, const Literal* first) {
+  Clause(int size, const Literal* first, bool normalized) {
     h_.size = size;
     std::memcpy(begin(), first, size * sizeof(Literal));
-    Normalize();
+    if (!normalized) {
+      Normalize();
+    }
+    assert(Normalized());
   }
 
   Clause(const Clause&) = delete;
@@ -164,8 +195,7 @@ next: {}
         }
       }
       as_[i1++] = as_[i2++];
-next:
-      {}
+next: {}
     }
     h_.size = i1;
   }

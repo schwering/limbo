@@ -152,7 +152,7 @@ class KnowledgeBase {
         *os << (i < 10 ? " " : "") << (a.pos() ? ' ' : '-') << i << '=' << j << ' ';
       }
       *os << '0' << std::endl;
-      std::cout << "c " << c << std::endl;
+      *os << "c " << c << std::endl;
 next: {}
     }
   }

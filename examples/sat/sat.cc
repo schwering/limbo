@@ -7,7 +7,10 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <queue>
@@ -70,7 +73,6 @@ static void LoadCnf(std::istream& stream,
       n_names = -1;
       *extra_name = F;
     } else if (sscanf(line.c_str(), "p fcnf %d %d %d", &n_funcs, &n_names, &n_clauses) == 3) {  // functional CNF
-      std::cout << "funcs size " << funcs->size() << std::endl;
       CreateTerms([tf, sf, sort]() { return tf->CreateTerm(sf->CreateFunction(sort, 0)); }, n_funcs, funcs);
       CreateTerms([tf, sf, sort]() { return tf->CreateTerm(sf->CreateName(sort)); }, n_names + 1, names);
       *extra_name = names->back();
@@ -93,7 +95,6 @@ static void LoadCnf(std::istream& stream,
       char eq = '\0';
       for (std::istringstream iss(line); (iss >> i >> eq >> j) && eq == '='; ) {
         assert(j >= 1);
-        std::cout << i << " ==> " << (i < 0 ? -i : i) - 1 << " of " << funcs->size() << std::endl;
         const Term f = (*funcs)[(i < 0 ? -i : i) - 1];
         const Term n = (*names)[j - 1];
         const Literal a = i < 0 ? Literal::Neq(f, n) : Literal::Eq(f, n);
@@ -132,22 +133,39 @@ int main(int argc, char *argv[]) {
   if (loaded == 0) {
     LoadCnf(std::cin, &cnf, &funcs, &names, &extra_name);
   }
-  std::cout << "k="<<k << std::endl;
-  //std::cout << solver << std::endl;
 
   Solver solver;
   solver.add_extra_name(extra_name);
   for (const std::vector<Literal>& lits : cnf) {
-    std::cout << lits << std::endl;
+    //std::cout << lits << std::endl;
     solver.AddClause(lits);
   }
 
   bool sat = solver.Solve();
+
   std::cout << (sat ? "SATISFIABLE" : "UNSATISFIABLE") << std::endl;
   if (sat) {
-    for (Term f : funcs) {
-      std::cout << f << " = " << solver.model()[f] << std::endl;
+    struct winsize win_size;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &win_size);
+    const int lit_width = 10;
+    const int win_width = win_size.ws_col;
+    for (int i = 0; i < funcs.size(); ++i) {
+      const Term f = funcs[i];
+      std::stringstream fss; fss << f;
+      std::stringstream ess; ess << " = ";
+      std::stringstream nss; nss << solver.model()[f];
+      const std::string fs = fss.str();
+      const std::string es = ess.str();
+      const std::string ns = nss.str();
+      const int ews = es.length();
+      const int fws = std::max(1, (lit_width - ews - 1)/2 - static_cast<int>(fs.length()));
+      const int nws = std::max(1, (lit_width - ews - 1)/2 + (lit_width - ews - 1)%2 - static_cast<int>(ns.length()));
+      std::cout << std::string(fws, ' ') << fs << es << ns << std::string(nws, ' ');
+      if ((i + 1) % (win_width / lit_width) == 0) {
+        std::cout << std::endl;
+      }
     }
+    std::cout << std::endl;
   }
 
   return 0;

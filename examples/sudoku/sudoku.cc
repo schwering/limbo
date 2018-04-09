@@ -21,7 +21,7 @@ inline bool Play(const std::string& cfg, int max_k, const Colors& colors, std::o
   Timer timer_overall;
   Game g(cfg);
   KnowledgeBase kb(max_k);
-  if (print_dimacs) { kb.PrintDimacs(os); g.PrintDimacs(os); }
+  if (print_dimacs) { kb.PrintDimacs(&std::cerr); g.PrintDimacs(&std::cerr); }
   kb.InitGame(&g);
   KnowledgeBaseAgent agent(&g, &kb);
   SimplePrinter printer(&colors, os);
