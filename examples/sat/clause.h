@@ -9,19 +9,13 @@
 #include <cstring>
 #include <cstdlib>
 
-#include <algorithm>
 #include <functional>
 #include <memory>
-#include <unordered_set>
-#include <utility>
+#include <vector>
 
 #include <limbo/literal.h>
 
-#include <limbo/internal/bloom.h>
 #include <limbo/internal/ints.h>
-#include <limbo/internal/iter.h>
-#include <limbo/internal/maybe.h>
-#include <limbo/internal/traits.h>
 
 namespace limbo {
 
@@ -31,10 +25,38 @@ class Clause {
   using const_iterator = const Literal*;
   class Factory;
 
-  static Clause* New(Literal a) { return new Clause(a); }
-  static Clause* New(const std::vector<Literal>& as) { return New(as.size(), as.data(), false); }
-  static Clause* NewNormalized(const std::vector<Literal>& as) { return New(as.size(), as.data(), true); }
+  static Clause* New(Literal a) { return new (alloc(1)) Clause(a); }
+  static Clause* New(const std::vector<Literal>& as) { return New(as.size(), as.data()); }
+  static Clause* New(int size, const Literal* as) { return new (alloc(size)) Clause(size, as, false); }
+  static Clause* NewNormalized(const std::vector<Literal>& as) { return NewNormalized(as.size(), as.data()); }
+  static Clause* NewNormalized(int size, const Literal* as) { return new (alloc(size)) Clause(size, as, true); }
   static void Delete(Clause* c) { free(c); }
+
+  static int Normalize(int size, Literal* as) {
+    int i1 = 0;
+    int i2 = 0;
+    while (i2 < size) {
+      assert(i1 <= i2);
+      assert(!as[i2].valid());
+      assert(!as[i2].unsatisfiable());
+      for (int j = 0; j < i1; ++j) {
+        assert(!Literal::Valid(as[i2], as[j]));
+        if (as[i2].Subsumes(as[j])) {
+          ++i2;
+          goto next;
+        }
+      }
+      for (int j = i2 + 1; j < size; ++j) {
+        if (as[i2].ProperlySubsumes(as[j])) {
+          ++i2;
+          goto next;
+        }
+      }
+      as[i1++] = as[i2++];
+next: {}
+    }
+    return i1;
+  }
 
   bool operator==(const Clause& c) const {
     if (size() != c.size()) {
@@ -100,42 +122,24 @@ next: {}
     return true;
   }
 
-  template<typename UnaryFunction>
-  Clause* Substitute(UnaryFunction theta, Term::Factory* tf) const {
-    auto r = internal::transform_crange(*this, [theta, tf](Literal a) { return a.Substitute(theta, tf); });
-    return New(size(), r.begin(), r.end());
-  }
-
-#ifndef NDEBUG
-  bool Normalized() {
-    for (int i = 0; i < h_.size; ++i) {
-      if (as_[i].valid() && (h_.size != 1 || as_[i].lhs() != as_[i].rhs())) {
-        return false;
-      }
-      if (as_[i].unsatisfiable()) {
-        return false;
-      }
-      for (int j = 0; j < h_.size; ++j) {
-        if (i == j) {
-          continue;
-        }
-        if (Literal::Valid(as_[i], as_[j])) {
-          return false;
-        }
-        if (as_[i].Subsumes(as_[j])) {
-          return false;
-        }
+  template<typename UnaryPredicate>
+  int RemoveIf(UnaryPredicate p) {
+    int i1 = 0;
+    int i2 = 0;
+    while (i2 < h_.size) {
+      if (p(as_[i2])) {
+        ++i2;
+      } else {
+        as_[i1++] = as_[i2++];
       }
     }
-    return true;
+    h_.size = i1;
+    assert(FullyNormalized());
+    return i2 - i1;
   }
-#endif
 
  private:
-  static Clause* New(int size, const Literal* first, bool normalized) {
-    void* ptr = std::malloc(sizeof(Clause) + sizeof(Literal) * size);
-    return new (ptr) Clause(size, first, normalized);
-  }
+  static void* alloc(int k) { return std::malloc(sizeof(Clause) + sizeof(Literal) * k); }
 
   Clause() = default;
 
@@ -146,16 +150,16 @@ next: {}
     } else {
       h_.size = 0;
     }
-    assert(Normalized());
+    assert(FullyNormalized());
   }
 
-  Clause(int size, const Literal* first, bool normalized) {
+  Clause(int size, const Literal* first, bool guaranteed_normalized) {
     h_.size = size;
     std::memcpy(begin(), first, size * sizeof(Literal));
-    if (!normalized) {
+    if (!guaranteed_normalized) {
       Normalize();
     }
-    assert(Normalized());
+    assert(FullyNormalized());
   }
 
   Clause(const Clause&) = delete;
@@ -199,6 +203,31 @@ next: {}
     }
     h_.size = i1;
   }
+
+#ifndef NDEBUG
+  bool FullyNormalized() {
+    for (int i = 0; i < h_.size; ++i) {
+      if (as_[i].valid() && (h_.size != 1 || as_[i].lhs() != as_[i].rhs())) {
+        return false;
+      }
+      if (as_[i].unsatisfiable()) {
+        return false;
+      }
+      for (int j = 0; j < h_.size; ++j) {
+        if (i == j) {
+          continue;
+        }
+        if (Literal::Valid(as_[i], as_[j])) {
+          return false;
+        }
+        if (as_[i].Subsumes(as_[j])) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+#endif
 
   struct {
     unsigned learnt :  1;

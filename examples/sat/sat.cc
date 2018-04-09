@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
     struct winsize win_size;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &win_size);
     const int lit_width = 10;
-    const int win_width = win_size.ws_col;
+    const int win_width = win_size.ws_col != 0 ? win_size.ws_col : static_cast<int>(std::ceil(std::sqrt(funcs.size()))) * lit_width;
     for (int i = 0; i < funcs.size(); ++i) {
       const Term f = funcs[i];
       std::stringstream fss; fss << f;
