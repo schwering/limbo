@@ -6,7 +6,6 @@
 #define LIMBO_SOLVER_H_
 
 #include <algorithm>
-#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -27,11 +26,11 @@ template<typename T, typename Index>
 struct FromIndex { T operator()(const Index i) const { return T(i); } };
 
 template<typename T>
-struct MakeDefault { T operator()() const { return T(); } };
+struct MakeNull { T operator()() const { return T(); } };
 
 template<typename Key, typename Val, typename Index = int,
          typename IndexOf = IndexOf<Key, Index>,
-         typename MakeDefault = MakeDefault<Val>>
+         typename MakeNull = MakeNull<Val>>
 class DenseMap {
  public:
   using Vec = std::vector<Val>;
@@ -48,10 +47,17 @@ class DenseMap {
   DenseMap(DenseMap&&) = default;
   DenseMap& operator=(DenseMap&& c) = default;
 
+  void Capacitate(Key k) {
+    const Index i = index_of_(k);
+    if (i >= size()) {
+      vec_.resize(i + 1, make_null_());
+    }
+  }
+
   Index size() const { return vec_.size(); }
 
-  reference operator[](Index i) { if (i >= size()) { vec_.resize(i + 1, make_default_()); } return vec_[i]; }
-  const_reference operator[](Index i) const { return const_cast<DenseMap&>(*this)[i]; }
+  reference operator[](Index i) { assert(i < vec_.size()); return vec_[i]; }
+  const_reference operator[](Index i) const { assert(i < vec_.size()); return vec_[i]; }
 
   reference operator[](Key key) { return operator[](index_of_(key)); }
   const_reference operator[](Key key) const { return operator[](index_of_(key)); }
@@ -64,13 +70,56 @@ class DenseMap {
 
  protected:
   IndexOf index_of_;
-  MakeDefault make_default_;
+  MakeNull make_null_;
   Vec vec_;
 };
 
+template<typename T, typename Index = int,
+         typename IndexOf = IndexOf<T, Index>,
+         typename MakeNull = MakeNull<T>>
+class DenseSet {
+ public:
+  using Map = DenseMap<T, T, Index, IndexOf, MakeNull>;
+  using value_type = typename Map::value_type;
+  using reference = typename Map::reference;
+  using const_reference = typename Map::const_reference;
+  using iterator = typename Map::iterator;
+  using const_iterator = typename Map::const_iterator;
+
+  DenseSet() = default;
+
+  DenseSet(const DenseSet&) = default;
+  DenseSet& operator=(const DenseSet& c) = default;
+  DenseSet(DenseSet&&) = default;
+  DenseSet& operator=(DenseSet&& c) = default;
+
+  void Capacitate(T x) { map_.Capacitate(x); }
+
+  Index size() const { return map_.size(); }
+
+  bool Contains(T x) const { return x != make_null_() && map_[x] == x; }
+
+  void Insert(T x) { assert(x != make_null_()); map_[x] = x; }
+  void Remove(T x) { assert(x != make_null_()); map_[x] = make_null_(); }
+
+  reference operator[](Index i) { return map_[i]; }
+  const_reference operator[](Index i) const { return map_[i]; }
+
+  iterator begin() { return map_.begin(); }
+  iterator end()   { return map_.end(); }
+
+  const_iterator begin() const { return map_.begin(); }
+  const_iterator end()   const { return map_.end(); }
+
+ private:
+  MakeNull make_null_;
+  Map map_;
+};
+
+
 template<typename T, typename Less, typename Index = int,
          typename IndexOf = IndexOf<T, Index>,
-         typename MakeDefault = MakeDefault<T>>
+         typename MakeNull = MakeNull<T>>
 class Heap {
  public:
   explicit Heap(Less less = Less()) : less_(less) { heap_.push_back(make_default_()); }
@@ -80,26 +129,30 @@ class Heap {
   Heap(Heap&&) = default;
   Heap& operator=(Heap&& c) = default;
 
+  void Capacitate(T x) { index_.Capacitate(x); }
+
   bool size()  const { return heap_.size() - 1; }
   bool empty() const { return heap_.size() == 1; }
 
-  bool contains(T x) const { return index_[x] != 0; }
+  bool Contains(T x) const { return index_[x] != 0; }
+
+  T Top() const { return size() >= 1 ? heap_[1] : make_default_(); }
 
   void Increase(T x) {
-    assert(contains(x));
+    assert(Contains(x));
     SiftUp(index_[x]);
   }
 
   void Insert(T x) {
-    assert(!contains(x));
+    assert(!Contains(x));
     Index i = heap_.size();
     heap_.push_back(x);
     index_[x] = i;
     SiftUp(i);
   }
 
-  void Erase(T x) {
-    assert(contains(x));
+  void Remove(T x) {
+    assert(Contains(x));
     const Index i = index_[x];
     heap_[i] = heap_.back();
     index_[heap_[i]] = i;
@@ -108,10 +161,8 @@ class Heap {
     if (heap_.size() > i) {
       SiftDown(i);
     }
-    assert(!contains(x));
+    assert(!Contains(x));
   }
-
-  T Top() { return size() >= 1 ? heap_[1] : make_default_(); }
 
  private:
   static Index left(Index i)   { return 2 * i; }
@@ -150,7 +201,7 @@ class Heap {
   }
 
   Less less_;
-  MakeDefault make_default_;
+  MakeNull make_default_;
   std::vector<T> heap_;
   DenseMap<T, Index, Index, IndexOf> index_;
 };
@@ -164,24 +215,31 @@ class Solver {
   static constexpr cref_t kNullRef = 0;
   static constexpr level_t kNullLevel = 0;
   static constexpr level_t kRootLevel = 1;
-  static constexpr level_t kMaxLevel = std::numeric_limits<level_t>::max();
 
   Solver() = default;
   ~Solver() { for (Clause* c : clauses_) { Clause::Delete(c); } }
 
   void add_extra_name(Term n) {
+    CapacitateMaps(n);
     assert(name_extra_[n.sort()].null());
     name_extra_[n.sort()] = n;
   }
 
   void AddLiteral(Literal a) {
-    if (a.unsatisfiable()) {
-      empty_clause_ = true;
-    } else if (a.primitive() && !a.valid() && !satisfies(a)) {
-      assert(!a.valid());
-      Register(a);
-      Enqueue(a, kNullRef);
+    if (a.valid()) {
+      return;
     }
+    CapacitateMaps(a.lhs());
+    CapacitateMaps(a.rhs());
+    if (a.unsatisfiable() || falsifies(a)) {
+      empty_clause_ = true;
+    }
+    if (satisfies(a)) {
+      return;
+    }
+    assert(a.primitive());
+    Register(a);
+    Enqueue(a, kNullRef);
   }
 
   void AddClause(const std::vector<Literal>& as) {
@@ -191,10 +249,31 @@ class Solver {
       AddLiteral(as[0]);
     } else {
       Clause* c = Clause::New(as);
+      if (c->valid()) {
+        Clause::Delete(c);
+        return;
+      }
+      for (Literal a : as) {
+        CapacitateMaps(a.lhs());
+        CapacitateMaps(a.rhs());
+      }
       c->RemoveIf([this](Literal a) { return falsifies(a); });
       if (c->unsatisfiable()) {
         empty_clause_ = true;
-      } else if (c->primitive() && !c->valid() && !satisfies(*c)) {
+        Clause::Delete(c);
+        return;
+      }
+      if (satisfies(*c)) {
+        Clause::Delete(c);
+        return;
+      }
+      assert(!c->valid());
+      assert(c->primitive());
+      assert(c->size() >= 1);
+      if (c->size() == 1) {
+        AddLiteral((*c)[0]);
+        Clause::Delete(c);
+      } else {
         for (Literal a : *c) {
           Register(a);
         }
@@ -203,9 +282,14 @@ class Solver {
     }
   }
 
-  const DenseMap<Term, Term>& model() const { return model_; }
+  const DenseSet<Term>&                        funcs() const { return funcs_; }
+  const DenseMap<Symbol::Sort, DenseSet<Term>> names() const { return names_; }
+  const DenseMap<Term, Term>&                  model() const { return model_; }
 
   bool Solve() {
+    if (empty_clause_) {
+      return false;
+    }
     for (;;) {
       const cref_t conflict = Propagate();
       if (conflict != kNullRef) {
@@ -275,12 +359,12 @@ class Solver {
     const Term n = a.rhs();
     const Term extra_n = name_extra_[s];
     assert(!extra_n.null());
-    if (funcs_[f] != f && !order_.contains(f)) {
+    if (!funcs_.Contains(f) && !order_.Contains(f)) {
       order_.Insert(f);
     }
-    funcs_[f] = f;
-    names_[s][n] = n;
-    names_[s][extra_n] = extra_n;
+    funcs_.Insert(f);
+    names_[s].Insert(n);
+    names_[s].Insert(extra_n);
     data_[f][n].occurs = true;
     data_[f][extra_n].occurs = true;
   }
@@ -335,7 +419,7 @@ class Solver {
       assert(c[0].lhs() == f || c[1].lhs() == f);
 
       // skip if no watched literal is false or one of them clause is true
-      bool w[2] = { falsifies(c[0]), falsifies(c[1]) };
+      char w[2] = { static_cast<char>(falsifies(c[0])), static_cast<char>(falsifies(c[1])) };
       if ((!w[0] && !w[1]) || satisfies(c[0]) || satisfies(c[1])) {
         *cr_ptr2++ = *cr_ptr1++;
         continue;
@@ -345,10 +429,13 @@ class Solver {
       // find new watched literals if necessary
       for (int k = 2, s = c.size(); (w[0] || w[1]) && k < s; ++k) {
         if (!falsifies(c[k])) {
-          const int l = 1 - static_cast<int>(w[0]);
-          if (c[k].lhs() != f && c[k].lhs() != f0 && c[k].lhs() != f1) {
-            watchers_[c[k].lhs()].push_back(cr);
+          const int l = 1 - w[0];
+          assert(w[l]);
+          const Term fk = c[k].lhs();
+          if (fk != f0 && fk != f1 && fk != c[1-l].lhs()) {
+            watchers_[fk].push_back(cr);
           }
+          assert(std::find(watchers_[fk].begin(), watchers_[fk].end(), cr) != watchers_[fk].end());
           std::swap(c[l], c[k]);
           w[l] = false;
         }
@@ -368,7 +455,7 @@ class Solver {
         conflict = cr;
         assert(std::all_of(c.begin(), c.end(), [this](Literal a) { return falsifies(a); }));
       } else if (w[0] || w[1]) {
-        const Literal b = c[static_cast<int>(w[0])];
+        const Literal b = c[w[0]];
         Enqueue(b, cr);
         assert(std::all_of(c.begin(), c.end(), [this, b](Literal a) { return a == b ? satisfies(a) : falsifies(a); }));
       } else {
@@ -477,7 +564,7 @@ class Solver {
       do {
         assert(conflict != kNullRef);
         for (Literal a : *clauses_[conflict]) {
-          if (trail_a == a) {
+        if (trail_a == a) {
           continue;
         }
         assert(falsifies(a));
@@ -512,7 +599,7 @@ class Solver {
       data_[a.lhs()][a.rhs()].seen_subsumed = false;
     }
 
-    learnt->resize(Clause::Normalize(learnt->size(), learnt->data()));
+    learnt->resize(Clause::Normalize<true>(learnt->size(), learnt->data()));
 
     if (learnt->size() == 1) {
       *btlevel = kRootLevel;
@@ -530,9 +617,7 @@ class Solver {
       std::swap((*learnt)[1], (*learnt)[max]);
     }
     assert(level_of(trail_a) > *btlevel && *btlevel >= kRootLevel);
-    assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) { return falsifies(a, current_level()); }));
-    assert(learnt->size() == 1 || !falsifies((*learnt)[0], current_level() - 1));
-    assert(learnt->size() == 1 || !falsifies((*learnt)[1], *btlevel - 1));
+    assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) { return falsifies(a); }));
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) { return std::all_of(ds.begin(), ds.end(), [](const Data& d) { return !d.seen_subsumed; }); }));
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) { return std::all_of(ds.begin(), ds.end(), [](const Data& d) { return !d.wanted; }); }));
   }
@@ -554,8 +639,8 @@ class Solver {
         BumpToFront(f);
       }
       data_[f][n] = Data(!a.pos(), current_level(), reason);
-      if (a.pos() && order_.contains(f)) {
-        order_.Erase(f);
+      if (a.pos() && order_.Contains(f)) {
+        order_.Remove(f);
       }
     }
   }
@@ -566,7 +651,7 @@ class Solver {
       const Term n = a->rhs();
       model_[f] = Term();
       data_[f][n] = Data(data_[f][n].occurs);
-      if (a->pos() && !order_.contains(f)) {
+      if (a->pos() && !order_.Contains(f)) {
         order_.Insert(f);
       }
     }
@@ -592,7 +677,7 @@ class Solver {
       }
     }
     activity_[f] += bump_step_;
-    if (order_.contains(f)) {
+    if (order_.Contains(f)) {
       order_.Increase(f);
     }
   }
@@ -605,29 +690,30 @@ class Solver {
       }
       bump_step_ *= 1e-100;
     }
-    if (order_.contains(f)) {
+    if (order_.Contains(f)) {
       order_.Increase(f);
     }
   }
 
-  bool satisfies(const Literal a, const level_t l = kMaxLevel) const {
+  bool satisfies(const Literal a, const level_t l = -1) const {
     const Term f = a.lhs();
     const Term n = a.rhs();
     const Term m = model_[f];
     if (a.pos()) {
-      return m == n && data_[f][m].level <= l;
+      return m == n && (l < 0 || data_[f][m].level <= l);
     } else {
-      return (!m.null() && m != n && data_[f][m].level <= l) || (data_[f][n].model_neq && data_[f][n].level <= l);
+      return (!m.null() && m != n && (l < 0 || data_[f][m].level <= l)) ||
+          (data_[f][n].model_neq && (l < 0 || data_[f][n].level <= l));
     }
   }
 
-  bool falsifies(const Literal a, const level_t l = kMaxLevel) const { return satisfies(a.flip(), l); }
+  bool falsifies(const Literal a, const level_t l = -1) const { return satisfies(a.flip(), l); }
 
-  bool satisfies(const Clause& c, const level_t l = kMaxLevel) const {
+  bool satisfies(const Clause& c, const level_t l = -1) const {
     return std::any_of(c.begin(), c.end(), [this, l](Literal a) { return satisfies(a, l); });
   }
 
-  bool falsifies(const Clause& c, const level_t l = kMaxLevel) const {
+  bool falsifies(const Clause& c, const level_t l = -1) const {
     return std::all_of(c.begin(), c.end(), [this, l](Literal a) { return falsifies(a, l); });
   }
 
@@ -663,17 +749,49 @@ class Solver {
 
   level_t current_level() const { return level_size_.size(); }
 
+  void CapacitateMaps(Term t) {
+    if (t.function() && (max_index_func_.null() || t.index() > max_index_func_.index())) {
+      max_index_func_ = t;
+      funcs_.Capacitate(t);
+      watchers_.Capacitate(t);
+      model_.Capacitate(t);
+      data_.Capacitate(t);
+      for (DenseMap<Term, Data>& ds : data_) {
+        ds.Capacitate(max_index_name_);
+      }
+      order_.Capacitate(t);
+      activity_.Capacitate(t);
+    }
+    if (t.name() && (max_index_name_.null() || t.index() >= max_index_name_.index())) {
+      max_index_name_ = t;
+      names_.Capacitate(t.sort());
+      for (DenseSet<Term>& ns : names_) {
+        ns.Capacitate(t);
+      }
+      name_extra_.Capacitate(t.sort());
+      for (DenseMap<Term, Data>& ds : data_) {
+        ds.Capacitate(t);
+      }
+    }
+  }
+
   // empty_clause_ is true iff the empty clause has been derived.
   bool empty_clause_ = false;
 
   // clauses_ is the sequence of clauses added initially or learnt.
+  std::vector<Clause*> clauses_ = std::vector<Clause*>(1, nullptr);
+
+  // max_index_func_ is the function with the highest index in clauses_.
+  // max_index_name_ is the function with the highest index in clauses_.
+  Term max_index_func_ = Term();
+  Term max_index_name_ = Term();
+
   // funcs_ is the set of functions that occur in clauses.
   // names_ is the set of names that occur in clauses plus extra names.
   // name_extra_ stores an additional name for every sort.
-  std::vector<Clause*>                         clauses_ = std::vector<Clause*>(1, nullptr);
-  DenseMap<Term, Term>                         funcs_;
-  DenseMap<Symbol::Sort, DenseMap<Term, Term>> names_;
-  DenseMap<Symbol::Sort, Term>                 name_extra_;
+  DenseSet<Term>                         funcs_;
+  DenseMap<Symbol::Sort, DenseSet<Term>> names_;
+  DenseMap<Symbol::Sort, Term>           name_extra_;
 
   // watchers_ maps every function to a sequence of clauses that watch it.
   // Every clause watches two functions, and when a literal with this function
@@ -698,7 +816,7 @@ class Solver {
   // order_ is a heap that ranks functions by their activity.
   // activity_ stores the activity of each activity.
   // bump_step_ is the current increase factor.
-  Heap<Term, ActivityCompare> order_ = Heap<Term, ActivityCompare>(ActivityCompare(&activity_));
+  Heap<Term, ActivityCompare> order_{ActivityCompare(&activity_)};
   DenseMap<Term, double>      activity_;
   double                      bump_step_ = 1.0;
 

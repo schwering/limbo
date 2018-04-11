@@ -25,22 +25,25 @@ class Clause {
   using const_iterator = const Literal*;
   class Factory;
 
-  static Clause* New(Literal a) { return new (alloc(1)) Clause(a); }
-  static Clause* New(const std::vector<Literal>& as) { return New(as.size(), as.data()); }
-  static Clause* New(int size, const Literal* as) { return new (alloc(size)) Clause(size, as, false); }
-  static Clause* NewNormalized(const std::vector<Literal>& as) { return NewNormalized(as.size(), as.data()); }
-  static Clause* NewNormalized(int size, const Literal* as) { return new (alloc(size)) Clause(size, as, true); }
-  static void Delete(Clause* c) { free(c); }
-
+  template<bool guarantee_invalid = false>
   static int Normalize(int size, Literal* as) {
     int i1 = 0;
     int i2 = 0;
     while (i2 < size) {
       assert(i1 <= i2);
-      assert(!as[i2].valid());
-      assert(!as[i2].unsatisfiable());
+      if (!guarantee_invalid && as[i2].valid()) {
+        as[0] = Literal::Eq(as[i2].rhs(), as[i2].rhs());
+        return -1;
+      }
+      if (as[i2].unsatisfiable()) {
+        ++i2;
+        goto next;
+      }
       for (int j = 0; j < i1; ++j) {
-        assert(!Literal::Valid(as[i2], as[j]));
+        if (!guarantee_invalid && Literal::Valid(as[i2], as[j])) {
+          as[0] = Literal::Eq(as[i2].rhs(), as[i2].rhs());
+          return -1;
+        }
         if (as[i2].Subsumes(as[j])) {
           ++i2;
           goto next;
@@ -57,6 +60,13 @@ next: {}
     }
     return i1;
   }
+
+  static Clause* New(Literal a) { return new (alloc(1)) Clause(a); }
+  static Clause* New(const std::vector<Literal>& as) { return New(as.size(), as.data()); }
+  static Clause* New(int size, const Literal* as) { return new (alloc(size)) Clause(size, as, false); }
+  static Clause* NewNormalized(const std::vector<Literal>& as) { return NewNormalized(as.size(), as.data()); }
+  static Clause* NewNormalized(int size, const Literal* as) { return new (alloc(size)) Clause(size, as, true); }
+  static void Delete(Clause* c) { free(c); }
 
   bool operator==(const Clause& c) const {
     if (size() != c.size()) {
@@ -134,7 +144,7 @@ next: {}
       }
     }
     h_.size = i1;
-    assert(FullyNormalized());
+    assert(Normalized());
     return i2 - i1;
   }
 
@@ -150,16 +160,16 @@ next: {}
     } else {
       h_.size = 0;
     }
-    assert(FullyNormalized());
+    assert(Normalized());
   }
 
   Clause(int size, const Literal* first, bool guaranteed_normalized) {
     h_.size = size;
     std::memcpy(begin(), first, size * sizeof(Literal));
     if (!guaranteed_normalized) {
-      Normalize();
+      h_.size = Normalize(h_.size, as_);
     }
-    assert(FullyNormalized());
+    assert(Normalized());
   }
 
   Clause(const Clause&) = delete;
@@ -167,45 +177,8 @@ next: {}
   Clause(Clause&&) = default;
   Clause& operator=(Clause&& c) = default;
 
-  void Normalize() {
-    int i1 = 0;
-    int i2 = 0;
-    while (i2 < h_.size) {
-      assert(i1 <= i2);
-      if (as_[i2].valid()) {
-        h_.size = 1;
-        as_[0] = Literal::Eq(as_[i2].rhs(), as_[i2].rhs());
-        return;
-      }
-      if (as_[i2].unsatisfiable()) {
-        ++i2;
-        goto next;
-      }
-      for (int j = 0; j < i1; ++j) {
-        if (Literal::Valid(as_[i2], as_[j])) {
-          h_.size = 1;
-          as_[0] = Literal::Eq(as_[i2].rhs(), as_[i2].rhs());
-          return;
-        }
-        if (as_[i2].Subsumes(as_[j])) {
-          ++i2;
-          goto next;
-        }
-      }
-      for (int j = i2 + 1; j < h_.size; ++j) {
-        if (as_[i2].ProperlySubsumes(as_[j])) {
-          ++i2;
-          goto next;
-        }
-      }
-      as_[i1++] = as_[i2++];
-next: {}
-    }
-    h_.size = i1;
-  }
-
 #ifndef NDEBUG
-  bool FullyNormalized() {
+  bool Normalized() {
     for (int i = 0; i < h_.size; ++i) {
       if (as_[i].valid() && (h_.size != 1 || as_[i].lhs() != as_[i].rhs())) {
         return false;
