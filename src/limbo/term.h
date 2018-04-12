@@ -113,19 +113,19 @@ class Symbol {
     static void Reset() { instance = nullptr; }
 
     static Symbol CreateName(Id index, Sort sort) {
-      assert(index == lower(index, kBitMaskName));
-      return Symbol(index | kBitMaskName, sort, 0);
+      assert((index & kBitMaskMeta) == 0);
+      return Symbol(index | kBitsName, sort, 0);
     }
 
     static Symbol CreateVariable(Id index, Sort sort) {
-      assert(index == lower(index, kBitMaskVariable));
-      return Symbol(index | kBitMaskVariable, sort, 0);
+      assert((index & kBitMaskMeta) == 0);
+      return Symbol(index | kBitsVariable, sort, 0);
     }
 
     static Symbol CreateFunction(Id index, Sort sort, Arity arity) {
-      assert(index == lower(index, kBitMaskFunction));
+      assert((index & kBitMaskMeta) == 0);
       assert(arity > 0 || !sort.rigid());
-      return Symbol(index | kBitMaskFunction, sort, arity);
+      return Symbol(index | kBitsFunction, sort, arity);
     }
 
     Sort CreateNonrigidSort() { return Sort::Nonrigid(last_sort_++); }
@@ -158,9 +158,9 @@ class Symbol {
 
   internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
 
-  bool name()     const { return is_highest(id_, kBitMaskName); }
-  bool variable() const { return is_highest(id_, kBitMaskVariable); }
-  bool function() const { return is_highest(id_, kBitMaskFunction); }
+  bool name()     const { return (id_ & kBitMaskMeta) == kBitsName; }
+  bool variable() const { return (id_ & kBitMaskMeta) == kBitsVariable; }
+  bool function() const { return (id_ & kBitMaskMeta) == kBitsFunction; }
 
   bool null() const { return id_ == 0; }
 
@@ -169,24 +169,18 @@ class Symbol {
 
   Id id() const { return id_; }
 
-  int index() const {
-    if (is_highest(id_, kBitMaskName)) {
-      return lower(id_, kBitMaskName);
-    } else if (is_highest(id_, kBitMaskFunction)) {
-      return lower(id_, kBitMaskFunction);
-    } else {
-      assert(is_highest(id_, kBitMaskVariable));
-      return lower(id_, kBitMaskVariable);
-    }
-  }
+  int index() const { assert(!null()); return id_ & ~kBitMaskMeta; }
 
  private:
-  static constexpr Id kBitMaskName     = 1 << (sizeof(Id) * 8 - 1);
-  static constexpr Id kBitMaskFunction = 1 << (sizeof(Id) * 8 - 2);
-  static constexpr Id kBitMaskVariable = 1 << (sizeof(Id) * 8 - 3);
+  static constexpr Id kFirstBitUnused = sizeof(Id)*8 - 1;
+  static constexpr Id kFirstBitMeta   = sizeof(Id)*8 - 3;
 
-  static constexpr bool is_highest(Id id, Id bit_mask) { return (id & ~(bit_mask - 1)) == bit_mask; }
-  static constexpr Id lower(Id id, Id bit_mask) { return id & (bit_mask - 1); }
+  static constexpr Id kBitMaskUnused = 1 << kFirstBitUnused;
+  static constexpr Id kBitMaskMeta   = 3 << kFirstBitMeta;
+
+  static constexpr Id kBitsFunction = 1 << kFirstBitMeta;
+  static constexpr Id kBitsName     = 2 << kFirstBitMeta;
+  static constexpr Id kBitsVariable = 3 << kFirstBitMeta;
 
   Symbol(Id id, Sort sort, Arity arity) : id_(id), sort_(sort), arity_(arity) {
     assert(sort.id() >= 0);
@@ -233,10 +227,10 @@ class Term {
   Term arg(int i)       const { return args()[i]; }
 
   bool null()            const { return id_ == 0; }
-  bool name()            const { return is_highest(id_, kBitMaskName); }
-  bool variable()        const { return is_highest(id_, kBitMaskVariable); }
+  bool name()            const { return (id_ & kBitMaskMeta) == kBitsName; }
+  bool variable()        const { return (id_ & kBitMaskMeta) == kBitsVariable; }
   bool function()        const { return !name() && !variable(); }
-  bool primitive()       const { return is_highest(id_, kBitMaskPrimitive); }
+  bool primitive()       const { return (id_ & kBitMaskMeta) == kBitsPrimitive; }
   bool quasi_name()      const { return !function() || (sort().rigid() && no_arg<&Term::function>()); }
   bool quasi_primitive() const { return function() && !sort().rigid() && all_args<&Term::quasi_name>(); }
   bool ground()          const { return primitive() || name() || (function() && all_args<&Term::ground>()); }
@@ -259,19 +253,7 @@ class Term {
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
 
-  int index() const {
-    assert(!null());
-    if (is_highest(id_, kBitMaskPrimitive)) {
-      return lower(id_, kBitMaskPrimitive);
-    } else if (is_highest(id_, kBitMaskName)) {
-      return lower(id_, kBitMaskName);
-    } else if (is_highest(id_, kBitMaskVariable)) {
-      return lower(id_, kBitMaskVariable);
-    } else {
-      assert(is_highest(id_, kBitMaskOther));
-      return lower(id_, kBitMaskOther);
-    }
-  }
+  int index() const { assert(!null()); return id_ & ~kBitMaskMeta; }
 
  private:
   friend class Literal;
@@ -279,14 +261,16 @@ class Term {
   using Id = internal::u32;
   struct Data;
 
-  static constexpr Id kBitMaskUnused    = 1U << (sizeof(Id) * 8 - 1);
-  static constexpr Id kBitMaskPrimitive = 1U << (sizeof(Id) * 8 - 2);
-  static constexpr Id kBitMaskName      = 1U << (sizeof(Id) * 8 - 3);
-  static constexpr Id kBitMaskVariable  = 1U << (sizeof(Id) * 8 - 4);
-  static constexpr Id kBitMaskOther     = 1U << (sizeof(Id) * 8 - 5);
+  static constexpr Id kFirstBitUnused = sizeof(Id)*8 - 1;
+  static constexpr Id kFirstBitMeta   = sizeof(Id)*8 - 3;
 
-  static constexpr bool is_highest(Id id, Id bit_mask) { return (id & ~(bit_mask - 1)) == bit_mask; }
-  static constexpr Id lower(Id id, Id bit_mask) { return id & (bit_mask - 1); }
+  static constexpr Id kBitMaskUnused = 1 << kFirstBitUnused;
+  static constexpr Id kBitMaskMeta   = 3 << kFirstBitMeta;
+
+  static constexpr Id kBitsPrimitive = 1 << kFirstBitMeta;
+  static constexpr Id kBitsName      = 2 << kFirstBitMeta;
+  static constexpr Id kBitsVariable  = 3 << kFirstBitMeta;
+  static constexpr Id kBitsOther     = 0 << kFirstBitMeta;
 
   explicit Term(Id id) : id_(id) {}
 
@@ -376,29 +360,27 @@ class Term::Factory : private Singleton<Factory> {
       const Symbol::Sort sort = symbol.sort();
       Id id;
       if (!sort.rigid() && symbol.function() && all_args([](const Term t) { return t.name(); })) {
-        assert(heap_primitive_.size() == lower(heap_primitive_.size(), kBitMaskPrimitive));
         id = static_cast<Id>(heap_primitive_.size());
         heap_primitive_.push_back(d);
-        id |= kBitMaskPrimitive;
+        id |= kBitsPrimitive;
       } else if (symbol.name() || (sort.rigid() && symbol.function() &&
                                    all_args([](const Term t) { return t.name() && !t.function(); }))) {
-        assert(heap_name_.size() == lower(heap_name_.size(), kBitMaskName));
         id = static_cast<Id>(heap_name_.size());
         heap_name_.push_back(d);
-        id |= kBitMaskName;
+        id |= kBitsName;
       } else if (symbol.variable()) {
-        assert(heap_variable_.size() == lower(heap_variable_.size(), kBitMaskVariable));
         id = static_cast<Id>(heap_variable_.size());
         heap_variable_.push_back(d);
-        id |= kBitMaskVariable;
+        id |= kBitsVariable;
       } else {
-        assert(heap_other_.size() == lower(heap_other_.size(), kBitMaskOther));
         id = static_cast<Id>(heap_other_.size());
         heap_other_.push_back(d);
-        id |= kBitMaskOther;
+        id |= kBitsOther;
       }
       s->insert(std::make_pair(d, id));
-      return Term(id);
+      const Term t(id);
+      assert(!t.null());
+      return t;
     } else {
       const Id id = it->second;
       delete d;
@@ -407,16 +389,15 @@ class Term::Factory : private Singleton<Factory> {
   }
 
   const Data* get_data(Term t) const {
+    assert(!t.null());
     const Id id = t.id();
     const int index = t.index();
-    if (is_highest(id, kBitMaskPrimitive)) {
-      return heap_primitive_[index];
-    } else if (is_highest(id, kBitMaskName)) {
-      return heap_name_[index];
-    } else if (is_highest(id, kBitMaskVariable)) {
-      return heap_variable_[index];
-    } else {
-      return heap_other_[index];
+    switch (id & kBitMaskMeta) {
+      case kBitsPrimitive: return heap_primitive_[index];
+      case kBitsName:      return heap_name_[index];
+      case kBitsVariable:  return heap_variable_[index];
+      case kBitsOther:     return heap_other_[index];
+      default:            assert(false); return nullptr;
     }
   }
 
@@ -424,7 +405,8 @@ class Term::Factory : private Singleton<Factory> {
   struct DataPtrHash { internal::hash32_t operator()(const Term::Data* d) const { return d->hash(); } };
   struct DataPtrEquals { bool operator()(const Term::Data* a, const Term::Data* b) const { return *a == *b; } };
 
-  Factory() = default;
+  // heap_other_ indices should start at 1 to distinguish from null term because kBitsOther == 0.
+  Factory() { heap_other_.push_back(nullptr); }
   Factory(const Factory&) = delete;
   Factory& operator=(const Factory&) = delete;
   Factory(Factory&&) = delete;

@@ -152,12 +152,12 @@ class Literal {
 
  private:
   // Lhs should occupy first bits so "lhs = null" is the minimum wrt operator< for all Literals with lhs.
-  static constexpr Id kFirstBitLhs   = 0;
-  static constexpr Id kFirstBitRhs   = sizeof(Term::Id) * 8;
-  static constexpr Id kBitMaskPos    = Term::kBitMaskUnused + kFirstBitLhs;
-  static constexpr Id kBitMaskUnused = Term::kBitMaskUnused + kFirstBitRhs;
-  static constexpr Id kBitMaskLhs    = ((1UL << (sizeof(Term::Id) * 8 - 1)) - 1) << kFirstBitLhs;
-  static constexpr Id kBitMaskRhs    = ((1UL << (sizeof(Term::Id) * 8 - 1)) - 1) << kFirstBitRhs;
+  static constexpr int kFirstBitLhs   = 0;
+  static constexpr int kFirstBitRhs   = sizeof(Term::Id) * 8;
+  static constexpr Id kBitMaskPos    = static_cast<Id>(Term::kBitMaskUnused) << kFirstBitLhs;
+  static constexpr Id kBitMaskUnused = static_cast<Id>(Term::kBitMaskUnused) << kFirstBitRhs;
+  static constexpr Id kBitMaskLhs    = static_cast<Id>(~Term::kBitMaskUnused) << kFirstBitLhs;
+  static constexpr Id kBitMaskRhs    = static_cast<Id>(~Term::kBitMaskUnused) << kFirstBitRhs;
 
   explicit Literal(Id id) : id_(id) {}
 

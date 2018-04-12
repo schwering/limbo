@@ -57,6 +57,30 @@ struct Integer {
   T i;
 };
 
+// I had planned to use __builtin_clz to find and remove the highest bit
+// in Term Ids, but it's actually not faster than the old implementation
+// with custom highest() / lower() functions. I'm not sure why. In any
+// case, the meta data in Term Ids is now fixed-size so we don't need
+// this sort of thing anymore.
+template<typename T, int = sizeof(T)>
+struct Bits {
+  // Index of most significant bit, starting at 0.
+  inline static int highest(T x);
+  inline static T clear_highest(T x);
+};
+
+template<typename T>
+struct Bits<T, sizeof(int)> {
+  inline static int highest(T x) { return __builtin_clz(x); }
+  inline static T clear_highest(T x) { return x ^ (static_cast<T>(1) << highest(x)); }
+};
+
+template<typename T>
+struct Bits<T, sizeof(long)> {
+  inline static int highest(T x) { return __builtin_clzl(x); }
+  inline static T clear_highest(T x) { return x ^ (static_cast<T>(1) << highest(x)); }
+};
+
 }  // namespace internal
 }  // namespace limbo
 
