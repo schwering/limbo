@@ -154,6 +154,7 @@ class Literal {
   // Lhs should occupy first bits so "lhs = null" is the minimum wrt operator< for all Literals with lhs.
   static constexpr int kFirstBitLhs   = 0;
   static constexpr int kFirstBitRhs   = sizeof(Term::Id) * 8;
+
   static constexpr Id kBitMaskPos    = static_cast<Id>(Term::kBitMaskUnused) << kFirstBitLhs;
   static constexpr Id kBitMaskUnused = static_cast<Id>(Term::kBitMaskUnused) << kFirstBitRhs;
   static constexpr Id kBitMaskLhs    = static_cast<Id>(~Term::kBitMaskUnused) << kFirstBitLhs;

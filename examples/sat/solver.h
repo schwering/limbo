@@ -68,7 +68,7 @@ class DenseMap {
   const_iterator begin() const { return vec_.begin(); }
   const_iterator end()   const { return vec_.end(); }
 
- protected:
+ private:
   IndexOf index_of_;
   MakeNull make_null_;
   Vec vec_;
@@ -122,7 +122,7 @@ template<typename T, typename Less, typename Index = int,
          typename MakeNull = MakeNull<T>>
 class Heap {
  public:
-  explicit Heap(Less less = Less()) : less_(less) { heap_.push_back(make_default_()); }
+  explicit Heap(Less less = Less()) : less_(less) { heap_.push_back(make_null_()); }
 
   Heap(const Heap&) = delete;
   Heap& operator=(const Heap& c) = delete;
@@ -136,7 +136,7 @@ class Heap {
 
   bool Contains(T x) const { return index_[x] != 0; }
 
-  T Top() const { return size() >= 1 ? heap_[1] : make_default_(); }
+  T Top() const { return size() >= 1 ? heap_[1] : make_null_(); }
 
   void Increase(T x) {
     assert(Contains(x));
@@ -145,7 +145,7 @@ class Heap {
 
   void Insert(T x) {
     assert(!Contains(x));
-    Index i = heap_.size();
+    int i = heap_.size();
     heap_.push_back(x);
     index_[x] = i;
     SiftUp(i);
@@ -153,7 +153,7 @@ class Heap {
 
   void Remove(T x) {
     assert(Contains(x));
-    const Index i = index_[x];
+    const int i = index_[x];
     heap_[i] = heap_.back();
     index_[heap_[i]] = i;
     heap_.pop_back();
@@ -165,14 +165,14 @@ class Heap {
   }
 
  private:
-  static Index left(Index i)   { return 2 * i; }
-  static Index right(Index i)  { return 2 * i + 1; }
-  static Index parent(Index i) { return i / 2; }
+  static int left(int i)   { return 2 * i; }
+  static int right(int i)  { return 2 * i + 1; }
+  static int parent(int i) { return i / 2; }
 
-  void SiftUp(Index i) {
+  void SiftUp(int i) {
     assert(i > 0 && i < heap_.size());
     T x = heap_[i];
-    Index p;
+    int p;
     while ((p = parent(i)) != 0 && less_(x, heap_[p])) {
       heap_[i] = heap_[p];
       index_[heap_[i]] = i;
@@ -183,11 +183,11 @@ class Heap {
     assert(std::all_of(heap_.begin() + 1, heap_.end(), [this](T x) { return heap_[index_[x]] == x; }));
   }
 
-  void SiftDown(Index i) {
+  void SiftDown(int i) {
     assert(i > 0 && i < heap_.size());
     T x = heap_[i];
     while (left(i) < heap_.size()) {
-      const Index min_child = right(i) < heap_.size() && less_(heap_[right(i)], heap_[left(i)]) ? right(i) : left(i);
+      const int min_child = right(i) < heap_.size() && less_(heap_[right(i)], heap_[left(i)]) ? right(i) : left(i);
       if (!less_(heap_[min_child], x)) {
         break;
       }
@@ -201,9 +201,9 @@ class Heap {
   }
 
   Less less_;
-  MakeNull make_default_;
+  MakeNull make_null_;
   std::vector<T> heap_;
-  DenseMap<T, Index, Index, IndexOf> index_;
+  DenseMap<T, int, Index, IndexOf> index_;
 };
 
 class Solver {
@@ -211,10 +211,6 @@ class Solver {
   using uref_t = int;
   using cref_t = int;
   using level_t = int;
-
-  static constexpr cref_t kNullRef = 0;
-  static constexpr level_t kNullLevel = 0;
-  static constexpr level_t kRootLevel = 1;
 
   Solver() = default;
   ~Solver() { for (Clause* c : clauses_) { Clause::Delete(c); } }
@@ -282,9 +278,9 @@ class Solver {
     }
   }
 
-  const DenseSet<Term>&                        funcs() const { return funcs_; }
-  const DenseMap<Symbol::Sort, DenseSet<Term>> names() const { return names_; }
-  const DenseMap<Term, Term>&                  model() const { return model_; }
+  const DenseSet<Term>&                         funcs() const { return funcs_; }
+  const DenseMap<Symbol::Sort, DenseSet<Term>>& names() const { return names_; }
+  const DenseMap<Term, Term>&                   model() const { return model_; }
 
   bool Solve() {
     if (empty_clause_) {
@@ -342,9 +338,11 @@ class Solver {
     unsigned wanted        :  1;  // auxiliary flag to keep track of seen trail literals
     unsigned occurs        :  1;  // true iff f occurs with n in added clauses or literals
     unsigned model_neq     :  1;  // true iff f != n was set or derived
-    unsigned level         : 29;  // level at which f = n or f != n was set or derived
+    unsigned level         : 28;  // level at which f = n or f != n was set or derived
     cref_t reason;                // clause which derived f = n or f != n
   };
+
+  static_assert(sizeof(Data) == 4 + sizeof(cref_t), "Data should be 4 + 4 bytes");
 
   struct ActivityCompare {
     explicit ActivityCompare(const DenseMap<Term, double>* a) : activity_(a) {}
@@ -352,6 +350,10 @@ class Solver {
    private:
     const DenseMap<Term, double>* activity_;
   };
+
+  static constexpr cref_t kNullRef = 0;
+  static constexpr level_t kNullLevel = 0;
+  static constexpr level_t kRootLevel = 1;
 
   void Register(Literal a) {
     const Symbol::Sort s = a.lhs().sort();

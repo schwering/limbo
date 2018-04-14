@@ -361,19 +361,23 @@ class Term::Factory : private Singleton<Factory> {
       Id id;
       if (!sort.rigid() && symbol.function() && all_args([](const Term t) { return t.name(); })) {
         id = static_cast<Id>(heap_primitive_.size());
+        assert((id & kBitMaskMeta) == 0);
         heap_primitive_.push_back(d);
         id |= kBitsPrimitive;
       } else if (symbol.name() || (sort.rigid() && symbol.function() &&
                                    all_args([](const Term t) { return t.name() && !t.function(); }))) {
         id = static_cast<Id>(heap_name_.size());
+        assert((id & kBitMaskMeta) == 0);
         heap_name_.push_back(d);
         id |= kBitsName;
       } else if (symbol.variable()) {
         id = static_cast<Id>(heap_variable_.size());
+        assert((id & kBitMaskMeta) == 0);
         heap_variable_.push_back(d);
         id |= kBitsVariable;
       } else {
         id = static_cast<Id>(heap_other_.size());
+        assert((id & kBitMaskMeta) == 0);
         heap_other_.push_back(d);
         id |= kBitsOther;
       }
@@ -397,7 +401,7 @@ class Term::Factory : private Singleton<Factory> {
       case kBitsName:      return heap_name_[index];
       case kBitsVariable:  return heap_variable_[index];
       case kBitsOther:     return heap_other_[index];
-      default:            assert(false); return nullptr;
+      default:             assert(false); return nullptr;
     }
   }
 
