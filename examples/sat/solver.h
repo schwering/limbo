@@ -420,44 +420,52 @@ class Solver {
       }
       assert(c[0].lhs() == f || c[1].lhs() == f);
 
-      // skip if no watched literal is false or one of them clause is true
-      char w[2] = { static_cast<char>(falsifies(c[0])), static_cast<char>(falsifies(c[1])) };
-      if ((!w[0] && !w[1]) || satisfies(c[0]) || satisfies(c[1])) {
+      // c[w >> 1] is falsified (c[1] if it is, else c[0])
+      // c[1 - (w >> 1)] is the other literal
+      char w = (static_cast<char>(falsifies(c[1])) << 1) | static_cast<char>(falsifies(c[0]));
+      if (w == 0 || satisfies(c[0]) || satisfies(c[1])) {
         *cr_ptr2++ = *cr_ptr1++;
         continue;
       }
-      assert(falsifies(c[0]) || falsifies(c[1]));
+      assert(w == 1 || w == 2 || w == 3);
+      assert(((w & 1) != 0) == falsifies(c[0]));
+      assert(((w & 2) != 0) == falsifies(c[1]));
 
       // find new watched literals if necessary
-      for (int k = 2, s = c.size(); (w[0] || w[1]) && k < s; ++k) {
+      for (int k = 2, s = c.size(); w != 0 && k < s; ++k) {
         if (!falsifies(c[k])) {
-          const int l = 1 - w[0];
-          assert(w[l]);
+          const int l = w >> 1;  // c[l] is falsified
+          assert(falsifies(c[l]));
           const Term fk = c[k].lhs();
           if (fk != f0 && fk != f1 && fk != c[1-l].lhs()) {
             watchers_[fk].push_back(cr);
           }
           assert(std::find(watchers_[fk].begin(), watchers_[fk].end(), cr) != watchers_[fk].end());
           std::swap(c[l], c[k]);
-          w[l] = false;
+          w = (w - 1) >> 1;  // 11 becomes 01, 10 becomes 00, 01 becomes 00
         }
       }
       if (c[0].lhs() != f && c[1].lhs() != f) {
         ++cr_ptr1;
       }
-      assert(w[0] == falsifies(c[0]));
-      assert(w[1] == falsifies(c[1]));
+      assert(((w & 1) != 0) == falsifies(c[0]));
+      assert(((w & 2) != 0) == falsifies(c[1]));
 
       // handle conflicts and/or propagated unit clauses
-      if (w[0] && w[1]) {
+      if (w == 3) {
+        assert(falsifies(c[w >> 1]));
+        assert(falsifies(c[1 - (w >> 1)]));
         while (cr_ptr1 != ws.end()) {
           *cr_ptr2++ = *cr_ptr1++;
         }
         trail_head_ = trail_.size();
         conflict = cr;
         assert(std::all_of(c.begin(), c.end(), [this](Literal a) { return falsifies(a); }));
-      } else if (w[0] || w[1]) {
-        const Literal b = c[w[0]];
+      } else if (w != 0) {
+        assert(w == 1 || w == 2);
+        assert(falsifies(c[w >> 1]));
+        assert(!falsifies(c[1 - (w >> 1)]));
+        const Literal b = c[1 - (w >> 1)];
         Enqueue(b, cr);
         assert(std::all_of(c.begin(), c.end(), [this, b](Literal a) { return a == b ? satisfies(a) : falsifies(a); }));
       } else {
