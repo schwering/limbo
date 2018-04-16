@@ -61,13 +61,6 @@ next: {}
     return i1;
   }
 
-  static Clause* New(Literal a) { return new (alloc(1)) Clause(a); }
-  static Clause* New(const std::vector<Literal>& as) { return New(as.size(), as.data()); }
-  static Clause* New(int size, const Literal* as) { return new (alloc(size)) Clause(size, as, false); }
-  static Clause* NewNormalized(const std::vector<Literal>& as) { return NewNormalized(as.size(), as.data()); }
-  static Clause* NewNormalized(int size, const Literal* as) { return new (alloc(size)) Clause(size, as, true); }
-  static void Delete(Clause* c) { free(c); }
-
   bool operator==(const Clause& c) const {
     if (size() != c.size()) {
       return false;
@@ -207,6 +200,107 @@ next: {}
     unsigned size   : 31;
   } h_;
   Literal as_[0];
+};
+
+class Clause::Factory {
+ public:
+  using cref_t = unsigned int;
+
+  Factory() = default;
+  Factory(const Factory&) = delete;
+  Factory& operator=(const Factory&) = delete;
+  Factory(Factory&&) = default;
+  Factory& operator=(Factory&&) = default;
+
+  cref_t New(Literal a) {
+    const cref_t cr = memory_.Allocate(clause_size(1));
+    new (memory_.address(cr)) Clause(a);
+    return cr;
+  }
+
+  cref_t New(int k, const Literal* as) {
+    const cref_t cr = memory_.Allocate(clause_size(k));
+    new (memory_.address(cr)) Clause(k, as, false);
+    return cr;
+  }
+
+  cref_t NewNormalized(int k, const Literal* as) {
+    const cref_t cr = memory_.Allocate(clause_size(k));
+    new (memory_.address(cr)) Clause(k, as, true);
+    return cr;
+  }
+
+  cref_t New(const std::vector<Literal>& as) {
+    return New(as.size(), as.data());
+  }
+
+  cref_t NewNormalized(const std::vector<Literal>& as) {
+    return NewNormalized(as.size(), as.data());
+  }
+
+  void Delete(cref_t cr, int k) { memory_.Free(cr, k); }
+
+  Clause& operator[](cref_t r) { return reinterpret_cast<Clause&>(memory_[r]); }
+  const Clause& operator[](cref_t r) const { return reinterpret_cast<const Clause&>(memory_[r]); }
+
+ private:
+  template<typename T>
+  class MemoryPool {
+   public:
+    using size_t = unsigned int;
+    using ref_t = unsigned int;
+
+    explicit MemoryPool(size_t n = 1024) { Capacitate(n); }
+    ~MemoryPool() { if (memory_) { std::free(memory_); } }
+
+    MemoryPool(const MemoryPool&) = delete;
+    MemoryPool& operator=(const MemoryPool& c) = delete;
+    MemoryPool(MemoryPool&&) = default;
+    MemoryPool& operator=(MemoryPool&& c) = default;
+
+    size_t bytes_to_chunks(size_t n) { return (n + sizeof(T) - 1) / sizeof(T); }
+
+    ref_t Allocate(size_t n) {
+      const ref_t r = size_;
+      size_ += n;
+      Capacitate(size_);
+      return r;
+    }
+
+    void Free(cref_t r,  int k) {
+      if (r + k == size_) {
+        size_ = r;
+      }
+    }
+
+    T& operator[](ref_t r) { return memory_[r]; }
+    const T& operator[](ref_t r) const { return memory_[r]; }
+
+    T* address(ref_t r) const { return &memory_[r]; }
+    ref_t reference(const T* r) const { return r - &memory_[0]; }
+
+   private:
+    void Capacitate(size_t n) {
+      if (n > capacity_) {
+        while (n > capacity_) {
+          capacity_ += ((capacity_ / 2) + (capacity_ / 8) + 2) & ~1;
+        }
+        memory_ = static_cast<T*>(std::realloc(memory_, capacity_ * sizeof(T)));
+      }
+    }
+
+    T* memory_ = nullptr;
+    size_t capacity_ = 0;
+    size_t size_ = 1;
+  };
+
+  using Pool = MemoryPool<unsigned int>;
+
+  Pool::size_t clause_size(Pool::size_t size) {
+    return memory_.bytes_to_chunks(sizeof(Clause) + size * sizeof(Literal));
+  }
+
+  Pool memory_;
 };
 
 }  // namespace limbo

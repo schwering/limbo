@@ -209,11 +209,10 @@ class Heap {
 class Solver {
  public:
   using uref_t = int;
-  using cref_t = int;
+  using cref_t = Clause::Factory::cref_t;
   using level_t = int;
 
   Solver() = default;
-  ~Solver() { for (Clause* c : clauses_) { Clause::Delete(c); } }
 
   void add_extra_name(Term n) {
     CapacitateMaps(n);
@@ -244,36 +243,37 @@ class Solver {
     } else if (as.size() == 1) {
       AddLiteral(as[0]);
     } else {
-      Clause* c = Clause::New(as);
-      if (c->valid()) {
-        Clause::Delete(c);
+      const cref_t cr = clause_factory_.New(as);
+      Clause& c = clause(cr);
+      if (c.valid()) {
+        clause_factory_.Delete(cr, as.size());
         return;
       }
       for (Literal a : as) {
         CapacitateMaps(a.lhs());
         CapacitateMaps(a.rhs());
       }
-      c->RemoveIf([this](Literal a) { return falsifies(a); });
-      if (c->unsatisfiable()) {
+      c.RemoveIf([this](Literal a) { return falsifies(a); });
+      if (c.unsatisfiable()) {
         empty_clause_ = true;
-        Clause::Delete(c);
+        clause_factory_.Delete(cr, as.size());
         return;
       }
-      if (satisfies(*c)) {
-        Clause::Delete(c);
+      if (satisfies(c)) {
+        clause_factory_.Delete(cr, as.size());
         return;
       }
-      assert(!c->valid());
-      assert(c->primitive());
-      assert(c->size() >= 1);
-      if (c->size() == 1) {
-        AddLiteral((*c)[0]);
-        Clause::Delete(c);
+      assert(!c.valid());
+      assert(c.primitive());
+      assert(c.size() >= 1);
+      if (c.size() == 1) {
+        AddLiteral(c[0]);
+        clause_factory_.Delete(cr, as.size());
       } else {
-        for (Literal a : *c) {
+        for (Literal a : c) {
           Register(a);
         }
-        AddClause(c, kNullRef);
+        AddClause(cr, c, kNullRef);
       }
     }
   }
@@ -286,32 +286,30 @@ class Solver {
     if (empty_clause_) {
       return false;
     }
+    std::vector<Literal> learnt;
     for (;;) {
       const cref_t conflict = Propagate();
       if (conflict != kNullRef) {
         if (current_level() == kRootLevel) {
           return false;
         }
-        analyze_learnt_.clear();
         level_t btlevel;
-        Analyze(conflict, &analyze_learnt_, &btlevel);
+        Analyze(conflict, &learnt, &btlevel);
         Backtrack(btlevel);
-        if (analyze_learnt_.size() == 1) {
-          const Literal a = analyze_learnt_[0];
+        if (learnt.size() == 1) {
+          const Literal a = learnt[0];
           assert(!falsifies(a));
           Enqueue(a, kNullRef);
         } else {
-          Clause* c = Clause::NewNormalized(analyze_learnt_);
-          assert(c->size() >= 2);
-          assert(!falsifies((*c)[0]));
-          assert(std::all_of(c->begin() + 1, c->end(), [this](Literal a) { return falsifies(a); }));
-          const cref_t cr = AddClause(c, conflict);
-          if (cr != kNullRef) {
-            Enqueue((*c)[0], cr);
-          } else {
-            Clause::Delete(c);
-          }
+          const cref_t cr = clause_factory_.NewNormalized(learnt);
+          const Clause& c = clause(cr);
+          assert(c.size() >= 2);
+          assert(!falsifies(c[0]));
+          assert(std::all_of(c.begin() + 1, c.end(), [this](Literal a) { return falsifies(a); }));
+          AddClause(cr, c, conflict);
+          Enqueue(c[0], cr);
         }
+        learnt.clear();
       } else {
         const Term f = order_.Top();
         if (f.null()) {
@@ -355,7 +353,7 @@ class Solver {
   static constexpr level_t kNullLevel = 0;
   static constexpr level_t kRootLevel = 1;
 
-  void Register(Literal a) {
+  void Register(const Literal a) {
     const Symbol::Sort s = a.lhs().sort();
     const Term f = a.lhs();
     const Term n = a.rhs();
@@ -371,22 +369,21 @@ class Solver {
     data_[f][extra_n].occurs = true;
   }
 
-  cref_t AddClause(Clause* c, cref_t reason) {
-    assert(!c->unsatisfiable());
-    assert(!c->valid());
-    assert(c->size() >= 2);
-    assert(reason != kNullRef || !satisfies(*c));
-    assert(!falsifies((*c)[0]) || std::all_of(c->begin()+2, c->end(), [this](Literal a) { return falsifies(a); }));
-    assert(!falsifies((*c)[1]) || std::all_of(c->begin()+2, c->end(), [this](Literal a) { return falsifies(a); }));
-    const cref_t cr = clauses_.size();
-    clauses_.push_back(c);
-    const Term f0 = (*c)[0].lhs();
-    const Term f1 = (*c)[1].lhs();
+  void AddClause(const cref_t cr, const Clause& c, const cref_t reason) {
+    assert(&clause(cr) == &c);
+    assert(!c.unsatisfiable());
+    assert(!c.valid());
+    assert(c.size() >= 2);
+    assert(reason != kNullRef || !satisfies(c));
+    assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
+    assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
+    clauses_.push_back(cr);
+    const Term f0 = c[0].lhs();
+    const Term f1 = c[1].lhs();
     watchers_[f0].push_back(cr);
     if (f0 != f1) {
       watchers_[f1].push_back(cr);
     }
-    return cr;
   }
 
   cref_t Propagate() {
@@ -395,12 +392,12 @@ class Solver {
       Literal a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
-    assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](Clause* c) { return satisfies(*c) || !falsifies((*c)[0]) || std::all_of(c->begin()+2, c->end(), [this](Literal a) { return falsifies(a); }); }));
-    assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](Clause* c) { return satisfies(*c) || !falsifies((*c)[1]) || std::all_of(c->begin()+2, c->end(), [this](Literal a) { return falsifies(a); }); }));
+    assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) { const Clause& c = clause(cr); return satisfies(c) || !falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }); }));
+    assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) { const Clause& c = clause(cr); return satisfies(c) || !falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }); }));
     return conflict;
   }
 
-  cref_t Propagate(Literal a) {
+  cref_t Propagate(const Literal a) {
     assert(a.primitive());
     cref_t conflict = kNullRef;
     const Term f = a.lhs();
@@ -409,7 +406,7 @@ class Solver {
     auto cr_ptr2 = cr_ptr1;
     while (cr_ptr1 != ws.end()) {
       const cref_t cr = *cr_ptr1;
-      Clause& c = *clauses_[cr];
+      Clause& c = clause(cr);
       const Term f0 = c[0].lhs();
       const Term f1 = c[1].lhs();
 
@@ -434,7 +431,7 @@ class Solver {
       // find new watched literals if necessary
       for (int k = 2, s = c.size(); w != 0 && k < s; ++k) {
         if (!falsifies(c[k])) {
-          const int l = w >> 1;  // c[l] is falsified
+          const int l = w >> 1;
           assert(falsifies(c[l]));
           const Term fk = c[k].lhs();
           if (fk != f0 && fk != f1 && fk != c[1-l].lhs()) {
@@ -442,7 +439,7 @@ class Solver {
           }
           assert(std::find(watchers_[fk].begin(), watchers_[fk].end(), cr) != watchers_[fk].end());
           std::swap(c[l], c[k]);
-          w = (w - 1) >> 1;  // 11 becomes 01, 10 becomes 00, 01 becomes 00
+          w = (w - 1) >> 1;  // update w: 11 becomes 01, 10 becomes 00, 01 becomes 00
         }
       }
       if (c[0].lhs() != f && c[1].lhs() != f) {
@@ -573,7 +570,7 @@ class Solver {
 
       do {
         assert(conflict != kNullRef);
-        for (Literal a : *clauses_[conflict]) {
+        for (Literal a : clause(conflict)) {
         if (trail_a == a) {
           continue;
         }
@@ -759,6 +756,9 @@ class Solver {
 
   level_t current_level() const { return level_size_.size(); }
 
+  Clause& clause(cref_t cr) { return clause_factory_[cr]; }
+  const Clause& clause(cref_t cr) const { return clause_factory_[cr]; }
+
   void CapacitateMaps(Term t) {
     if (t.function() && (max_index_func_.null() || t.index() > max_index_func_.index())) {
       max_index_func_ = t;
@@ -789,7 +789,8 @@ class Solver {
   bool empty_clause_ = false;
 
   // clauses_ is the sequence of clauses added initially or learnt.
-  std::vector<Clause*> clauses_ = std::vector<Clause*>(1, nullptr);
+  Clause::Factory clause_factory_;
+  std::vector<cref_t> clauses_ = std::vector<cref_t>(1, 0);
 
   // max_index_func_ is the function with the highest index in clauses_.
   // max_index_name_ is the function with the highest index in clauses_.
@@ -829,9 +830,6 @@ class Solver {
   Heap<Term, ActivityCompare> order_{ActivityCompare(&activity_)};
   DenseMap<Term, double>      activity_;
   double                      bump_step_ = 1.0;
-
-  // Variable re-used by Analyze().
-  std::vector<Literal> analyze_learnt_;
 };
 
 }  // namespace limbo
