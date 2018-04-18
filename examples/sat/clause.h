@@ -25,6 +25,9 @@ class Clause {
   using const_iterator = const Literal*;
   class Factory;
 
+  static constexpr bool kGuaranteeInvalid = true;
+  static constexpr bool kGuaranteeNormalized = true;
+
   template<bool guarantee_invalid = false>
   static int Normalize(int size, Literal* as) {
     int i1 = 0;
@@ -142,16 +145,12 @@ next: {}
   }
 
  private:
-  static void* alloc(int k) { return std::malloc(sizeof(Clause) + sizeof(Literal) * k); }
-
-  Clause() = default;
-
-  explicit Clause(const Literal a) {
-    if (!a.unsatisfiable()) {
+  Clause(const Literal a, bool guaranteed_normalized) {
+    if (!guaranteed_normalized && a.unsatisfiable()) {
+      h_.size = 0;
+    } else {
       h_.size = 1;
       as_[0] = a.valid() ? Literal::Eq(a.rhs(), a.rhs()) : a;
-    } else {
-      h_.size = 0;
     }
     assert(Normalized());
   }
@@ -212,30 +211,23 @@ class Clause::Factory {
   Factory(Factory&&) = default;
   Factory& operator=(Factory&&) = default;
 
+  template<bool guaranteed_normalized = false>
   cref_t New(Literal a) {
     const cref_t cr = memory_.Allocate(clause_size(1));
-    new (memory_.address(cr)) Clause(a);
+    new (memory_.address(cr)) Clause(a, guaranteed_normalized);
     return cr;
   }
 
+  template<bool guaranteed_normalized = false>
   cref_t New(int k, const Literal* as) {
     const cref_t cr = memory_.Allocate(clause_size(k));
-    new (memory_.address(cr)) Clause(k, as, false);
+    new (memory_.address(cr)) Clause(k, as, guaranteed_normalized);
     return cr;
   }
 
-  cref_t NewNormalized(int k, const Literal* as) {
-    const cref_t cr = memory_.Allocate(clause_size(k));
-    new (memory_.address(cr)) Clause(k, as, true);
-    return cr;
-  }
-
+  template<bool guaranteed_normalized = false>
   cref_t New(const std::vector<Literal>& as) {
-    return New(as.size(), as.data());
-  }
-
-  cref_t NewNormalized(const std::vector<Literal>& as) {
-    return NewNormalized(as.size(), as.data());
+    return New<guaranteed_normalized>(as.size(), as.data());
   }
 
   void Delete(cref_t cr, int k) { memory_.Free(cr, k); }
@@ -250,7 +242,7 @@ class Clause::Factory {
     using size_t = unsigned int;
     using ref_t = unsigned int;
 
-    explicit MemoryPool(size_t n = 1024) { Capacitate(n); }
+    explicit MemoryPool(size_t n = 1024 * 1024) { Capacitate(n); }
     ~MemoryPool() { if (memory_) { std::free(memory_); } }
 
     MemoryPool(const MemoryPool&) = delete;
@@ -267,7 +259,7 @@ class Clause::Factory {
       return r;
     }
 
-    void Free(cref_t r,  int k) {
+    void Free(cref_t r, int k) {
       if (r + k == size_) {
         size_ = r;
       }

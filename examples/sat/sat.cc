@@ -86,8 +86,11 @@ static void LoadCnf(std::istream& stream,
       int i = -1;
       for (std::istringstream iss(line); (iss >> i) && i != 0; ) {
         const Term f = funcs[(i < 0 ? -i : i) - 1];
-        //const Literal a = i < 0 ? Literal::Eq(f, F) : Literal::Eq(f, T);
+#if 0
+        const Literal a = i < 0 ? Literal::Eq(f, F) : Literal::Eq(f, T);
+#else
         const Literal a = i < 0 ? Literal::Neq(f, T) : Literal::Eq(f, T);
+#endif
         lits.push_back(a);
       }
       if (i == 0) {
@@ -176,7 +179,7 @@ int main(int argc, char *argv[]) {
     const bool sat = solver.Solve();
     t.stop();
 
-    std::cout << (sat ? "SATISFIABLE" : "UNSATISFIABLE") << " (in " << t.duration() << "s)" << std::endl;
+    printf("%s (in %.5lfs)\n", (sat ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
     if (sat) {
       struct winsize win_size;
       ioctl(STDOUT_FILENO, TIOCGWINSZ, &win_size);

@@ -76,6 +76,7 @@ int main(int argc, char** argv) {
     printf("c Then we have n+1 clauses which say that a pigeon has to be placed in one\n");
     printf("c of the n holes. Then for pair of pigeons we have n clauses saying that the\n");
     printf("c two pigeons cannot be in the same hole.\n");
+    printf("c \n");
   }
   printf("c \n");
   printf("c This encoding leads to a total of (n+1) * n propositional variables and\n");

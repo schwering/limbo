@@ -53,6 +53,7 @@ class DenseMap {
       vec_.resize(i + 1, make_null_());
     }
   }
+  void Clear() { vec_.clear(); }
 
   Index size() const { return vec_.size(); }
 
@@ -94,6 +95,7 @@ class DenseSet {
   DenseSet& operator=(DenseSet&& c) = default;
 
   void Capacitate(T x) { map_.Capacitate(x); }
+  void Clear() { map_.Clear(); }
 
   Index size() const { return map_.size(); }
 
@@ -130,8 +132,9 @@ class Heap {
   Heap& operator=(Heap&& c) = default;
 
   void Capacitate(T x) { index_.Capacitate(x); }
+  void Clear() { heap_.clear(); index_.Clear(); heap_.push_back(make_null_()); }
 
-  bool size()  const { return heap_.size() - 1; }
+  int size()  const { return heap_.size() - 1; }
   bool empty() const { return heap_.size() == 1; }
 
   bool Contains(T x) const { return index_[x] != 0; }
@@ -150,6 +153,9 @@ class Heap {
     index_[x] = i;
     SiftUp(i);
   }
+
+  typename std::vector<T>::const_iterator begin() const { return heap_.begin(); }
+  typename std::vector<T>::const_iterator end()   const { return heap_.end(); }
 
   void Remove(T x) {
     assert(Contains(x));
@@ -301,9 +307,10 @@ class Solver {
           assert(!falsifies(a));
           Enqueue(a, kNullRef);
         } else {
-          const cref_t cr = clause_factory_.NewNormalized(learnt);
+          const cref_t cr = clause_factory_.New<Clause::kGuaranteeNormalized>(learnt);
           const Clause& c = clause(cr);
           assert(c.size() >= 2);
+          assert(!satisfies(c));
           assert(!falsifies(c[0]));
           assert(std::all_of(c.begin() + 1, c.end(), [this](Literal a) { return falsifies(a); }));
           AddClause(cr, c, conflict);
@@ -323,12 +330,14 @@ class Solver {
         Enqueue(Literal::Eq(f, n), kNullRef);
       }
     }
+    Backtrack(kRootLevel);
+    std::abort();
   }
 
  private:
   struct Data {  // meta data for a pair (f,n)
     Data() = default;
-    Data(bool occurs) :
+    explicit Data(bool occurs) :
         seen_subsumed(0), wanted(0), occurs(occurs), model_neq(0), level(0), reason(0) {}
     Data(bool model_neq, level_t l, cref_t r) :
         seen_subsumed(0), wanted(0), occurs(1), model_neq(model_neq), level(l), reason(r) {}
@@ -354,19 +363,19 @@ class Solver {
   static constexpr level_t kRootLevel = 1;
 
   void Register(const Literal a) {
-    const Symbol::Sort s = a.lhs().sort();
     const Term f = a.lhs();
     const Term n = a.rhs();
-    const Term extra_n = name_extra_[s];
-    assert(!extra_n.null());
-    if (!funcs_.Contains(f) && !order_.Contains(f)) {
+    const Symbol::Sort s = f.sort();
+    if (!funcs_.Contains(f)) {
+      funcs_.Insert(f);
       order_.Insert(f);
+      const Term extra_n = name_extra_[s];
+      assert(!extra_n.null());
+      names_[s].Insert(extra_n);
+      data_[f][extra_n].occurs = true;
     }
-    funcs_.Insert(f);
     names_[s].Insert(n);
-    names_[s].Insert(extra_n);
     data_[f][n].occurs = true;
-    data_[f][extra_n].occurs = true;
   }
 
   void AddClause(const cref_t cr, const Clause& c, const cref_t reason) {
@@ -606,7 +615,7 @@ class Solver {
       data_[a.lhs()][a.rhs()].seen_subsumed = false;
     }
 
-    learnt->resize(Clause::Normalize<true>(learnt->size(), learnt->data()));
+    learnt->resize(Clause::Normalize<Clause::kGuaranteeInvalid>(learnt->size(), learnt->data()));
 
     if (learnt->size() == 1) {
       *btlevel = kRootLevel;
@@ -826,7 +835,7 @@ class Solver {
 
   // order_ is a heap that ranks functions by their activity.
   // activity_ stores the activity of each activity.
-  // bump_step_ is the current increase factor.
+  // bump_step_ is the increase factor after .
   Heap<Term, ActivityCompare> order_{ActivityCompare(&activity_)};
   DenseMap<Term, double>      activity_;
   double                      bump_step_ = 1.0;
