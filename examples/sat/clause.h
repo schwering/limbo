@@ -159,7 +159,8 @@ next: {}
     h_.size = size;
     std::memcpy(begin(), first, size * sizeof(Literal));
     if (!guaranteed_normalized) {
-      h_.size = Normalize(h_.size, as_);
+      size = Normalize(h_.size, as_);
+      h_.size = size >= 0 ? size : 1;
     }
     assert(Normalized());
   }

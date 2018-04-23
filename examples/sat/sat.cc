@@ -31,6 +31,27 @@
 using namespace limbo;
 using namespace limbo::internal;
 
+class Timer {
+ public:
+  Timer() : start_(std::clock()) {}
+
+  void start() {
+    start_ = std::clock() - (end_ != 0 ? end_ - start_ : 0);
+    ++rounds_;
+  }
+  void stop() { end_ = std::clock(); }
+  void reset() { start_ = 0; end_ = 0; rounds_ = 0; }
+
+  double duration() const { return (end_ - start_) / (double) CLOCKS_PER_SEC; }
+  size_t rounds() const { return rounds_; }
+  double avg_duration() const { return duration() / rounds_; }
+
+ private:
+  std::clock_t start_;
+  std::clock_t end_ = 0;
+  size_t rounds_ = 0;
+};
+
 template<typename NullaryPredicate>
 static void CreateTerms(NullaryPredicate p, size_t n, std::vector<Term>* terms) {
   terms->clear();
@@ -44,7 +65,7 @@ static void CreateTerms(NullaryPredicate p, size_t n, std::vector<Term>* terms) 
   }
 }
 
-static void LoadCnf(std::istream& stream,
+static bool LoadCnf(std::istream& stream,
                     std::vector<std::vector<Literal>>* cnf,
                     Term* extra_name) {
   Symbol::Factory* sf = Symbol::Factory::Instance();
@@ -115,59 +136,82 @@ static void LoadCnf(std::istream& stream,
       }
     }
   }
+  return prop;
 }
 
-class Timer {
- public:
-  Timer() : start_(std::clock()) {}
+bool Solve(Solver& solver, int n_conflicts_init, int conflicts_increase) {
+  struct Stats {
+    int conflicts = 0;
+    int conflicts_level_sum = 0;
+    int conflicts_btlevel_sum = 0;
+    int decisions = 0;
+    int decisions_level_sum = 0;
+  } stats;
+  bool restarts = n_conflicts_init >= 0;
+  int n_conflicts = n_conflicts_init;
+  int sat = 0;
 
-  void start() {
-    start_ = std::clock() - (end_ != 0 ? end_ - start_ : 0);
-    ++rounds_;
+  auto conflict_predicate = [&](Solver::level_t level, Solver::cref_t conflict, const std::vector<Literal>& learnt, Solver::level_t btlevel) {
+    ++stats.conflicts;
+    stats.conflicts_level_sum += level;
+    stats.conflicts_btlevel_sum += btlevel;
+    //std::cout << "Learnt from " << solver.clause(conflict) << " at level " << level << " that " << learnt << ", backtracking to " << btlevel << std::endl;
+    return !restarts || stats.conflicts < n_conflicts;
+  };
+  auto decision_predicate = [&](Solver::level_t level, Literal a) {
+    ++stats.decisions;
+    stats.decisions_level_sum += level;
+    //std::cout << "Decided " << a << " at level " << level << std::endl;
+    return true;
+  };
+
+  for (int i = 0; sat == 0; ++i) {
+    n_conflicts = static_cast<int>(std::pow(conflicts_increase, i) * n_conflicts_init);
+    sat = solver.Solve(conflict_predicate, decision_predicate);
   }
-  void stop() { end_ = std::clock(); }
-  void reset() { start_ = 0; end_ = 0; rounds_ = 0; }
-
-  double duration() const { return (end_ - start_) / (double) CLOCKS_PER_SEC; }
-  size_t rounds() const { return rounds_; }
-  double avg_duration() const { return duration() / rounds_; }
-
- private:
-  std::clock_t start_;
-  std::clock_t end_ = 0;
-  size_t rounds_ = 0;
-};
+  printf("Conflicts: %d (at average level %lf to average level %lf) | Decisions: %d (at average level %lf)\n",
+         stats.conflicts,
+         (static_cast<double>(stats.conflicts_level_sum)/static_cast<double>(stats.conflicts)),
+         (static_cast<double>(stats.conflicts_btlevel_sum)/static_cast<double>(stats.conflicts)),
+         stats.decisions,
+         (static_cast<double>(stats.decisions_level_sum)/static_cast<double>(stats.decisions)));
+  return sat > 0;
+}
 
 int main(int argc, char *argv[]) {
+  std::srand(0);
   std::vector<std::vector<Literal>> cnf;
   Term extra_name;
-  int k = 0;
-  int l = 1;
-  int w = 0;
+  int iterations = 1;
+  int n_columns = 0;
+  int restarts = -1;
   int loaded = 0;
   for (int i = 1; i < argc; ++i) {
     if (argv[i] == std::string("-h") || argv[i] == std::string("--help")) {
       std::cout << "Usage: [-k=<k>] " << argv[0] << std::endl;
       return 1;
-    } else if (sscanf(argv[i], "-k=%d", &k) == 1) {
-    } else if (sscanf(argv[i], "-l=%d", &l) == 1) {
-    } else if (sscanf(argv[i], "-w=%d", &w) == 1) {
-    } else if (loaded == 0) {
+    } else if (sscanf(argv[i], "--iterations=%d", &iterations) == 1 || sscanf(argv[i], "-i=%d", &iterations) == 1) {
+    } else if (sscanf(argv[i], "--columns=%d", &n_columns) == 1 || sscanf(argv[i], "-c=%d", &n_columns) == 1) {
+    } else if (sscanf(argv[i], "--restart=%d", &restarts) == 1 || sscanf(argv[i], "-r=%d", &restarts) == 1) {
+    } else if (loaded == 0 && argv[i][0] != '-') {
       std::ifstream ifs = std::ifstream(argv[i]);
       LoadCnf(ifs, &cnf, &extra_name);
       ++loaded;
     } else {
-      std::cout << "Cannot load more than one file" << std::endl;
+      std::cout << "Cannot load '"<< argv[i] << "'" << std::endl;
       return 2;
     }
   }
   if (loaded == 0) {
     LoadCnf(std::cin, &cnf, &extra_name);
+    ++loaded;
   }
+  assert(loaded > 0);
+  assert(!extra_name.null());
 
   Timer t0;
   t0.start();
-  for (int i = 1; i <= l; ++i) {
+  for (int i = 1; i <= iterations; ++i) {
     Solver solver{};
     solver.add_extra_name(extra_name);
     for (const std::vector<Literal>& lits : cnf) {
@@ -176,7 +220,7 @@ int main(int argc, char *argv[]) {
 
     Timer t;
     t.start();
-    const bool sat = solver.Solve();
+    const bool sat = Solve(solver, restarts, 2);
     t.stop();
 
     printf("%s (in %.5lfs)\n", (sat ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
@@ -184,7 +228,7 @@ int main(int argc, char *argv[]) {
       struct winsize win_size;
       ioctl(STDOUT_FILENO, TIOCGWINSZ, &win_size);
       const int lit_width = 10;
-      const int win_width = (w != 0 ? w : static_cast<int>(std::ceil(std::sqrt(solver.funcs().size())))) * lit_width;
+      const int win_width = (n_columns != 0 ? n_columns : static_cast<int>(std::ceil(std::sqrt(solver.funcs().upper_bound())))) * lit_width;
       int i = 0;
       for (const Term f : solver.funcs()) {
         if (f.null()) {

@@ -58,6 +58,7 @@ int main(int argc, char** argv) {
     usage();
 
   // DIMACS header
+#if 0
   printf("c pigeon-%d: placing %d pigeons into %d holes\n", n, n+1, n);
   printf("c %s version\n", prop ? "propositional" : "functional");
   printf("c \n");
@@ -84,6 +85,7 @@ int main(int argc, char** argv) {
   printf("c \n");
   printf("c The resulting SAT problem is unsatisfiable.\n");
   printf("c \n");
+#endif
   if (prop) {
     printf("p cnf %d %d\n", (n+1) * n, (n+1) + n * (n * (n+1) / 2));
 

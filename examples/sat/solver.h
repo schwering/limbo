@@ -5,7 +5,10 @@
 #ifndef LIMBO_SOLVER_H_
 #define LIMBO_SOLVER_H_
 
+#include <cstdlib>
+
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -47,15 +50,15 @@ class DenseMap {
   DenseMap(DenseMap&&) = default;
   DenseMap& operator=(DenseMap&& c) = default;
 
-  void Capacitate(Key k) {
-    const Index i = index_of_(k);
-    if (i >= size()) {
+  void Capacitate(Key k) { Capacitate(index_of_(k)); }
+  void Capacitate(Index i) {
+    if (i >= vec_.size()) {
       vec_.resize(i + 1, make_null_());
     }
   }
   void Clear() { vec_.clear(); }
 
-  Index size() const { return vec_.size(); }
+  Index upper_bound() const { return vec_.size(); }
 
   reference operator[](Index i) { assert(i < vec_.size()); return vec_[i]; }
   const_reference operator[](Index i) const { assert(i < vec_.size()); return vec_[i]; }
@@ -94,10 +97,11 @@ class DenseSet {
   DenseSet(DenseSet&&) = default;
   DenseSet& operator=(DenseSet&& c) = default;
 
+  void Capacitate(Index i) { map_.Capacitate(i); }
   void Capacitate(T x) { map_.Capacitate(x); }
   void Clear() { map_.Clear(); }
 
-  Index size() const { return map_.size(); }
+  Index upper_bound() const { return map_.upper_bound(); }
 
   bool Contains(T x) const { return x != make_null_() && map_[x] == x; }
 
@@ -168,6 +172,15 @@ class Heap {
       SiftDown(i);
     }
     assert(!Contains(x));
+  }
+
+  void Heapify() {
+    for (int i = 1; i < heap_.size(); ++i) {
+      SiftDown(i);
+    }
+    for (int i = heap_.size() - 1; i > 0; --i) {
+      SiftUp(i);
+    }
   }
 
  private:
@@ -250,7 +263,7 @@ class Solver {
       AddLiteral(as[0]);
     } else {
       const cref_t cr = clause_factory_.New(as);
-      Clause& c = clause(cr);
+      Clause& c = clause_factory_[cr];
       if (c.valid()) {
         clause_factory_.Delete(cr, as.size());
         return;
@@ -284,23 +297,30 @@ class Solver {
     }
   }
 
+  const Clause&                                 clause(cref_t cr) const { return clause_factory_[cr]; }
   const DenseSet<Term>&                         funcs() const { return funcs_; }
   const DenseMap<Symbol::Sort, DenseSet<Term>>& names() const { return names_; }
+  const DenseSet<Term>&                         names(Term f) const { return names_[f.sort()]; }
   const DenseMap<Term, Term>&                   model() const { return model_; }
 
-  bool Solve() {
+  template<typename ConflictPredicate, typename DecisionPredicate>
+  int Solve(ConflictPredicate conflict_predicate, DecisionPredicate decision_predicate) {
     if (empty_clause_) {
-      return false;
+      std::cout << "empty clause" << std::endl;
+      return -1;
     }
     std::vector<Literal> learnt;
-    for (;;) {
+    bool go = true;
+    while (go) {
       const cref_t conflict = Propagate();
       if (conflict != kNullRef) {
         if (current_level() == kRootLevel) {
-          return false;
+          std::cout << "backtrack to root" << std::endl;
+          return -1;
         }
         level_t btlevel;
         Analyze(conflict, &learnt, &btlevel);
+        go &= conflict_predicate(current_level(), conflict, learnt, btlevel);
         Backtrack(btlevel);
         if (learnt.size() == 1) {
           const Literal a = learnt[0];
@@ -320,18 +340,29 @@ class Solver {
       } else {
         const Term f = order_.Top();
         if (f.null()) {
-          return true;
+          return 1;
         }
         const Term n = CandidateName(f);
         if (n.null()) {
-          return false;
+          for (Term n : names_[f.sort()]) {
+            Literal a = Literal::Eq(f, n);
+            std::cout << a << " " << (satisfies(a) ? "sat" : "not-sat") << " " << (falsifies(a) ? "fals" : "not-fals") << std::endl;
+          }
+          std::cout << "model_[" << f << "] = " << model_[f] << std::endl;
+          for (Term n : names_[f.sort()]) {
+            std::cout << "data_[" << f << "][" << n << "]_.model_neq = " << data_[f][n].model_neq << std::endl;
+          }
+          std::cout << "no name for " << f << std::endl;
+          return -1;
         }
         NewLevel();
-        Enqueue(Literal::Eq(f, n), kNullRef);
+        const Literal a = Literal::Eq(f, n);
+        Enqueue(a, kNullRef);
+        go &= decision_predicate(current_level(), a);
       }
     }
     Backtrack(kRootLevel);
-    std::abort();
+    return 0;
   }
 
  private:
@@ -368,6 +399,7 @@ class Solver {
     const Symbol::Sort s = f.sort();
     if (!funcs_.Contains(f)) {
       funcs_.Insert(f);
+      std::cout << "Insert " << f << std::endl;
       order_.Insert(f);
       const Term extra_n = name_extra_[s];
       assert(!extra_n.null());
@@ -415,7 +447,7 @@ class Solver {
     auto cr_ptr2 = cr_ptr1;
     while (cr_ptr1 != ws.end()) {
       const cref_t cr = *cr_ptr1;
-      Clause& c = clause(cr);
+      Clause& c = clause_factory_[cr];
       const Term f0 = c[0].lhs();
       const Term f1 = c[1].lhs();
 
@@ -492,94 +524,94 @@ class Solver {
     uref_t trail_i = trail_.size() - 1;
     learnt->push_back(trail_a);
 
-      // see_subsuming(a) marks all literals subsumed by a as seen.
-      // By the following reasoning, it suffices to mark only a single literal
-      // that implicitly also determines the others as seen.
-      // When a literal has been added to the conflict clause, every subsuming
-      // literal would be redundant and should be skipped.
-      // (1) f == n is only subsumed by f == n.
-      // (2) f != n is only subsumed by f != n and f == n' for every n' != n.
-      // Every literal we see has a complementary literal on the trail, and the
-      // trail does not contain two mutually complementary literals.
-      // In case (1), the trail only contains f != n or f == n', but not f == n.
-      // Hence we will not see f != n. Therefore marking (f,n) where n !=
-      // model_[f] uniquely f == n as seen and nothing else.
-      // In case (2), the trail only contains f == n and perhaps f != n', but
-      // not f != n or f == n'. Hence we might see f != n and f == n', but not
-      // f == n or f != n'. Therefore marking (f,n) where n == model_[f]
-      // uniquely identifies f != n and f == n' for all n' != n.
-      auto see_subsuming = [this](const Literal a) {
-        assert(falsifies(a));
-        assert(a.pos() || !model_[a.lhs()].null());
-        assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
-        const Term f = a.lhs();
-        const Term n = a.rhs();
-        data_[f][n].seen_subsumed = 1;
-      };
-      // seen_subsumed(a) iff some literal subsumed by a has been seen.
-      // Some literal subsumed by f == n was seen iff f == n or f != n' was seen for some n'.
-      // Some literal subsumed by f != n was seen iff f != n was seen.
-      // If f == n was seen, then n != model_[f] and (f,n) is marked.
-      // If f != n was seen, then n == model_[f] and (f,model_[f]) is marked.
-      auto seen_subsumed = [this](const Literal a) {
-        assert(falsifies(a));
-        assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
-        const Term f = a.lhs();
-        const Term n = a.rhs();
-        const Term m = model_[f];
-        return data_[f][n].seen_subsumed || (a.pos() && !m.null() && data_[f][m].seen_subsumed);
-      };
+    // see_subsuming(a) marks all literals subsumed by a as seen.
+    // By the following reasoning, it suffices to mark only a single literal
+    // that implicitly also determines the others as seen.
+    // When a literal has been added to the conflict clause, every subsuming
+    // literal would be redundant and should be skipped.
+    // (1) f == n is only subsumed by f == n.
+    // (2) f != n is only subsumed by f != n and f == n' for every n' != n.
+    // Every literal we see has a complementary literal on the trail, and the
+    // trail does not contain two mutually complementary literals.
+    // In case (1), the trail only contains f != n or f == n', but not f == n.
+    // Hence we will not see f != n. Therefore marking (f,n) where n !=
+    // model_[f] uniquely f == n as seen and nothing else.
+    // In case (2), the trail only contains f == n and perhaps f != n', but
+    // not f != n or f == n'. Hence we might see f != n and f == n', but not
+    // f == n or f != n'. Therefore marking (f,n) where n == model_[f]
+    // uniquely identifies f != n and f == n' for all n' != n.
+    auto see_subsuming = [this](const Literal a) {
+      assert(falsifies(a));
+      assert(a.pos() || !model_[a.lhs()].null());
+      assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
+      const Term f = a.lhs();
+      const Term n = a.rhs();
+      data_[f][n].seen_subsumed = 1;
+    };
+    // seen_subsumed(a) iff some literal subsumed by a has been seen.
+    // Some literal subsumed by f == n was seen iff f == n or f != n' was seen for some n'.
+    // Some literal subsumed by f != n was seen iff f != n was seen.
+    // If f == n was seen, then n != model_[f] and (f,n) is marked.
+    // If f != n was seen, then n == model_[f] and (f,model_[f]) is marked.
+    auto seen_subsumed = [this](const Literal a) {
+      assert(falsifies(a));
+      assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
+      const Term f = a.lhs();
+      const Term n = a.rhs();
+      const Term m = model_[f];
+      return data_[f][n].seen_subsumed || (a.pos() && !m.null() && data_[f][m].seen_subsumed);
+    };
 
-      // want_complementary_on_level(a,l) marks all literals on level l that
-      // are complementary to a as wanted.
-      // By the following reasoning, it suffices to mark only a single literal
-      // that implicitly also determines the others as wanted.
-      // When we want a complementary literal to f == n, we prefer f != n over
-      // f == model_[f] because this will become f == n in the conflict clause.
-      // This also means that we want exactly one literal, which eliminates the
-      // need for traversing the whole level again to reset the wanted flag.
-      auto want_complementary_on_level = [this](const Literal a, level_t l) {
-        assert(falsifies(a));
-        assert(data_[a.lhs()][a.rhs()].level <= l);
-        const Term f = a.lhs();
-        const Term n = a.rhs();
-        const Term m = model_[f];
-        if (!a.pos()) {
-          assert(data_[f][n].level == l);
+    // want_complementary_on_level(a,l) marks all literals on level l that
+    // are complementary to a as wanted.
+    // By the following reasoning, it suffices to mark only a single literal
+    // that implicitly also determines the others as wanted.
+    // When we want a complementary literal to f == n, we prefer f != n over
+    // f == model_[f] because this will become f == n in the conflict clause.
+    // This also means that we want exactly one literal, which eliminates the
+    // need for traversing the whole level again to reset the wanted flag.
+    auto want_complementary_on_level = [this](const Literal a, level_t l) {
+      assert(falsifies(a));
+      assert(data_[a.lhs()][a.rhs()].level <= l);
+      const Term f = a.lhs();
+      const Term n = a.rhs();
+      const Term m = model_[f];
+      if (!a.pos()) {
+        assert(data_[f][n].level == l);
+        data_[f][n].wanted = true;
+      } else {
+        if (data_[f][n].level == l) {
+          assert(data_[f][n].model_neq);
           data_[f][n].wanted = true;
         } else {
-          if (data_[f][n].level == l) {
-            assert(data_[f][n].model_neq);
-            data_[f][n].wanted = true;
-          } else {
-            assert(!m.null());
-            assert(data_[f][m].level == l);
-            data_[f][m].wanted = true;
-          }
+          assert(!m.null());
+          assert(data_[f][m].level == l);
+          data_[f][m].wanted = true;
         }
-      };
-      // wanted_complementary_on_level(a,l) iff a on level l is wanted.
-      auto wanted_complementary_on_level = [this](const Literal a, level_t l) {
-        assert(falsifies(a));
-        assert(data_[a.lhs()][a.rhs()].level <= l);
-        const Term f = a.lhs();
-        const Term n = a.rhs();
-        const Term m = model_[f];
-        return !a.pos() ?
-            data_[f][n].wanted :
-            (data_[f][n].level == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted);
-      };
-      // We un-want every trail literal after it has been traversed.
-      auto wanted = [this](const Literal a) {
-        assert(satisfies(a));
-        const Term f = a.lhs();
-        const Term n = a.rhs();
-        return data_[f][n].wanted;
-      };
+      }
+    };
+    // wanted_complementary_on_level(a,l) iff a on level l is wanted.
+    auto wanted_complementary_on_level = [this](const Literal a, level_t l) {
+      assert(falsifies(a));
+      assert(data_[a.lhs()][a.rhs()].level <= l);
+      const Term f = a.lhs();
+      const Term n = a.rhs();
+      const Term m = model_[f];
+      return !a.pos() ?
+          data_[f][n].wanted :
+          (data_[f][n].level == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted);
+    };
+    // We un-want every trail literal after it has been traversed.
+    auto wanted = [this](const Literal a) {
+      assert(satisfies(a));
+      const Term f = a.lhs();
+      const Term n = a.rhs();
+      return data_[f][n].wanted;
+    };
 
-      do {
-        assert(conflict != kNullRef);
-        for (Literal a : clause(conflict)) {
+    do {
+      assert(conflict != kNullRef);
+      for (const Literal a : clause(conflict)) {
         if (trail_a == a) {
           continue;
         }
@@ -656,6 +688,7 @@ class Solver {
       }
       data_[f][n] = Data(!a.pos(), current_level(), reason);
       if (a.pos() && order_.Contains(f)) {
+        std::cout << "Remove " << f << std::endl;
         order_.Remove(f);
       }
     }
@@ -668,21 +701,56 @@ class Solver {
       model_[f] = Term();
       data_[f][n] = Data(data_[f][n].occurs);
       if (a->pos() && !order_.Contains(f)) {
+        assert(std::any_of(names_[f.sort()].begin(), names_[f.sort()].end(), [this, f](Term n) { return !n.null() && !data_[f][n].model_neq; }));
         order_.Insert(f);
       }
+      assert(!data_[f][n].model_neq);
     }
     trail_.resize(level_size_[l]);
     level_size_.resize(l);
     trail_head_ = trail_.size();
   }
 
-  Term CandidateName(Term f) const {
+  Term CandidateName(Term f) {
     assert(!f.null() && model_[f].null());
-    for (Term n : names_[f.sort()]) {
+    const DenseSet<Term>& names = names_[f.sort()];
+    const int size = names.upper_bound();
+    const int offset = name_index_[f];
+#if 1
+    for (int i = offset; i >= 0; --i) {
+      std::cout << i << " ";
+      const Term n = names[i];
       if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
+        name_index_[f] = i;
+        std::cout << std::endl;
         return n;
       }
     }
+    for (int i = size - 1; i > offset; --i) {
+      std::cout << i << " ";
+      const Term n = names[i];
+      if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
+        name_index_[f] = i;
+        std::cout << std::endl;
+        return n;
+      }
+    }
+#else
+    int i = 0;
+    const int end = i;
+    do {
+      std::cout << i << " ";
+      const Term n = names[i];
+      if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
+        name_index_[f] = i;
+        std::cout << std::endl;
+        return n;
+      }
+      ++i;
+      i %= size;
+    } while (i != end);
+#endif
+    std::cout << "not found" << std::endl;
     return Term();
   }
 
@@ -715,15 +783,24 @@ class Solver {
     const Term f = a.lhs();
     const Term n = a.rhs();
     const Term m = model_[f];
-    if (a.pos()) {
-      return m == n && (l < 0 || data_[f][m].level <= l);
-    } else {
-      return (!m.null() && m != n && (l < 0 || data_[f][m].level <= l)) ||
-          (data_[f][n].model_neq && (l < 0 || data_[f][n].level <= l));
-    }
+    const bool p = a.pos();
+    return ((p && m == n) ||
+            (!p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
+           (l < 0 || data_[f][n].level <= l);
   }
 
-  bool falsifies(const Literal a, const level_t l = -1) const { return satisfies(a.flip(), l); }
+  bool falsifies(const Literal a, const level_t l = -1) const {
+    const Term f = a.lhs();
+    const Term n = a.rhs();
+    const Term m = model_[f];
+    const bool p = a.pos();
+    return (!p && m == n && (l < 0 || data_[f][m].level <= l)) ||
+          (p && !m.null() && m != n && (l < 0 || data_[f][m].level <= l)) ||
+          (p && data_[f][n].model_neq && (l < 0 || data_[f][n].level <= l));
+    return ((!p && m == n) ||
+            (p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
+           (l < 0 || data_[f][n].level <= l);
+  }
 
   bool satisfies(const Clause& c, const level_t l = -1) const {
     return std::any_of(c.begin(), c.end(), [this, l](Literal a) { return satisfies(a, l); });
@@ -765,13 +842,11 @@ class Solver {
 
   level_t current_level() const { return level_size_.size(); }
 
-  Clause& clause(cref_t cr) { return clause_factory_[cr]; }
-  const Clause& clause(cref_t cr) const { return clause_factory_[cr]; }
-
   void CapacitateMaps(Term t) {
     if (t.function() && (max_index_func_.null() || t.index() > max_index_func_.index())) {
       max_index_func_ = t;
       funcs_.Capacitate(t);
+      name_index_.Capacitate(t);
       watchers_.Capacitate(t);
       model_.Capacitate(t);
       data_.Capacitate(t);
@@ -812,6 +887,7 @@ class Solver {
   DenseSet<Term>                         funcs_;
   DenseMap<Symbol::Sort, DenseSet<Term>> names_;
   DenseMap<Symbol::Sort, Term>           name_extra_;
+  DenseMap<Term, int>                    name_index_;
 
   // watchers_ maps every function to a sequence of clauses that watch it.
   // Every clause watches two functions, and when a literal with this function
