@@ -78,9 +78,10 @@ class Symbol {
    public:
     using Id = internal::u8;
 
-    static Sort Nonrigid(Id id) { assert((id & kBitMaskRigid) == 0); return Sort(id & ~kBitMaskRigid); }
-    static Sort Rigid(Id id)    { assert((id & kBitMaskRigid) == 0); return Sort(id | kBitMaskRigid); }
+    static Sort Nonrigid(Id id) { assert(id > 0 && (id & kBitMaskRigid) == 0); return Sort(id & ~kBitMaskRigid); }
+    static Sort Rigid(Id id)    { assert(id > 0 && (id & kBitMaskRigid) == 0); return Sort(id | kBitMaskRigid); }
 
+    Sort() = default;
     explicit Sort(Id id) : id_(id) {}
     explicit operator Id() const { return id_; }
     explicit operator int() const { return id_; }
@@ -89,6 +90,8 @@ class Symbol {
     bool operator!=(const Sort s) const { return id_ != s.id_; }
 
     internal::hash32_t hash() const { return internal::jenkins_hash(id_); }
+
+    bool null() const { return id_ == 0; }
 
     bool rigid() const { return (id_ & kBitMaskRigid) != 0; }
 
@@ -128,8 +131,8 @@ class Symbol {
       return Symbol(index | kBitsFunction, sort, arity);
     }
 
-    Sort CreateNonrigidSort() { return Sort::Nonrigid(last_sort_++); }
-    Sort CreateRigidSort()    { return Sort::Rigid(last_sort_++); }
+    Sort CreateNonrigidSort() { return Sort::Nonrigid(++last_sort_); }
+    Sort CreateRigidSort()    { return Sort::Rigid(++last_sort_); }
 
     Symbol CreateName(Sort sort)                  { return CreateName(last_name_++, sort); }
     Symbol CreateVariable(Sort sort)              { return CreateVariable(last_variable_++, sort); }

@@ -165,10 +165,14 @@ bool Solve(Solver& solver, int n_conflicts_init, int conflicts_increase) {
     return true;
   };
 
+  Timer t;
+  t.start();
   for (int i = 0; sat == 0; ++i) {
     n_conflicts = static_cast<int>(std::pow(conflicts_increase, i) * n_conflicts_init);
     sat = solver.Solve(conflict_predicate, decision_predicate);
   }
+  t.stop();
+  printf("%s (in %.5lfs)\n", (sat > 0 ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
   printf("Conflicts: %d (at average level %lf to average level %lf) | Decisions: %d (at average level %lf)\n",
          stats.conflicts,
          (static_cast<double>(stats.conflicts_level_sum)/static_cast<double>(stats.conflicts)),
@@ -213,17 +217,14 @@ int main(int argc, char *argv[]) {
   t0.start();
   for (int i = 1; i <= iterations; ++i) {
     Solver solver{};
-    solver.add_extra_name(extra_name);
+    auto extra_name_factory = [extra_name](const Symbol::Sort s) { assert(s == extra_name.sort()); return extra_name; };
     for (const std::vector<Literal>& lits : cnf) {
-      solver.AddClause(lits);
+      solver.AddClause(lits, extra_name_factory);
     }
+    solver.Init();
 
-    Timer t;
-    t.start();
     const bool sat = Solve(solver, restarts, 2);
-    t.stop();
 
-    printf("%s (in %.5lfs)\n", (sat ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
     if (sat) {
       struct winsize win_size;
       ioctl(STDOUT_FILENO, TIOCGWINSZ, &win_size);

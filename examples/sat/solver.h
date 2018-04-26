@@ -136,6 +136,7 @@ class Heap {
   Heap& operator=(Heap&& c) = default;
 
   void Capacitate(T x) { index_.Capacitate(x); }
+  void Capacitate(int i) { index_.Capacitate(i); }
   void Clear() { heap_.clear(); index_.Clear(); heap_.push_back(make_null_()); }
 
   int size()  const { return heap_.size() - 1; }
@@ -233,34 +234,26 @@ class Solver {
 
   Solver() = default;
 
-  void add_extra_name(Term n) {
-    CapacitateMaps(n);
-    assert(name_extra_[n.sort()].null());
-    name_extra_[n.sort()] = n;
-  }
-
-  void AddLiteral(Literal a) {
+  template<typename ExtraNameFactory>
+  void AddLiteral(Literal a, ExtraNameFactory extra_name = ExtraNameFactory()) {
     if (a.valid()) {
       return;
     }
-    CapacitateMaps(a.lhs());
-    CapacitateMaps(a.rhs());
-    if (a.unsatisfiable() || falsifies(a)) {
+    if (a.unsatisfiable()) {
       empty_clause_ = true;
-    }
-    if (satisfies(a)) {
       return;
     }
     assert(a.primitive());
-    Register(a);
-    Enqueue(a, kNullRef);
+    trail_.push_back(a);
+    Register(a.lhs().sort(), a.lhs(), a.rhs(), extra_name(a.lhs().sort()));
   }
 
-  void AddClause(const std::vector<Literal>& as) {
+  template<typename ExtraNameFactory>
+  void AddClause(const std::vector<Literal>& as, ExtraNameFactory extra_name = ExtraNameFactory()) {
     if (as.size() == 0) {
       empty_clause_ = true;
     } else if (as.size() == 1) {
-      AddLiteral(as[0]);
+      AddLiteral(as[0], extra_name);
     } else {
       const cref_t cr = clause_factory_.New(as);
       Clause& c = clause_factory_[cr];
@@ -268,17 +261,8 @@ class Solver {
         clause_factory_.Delete(cr, as.size());
         return;
       }
-      for (Literal a : as) {
-        CapacitateMaps(a.lhs());
-        CapacitateMaps(a.rhs());
-      }
-      c.RemoveIf([this](Literal a) { return falsifies(a); });
       if (c.unsatisfiable()) {
         empty_clause_ = true;
-        clause_factory_.Delete(cr, as.size());
-        return;
-      }
-      if (satisfies(c)) {
         clause_factory_.Delete(cr, as.size());
         return;
       }
@@ -286,15 +270,66 @@ class Solver {
       assert(c.primitive());
       assert(c.size() >= 1);
       if (c.size() == 1) {
-        AddLiteral(c[0]);
+        trail_.push_back(c[0]);
         clause_factory_.Delete(cr, as.size());
       } else {
-        for (Literal a : c) {
-          Register(a);
+        clauses_.push_back(cr);
+        for (const Literal a : c) {
+          Register(a.lhs().sort(), a.lhs(), a.rhs(), extra_name(a.lhs().sort()));
         }
-        AddClause(cr, c, kNullRef);
       }
     }
+  }
+
+  void Init() {
+    std::vector<Literal> lits = std::move(trail_);
+    trail_.reserve(lits.size());
+    for (const Literal a : lits) {
+      if (falsifies(a)) {
+        empty_clause_ = true;
+        return;
+      }
+      Enqueue(a, kNullRef);
+    }
+    int n_clauses = clauses_.size();
+    for (int i = 1; i < n_clauses; ++i) {
+      const cref_t cr = clauses_[i];
+      Clause& c = clause_factory_[cr];
+      c.RemoveIf([this](Literal a) { return falsifies(a); });
+      assert(!c.valid());
+      if (c.unsatisfiable()) {
+        empty_clause_ = true;
+        clause_factory_.Delete(cr, c.size());
+        return;
+      } else if (satisfies(c)) {
+        clause_factory_.Delete(cr, c.size());
+        std::swap(clauses_[i--], clauses_[--n_clauses]);
+      } else if (c.size() == 1) {
+        Enqueue(c[0], kNullRef);
+        clause_factory_.Delete(cr, c.size());
+        std::swap(clauses_[i--], clauses_[--n_clauses]);
+      } else {
+        UpdateWatchers(cr, c);
+      }
+    }
+    clauses_.resize(n_clauses);
+    Propagate();
+    int n_units = trail_.size();
+    for (int i = 0; i < n_units; ++i) {
+      const Literal a = trail_[i];
+      if (!a.pos() && !model_[a.lhs()].null()) {
+        std::swap(trail_[i--], trail_[--n_units]);
+      }
+      const cref_t cr = reason_of(a);
+      if (cr != kNullRef && cr != kDomainRef) {
+        const Clause& c = clause(cr);
+        RemoveWatchers(cr, c);
+        clause_factory_.Delete(cr, c.size());
+        std::swap(clauses_[cr], clauses_[--n_clauses]);
+      }
+    }
+    trail_.resize(n_units);
+    clauses_.resize(n_clauses);
   }
 
   const Clause&                                 clause(cref_t cr) const { return clause_factory_[cr]; }
@@ -304,9 +339,9 @@ class Solver {
   const DenseMap<Term, Term>&                   model() const { return model_; }
 
   template<typename ConflictPredicate, typename DecisionPredicate>
-  int Solve(ConflictPredicate conflict_predicate, DecisionPredicate decision_predicate) {
+  int Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
+            DecisionPredicate decision_predicate = DecisionPredicate()) {
     if (empty_clause_) {
-      std::cout << "empty clause" << std::endl;
       return -1;
     }
     std::vector<Literal> learnt;
@@ -315,7 +350,6 @@ class Solver {
       const cref_t conflict = Propagate();
       if (conflict != kNullRef) {
         if (current_level() == kRootLevel) {
-          std::cout << "backtrack to root" << std::endl;
           return -1;
         }
         level_t btlevel;
@@ -333,7 +367,8 @@ class Solver {
           assert(!satisfies(c));
           assert(!falsifies(c[0]));
           assert(std::all_of(c.begin() + 1, c.end(), [this](Literal a) { return falsifies(a); }));
-          AddClause(cr, c, conflict);
+          clauses_.push_back(cr);
+          UpdateWatchers(cr, c);
           Enqueue(c[0], cr);
         }
         learnt.clear();
@@ -344,15 +379,6 @@ class Solver {
         }
         const Term n = CandidateName(f);
         if (n.null()) {
-          for (Term n : names_[f.sort()]) {
-            Literal a = Literal::Eq(f, n);
-            std::cout << a << " " << (satisfies(a) ? "sat" : "not-sat") << " " << (falsifies(a) ? "fals" : "not-fals") << std::endl;
-          }
-          std::cout << "model_[" << f << "] = " << model_[f] << std::endl;
-          for (Term n : names_[f.sort()]) {
-            std::cout << "data_[" << f << "][" << n << "]_.model_neq = " << data_[f][n].model_neq << std::endl;
-          }
-          std::cout << "no name for " << f << std::endl;
           return -1;
         }
         NewLevel();
@@ -368,10 +394,19 @@ class Solver {
  private:
   struct Data {  // meta data for a pair (f,n)
     Data() = default;
-    explicit Data(bool occurs) :
-        seen_subsumed(0), wanted(0), occurs(occurs), model_neq(0), level(0), reason(0) {}
-    Data(bool model_neq, level_t l, cref_t r) :
-        seen_subsumed(0), wanted(0), occurs(1), model_neq(model_neq), level(l), reason(r) {}
+
+    void Update(bool neq, level_t l, cref_t r) {
+      model_neq = neq;
+      level = l;
+      reason = r;
+    }
+
+    void Reset() {
+      model_neq = false;
+      level = 0;
+      reason = kNullRef;
+    }
+
     unsigned seen_subsumed :  1;  // auxiliary flag to keep track of seen trail literals
     unsigned wanted        :  1;  // auxiliary flag to keep track of seen trail literals
     unsigned occurs        :  1;  // true iff f occurs with n in added clauses or literals
@@ -390,40 +425,44 @@ class Solver {
   };
 
   static constexpr cref_t kNullRef = 0;
-  static constexpr level_t kNullLevel = 0;
+  static constexpr cref_t kDomainRef = -1;
   static constexpr level_t kRootLevel = 1;
 
-  void Register(const Literal a) {
-    const Term f = a.lhs();
-    const Term n = a.rhs();
-    const Symbol::Sort s = f.sort();
+  void Register(const Symbol::Sort s, const Term f, const Term n, const Term extra_n) {
+    CapacitateMaps(s, f, n, extra_n);
     if (!funcs_.Contains(f)) {
       funcs_.Insert(f);
-      std::cout << "Insert " << f << std::endl;
       order_.Insert(f);
-      const Term extra_n = name_extra_[s];
-      assert(!extra_n.null());
       names_[s].Insert(extra_n);
+      domain_size_[f] += 1 - data_[f][extra_n].occurs;
       data_[f][extra_n].occurs = true;
     }
-    names_[s].Insert(n);
+    domain_size_[f] += 1 - data_[f][n].occurs;
     data_[f][n].occurs = true;
+    names_[s].Insert(n);
   }
 
-  void AddClause(const cref_t cr, const Clause& c, const cref_t reason) {
+  void UpdateWatchers(const cref_t cr, const Clause& c) {
     assert(&clause(cr) == &c);
     assert(!c.unsatisfiable());
     assert(!c.valid());
     assert(c.size() >= 2);
-    assert(reason != kNullRef || !satisfies(c));
     assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
     assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
-    clauses_.push_back(cr);
     const Term f0 = c[0].lhs();
     const Term f1 = c[1].lhs();
     watchers_[f0].push_back(cr);
     if (f0 != f1) {
       watchers_[f1].push_back(cr);
+    }
+  }
+
+  void RemoveWatchers(const cref_t cr, const Clause& c) {
+    assert(c.size() >= 2);
+    for (int i = 0; i < 2; ++i) {
+      const Term f = c[i].lhs();
+      std::vector<cref_t>& ws = watchers_[f];
+      ws.erase(std::find(ws.begin(), ws.end(), cr));
     }
   }
 
@@ -556,10 +595,11 @@ class Solver {
     auto seen_subsumed = [this](const Literal a) {
       assert(falsifies(a));
       assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
+      const bool p = a.pos();
       const Term f = a.lhs();
       const Term n = a.rhs();
       const Term m = model_[f];
-      return data_[f][n].seen_subsumed || (a.pos() && !m.null() && data_[f][m].seen_subsumed);
+      return data_[f][n].seen_subsumed || (p && !m.null() && data_[f][m].seen_subsumed);
     };
 
     // want_complementary_on_level(a,l) marks all literals on level l that
@@ -573,11 +613,13 @@ class Solver {
     auto want_complementary_on_level = [this](const Literal a, level_t l) {
       assert(falsifies(a));
       assert(data_[a.lhs()][a.rhs()].level <= l);
+      const bool p = a.pos();
       const Term f = a.lhs();
       const Term n = a.rhs();
       const Term m = model_[f];
-      if (!a.pos()) {
+      if (!p) {
         assert(data_[f][n].level == l);
+        assert(m == n);
         data_[f][n].wanted = true;
       } else {
         if (data_[f][n].level == l) {
@@ -594,10 +636,11 @@ class Solver {
     auto wanted_complementary_on_level = [this](const Literal a, level_t l) {
       assert(falsifies(a));
       assert(data_[a.lhs()][a.rhs()].level <= l);
+      const bool p = a.pos();
       const Term f = a.lhs();
       const Term n = a.rhs();
       const Term m = model_[f];
-      return !a.pos() ?
+      return !p ?
           data_[f][n].wanted :
           (data_[f][n].level == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted);
     };
@@ -609,26 +652,44 @@ class Solver {
       return data_[f][n].wanted;
     };
 
+    auto handle_conflict = [this, &trail_a, &learnt, &depth, &see_subsuming, &seen_subsumed,
+                            &want_complementary_on_level, &wanted_complementary_on_level](const Literal a) {
+      if (trail_a == a) {
+        return;
+      }
+      assert(falsifies(a));
+      assert(!satisfies(a));
+      const level_t l = level_of_complementary(a);
+      assert(l <= current_level());
+      if (l == kRootLevel || seen_subsumed(a) || wanted_complementary_on_level(a, l)) {
+        return;
+      }
+      if (l < current_level()) {
+        learnt->push_back(a);
+        see_subsuming(a);
+        Bump(a.lhs());
+      } else if (l == current_level()) {
+        ++depth;
+        want_complementary_on_level(a, l);
+        Bump(a.lhs());
+      }
+    };
+
     do {
       assert(conflict != kNullRef);
-      for (const Literal a : clause(conflict)) {
-        if (trail_a == a) {
-          continue;
+      if (conflict == kDomainRef) {
+        assert(!trail_a.null());
+        assert(trail_a.pos());
+        const Term f = trail_a.lhs();
+        for (const Term n : names_[f.sort()]) {
+          if (!n.null() && data_[f][n].occurs) {
+            const Literal a = Literal::Eq(f, n);
+            handle_conflict(a);
+          }
         }
-        assert(falsifies(a));
-        const level_t l = level_of_complementary(a);
-        assert(l <= current_level());
-        if (l == kRootLevel || seen_subsumed(a) || wanted_complementary_on_level(a, l)) {
-          continue;
-        }
-        if (l < current_level()) {
-          learnt->push_back(a);
-          see_subsuming(a);
-          Bump(a.lhs());
-        } else if (l == current_level()) {
-          ++depth;
-          want_complementary_on_level(a, l);
-          Bump(a.lhs());
+      } else {
+        for (const Literal a : clause(conflict)) {
+          handle_conflict(a);
         }
       }
       assert(depth > 0);
@@ -666,45 +727,57 @@ class Solver {
     }
     assert(level_of(trail_a) > *btlevel && *btlevel >= kRootLevel);
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) { return falsifies(a); }));
+    assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) { return !satisfies(a); }));
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) { return std::all_of(ds.begin(), ds.end(), [](const Data& d) { return !d.seen_subsumed; }); }));
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) { return std::all_of(ds.begin(), ds.end(), [](const Data& d) { return !d.wanted; }); }));
   }
 
   void NewLevel() { level_size_.push_back(trail_.size()); }
 
-  void Enqueue(Literal a, cref_t reason) {
+  void Enqueue(const Literal a, const cref_t reason) {
     assert(a.primitive());
-    assert(!falsifies(a));
+    assert(data_[a.lhs()][a.rhs()].occurs);
+    const bool p = a.pos();
     const Term f = a.lhs();
     const Term n = a.rhs();
     const Term m = model_[f];
-    if (m.null() && (a.pos() || !data_[f][n].model_neq)) {
+    if (m.null() && (p || !data_[f][n].model_neq)) {
+      assert(domain_size_[a.lhs()] >= 1 + !a.pos());
       assert(!satisfies(a));
       trail_.push_back(a);
-      if (a.pos()) {
+      data_[f][n].Update(!p, current_level(), reason);
+      if (p) {
         model_[f] = n;
+        order_.Remove(f);
+      } else if (--domain_size_[f] == 1) {
+        const Term n = CandidateName(f);
+        trail_.push_back(Literal::Eq(f, n));
+        data_[f][n].Update(false, current_level(), kDomainRef);
+        model_[f] = n;
+        order_.Remove(f);
+        assert(satisfies(Literal::Eq(f, n)));
       } else {
         BumpToFront(f);
       }
-      data_[f][n] = Data(!a.pos(), current_level(), reason);
-      if (a.pos() && order_.Contains(f)) {
-        std::cout << "Remove " << f << std::endl;
-        order_.Remove(f);
-      }
     }
+    assert(satisfies(a));
   }
 
-  void Backtrack(level_t l) {
+  void Backtrack(const level_t l) {
     for (auto a = trail_.cbegin() + level_size_[l], e = trail_.cend(); a != e; ++a) {
+      const bool p = a->pos();
       const Term f = a->lhs();
       const Term n = a->rhs();
       model_[f] = Term();
-      data_[f][n] = Data(data_[f][n].occurs);
-      if (a->pos() && !order_.Contains(f)) {
-        assert(std::any_of(names_[f.sort()].begin(), names_[f.sort()].end(), [this, f](Term n) { return !n.null() && !data_[f][n].model_neq; }));
+      if (p) {
+        if (!data_[f][n].model_neq) {
+          data_[f][n].Reset();
+        }
         order_.Insert(f);
+      } else {
+        data_[f][n].Reset();
+        ++domain_size_[f];
       }
-      assert(!data_[f][n].model_neq);
     }
     trail_.resize(level_size_[l]);
     level_size_.resize(l);
@@ -718,20 +791,16 @@ class Solver {
     const int offset = name_index_[f];
 #if 1
     for (int i = offset; i >= 0; --i) {
-      std::cout << i << " ";
       const Term n = names[i];
       if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
         name_index_[f] = i;
-        std::cout << std::endl;
         return n;
       }
     }
     for (int i = size - 1; i > offset; --i) {
-      std::cout << i << " ";
       const Term n = names[i];
       if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
         name_index_[f] = i;
-        std::cout << std::endl;
         return n;
       }
     }
@@ -750,7 +819,6 @@ class Solver {
       i %= size;
     } while (i != end);
 #endif
-    std::cout << "not found" << std::endl;
     return Term();
   }
 
@@ -780,23 +848,20 @@ class Solver {
   }
 
   bool satisfies(const Literal a, const level_t l = -1) const {
+    const bool p = a.pos();
     const Term f = a.lhs();
     const Term n = a.rhs();
     const Term m = model_[f];
-    const bool p = a.pos();
     return ((p && m == n) ||
             (!p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
            (l < 0 || data_[f][n].level <= l);
   }
 
   bool falsifies(const Literal a, const level_t l = -1) const {
+    const bool p = a.pos();
     const Term f = a.lhs();
     const Term n = a.rhs();
     const Term m = model_[f];
-    const bool p = a.pos();
-    return (!p && m == n && (l < 0 || data_[f][m].level <= l)) ||
-          (p && !m.null() && m != n && (l < 0 || data_[f][m].level <= l)) ||
-          (p && data_[f][n].model_neq && (l < 0 || data_[f][n].level <= l));
     return ((!p && m == n) ||
             (p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
            (l < 0 || data_[f][n].level <= l);
@@ -814,59 +879,80 @@ class Solver {
     assert(a.primitive());
     assert(satisfies(a));
     assert(!a.pos() || model_[a.lhs()] == a.rhs());
+    const bool p = a.pos();
     const Term f = a.lhs();
     const Term n = a.rhs();
     const Term m = model_[f];
-    return !a.pos() && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
+    return !p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
   }
 
   level_t level_of_complementary(Literal a) const {
     assert(a.primitive());
     assert(falsifies(a));
     assert(a.pos() || model_[a.lhs()] == a.rhs());
+    const bool p = a.pos();
     const Term f = a.lhs();
     const Term n = a.rhs();
     const Term m = model_[f];
-    return a.pos() && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
+    return p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
   }
 
   cref_t reason_of(Literal a) const {
     assert(a.primitive());
     assert(satisfies(a));
     assert(!a.pos() || model_[a.lhs()] == a.rhs());
+    const bool p = a.pos();
     const Term f = a.lhs();
     const Term n = a.rhs();
     const Term m = model_[f];
-    return !a.pos() && data_[f][n].model_neq ? data_[f][n].reason : data_[f][m].reason;
+    return !p && data_[f][n].model_neq ? data_[f][n].reason : data_[f][m].reason;
   }
 
   level_t current_level() const { return level_size_.size(); }
 
-  void CapacitateMaps(Term t) {
-    if (t.function() && (max_index_func_.null() || t.index() > max_index_func_.index())) {
-      max_index_func_ = t;
-      funcs_.Capacitate(t);
-      name_index_.Capacitate(t);
-      watchers_.Capacitate(t);
-      model_.Capacitate(t);
-      data_.Capacitate(t);
-      for (DenseMap<Term, Data>& ds : data_) {
-        ds.Capacitate(max_index_name_);
-      }
-      order_.Capacitate(t);
-      activity_.Capacitate(t);
+  void CapacitateMaps(const Symbol::Sort s, const Term f, const Term n, const Term extra_n) {
+    const int max_ni = n.index() > extra_n.index() ? n.index() : extra_n.index();
+    const int si = s.index() >= names_.upper_bound() ? s.index() : -1;
+    const int fi = f.index() >= funcs_.upper_bound() ? f.index() : -1;
+    const int ni = names_.upper_bound() == 0 || max_ni >= names_[0].upper_bound() ? max_ni : -1;
+    const int sig = (si + 1) * 1.5;
+    const int fig = (fi + 1) * 1.5;
+    const int nig = ni >= 0 ? (ni + 1) * 1.5 : names_[0].upper_bound();
+    if (fi >= 0) {
+      funcs_.Capacitate(fig);
+      name_index_.Capacitate(fig);
+      watchers_.Capacitate(fig);
+      model_.Capacitate(fig);
+      data_.Capacitate(fig);
+      domain_size_.Capacitate(fig);
+      order_.Capacitate(fig);
+      activity_.Capacitate(fig);
     }
-    if (t.name() && (max_index_name_.null() || t.index() >= max_index_name_.index())) {
-      max_index_name_ = t;
-      names_.Capacitate(t.sort());
+    if (si >= 0) {
+      names_.Capacitate(sig);
+      name_extra_.Capacitate(sig);
+    }
+    if (fi >= 0 || ni >= 0) {
+      for (DenseMap<Term, Data>& ds : data_) {
+        ds.Capacitate(nig);
+      }
+    }
+    if (si >= 0 || ni >= 0) {
       for (DenseSet<Term>& ns : names_) {
-        ns.Capacitate(t);
+        ns.Capacitate(nig);
       }
-      name_extra_.Capacitate(t.sort());
       for (DenseMap<Term, Data>& ds : data_) {
-        ds.Capacitate(t);
+        ds.Capacitate(nig);
       }
     }
+  }
+
+  template<typename T>
+  static void SwapOut(std::vector<T>* vec, int i) {
+    int s = vec->size();
+    --s;
+    std::swap((*vec)[i], (*vec)[s]);
+    vec->resize(s);
   }
 
   // empty_clause_ is true iff the empty clause has been derived.
@@ -875,11 +961,6 @@ class Solver {
   // clauses_ is the sequence of clauses added initially or learnt.
   Clause::Factory clause_factory_;
   std::vector<cref_t> clauses_ = std::vector<cref_t>(1, 0);
-
-  // max_index_func_ is the function with the highest index in clauses_.
-  // max_index_name_ is the function with the highest index in clauses_.
-  Term max_index_func_ = Term();
-  Term max_index_name_ = Term();
 
   // funcs_ is the set of functions that occur in clauses.
   // names_ is the set of names that occur in clauses plus extra names.
@@ -906,8 +987,10 @@ class Solver {
 
   // model_ is an assignment of functions to names, i.e., positive literals.
   // data_ is meta data for every function and name pair (cf. Data).
+  // domain_size_ is the number of candidates for every function.
   DenseMap<Term, Term>                 model_;
   DenseMap<Term, DenseMap<Term, Data>> data_;
+  DenseMap<Term, int>                  domain_size_;
 
   // order_ is a heap that ranks functions by their activity.
   // activity_ stores the activity of each activity.
