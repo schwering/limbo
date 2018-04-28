@@ -172,7 +172,7 @@ class Symbol {
 
   Id id() const { return id_; }
 
-  int index() const { assert(!null()); return id_ & ~kBitMaskMeta; }
+  int index() const { return id_ & ~kBitMaskMeta; }
 
  private:
   static constexpr Id kFirstBitUnused = sizeof(Id)*8 - 1;
@@ -256,7 +256,7 @@ class Term {
   template<typename UnaryFunction>
   void Traverse(UnaryFunction f) const;
 
-  int index() const { assert(!null()); return id_ & ~kBitMaskMeta; }
+  int index() const { return id_ & ~kBitMaskMeta; }
 
  private:
   friend class Literal;

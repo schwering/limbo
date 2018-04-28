@@ -50,8 +50,8 @@ class DenseMap {
   DenseMap(DenseMap&&) = default;
   DenseMap& operator=(DenseMap&& c) = default;
 
-  void Capacitate(Key k) { Capacitate(index_of_(k)); }
-  void Capacitate(Index i) {
+  void Capacitate(const Key k) { Capacitate(index_of_(k)); }
+  void Capacitate(const Index i) {
     if (i >= vec_.size()) {
       vec_.resize(i + 1, make_null_());
     }
@@ -60,11 +60,11 @@ class DenseMap {
 
   Index upper_bound() const { return vec_.size(); }
 
-  reference operator[](Index i) { assert(i < vec_.size()); return vec_[i]; }
-  const_reference operator[](Index i) const { assert(i < vec_.size()); return vec_[i]; }
+  reference operator[](const Index i) { assert(i < vec_.size()); return vec_[i]; }
+  const_reference operator[](const Index i) const { assert(i < vec_.size()); return vec_[i]; }
 
-  reference operator[](Key key) { return operator[](index_of_(key)); }
-  const_reference operator[](Key key) const { return operator[](index_of_(key)); }
+  reference operator[](const Key key) { return operator[](index_of_(key)); }
+  const_reference operator[](const Key key) const { return operator[](index_of_(key)); }
 
   iterator begin() { return vec_.begin(); }
   iterator end()   { return vec_.end(); }
@@ -97,8 +97,8 @@ class DenseSet {
   DenseSet(DenseSet&&) = default;
   DenseSet& operator=(DenseSet&& c) = default;
 
-  void Capacitate(Index i) { map_.Capacitate(i); }
-  void Capacitate(T x) { map_.Capacitate(x); }
+  void Capacitate(const Index i) { map_.Capacitate(i); }
+  void Capacitate(const T x) { map_.Capacitate(x); }
   void Clear() { map_.Clear(); }
 
   Index upper_bound() const { return map_.upper_bound(); }
@@ -135,25 +135,25 @@ class Heap {
   Heap(Heap&&) = default;
   Heap& operator=(Heap&& c) = default;
 
-  void Capacitate(T x) { index_.Capacitate(x); }
-  void Capacitate(int i) { index_.Capacitate(i); }
+  void Capacitate(const T x) { index_.Capacitate(x); }
+  void Capacitate(const int i) { index_.Capacitate(i); }
   void Clear() { heap_.clear(); index_.Clear(); heap_.push_back(make_null_()); }
 
   int size()  const { return heap_.size() - 1; }
   bool empty() const { return heap_.size() == 1; }
 
-  bool Contains(T x) const { return index_[x] != 0; }
+  bool Contains(const T x) const { return index_[x] != 0; }
 
   T Top() const { return size() >= 1 ? heap_[1] : make_null_(); }
 
-  void Increase(T x) {
+  void Increase(const T x) {
     assert(Contains(x));
     SiftUp(index_[x]);
   }
 
-  void Insert(T x) {
+  void Insert(const T x) {
     assert(!Contains(x));
-    int i = heap_.size();
+    const int i = heap_.size();
     heap_.push_back(x);
     index_[x] = i;
     SiftUp(i);
@@ -162,7 +162,7 @@ class Heap {
   typename std::vector<T>::const_iterator begin() const { return heap_.begin(); }
   typename std::vector<T>::const_iterator end()   const { return heap_.end(); }
 
-  void Remove(T x) {
+  void Remove(const T x) {
     assert(Contains(x));
     const int i = index_[x];
     heap_[i] = heap_.back();
@@ -175,23 +175,14 @@ class Heap {
     assert(!Contains(x));
   }
 
-  void Heapify() {
-    for (int i = 1; i < heap_.size(); ++i) {
-      SiftDown(i);
-    }
-    for (int i = heap_.size() - 1; i > 0; --i) {
-      SiftUp(i);
-    }
-  }
-
  private:
-  static int left(int i)   { return 2 * i; }
-  static int right(int i)  { return 2 * i + 1; }
-  static int parent(int i) { return i / 2; }
+  static int left(const int i)   { return 2 * i; }
+  static int right(const int i)  { return 2 * i + 1; }
+  static int parent(const int i) { return i / 2; }
 
   void SiftUp(int i) {
     assert(i > 0 && i < heap_.size());
-    T x = heap_[i];
+    const T x = heap_[i];
     int p;
     while ((p = parent(i)) != 0 && less_(x, heap_[p])) {
       heap_[i] = heap_[p];
@@ -205,7 +196,7 @@ class Heap {
 
   void SiftDown(int i) {
     assert(i > 0 && i < heap_.size());
-    T x = heap_[i];
+    const T x = heap_[i];
     while (left(i) < heap_.size()) {
       const int min_child = right(i) < heap_.size() && less_(heap_[right(i)], heap_[left(i)]) ? right(i) : left(i);
       if (!less_(heap_[min_child], x)) {
@@ -235,7 +226,7 @@ class Solver {
   Solver() = default;
 
   template<typename ExtraNameFactory>
-  void AddLiteral(Literal a, ExtraNameFactory extra_name = ExtraNameFactory()) {
+  void AddLiteral(const Literal a, ExtraNameFactory extra_name = ExtraNameFactory()) {
     if (a.valid()) {
       return;
     }
@@ -277,11 +268,13 @@ class Solver {
         for (const Literal a : c) {
           Register(a.lhs().sort(), a.lhs(), a.rhs(), extra_name(a.lhs().sort()));
         }
+        UpdateWatchers(cr, c);
       }
     }
   }
 
   void Init() {
+    assert(trail_head_ == 0);
     std::vector<Literal> lits = std::move(trail_);
     trail_.reserve(lits.size());
     for (const Literal a : lits) {
@@ -291,25 +284,51 @@ class Solver {
       }
       Enqueue(a, kNullRef);
     }
+    Simplify();
+  }
+
+  void Reset() {
+    if (current_level() != kRootLevel) {
+      Backtrack(kRootLevel);
+    }
+  }
+
+  void Simplify() {
+    Reset();
+    assert(level_size_.size() == 1);
+    assert(level_size_[0] == 0);
     int n_clauses = clauses_.size();
     for (int i = 1; i < n_clauses; ++i) {
       const cref_t cr = clauses_[i];
       Clause& c = clause_factory_[cr];
-      c.RemoveIf([this](Literal a) { return falsifies(a); });
+      assert(c.size() >= 2);
+      const Term f0 = c[0].lhs();
+      const Term f1 = c[1].lhs();
+      const int removed = c.RemoveIf([this](Literal a) { return falsifies(a); });
       assert(!c.valid());
       if (c.unsatisfiable()) {
         empty_clause_ = true;
-        clause_factory_.Delete(cr, c.size());
+        RemoveWatchers(cr, f0, f1);
+        clause_factory_.Delete(cr, c.size() + removed);
         return;
       } else if (satisfies(c)) {
-        clause_factory_.Delete(cr, c.size());
+        RemoveWatchers(cr, f0, f1);
+        clause_factory_.Delete(cr, c.size() + removed);
         std::swap(clauses_[i--], clauses_[--n_clauses]);
       } else if (c.size() == 1) {
+        assert(c.size() >= 1);
         Enqueue(c[0], kNullRef);
-        clause_factory_.Delete(cr, c.size());
+        RemoveWatchers(cr, f0, f1);
+        clause_factory_.Delete(cr, c.size() + removed);
         std::swap(clauses_[i--], clauses_[--n_clauses]);
-      } else {
+      } else if (removed != 0) {
+        assert(c.size() >= 2);
+        RemoveWatchers(cr, f0, f1);
         UpdateWatchers(cr, c);
+      } else {
+        assert(c.size() >= 2);
+        assert(std::count(watchers_[c[0].lhs()].begin(), watchers_[c[0].lhs()].end(), cr) > 0);
+        assert(std::count(watchers_[c[1].lhs()].begin(), watchers_[c[1].lhs()].end(), cr) > 0);
       }
     }
     clauses_.resize(n_clauses);
@@ -323,7 +342,6 @@ class Solver {
       const cref_t cr = reason_of(a);
       if (cr != kNullRef && cr != kDomainRef) {
         const Clause& c = clause(cr);
-        RemoveWatchers(cr, c);
         clause_factory_.Delete(cr, c.size());
         std::swap(clauses_[cr], clauses_[--n_clauses]);
       }
@@ -332,6 +350,7 @@ class Solver {
     clauses_.resize(n_clauses);
   }
 
+  const std::vector<cref_t>&                    clauses() const { return clauses_; }
   const Clause&                                 clause(cref_t cr) const { return clause_factory_[cr]; }
   const DenseSet<Term>&                         funcs() const { return funcs_; }
   const DenseMap<Symbol::Sort, DenseSet<Term>>& names() const { return names_; }
@@ -395,13 +414,16 @@ class Solver {
   struct Data {  // meta data for a pair (f,n)
     Data() = default;
 
-    void Update(bool neq, level_t l, cref_t r) {
+    void Update(const bool neq, const level_t l, const cref_t r) {
       model_neq = neq;
       level = l;
       reason = r;
     }
 
     void Reset() {
+      assert(!seen_subsumed);
+      assert(!wanted);
+      assert(occurs);
       model_neq = false;
       level = 0;
       reason = kNullRef;
@@ -419,7 +441,7 @@ class Solver {
 
   struct ActivityCompare {
     explicit ActivityCompare(const DenseMap<Term, double>* a) : activity_(a) {}
-    bool operator()(Term t1, Term t2) const { return (*activity_)[t1] > (*activity_)[t2]; }
+    bool operator()(const Term t1, const Term t2) const { return (*activity_)[t1] > (*activity_)[t2]; }
    private:
     const DenseMap<Term, double>* activity_;
   };
@@ -437,7 +459,7 @@ class Solver {
       domain_size_[f] += 1 - data_[f][extra_n].occurs;
       data_[f][extra_n].occurs = true;
     }
-    domain_size_[f] += 1 - data_[f][n].occurs;
+    domain_size_[f] += !data_[f][n].occurs;
     data_[f][n].occurs = true;
     names_[s].Insert(n);
   }
@@ -455,14 +477,22 @@ class Solver {
     if (f0 != f1) {
       watchers_[f1].push_back(cr);
     }
+    assert(std::count(watchers_[f0].begin(), watchers_[f0].end(), cr) > 0);
+    assert(std::count(watchers_[f1].begin(), watchers_[f1].end(), cr) > 0);
   }
 
-  void RemoveWatchers(const cref_t cr, const Clause& c) {
-    assert(c.size() >= 2);
-    for (int i = 0; i < 2; ++i) {
-      const Term f = c[i].lhs();
-      std::vector<cref_t>& ws = watchers_[f];
-      ws.erase(std::find(ws.begin(), ws.end(), cr));
+  void RemoveWatchers(const cref_t cr, const Term f0, const Term f1) {
+    std::vector<cref_t>& ws0 = watchers_[f0];
+    auto it0 = std::find(ws0.begin(), ws0.end(), cr);
+    if (it0 != ws0.end()) {
+      ws0.erase(it0);
+    }
+    if (f0 != f1) {
+      std::vector<cref_t>& ws1 = watchers_[f1];
+      auto it1 = std::find(ws1.begin(), ws1.end(), cr);
+      if (it1 != ws1.end()) {
+        ws1.erase(it1);
+      }
     }
   }
 
@@ -482,9 +512,12 @@ class Solver {
     cref_t conflict = kNullRef;
     const Term f = a.lhs();
     std::vector<cref_t>& ws = watchers_[f];
-    auto cr_ptr1 = ws.begin();
-    auto cr_ptr2 = cr_ptr1;
-    while (cr_ptr1 != ws.end()) {
+    cref_t* const begin = ws.data();
+    cref_t* const end = begin + ws.size();
+    cref_t* cr_ptr1 = begin;
+    cref_t* cr_ptr2 = begin;
+    while (cr_ptr1 != end) {
+      assert(begin == ws.data() && end == begin + ws.size());
       const cref_t cr = *cr_ptr1;
       Clause& c = clause_factory_[cr];
       const Term f0 = c[0].lhs();
@@ -497,8 +530,9 @@ class Solver {
       }
       assert(c[0].lhs() == f || c[1].lhs() == f);
 
-      // c[w >> 1] is falsified (c[1] if it is, else c[0])
-      // c[1 - (w >> 1)] is the other literal
+      // w is a two-bit number where the i-th bit indicates that c[i] is falsified
+      // w >> 1 is falsified (c[1] if it is, else c[0])
+      // 1 - (w >> 1) is the other literal
       char w = (static_cast<char>(falsifies(c[1])) << 1) | static_cast<char>(falsifies(c[0]));
       if (w == 0 || satisfies(c[0]) || satisfies(c[1])) {
         *cr_ptr2++ = *cr_ptr1++;
@@ -517,9 +551,9 @@ class Solver {
           if (fk != f0 && fk != f1 && fk != c[1-l].lhs()) {
             watchers_[fk].push_back(cr);
           }
-          assert(std::find(watchers_[fk].begin(), watchers_[fk].end(), cr) != watchers_[fk].end());
+          assert(std::count(watchers_[fk].begin(), watchers_[fk].end(), cr) > 0);
           std::swap(c[l], c[k]);
-          w = (w - 1) >> 1;  // update w: 11 becomes 01, 10 becomes 00, 01 becomes 00
+          w = (w - 1) >> 1;  // 11 becomes 01, 10 becomes 00, 01 becomes 00
         }
       }
       if (c[0].lhs() != f && c[1].lhs() != f) {
@@ -532,9 +566,9 @@ class Solver {
       if (w == 3) {
         assert(falsifies(c[w >> 1]));
         assert(falsifies(c[1 - (w >> 1)]));
-        while (cr_ptr1 != ws.end()) {
-          *cr_ptr2++ = *cr_ptr1++;
-        }
+        std::memmove(cr_ptr2, cr_ptr1, (end - cr_ptr1) * sizeof(cref_t));
+        cr_ptr2 += end - cr_ptr1;
+        cr_ptr1 = end;
         trail_head_ = trail_.size();
         conflict = cr;
         assert(std::all_of(c.begin(), c.end(), [this](Literal a) { return falsifies(a); }));
@@ -551,7 +585,7 @@ class Solver {
         assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
       }
     }
-    ws.resize(cr_ptr2 - ws.begin());
+    ws.resize(cr_ptr2 - begin);
     return conflict;
   }
 
@@ -617,6 +651,7 @@ class Solver {
       const Term f = a.lhs();
       const Term n = a.rhs();
       const Term m = model_[f];
+#if 0
       if (!p) {
         assert(data_[f][n].level == l);
         assert(m == n);
@@ -631,6 +666,10 @@ class Solver {
           data_[f][m].wanted = true;
         }
       }
+#else
+      const bool b = data_[f][n].level == l;
+      data_[f][b * n.index() + !b * m.index()].wanted = true;
+#endif
     };
     // wanted_complementary_on_level(a,l) iff a on level l is wanted.
     auto wanted_complementary_on_level = [this](const Literal a, level_t l) {
@@ -640,9 +679,14 @@ class Solver {
       const Term f = a.lhs();
       const Term n = a.rhs();
       const Term m = model_[f];
+#if 0
       return !p ?
           data_[f][n].wanted :
           (data_[f][n].level == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted);
+#else
+      return (!p && data_[f][n].wanted) ||
+             (p && ((data_[f][n].level == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted)));
+#endif
     };
     // We un-want every trail literal after it has been traversed.
     auto wanted = [this](const Literal a) {
@@ -784,7 +828,7 @@ class Solver {
     trail_head_ = trail_.size();
   }
 
-  Term CandidateName(Term f) {
+  Term CandidateName(const Term f) {
     assert(!f.null() && model_[f].null());
     const DenseSet<Term>& names = names_[f.sort()];
     const int size = names.upper_bound();
@@ -822,7 +866,7 @@ class Solver {
     return Term();
   }
 
-  void BumpToFront(Term f) {
+  void BumpToFront(const Term f) {
     for (const double& activity : activity_) {
       if (activity_[f] < activity) {
         activity_[f] = activity;
@@ -834,7 +878,7 @@ class Solver {
     }
   }
 
-  void Bump(Term f) {
+  void Bump(const Term f) {
     activity_[f] += bump_step_;
     if (activity_[f] > 1e100) {
       for (double& activity : activity_) {
@@ -875,7 +919,7 @@ class Solver {
     return std::all_of(c.begin(), c.end(), [this, l](Literal a) { return falsifies(a, l); });
   }
 
-  level_t level_of(Literal a) const {
+  level_t level_of(const Literal a) const {
     assert(a.primitive());
     assert(satisfies(a));
     assert(!a.pos() || model_[a.lhs()] == a.rhs());
@@ -886,7 +930,7 @@ class Solver {
     return !p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
   }
 
-  level_t level_of_complementary(Literal a) const {
+  level_t level_of_complementary(const Literal a) const {
     assert(a.primitive());
     assert(falsifies(a));
     assert(a.pos() || model_[a.lhs()] == a.rhs());
@@ -897,7 +941,7 @@ class Solver {
     return p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
   }
 
-  cref_t reason_of(Literal a) const {
+  cref_t reason_of(const Literal a) const {
     assert(a.primitive());
     assert(satisfies(a));
     assert(!a.pos() || model_[a.lhs()] == a.rhs());
@@ -945,14 +989,6 @@ class Solver {
         ds.Capacitate(nig);
       }
     }
-  }
-
-  template<typename T>
-  static void SwapOut(std::vector<T>* vec, int i) {
-    int s = vec->size();
-    --s;
-    std::swap((*vec)[i], (*vec)[s]);
-    vec->resize(s);
   }
 
   // empty_clause_ is true iff the empty clause has been derived.

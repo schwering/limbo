@@ -215,16 +215,16 @@ int main(int argc, char *argv[]) {
 
   Timer t0;
   t0.start();
+  Solver solver{};
+  auto extra_name_factory = [extra_name](const Symbol::Sort s) { assert(s == extra_name.sort()); return extra_name; };
+  for (const std::vector<Literal>& lits : cnf) {
+    solver.AddClause(lits, extra_name_factory);
+  }
+  solver.Init();
   for (int i = 1; i <= iterations; ++i) {
-    Solver solver{};
-    auto extra_name_factory = [extra_name](const Symbol::Sort s) { assert(s == extra_name.sort()); return extra_name; };
-    for (const std::vector<Literal>& lits : cnf) {
-      solver.AddClause(lits, extra_name_factory);
-    }
-    solver.Init();
-
+    solver.Reset();
+    solver.Simplify();
     const bool sat = Solve(solver, restarts, 2);
-
     if (sat) {
       struct winsize win_size;
       ioctl(STDOUT_FILENO, TIOCGWINSZ, &win_size);
