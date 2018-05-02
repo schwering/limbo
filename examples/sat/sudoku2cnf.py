@@ -86,7 +86,7 @@ for x in range(1,10):
                 c = frozenset([-prop(x,y,v), -prop(x,y,vv)])
                 cs.add(c)
 
-print("p cnf %d %d" % (82 * 10, len(cs)))
+print("p cnf %d %d" % (82 * 10 - 1, len(cs)))
 for c in sorted(cs, key=len):
     for p in c:
         print("%4d " % (p,), end='')

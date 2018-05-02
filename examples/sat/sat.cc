@@ -190,6 +190,8 @@ int main(int argc, char *argv[]) {
   int n_columns = 0;
   int restarts = -1;
   int loaded = 0;
+  int extra = true;
+  bool prop = false;
   for (int i = 1; i < argc; ++i) {
     if (argv[i] == std::string("-h") || argv[i] == std::string("--help")) {
       std::cout << "Usage: [-k=<k>] " << argv[0] << std::endl;
@@ -197,9 +199,10 @@ int main(int argc, char *argv[]) {
     } else if (sscanf(argv[i], "--iterations=%d", &iterations) == 1 || sscanf(argv[i], "-i=%d", &iterations) == 1) {
     } else if (sscanf(argv[i], "--columns=%d", &n_columns) == 1 || sscanf(argv[i], "-c=%d", &n_columns) == 1) {
     } else if (sscanf(argv[i], "--restart=%d", &restarts) == 1 || sscanf(argv[i], "-r=%d", &restarts) == 1) {
+    } else if (sscanf(argv[i], "--extra=%d", &extra) == 1 || sscanf(argv[i], "-e=%d", &extra) == 1) {
     } else if (loaded == 0 && argv[i][0] != '-') {
       std::ifstream ifs = std::ifstream(argv[i]);
-      LoadCnf(ifs, &cnf, &extra_name);
+      prop = LoadCnf(ifs, &cnf, &extra_name);
       ++loaded;
     } else {
       std::cout << "Cannot load '"<< argv[i] << "'" << std::endl;
@@ -207,7 +210,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (loaded == 0) {
-    LoadCnf(std::cin, &cnf, &extra_name);
+    prop = LoadCnf(std::cin, &cnf, &extra_name);
     ++loaded;
   }
   assert(loaded > 0);
@@ -235,9 +238,13 @@ int main(int argc, char *argv[]) {
         if (f.null()) {
           continue;
         }
+        const Term n = solver.model()[f];
+        if (!extra && n == extra_name) {
+          continue;
+        }
         std::stringstream fss; fss << f;
         std::stringstream ess; ess << " = ";
-        std::stringstream nss; nss << solver.model()[f];
+        std::stringstream nss; nss << n;
         const std::string fs = fss.str();
         const std::string es = ess.str();
         const std::string ns = nss.str();
@@ -253,7 +260,9 @@ int main(int argc, char *argv[]) {
     }
   }
   t0.stop();
-  std::cout << "Total took " << t0.duration() << " seconds" << std::endl;
+  if (iterations > 1) {
+    std::cout << "Total took " << t0.duration() << " seconds" << std::endl;
+  }
 
   return 0;
 }
