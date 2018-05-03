@@ -25,19 +25,8 @@ namespace limbo {
 template<typename T, typename Index>
 struct IndexOf { Index operator()(const T t) const { return t.index(); } };
 
-template<typename T, typename Index>
-struct FromIndex { T operator()(const Index i) const { return T(i); } };
-
-template<typename T>
-struct Nuller {
-  T MakeNull() const { return T(); }
-  bool null(const T& x) const { return x.null(); }
-  void Nullify(const T& x) const { x = MakeNull(); }
-};
-
 template<typename Key, typename Val, typename Index = int,
-         typename IndexOf = IndexOf<Key, Index>,
-         typename Nuller = Nuller<Val>>
+         typename IndexOf = IndexOf<Key, Index>>
 class DenseMap {
  public:
   using Vec = std::vector<Val>;
@@ -57,7 +46,7 @@ class DenseMap {
   void Capacitate(const Key k) { Capacitate(index_of_(k)); }
   void Capacitate(const Index i) {
     if (i >= vec_.size()) {
-      vec_.resize(i + 1, nuller_.MakeNull());
+      vec_.resize(i + 1);
     }
   }
   void Clear() { vec_.clear(); }
@@ -78,16 +67,14 @@ class DenseMap {
 
  private:
   IndexOf index_of_;
-  Nuller nuller_;
   Vec vec_;
 };
 
 template<typename T, typename Index = int,
-         typename IndexOf = IndexOf<T, Index>,
-         typename Nuller = Nuller<T>>
+         typename IndexOf = IndexOf<T, Index>>
 class DenseSet {
  public:
-  using Map = DenseMap<T, T, Index, IndexOf, Nuller>;
+  using Map = DenseMap<T, T, Index, IndexOf>;
   using value_type = typename Map::value_type;
   using reference = typename Map::reference;
   using const_reference = typename Map::const_reference;
@@ -104,13 +91,14 @@ class DenseSet {
   void Capacitate(const Index i) { map_.Capacitate(i); }
   void Capacitate(const T& x) { map_.Capacitate(x); }
   void Clear() { map_.Clear(); }
+  bool Cleared() { return map_.empty(); }
 
   Index upper_bound() const { return map_.upper_bound(); }
 
-  bool Contains(const T& x) const { return !nuller_.null(x) && map_[x] == x; }
+  bool Contains(const T& x) const { return !x.null() && map_[x] == x; }
 
-  void Insert(const T& x) { assert(!nuller_.null(x)); map_[x] = x; }
-  void Remove(const T& x) { assert(!nuller_.null(x)); map_[x].Nullify(); }
+  void Insert(const T& x) { assert(!x.null()); map_[x] = x; }
+  void Remove(const T& x) { assert(!x.null()); map_[x] = T(); }
 
   reference operator[](const Index i) { return map_[i]; }
   const_reference operator[](const Index i) const { return map_[i]; }
@@ -122,26 +110,26 @@ class DenseSet {
   const_iterator end()   const { return map_.end(); }
 
  private:
-  Nuller nuller_;
   Map map_;
 };
 
 
 template<typename T, typename Less, typename Index = int,
-         typename IndexOf = IndexOf<T, Index>,
-         typename Nuller = Nuller<T>>
+         typename IndexOf = IndexOf<T, Index>>
 class Heap {
  public:
-  explicit Heap(Less less = Less()) : less_(less) { heap_.push_back(nuller_.MakeNull()); }
+  explicit Heap(Less less = Less()) : less_(less) { heap_.emplace_back(); }
 
   Heap(const Heap&) = default;
   Heap& operator=(const Heap& c) = default;
   Heap(Heap&&) = default;
   Heap& operator=(Heap&& c) = default;
 
+  void set_less(Less less) { less_ = less; }
+
   void Capacitate(const T x) { index_.Capacitate(x); }
   void Capacitate(const int i) { index_.Capacitate(i); }
-  void Clear() { heap_.clear(); index_.Clear(); heap_.push_back(nuller_.MakeNull()); }
+  void Clear() { heap_.clear(); index_.Clear(); heap_.emplace_back(); }
 
   int size()  const { return heap_.size() - 1; }
   bool empty() const { return heap_.size() == 1; }
@@ -216,7 +204,6 @@ class Heap {
   }
 
   Less less_;
-  Nuller nuller_;
   std::vector<T> heap_;
   DenseMap<T, int, Index, IndexOf> index_;
 };
@@ -224,13 +211,28 @@ class Heap {
 class ActivityOrder {
  public:
   explicit ActivityOrder(double bump_step = 1.0) : bump_step_(bump_step) {}
-  ActivityOrder(const ActivityOrder&) = default;
-  ActivityOrder(ActivityOrder&&) = default;
-  ActivityOrder& operator=(const ActivityOrder&) = default;
-  ActivityOrder& operator=(ActivityOrder&&) = default;
+
+  ActivityOrder(const ActivityOrder&) = delete;
+  ActivityOrder& operator=(const ActivityOrder&) = delete;
+
+  ActivityOrder(ActivityOrder&& ao) :
+      bump_step_(std::move(ao.bump_step_)),
+      activity_(std::move(ao.activity_)),
+      heap_(std::move(ao.heap_)) {
+    heap_.set_less(ActivityCompare(&activity_));
+  }
+  ActivityOrder& operator=(ActivityOrder&& ao) {
+    bump_step_ = std::move(ao.bump_step_);
+    activity_ = std::move(ao.activity_);
+    heap_ = std::move(ao.heap_);
+    heap_.set_less(ActivityCompare(&activity_));
+    return *this;
+  }
 
   void Capacitate(const int i) { heap_.Capacitate(i); activity_.Capacitate(i); }
   void Capacitate(const Term t) { heap_.Capacitate(t); activity_.Capacitate(t); }
+
+  int size() const { return heap_.size(); }
 
   Term Top() const { return heap_.Top(); }
   void Insert(const Term t) { heap_.Insert(t); }
@@ -371,7 +373,6 @@ class Solver {
         clause_factory_.Delete(cr, c.size() + removed);
         clauses_[i--] = clauses_[--n_clauses];
       } else if (c.size() == 1) {
-        assert(c.size() >= 1);
         Enqueue(c[0], kNullRef);
         clause_factory_.Delete(cr, c.size() + removed);
         clauses_[i--] = clauses_[--n_clauses];
@@ -406,10 +407,11 @@ class Solver {
     int n_units = trail_.size();
     for (int i = 0; i < n_units; ++i) {
       const Literal a = trail_[i];
+      const bool p = a.pos();
       const Term f = a.lhs();
       const Term n = a.rhs();
       const Term m = model_[f];
-      if (!a.pos() && !m.null()) {
+      if (!p && !m.null()) {
         assert(m != n);
         trail_[i--] = trail_[--n_units];
         data_[f][n].Reset();
@@ -418,7 +420,7 @@ class Solver {
       assert(satisfies(a));
     }
     trail_.resize(n_units);
-    trail_head_ = n_units;
+    trail_head_ = trail_.size();
   }
 
   const std::vector<cref_t>&                    clauses() const { return clauses_; }
@@ -467,7 +469,11 @@ class Solver {
         if (f.null()) {
           return 1;
         }
+#ifdef NAME_ORDER
+        const Term n = name_order_[f].Top();
+#else
         const Term n = CandidateName(f);
+#endif
         if (n.null()) {
           return -1;
         }
@@ -527,12 +533,31 @@ class Solver {
       funcs_.Insert(f);
       func_order_.Insert(f);
       names_[s].Insert(extra_n);
-      domain_size_[f] += 1 - data_[f][extra_n].occurs;
+#ifdef NAME_ORDER
+      if (!data_[f][extra_n].occurs) {
+        ++domain_size_[f];
+        name_order_[f].Insert(extra_n);
+        data_[f][extra_n].occurs = true;
+      }
+#else
+      domain_size_[f] += !data_[f][extra_n].occurs;
       data_[f][extra_n].occurs = true;
+#endif
     }
+#ifdef NAME_ORDER
+    if (!data_[f][n].occurs) {
+      ++domain_size_[f];
+      name_order_[f].Insert(n);
+      data_[f][n].occurs = true;
+    }
+#else
     domain_size_[f] += !data_[f][n].occurs;
     data_[f][n].occurs = true;
+#endif
     names_[s].Insert(n);
+#ifdef NAME_ORDER
+    assert(domain_size_[f] == name_order_[f].size());
+#endif
   }
 
   void UpdateWatchers(const cref_t cr, const Clause& c) {
@@ -544,12 +569,14 @@ class Solver {
     assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
     const Term f0 = c[0].lhs();
     const Term f1 = c[1].lhs();
+    assert(std::count(watchers_[f0].begin(), watchers_[f0].end(), cr) == 0);
+    assert(std::count(watchers_[f1].begin(), watchers_[f1].end(), cr) == 0);
     watchers_[f0].push_back(cr);
     if (f0 != f1) {
       watchers_[f1].push_back(cr);
     }
-    assert(std::count(watchers_[f0].begin(), watchers_[f0].end(), cr) > 0);
-    assert(std::count(watchers_[f1].begin(), watchers_[f1].end(), cr) > 0);
+    assert(std::count(watchers_[f0].begin(), watchers_[f0].end(), cr) >= 1);
+    assert(std::count(watchers_[f1].begin(), watchers_[f1].end(), cr) >= 1);
   }
 
   cref_t Propagate() {
@@ -558,7 +585,7 @@ class Solver {
       Literal a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
-    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) { return std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Literal a) { auto& ws = watchers_[a.lhs()]; return std::count(ws.begin(), ws.end(), cr) == 1; }); }));
+    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) { return std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Literal a) { auto& ws = watchers_[a.lhs()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
     assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) { const Clause& c = clause(cr); return satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }); }));
     return conflict;
   }
@@ -607,7 +634,7 @@ class Solver {
           if (fk != f0 && fk != f1 && fk != c[1-l].lhs()) {
             watchers_[fk].push_back(cr);
           }
-          assert(std::count(watchers_[fk].begin(), watchers_[fk].end(), cr) > 0);
+          assert(std::count(watchers_[fk].begin(), watchers_[fk].end(), cr) >= 1);
           std::swap(c[l], c[k]);
           w = (w - 1) >> 1;  // 11 becomes 01, 10 becomes 00, 01 becomes 00
         }
@@ -752,6 +779,9 @@ class Solver {
         want_complementary_on_level(a, l);
       }
       func_order_.Bump(a.lhs());
+#ifdef NAME_ORDER
+      name_order_[a.lhs()].Bump(a.rhs());
+#endif
     };
 
     do {
@@ -829,17 +859,29 @@ class Solver {
         model_[f] = n;
         func_order_.Remove(f);
       } else if (--domain_size_[f] == 1) {
-        const Term n = CandidateName(f);
-        trail_.push_back(Literal::Eq(f, n));
-        data_[f][n].Update(false, current_level(), kDomainRef);
-        model_[f] = n;
+#ifdef NAME_ORDER
+        name_order_[f].Remove(n);
+        const Term m = name_order_[f].Top();
+#else
+        const Term m = CandidateName(f);
+#endif
+        assert(!satisfies(Literal::Eq(f, m)) && !falsifies(Literal::Eq(f, m)));
+        trail_.push_back(Literal::Eq(f, m));
+        data_[f][m].Update(false, current_level(), kDomainRef);
+        model_[f] = m;
         func_order_.Remove(f);
-        assert(satisfies(Literal::Eq(f, n)));
+        assert(satisfies(Literal::Eq(f, m)));
       } else {
         func_order_.BumpToFront(f);
+#ifdef NAME_ORDER
+        name_order_[f].Remove(n);
+#endif
       }
     }
     assert(satisfies(a));
+#ifdef NAME_ORDER
+    assert(domain_size_[f] == name_order_[f].size());
+#endif
   }
 
   void Backtrack(const level_t l) {
@@ -855,12 +897,18 @@ class Solver {
         func_order_.Insert(f);
       } else {
         data_[f][n].Reset();
-        ++domain_size_[f];
+        domain_size_[f]++;
+#ifdef NAME_ORDER
+        name_order_[f].Insert(n);
+#endif
       }
+#ifdef NAME_ORDER
+      assert(domain_size_[f] == name_order_[f].size());
+#endif
     }
     trail_.resize(level_size_[l]);
-    level_size_.resize(l);
     trail_head_ = trail_.size();
+    level_size_.resize(l);
   }
 
   Term CandidateName(const Term f) {
@@ -977,6 +1025,9 @@ class Solver {
       data_.Capacitate(fig);
       domain_size_.Capacitate(fig);
       func_order_.Capacitate(fig);
+#ifdef NAME_ORDER
+      name_order_.Capacitate(fig);
+#endif
     }
     if (si >= 0) {
       names_.Capacitate(sig);
@@ -986,6 +1037,11 @@ class Solver {
       for (DenseMap<Term, Data>& ds : data_) {
         ds.Capacitate(nig);
       }
+#ifdef NAME_ORDER
+      for (ActivityOrder& ao : name_order_) {
+        ao.Capacitate(nig);
+      }
+#endif
     }
     if (si >= 0 || ni >= 0) {
       for (DenseSet<Term>& ns : names_) {
@@ -1037,7 +1093,11 @@ class Solver {
   DenseMap<Term, int>                  domain_size_;
 
   // func_order_ is a ranks functions by their activity.
-  ActivityOrder func_order_;
+  // name_order_ is a ranks functions by their activity.
+  ActivityOrder                 func_order_;
+#ifdef NAME_ORDER
+  DenseMap<Term, ActivityOrder> name_order_;
+#endif
 };
 
 }  // namespace limbo

@@ -28,7 +28,7 @@ class Clause {
   static constexpr bool kGuaranteeInvalid = true;
   static constexpr bool kGuaranteeNormalized = true;
 
-  template<bool guarantee_invalid = false>
+  template<bool guarantee_invalid = !kGuaranteeInvalid>
   static int Normalize(int size, Literal* as) {
     int i1 = 0;
     int i2 = 0;
@@ -92,10 +92,6 @@ next: {}
   bool unit()   const { return h_.size == 1; }
   int size() const { return h_.size; }
 
-  Literal first()  const { return as_[0]; }
-  Literal second() const { return as_[1]; }
-  Literal last()   const { return as_[h_.size - 1]; }
-
   Literal& operator[](int i)       { assert(i >= 0 && i < size()); return as_[i]; }
   Literal  operator[](int i) const { assert(i >= 0 && i < size()); return as_[i]; }
 
@@ -112,7 +108,7 @@ next: {}
   bool primitive()   const { return std::all_of(begin(), end(), [](const Literal a) { return a.primitive(); }); }
   bool well_formed() const { return std::all_of(begin(), end(), [](const Literal a) { return a.well_formed(); }); }
 
-  bool valid()         const { return unit() && first().pos() && first().lhs() == first().rhs(); }
+  bool valid()         const { return unit() && as_[0].pos() && as_[0].lhs() == as_[0].rhs(); }
   bool unsatisfiable() const { return empty(); }
 
   bool Subsumes(const Clause& c) const {
@@ -212,21 +208,21 @@ class Clause::Factory {
   Factory(Factory&&) = default;
   Factory& operator=(Factory&&) = default;
 
-  template<bool guaranteed_normalized = false>
+  template<bool guaranteed_normalized = !kGuaranteeNormalized>
   cref_t New(Literal a) {
     const cref_t cr = memory_.Allocate(clause_size(1));
     new (memory_.address(cr)) Clause(a, guaranteed_normalized);
     return cr;
   }
 
-  template<bool guaranteed_normalized = false>
+  template<bool guaranteed_normalized = !kGuaranteeNormalized>
   cref_t New(int k, const Literal* as) {
     const cref_t cr = memory_.Allocate(clause_size(k));
     new (memory_.address(cr)) Clause(k, as, guaranteed_normalized);
     return cr;
   }
 
-  template<bool guaranteed_normalized = false>
+  template<bool guaranteed_normalized = !kGuaranteeNormalized>
   cref_t New(const std::vector<Literal>& as) {
     return New<guaranteed_normalized>(as.size(), as.data());
   }
@@ -247,9 +243,9 @@ class Clause::Factory {
     ~MemoryPool() { if (memory_) { std::free(memory_); } }
 
     MemoryPool(const MemoryPool&) = delete;
-    MemoryPool& operator=(const MemoryPool& c) = delete;
+    MemoryPool& operator=(const MemoryPool&) = delete;
     MemoryPool(MemoryPool&&) = default;
-    MemoryPool& operator=(MemoryPool&& c) = default;
+    MemoryPool& operator=(MemoryPool&&) = default;
 
     size_t bytes_to_chunks(size_t n) { return (n + sizeof(T) - 1) / sizeof(T); }
 
