@@ -2,94 +2,61 @@
 // Copyright 2014-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// A literal is an (in)equality expression of two terms. Literals are immutable.
-// If one of either terms in a literal is a function, then the left-hand side
-// is a function.
-//
-// The most important operations are Complementary() and [Properly]Subsumes()
-// checks, which are only defined for primitive literals. Note that the
-// operations PropagateUnit() and Subsumes() from the Clause class use hashing to
-// speed them up and therefore depend on their inner workings. In other words:
-// when you modify them, double-check with the Clause class.
-//
-// Literal is a friend class of Term and builds on Term's memory layout. This
-// makes Literals very lightweight for fast copying and comparing of Literals.
+// A literal is an equality or inequality of a function and a name or two
+// names.
 
 #ifndef LIMBO_LITERAL_H_
 #define LIMBO_LITERAL_H_
 
 #include <cassert>
 
-#include <functional>
-#include <utility>
-
 #include <limbo/term.h>
 
 #include <limbo/internal/ints.h>
-#include <limbo/internal/maybe.h>
 
 namespace limbo {
 
 class Literal {
  public:
-  using Id = internal::u64;
-  template<typename T>
-  using Maybe = internal::Maybe<T>;
-  struct LhsHash;
+  using u64 = internal::u64;
 
   static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
   static Literal Neq(Term lhs, Term rhs) { return Literal(false, lhs, rhs); }
-  static Literal FromId(Id id) { return Literal(id); }
+  static Literal FromId(u64 id) { return Literal(id); }
 
   Literal() = default;
 
-  Term lhs() const { return Term(static_cast<Term::Id>((id_ & kBitMaskLhs) >> kFirstBitLhs)); }
-  bool pos() const { return (id_ & kBitMaskPos) != 0; }
-  Term rhs() const { return Term(static_cast<Term::Id>((id_ & kBitMaskRhs) >> kFirstBitRhs)); }
+  Term lhs() const { return Term::FromId(deinterleave_lhs(id_)); }
+  bool pos() const { return id_ & 1; }
+  bool neg() const { return !pos(); }
+  Term rhs() const { return Term::FromId(deinterleave_rhs(id_) & ~static_cast<u32>(1)); }
 
-  bool null()            const { return id_ == 0; }
-  bool trivial()         const { return lhs().name() && rhs().name(); }
-  bool primitive()       const { return lhs().primitive() && rhs().name(); }
-  bool quasi_trivial()   const { return lhs().quasi_name() && rhs().quasi_name(); }
-  bool quasi_primitive() const { return lhs().quasi_primitive() && rhs().quasi_name(); }
-  bool well_formed()     const { return trivial() || primitive() || quasi_trivial() || quasi_primitive(); }
-  bool ground()          const { return rhs().ground() && lhs().ground(); }
+  bool null() const { return id_ == 0; }
+  bool triv() const { return (id_ & 2) == 0; }
+  bool prim() const { return !triv(); }
 
-  Literal flip() const { return Literal(id_ ^ kBitMaskPos); }
-  Literal dual() const { return Literal(pos(), rhs(), lhs()); }
+  Literal flip() const { return Literal(id_ ^ 1); }
 
   bool operator==(Literal a) const { return id_ == a.id_; }
-  bool operator!=(Literal a) const { return !(*this == a); }
-  bool operator<(Literal a) const { return lhs() < a.lhs() || (lhs() == a.lhs() && id_ < a.id_); }
+  bool operator!=(Literal a) const { return id_ != a.id_; }
+  bool operator<=(Literal a) const { return id_ <= a.id_; }
+  bool operator>=(Literal a) const { return id_ >= a.id_; }
+  bool operator<(Literal a)  const { return id_ < a.id_; }
+  bool operator>(Literal a)  const { return id_ > a.id_; }
 
-  static Literal Min(Term lhs) { return Literal(lhs); }
+  // valid() holds for (n == n) and (n1 != n2).
+  bool valid() const { return triv() && (pos() == (lhs() == rhs())); }
 
-  internal::hash32_t hash() const {
-    return internal::jenkins_hash(static_cast<Term::Id>(id_ >> 32)) ^
-           internal::jenkins_hash(static_cast<Term::Id>(id_));
-  }
-
-  // valid() holds for (t = t) and (n1 != n2) and (t1 != t2) if t1, t2 have different sorts.
-  bool valid() const {
-    return (pos() && lhs() == rhs()) ||
-           (!pos() && lhs().name() && rhs().name() && lhs() != rhs()) ||
-           (!pos() && lhs().sort() != rhs().sort());
-  }
-
-  // unsatisfiable() holds for (t != t) and (n1 = n2) and (t1 = t2) if t1, t2 have different sorts.
-  bool unsatisfiable() const {
-    return (!pos() && lhs() == rhs()) ||
-           (pos() && lhs().name() && rhs().name() && lhs() != rhs()) ||
-           (pos() && lhs().sort() != rhs().sort());
-  }
+  // unsat() holds for (n != n) and (n1 == n2).
+  bool unsat() const { return triv() && (pos() != (lhs() == rhs())); }
 
   // Valid(a, b) holds when a, b match one of the following:
-  // (t1 = t2), (t1 != t2)
-  // (t1 != t2), (t1 = t2)
+  // (t1 == t2), (t1 != t2)
+  // (t1 != t2), (t1 == t2)
   // (t1 != n1), (t1 != n2) for distinct n1, n2.
   static bool Valid(const Literal a, const Literal b) {
-    return (a.lhs() == b.lhs() && a.pos() != b.pos() && a.rhs() == b.rhs()) ||
-           (a.lhs() == b.lhs() && !a.pos() && !b.pos() && a.rhs().name() && b.rhs().name() && a.rhs() != b.rhs());
+    const u64 x = a.id_ ^ b.id_;
+    return x == 1 || (x != 0 && a.neg() && b.neg() && deinterleave_lhs(x) == 0);
   }
 
   // Complementary(a, b) holds when a, b match one of the following:
@@ -97,16 +64,12 @@ class Literal {
   // (t1 != t2), (t1 = t2)
   // (t = n1), (t = n2) for distinct n1, n2.
   static bool Complementary(const Literal a, const Literal b) {
-    assert(a.rhs().name());
-    assert(b.rhs().name());
-    return (a.lhs() == b.lhs() && a.pos() != b.pos() && a.rhs() == b.rhs()) ||
-           (a.lhs() == b.lhs() && a.pos() && b.pos() && a.rhs() != b.rhs());
+    const u64 x = a.id_ ^ b.id_;
+    return x == 1 || (x != 0 && a.pos() && b.pos() && deinterleave_lhs(x) == 0);
   }
 
   // ProperlySubsumes(a, b) holds when a is (t1 = n1) and b is (t1 != n2) for distinct n1, n2.
   static bool ProperlySubsumes(Literal a, Literal b) {
-    assert(a.rhs().name());
-    assert(b.rhs().name());
     return a.lhs() == b.lhs() && a.pos() && !b.pos() && a.rhs() != b.rhs();
   }
 
@@ -116,104 +79,34 @@ class Literal {
 
   bool ProperlySubsumes(Literal b) const { return ProperlySubsumes(*this, b); }
 
-  template<typename UnaryFunction>
-  Literal Substitute(UnaryFunction theta, Term::Factory* tf) const {
-    return Literal(pos(), lhs().Substitute(theta, tf), rhs().Substitute(theta, tf));
-  }
-
-  template<Term::UnificationConfiguration config = Term::kDefaultConfig>
-  static Maybe<Term::Substitution> Unify(Literal a, Literal b) {
-    Term::Substitution sub;
-    bool ok = Term::Unify<config>(a.lhs(), b.lhs(), &sub) &&
-              Term::Unify<config>(a.rhs(), b.rhs(), &sub);
-    return ok ? internal::Just(sub) : internal::Nothing;
-  }
-
-  static Maybe<Term::Substitution> Isomorphic(Literal a, Literal b) {
-    Term::Substitution sub;
-    bool ok = Term::Isomorphic(a.lhs(), b.lhs(), &sub);
-    if (ok) {
-      if (a.rhs() == b.rhs()) {
-        sub.Add(a.rhs(), b.rhs());
-        ok = true;
-      } else {
-        const Maybe<Term> ar = sub(a.rhs());
-        ok = ar && ar == sub(b.rhs());
-      }
-    }
-    return ok ? internal::Just(sub) : internal::Nothing;
-  }
-
-  template<typename UnaryFunction>
-  void Traverse(UnaryFunction f) const {
-    lhs().Traverse(f);
-    rhs().Traverse(f);
-  }
-
  private:
-  // Lhs should occupy first bits so "lhs = null" is the minimum wrt operator< for all Literals with lhs.
-  static constexpr int kFirstBitLhs   = 0;
-  static constexpr int kFirstBitRhs   = sizeof(Term::Id) * 8;
+  using u32 = internal::u32;
 
-  static constexpr Id kBitMaskPos    = static_cast<Id>(Term::kBitMaskUnused) << kFirstBitLhs;
-  static constexpr Id kBitMaskUnused = static_cast<Id>(Term::kBitMaskUnused) << kFirstBitRhs;
-  static constexpr Id kBitMaskLhs    = static_cast<Id>(~Term::kBitMaskUnused) << kFirstBitLhs;
-  static constexpr Id kBitMaskRhs    = static_cast<Id>(~Term::kBitMaskUnused) << kFirstBitRhs;
-
-  explicit Literal(Id id) : id_(id) {}
-
-  explicit Literal(Term lhs) {
-    id_ = static_cast<Id>(lhs.id()) << kFirstBitLhs;
-    assert(this->lhs() == lhs);
-    assert(this->rhs().null());
-    assert(!this->pos());
+  static u64 interleave(u32 x, u32 y) {
+    return _pdep_u64(x, 0xaaaaaaaaaaaaaaaa) | _pdep_u64(y, 0x5555555555555555);
   }
+
+  static u32 deinterleave_lhs(u64 z) {
+    return _pext_u64(z, 0xaaaaaaaaaaaaaaaa);
+  }
+
+  static u32 deinterleave_rhs(u64 z) {
+    return _pext_u64(z, 0x5555555555555555);
+  }
+
+  explicit Literal(u64 id) : id_(id) {}
 
   Literal(bool pos, Term lhs, Term rhs) {
-    assert(!lhs.null());
-    assert(!rhs.null());
-    if (!(lhs < rhs)) {
-      Term tmp = lhs;
-      lhs = rhs;
-      rhs = tmp;
-    }
-    if ((!lhs.function() && rhs.function()) || rhs.quasi_primitive()) {
-      Term tmp = lhs;
-      lhs = rhs;
-      rhs = tmp;
-    }
-    assert(!rhs.function() || lhs.function());
-    id_ = (static_cast<Id>(pos) * kBitMaskPos) |
-          (static_cast<Id>(lhs.id()) << kFirstBitLhs) |
-          (static_cast<Id>(rhs.id()) << kFirstBitRhs);
-    assert(this->lhs() == lhs);
-    assert(this->rhs() == rhs);
-    assert(this->pos() == pos);
+    assert(rhs.name());
+    id_ = interleave(lhs.id(), rhs.id());
+    assert(!(id_ & 1));
+    id_ |= pos;
   }
 
-  Id id_;
-};
-
-struct Literal::LhsHash {
-  internal::hash32_t operator()(const Literal a) const { return a.lhs().hash(); }
+  u64 id_;
 };
 
 }  // namespace limbo
-
-
-namespace std {
-
-template<>
-struct hash<limbo::Literal> {
-  limbo::internal::hash32_t operator()(const limbo::Literal a) const { return a.hash(); }
-};
-
-template<>
-struct equal_to<limbo::Literal> {
-  bool operator()(const limbo::Literal a, const limbo::Literal b) const { return a == b; }
-};
-
-}  // namespace std
 
 #endif  // LIMBO_LITERAL_H_
 

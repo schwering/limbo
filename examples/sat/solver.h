@@ -16,8 +16,6 @@
 #include <limbo/literal.h>
 #include <limbo/term.h>
 
-#include <limbo/format/output.h>
-
 #include "clause.h"
 
 namespace limbo {
@@ -289,13 +287,13 @@ class Solver {
     if (a.valid()) {
       return;
     }
-    if (a.unsatisfiable()) {
+    if (a.unsat()) {
       empty_clause_ = true;
       return;
     }
-    assert(a.primitive());
+    assert(a.prim());
     trail_.push_back(a);
-    Register(a.lhs().sort(), a.lhs(), a.rhs(), extra_name(a.lhs().sort()));
+    Register(a.lhs(), a.rhs(), extra_name(a.lhs()));
   }
 
   template<typename ExtraNameFactory>
@@ -311,13 +309,13 @@ class Solver {
         clause_factory_.Delete(cr, as.size());
         return;
       }
-      if (c.unsatisfiable()) {
+      if (c.unsat()) {
         empty_clause_ = true;
         clause_factory_.Delete(cr, as.size());
         return;
       }
       assert(!c.valid());
-      assert(c.primitive());
+      assert(c.prim());
       assert(c.size() >= 1);
       if (c.size() == 1) {
         trail_.push_back(c[0]);
@@ -325,7 +323,7 @@ class Solver {
       } else {
         clauses_.push_back(cr);
         for (const Literal a : c) {
-          Register(a.lhs().sort(), a.lhs(), a.rhs(), extra_name(a.lhs().sort()));
+          Register(a.lhs(), a.rhs(), extra_name(a.lhs()));
         }
         UpdateWatchers(cr, c);
       }
@@ -365,7 +363,7 @@ class Solver {
       assert(c.size() >= 2);
       const int removed = c.RemoveIf([this](Literal a) { return falsifies(a); });
       assert(!c.valid());
-      if (c.unsatisfiable()) {
+      if (c.unsat()) {
         empty_clause_ = true;
         clause_factory_.Delete(cr, c.size() + removed);
         return;
@@ -395,7 +393,7 @@ class Solver {
       const int removed = c.RemoveIf([this](Literal a) { return falsifies(a); });
       assert(c.size() >= 2);
       assert(!c.valid());
-      assert(!c.unsatisfiable());
+      assert(!c.unsat());
       if (satisfies(c)) {
         clause_factory_.Delete(cr, c.size() + removed);
         clauses_[i--] = clauses_[--n_clauses];
@@ -423,12 +421,12 @@ class Solver {
     trail_head_ = trail_.size();
   }
 
-  const std::vector<cref_t>&                    clauses() const { return clauses_; }
-  const Clause&                                 clause(cref_t cr) const { return clause_factory_[cr]; }
-  const DenseSet<Term>&                         funcs() const { return funcs_; }
-  const DenseMap<Symbol::Sort, DenseSet<Term>>& names() const { return names_; }
-  const DenseSet<Term>&                         names(Term f) const { return names_[f.sort()]; }
-  const DenseMap<Term, Term>&                   model() const { return model_; }
+  const std::vector<cref_t>&               clauses() const { return clauses_; }
+  const Clause&                            clause(cref_t cr) const { return clause_factory_[cr]; }
+  const DenseSet<Term>&                    funcs() const { return funcs_; }
+  const DenseMap<Term, std::vector<Term>>& names() const { return names_; }
+  const std::vector<Term>&                 names(Term f) const { return names_[f]; }
+  const DenseMap<Term, Term>&              model() const { return model_; }
 
   template<typename ConflictPredicate, typename DecisionPredicate>
   int Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
@@ -527,34 +525,40 @@ class Solver {
   static constexpr cref_t kDomainRef = -1;
   static constexpr level_t kRootLevel = 1;
 
-  void Register(const Symbol::Sort s, const Term f, const Term n, const Term extra_n) {
-    CapacitateMaps(s, f, n, extra_n);
+  void Register(const Term f, const Term n, const Term extra_n) {
+    CapacitateMaps(f, n, extra_n);
     if (!funcs_.Contains(f)) {
       funcs_.Insert(f);
       func_order_.Insert(f);
-      names_[s].Insert(extra_n);
 #ifdef NAME_ORDER
       if (!data_[f][extra_n].occurs) {
+        names_[f].push_back(extra_n);
         ++domain_size_[f];
         name_order_[f].Insert(extra_n);
         data_[f][extra_n].occurs = true;
       }
 #else
-      domain_size_[f] += !data_[f][extra_n].occurs;
-      data_[f][extra_n].occurs = true;
+      if (!data_[f][extra_n].occurs) {
+        names_[f].push_back(extra_n);
+        ++domain_size_[f];
+        data_[f][extra_n].occurs = true;
+      }
 #endif
     }
 #ifdef NAME_ORDER
     if (!data_[f][n].occurs) {
+      names_[f].push_back(n);
       ++domain_size_[f];
       name_order_[f].Insert(n);
       data_[f][n].occurs = true;
     }
 #else
-    domain_size_[f] += !data_[f][n].occurs;
-    data_[f][n].occurs = true;
+    if (!data_[f][n].occurs) {
+      names_[f].push_back(n);
+      ++domain_size_[f];
+      data_[f][n].occurs = true;
+    }
 #endif
-    names_[s].Insert(n);
 #ifdef NAME_ORDER
     assert(domain_size_[f] == name_order_[f].size());
 #endif
@@ -562,7 +566,7 @@ class Solver {
 
   void UpdateWatchers(const cref_t cr, const Clause& c) {
     assert(&clause(cr) == &c);
-    assert(!c.unsatisfiable());
+    assert(!c.unsat());
     assert(!c.valid());
     assert(c.size() >= 2);
     assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
@@ -591,7 +595,7 @@ class Solver {
   }
 
   cref_t Propagate(const Literal a) {
-    assert(a.primitive());
+    assert(a.prim());
     cref_t conflict = kNullRef;
     const Term f = a.lhs();
     std::vector<cref_t>& ws = watchers_[f];
@@ -790,11 +794,10 @@ class Solver {
         assert(!trail_a.null());
         assert(trail_a.pos());
         const Term f = trail_a.lhs();
-        for (const Term n : names_[f.sort()]) {
-          if (!n.null() && data_[f][n].occurs) {
-            const Literal a = Literal::Eq(f, n);
-            handle_conflict(a);
-          }
+        for (const Term n : names_[f]) {
+          assert(!n.null() && data_[f][n].occurs);
+          const Literal a = Literal::Eq(f, n);
+          handle_conflict(a);
         }
       } else {
         for (const Literal a : clause(conflict)) {
@@ -844,7 +847,7 @@ class Solver {
   void NewLevel() { level_size_.push_back(trail_.size()); }
 
   void Enqueue(const Literal a, const cref_t reason) {
-    assert(a.primitive());
+    assert(a.prim());
     assert(data_[a.lhs()][a.rhs()].occurs);
     const bool p = a.pos();
     const Term f = a.lhs();
@@ -913,27 +916,27 @@ class Solver {
 
   Term CandidateName(const Term f) {
     assert(!f.null() && model_[f].null());
+    const std::vector<Term>& names = names_[f];
+    const int size = names.size();
 #ifdef PHASING
-    const DenseSet<Term>& names = names_[f.sort()];
-    const int size = names.upper_bound();
     const int offset = name_index_[f];
     for (int i = offset; i >= 0; --i) {
       const Term n = names[i];
-      if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
+      assert(!n.null() && data_[f][n].occurs);
+      if (!data_[f][n].model_neq) {
         name_index_[f] = i;
         return n;
       }
     }
     for (int i = size - 1; i > offset; --i) {
       const Term n = names[i];
-      if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
+      assert(!n.null() && data_[f][n].occurs);
+      if (!data_[f][n].model_neq) {
         name_index_[f] = i;
         return n;
       }
     }
 #else
-    const DenseSet<Term>& names = names_[f.sort()];
-    const int size = names.upper_bound();
     for (int i = size - 1; i >= 0; --i) {
       const Term n = names[i];
       if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
@@ -973,7 +976,7 @@ class Solver {
   }
 
   level_t level_of(const Literal a) const {
-    assert(a.primitive());
+    assert(a.prim());
     assert(satisfies(a));
     assert(!a.pos() || model_[a.lhs()] == a.rhs());
     const bool p = a.pos();
@@ -984,7 +987,7 @@ class Solver {
   }
 
   level_t level_of_complementary(const Literal a) const {
-    assert(a.primitive());
+    assert(a.prim());
     assert(falsifies(a));
     assert(a.pos() || model_[a.lhs()] == a.rhs());
     const bool p = a.pos();
@@ -995,7 +998,7 @@ class Solver {
   }
 
   cref_t reason_of(const Literal a) const {
-    assert(a.primitive());
+    assert(a.prim());
     assert(satisfies(a));
     assert(!a.pos() || model_[a.lhs()] == a.rhs());
     const bool p = a.pos();
@@ -1007,16 +1010,15 @@ class Solver {
 
   level_t current_level() const { return level_size_.size(); }
 
-  void CapacitateMaps(const Symbol::Sort s, const Term f, const Term n, const Term extra_n) {
+  void CapacitateMaps(const Term f, const Term n, const Term extra_n) {
     const int max_ni = n.index() > extra_n.index() ? n.index() : extra_n.index();
-    const int si = s.index() >= names_.upper_bound() ? s.index() : -1;
     const int fi = f.index() >= funcs_.upper_bound() ? f.index() : -1;
-    const int ni = names_.upper_bound() == 0 || max_ni >= names_[0].upper_bound() ? max_ni : -1;
-    const int sig = (si + 1) * 1.5;
+    const int ni = data_.upper_bound() == 0 || max_ni >= data_[0].upper_bound() ? max_ni : -1;
     const int fig = (fi + 1) * 1.5;
-    const int nig = ni >= 0 ? (ni + 1) * 1.5 : names_[0].upper_bound();
+    const int nig = ni >= 0 ? (ni + 1) * 1.5 : data_[0].upper_bound();
     if (fi >= 0) {
       funcs_.Capacitate(fig);
+      names_.Capacitate(fig);
 #ifdef PHASING
       name_index_.Capacitate(fig);
 #endif
@@ -1029,10 +1031,6 @@ class Solver {
       name_order_.Capacitate(fig);
 #endif
     }
-    if (si >= 0) {
-      names_.Capacitate(sig);
-      name_extra_.Capacitate(sig);
-    }
     if (fi >= 0 || ni >= 0) {
       for (DenseMap<Term, Data>& ds : data_) {
         ds.Capacitate(nig);
@@ -1043,10 +1041,7 @@ class Solver {
       }
 #endif
     }
-    if (si >= 0 || ni >= 0) {
-      for (DenseSet<Term>& ns : names_) {
-        ns.Capacitate(nig);
-      }
+    if (ni >= 0) {
       for (DenseMap<Term, Data>& ds : data_) {
         ds.Capacitate(nig);
       }
@@ -1062,12 +1057,10 @@ class Solver {
 
   // funcs_ is the set of functions that occur in clauses.
   // names_ is the set of names that occur in clauses plus extra names.
-  // name_extra_ stores an additional name for every sort.
-  DenseSet<Term>                         funcs_;
-  DenseMap<Symbol::Sort, DenseSet<Term>> names_;
-  DenseMap<Symbol::Sort, Term>           name_extra_;
+  DenseSet<Term>                    funcs_;
+  DenseMap<Term, std::vector<Term>> names_;
 #ifdef PHASING
-  DenseMap<Term, int>                    name_index_;
+  DenseMap<Term, int>               name_index_;
 #endif
 
   // watchers_ maps every function to a sequence of clauses that watch it.

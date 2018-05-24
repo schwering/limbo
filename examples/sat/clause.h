@@ -38,7 +38,7 @@ class Clause {
         as[0] = Literal::Eq(as[i2].rhs(), as[i2].rhs());
         return -1;
       }
-      if (as[i2].unsatisfiable()) {
+      if (as[i2].unsat()) {
         ++i2;
         goto next;
       }
@@ -80,17 +80,9 @@ next: {}
   }
   bool operator!=(const Clause& c) const { return !(*this == c); }
 
-  internal::hash32_t hash() const {
-    internal::hash32_t h = 0;
-    for (Literal a : *this) {
-      h ^= a.hash();
-    }
-    return h;
-  }
-
-  bool empty()  const { return h_.size == 0; }
-  bool unit()   const { return h_.size == 1; }
-  int size() const { return h_.size; }
+  bool empty() const { return h_.size == 0; }
+  bool unit()  const { return h_.size == 1; }
+  int size()   const { return h_.size; }
 
   Literal& operator[](int i)       { assert(i >= 0 && i < size()); return as_[i]; }
   Literal  operator[](int i) const { assert(i >= 0 && i < size()); return as_[i]; }
@@ -104,12 +96,8 @@ next: {}
   const_iterator begin()  const { return cbegin(); }
   const_iterator end()    const { return cend(); }
 
-  bool ground()      const { return std::all_of(begin(), end(), [](const Literal a) { return a.ground(); }); }
-  bool primitive()   const { return std::all_of(begin(), end(), [](const Literal a) { return a.primitive(); }); }
-  bool well_formed() const { return std::all_of(begin(), end(), [](const Literal a) { return a.well_formed(); }); }
-
-  bool valid()         const { return unit() && as_[0].pos() && as_[0].lhs() == as_[0].rhs(); }
-  bool unsatisfiable() const { return empty(); }
+  bool valid() const { return unit() && as_[0].pos() && as_[0].lhs() == as_[0].rhs(); }
+  bool unsat() const { return empty(); }
 
   bool Subsumes(const Clause& c) const {
     for (Literal a : *this) {
@@ -142,7 +130,7 @@ next: {}
 
  private:
   Clause(const Literal a, bool guaranteed_normalized) {
-    if (!guaranteed_normalized && a.unsatisfiable()) {
+    if (!guaranteed_normalized && a.unsat()) {
       h_.size = 0;
     } else {
       h_.size = 1;
@@ -172,7 +160,7 @@ next: {}
       if (as_[i].valid() && (h_.size != 1 || as_[i].lhs() != as_[i].rhs())) {
         return false;
       }
-      if (as_[i].unsatisfiable()) {
+      if (as_[i].unsat()) {
         return false;
       }
       for (int j = 0; j < h_.size; ++j) {
@@ -293,21 +281,6 @@ class Clause::Factory {
 };
 
 }  // namespace limbo
-
-
-namespace std {
-
-template<>
-struct hash<limbo::Clause> {
-  limbo::internal::hash32_t operator()(const limbo::Clause& a) const { return a.hash(); }
-};
-
-template<>
-struct equal_to<limbo::Clause> {
-  bool operator()(const limbo::Clause& a, const limbo::Clause& b) const { return a == b; }
-};
-
-}  // namespace std
 
 #endif  // LIMBO_CLAUSE_H_
 

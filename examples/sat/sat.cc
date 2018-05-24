@@ -23,13 +23,22 @@
 
 #include <limbo/internal/intmap.h>
 
-#include <limbo/format/output.h>
-
 #include "clause.h"
 #include "solver.h"
 
 using namespace limbo;
 using namespace limbo::internal;
+
+std::ostream& operator<<(std::ostream& os, const Term t) {
+  //os << (t.name() ? 'n' : 'f') << t.index();
+  os << t.index();
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Literal a) {
+  os << a.lhs() << ' ' << (a.pos() ? "\u003D" : "\u2260") << ' ' << a.rhs();
+  return os;
+}
 
 class Timer {
  public:
@@ -57,21 +66,16 @@ static void CreateTerms(NullaryPredicate p, size_t n, std::vector<Term>* terms) 
   terms->clear();
   terms->reserve(n);
   for (auto i = terms->size(); i < n; ++i) {
-    const Term t = p();
+    const Term t = p(i + 1);
     terms->push_back(t);
     std::ostringstream s;
     s << (i + 1);
-    limbo::format::RegisterSymbol(t.symbol(), s.str());
   }
 }
 
 static bool LoadCnf(std::istream& stream,
                     std::vector<std::vector<Literal>>* cnf,
                     Term* extra_name) {
-  Symbol::Factory* sf = Symbol::Factory::Instance();
-  Term::Factory* tf = Term::Factory::Instance();
-  const Symbol::Sort sort = sf->CreateNonrigidSort();  // for now, we use a single sort for everything
-  limbo::format::RegisterSort(sort, "");
   std::vector<Term> funcs;
   std::vector<Term> names;
   Term T;
@@ -87,19 +91,17 @@ static bool LoadCnf(std::istream& stream,
     } else if (line.length() >= 1 && line[0] == 'c') {
       // ignore comment
     } else if (sscanf(line.c_str(), "p cnf %d %d", &n_funcs, &n_clauses) == 2) {  // propositional CNF
-      CreateTerms([tf, sf, sort]() { return tf->CreateTerm(sf->CreateFunction(sort, 0)); }, n_funcs, &funcs);
+      CreateTerms([](int i) { return Term::CreateFunc(i); }, n_funcs, &funcs);
       names.clear();
-      T = tf->CreateTerm(sf->CreateName(sort));
-      F = tf->CreateTerm(sf->CreateName(sort));
+      T = Term::CreateName(1);
+      F = Term::CreateName(2);
       names.push_back(T);
       names.push_back(F);
-      limbo::format::RegisterSymbol(T.symbol(), "T");
-      limbo::format::RegisterSymbol(F.symbol(), "F");
       *extra_name = F;
       prop = true;
     } else if (sscanf(line.c_str(), "p fcnf %d %d %d", &n_funcs, &n_names, &n_clauses) == 3) {  // func CNF
-      CreateTerms([tf, sf, sort]() { return tf->CreateTerm(sf->CreateFunction(sort, 0)); }, n_funcs, &funcs);
-      CreateTerms([tf, sf, sort]() { return tf->CreateTerm(sf->CreateName(sort)); }, n_names + 1, &names);
+      CreateTerms([](int i) { return Term::CreateFunc(i); }, n_funcs, &funcs);
+      CreateTerms([](int i) { return Term::CreateName(i); }, n_names + 1, &names);
       *extra_name = names.back();
       prop = false;
     } else if (prop) {  // propositional clause
@@ -219,7 +221,7 @@ int main(int argc, char *argv[]) {
   Timer t0;
   t0.start();
   Solver solver{};
-  auto extra_name_factory = [extra_name](const Symbol::Sort s) { assert(s == extra_name.sort()); return extra_name; };
+  auto extra_name_factory = [extra_name](const Term) { return extra_name; };
   for (const std::vector<Literal>& lits : cnf) {
     solver.AddClause(lits, extra_name_factory);
   }
