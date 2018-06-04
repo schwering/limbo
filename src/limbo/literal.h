@@ -18,18 +18,18 @@ namespace limbo {
 
 class Literal {
  public:
-  using Id = internal::u64;
+  using id_t = internal::u64;
 
   static Literal Eq(Term lhs, Term rhs) { return Literal(true, lhs, rhs); }
   static Literal Neq(Term lhs, Term rhs) { return Literal(false, lhs, rhs); }
-  static Literal FromId(Id id) { return Literal(id); }
+  static Literal FromId(id_t id) { return Literal(id); }
 
   Literal() = default;
 
   bool pos() const { return id_ & 1; }
   bool neg() const { return !pos(); }
-  Term lhs() const { return Term::FromId(internal::Bits<Term::Id>::deinterleave_hi(id_)); }
-  Term rhs() const { return Term::FromId(internal::Bits<Term::Id>::deinterleave_lo(id_) & ~static_cast<Term::Id>(1)); }
+  Term lhs() const { return Term::FromId(internal::Bits<Term::id_t>::deinterleave_hi(id_)); }
+  Term rhs() const { return Term::FromId(internal::Bits<Term::id_t>::deinterleave_lo(id_) & ~1ull); }
 
   bool null() const { return id_ == 0; }
   bool triv() const { return (id_ & 2) == 0; }
@@ -55,8 +55,8 @@ class Literal {
   // (t != n), (t == n)
   // (t != n1), (t != n2) for distinct n1, n2.
   static bool Valid(const Literal a, const Literal b) {
-    const Id x = a.id_ ^ b.id_;
-    return x == 1 || (x != 0 && a.neg() && b.neg() && internal::Bits<Term::Id>::deinterleave_hi(x) == 0);
+    const id_t x = a.id_ ^ b.id_;
+    return x == 1 || (x != 0 && a.neg() && b.neg() && internal::Bits<Term::id_t>::deinterleave_hi(x) == 0);
   }
 
   // Complementary(a, b) holds when a, b match one of the following:
@@ -64,19 +64,20 @@ class Literal {
   // (t != n), (t == n)
   // (t == n1), (t == n2) for distinct n1, n2.
   static bool Complementary(const Literal a, const Literal b) {
-    const Id x = a.id_ ^ b.id_;
-    return x == 1 || (x != 0 && a.pos() && b.pos() && internal::Bits<Term::Id>::deinterleave_hi(x) == 0);
+    const id_t x = a.id_ ^ b.id_;
+    return x == 1 || (x != 0 && a.pos() && b.pos() && internal::Bits<Term::id_t>::deinterleave_hi(x) == 0);
   }
 
-  // ProperlySubsumes(a, b) holds when a is (t = n1) and b is (t != n2) for distinct n1, n2.
+  // ProperlySubsumes(a, b) holds when a is (t == n1) and b is (t != n2) for distinct n1, n2.
   static bool ProperlySubsumes(Literal a, Literal b) {
-    const Id x = a.id_ ^ b.id_;
-    return x != 1 && (x & 1) && a.pos() && internal::Bits<Term::Id>::deinterleave_hi(x) == 0;
+    const id_t x = a.id_ ^ b.id_;
+    return x != 1 && (x & 1) && a.pos() && internal::Bits<Term::id_t>::deinterleave_hi(x) == 0;
   }
 
+  // Subsumes(a, b) holds when a == b or ProperlySubsumes(a, b).
   static bool Subsumes(Literal a, Literal b) {
-    const Id x = a.id_ ^ b.id_;
-    return x == 0 || (x != 1 && (x & 1) && a.pos() && internal::Bits<Term::Id>::deinterleave_hi(x) == 0);
+    const id_t x = a.id_ ^ b.id_;
+    return x == 0 || (x != 1 && (x & 1) && a.pos() && internal::Bits<Term::id_t>::deinterleave_hi(x) == 0);
   }
 
   bool Subsumes(Literal b) const { return Subsumes(*this, b); }
@@ -84,17 +85,17 @@ class Literal {
   bool ProperlySubsumes(Literal b) const { return ProperlySubsumes(*this, b); }
 
  private:
-  explicit Literal(Id id) : id_(id) {}
+  explicit Literal(id_t id) : id_(id) {}
 
   Literal(bool pos, Term lhs, Term rhs) {
     assert(rhs.name());
-    id_ = internal::Bits<Term::Id>::interleave(lhs.id(), rhs.id());
+    id_ = internal::Bits<Term::id_t>::interleave(lhs.id(), rhs.id());
     assert(!(id_ & 1));
     id_ |= pos;
     assert(this->pos() == pos && this->lhs() == lhs && this->rhs() == rhs);
   }
 
-  Id id_;
+  id_t id_;
 };
 
 }  // namespace limbo

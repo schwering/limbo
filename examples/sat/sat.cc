@@ -18,12 +18,10 @@
 #include <sstream>
 #include <type_traits>
 
+#include <limbo/clause.h>
 #include <limbo/literal.h>
 #include <limbo/term.h>
 
-#include <limbo/internal/intmap.h>
-
-#include "clause.h"
 #include "solver.h"
 
 using namespace limbo;

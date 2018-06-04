@@ -15,11 +15,11 @@ namespace limbo {
 
 class Term {
  public:
-  using Id = internal::u32;
+  using id_t = internal::u32;
 
   static Term CreateName(int i) { return Term((i << 1) | 0); }
   static Term CreateFunc(int i) { return Term((i << 1) | 1); }
-  static Term FromId(Id id) { return Term(id); }
+  static Term FromId(id_t id) { return Term(id); }
 
   Term() = default;
 
@@ -30,7 +30,7 @@ class Term {
   bool operator<(Term t)  const { return id_ < t.id_; }
   bool operator>(Term t)  const { return id_ > t.id_; }
 
-  Id id()     const { return id_; }
+  id_t id()     const { return id_; }
   int index() const { return id_ >> 1; }
 
   bool null() const { return (id_ >> 1) == 0; }
@@ -38,9 +38,9 @@ class Term {
   bool func() const { return !name(); }
 
  private:
-  explicit Term(Id id) : id_(id) { assert(!null()); }
+  explicit Term(id_t id) : id_(id) { assert(!null()); }
 
-  Id id_;
+  id_t id_;
 };
 
 }  // namespace limbo

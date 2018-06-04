@@ -1,501 +1,286 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
-//
-// A clause is a set of literals. Clauses are immutable.
-//
-// A clause is stored as vector, which is initially sorted to remove duplicates.
-// Thus, and since clauses are immutable, they represent sets of literals. Note
-// that copying and comparing clauses is more expensive than for literals.
-//
-// Clauses are always normalized, that is, no literal subsumes another literal.
-// An unsatisfiable clause is always empty, and a clause with a valid literal is
-// a unit clause.
-//
-// Perhaps the most important operations are PropagateUnit[s]() and Subsumes(),
-// which are only defined for primitive clauses and literals. Thus all involved
-// literals mention a primitive term on the left-hand side. By definition of
-// Complementary() and Subsumes() in the Literal class, a literal can react with
-// another only if they refer to the same term. By hashing these terms and
-// storing these values in Bloom filters, we can (hopefully often) detect early
-// that unit propagation or subsumption won't work early (in a sound but
-// incomplete way).
 
 #ifndef LIMBO_CLAUSE_H_
 #define LIMBO_CLAUSE_H_
 
 #include <cassert>
 #include <cstring>
+#include <cstdlib>
 
-#include <algorithm>
 #include <functional>
 #include <memory>
-#include <unordered_set>
-#include <utility>
+#include <vector>
 
 #include <limbo/literal.h>
 
-#include <limbo/internal/bloom.h>
 #include <limbo/internal/ints.h>
-#include <limbo/internal/iter.h>
-#include <limbo/internal/maybe.h>
-#include <limbo/internal/traits.h>
 
 namespace limbo {
 
 class Clause {
  public:
-  typedef internal::size_t size_t;
-  typedef internal::array_iterator<const Clause, const Literal> const_iterator;
+  using iterator = Literal*;
+  using const_iterator = const Literal*;
+  class Factory;
 
-  enum Result { kUnchanged, kPropagated, kSubsumed };
+  static constexpr bool kGuaranteeInvalid = true;
+  static constexpr bool kGuaranteeNormalized = true;
 
-  Clause() = default;
-
-  explicit Clause(const Literal a) : size_(!a.unsatisfiable() ? 1 : 0) {
-    lits1_[0] = a;
-#ifdef BLOOM
-    InitBloom();
-#endif
-  }
-
-  Clause(std::initializer_list<Literal> lits) : Clause(lits.size(), lits.begin(), lits.end()) {}
-
-  template<typename ForwardIt>
-  Clause(ForwardIt begin, ForwardIt end) : Clause(std::distance(begin, end), begin, end) {}
-
-  template<typename InputIt>
-  Clause(size_t size, InputIt begin, InputIt end) : Clause(size) {
-    auto it = begin;
-    for (size_t i = 0; it != end && i < kArraySize; ) {
-      lits1_[i++] = *it++;
-    }
-    for (size_t i = 0; it != end; ) {
-      lits2_[i++] = *it++;
-    }
-    Normalize();
-#ifdef BLOOM
-    InitBloom();
-#endif
-  }
-
-  Clause(const Clause& c) : Clause(c.size_) {
-    std::memcpy(lits1_, c.lits1_, size1() * sizeof(Literal));
-    if (size2() > 0) {
-      std::memcpy(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal));
-    }
-#ifdef BLOOM
-    lhs_bloom_ = c.lhs_bloom_;
-#endif
-    assert(!any([](Literal a) { return a.unsatisfiable(); }));
-    assert(*this == c);
-  }
-
-  Clause& operator=(const Clause& c) {
-    const size_t old_size = c.size_;
-    size_ = c.size_;
-    std::memcpy(lits1_, c.lits1_, size1() * sizeof(Literal));
-    if (size_ > kArraySize) {
-      if (size_ > old_size) {
-        lits2_ = std::unique_ptr<Literal[]>(new Literal[size2()]);
+  template<bool guarantee_invalid = !kGuaranteeInvalid>
+  static int Normalize(int size, Literal* as) {
+    int i1 = 0;
+    int i2 = 0;
+    while (i2 < size) {
+      assert(i1 <= i2);
+      if (!guarantee_invalid && as[i2].valid()) {
+        as[0] = Literal::Eq(as[i2].rhs(), as[i2].rhs());
+        return -1;
       }
-      std::memcpy(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal));
-    }
-#ifdef BLOOM
-    lhs_bloom_ = c.lhs_bloom_;
-#endif
-    assert(!any([](Literal a) { return a.unsatisfiable(); }));
-    return *this;
-  }
-
-  Clause(Clause&&) = default;
-  Clause& operator=(Clause&&) = default;
-
-  bool operator==(const Clause& c) const {
-    return size() == c.size() &&
-#ifdef BLOOM
-           lhs_bloom_ == c.lhs_bloom_ &&
-#endif
-           std::memcmp(lits1_, c.lits1_, size1() * sizeof(Literal)) == 0 &&
-           (size2() == 0 || std::memcmp(lits2_.get(), c.lits2_.get(), size2() * sizeof(Literal)) == 0);
-  }
-  bool operator!=(const Clause& c) const { return !(*this == c); }
-
-  internal::hash32_t hash() const {
-    internal::hash32_t h = 0;
-    for (size_t i = 0; i < size(); ++i) {
-      h ^= (*this)[i].hash();
-    }
-    return h;
-  }
-
-  const_iterator cbegin() const { return const_iterator(this, 0); }
-  const_iterator cend()   const { return const_iterator(this, size()); }
-
-  const_iterator begin() const { return cbegin(); }
-  const_iterator end()   const { return cend(); }
-
-  const Literal& operator[](size_t i) const {
-    assert(i <= size());
-    return i < kArraySize ? lits1_[i] : lits2_[i - kArraySize];
-  }
-
-  Literal first() const { return lits1_[0]; }
-  Literal last()  const { return (*this)[size() - 1]; }
-
-  bool   empty() const { return size() == 0; }
-  bool   unit()  const { return size() == 1; }
-  size_t size()  const { return size_; }
-
-  bool valid()         const { return unit() && first().valid(); }
-  bool unsatisfiable() const { return empty(); }
-
-  static bool Subsumes(const Literal a, const Clause c) {
-    assert(a.primitive());
-    assert(c.primitive());
-#ifdef BLOOM
-    if (!c.lhs_bloom_.PossiblyContains(a.lhs())) {
-      return false;
-    }
-#endif
-    size_t i = 0;
-    for (; i < c.size() && a.lhs() > c[i].lhs(); ++i) {
-    }
-    for (; i < c.size() && a.lhs() == c[i].lhs(); ++i) {
-      if (a.Subsumes(c[i])) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  static bool Subsumes(const Literal a, const Literal b, const Clause c) {
-    assert(a < b);
-    assert(a.primitive());
-    assert(b.primitive());
-    assert(c.primitive());
-#ifdef BLOOM
-    if (!c.lhs_bloom_.PossiblyContains(a.lhs()) || !c.lhs_bloom_.PossiblyContains(b.lhs())) {
-      return false;
-    }
-#endif
-    size_t i = 0;
-    for (; i < c.size() && a.lhs() > c[i].lhs(); ++i) {
-    }
-    for (; i < c.size() && a.lhs() == c[i].lhs(); ++i) {
-      if (a.Subsumes(c[i])) {
+      if (as[i2].unsat()) {
+        ++i2;
         goto next;
       }
-    }
-    return false;
-next:
-    for (; i < c.size() && b.lhs() > c[i].lhs(); ++i) {
-    }
-    for (; i < c.size() && b.lhs() == c[i].lhs(); ++i) {
-      if (b.Subsumes(c[i])) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  static bool Subsumes(const Clause& c, const Clause& d) {
-    assert(c.primitive());
-    assert(d.primitive());
-#ifdef BLOOM
-    if (!c.lhs_bloom_.PossiblySubsetOf(d.lhs_bloom_)) {
-      return false;
-    }
-#endif
-    size_t i = 0;
-    size_t j = 0;
-    for (; i < c.size(); ++i) {
-      for (; j < d.size() && c[i].lhs() > d[j].lhs(); ++j) {
-      }
-      for (size_t k = j; k < d.size() && c[i].lhs() == d[k].lhs(); ++k) {
-        if (c[i].Subsumes(d[k])) {
+      for (int j = 0; j < i1; ++j) {
+        if (!guarantee_invalid && Literal::Valid(as[i2], as[j])) {
+          as[0] = Literal::Eq(as[i2].rhs(), as[i2].rhs());
+          return -1;
+        }
+        if (as[i2].Subsumes(as[j])) {
+          ++i2;
           goto next;
         }
       }
-      assert(!c.all([&d](const Literal a) { return d.any([a](const Literal b) { return a.Subsumes(b); }); }));
+      for (int j = i2 + 1; j < size; ++j) {
+        if (as[i2].ProperlySubsumes(as[j])) {
+          ++i2;
+          goto next;
+        }
+      }
+      as[i1++] = as[i2++];
+next: {}
+    }
+    return i1;
+  }
+
+  bool operator==(const Clause& c) const {
+    if (size() != c.size()) {
       return false;
-next:
-      {}
     }
-    assert(c.all([&d](const Literal a) { return d.any([a](const Literal b) { return a.Subsumes(b); }); }));
+    for (Literal a : *this) {
+      for (Literal b : c) {
+        if (a == b) {
+          goto next;
+        }
+      }
+next: {}
+    }
     return true;
   }
+  bool operator!=(const Clause& c) const { return !(*this == c); }
 
-  bool Subsumes(const Clause& c) const { return Subsumes(*this, c); }
+  bool empty() const { return h_.size == 0; }
+  bool unit()  const { return h_.size == 1; }
+  int size()   const { return h_.size; }
 
-  Result PropagateUnit(const Literal a) {
-    assert(primitive());
-    assert(a.primitive());
-    assert(!valid());
-    assert(!a.valid() && !a.unsatisfiable());
-    size_t n_nulls = 0;
-#ifdef BLOOM
-    if (!lhs_bloom_.PossiblyContains(a.lhs())) {
-      return kUnchanged;
-    }
-#endif
-    for (size_t i = 0; i < size(); ++i) {
-      const Literal b = (*this)[i];
-      if (a.Subsumes(b)) {
-        if (n_nulls > 0) {
-          RemoveNulls();
-        }
-        return kSubsumed;
-      } else if (Literal::Complementary(a, b)) {
-        Nullify(i);
-        ++n_nulls;
-      }
-    }
-    if (n_nulls > 0) {
-      RemoveNulls();
-    }
-    return n_nulls > 0 ? kPropagated : kUnchanged;
-  }
+  Literal& operator[](int i)       { assert(i >= 0 && i < size()); return as_[i]; }
+  Literal  operator[](int i) const { assert(i >= 0 && i < size()); return as_[i]; }
 
-  template<typename InputIt>
-  Result PropagateUnits(InputIt first, InputIt last) {
-    assert(primitive());
-    assert(!valid());
-    assert(std::all_of(first, last, [](const Literal a) { return a.primitive(); }));
-    assert(std::all_of(first, last, [](const Literal a) { return !a.valid() && !a.unsatisfiable(); }));
-    size_t n_nulls = 0;
-    for (size_t i = 0; i < size(); ++i) {
-      const Literal b = (*this)[i];
-      for (; first != last && b.lhs() > first->lhs(); ++first) {}
-      bool complementary = false;
-      for (auto jt = first; jt != last && b.lhs() == jt->lhs(); ++jt) {
-        const Literal a = *jt;
+  iterator begin() { return &as_[0]; }
+  iterator end()   { return &as_[0] + h_.size; }
+
+  const_iterator cbegin() const { return &as_[0]; }
+  const_iterator cend()   const { return &as_[0] + h_.size; }
+
+  const_iterator begin()  const { return cbegin(); }
+  const_iterator end()    const { return cend(); }
+
+  bool valid() const { return unit() && as_[0].pos() && as_[0].lhs() == as_[0].rhs(); }
+  bool unsat() const { return empty(); }
+
+  bool Subsumes(const Clause& c) const {
+    for (Literal a : *this) {
+      for (Literal b : c) {
         if (a.Subsumes(b)) {
-          if (n_nulls > 0) {
-            RemoveNulls();
-          }
-          return kSubsumed;
-        } else if (Literal::Complementary(a, b)) {
-          complementary = true;
+          goto next;
         }
       }
-      if (complementary) {
-        Nullify(i);
-        ++n_nulls;
-      }
-    }
-    if (n_nulls > 0) {
-      RemoveNulls();
-    }
-    return n_nulls > 0 ? kPropagated : kUnchanged;
-  }
-
-  Result PropagateUnits(const std::unordered_set<Literal, Literal::LhsHash>& units) {
-    assert(primitive());
-    assert(!valid());
-    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return a.primitive(); }));
-    assert(std::all_of(units.begin(), units.end(), [](Literal a) { return !a.valid() && !a.unsatisfiable(); }));
-    size_t n_nulls = 0;
-    for (size_t i = 0; i < size(); ++i) {
-      const Literal b = (*this)[i];
-      if (units.bucket_count() > 0) {
-        auto bucket = units.bucket(b);
-        bool complementary = false;
-        for (auto it = units.begin(bucket), end = units.end(bucket); it != end; ++it) {
-          const Literal a = *it;
-          if (a.Subsumes(b)) {
-            if (n_nulls > 0) {
-              RemoveNulls();
-            }
-            return kSubsumed;
-          } else if (Literal::Complementary(b, a)) {
-            complementary = true;
-          }
-        }
-        if (complementary) {
-          Nullify(i);
-          ++n_nulls;
-        }
-      }
-    }
-    if (n_nulls > 0) {
-      RemoveNulls();
-    }
-    return n_nulls > 0 ? kPropagated : kUnchanged;
-  }
-
-  bool ground()      const { return all([](const Literal a) { return a.ground(); }); }
-  bool primitive()   const { return all([](const Literal a) { return a.primitive(); }); }
-  bool well_formed() const { return all([](const Literal a) { return a.well_formed(); }); }
-
-  bool Mentions(const Literal a) const {
-    return
-#ifdef BLOOM
-        lhs_bloom_.PossiblyContains(a.lhs()) &&
-#endif
-        any([a](Literal b) { return a == b; });
-  }
-
-  bool MentionsLhs(Term t) const {
-    return
-#ifdef BLOOM
-        lhs_bloom_.PossiblyContains(t) &&
-#endif
-        any([t](Literal a) { return a.lhs() == t; });
-  }
-
-  template<typename UnaryPredicate>
-  bool any(UnaryPredicate p) const {
-    const size_t s = size();
-    for (size_t i = 0; i < s; ++i) {
-      if (p((*this)[i])) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  template<typename UnaryPredicate>
-  bool all(UnaryPredicate p) const {
-    const size_t s = size();
-    for (size_t i = 0; i < s; ++i) {
-      if (!p((*this)[i])) {
-        return false;
-      }
+      return false;
+next: {}
     }
     return true;
   }
 
-  template<typename UnaryFunction>
-  Clause Substitute(UnaryFunction theta, Term::Factory* tf) const {
-    auto r = internal::transform_crange(*this, [theta, tf](Literal a) { return a.Substitute(theta, tf); });
-    return Clause(size(), r.begin(), r.end());
-  }
-
-  template<typename UnaryFunction>
-  typename internal::if_arg<UnaryFunction, Term>::type Traverse(UnaryFunction f) const {
-    for (size_t i = 0; i < size(); ++i) {
-      (*this)[i].Traverse(f);
+  template<typename UnaryPredicate>
+  int RemoveIf(UnaryPredicate p) {
+    int i1 = 0;
+    int i2 = 0;
+    while (i2 < h_.size) {
+      if (p(as_[i2])) {
+        ++i2;
+      } else {
+        as_[i1++] = as_[i2++];
+      }
     }
-  }
-
-  template<typename UnaryFunction>
-  typename internal::if_arg<UnaryFunction, Literal>::type Traverse(UnaryFunction f) const {
-    for (size_t i = 0; i < size(); ++i) {
-      f((*this)[i]);
-    }
+    h_.size = i1;
+    assert(Normalized());
+    return i2 - i1;
   }
 
  private:
-  friend class internal::array_iterator<Clause, Literal>;
-  typedef internal::array_iterator<Clause, Literal> iterator;
-  static constexpr size_t kArraySize = 5;
-
-  explicit Clause(size_t size) : size_(size) {
-    if (size2() > 0) {
-      lits2_ = std::unique_ptr<Literal[]>(new Literal[size2()]);
+  Clause(const Literal a, bool guaranteed_normalized) {
+    if (!guaranteed_normalized && a.unsat()) {
+      h_.size = 0;
+    } else {
+      h_.size = 1;
+      as_[0] = a.valid() ? Literal::Eq(a.rhs(), a.rhs()) : a;
     }
+    assert(Normalized());
   }
 
-  size_t size1() const { return size_ < kArraySize ? size_ : kArraySize; }
-  size_t size2() const { return size_ < kArraySize ? 0 : (size_ - kArraySize); }
-
-  Literal& operator[](size_t i) {
-    assert(i <= size_);
-    return i < kArraySize ? lits1_[i] : lits2_[i - kArraySize];
-  }
-
-  iterator begin() { return iterator(this, 0); }
-  iterator end()   { return iterator(this, size()); }
-
-  void Nullify(size_t i) {
-    (*this)[i] = Literal();
-    assert((*this)[i].null());
-  }
-
-  void RemoveNulls() {
-    iterator new_end = std::remove_if(begin(), end(), [](const Literal a) { return a.null(); });
-    size_ = new_end - begin();
-#ifdef BLOOM
-    InitBloom();
-#endif
-    assert(!any([](Literal a) { return a.null(); }));
-  }
-
-  void Normalize() {
-    Clause& c = *this;
-    size_t j = 0;
-    for (size_t i = 0; i < size(); ++i) {
-      if (c[i].valid()) {
-        c[0] = c[i];
-        size_ = 1;
-        return;
-      }
-      if (c[i].unsatisfiable()) {
-        goto skip;
-      }
-      for (size_t k = 0; k < j; ++k) {
-        if (Literal::Valid(c[i], c[k])) {
-          c[0] = Literal::Eq(c[i].rhs(), c[i].rhs());
-          size_ = 1;
-          return;
-        }
-        if (c[i].Subsumes(c[k])) {
-          goto skip;
-        }
-      }
-      for (size_t k = i + 1; k < size(); ++k) {
-        if (c[i].ProperlySubsumes(c[k])) {
-          goto skip;
-        }
-      }
-      {
-        const Literal a = c[i];
-        size_t k = j++;
-        for (; k > 0 && a < c[k - 1]; --k) {
-          c[k] = c[k - 1];
-        }
-        c[k] = a;
-      }
-skip:
-      {}
+  Clause(int size, const Literal* first, bool guaranteed_normalized) {
+    h_.size = size;
+    std::memcpy(begin(), first, size * sizeof(Literal));
+    if (!guaranteed_normalized) {
+      size = Normalize(h_.size, as_);
+      h_.size = size >= 0 ? size : 1;
     }
-    size_ = j;
+    assert(Normalized());
   }
 
-#ifdef BLOOM
-  void InitBloom() {
-    lhs_bloom_.Clear();
-    for (size_t i = 0; i < size(); ++i) {
-      lhs_bloom_.Add((*this)[i].lhs());
+  Clause(const Clause&) = delete;
+  Clause& operator=(const Clause& c) = delete;
+  Clause(Clause&&) = default;
+  Clause& operator=(Clause&& c) = default;
+
+#ifndef NDEBUG
+  bool Normalized() {
+    for (int i = 0; i < h_.size; ++i) {
+      if (as_[i].valid() && (h_.size != 1 || as_[i].lhs() != as_[i].rhs())) {
+        return false;
+      }
+      if (as_[i].unsat()) {
+        return false;
+      }
+      for (int j = 0; j < h_.size; ++j) {
+        if (i == j) {
+          continue;
+        }
+        if (Literal::Valid(as_[i], as_[j])) {
+          return false;
+        }
+        if (as_[i].Subsumes(as_[j])) {
+          return false;
+        }
+      }
     }
+    return true;
   }
 #endif
 
-  size_t size_ = 0;
-#ifdef BLOOM
-  internal::BloomSet<Term> lhs_bloom_;
-#endif
-  Literal lits1_[kArraySize];
-  std::unique_ptr<Literal[]> lits2_;
+  struct {
+    unsigned learnt :  1;
+    unsigned size   : 31;
+  } h_;
+  Literal as_[0];
+};
+
+class Clause::Factory {
+ public:
+  using cref_t = unsigned int;
+
+  Factory() = default;
+  Factory(const Factory&) = delete;
+  Factory& operator=(const Factory&) = delete;
+  Factory(Factory&&) = default;
+  Factory& operator=(Factory&&) = default;
+
+  template<bool guaranteed_normalized = !kGuaranteeNormalized>
+  cref_t New(Literal a) {
+    const cref_t cr = memory_.Allocate(clause_size(1));
+    new (memory_.address(cr)) Clause(a, guaranteed_normalized);
+    return cr;
+  }
+
+  template<bool guaranteed_normalized = !kGuaranteeNormalized>
+  cref_t New(int k, const Literal* as) {
+    const cref_t cr = memory_.Allocate(clause_size(k));
+    new (memory_.address(cr)) Clause(k, as, guaranteed_normalized);
+    return cr;
+  }
+
+  template<bool guaranteed_normalized = !kGuaranteeNormalized>
+  cref_t New(const std::vector<Literal>& as) {
+    return New<guaranteed_normalized>(as.size(), as.data());
+  }
+
+  void Delete(cref_t cr, int k) { memory_.Free(cr, k); }
+
+  Clause& operator[](cref_t r) { return reinterpret_cast<Clause&>(memory_[r]); }
+  const Clause& operator[](cref_t r) const { return reinterpret_cast<const Clause&>(memory_[r]); }
+
+ private:
+  template<typename T>
+  class MemoryPool {
+   public:
+    using size_t = unsigned int;
+    using ref_t = unsigned int;
+
+    explicit MemoryPool(size_t n = 1024 * 1024) { Capacitate(n); }
+    ~MemoryPool() { if (memory_) { std::free(memory_); } }
+
+    MemoryPool(const MemoryPool&) = delete;
+    MemoryPool& operator=(const MemoryPool&) = delete;
+    MemoryPool(MemoryPool&&) = default;
+    MemoryPool& operator=(MemoryPool&&) = default;
+
+    size_t bytes_to_chunks(size_t n) { return (n + sizeof(T) - 1) / sizeof(T); }
+
+    ref_t Allocate(size_t n) {
+      const ref_t r = size_;
+      size_ += n;
+      Capacitate(size_);
+      return r;
+    }
+
+    void Free(cref_t r, int k) {
+      if (r + k == size_) {
+        size_ = r;
+      }
+    }
+
+    T& operator[](ref_t r) { return memory_[r]; }
+    const T& operator[](ref_t r) const { return memory_[r]; }
+
+    T* address(ref_t r) const { return &memory_[r]; }
+    ref_t reference(const T* r) const { return r - &memory_[0]; }
+
+   private:
+    void Capacitate(size_t n) {
+      if (n > capacity_) {
+        while (n > capacity_) {
+          capacity_ += ((capacity_ / 2) + (capacity_ / 8) + 2) & ~1;
+        }
+        memory_ = static_cast<T*>(std::realloc(memory_, capacity_ * sizeof(T)));
+      }
+    }
+
+    T* memory_ = nullptr;
+    size_t capacity_ = 0;
+    size_t size_ = 1;
+  };
+
+  using Pool = MemoryPool<unsigned int>;
+
+  Pool::size_t clause_size(Pool::size_t size) {
+    return memory_.bytes_to_chunks(sizeof(Clause) + size * sizeof(Literal));
+  }
+
+  Pool memory_;
 };
 
 }  // namespace limbo
-
-
-namespace std {
-
-template<>
-struct hash<limbo::Clause> {
-  limbo::internal::hash32_t operator()(const limbo::Clause& a) const { return a.hash(); }
-};
-
-template<>
-struct equal_to<limbo::Clause> {
-  bool operator()(const limbo::Clause& a, const limbo::Clause& b) const { return a == b; }
-};
-
-}  // namespace std
 
 #endif  // LIMBO_CLAUSE_H_
 
