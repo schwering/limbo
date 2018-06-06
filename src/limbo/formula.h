@@ -162,6 +162,22 @@ class Language : private internal::Singleton<Language> {
       Ref end_;
     };
 
+    class CRange {
+     public:
+      CRange(CRef begin, CRef end) : begin_(begin), end_(end) {}
+
+      CRef begin() const { return begin_; }
+      CRef end() const { return end_; }
+
+      Type type() const { assert(!empty()); return begin_->type; }
+      bool empty() const { return end_ == begin_; }
+      bool ground() const { return std::all_of(begin(), end(), [](Symbol s) { return s.type != kVar; }); }
+
+     private:
+      CRef begin_;
+      CRef end_;
+    };
+
     static Symbol Func(Func f)            { Symbol s; s.type = kFunc;      s.u.f = f;            return s; }
     static Symbol Name(Name n)            { Symbol s; s.type = kName;      s.u.n = n;            return s; }
     static Symbol Var(Var x)              { Symbol s; s.type = kVar;       s.u.x = x;            return s; }
@@ -220,7 +236,7 @@ class Language : private internal::Singleton<Language> {
       }
     }
 
-    int n_args() const {
+    int arity() const {
       switch (type) {
         case kFunc:      return u.f.arity();
         case kName:      return u.n.arity();
@@ -259,9 +275,11 @@ class Language : private internal::Singleton<Language> {
     class Consumer {
      public:
       Consumer() = default;
-      void Munch(const Symbol& s) { k_ += s.n_args(); --k_; }
+      void Munch(const Symbol& s) { k_ += s.arity(); --k_; }
+      void Vomit(const Symbol& s) { k_ -= s.arity(); --k_; }
       Scope scope() const { return Scope(k_); }
       bool active(const Scope& scope) const { return k_ >= scope.k_; }
+      int left(const Scope& scope) const { return k_ - scope.k_; }
 
      private:
       Consumer(const Consumer&) = delete;
@@ -274,7 +292,8 @@ class Language : private internal::Singleton<Language> {
 
     template<typename Words>
     static Word Func(Func f, Words&& args)    { return Word(Symbol::Func(f), args.begin(), args.end()); }
-    static Word Name(Name n)                  { return Word(Symbol::Name(n)); }
+    template<typename Words>
+    static Word Name(Name n, Words&& args)    { return Word(Symbol::Name(n), args.begin(), args.end()); }
     static Word Var(Var x)                    { return Word(Symbol::Var(x)); }
     static Word Term(Term a)                  { return Word(Symbol::Term(a)); }
     static Word Equals(Word w1, Word w2)      { return Word(Symbol::Equals(), w1, w2); }
@@ -292,20 +311,6 @@ class Language : private internal::Singleton<Language> {
     static Word Believe(int k, int l, Word w) { return Word(Symbol::Believe(k, l), w); }
     static Word Action(Word w1, Word w2)      { return Word(Symbol::Action(), w1, w2); }
 
-    static Symbol::Ref End(Symbol::Ref s) { return EndLength(s).first; }
-    static int Length(Symbol::Ref s)      { return EndLength(s).second; }
-
-    static std::pair<Symbol::Ref, int> EndLength(Symbol::Ref s) {
-      int n = 0;
-      Consumer consumer;
-      Scope scope = consumer.scope();
-      do {
-        ++n;
-        consumer.Munch(*s++);
-      } while (consumer.active(scope));
-      return std::make_pair(s, n);
-    }
-
     Word(Word&&) = default;
     Word& operator=(Word&&) = default;
 
@@ -313,6 +318,9 @@ class Language : private internal::Singleton<Language> {
 
     Word() = default;
     Word(std::initializer_list<Symbol> symbols) : symbols_(symbols) {}
+
+    template<typename InputIt>
+    Word(InputIt begin, InputIt end) : symbols_(begin, end) {}
 
     Word(Symbol s) { symbols_.push_back(s); }
     Word(Symbol s, Word&& w) : Word(s) { symbols_.splice(symbols_.end(), w.symbols_); }
@@ -371,6 +379,10 @@ class Language : private internal::Singleton<Language> {
       return tgt;
     }
 
+    void PutIn(Symbol::Ref before, Symbol::List&& symbols) {
+      symbols_.splice(before, symbols, symbols.begin(), symbols.end());
+    }
+
    private:
     Symbol::List symbols_;
   };
@@ -414,7 +426,23 @@ class Language : private internal::Singleton<Language> {
     return x;
   }
 
-  Term Termify(Symbol::Range sr) {
+  Func Swearify(const int sitlen, const Func f) {
+    if (sitlen == 0) {
+      return f;
+    } else {
+      const int k = sitlen - 1;
+      swear_funcs_.reserve(internal::next_power_of_two(sitlen));
+      swear_funcs_.resize(sitlen);
+      internal::DenseMap<Func, Func>& map = swear_funcs_[k];
+      map.Capacitate(f, [](auto i) { return internal::next_power_of_two(i) + 1; });
+      if (map[f].null()) {
+        map[f] = CreateFunc(f.sort(), sitlen + f.arity());
+      }
+      return map[f];
+    }
+  }
+
+  Term Termify(Symbol::CRange sr) {
     assert((sr.type() == Symbol::kFunc || sr.type() == Symbol::kName) && sr.ground());
     auto it = symbols_term_.find(sr);
     if (it != symbols_term_.end()) {
@@ -430,7 +458,7 @@ class Language : private internal::Singleton<Language> {
 
  private:
   struct DeepHash {
-    internal::hash32_t operator()(const Symbol::Range& sr) const {
+    internal::hash32_t operator()(const Symbol::CRange& sr) const {
       internal::hash32_t h = 0;
       for (Symbol s : sr) {
         int i = 0;
@@ -449,12 +477,12 @@ class Language : private internal::Singleton<Language> {
   };
 
   struct DeepEquals {
-    bool operator()(const Symbol::Range& sr1, const Symbol::Range& sr2) const {
+    bool operator()(const Symbol::CRange& sr1, const Symbol::CRange& sr2) const {
       return std::equal(sr1.begin(), sr1.end(), sr2.begin());
     }
   };
 
-  using TermMap = std::unordered_map<Symbol::Range, class Term, DeepHash, DeepEquals>;
+  using TermMap = std::unordered_map<Symbol::CRange, class Term, DeepHash, DeepEquals>;
 
   Language() = default;
   Language(const Language&) = delete;
@@ -469,15 +497,18 @@ class Language : private internal::Singleton<Language> {
   internal::DenseMap<Name, int>  name_arity_;
   internal::DenseMap<Var, Sort>  var_sort_;
 
-  internal::DenseMap<Term, Symbol::Range> term_func_symbols_;
-  internal::DenseMap<Term, Symbol::Range> term_name_symbols_;
-  TermMap symbols_term_;
+  internal::DenseMap<Term, Symbol::CRange> term_func_symbols_;
+  internal::DenseMap<Term, Symbol::CRange> term_name_symbols_;
   int last_sort_ = 0;
   int last_var_ = 0;
   int last_func_ = 0;
   int last_name_ = 0;
   int last_func_term_ = 0;
   int last_name_term_ = 0;
+
+  TermMap symbols_term_;
+
+  std::vector<internal::DenseMap<Func, Func>> swear_funcs_;
 };
 
 class Formula {
@@ -490,17 +521,55 @@ class Formula {
   using Consumer = Word::Consumer;
   using Scope = Word::Scope;
 
-  Formula(Word&& w) : word_(w) {}
+  class Reader {
+   public:
+    Reader(const Reader&) = default;
+    Reader(Reader&&) = default;
+    Reader& operator=(const Reader&) = default;
+    Reader& operator=(Reader&&) = default;
 
+    const Symbol& head() const { return *begin_; }
+    Symbol::Type type() const { return begin_->type; }
+    int arity() const { return begin_->arity(); }
+    Reader arg(int i) const {
+      args_.reserve(i);
+      for (int j = args_.size(); j <= i; ++j) {
+        args_.push_back(Reader(j > 0 ? args_[j-1].end() : std::next(begin_)));
+      }
+      return args_[i];
+    }
+
+    int length() const { return len_; }
+    Symbol::CRef begin() const { return begin_; }
+    Symbol::CRef end()   const { return end_; }
+
+    Formula formula() const { return Formula(Word(begin_, end_)); }
+
+   private:
+    friend class Formula;
+    explicit Reader(Symbol::CRef begin) : begin_(begin) { std::tie(end_, len_) = Formula::EndLength(begin); }
+
+    Symbol::CRef begin_;
+    Symbol::CRef end_;
+    int len_;
+    mutable std::vector<Reader> args_;
+  };
+
+  explicit Formula(Word&& w) : word_(w) {}
+
+  Reader reader() const { return Reader(word_.begin()); }
   const Word& word() const { return word_; }
 
   void Normalize() {
     Rectify();
-    PushInwards();
     Flatten();
+    PushInwards();
   }
 
   void Skolemize() {
+    // Because of actions, we can't do normal Skolemization. Instead, we replace
+    // the formula ex x phi with fa x (f != x v phi), where f is the Skolem
+    // function for x.
     struct ForallMarker {
       ForallMarker(Var x, Scope scope) : x(x), scope(scope) {}
       ForallMarker(Scope scope) : scope(scope) {}
@@ -509,69 +578,120 @@ class Formula {
     };
     struct NotMarker {
       NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
-      NotMarker(Scope scope) : reset(true), scope(scope) {}
-      unsigned reset : 1;
+      NotMarker(Scope scope) : neg(false), scope(scope) {}
       unsigned neg   : 1;
-      Scope scope;
-    };
-    struct SkolemFunction {
-      SkolemFunction(Symbol::List symbols, Scope scope) : reset(false), symbols(symbols), scope(scope) {}
-      SkolemFunction(Scope scope) : reset(true), scope(scope) {}
-      unsigned reset : 1;
-      Symbol::List symbols;
       Scope scope;
     };
     std::vector<ForallMarker> foralls;
     std::vector<NotMarker> nots;
-    internal::DenseMap<Var, std::vector<SkolemFunction>> funcs;
     Consumer consumer;
     for (auto it = word_.begin(); it != word_.end(); ) {
+      const Symbol s = *it;
       while (!foralls.empty() && !consumer.active(foralls.back().scope)) {
         foralls.pop_back();
       }
       while (!nots.empty() && !consumer.active(nots.back().scope)) {
         nots.pop_back();
       }
-      for (auto& sfs : funcs) {
-        while (!sfs.empty() && !consumer.active(sfs.back().scope)) {
-          sfs.pop_back();
-        }
-      }
-      const bool pos = nots.empty() || nots.back().reset || !nots.back().neg;
-      if (it->type == Symbol::kVar || it->type == Symbol::kExists || it->type == Symbol::kForall) {
-        funcs.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
-      }
-      if (it->type == Symbol::kVar) {
-        if (!funcs[it->u.x].empty()) {
-          const SkolemFunction& sf = funcs[it->u.x].back();
-          if (!sf.reset) {
-            it = word_.Erase(it);
-            word_.Insert(it, sf.symbols.begin(), sf.symbols.end());
+      const bool pos = nots.empty() || !nots.back().neg;
+      switch (s.type) {
+        case Symbol::kFunc:
+        case Symbol::kName:
+        case Symbol::kVar:
+        case Symbol::kTerm:
+        case Symbol::kEquals:
+        case Symbol::kNotEquals:
+        case Symbol::kLiteral:
+        case Symbol::kClause:
+        case Symbol::kOr:
+        case Symbol::kAnd:
+        case Symbol::kAction:
+          consumer.Munch(*it++);
+          break;
+        case Symbol::kExists:
+        case Symbol::kForall:
+          if ((s.type == Symbol::kExists) == pos) {
+            Symbol::List symbols;
+            for (const ForallMarker& fm : foralls) {
+              symbols.push_back(Symbol::Var(fm.x));
+            }
+            const Func f = Language::Instance()->CreateFunc(s.u.x.sort(), symbols.size());
+            symbols.push_front(Symbol::Func(f));
+            symbols.push_back(Symbol::Var(s.u.x));
+            symbols.push_front(pos ? Symbol::NotEquals() : Symbol::Equals());
+            symbols.push_front(pos ? Symbol::Or(2) : Symbol::And(2));
+            it->type = pos ? Symbol::kForall : Symbol::kExists;
+            word_.PutIn(std::next(it), std::move(symbols));
+            consumer.Munch(*it++);
           } else {
             consumer.Munch(*it++);
+            foralls.push_back(ForallMarker(s.u.x, consumer.scope()));
           }
+          break;
+        case Symbol::kNot:
+          consumer.Munch(*it++);
+          nots.push_back(NotMarker(nots.empty() || !nots.back().neg, consumer.scope()));
+          break;
+        case Symbol::kKnow:
+        case Symbol::kMaybe:
+        case Symbol::kBelieve:
+          consumer.Munch(*it++);
+          nots.push_back(NotMarker(consumer.scope()));
+          break;
+      }
+    }
+  }
+
+  // Precondition: Formula is objective
+  void Swearify() {
+    struct ActionMarker {
+      ActionMarker(Symbol::List symbols, Scope scope) : symbols(symbols), scope(scope) {}
+      Symbol::List symbols;
+      Scope scope;
+    };
+    std::vector<ActionMarker> actions;
+    Consumer consumer;
+    for (auto it = word_.begin(); it != word_.end(); ) {
+      while (!actions.empty() && !consumer.active(actions.back().scope)) {
+        actions.pop_back();
+      }
+      switch (it->type) {
+        case Symbol::kFunc:
+          consumer.Munch(*it);
+          it->u.f = Language::Instance()->Swearify(actions.size(), it->u.f);
+          ++it;
+          for (const ActionMarker& am : actions) {
+            word_.Insert(it, am.symbols.begin(), am.symbols.end());
+          }
+          break;
+        case Symbol::kVar:
+        case Symbol::kName:
+        case Symbol::kEquals:
+        case Symbol::kNotEquals:
+        case Symbol::kLiteral:
+        case Symbol::kNot:
+        case Symbol::kExists:
+        case Symbol::kForall:
+        case Symbol::kOr:
+        case Symbol::kAnd:
+          consumer.Munch(*it++);
+          break;
+        case Symbol::kAction: {
+          it = word_.Erase(it);
+          auto first = it;
+          auto last = End(it);
+          it = last;
+          actions.push_back(ActionMarker(word_.TakeOut(first, last), consumer.scope()));
+          break;
         }
-      } else if ((it->type == Symbol::kExists && pos) || (it->type == Symbol::kForall && !pos)) {
-        Symbol::List symbols;
-        for (const ForallMarker& fm : foralls) {
-          symbols.push_back(Symbol::Var(fm.x));
-        }
-        const Func f = Language::Instance()->CreateFunc(it->u.x.sort(), symbols.size());
-        symbols.push_front(Symbol::Func(f));
-        funcs[it->u.x].push_back(SkolemFunction(symbols, consumer.scope()));
-        it = word_.Erase(it);
-      } else if ((it->type == Symbol::kExists && !pos) || (it->type == Symbol::kForall && pos)) {
-        funcs[it->u.x].push_back(SkolemFunction(consumer.scope()));
-        foralls.push_back(ForallMarker(it->u.x, consumer.scope()));
-        consumer.Munch(*it++);
-      } else if (it->type == Symbol::kNot) {
-        nots.push_back(NotMarker(nots.empty() || nots.back().reset || !nots.back().neg, consumer.scope()));
-        consumer.Munch(*it++);
-      } else if (it->type == Symbol::kKnow || it->type == Symbol::kMaybe || it->type == Symbol::kBelieve) {
-        nots.push_back(NotMarker(consumer.scope()));
-        consumer.Munch(*it++);
-      } else {
-        consumer.Munch(*it++);
+        case Symbol::kTerm:
+        case Symbol::kClause:
+        case Symbol::kKnow:
+        case Symbol::kMaybe:
+        case Symbol::kBelieve:
+          assert(false);
+          std::abort();
+          break;
       }
     }
   }
@@ -583,29 +703,110 @@ class Formula {
       Var x;
       Scope scope;
     };
-    internal::DenseMap<Var, std::vector<NewVar>> vars;
+    struct NewVars {
+      NewVars() = default;
+      bool used = false;
+      std::vector<NewVar> vars;
+    };
+    internal::DenseMap<Var, NewVars> vars;
     Consumer consumer;
     for (Symbol& s : word_) {
       for (auto& nvs : vars) {
-        while (!nvs.empty() && !consumer.active(nvs.back().scope)) {
-          nvs.pop_back();
+        while (!nvs.vars.empty() && !consumer.active(nvs.vars.back().scope)) {
+          nvs.vars.pop_back();
         }
       }
       if (s.type == Symbol::kExists || s.type == Symbol::kForall) {
         vars.Capacitate(s.u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
-        const Var y = vars[s.u.x].empty() ? s.u.x : Language::Instance()->CreateVar(s.u.x.sort());
-        vars[s.u.x].push_back(NewVar(y, consumer.scope()));
+        const Var y = !vars[s.u.x].used ? s.u.x : Language::Instance()->CreateVar(s.u.x.sort());
+        vars[s.u.x].used = true;
+        vars[s.u.x].vars.push_back(NewVar(y, consumer.scope()));
         s.u.x = y;
-      } else if (s.type == Symbol::kVar && !vars[s.u.x].empty()) {
-        s.u.x = vars[s.u.x].back().x;
+      } else if (s.type == Symbol::kVar && !vars[s.u.x].vars.empty()) {
+        s.u.x = vars[s.u.x].vars.back().x;
       }
       consumer.Munch(s);
     }
   }
 
+  void Flatten() {
+    struct NotMarker {
+      NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
+      NotMarker(Scope scope) : reset(true), scope(scope) {}
+      unsigned reset : 1;
+      unsigned neg   : 1;
+      Scope scope;
+    };
+    std::vector<NotMarker> nots;
+    Consumer consumer;
+    Symbol::Ref or_ref = word_.end();
+    bool tolerate_func = false;
+    for (auto it = word_.begin(); it != word_.end(); ) {
+      while (!nots.empty() && !consumer.active(nots.back().scope)) {
+        nots.pop_back();
+      }
+      const bool pos = nots.empty() || !nots.back().neg;
+      switch (it->type) {
+        case Symbol::kFunc:
+          if (!tolerate_func) {
+            const Var x = Language::Instance()->CreateVar(it->u.f.sort());
+            it = word_.Insert(it, Symbol::Var(x));
+            const Symbol::Ref first = std::next(it);
+            const Symbol::Ref last = End(first);
+            Symbol::List symbols = word_.TakeOut(first, last);
+            symbols.push_back(Symbol::Var(x));
+            symbols.push_front(pos ? Symbol::NotEquals() : Symbol::Equals());
+            auto bt = word_.Insert(or_ref, pos ? Symbol::Forall(x) : Symbol::Exists(x));
+            while (--it != bt) {
+              consumer.Vomit(*it);
+            }
+            ++(or_ref->u.k);
+            word_.PutIn(std::next(or_ref), std::move(symbols));
+          }
+        case Symbol::kName:
+        case Symbol::kVar:
+          consumer.Munch(*it++);
+          tolerate_func = false;
+          break;
+        case Symbol::kEquals:
+        case Symbol::kNotEquals:
+          or_ref = word_.Insert(it, pos ? Symbol::Or(1) : Symbol::And(1));
+          consumer.Munch(*or_ref);
+          consumer.Munch(*it++);
+          tolerate_func = true;
+          break;
+        case Symbol::kAction:
+          or_ref = word_.Insert(it, pos ? Symbol::Or(1) : Symbol::And(1));
+          consumer.Munch(*or_ref);
+          consumer.Munch(*it++);
+          break;
+        case Symbol::kOr:
+        case Symbol::kAnd:
+        case Symbol::kTerm:
+        case Symbol::kLiteral:
+        case Symbol::kClause:
+          consumer.Munch(*it++);
+          break;
+        case Symbol::kNot:
+          nots.push_back(NotMarker(nots.empty() || !nots.back().neg, consumer.scope()));
+          consumer.Munch(*it++);
+          break;
+        case Symbol::kExists:
+        case Symbol::kForall:
+        case Symbol::kKnow:
+        case Symbol::kMaybe:
+        case Symbol::kBelieve:
+          consumer.Munch(*it++);
+          nots.push_back(NotMarker(consumer.scope()));
+          break;
+      }
+    }
+  }
+
+  // Precondition: Formula is rectified.
+  // Reasons: (1) We pull quantifiers out of disjunctions and conjunctions.
+  //          (2) We push actions inwards.
   void PushInwards() {
-    // Preserves equivalence in generaly only if formula is rectified because
-    // quantifiers are pulled out of disjunctions.
     struct AndOrMarker {
       AndOrMarker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
       AndOrMarker(Scope scope) : reset(true), scope(scope) {}
@@ -642,9 +843,9 @@ class Formula {
         nots.pop_back();
       }
       switch (it->type) {
+        case Symbol::kVar:
         case Symbol::kFunc:
         case Symbol::kName:
-        case Symbol::kVar:
         case Symbol::kTerm:
           consumer.Munch(*it++);
           break;
@@ -653,8 +854,8 @@ class Formula {
         case Symbol::kLiteral:
           if (andors.empty() || andors.back().reset) {
             const Symbol::Ref last = word_.Insert(it, Symbol::Or(1));
-            andors.push_back(AndOrMarker(last, consumer.scope()));
             consumer.Munch(*last);
+            andors.push_back(AndOrMarker(last, consumer.scope()));
           }
           {
             Symbol::Ref pre = it;
@@ -667,58 +868,91 @@ class Formula {
               case Symbol::kEquals:    it->type = Symbol::kNotEquals; break;
               case Symbol::kNotEquals: it->type = Symbol::kEquals; break;
               case Symbol::kLiteral:   it->u.a = it->u.a.flip(); break;
-              default:                 std::abort();
+              default:                 assert(false); std::abort();
             }
           }
           consumer.Munch(*it++);
           break;
         case Symbol::kClause:
+          assert(false);
           std::abort();
           break;
         case Symbol::kKnow:
         case Symbol::kMaybe:
         case Symbol::kBelieve:
+          consumer.Munch(*it++);
           andors.push_back(AndOrMarker(consumer.scope()));
           actions.push_back(ActionMarker(consumer.scope()));
           nots.push_back(NotMarker(consumer.scope()));
-          consumer.Munch(*it++);
           break;
-        case Symbol::kAction:
-          actions.push_back(ActionMarker(word_.TakeOut(it, Word::End(std::next(it))), consumer.scope()));
+        case Symbol::kAction: {
+          auto first = it;  // we're taking out the kAction symbol plus the action
+          auto last = End(std::next(it));
+          it = last;
+          actions.push_back(ActionMarker(word_.TakeOut(first, last), consumer.scope()));
           break;
+        }
         case Symbol::kNot:
-          nots.push_back(NotMarker(nots.empty() || nots.back().reset || !nots.back().neg, consumer.scope()));
+          nots.push_back(NotMarker(nots.empty() || !nots.back().neg, consumer.scope()));
           it = word_.Erase(it);
           break;
         case Symbol::kExists:
-        case Symbol::kForall:
+        case Symbol::kForall: {
           if (!nots.empty() && nots.back().neg) {
             it->type = it->type == Symbol::kExists ? Symbol::kForall : Symbol::kExists;
           }
           consumer.Munch(*it++);
-          if (!andors.empty() && !andors.back().reset) {
-            word_.Move(andors.back().ref, std::prev(it));
+          if (!andors.empty()) {
+            const AndOrMarker& aom = andors.back();
+            if (!aom.reset) {
+              word_.Move(andors.back().ref, std::prev(it));
+            } else {
+              andors.push_back(AndOrMarker(consumer.scope()));
+            }
           }
           break;
+        }
         case Symbol::kOr:
         case Symbol::kAnd:
-          consumer.Munch(*it);
           if (!andors.empty() && !andors.back().reset && andors.back().ref->type == it->type) {
-            andors.back().ref->u.k += it->u.k;
+            andors.back().ref->u.k += it->u.k - 1;
+            consumer.Munch(*it);
             it = word_.Erase(it);
           } else {
             andors.push_back(AndOrMarker(it, consumer.scope()));
-            ++it;
+            consumer.Munch(*it++);
           }
           break;
       }
     }
   }
 
-  void Flatten() {
+ private:
+  static Symbol::Ref End(Symbol::Ref s)   { return EndLength(s).first; }
+  static Symbol::CRef End(Symbol::CRef s) { return EndLength(s).first; }
+
+  static std::pair<Symbol::Ref, int> EndLength(Symbol::Ref s) {
+    int n = 0;
+    Consumer consumer;
+    Scope scope = consumer.scope();
+    while (consumer.active(scope)) {
+      ++n;
+      consumer.Munch(*s++);
+    }
+    return std::make_pair(s, n);
   }
 
- private:
+  static std::pair<Symbol::CRef, int> EndLength(Symbol::CRef s) {
+    int n = 0;
+    Consumer consumer;
+    Scope scope = consumer.scope();
+    while (consumer.active(scope)) {
+      ++n;
+      consumer.Munch(*s++);
+    }
+    return std::make_pair(s, n);
+  }
+
   Word word_;
 };
 
