@@ -9,15 +9,13 @@
 
 namespace limbo {
 
-using Sort = Language::Sort;
-using Var  = Language::Var;
-using Name = Language::Name;
-using Func = Language::Func;
-using Symbol = Language::Symbol;
-using Word = Language::Word;
+using Abc = Alphabet;
+using Symbol = Abc::Symbol;
+using Word = Abc::Word;
+using F = Formula;
 
 std::ostream& operator<<(std::ostream& os, const Symbol& s) {
-  switch (s.type) {
+  switch (s.tag) {
     case Symbol::kFunc:      os << 'f' << s.u.f.index(); break;
     case Symbol::kName:      os << 'n' << s.u.n.index(); break;
     case Symbol::kVar:       os << 'x' << s.u.x.index(); break;
@@ -46,8 +44,8 @@ std::ostream& operator<<(std::ostream& os, const Word& w) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Formula::Reader& r) {
-  switch (r.type()) {
+std::ostream& operator<<(std::ostream& os, const RFormula& r) {
+  switch (r.tag()) {
     case Symbol::kFunc:
     case Symbol::kVar:
     case Symbol::kName: {
@@ -87,14 +85,14 @@ std::ostream& operator<<(std::ostream& os, const Formula::Reader& r) {
       break;
     case Symbol::kOr:
     case Symbol::kAnd:
-      os << (r.type() == Symbol::kOr ? '[' : '(');
+      os << (r.tag() == Symbol::kOr ? '[' : '(');
       for (int i = 0; i < r.arity(); ++i) {
         os << r.arg(i);
         if (i+1 < r.arity()) {
           os << ' ' << r.head() << ' ';
         }
       }
-      os << (r.type() == Symbol::kOr ? ']' : ')');
+      os << (r.tag() == Symbol::kOr ? ']' : ')');
       break;
     case Symbol::kAction:
       os << '[' << r.arg(0) << ']' << ' ' << r.arg(1);
@@ -103,28 +101,28 @@ std::ostream& operator<<(std::ostream& os, const Formula::Reader& r) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Formula& f) {
-  os << f.reader();
+std::ostream& operator<<(std::ostream& os, const F& f) {
+  os << f.readable();
   return os;
 }
 
 TEST(FormulaTest, Rectify) {
-  Language* l = Language::Instance();
-  Sort s = l->CreateSort(false);
-  Var x = l->CreateVar(s);
-  Var y = l->CreateVar(s);
-  Var z = l->CreateVar(s);
-  Var u = l->CreateVar(s);
-  Name n = l->CreateName(s, 0);
-  Func c = l->CreateFunc(s, 0);
-  Func f = l->CreateFunc(s, 2);
-  Func g = l->CreateFunc(s, 1);
-  Word fxy = Word::Func(f, std::vector<Word>{Word::Var(x), Word::Var(y)});
-  Word fyz = Word::Func(f, std::vector<Word>{Word::Var(y), Word::Var(z)});
-  Word gfxy = Word::Func(g, std::vector<Word>{fxy});
-  Word gfyz = Word::Func(g, std::vector<Word>{fyz});
-  Word w = Word::Exists(x, Word::Or(Word::Forall(y, Word::Exists(z, Word::Equals(fxy.Clone(), fyz.Clone()))),
-                                    Word::Exists(x, Word::Forall(y, Word::Exists(z, Word::Exists(u, Word::Equals(gfxy.Clone(), gfyz.Clone())))))));
+  Alphabet* abc = Alphabet::Instance();
+  Abc::Sort s = abc->CreateSort(false);
+  Abc::Var x = abc->CreateVar(s);
+  Abc::Var y = abc->CreateVar(s);
+  Abc::Var z = abc->CreateVar(s);
+  Abc::Var u = abc->CreateVar(s);
+  Abc::Name n = abc->CreateName(s, 0);
+  Abc::Func c = abc->CreateFunc(s, 0);
+  Abc::Func f = abc->CreateFunc(s, 2);
+  Abc::Func g = abc->CreateFunc(s, 1);
+  F fxy = F::Func(f, std::vector<F>{F::Var(x), F::Var(y)});
+  F fyz = F::Func(f, std::vector<F>{F::Var(y), F::Var(z)});
+  F gfxy = F::Func(g, std::vector<F>{fxy});
+  F gfyz = F::Func(g, std::vector<F>{fyz});
+  F w = F::Exists(x, F::Or(F::Forall(y, F::Exists(z, F::Equals(fxy, fyz))),
+                                    F::Exists(x, F::Forall(y, F::Exists(z, F::Exists(u, F::Equals(gfxy, gfyz)))))));
 
   // Skolemize
   // Swearize
@@ -134,7 +132,7 @@ TEST(FormulaTest, Rectify) {
 
   {
     std::cout << "" << std::endl;
-    Formula phi(Word::Exists(x, Word::Equals(Word::Func(c, std::vector<Word>{}), Word::Name(n, std::vector<Word>{}))));
+    F phi(F::Exists(x, F::Equals(F::Func(c, std::vector<F>{}), F::Name(n, std::vector<F>{}))));
     std::cout << "Orig: " << phi << std::endl;
     phi.Rectify();
     std::cout << "Rect: " << phi << std::endl;
@@ -146,7 +144,7 @@ TEST(FormulaTest, Rectify) {
 
   {
     std::cout << "" << std::endl;
-    Formula phi(w.Clone());
+    F phi(w);
     std::cout << "Orig: " << phi << std::endl;
     phi.Rectify();
     std::cout << "Rect: " << phi << std::endl;
