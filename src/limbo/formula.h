@@ -913,6 +913,61 @@ class Formula : private CommonFormula {
     }
   }
 
+  template<typename UnaryPredicate, typename UnaryFunction>
+  void Reduce(UnaryPredicate select = UnaryPredicate(), UnaryFunction reduce = UnaryFunction()) {
+    struct Marker {
+      Marker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
+      Symbol::Ref ref;
+      Scope scope;
+    };
+    std::vector<Marker> markers;
+    Scope::Observer scoper;
+    for (auto it = word_.begin(); it != word_.end(); ) {
+      while (!markers.empty() && !scoper.active(markers.back().scope)) {
+        const Symbol::Ref begin = markers.back().ref;
+        Formula f = reduce(RFormula(begin, it));
+        it = word_.Erase(begin, it);
+        word_.PutIn(it, std::move(f.word_));
+        markers.pop_back();
+      }
+      if (select(*it)) {
+        markers.push_back(Marker(it, scoper.scope()));
+      }
+      scoper.Munch(*it++);
+    }
+  }
+
+  internal::DenseSet<Abc::Var> FreeVars() const {
+    struct QuantifierMarker {
+      QuantifierMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
+      QuantifierMarker(Scope scope) : scope(scope) {}
+      Abc::Var x;
+      Scope scope;
+    };
+    internal::DenseSet<Abc::Var> free;
+    internal::DenseMap<Abc::Var, int> bound;
+    std::vector<QuantifierMarker> quantifiers;
+    Scope::Observer scoper;
+    for (auto it = word_.begin(); it != word_.end(); ) {
+      while (!quantifiers.empty() && !scoper.active(quantifiers.back().scope)) {
+        --bound[quantifiers.back().x];
+        quantifiers.pop_back();
+      }
+      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall || it->x == Abc::Symbol::kVar) {
+        bound.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
+        free.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
+      }
+      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall) {
+        ++bound[it->u.x];
+        quantifiers.push_back(QuantifierMarker(it->u.x, scoper.scope()));
+      } else if (it->tag == Abc::Symbol::kVar && bound[it->u.x] == 0) {
+        free.Insert(it->u.x);
+      }
+      scoper.Munch(*it++);
+    }
+    return free;
+  }
+
  private:
   static Symbol::Ref End(Symbol::Ref s) {
     Scope::Observer scoper;
