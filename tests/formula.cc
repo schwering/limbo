@@ -16,10 +16,11 @@ using F = Formula;
 
 std::ostream& operator<<(std::ostream& os, const Symbol& s) {
   switch (s.tag) {
-    case Symbol::kFunc:      os << 'f' << s.u.f.index(); break;
-    case Symbol::kName:      os << 'n' << s.u.n.index(); break;
+    case Symbol::kFun:       os << 'f' << s.u.f.index(); break;
+    case Symbol::kName:       os << 'n' << s.u.n.index(); break;
     case Symbol::kVar:       os << 'x' << s.u.x.index(); break;
-    case Symbol::kTerm:      os << 't'; break;
+    case Symbol::kFunTerm:   os << 'F'; break;
+    case Symbol::kNameTerm:   os << 'N'; break;
     case Symbol::kEquals:    os << "\u003D"; break;
     case Symbol::kNotEquals: os << "\u2260"; break;
     case Symbol::kLiteral:   os << 'l'; break;
@@ -46,7 +47,7 @@ std::ostream& operator<<(std::ostream& os, const Word& w) {
 
 std::ostream& operator<<(std::ostream& os, const RFormula& r) {
   switch (r.tag()) {
-    case Symbol::kFunc:
+    case Symbol::kFun:
     case Symbol::kVar:
     case Symbol::kName: {
       os << r.head();
@@ -68,7 +69,8 @@ std::ostream& operator<<(std::ostream& os, const RFormula& r) {
       os << r.arg(0) << ' ' << r.head() << ' ' << r.arg(1);
       break;
     }
-    case Symbol::kTerm:
+    case Symbol::kFunTerm:
+    case Symbol::kNameTerm:
     case Symbol::kLiteral:
     case Symbol::kClause:
       os << r.head();
@@ -114,13 +116,13 @@ TEST(FormulaTest, Rectify) {
   Abc::Var z = abc->CreateVar(s);
   Abc::Var u = abc->CreateVar(s);
   Abc::Name n = abc->CreateName(s, 0);
-  Abc::Func c = abc->CreateFunc(s, 0);
-  Abc::Func f = abc->CreateFunc(s, 2);
-  Abc::Func g = abc->CreateFunc(s, 1);
-  F fxy = F::Func(f, std::vector<F>{F::Var(x), F::Var(y)});
-  F fyz = F::Func(f, std::vector<F>{F::Var(y), F::Var(z)});
-  F gfxy = F::Func(g, std::vector<F>{fxy});
-  F gfyz = F::Func(g, std::vector<F>{fyz});
+  Abc::Fun c = abc->CreateFun(s, 0);
+  Abc::Fun f = abc->CreateFun(s, 2);
+  Abc::Fun g = abc->CreateFun(s, 1);
+  F fxy = F::Fun(f, std::vector<F>{F::Var(x), F::Var(y)});
+  F fyz = F::Fun(f, std::vector<F>{F::Var(y), F::Var(z)});
+  F gfxy = F::Fun(g, std::vector<F>{fxy});
+  F gfyz = F::Fun(g, std::vector<F>{fyz});
   F w = F::Exists(x, F::Or(F::Forall(y, F::Exists(z, F::Equals(fxy, fyz))),
                                     F::Exists(x, F::Forall(y, F::Exists(z, F::Exists(u, F::Equals(gfxy, gfyz)))))));
 
@@ -132,7 +134,7 @@ TEST(FormulaTest, Rectify) {
 
   {
     std::cout << "" << std::endl;
-    F phi(F::Exists(x, F::Equals(F::Func(c, std::vector<F>{}), F::Name(n, std::vector<F>{}))));
+    F phi(F::Exists(x, F::Equals(F::Fun(c, std::vector<F>{}), F::Name(n, std::vector<F>{}))));
     std::cout << "Orig: " << phi << std::endl;
     phi.Rectify();
     std::cout << "Rect: " << phi << std::endl;

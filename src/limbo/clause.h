@@ -34,17 +34,9 @@ class Clause {
     int i2 = 0;
     while (i2 < size) {
       assert(i1 <= i2);
-      if (!guarantee_invalid && as[i2].valid()) {
-        as[0] = Literal::Eq(as[i2].rhs(), as[i2].rhs());
-        return -1;
-      }
-      if (as[i2].unsat()) {
-        ++i2;
-        goto next;
-      }
       for (int j = 0; j < i1; ++j) {
         if (!guarantee_invalid && Literal::Valid(as[i2], as[j])) {
-          as[0] = Literal::Eq(as[i2].rhs(), as[i2].rhs());
+          as[0] = Literal();
           return -1;
         }
         if (as[i2].Subsumes(as[j])) {
@@ -96,7 +88,7 @@ next: {}
   const_iterator begin()  const { return cbegin(); }
   const_iterator end()    const { return cend(); }
 
-  bool valid() const { return unit() && as_[0].pos() && as_[0].lhs() == as_[0].rhs(); }
+  bool valid() const { return unit() && as_[0].null(); }
   bool unsat() const { return empty(); }
 
   bool Subsumes(const Clause& c) const {
@@ -129,13 +121,9 @@ next: {}
   }
 
  private:
-  Clause(const Literal a, bool guaranteed_normalized) {
-    if (!guaranteed_normalized && a.unsat()) {
-      h_.size = 0;
-    } else {
-      h_.size = 1;
-      as_[0] = a.valid() ? Literal::Eq(a.rhs(), a.rhs()) : a;
-    }
+  Clause(const Literal a) {
+    h_.size = 1;
+    as_[0] = a;
     assert(Normalized());
   }
 
@@ -157,12 +145,6 @@ next: {}
 #ifndef NDEBUG
   bool Normalized() {
     for (int i = 0; i < h_.size; ++i) {
-      if (as_[i].valid() && (h_.size != 1 || as_[i].lhs() != as_[i].rhs())) {
-        return false;
-      }
-      if (as_[i].unsat()) {
-        return false;
-      }
       for (int j = 0; j < h_.size; ++j) {
         if (i == j) {
           continue;
@@ -196,10 +178,9 @@ class Clause::Factory {
   Factory(Factory&&) = default;
   Factory& operator=(Factory&&) = default;
 
-  template<bool guaranteed_normalized = !kGuaranteeNormalized>
   cref_t New(Literal a) {
     const cref_t cr = memory_.Allocate(clause_size(1));
-    new (memory_.address(cr)) Clause(a, guaranteed_normalized);
+    new (memory_.address(cr)) Clause(a);
     return cr;
   }
 
