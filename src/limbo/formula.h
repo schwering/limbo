@@ -465,14 +465,12 @@ class CommonFormula {
 
   template<typename InputIt>
   static InputIt End(InputIt it) {
-    int n = 0;
     Scope::Observer scoper;
     Scope scope = scoper.scope();
     while (scoper.active(scope)) {
-      ++n;
       scoper.Munch(*it++);
     }
-    return std::make_pair(it, n);
+    return it;
   }
 };
 
@@ -499,6 +497,60 @@ class RFormula : private CommonFormula {
   Symbol::CRef begin() const { return rword_.begin(); }
   Symbol::CRef end()   const { return rword_.end(); }
 
+  int NestingDepth() const {
+    struct QuantifierMarker {
+      QuantifierMarker(Scope scope) : scope(scope) {}
+      Scope scope;
+    };
+    std::vector<QuantifierMarker> quantifiers;
+    Scope::Observer scoper;
+    int depth = 0;
+    for (auto it = rword_.begin(); it != rword_.end(); ) {
+      while (!quantifiers.empty() && !scoper.active(quantifiers.back().scope)) {
+        quantifiers.pop_back();
+      }
+      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall) {
+        quantifiers.push_back(QuantifierMarker(scoper.scope()));
+        if (depth < quantifiers.size()) {
+          depth = quantifiers.size();
+        }
+      }
+      scoper.Munch(*it++);
+    }
+    return depth;
+  }
+
+  internal::DenseSet<Abc::Var> FreeVars() const {
+    struct QuantifierMarker {
+      QuantifierMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
+      QuantifierMarker(Scope scope) : scope(scope) {}
+      Abc::Var x;
+      Scope scope;
+    };
+    internal::DenseSet<Abc::Var> free;
+    internal::DenseMap<Abc::Var, int> bound;
+    std::vector<QuantifierMarker> quantifiers;
+    Scope::Observer scoper;
+    for (auto it = rword_.begin(); it != rword_.end(); ) {
+      while (!quantifiers.empty() && !scoper.active(quantifiers.back().scope)) {
+        --bound[quantifiers.back().x];
+        quantifiers.pop_back();
+      }
+      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall || it->tag == Abc::Symbol::kVar) {
+        bound.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
+        free.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
+      }
+      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall) {
+        ++bound[it->u.x];
+        quantifiers.push_back(QuantifierMarker(it->u.x, scoper.scope()));
+      } else if (it->tag == Abc::Symbol::kVar && bound[it->u.x] == 0) {
+        free.Insert(it->u.x);
+      }
+      scoper.Munch(*it++);
+    }
+    return free;
+  }
+
  private:
   RWord rword_;
   mutable std::vector<RFormula> args_;
@@ -509,9 +561,9 @@ class Formula : private CommonFormula {
   using Word = Abc::Word;
 
   template<typename Formulas>
-  static Formula Fun(Abc::Fun f, Formulas&& args) { return Formula(Symbol::Fun(f)).WithArgs(args); }
+  static Formula Fun(Abc::Fun f, Formulas&& args)   { Formula ff(Symbol::Fun(f)); ff.Add(args); return ff; }
   template<typename Formulas>
-  static Formula Name(Abc::Name n, Formulas&& args) { return Formula(Symbol::Name(n)).WithArgs(args); }
+  static Formula Name(Abc::Name n, Formulas&& args) { Formula ff(Symbol::Name(n)); ff.Add(args); return ff; }
   static Formula Var(Abc::Var x)                                   { return Formula(Symbol::Var(x)); }
   static Formula Equals(Formula&& f1, Formula&& f2)                { return Formula(Symbol::Equals(), f1, f2); }
   static Formula Equals(const Formula& f1, const Formula& f2)      { return Formula(Symbol::Equals(), f1, f2); }
@@ -532,14 +584,15 @@ class Formula : private CommonFormula {
   static Formula Maybe(int k, Formula&& f)                         { return Formula(Symbol::Maybe(k), f); }
   static Formula Maybe(int k, const Formula& f)                    { return Formula(Symbol::Maybe(k), f); }
   static Formula Believe(int k, int l, Formula&& f1, Formula&& f2) { return Formula(Symbol::Believe(k, l), f1, f2); }
-  static Formula Believe(int k, int l, const Formula& f1, const Formula& f2) { return Formula(Symbol::Believe(k, l), f1, f2); }
+  static Formula Believe(int k, int l, const Formula& f1, const Formula& f2)
+                                                                   { return Formula(Symbol::Believe(k, l), f1, f2); }
   static Formula Action(Formula&& f1, Formula&& f2)                { return Formula(Symbol::Action(), f1, f2); }
   static Formula Action(const Formula& f1, const Formula& f2)      { return Formula(Symbol::Action(), f1, f2); }
 
   explicit Formula(Word&& w) : word_(std::move(w)) {}
   explicit Formula(const RFormula& f) : word_(f.rword()) {}
 
-  RFormula readable() const { return RFormula(word_.begin()); }
+  RFormula readable() const { return RFormula(word_.begin(), word_.end()); }
   const Word& word() const { return word_; }
 
   void Normalize() {
@@ -937,47 +990,7 @@ class Formula : private CommonFormula {
     }
   }
 
-  internal::DenseSet<Abc::Var> FreeVars() const {
-    struct QuantifierMarker {
-      QuantifierMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
-      QuantifierMarker(Scope scope) : scope(scope) {}
-      Abc::Var x;
-      Scope scope;
-    };
-    internal::DenseSet<Abc::Var> free;
-    internal::DenseMap<Abc::Var, int> bound;
-    std::vector<QuantifierMarker> quantifiers;
-    Scope::Observer scoper;
-    for (auto it = word_.begin(); it != word_.end(); ) {
-      while (!quantifiers.empty() && !scoper.active(quantifiers.back().scope)) {
-        --bound[quantifiers.back().x];
-        quantifiers.pop_back();
-      }
-      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall || it->x == Abc::Symbol::kVar) {
-        bound.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
-        free.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
-      }
-      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall) {
-        ++bound[it->u.x];
-        quantifiers.push_back(QuantifierMarker(it->u.x, scoper.scope()));
-      } else if (it->tag == Abc::Symbol::kVar && bound[it->u.x] == 0) {
-        free.Insert(it->u.x);
-      }
-      scoper.Munch(*it++);
-    }
-    return free;
-  }
-
  private:
-  static Symbol::Ref End(Symbol::Ref s) {
-    Scope::Observer scoper;
-    Scope scope = scoper.scope();
-    while (scoper.active(scope)) {
-      scoper.Munch(*s++);
-    }
-    return s;
-  }
-
   explicit Formula(Symbol s) { word_.Insert(word_.end(), s); }
   Formula(Symbol s, Formula&& f) : Formula(s) { word_.PutIn(word_.end(), std::move(f.word_)); }
   Formula(Symbol s, Formula&& f, Formula&& g) : Formula(s, std::move(f)) { word_.PutIn(word_.end(), std::move(g.word_)); }
@@ -985,11 +998,10 @@ class Formula : private CommonFormula {
   Formula(Symbol s, const Formula& f, const Formula& g) : Formula(s, f) { word_.Insert(word_.end(), g.word_.begin(), g.word_.end()); }
 
   template<typename Formulas>
-  Formula WithArgs(Formulas&& args) {
+  void Add(Formulas&& args) {
     for (Formula& f : args) {
       word_.PutIn(word_.end(), std::move(f.word_));
     }
-    return *this;
   }
 
   Word word_;
