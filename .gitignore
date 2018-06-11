@@ -52,6 +52,10 @@ examples/tui/jquery.terminal-1.0.10.css
 examples/tui/jquery.terminal-1.0.10.min.js
 examples/tui/unix_formatting.js
 examples/sat/sat
+examples/sat/functionalize
+examples/sat/pigeonhole
+examples/sat/pigeons
+examples/sat/sudokus
 examples/sudoku/sudoku
 examples/sudoku/sudoku-js.js*
 examples/jquery-*.min.js

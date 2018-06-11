@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A literal is an equality or inequality of a function and a object.
+//
 
 #ifndef LIMBO_LITERAL_H_
 #define LIMBO_LITERAL_H_
@@ -67,12 +68,12 @@ class Literal {
 
   bool pos() const { return id_ & 1; }
   bool neg() const { return !pos(); }
-  Fun lhs() const { return Fun(internal::Bits<Fun::id_t>::deinterleave_hi(id_)); }
-  Name rhs() const { return Name(internal::Bits<Name::id_t>::deinterleave_lo(id_) & ~1ull); }
+  Fun  lhs() const { return Fun(internal::Bits<Fun::id_t>::deinterleave_hi(id_)); }
+  Name rhs() const { return Name(internal::Bits<Name::id_t>::deinterleave_lo(id_) >> 1); }
 
   bool null() const { return id_ == 0; }
 
-  Literal flip() const { return Literal(id_ ^ kPos); }
+  Literal flip() const { return Literal(id_ ^ 1); }
 
   bool operator==(Literal a) const { return id_ == a.id_; }
   bool operator!=(Literal a) const { return id_ != a.id_; }
@@ -116,14 +117,10 @@ class Literal {
   bool ProperlySubsumes(Literal b) const { return ProperlySubsumes(*this, b); }
 
  private:
-  static constexpr id_t kPos = static_cast<id_t>(1) << (sizeof(id_t) * 8 - 1);
-
   explicit Literal(id_t id) : id_(id) {}
 
-  Literal(bool pos, Fun lhs, Name rhs) {
-    id_ = internal::Bits<Fun::id_t>::interleave(lhs.index(), rhs.index());
-    id_ |= pos * kPos;
-  }
+  Literal(bool pos, Fun lhs, Name rhs)
+      : id_(internal::Bits<Fun::id_t>::interleave(lhs.index(), (rhs.index() << 1) | pos)) {}
 
   id_t id_;
 };
