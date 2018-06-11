@@ -226,6 +226,16 @@ class Alphabet : private internal::Singleton<Alphabet> {
         case kAction:    return 2;
       }
     }
+
+    bool fun()  const { return tag == kFun || tag == kFunTerm; }
+    bool name() const { return tag == kName || tag == kNameTerm; }
+    bool var()  const { return tag == kVar; }
+    bool term() const { return fun() || name() || var(); }
+
+    bool literal()    const { return tag == kEquals || tag == kNotEquals || tag == kLiteral; }
+    bool atomic()     const { return literal() || tag == kClause; }
+    bool quantifier() const { return tag == kExists || tag == kForall; }
+    bool objective()  const { return tag != kKnow || tag != kMaybe || tag != kBelieve; }
   };
 
   class RWord {
@@ -322,7 +332,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
         term_fun_symbols_[f] = w;
         return s;
       } else {
-        const limbo::Name n = limbo::Name(++last_fun_term_);
+        const limbo::Name n = limbo::Name(++last_name_term_);
         const Symbol s = Symbol::NameTerm(n);
         symbols_term_[w] = s;
         term_name_symbols_[n] = w;
@@ -400,6 +410,8 @@ class Alphabet::Word {
   Word(Word&&) = default;
   Word& operator=(Word&&) = default;
 
+  int size() const { return symbols_.size(); }
+
   Symbol::Ref begin() { return symbols_.begin(); }
   Symbol::Ref end()   { return symbols_.end(); }
 
@@ -460,7 +472,7 @@ class CommonFormula {
     explicit Scope(int k) : k_(k) {}
 
    private:
-    int k_;
+    int k_ = -1;
   };
 
   template<typename InputIt>
@@ -478,13 +490,13 @@ class RFormula : private CommonFormula {
  public:
   using RWord = Abc::RWord;
 
+  RFormula(Symbol::CRef begin, Symbol::CRef end) : rword_(begin, end), meta_init_(false) {}
   explicit RFormula(Symbol::CRef begin) : RFormula(begin, End(begin)) {}
-  RFormula(Symbol::CRef begin, Symbol::CRef end) : rword_(begin, end) {}
 
   const RWord& rword() const { return rword_; }
   const Symbol& head() const { return *begin(); }
-  Symbol::Tag tag() const { return begin()->tag; }
-  int arity() const { return begin()->arity(); }
+  Symbol::Tag tag() const { return head().tag; }
+  int arity() const { return head().arity(); }
 
   RFormula arg(int i) const {
     args_.reserve(arity());
@@ -497,33 +509,10 @@ class RFormula : private CommonFormula {
   Symbol::CRef begin() const { return rword_.begin(); }
   Symbol::CRef end()   const { return rword_.end(); }
 
-  int NestingDepth() const {
-    struct QuantifierMarker {
-      QuantifierMarker(Scope scope) : scope(scope) {}
-      Scope scope;
-    };
-    std::vector<QuantifierMarker> quantifiers;
-    Scope::Observer scoper;
-    int depth = 0;
-    for (auto it = rword_.begin(); it != rword_.end(); ) {
-      while (!quantifiers.empty() && !scoper.active(quantifiers.back().scope)) {
-        quantifiers.pop_back();
-      }
-      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall) {
-        quantifiers.push_back(QuantifierMarker(scoper.scope()));
-        if (depth < quantifiers.size()) {
-          depth = quantifiers.size();
-        }
-      }
-      scoper.Munch(*it++);
-    }
-    return depth;
-  }
-
   internal::DenseSet<Abc::Var> FreeVars() const {
     struct QuantifierMarker {
       QuantifierMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
-      QuantifierMarker(Scope scope) : scope(scope) {}
+      explicit QuantifierMarker(Scope scope) : scope(scope) {}
       Abc::Var x;
       Scope scope;
     };
@@ -531,7 +520,7 @@ class RFormula : private CommonFormula {
     internal::DenseMap<Abc::Var, int> bound;
     std::vector<QuantifierMarker> quantifiers;
     Scope::Observer scoper;
-    for (auto it = rword_.begin(); it != rword_.end(); ) {
+    for (auto it = begin(); it != end(); ) {
       while (!quantifiers.empty() && !scoper.active(quantifiers.back().scope)) {
         --bound[quantifiers.back().x];
         quantifiers.pop_back();
@@ -551,9 +540,106 @@ class RFormula : private CommonFormula {
     return free;
   }
 
+  bool strongly_well_formed() const { if (!meta_init_) { InitMeta(); } return strongly_well_formed_; }
+  bool weakly_well_formed()   const { if (!meta_init_) { InitMeta(); } return weakly_well_formed_; }
+  bool nnf()                  const { if (!meta_init_) { InitMeta(); } return nnf_; }
+  bool objective()            const { if (!meta_init_) { InitMeta(); } return objective_; }
+  bool dynamic()              const { if (!meta_init_) { InitMeta(); } return !static_; }
+  bool ground()               const { if (!meta_init_) { InitMeta(); } return !ground_; }
+
  private:
+  void InitMeta() const { const_cast<RFormula*>(this)->InitMeta(); }
+
+  void InitMeta() {
+    struct QuantifierMarker {
+      explicit QuantifierMarker(Scope scope) : scope(scope) {}
+      Scope scope;
+    };
+    enum Expectation { kTerm, kQuasiName, kFormula };
+    std::vector<Expectation> es;
+    std::vector<QuantifierMarker> quantifiers;
+    Scope::Observer scoper;
+    Scope action_scope;
+    bool action_scope_active = false;
+    meta_init_ = true;
+    strongly_well_formed_ = true;
+    weakly_well_formed_ = true;
+    nnf_ = true;
+    objective_ = true;
+    static_ = true;
+    ground_ = true;
+    for (auto it = begin(); it != end(); ) {
+      const Symbol& s = *it;
+      if (it != begin()) {
+        if (!es.empty()) {
+          if (es.empty()) {
+            weakly_well_formed_ = false;
+            strongly_well_formed_ = false;
+          }
+          switch (es.back()) {
+            case kTerm:       weakly_well_formed_ &= s.term();  strongly_well_formed_ &= s.term();            break;
+            case kQuasiName:  weakly_well_formed_ &= s.term();  strongly_well_formed_ &= s.name() || s.var(); break;
+            case kFormula:    weakly_well_formed_ &= !s.term(); strongly_well_formed_ &= !s.term();           break;
+          }
+          es.pop_back();
+        }
+      }
+      switch (s.tag) {
+        case Symbol::kFun:
+        case Symbol::kName:      for (int i = 0; i < s.arity(); ++i) { es.push_back(kQuasiName); } break;
+        case Symbol::kVar:
+        case Symbol::kFunTerm:
+        case Symbol::kNameTerm:
+        case Symbol::kLiteral:
+        case Symbol::kClause:    break;
+        case Symbol::kEquals:
+        case Symbol::kNotEquals: es.push_back(kTerm); es.push_back(kQuasiName); break;
+        case Symbol::kExists:
+        case Symbol::kForall:
+        case Symbol::kOr:
+        case Symbol::kAnd:
+        case Symbol::kNot:
+        case Symbol::kKnow:
+        case Symbol::kMaybe:
+        case Symbol::kBelieve:   for (int i = 0; i < s.arity(); ++i) { es.push_back(kFormula); } break;
+        case Symbol::kAction:    es.push_back(kQuasiName); es.push_back(kFormula); break;
+      }
+      if (s.tag == Symbol::kAction && !action_scope_active) {
+        action_scope = scoper.scope();
+        action_scope_active = true;
+      }
+      if (action_scope_active && !scoper.active(action_scope)) {
+        action_scope_active = false;
+      }
+      if (s.tag == Symbol::kNot || (s.tag != Symbol::kAction && !s.atomic() && action_scope_active)) {
+        nnf_ = false;
+      }
+      if (!s.objective()) {
+        objective_ = false;
+      }
+      if (s.tag == Symbol::kAction) {
+        static_ = false;
+      }
+      if (s.tag == Symbol::kVar || s.quantifier()) {
+        ground_ = false;
+      }
+      scoper.Munch(*it++);
+    }
+    if (!es.empty()) {
+      weakly_well_formed_ = false;
+      strongly_well_formed_ = false;
+    }
+  }
+
   RWord rword_;
   mutable std::vector<RFormula> args_;
+  unsigned meta_init_             : 1;
+  unsigned strongly_well_formed_  : 1;
+  unsigned weakly_well_formed_    : 1;
+  unsigned nnf_                   : 1;
+  unsigned objective_             : 1;
+  unsigned static_                : 1;
+  unsigned ground_                : 1;
 };
 
 class Formula : private CommonFormula {
@@ -561,9 +647,9 @@ class Formula : private CommonFormula {
   using Word = Abc::Word;
 
   template<typename Formulas>
-  static Formula Fun(Abc::Fun f, Formulas&& args)   { Formula ff(Symbol::Fun(f)); ff.Add(args); return ff; }
+  static Formula Fun(Abc::Fun f, Formulas&& args)   { Formula ff(Symbol::Fun(f)); ff.AddArgs(args); return ff; }
   template<typename Formulas>
-  static Formula Name(Abc::Name n, Formulas&& args) { Formula ff(Symbol::Name(n)); ff.Add(args); return ff; }
+  static Formula Name(Abc::Name n, Formulas&& args) { Formula ff(Symbol::Name(n)); ff.AddArgs(args); return ff; }
   static Formula Var(Abc::Var x)                                   { return Formula(Symbol::Var(x)); }
   static Formula Equals(Formula&& f1, Formula&& f2)                { return Formula(Symbol::Equals(), f1, f2); }
   static Formula Equals(const Formula& f1, const Formula& f2)      { return Formula(Symbol::Equals(), f1, f2); }
@@ -592,8 +678,17 @@ class Formula : private CommonFormula {
   explicit Formula(Word&& w) : word_(std::move(w)) {}
   explicit Formula(const RFormula& f) : word_(f.rword()) {}
 
-  RFormula readable() const { return RFormula(word_.begin(), word_.end()); }
+  RFormula readable() const { return RFormula(begin(), end()); }
   const Word& word() const { return word_; }
+  const Symbol& head() const { return *begin(); }
+  Symbol::Tag tag() const { return head().tag; }
+  int arity() const { return head().arity(); }
+
+  Symbol::Ref begin() { return word_.begin(); }
+  Symbol::Ref end()   { return word_.end(); }
+
+  Symbol::CRef begin() const { return word_.begin(); }
+  Symbol::CRef end()   const { return word_.end(); }
 
   void Normalize() {
     Rectify();
@@ -607,20 +702,20 @@ class Formula : private CommonFormula {
     // function for x.
     struct ForallMarker {
       ForallMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
-      ForallMarker(Scope scope) : scope(scope) {}
+      explicit ForallMarker(Scope scope) : scope(scope) {}
       Abc::Var x;
       Scope scope;
     };
     struct NotMarker {
       NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
-      NotMarker(Scope scope) : neg(false), scope(scope) {}
+      explicit NotMarker(Scope scope) : neg(false), scope(scope) {}
       unsigned neg : 1;
       Scope scope;
     };
     std::vector<ForallMarker> foralls;
     std::vector<NotMarker> nots;
     Scope::Observer scoper;
-    for (auto it = word_.begin(); it != word_.end(); ) {
+    for (auto it = begin(); it != end(); ) {
       const Symbol s = *it;
       while (!foralls.empty() && !scoper.active(foralls.back().scope)) {
         foralls.pop_back();
@@ -687,7 +782,7 @@ class Formula : private CommonFormula {
     };
     std::vector<ActionMarker> actions;
     Scope::Observer scoper;
-    for (auto it = word_.begin(); it != word_.end(); ) {
+    for (auto it = begin(); it != end(); ) {
       while (!actions.empty() && !scoper.active(actions.back().scope)) {
         actions.pop_back();
       }
@@ -747,7 +842,7 @@ class Formula : private CommonFormula {
     };
     internal::DenseMap<Abc::Var, NewVars> vars;
     Scope::Observer scoper;
-    for (Symbol& s : word_) {
+    for (Symbol& s : *this) {
       for (auto& nvs : vars) {
         while (!nvs.vars.empty() && !scoper.active(nvs.vars.back().scope)) {
           nvs.vars.pop_back();
@@ -769,16 +864,16 @@ class Formula : private CommonFormula {
   void Flatten() {
     struct NotMarker {
       NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
-      NotMarker(Scope scope) : reset(true), scope(scope) {}
+      explicit NotMarker(Scope scope) : reset(true), scope(scope) {}
       unsigned reset : 1;
       unsigned neg   : 1;
       Scope scope;
     };
     std::vector<NotMarker> nots;
     Scope::Observer scoper;
-    Symbol::Ref or_ref = word_.end();
+    Symbol::Ref or_ref = end();
     bool tolerate_fun = false;
-    for (auto it = word_.begin(); it != word_.end(); ) {
+    for (auto it = begin(); it != end(); ) {
       while (!nots.empty() && !scoper.active(nots.back().scope)) {
         nots.pop_back();
       }
@@ -847,21 +942,21 @@ class Formula : private CommonFormula {
   void PushInwards() {
     struct AndOrMarker {
       AndOrMarker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
-      AndOrMarker(Scope scope) : reset(true), scope(scope) {}
+      explicit AndOrMarker(Scope scope) : reset(true), scope(scope) {}
       unsigned reset : 1;
       Symbol::Ref ref;
       Scope scope;
     };
     struct ActionMarker {
       ActionMarker(Symbol::List symbols, Scope scope) : symbols(symbols), scope(scope) {}
-      ActionMarker(Scope scope) : reset(true), scope(scope) {}
+      explicit ActionMarker(Scope scope) : reset(true), scope(scope) {}
       unsigned reset : 1;
       Symbol::List symbols;
       Scope scope;
     };
     struct NotMarker {
       NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
-      NotMarker(Scope scope) : reset(true), scope(scope) {}
+      explicit NotMarker(Scope scope) : reset(true), scope(scope) {}
       unsigned reset : 1;
       unsigned neg   : 1;
       Scope scope;
@@ -870,7 +965,7 @@ class Formula : private CommonFormula {
     std::vector<ActionMarker> actions;
     std::vector<NotMarker> nots;
     Scope::Observer scoper;
-    for (auto it = word_.begin(); it != word_.end(); ) {
+    for (auto it = begin(); it != end(); ) {
       while (!andors.empty() && !scoper.active(andors.back().scope)) {
         andors.pop_back();
       }
@@ -975,7 +1070,7 @@ class Formula : private CommonFormula {
     };
     std::vector<Marker> markers;
     Scope::Observer scoper;
-    for (auto it = word_.begin(); it != word_.end(); ) {
+    for (auto it = begin(); it != end(); ) {
       while (!markers.empty() && !scoper.active(markers.back().scope)) {
         const Symbol::Ref begin = markers.back().ref;
         Formula f = reduce(RFormula(begin, it));
@@ -991,17 +1086,32 @@ class Formula : private CommonFormula {
   }
 
  private:
-  explicit Formula(Symbol s) { word_.Insert(word_.end(), s); }
-  Formula(Symbol s, Formula&& f) : Formula(s) { word_.PutIn(word_.end(), std::move(f.word_)); }
-  Formula(Symbol s, Formula&& f, Formula&& g) : Formula(s, std::move(f)) { word_.PutIn(word_.end(), std::move(g.word_)); }
-  Formula(Symbol s, const Formula& g) : Formula(s) { word_.Insert(word_.end(), g.word_.begin(), g.word_.end()); }
-  Formula(Symbol s, const Formula& f, const Formula& g) : Formula(s, f) { word_.Insert(word_.end(), g.word_.begin(), g.word_.end()); }
+  explicit Formula(Symbol s)                            { word_.Insert(end(), s); }
+  Formula(Symbol s, Formula&& f)                        : Formula(s) { assert(s.arity() == 1); AddArg(f); }
+  Formula(Symbol s, const Formula& f)                   : Formula(s) { assert(s.arity() == 1); AddArg(f); }
+  Formula(Symbol s, Formula&& f, Formula&& g)           : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
+  Formula(Symbol s, const Formula& f, const Formula& g) : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
 
   template<typename Formulas>
-  void Add(Formulas&& args) {
+  void AddArgs(Formulas&& args) {
+    assert(arity() == args.size());
     for (Formula& f : args) {
-      word_.PutIn(word_.end(), std::move(f.word_));
+      AddArg(std::move(f));
     }
+  }
+
+  void AddArg(Formula&& f) {
+    assert(f.head().term() == (tag() == Abc::Symbol::kEquals || tag() == Abc::Symbol::kNotEquals ||
+                               tag() == Abc::Symbol::kFun || tag() == Abc::Symbol::kName ||
+                               (tag() == Abc::Symbol::kAction && word_.size() == 1)));
+    word_.PutIn(end(), std::move(f.word_));
+  }
+
+  void AddArg(const Formula& f) {
+    assert(f.head().term() == (tag() == Abc::Symbol::kEquals || tag() == Abc::Symbol::kNotEquals ||
+                               tag() == Abc::Symbol::kFun || tag() == Abc::Symbol::kName ||
+                               (tag() == Abc::Symbol::kAction && word_.size() == 1)));
+    word_.Insert(end(), f.begin(), f.end());
   }
 
   Word word_;
