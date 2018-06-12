@@ -135,7 +135,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
 
   struct Symbol {
     enum Tag {
-      kFun, kName, kVar, kFunTerm, kNameTerm, kEquals, kNotEquals, kLiteral, kClause,
+      kFun, kName, kVar, kStrippedFun, kStrippedName, kEquals, kNotEquals, kStrippedLiteral, kStrippedClause,
       kNot, kOr, kAnd, kExists, kForall, kKnow, kMaybe, kBelieve, kAction
     };
 
@@ -143,39 +143,39 @@ class Alphabet : private internal::Singleton<Alphabet> {
     using Ref = List::iterator;
     using CRef = List::const_iterator;
 
-    static Symbol Fun(Fun f)              { Symbol s; s.tag = kFun;        s.u.f = f;            return s; }
-    static Symbol Name(Name n)            { Symbol s; s.tag = kName;       s.u.n = n;            return s; }
-    static Symbol Var(Var x)              { Symbol s; s.tag = kVar;        s.u.x = x;            return s; }
-    static Symbol FunTerm(limbo::Fun f)   { Symbol s; s.tag = kFunTerm;    s.u.ft = f;           return s; }
-    static Symbol NameTerm(limbo::Name n) { Symbol s; s.tag = kNameTerm;   s.u.nt = n;           return s; }
-    static Symbol Equals()                { Symbol s; s.tag = kEquals;                           return s; }
-    static Symbol NotEquals()             { Symbol s; s.tag = kNotEquals;                        return s; }
-    static Symbol Literal(Literal a)      { Symbol s; s.tag = kLiteral;    s.u.a = a;            return s; }
-    static Symbol Clause(const Clause* c) { Symbol s; s.tag = kClause;     s.u.c = c;            return s; }
-    static Symbol Not()                   { Symbol s; s.tag = kNot;                              return s; }
-    static Symbol Exists(class Var x)     { Symbol s; s.tag = kExists;     s.u.x = x;            return s; }
-    static Symbol Forall(class Var x)     { Symbol s; s.tag = kForall;     s.u.x = x;            return s; }
-    static Symbol Or(int k)               { Symbol s; s.tag = kOr;         s.u.k = k;            return s; }
-    static Symbol And(int k)              { Symbol s; s.tag = kAnd;        s.u.k = k;            return s; }
-    static Symbol Know(int k)             { Symbol s; s.tag = kKnow;       s.u.k = k;            return s; }
-    static Symbol Maybe(int k)            { Symbol s; s.tag = kMaybe;      s.u.k = k;            return s; }
-    static Symbol Believe(int k, int l)   { Symbol s; s.tag = kBelieve;    s.u.k = k; s.u.l = l; return s; }
-    static Symbol Action()                { Symbol s; s.tag = kAction;                           return s; }
+    static Symbol Fun(Fun f)                  { Symbol s; s.tag = kFun;             s.u.f = f;            return s; }
+    static Symbol Name(Name n)                { Symbol s; s.tag = kName;            s.u.n = n;            return s; }
+    static Symbol Var(Var x)                  { Symbol s; s.tag = kVar;             s.u.x = x;            return s; }
+    static Symbol StrippedFun(limbo::Fun f)   { Symbol s; s.tag = kStrippedFun;     s.u.f_s = f;          return s; }
+    static Symbol StrippedName(limbo::Name n) { Symbol s; s.tag = kStrippedName;    s.u.n_s = n;          return s; }
+    static Symbol Equals()                    { Symbol s; s.tag = kEquals;                                return s; }
+    static Symbol NotEquals()                 { Symbol s; s.tag = kNotEquals;                             return s; }
+    static Symbol Literal(Literal a)          { Symbol s; s.tag = kStrippedLiteral; s.u.a = a;            return s; }
+    static Symbol Clause(const Clause* c)     { Symbol s; s.tag = kStrippedClause;  s.u.c = c;            return s; }
+    static Symbol Not()                       { Symbol s; s.tag = kNot;                                   return s; }
+    static Symbol Exists(class Var x)         { Symbol s; s.tag = kExists;          s.u.x = x;            return s; }
+    static Symbol Forall(class Var x)         { Symbol s; s.tag = kForall;          s.u.x = x;            return s; }
+    static Symbol Or(int k)                   { Symbol s; s.tag = kOr;              s.u.k = k;            return s; }
+    static Symbol And(int k)                  { Symbol s; s.tag = kAnd;             s.u.k = k;            return s; }
+    static Symbol Know(int k)                 { Symbol s; s.tag = kKnow;            s.u.k = k;            return s; }
+    static Symbol Maybe(int k)                { Symbol s; s.tag = kMaybe;           s.u.k = k;            return s; }
+    static Symbol Believe(int k, int l)       { Symbol s; s.tag = kBelieve;         s.u.k = k; s.u.l = l; return s; }
+    static Symbol Action()                    { Symbol s; s.tag = kAction;                                return s; }
 
     Symbol() = default;
 
     Tag tag;
 
     union {
-      class Fun            f;   // kFun
-      class Name           n;   // kName
-      class Var            x;   // kVar, kExists, kForall
-      limbo::Fun           ft;  // kFunTerm
-      limbo::Name          nt;  // kNameTerm
-      limbo::Literal       a;   // kLiteral
-      const limbo::Clause* c;   // kClause
-      int                  k;   // kOr, kAnd, kKnow, kMaybe, kBelieve
-      int                  l;   // kBelieve
+      class Fun            f;    // kFun
+      class Name           n;    // kName
+      class Var            x;    // kVar, kExists, kForall
+      limbo::Fun           f_s;  // kStrippedFun
+      limbo::Name          n_s;  // kStrippedName
+      limbo::Literal       a;    // kStrippedLiteral
+      const limbo::Clause* c;    // kStrippedClause
+      int                  k;    // kOr, kAnd, kKnow, kMaybe, kBelieve
+      int                  l;    // kBelieve
     } u;
 
     bool operator==(const Symbol& s) const {
@@ -183,59 +183,78 @@ class Alphabet : private internal::Singleton<Alphabet> {
         return false;
       }
       switch (tag) {
-        case kFun:       return u.f == s.u.f;
-        case kName:      return u.n == s.u.n;
-        case kVar:       return u.x == s.u.x;
-        case kFunTerm:   return u.ft == s.u.ft;
-        case kNameTerm:  return u.nt == s.u.nt;
-        case kEquals:    return true;
-        case kNotEquals: return true;
-        case kLiteral:   return u.a == s.u.a;
-        case kClause:    return u.c->operator==(*s.u.c);
-        case kNot:       return true;
-        case kExists:    return u.x == s.u.x;
-        case kForall:    return u.x == s.u.x;
-        case kOr:        return u.k == s.u.k;
-        case kAnd:       return u.k == s.u.k;
-        case kKnow:      return u.k == s.u.k;
-        case kMaybe:     return u.k == s.u.k;
-        case kBelieve:   return u.k == s.u.k && u.l == s.u.l;
-        case kAction:    return true;
+        case kFun:             return u.f == s.u.f;
+        case kName:            return u.n == s.u.n;
+        case kVar:             return u.x == s.u.x;
+        case kStrippedFun:     return u.f_s == s.u.f_s;
+        case kStrippedName:    return u.n_s == s.u.n_s;
+        case kEquals:          return true;
+        case kNotEquals:       return true;
+        case kStrippedLiteral: return u.a == s.u.a;
+        case kStrippedClause:  return u.c->operator==(*s.u.c);
+        case kNot:             return true;
+        case kExists:          return u.x == s.u.x;
+        case kForall:          return u.x == s.u.x;
+        case kOr:              return u.k == s.u.k;
+        case kAnd:             return u.k == s.u.k;
+        case kKnow:            return u.k == s.u.k;
+        case kMaybe:           return u.k == s.u.k;
+        case kBelieve:         return u.k == s.u.k && u.l == s.u.l;
+        case kAction:          return true;
       }
     }
 
     int arity() const {
       switch (tag) {
-        case kFun:       return u.f.arity();
-        case kName:      return u.n.arity();
-        case kVar:       return 0;
-        case kFunTerm:   return 0;
-        case kNameTerm:  return 0;
-        case kEquals:    return 2;
-        case kNotEquals: return 2;
-        case kLiteral:   return 0;
-        case kClause:    return 0;
-        case kNot:       return 1;
-        case kExists:    return 1;
-        case kForall:    return 1;
-        case kOr:        return u.k;
-        case kAnd:       return u.k;
-        case kKnow:      return 1;
-        case kMaybe:     return 1;
-        case kBelieve:   return 1;
-        case kAction:    return 2;
+        case kFun:             return u.f.arity();
+        case kName:            return u.n.arity();
+        case kVar:             return 0;
+        case kStrippedFun:     return 0;
+        case kStrippedName:    return 0;
+        case kEquals:          return 2;
+        case kNotEquals:       return 2;
+        case kStrippedLiteral: return 0;
+        case kStrippedClause:  return 0;
+        case kNot:             return 1;
+        case kExists:          return 1;
+        case kForall:          return 1;
+        case kOr:              return u.k;
+        case kAnd:             return u.k;
+        case kKnow:            return 1;
+        case kMaybe:           return 1;
+        case kBelieve:         return 1;
+        case kAction:          return 2;
       }
     }
 
-    bool fun()  const { return tag == kFun || tag == kFunTerm; }
-    bool name() const { return tag == kName || tag == kNameTerm; }
-    bool var()  const { return tag == kVar; }
-    bool term() const { return fun() || name() || var(); }
-
-    bool literal()    const { return tag == kEquals || tag == kNotEquals || tag == kLiteral; }
-    bool atomic()     const { return literal() || tag == kClause; }
+    bool stripped() const {
+      return tag == kStrippedFun || tag == kStrippedName || tag == kStrippedLiteral || tag == kStrippedClause;
+    }
+    bool fun()        const { return tag == kFun || tag == kStrippedFun; }
+    bool name()       const { return tag == kName || tag == kStrippedName; }
+    bool var()        const { return tag == kVar; }
+    bool term()       const { return fun() || name() || var(); }
+    bool literal()    const { return tag == kEquals || tag == kNotEquals || tag == kStrippedLiteral; }
     bool quantifier() const { return tag == kExists || tag == kForall; }
     bool objective()  const { return tag != kKnow || tag != kMaybe || tag != kBelieve; }
+
+    Sort sort() const {
+      assert(term());
+      if (stripped()) {
+        const RWord w = Instance()->Unstrip(*this);
+        assert(w.begin() != w.end());
+        const Symbol s = *w.begin();
+        assert(!s.stripped() && s.term());
+        return s.tag == kFun ? s.u.f.sort() : s.tag == kName ? s.u.n.sort() : s.u.x.sort();
+      } else if (tag == kFun) {
+        return u.f.sort();
+      } else if (tag == kName) {
+        return u.n.sort();
+      } else {
+        assert(tag == kVar);
+        return u.x.sort();
+      }
+    }
   };
 
   class RWord {
@@ -249,7 +268,57 @@ class Alphabet : private internal::Singleton<Alphabet> {
     Symbol::CRef end_;
   };
 
-  class Word;
+  class Word {
+   public:
+    Word() = default;
+    Word(const RWord& w) : Word(w.begin(), w.end()) {}
+    Word(Symbol::List&& w) : symbols_(w) {}
+
+    template<typename InputIt>
+    Word(InputIt begin, InputIt end) : symbols_(begin, end) {}
+
+    Word(Word&&) = default;
+    Word& operator=(Word&&) = default;
+
+    Word Clone() const { return Word(*this); }
+
+    RWord readable() const { return RWord(begin(), end()); }
+
+    int size() const { return symbols_.size(); }
+
+    Symbol::Ref begin() { return symbols_.begin(); }
+    Symbol::Ref end()   { return symbols_.end(); }
+
+    Symbol::CRef begin() const { return symbols_.begin(); }
+    Symbol::CRef end()   const { return symbols_.end(); }
+
+    template<typename InputIt>
+    Symbol::Ref Insert(Symbol::Ref before, InputIt first, InputIt last) { return symbols_.insert(before, first, last); }
+    Symbol::Ref Insert(Symbol::Ref before, Symbol s) { return symbols_.insert(before, s); }
+
+    Symbol::Ref Erase(Symbol::Ref first, Symbol::Ref last) { return symbols_.erase(first, last); }
+    Symbol::Ref Erase(Symbol::Ref it) { return symbols_.erase(it); }
+
+    void Move(Symbol::Ref before, Symbol::Ref first) { symbols_.splice(before, symbols_, first); }
+
+    Symbol::List TakeOut(Symbol::Ref first, Symbol::Ref last) {
+      Symbol::List tgt;
+      tgt.splice(tgt.end(), symbols_, first, last);
+      return tgt;
+    }
+
+    void PutIn(Symbol::Ref before, Symbol::List&& symbols) {
+      symbols_.splice(before, symbols, symbols.begin(), symbols.end());
+    }
+
+    void PutIn(Symbol::Ref before, Word&& w) { PutIn(before, std::move(w.symbols_)); }
+
+   private:
+    Word(const Word&) = default;
+    Word& operator=(const Word&) = default;
+
+    Symbol::List symbols_;
+  };
 
   static Alphabet* Instance() {
     if (instance == nullptr) {
@@ -318,42 +387,53 @@ class Alphabet : private internal::Singleton<Alphabet> {
     }
   }
 
-  Symbol Termify(const RWord& w) {
-    assert((w.begin()->tag == Symbol::kFun || w.begin()->tag == Symbol::kName));
-    auto it = symbols_term_.find(w);
+  Symbol Strip(Word&& w) {
+    assert(w.begin()->tag == Symbol::kFun || w.begin()->tag == Symbol::kName);
+    assert(std::all_of(std::next(w.begin()), w.end(), [](const Symbol& s) { return s.tag == Symbol::kStrippedName; }));
+    auto it = symbols_term_.find(w.readable());
     if (it != symbols_term_.end()) {
       return it->second;
     } else {
-      const bool is_fun = w.begin()->tag == Symbol::kFun;
-      if (is_fun) {
+      if (w.begin()->tag == Symbol::kFun) {
         const limbo::Fun f = limbo::Fun(++last_fun_term_);
-        const Symbol s = Symbol::FunTerm(f);
-        symbols_term_[w] = s;
-        term_fun_symbols_[f] = w;
+        const Symbol s = Symbol::StrippedFun(f);
+        term_fun_symbols_.Capacitate(f, [](auto i) { return internal::next_power_of_two(i) + 1; });
+        term_fun_symbols_[f] = std::move(w);
+        symbols_term_[term_fun_symbols_[f].readable()] = s;
         return s;
       } else {
         const limbo::Name n = limbo::Name(++last_name_term_);
-        const Symbol s = Symbol::NameTerm(n);
-        symbols_term_[w] = s;
-        term_name_symbols_[n] = w;
+        const Symbol s = Symbol::StrippedName(n);
+        term_name_symbols_.Capacitate(n, [](auto i) { return internal::next_power_of_two(i) + 1; });
+        term_name_symbols_[n] = std::move(w);
+        symbols_term_[term_name_symbols_[n].readable()] = s;
         return s;
       }
     }
   }
 
+  RWord Unstrip(const Symbol& s) const {
+    assert(s.stripped() && s.term());
+    if (s.tag == Symbol::kStrippedFun) {
+      return term_fun_symbols_[s.u.f_s].readable();
+    } else {
+      return term_name_symbols_[s.u.n_s].readable();
+    }
+  }
+
  private:
   struct DeepHash {
-    internal::hash32_t operator()(const RWord& sr) const {
+    internal::hash32_t operator()(const RWord& w) const {
       internal::hash32_t h = 0;
-      for (const Symbol& s : sr) {
+      for (const Symbol& s : w) {
         int i = 0;
         switch (s.tag) {
-          case Symbol::kFun:      i = s.u.f.index();  break;
-          case Symbol::kName:     i = s.u.n.index();  break;
-          case Symbol::kVar:      i = s.u.x.index();  break;
-          case Symbol::kFunTerm:  i = s.u.ft.index(); break;
-          case Symbol::kNameTerm: i = s.u.nt.index(); break;
-          default:                                    break;
+          case Symbol::kFun:          i = s.u.f.index();   break;
+          case Symbol::kName:         i = s.u.n.index();   break;
+          case Symbol::kVar:          i = s.u.x.index();   break;
+          case Symbol::kStrippedFun:  i = s.u.f_s.index(); break;
+          case Symbol::kStrippedName: i = s.u.n_s.index(); break;
+          default:                                         break;
         }
         h ^= internal::jenkins_hash(s.tag);
         h ^= internal::jenkins_hash(i);
@@ -363,8 +443,8 @@ class Alphabet : private internal::Singleton<Alphabet> {
   };
 
   struct DeepEquals {
-    bool operator()(const RWord& sr1, const RWord& sr2) const {
-      return std::equal(sr1.begin(), sr1.end(), sr2.begin());
+    bool operator()(const RWord& w1, const RWord& w2) const {
+      return std::equal(w1.begin(), w1.end(), w2.begin());
     }
   };
 
@@ -383,64 +463,17 @@ class Alphabet : private internal::Singleton<Alphabet> {
   internal::DenseMap<Name, int>  name_arity_;
   internal::DenseMap<Var, Sort>  var_sort_;
 
-  internal::DenseMap<limbo::Fun, RWord> term_fun_symbols_;
-  internal::DenseMap<limbo::Name, RWord> term_name_symbols_;
-  int last_sort_ = 0;
-  int last_var_ = 0;
-  int last_fun_ = 0;
-  int last_name_ = 0;
-  int last_fun_term_ = 0;
+  TermMap                               symbols_term_;
+  internal::DenseMap<limbo::Fun, Word>  term_fun_symbols_;
+  internal::DenseMap<limbo::Name, Word> term_name_symbols_;
+  int last_sort_      = 0;
+  int last_var_       = 0;
+  int last_fun_       = 0;
+  int last_name_      = 0;
+  int last_fun_term_  = 0;
   int last_name_term_ = 0;
 
-  TermMap symbols_term_;
-
   std::vector<internal::DenseMap<Fun, Fun>> swear_funcs_;
-};
-
-class Alphabet::Word {
- public:
-  Word() = default;
-  Word(const RWord& w) : Word(w.begin(), w.end()) {}
-
-  template<typename InputIt>
-  Word(InputIt begin, InputIt end) : symbols_(begin, end) {}
-
-  Word(const Word&) = default;
-  Word& operator=(const Word&) = default;
-  Word(Word&&) = default;
-  Word& operator=(Word&&) = default;
-
-  int size() const { return symbols_.size(); }
-
-  Symbol::Ref begin() { return symbols_.begin(); }
-  Symbol::Ref end()   { return symbols_.end(); }
-
-  Symbol::CRef begin() const { return symbols_.begin(); }
-  Symbol::CRef end()   const { return symbols_.end(); }
-
-  template<typename InputIt>
-  Symbol::Ref Insert(Symbol::Ref before, InputIt first, InputIt last) { return symbols_.insert(before, first, last); }
-  Symbol::Ref Insert(Symbol::Ref before, Symbol s) { return symbols_.insert(before, s); }
-
-  Symbol::Ref Erase(Symbol::Ref first, Symbol::Ref last) { return symbols_.erase(first, last); }
-  Symbol::Ref Erase(Symbol::Ref it) { return symbols_.erase(it); }
-
-  void Move(Symbol::Ref before, Symbol::Ref first) { symbols_.splice(before, symbols_, first); }
-
-  Symbol::List TakeOut(Symbol::Ref first, Symbol::Ref last) {
-    Symbol::List tgt;
-    tgt.splice(tgt.end(), symbols_, first, last);
-    return tgt;
-  }
-
-  void PutIn(Symbol::Ref before, Symbol::List&& symbols) {
-    symbols_.splice(before, symbols, symbols.begin(), symbols.end());
-  }
-
-  void PutIn(Symbol::Ref before, Word&& w) { PutIn(before, std::move(w.symbols_)); }
-
- private:
-  Symbol::List symbols_;
 };
 
 class CommonFormula {
@@ -491,6 +524,7 @@ class RFormula : private CommonFormula {
   using RWord = Abc::RWord;
 
   RFormula(Symbol::CRef begin, Symbol::CRef end) : rword_(begin, end), meta_init_(false) {}
+  explicit RFormula(const RWord& w) : RFormula(w.begin(), w.end()) {}
   explicit RFormula(Symbol::CRef begin) : RFormula(begin, End(begin)) {}
 
   const RWord& rword() const { return rword_; }
@@ -521,10 +555,6 @@ class RFormula : private CommonFormula {
     std::vector<QuantifierMarker> quantifiers;
     Scope::Observer scoper;
     for (auto it = begin(); it != end(); ) {
-      while (!quantifiers.empty() && !scoper.active(quantifiers.back().scope)) {
-        --bound[quantifiers.back().x];
-        quantifiers.pop_back();
-      }
       if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall || it->tag == Abc::Symbol::kVar) {
         bound.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
         free.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
@@ -536,6 +566,10 @@ class RFormula : private CommonFormula {
         free.Insert(it->u.x);
       }
       scoper.Munch(*it++);
+      while (!quantifiers.empty() && !scoper.active(quantifiers.back().scope)) {
+        --bound[quantifiers.back().x];
+        quantifiers.pop_back();
+      }
     }
     return free;
   }
@@ -551,13 +585,8 @@ class RFormula : private CommonFormula {
   void InitMeta() const { const_cast<RFormula*>(this)->InitMeta(); }
 
   void InitMeta() {
-    struct QuantifierMarker {
-      explicit QuantifierMarker(Scope scope) : scope(scope) {}
-      Scope scope;
-    };
     enum Expectation { kTerm, kQuasiName, kFormula };
     std::vector<Expectation> es;
-    std::vector<QuantifierMarker> quantifiers;
     Scope::Observer scoper;
     Scope action_scope;
     bool action_scope_active = false;
@@ -572,28 +601,27 @@ class RFormula : private CommonFormula {
       const Symbol& s = *it;
       if (it != begin()) {
         if (!es.empty()) {
-          if (es.empty()) {
-            weakly_well_formed_ = false;
-            strongly_well_formed_ = false;
-          }
           switch (es.back()) {
             case kTerm:       weakly_well_formed_ &= s.term();  strongly_well_formed_ &= s.term();            break;
             case kQuasiName:  weakly_well_formed_ &= s.term();  strongly_well_formed_ &= s.name() || s.var(); break;
             case kFormula:    weakly_well_formed_ &= !s.term(); strongly_well_formed_ &= !s.term();           break;
           }
           es.pop_back();
+        } else {
+          weakly_well_formed_ &= !s.term();
+          strongly_well_formed_ &= !s.term();
         }
       }
       switch (s.tag) {
         case Symbol::kFun:
-        case Symbol::kName:      for (int i = 0; i < s.arity(); ++i) { es.push_back(kQuasiName); } break;
+        case Symbol::kName:         for (int i = 0; i < s.arity(); ++i) { es.push_back(kQuasiName); } break;
         case Symbol::kVar:
-        case Symbol::kFunTerm:
-        case Symbol::kNameTerm:
-        case Symbol::kLiteral:
-        case Symbol::kClause:    break;
+        case Symbol::kStrippedFun:
+        case Symbol::kStrippedName:
+        case Symbol::kStrippedLiteral:
+        case Symbol::kStrippedClause:       break;
         case Symbol::kEquals:
-        case Symbol::kNotEquals: es.push_back(kTerm); es.push_back(kQuasiName); break;
+        case Symbol::kNotEquals:    es.push_back(kQuasiName); es.push_back(kTerm); break;
         case Symbol::kExists:
         case Symbol::kForall:
         case Symbol::kOr:
@@ -601,8 +629,8 @@ class RFormula : private CommonFormula {
         case Symbol::kNot:
         case Symbol::kKnow:
         case Symbol::kMaybe:
-        case Symbol::kBelieve:   for (int i = 0; i < s.arity(); ++i) { es.push_back(kFormula); } break;
-        case Symbol::kAction:    es.push_back(kQuasiName); es.push_back(kFormula); break;
+        case Symbol::kBelieve:      for (int i = 0; i < s.arity(); ++i) { es.push_back(kFormula); } break;
+        case Symbol::kAction:       es.push_back(kFormula); es.push_back(kQuasiName); break;
       }
       if (s.tag == Symbol::kAction && !action_scope_active) {
         action_scope = scoper.scope();
@@ -611,7 +639,7 @@ class RFormula : private CommonFormula {
       if (action_scope_active && !scoper.active(action_scope)) {
         action_scope_active = false;
       }
-      if (s.tag == Symbol::kNot || (s.tag != Symbol::kAction && !s.atomic() && action_scope_active)) {
+      if (s.tag == Symbol::kNot || (s.tag != Symbol::kAction && !(s.stripped() && !s.term()) && action_scope_active)) {
         nnf_ = false;
       }
       if (!s.objective()) {
@@ -644,6 +672,7 @@ class RFormula : private CommonFormula {
 
 class Formula : private CommonFormula {
  public:
+  using RWord = Abc::RWord;
   using Word = Abc::Word;
 
   template<typename Formulas>
@@ -678,6 +707,11 @@ class Formula : private CommonFormula {
   explicit Formula(Word&& w) : word_(std::move(w)) {}
   explicit Formula(const RFormula& f) : word_(f.rword()) {}
 
+  Formula(Formula&&) = default;
+  Formula& operator=(Formula&&) = default;
+
+  Formula Clone() { return Formula(word_.Clone()); }
+
   RFormula readable() const { return RFormula(begin(), end()); }
   const Word& word() const { return word_; }
   const Symbol& head() const { return *begin(); }
@@ -700,6 +734,7 @@ class Formula : private CommonFormula {
     // Because of actions, we can't do normal Skolemization. Instead, we replace
     // the formula ex x phi with fa x (f != x v phi), where f is the Skolem
     // function for x.
+    assert(readable().weakly_well_formed());
     struct ForallMarker {
       ForallMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
       explicit ForallMarker(Scope scope) : scope(scope) {}
@@ -717,23 +752,17 @@ class Formula : private CommonFormula {
     Scope::Observer scoper;
     for (auto it = begin(); it != end(); ) {
       const Symbol s = *it;
-      while (!foralls.empty() && !scoper.active(foralls.back().scope)) {
-        foralls.pop_back();
-      }
-      while (!nots.empty() && !scoper.active(nots.back().scope)) {
-        nots.pop_back();
-      }
       const bool pos = nots.empty() || !nots.back().neg;
       switch (s.tag) {
         case Symbol::kFun:
         case Symbol::kName:
         case Symbol::kVar:
-        case Symbol::kFunTerm:
-        case Symbol::kNameTerm:
+        case Symbol::kStrippedFun:
+        case Symbol::kStrippedName:
         case Symbol::kEquals:
         case Symbol::kNotEquals:
-        case Symbol::kLiteral:
-        case Symbol::kClause:
+        case Symbol::kStrippedLiteral:
+        case Symbol::kStrippedClause:
         case Symbol::kOr:
         case Symbol::kAnd:
         case Symbol::kAction:
@@ -770,11 +799,19 @@ class Formula : private CommonFormula {
           nots.push_back(NotMarker(scoper.scope()));
           break;
       }
+      while (!foralls.empty() && !scoper.active(foralls.back().scope)) {
+        foralls.pop_back();
+      }
+      while (!nots.empty() && !scoper.active(nots.back().scope)) {
+        nots.pop_back();
+      }
     }
+    assert(readable().weakly_well_formed());
   }
 
   // Precondition: Formula is objective
   void Squaring() {
+    assert(readable().weakly_well_formed());
     struct ActionMarker {
       ActionMarker(Symbol::List symbols, Scope scope) : symbols(symbols), scope(scope) {}
       Symbol::List symbols;
@@ -783,9 +820,6 @@ class Formula : private CommonFormula {
     std::vector<ActionMarker> actions;
     Scope::Observer scoper;
     for (auto it = begin(); it != end(); ) {
-      while (!actions.empty() && !scoper.active(actions.back().scope)) {
-        actions.pop_back();
-      }
       switch (it->tag) {
         case Symbol::kFun:
           scoper.Munch(*it);
@@ -799,7 +833,7 @@ class Formula : private CommonFormula {
         case Symbol::kName:
         case Symbol::kEquals:
         case Symbol::kNotEquals:
-        case Symbol::kLiteral:
+        case Symbol::kStrippedLiteral:
         case Symbol::kNot:
         case Symbol::kExists:
         case Symbol::kForall:
@@ -815,9 +849,9 @@ class Formula : private CommonFormula {
           actions.push_back(ActionMarker(word_.TakeOut(first, last), scoper.scope()));
           break;
         }
-        case Symbol::kFunTerm:
-        case Symbol::kNameTerm:
-        case Symbol::kClause:
+        case Symbol::kStrippedFun:
+        case Symbol::kStrippedName:
+        case Symbol::kStrippedClause:
         case Symbol::kKnow:
         case Symbol::kMaybe:
         case Symbol::kBelieve:
@@ -825,10 +859,16 @@ class Formula : private CommonFormula {
           std::abort();
           break;
       }
+      while (!actions.empty() && !scoper.active(actions.back().scope)) {
+        actions.pop_back();
+      }
     }
+    assert(readable().weakly_well_formed());
+    assert(!readable().dynamic());
   }
 
   void Rectify(bool all_new = false) {
+    assert(readable().weakly_well_formed());
     struct NewVar {
       NewVar() = default;
       NewVar(Abc::Var x, Scope scope) : x(x), scope(scope) {}
@@ -843,11 +883,6 @@ class Formula : private CommonFormula {
     internal::DenseMap<Abc::Var, NewVars> vars;
     Scope::Observer scoper;
     for (Symbol& s : *this) {
-      for (auto& nvs : vars) {
-        while (!nvs.vars.empty() && !scoper.active(nvs.vars.back().scope)) {
-          nvs.vars.pop_back();
-        }
-      }
       if (s.tag == Symbol::kExists || s.tag == Symbol::kForall) {
         vars.Capacitate(s.u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
         const Abc::Var y = !vars[s.u.x].used && !all_new ? s.u.x : Abc::Instance()->CreateVar(s.u.x.sort());
@@ -858,10 +893,17 @@ class Formula : private CommonFormula {
         s.u.x = vars[s.u.x].vars.back().x;
       }
       scoper.Munch(s);
+      for (auto& nvs : vars) {
+        while (!nvs.vars.empty() && !scoper.active(nvs.vars.back().scope)) {
+          nvs.vars.pop_back();
+        }
+      }
     }
+    assert(readable().weakly_well_formed());
   }
 
   void Flatten() {
+    assert(readable().weakly_well_formed());
     struct NotMarker {
       NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
       explicit NotMarker(Scope scope) : reset(true), scope(scope) {}
@@ -874,9 +916,6 @@ class Formula : private CommonFormula {
     Symbol::Ref or_ref = end();
     bool tolerate_fun = false;
     for (auto it = begin(); it != end(); ) {
-      while (!nots.empty() && !scoper.active(nots.back().scope)) {
-        nots.pop_back();
-      }
       const bool pos = nots.empty() || !nots.back().neg;
       switch (it->tag) {
         case Symbol::kFun:
@@ -914,10 +953,10 @@ class Formula : private CommonFormula {
           break;
         case Symbol::kOr:
         case Symbol::kAnd:
-        case Symbol::kFunTerm:
-        case Symbol::kNameTerm:
-        case Symbol::kLiteral:
-        case Symbol::kClause:
+        case Symbol::kStrippedFun:
+        case Symbol::kStrippedName:
+        case Symbol::kStrippedLiteral:
+        case Symbol::kStrippedClause:
           scoper.Munch(*it++);
           break;
         case Symbol::kNot:
@@ -933,13 +972,19 @@ class Formula : private CommonFormula {
           nots.push_back(NotMarker(scoper.scope()));
           break;
       }
+      while (!nots.empty() && !scoper.active(nots.back().scope)) {
+        nots.pop_back();
+      }
     }
+    assert(readable().weakly_well_formed());
+    assert(readable().strongly_well_formed());
   }
 
   // Precondition: Formula is rectified.
   // Reasons: (1) We pull quantifiers out of disjunctions and conjunctions.
   //          (2) We push actions inwards.
   void PushInwards() {
+    assert(readable().weakly_well_formed());
     struct AndOrMarker {
       AndOrMarker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
       explicit AndOrMarker(Scope scope) : reset(true), scope(scope) {}
@@ -966,26 +1011,17 @@ class Formula : private CommonFormula {
     std::vector<NotMarker> nots;
     Scope::Observer scoper;
     for (auto it = begin(); it != end(); ) {
-      while (!andors.empty() && !scoper.active(andors.back().scope)) {
-        andors.pop_back();
-      }
-      while (!actions.empty() && !scoper.active(actions.back().scope)) {
-        actions.pop_back();
-      }
-      while (!nots.empty() && !scoper.active(nots.back().scope)) {
-        nots.pop_back();
-      }
       switch (it->tag) {
         case Symbol::kVar:
         case Symbol::kFun:
         case Symbol::kName:
-        case Symbol::kFunTerm:
-        case Symbol::kNameTerm:
+        case Symbol::kStrippedFun:
+        case Symbol::kStrippedName:
           scoper.Munch(*it++);
           break;
         case Symbol::kEquals:
         case Symbol::kNotEquals:
-        case Symbol::kLiteral:
+        case Symbol::kStrippedLiteral:
           if (andors.empty() || andors.back().reset) {
             const Symbol::Ref last = word_.Insert(it, Symbol::Or(1));
             scoper.Munch(*last);
@@ -1001,13 +1037,13 @@ class Formula : private CommonFormula {
             switch (it->tag) {
               case Symbol::kEquals:    it->tag = Symbol::kNotEquals; break;
               case Symbol::kNotEquals: it->tag = Symbol::kEquals; break;
-              case Symbol::kLiteral:   it->u.a = it->u.a.flip(); break;
+              case Symbol::kStrippedLiteral:   it->u.a = it->u.a.flip(); break;
               default:                 assert(false); std::abort();
             }
           }
           scoper.Munch(*it++);
           break;
-        case Symbol::kClause:
+        case Symbol::kStrippedClause:
           assert(false);
           std::abort();
           break;
@@ -1058,11 +1094,84 @@ class Formula : private CommonFormula {
           }
           break;
       }
+      while (!andors.empty() && !scoper.active(andors.back().scope)) {
+        andors.pop_back();
+      }
+      while (!actions.empty() && !scoper.active(actions.back().scope)) {
+        actions.pop_back();
+      }
+      while (!nots.empty() && !scoper.active(nots.back().scope)) {
+        nots.pop_back();
+      }
     }
+    assert(readable().nnf());
+    assert(readable().weakly_well_formed());
+  }
+
+  void Strip() {
+    assert(readable().weakly_well_formed());
+    struct TermMarker {
+      TermMarker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
+      bool ok = true;
+      Symbol::Ref ref;
+      Scope scope;
+    };
+    std::vector<TermMarker> terms;
+    Scope::Observer scoper;
+    Symbol::Ref last_eq = end();
+    for (auto it = begin(); it != end(); ) {
+      if (it->tag == Symbol::kFun) {
+        for (TermMarker& tm : terms) {
+          tm.ok &= tm.ref->term();
+        }
+        terms.push_back(TermMarker(it, scoper.scope()));
+      } else if (it->tag == Symbol::kName) {
+        terms.push_back(TermMarker(it, scoper.scope()));
+      } else if (it->tag == Symbol::kVar) {
+        for (TermMarker& tm : terms) {
+          tm.ok = false;
+        }
+      } else if (it->tag == Symbol::kEquals || it->tag == Symbol::kNotEquals) {
+        last_eq = it;
+      }
+      scoper.Munch(*it++);
+      while (!terms.empty() && !scoper.active(terms.back().scope)) {
+        const TermMarker& tm = terms.back();
+        if (tm.ok) {
+          Word w = Word(word_.TakeOut(tm.ref, it));
+          const Symbol s = Abc::Instance()->Strip(std::move(w));
+          word_.Insert(it, s);
+        }
+        terms.pop_back();
+      }
+      Symbol::Ref lhs;
+      Symbol::Ref rhs;
+      if (last_eq != end() && (lhs = std::next(last_eq)) != end() && (rhs = std::next(lhs)) != end()) {
+        assert(last_eq->tag == Symbol::kEquals || last_eq->tag == Symbol::kNotEquals);
+        if (lhs->stripped() && lhs->term() && rhs->stripped() && rhs->term() && (lhs->name() != rhs->name())) {
+          Symbol s;
+          if (lhs->name() && rhs->name()) {
+            s = (lhs->u.n_s == rhs->u.n_s) == (last_eq->tag == Symbol::kEquals) ? Symbol::And(0) : Symbol::Or(0);
+          } else if (lhs->sort() != rhs->sort()) {
+            s = last_eq->tag == Symbol::kEquals ? Symbol::Or(0) : Symbol::And(0);
+          } else {
+            bool pos = last_eq->tag == Symbol::kEquals;
+            const limbo::Fun f = lhs->fun() ? lhs->u.f_s : rhs->u.f_s;
+            const limbo::Name n = rhs->name() ? rhs->u.n_s : lhs->u.n_s;
+            s = Symbol::Literal(Literal(pos, f, n));
+          }
+          it = word_.Erase(last_eq, std::next(rhs));
+          word_.Insert(it, s);
+          last_eq = end();
+        }
+      }
+    }
+    assert(readable().weakly_well_formed());
   }
 
   template<typename UnaryPredicate, typename UnaryFunction>
   void Reduce(UnaryPredicate select = UnaryPredicate(), UnaryFunction reduce = UnaryFunction()) {
+    assert(readable().weakly_well_formed());
     struct Marker {
       Marker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
       Symbol::Ref ref;
@@ -1071,6 +1180,10 @@ class Formula : private CommonFormula {
     std::vector<Marker> markers;
     Scope::Observer scoper;
     for (auto it = begin(); it != end(); ) {
+      if (select(*it)) {
+        markers.push_back(Marker(it, scoper.scope()));
+      }
+      scoper.Munch(*it++);
       while (!markers.empty() && !scoper.active(markers.back().scope)) {
         const Symbol::Ref begin = markers.back().ref;
         Formula f = reduce(RFormula(begin, it));
@@ -1078,11 +1191,8 @@ class Formula : private CommonFormula {
         word_.PutIn(it, std::move(f.word_));
         markers.pop_back();
       }
-      if (select(*it)) {
-        markers.push_back(Marker(it, scoper.scope()));
-      }
-      scoper.Munch(*it++);
     }
+    assert(readable().weakly_well_formed());
   }
 
  private:
@@ -1101,16 +1211,18 @@ class Formula : private CommonFormula {
   }
 
   void AddArg(Formula&& f) {
-    assert(f.head().term() == (tag() == Abc::Symbol::kEquals || tag() == Abc::Symbol::kNotEquals ||
-                               tag() == Abc::Symbol::kFun || tag() == Abc::Symbol::kName ||
-                               (tag() == Abc::Symbol::kAction && word_.size() == 1)));
+    assert((tag() == Abc::Symbol::kEquals || tag() == Abc::Symbol::kNotEquals ||
+            tag() == Abc::Symbol::kFun || tag() == Abc::Symbol::kName ||
+            (tag() == Abc::Symbol::kAction && word_.size() == 1)) == f.head().term());
+    assert(tag() != Symbol::kName || !head().u.n.sort().rigid() || !f.head().u.n.sort().rigid());
     word_.PutIn(end(), std::move(f.word_));
   }
 
   void AddArg(const Formula& f) {
-    assert(f.head().term() == (tag() == Abc::Symbol::kEquals || tag() == Abc::Symbol::kNotEquals ||
-                               tag() == Abc::Symbol::kFun || tag() == Abc::Symbol::kName ||
-                               (tag() == Abc::Symbol::kAction && word_.size() == 1)));
+    assert((tag() == Abc::Symbol::kEquals || tag() == Abc::Symbol::kNotEquals ||
+            tag() == Abc::Symbol::kFun || tag() == Abc::Symbol::kName ||
+            (tag() == Abc::Symbol::kAction && word_.size() == 1)) == f.head().term());
+    assert(tag() != Symbol::kName || !head().u.n.sort().rigid() || !f.head().u.n.sort().rigid());
     word_.Insert(end(), f.begin(), f.end());
   }
 

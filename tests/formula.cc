@@ -11,36 +11,53 @@ namespace limbo {
 
 using Abc = Alphabet;
 using Symbol = Abc::Symbol;
+using RWord = Abc::RWord;
 using Word = Abc::Word;
 using F = Formula;
 
+namespace {
+RFormula lookup(Symbol s) { return RFormula(Abc::Instance()->Unstrip(s)); }
+RFormula lookup(Fun f)    { return lookup(Symbol::StrippedFun(f)); }
+RFormula lookup(Name n)   { return lookup(Symbol::StrippedName(n)); }
+}
+
+std::ostream& operator<<(std::ostream& os, const RWord& w);
+std::ostream& operator<<(std::ostream& os, const RFormula& w);
+
 std::ostream& operator<<(std::ostream& os, const Symbol& s) {
   switch (s.tag) {
-    case Symbol::kFun:       os << 'f' << s.u.f.index(); break;
-    case Symbol::kName:       os << 'n' << s.u.n.index(); break;
-    case Symbol::kVar:       os << 'x' << s.u.x.index(); break;
-    case Symbol::kFunTerm:   os << 'F'; break;
-    case Symbol::kNameTerm:   os << 'N'; break;
-    case Symbol::kEquals:    os << "\u003D"; break;
-    case Symbol::kNotEquals: os << "\u2260"; break;
-    case Symbol::kLiteral:   os << 'l'; break;
-    case Symbol::kClause:    os << 'c'; break;
-    case Symbol::kNot:       os << "\u2227 "; break;
-    case Symbol::kExists:    os << "\u2203 x" << s.u.x.index(); break;
-    case Symbol::kForall:    os << "\u2200 x" << s.u.x.index(); break;
-    case Symbol::kOr:        os << "\u2228"; break;
-    case Symbol::kAnd:       os << "\u2227"; break;
-    case Symbol::kKnow:      os << "know_" << s.u.k; break;
-    case Symbol::kMaybe:     os << "maybe_" << s.u.k; break;
-    case Symbol::kBelieve:   os << "bel_" << s.u.k << ',' << s.u.l; break;
-    case Symbol::kAction:    os << "A "; break;
+    case Symbol::kFun:          os << 'f' << s.u.f.index(); break;
+    case Symbol::kName:         os << 'n' << s.u.n.index(); break;
+    case Symbol::kVar:          os << 'x' << s.u.x.index(); break;
+    case Symbol::kStrippedFun:  os << '|' << lookup(s) << '|'; break;
+    case Symbol::kStrippedName: os << '|' << lookup(s) << '|'; break;
+    case Symbol::kEquals:       os << "\u003D"; break;
+    case Symbol::kNotEquals:    os << "\u2260"; break;
+    case Symbol::kLiteral:      os << '|' << lookup(s.u.a.lhs()) << ' ' << (s.u.a.pos() ? Symbol::Equals() : Symbol::NotEquals()) << ' ' << lookup(s.u.a.rhs()) << '|'; break;
+    case Symbol::kClause:       os << 'c'; break;
+    case Symbol::kNot:          os << "\u2227 "; break;
+    case Symbol::kExists:       os << "\u2203 x" << s.u.x.index(); break;
+    case Symbol::kForall:       os << "\u2200 x" << s.u.x.index(); break;
+    case Symbol::kOr:           os << "\u2228"; break;
+    case Symbol::kAnd:          os << "\u2227"; break;
+    case Symbol::kKnow:         os << "know_" << s.u.k; break;
+    case Symbol::kMaybe:        os << "maybe_" << s.u.k; break;
+    case Symbol::kBelieve:      os << "bel_" << s.u.k << ',' << s.u.l; break;
+    case Symbol::kAction:       os << "A "; break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const RWord& w) {
+  for (const Symbol& s : w) {
+    os << s;
   }
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Word& w) {
   for (const Symbol& s : w) {
-    os << s << ' ';
+    os << s;
   }
   return os;
 }
@@ -69,8 +86,8 @@ std::ostream& operator<<(std::ostream& os, const RFormula& r) {
       os << r.arg(0) << ' ' << r.head() << ' ' << r.arg(1);
       break;
     }
-    case Symbol::kFunTerm:
-    case Symbol::kNameTerm:
+    case Symbol::kStrippedFun:
+    case Symbol::kStrippedName:
     case Symbol::kLiteral:
     case Symbol::kClause:
       os << r.head();
@@ -119,12 +136,14 @@ TEST(FormulaTest, Rectify) {
   Abc::Fun c = abc->CreateFun(s, 0);
   Abc::Fun f = abc->CreateFun(s, 2);
   Abc::Fun g = abc->CreateFun(s, 1);
-  F fxy = F::Fun(f, std::vector<F>{F::Var(x), F::Var(y)});
-  F fyz = F::Fun(f, std::vector<F>{F::Var(y), F::Var(z)});
-  F gfxy = F::Fun(g, std::vector<F>{fxy});
-  F gfyz = F::Fun(g, std::vector<F>{fyz});
-  F w = F::Exists(x, F::Or(F::Forall(y, F::Exists(z, F::Equals(fxy, fyz))),
-                                    F::Exists(x, F::Forall(y, F::Exists(z, F::Exists(u, F::Equals(gfxy, gfyz)))))));
+  auto arg = [](Formula&& f1) { std::list<F> args; args.emplace_back(std::move(f1)); return args; };
+  auto args = [](Formula&& f1, Formula&& f2) { std::list<F> args; args.emplace_back(std::move(f1)); args.emplace_back(std::move(f2)); return args; };
+  F fxy = F::Fun(f, args(F::Var(x), F::Var(y)));
+  F fyz = F::Fun(f, args(F::Var(y), F::Var(z)));
+  F gfxy = F::Fun(g, arg(fxy.Clone()));
+  F gfyz = F::Fun(g, arg(fyz.Clone()));
+  F w = F::Exists(x, F::Or(F::Forall(y, F::Exists(z, F::Equals(fxy.Clone(), fyz.Clone()))),
+                           F::Exists(x, F::Forall(y, F::Exists(z, F::Exists(u, F::Equals(gfxy.Clone(), gfyz.Clone())))))));
 
   // Skolemize
   // Swearize
@@ -134,7 +153,7 @@ TEST(FormulaTest, Rectify) {
 
   {
     std::cout << "" << std::endl;
-    F phi(F::Exists(x, F::Equals(F::Fun(c, std::vector<F>{}), F::Name(n, std::vector<F>{}))));
+    F phi(F::Exists(x, F::Equals(F::Fun(c, std::list<F>{}), F::Name(n, std::list<F>{}))));
     std::cout << "Orig: " << phi << std::endl;
     phi.Rectify();
     std::cout << "Rect: " << phi << std::endl;
@@ -142,11 +161,13 @@ TEST(FormulaTest, Rectify) {
     std::cout << "Skol: " << phi << std::endl;
     phi.PushInwards();
     std::cout << "Push: " << phi << std::endl;
+    phi.Strip();
+    std::cout << "Strp: " << phi << std::endl;
   }
 
   {
     std::cout << "" << std::endl;
-    F phi(w);
+    F phi(w.Clone());
     std::cout << "Orig: " << phi << std::endl;
     phi.Rectify();
     std::cout << "Rect: " << phi << std::endl;
@@ -154,6 +175,8 @@ TEST(FormulaTest, Rectify) {
     std::cout << "Flat: " << phi << std::endl;
     phi.PushInwards();
     std::cout << "Push: " << phi << std::endl;
+    phi.Strip();
+    std::cout << "Strp: " << phi << std::endl;
   }
 }
 

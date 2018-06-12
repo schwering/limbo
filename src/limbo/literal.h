@@ -59,17 +59,19 @@ class Name {
 class Literal {
  public:
   using id_t = internal::u64;
+  using Bits = internal::Bits<Fun::id_t>;
 
   static Literal Eq(Fun lhs, Name rhs) { return Literal(true, lhs, rhs); }
   static Literal Neq(Fun lhs, Name rhs) { return Literal(false, lhs, rhs); }
   static Literal FromId(id_t id) { return Literal(id); }
 
   Literal() = default;
+  Literal(bool pos, Fun lhs, Name rhs) : id_(Bits::interleave(lhs.index(), (rhs.index() << 1) | pos)) {}
 
   bool pos() const { return id_ & 1; }
   bool neg() const { return !pos(); }
-  Fun  lhs() const { return Fun(internal::Bits<Fun::id_t>::deinterleave_hi(id_)); }
-  Name rhs() const { return Name(internal::Bits<Name::id_t>::deinterleave_lo(id_) >> 1); }
+  Fun  lhs() const { return Fun(Bits::deinterleave_hi(id_)); }
+  Name rhs() const { return Name(Bits::deinterleave_lo(id_) >> 1); }
 
   bool null() const { return id_ == 0; }
 
@@ -88,7 +90,7 @@ class Literal {
   // (f != n1), (f != n2) for distinct n1, n2.
   static bool Valid(const Literal a, const Literal b) {
     const id_t x = a.id_ ^ b.id_;
-    return x == 1 || (x != 0 && a.neg() && b.neg() && internal::Bits<Fun::id_t>::deinterleave_hi(x) == 0);
+    return x == 1 || (x != 0 && a.neg() && b.neg() && Bits::deinterleave_hi(x) == 0);
   }
 
   // Complementary(a, b) holds when a, b match one of the following:
@@ -97,19 +99,19 @@ class Literal {
   // (f == n1), (f == n2) for distinct n1, n2.
   static bool Complementary(const Literal a, const Literal b) {
     const id_t x = a.id_ ^ b.id_;
-    return x == 1 || (x != 0 && a.pos() && b.pos() && internal::Bits<Fun::id_t>::deinterleave_hi(x) == 0);
+    return x == 1 || (x != 0 && a.pos() && b.pos() && Bits::deinterleave_hi(x) == 0);
   }
 
   // ProperlySubsumes(a, b) holds when a is (f == n1) and b is (f != n2) for distinct n1, n2.
   static bool ProperlySubsumes(Literal a, Literal b) {
     const id_t x = a.id_ ^ b.id_;
-    return x != 1 && (x & 1) && a.pos() && internal::Bits<Fun::id_t>::deinterleave_hi(x) == 0;
+    return x != 1 && (x & 1) && a.pos() && Bits::deinterleave_hi(x) == 0;
   }
 
   // Subsumes(a, b) holds when a == b or ProperlySubsumes(a, b).
   static bool Subsumes(Literal a, Literal b) {
     const id_t x = a.id_ ^ b.id_;
-    return x == 0 || (x != 1 && (x & 1) && a.pos() && internal::Bits<Fun::id_t>::deinterleave_hi(x) == 0);
+    return x == 0 || (x != 1 && (x & 1) && a.pos() && Bits::deinterleave_hi(x) == 0);
   }
 
   bool Subsumes(Literal b) const { return Subsumes(*this, b); }
@@ -117,10 +119,9 @@ class Literal {
   bool ProperlySubsumes(Literal b) const { return ProperlySubsumes(*this, b); }
 
  private:
-  explicit Literal(id_t id) : id_(id) {}
+  static_assert(sizeof(Fun::id_t) == sizeof(Name::id_t), "Fun and Name must have size id_t");
 
-  Literal(bool pos, Fun lhs, Name rhs)
-      : id_(internal::Bits<Fun::id_t>::interleave(lhs.index(), (rhs.index() << 1) | pos)) {}
+  explicit Literal(id_t id) : id_(id) {}
 
   id_t id_;
 };
