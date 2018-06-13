@@ -330,6 +330,9 @@ class Alphabet : private internal::Singleton<Alphabet> {
   }
 
   Sort CreateSort(bool rigid) {
+    // XXX Maybe future Sorts shouldn't be non-rigid/rigid but of different order
+    // and the standard names of each order can only be formed with argumenst of
+    // lower order.
     const Sort s = Sort(++last_sort_);
     sort_rigid_.Capacitate(s, [](auto i) { return internal::next_power_of_two(i) + 1; });
     sort_rigid_[s] = rigid;
@@ -337,6 +340,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
   }
 
   Fun CreateFun(Sort s, int arity) {
+    // XXX Should functions of a rigid sort be allowed?
     assert(!s.rigid());
     if (s.rigid()) {
       std::abort();
@@ -574,6 +578,9 @@ class RFormula : private FormulaCommons {
     return free;
   }
 
+  // Strongly well formed means the formula is well formed as defined in the
+  // paper, i.e., quasi-primitive literals, quasi-trivial actions (flattened).
+  // Weakly well formed admits nested functions.
   bool strongly_well_formed() const { if (!meta_init_) { InitMeta(); } return strongly_well_formed_; }
   bool weakly_well_formed()   const { if (!meta_init_) { InitMeta(); } return weakly_well_formed_; }
   bool nnf()                  const { if (!meta_init_) { InitMeta(); } return nnf_; }
@@ -739,10 +746,17 @@ class Formula : private FormulaCommons {
     PushInwards();
   }
 
+  // Eliminates existential (or, within an odd number of negations, universal)
+  // quantifiers. Traditionally, every variable x with an existential quantifier
+  // is within universal quantifiers for x_1,...,x_m is replaced with a new
+  // function f(x_1,...,x_m). This is unsound in our case when there are actions
+  // between different occurrences of x, because the f(x_1,...,x_m) would not
+  // refer to the same objects then. Hence we instead replace the formula
+  // ex x phi with fa x (f(x_1,...,x_m) != x v phi). This is similar to doing
+  // normal Skolemization and flatten immediately.
+  // Precondition: Existential variables must be of non-rigid sort.
+  // Reason: Rigid sorts do not support functions (at least for now).
   void Skolemize() {
-    // Because of actions, we can't do normal Skolemization. Instead, we replace
-    // the formula ex x phi with fa x (f != x v phi), where f is the Skolem
-    // function for x.
     assert(readable().weakly_well_formed());
     struct ForallMarker {
       ForallMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
@@ -818,7 +832,10 @@ class Formula : private FormulaCommons {
     assert(readable().weakly_well_formed());
   }
 
-  // Precondition: Formula is objective
+  // Replaces every function f(t_{m+1},...,t_n) in the scope of actions
+  // t_1,...,t_m with a new function f^m(t_1,...,t_n).
+  // Precondition: Formula is objective.
+  // Reason: We can't push actions inside epistemic operators.
   void Squaring() {
     assert(readable().weakly_well_formed());
     struct ActionMarker {
@@ -876,6 +893,9 @@ class Formula : private FormulaCommons {
     assert(!readable().dynamic());
   }
 
+  // Introduces new variables so that no variable is quantified twice.
+  // If all_new is true, then every variable is replaced with a new one;
+  // otherwise the first occurrences remain unaltered.
   void Rectify(bool all_new = false) {
     assert(readable().weakly_well_formed());
     struct NewVar {
@@ -911,6 +931,13 @@ class Formula : private FormulaCommons {
     assert(readable().weakly_well_formed());
   }
 
+  // Flattens terms in order to make literals quasi-primitive and actions
+  // quasi-names. That is, the left-hand side of a literal is a variable, name,
+  // or function applied to variables and/or names. The right-hand side of a
+  // literal is a name or a variable. The term in an action operator is a name
+  // or a variable.
+  // This requires newly introduced universally (or, within an odd number of
+  // negations, existentially) quantified variables.
   void Flatten() {
     assert(readable().weakly_well_formed());
     struct NotMarker {
@@ -989,8 +1016,10 @@ class Formula : private FormulaCommons {
     assert(readable().strongly_well_formed());
   }
 
+  // Pushes actions and negations inwards, pulls quantifiers out of dis- and
+  // conjunctions, pulls quantifiers out of dis- and conjunctions.
   // Precondition: Formula is rectified.
-  // Reasons: (1) We pull quantifiers out of disjunctions and conjunctions.
+  // Reasons: (1) We pull quantifiers out of dis- and conjunctions.
   //          (2) We push actions inwards.
   void PushInwards() {
     assert(readable().weakly_well_formed());
@@ -1117,6 +1146,8 @@ class Formula : private FormulaCommons {
     assert(readable().weakly_well_formed());
   }
 
+  // Replaces primitive terms, names, and primitive literals with their
+  // "stripped" version, that is, limbo::Fun, limbo::Name, limbo::Literal.
   void Strip() {
     assert(readable().weakly_well_formed());
     struct TermMarker {
@@ -1178,6 +1209,8 @@ class Formula : private FormulaCommons {
     assert(readable().weakly_well_formed());
   }
 
+  // Replaces subformulas from the inside to the outside.
+  // Can be used to implement the Representation Theorem as well as Regression.
   template<typename UnaryPredicate, typename UnaryFunction>
   void Reduce(UnaryPredicate select = UnaryPredicate(), UnaryFunction reduce = UnaryFunction()) {
     assert(readable().weakly_well_formed());

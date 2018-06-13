@@ -14,9 +14,6 @@ namespace limbo {
 using namespace limbo::format;
 
 using Abc = Alphabet;
-using Symbol = Abc::Symbol;
-using RWord = Abc::RWord;
-using Word = Abc::Word;
 using F = Formula;
 
 TEST(FormulaTest, Rectify) {
