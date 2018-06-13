@@ -1,493 +1,203 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014-2017 Christoph Schwering
+// Copyright 2014-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
-//
-// Overloads the stream operator (<<) for Literal, Clause, and so on. These
-// operators are only activated when the corresponding header is included.
-// For Sort and Symbol objects, a human-readable name can be registered.
 
-#include <array>
-#include <algorithm>
-#include <list>
-#include <iostream>
-#include <map>
+#ifndef LIMBO_FORMAT_OUTPUT_H_
+#define LIMBO_FORMAT_OUTPUT_H_
+
 #include <ostream>
-#include <set>
-#include <string>
-#include <unordered_set>
-#include <unordered_map>
-#include <utility>
-#include <vector>
+#include <sstream>
 
-#include <limbo/term.h>
+#include <limbo/clause.h>
+#include <limbo/formula.h>
+#include <limbo/literal.h>
 
-#include <limbo/internal/compar.h>
-#include <limbo/internal/ints.h>
-#include <limbo/internal/iter.h>
-#include <limbo/internal/maybe.h>
-
-#ifndef MARK  // NOLINT
-#define MARK (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
-#endif
+#define LIMBO_REG(t)  Registry::Instance()->Register((t), #t)
+#define LIMBO_MARK    (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
 
 namespace limbo {
 namespace format {
 
-#ifndef LIMBO_FORMAT_OUTPUT_H_
-typedef std::unordered_map<Symbol::Sort, std::string> SortMap;
-typedef std::unordered_map<Symbol, std::string> SymbolMap;
+class Registry : private internal::Singleton<Registry> {
+ public:
+  static Registry* Instance() {
+    if (instance == nullptr) {
+      instance = std::unique_ptr<Registry>(new Registry());
+    }
+    return instance.get();
+  }
 
-inline SortMap* sort_map() {
-  static SortMap map;
-  return &map;
-}
+  static void ResetInstance() {
+    instance = nullptr;
+  }
 
-inline SymbolMap* symbol_map() {
-  static SymbolMap map;
-  return &map;
-}
+  void Register(const Alphabet::Sort& sort, const std::string& s) { R(&sorts_, sort, s); }
+  void Register(const Alphabet::Fun&  fun,  const std::string& s) { R(&funs_,  fun,  s); }
+  void Register(const Alphabet::Name& name, const std::string& s) { R(&names_, name, s); }
+  void Register(const Alphabet::Var&  var,  const std::string& s) { R(&vars_,  var,  s); }
 
-inline void UnregisterAll() {
-  sort_map()->clear();
-  symbol_map()->clear();
-}
+  const std::string& Lookup(const Alphabet::Sort& sort, const char* def = "s") const { return L(&sorts_, sort, def); }
+  const std::string& Lookup(const Alphabet::Fun&  fun,  const char* def = "f") const { return L(&funs_,  fun,  def); }
+  const std::string& Lookup(const Alphabet::Name& name, const char* def = "n") const { return L(&names_, name, def); }
+  const std::string& Lookup(const Alphabet::Var&  var,  const char* def = "x") const { return L(&vars_,  var,  def); }
 
-inline void RegisterSort(Symbol::Sort s, const std::string& n) {
-  (*sort_map())[s] = n;
-}
+ private:
+  Registry() = default;
+  Registry(const Registry&) = delete;
+  Registry(Registry&&) = delete;
+  Registry& operator=(const Registry&) = delete;
+  Registry& operator=(Registry&&) = delete;
 
-inline void RegisterSymbol(Symbol s, const std::string& n) {
-  (*symbol_map())[s] = n;
-}
+  template<typename T>
+  void R(internal::DenseMap<T, std::string>* map, const T& x, const std::string& s) {
+    (*map).Capacitate(x, [](auto i) { return internal::next_power_of_two(i) + 1; });
+    (*map)[x] = s;
+  }
 
-inline internal::Maybe<std::string> LookupSort(Symbol::Sort s) {
-  auto it = sort_map()->find(s);
-  if (it != sort_map()->end()) return internal::Just(it->second);
-  else                         return internal::Nothing;
-}
+  template<typename T>
+  const std::string& L(internal::DenseMap<T, std::string>* map, const T& x, const char* def) const {
+    (*map).Capacitate(x, [](auto i) { return internal::next_power_of_two(i) + 1; });
+    if ((*map)[x].length() == 0) {
+      std::stringstream ss;
+      ss << def << x.index();
+      (*map)[x] = ss.str();
+    }
+    return (*map)[x];
+  }
 
-inline internal::Maybe<std::string> LookupSymbol(Symbol s) {
-  auto it = symbol_map()->find(s);
-  if (it != symbol_map()->end()) return internal::Just(it->second);
-  else                           return internal::Nothing;
-}
+  mutable internal::DenseMap<Alphabet::Sort, std::string> sorts_;
+  mutable internal::DenseMap<Alphabet::Fun, std::string>  funs_;
+  mutable internal::DenseMap<Alphabet::Name, std::string> names_;
+  mutable internal::DenseMap<Alphabet::Var, std::string>  vars_;
+};
 
-template<typename T1, typename T2>
-std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p);
+struct Strings {
+  static constexpr const char* kEquals = "\u003D";
+  static constexpr const char* kNotEquals = "\u2260";
+  static constexpr const char* kNot = "\u00AC";
+  static constexpr const char* kOr = "\u2228";
+  static constexpr const char* kOrS = " \u2228 ";
+  static constexpr const char* kAnd = "\u2227";
+  static constexpr const char* kAndS = " \u2227 ";
+  static constexpr const char* kExists = "\u2203";
+  static constexpr const char* kForall = "\u2200";
+  static constexpr const char* kKnow = "\033[1mK\033[0m";
+  static constexpr const char* kMaybe = "\033[1mM\033[0m";
+  static constexpr const char* kBelieve = "\033[1mB\033[0m";
+  static constexpr const char* kAction = "\033[1mA\033[0m";
+  static constexpr const char* kStrip = "|";
+};
 
 template<typename InputIt>
-std::ostream& print_sequence(std::ostream& os,
-                             InputIt begin,
-                             InputIt end,
-                             const char* pre = "[",
-                             const char* post = "]",
-                             const char* sep = ", ");
+struct Sequence {
+  InputIt begin;
+  InputIt end;
+  const char* sep;
+  const char* lead;
+  const char* trail;
+};
 
-template<typename Range>
-std::ostream& print_range(std::ostream& os, const Range& r,
-                          const char* pre = "[",
-                          const char* post = "]",
-                          const char* sep = ", ");
-
-template<typename T, size_t N>
-std::ostream& operator<<(std::ostream& os, const std::array<T, N>& arr);
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec);
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::list<T>& list);
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::set<T>& set);
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set);
-
-template<typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const std::unordered_set<T, H, E>& set);
-
-template<typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const std::unordered_multiset<T, H, E>& set);
-
-template<typename K, typename T>
-std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map);
-
-template<typename K, typename T>
-std::ostream& operator<<(std::ostream& os, const std::multimap<K, T>& map);
-
-template<typename K, typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>& map);
-
-template<typename K, typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map);
-#endif  // LIMBO_FORMAT_OUTPUT_H_
-
-#ifdef LIMBO_INTERNAL_HASHSET_H_
-template<typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set);
-#endif  // LIMBO_INTERNAL_HASHSET_H_
-
-#ifdef LIMBO_INTERNAL_MAYBE_H_
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m);
-#endif  // LIMBO_INTERNAL_MAYBE_H_
-
-#ifdef LIMBO_INTERNAL_INTS_H_
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const internal::Integer<T>& i);
-#endif  // LIMBO_INTERNAL_INTS_H_
-
-#ifdef LIMBO_TERM_H_
-#ifndef LIMBO_TERM_OUTPUT
-#define LIMBO_TERM_OUTPUT
-std::ostream& operator<<(std::ostream& os, const Symbol s) {
-  internal::Maybe<std::string> sort_name = LookupSort(s.sort());
-  internal::Maybe<std::string> symbol_name = LookupSymbol(s);
-  if (sort_name) {
-    os << sort_name.val << (sort_name.val.length() > 0 ? "." : "");
-  } else {
-    os << static_cast<int>(s.sort().id()) << ".";
-  }
-  if (symbol_name) {
-    os << symbol_name.val;
-  } else {
-    if (s.function()) {
-      os << 'f';
-    } else if (s.name()) {
-      os << '#';
-    } else if (s.variable()) {
-      os << 'x';
-    }
-    os << s.index();
-  }
-  return os;
+template<typename T, typename InputIt = decltype(std::declval<T const>().begin())>
+Sequence<InputIt> sequence(const T& range,
+                           const char* sep = ",",
+                           const char* lead = "",
+                           const char* trail = "") {
+  return Sequence<InputIt>{range.begin(), range.end(), sep, lead, trail};
 }
 
-std::ostream& operator<<(std::ostream& os, const Term t) {
-  if (t.null()) {
-    os << "nullterm";
-  } else {
-    os << t.symbol();
-    if (t.arity() > 0) {
-      auto seq = t.args();
-      print_sequence(os, seq.begin(), seq.end(), "(", ")", ",");
-    }
-  }
-  return os;
-}
-#endif  // LIMBO_TERM_OUTPUT
-#endif  // LIMBO_TERM_H_
-
-#ifdef LIMBO_LITERAL_H_
-#ifndef LIMBO_LITERAL_OUTPUT
-#define LIMBO_LITERAL_OUTPUT
-std::ostream& operator<<(std::ostream& os, const Literal a) {
-  os << a.lhs() << ' ' << (a.pos() ? "\u003D" : "\u2260") << ' ' << a.rhs();
-  return os;
-}
-#endif  // LIMBO_LITERAL_OUTPUT_
-#endif  // LIMBO_LITERAL_H_
-
-#ifdef LIMBO_CLAUSE_H_
-#ifndef LIMBO_CLAUSE_OUTPUT
-#define LIMBO_CLAUSE_OUTPUT
-#ifdef SORT_CLAUSES
-std::ostream& operator<<(std::ostream& os, const Clause& c) {
-  struct PrintLiteralComparator {
-    struct PrintTermComparator {
-      struct PrintSymbolComparator {
-        typedef Symbol value_type;
-
-        bool operator()(Symbol s1, Symbol s2) const {
-          internal::Maybe<std::string> n1 = LookupSymbol(s1);
-          internal::Maybe<std::string> n2 = LookupSymbol(s2);
-          return n1 && n2  ? n1.val < n2.val :
-                 n1 && !n2 ? true :
-                 !n1 && n2 ? false :
-                             s1.hash() < s2.hash();
-        }
-      };
-
-      typedef Term value_type;
-
-      inline bool operator()(Term t1, Term t2) const {
-        internal::LexicographicComparator<
-            PrintSymbolComparator,
-            internal::LessComparator<Symbol::Arity>,
-            internal::LexicographicContainerComparator<Term::Vector, PrintTermComparator>> comp;
-        return comp(t1.symbol(), t1.arity(), t1.args(),
-                    t2.symbol(), t2.arity(), t2.args());
-      }
-    };
-
-    bool operator()(Literal l1, Literal l2) const {
-      return comp(l1.lhs(), l1.rhs(), l1.pos(),
-                  l2.lhs(), l2.rhs(), l2.pos());
-    }
-
-    internal::LexicographicComparator<
-        PrintTermComparator,
-        PrintTermComparator,
-        internal::LessComparator<bool>> comp;
-  };
-  std::vector<Literal> vec(c.begin(), c.end());
-  std::sort(vec.begin(), vec.end(), PrintLiteralComparator());
-  return print_range(os, vec, "[", "]", " \u2228 ");
-}
-#else
-std::ostream& operator<<(std::ostream& os, const Clause& c) {
-  return print_range(os, c, "[", "]", " \u2228 ");
-}
-#endif  // SORT_CLAUSES
-#endif  // LIMBO_OUTPUT_CLAUSE
-#endif  // LIMBO_CLAUSE_H_
-
-#ifdef LIMBO_SETUP_H_
-#ifndef LIMBO_SETUP_OUTPUT
-#define LIMBO_SETUP_OUTPUT
-std::ostream& operator<<(std::ostream& os, const Setup& s) {
-  auto is = s.clauses();
-  auto mcs = internal::transform_range(is.begin(), is.end(), [&s](Setup::ClauseRange::Index i) { return s.clause(i); });
-  auto cs = internal::filter_range(mcs.begin(), mcs.end(), [](const internal::Maybe<Clause>& m) { return m.yes; });
-  return print_range(os, cs, "{ ", "\n}", "\n, ");
-}
-#endif  // LIMBO_SETUP_OUTPUT
-#endif  // LIMBO_SETUP_H_
-
-#ifdef LIMBO_FORMULA_H_
-#ifndef LIMBO_FORMULA_OUTPUT
-#define LIMBO_FORMULA_OUTPUT
-std::ostream& operator<<(std::ostream& os, const Formula& alpha) {
-  switch (alpha.type()) {
-    case Formula::kAtomic: {
-      const Clause& c = alpha.as_atomic().arg();
-#ifdef PRINT_ABBREVIATIONS
-      if (c.empty()) {
-        os << "\u22A5";
-      } else if (c.unit()) {
-        os << c.first();
-      } else {
-        auto as = internal::transform_range(c.begin(), c.end(), [](Literal a) { return a; });
-        print_sequence(os, as.begin(), as.end(), "[", "]", " \u2227 ");
-      }
-#else
-      os << c;
-#endif
-      break;
-    }
-    case Formula::kNot:
-#ifdef PRINT_ABBREVIATIONS
-      if (alpha.as_not().arg().type() == Formula::kOr &&
-          alpha.as_not().arg().as_or().lhs().type() == Formula::kNot &&
-          alpha.as_not().arg().as_or().rhs().type() == Formula::kNot) {
-        os << '('
-           << alpha.as_not().arg().as_or().lhs().as_not().arg()
-           << ' ' << "\u2227" << ' '
-           << alpha.as_not().arg().as_or().rhs().as_not().arg()
-           << ')';
-      } else if (alpha.as_not().arg().type() == Formula::kNot) {
-        os << alpha.as_not().arg().as_not().arg();
-      } else if (alpha.as_not().arg().type() == Formula::kAtomic) {
-        const Clause& c = alpha.as_not().arg().as_atomic().arg();
-        if (c.empty()) {
-          os << "\u22A4";
-        } else if (c.unit()) {
-          os << c.first().flip();
-        } else {
-          auto as = internal::transform_range(c.begin(), c.end(), [](Literal a) { return a.flip(); });
-          print_sequence(os, as.begin(), as.end(), "[", "]", " \u2227 ");
-        }
-      } else if (alpha.as_not().arg().type() == Formula::kExists &&
-                 alpha.as_not().arg().as_exists().arg().type() == Formula::kNot) {
-        os << "\u2200" << alpha.as_not().arg().as_exists().x() << alpha.as_not().arg().as_exists().arg().as_not().arg();
-      } else {
-        os << "\u00AC" << alpha.as_not().arg();
-      }
-#else
-      os << "\u00AC" << alpha.as_not().arg();
-#endif
-      break;
-    case Formula::kOr:
-      os << '(' << alpha.as_or().lhs() << ' ' << "\u2228" << ' ' << alpha.as_or().rhs() << ')';
-      break;
-    case Formula::kExists:
-      os << "\u2203" << alpha.as_exists().x() << alpha.as_exists().arg();
-      break;
-    case Formula::kKnow:
-      os << "K<" << alpha.as_know().k() << "> " << alpha.as_know().arg();
-      break;
-    case Formula::kCons:
-      os << "M<" << alpha.as_cons().k() << "> " << alpha.as_cons().arg();
-      break;
-    case Formula::kBel:
-      os << "B<" << alpha.as_bel().k() << "," << alpha.as_bel().l() << "> " << alpha.as_bel().antecedent() <<
-          " \u27FE  " << alpha.as_bel().consequent();
-      break;
-    case Formula::kGuarantee:
-      os << "G " << alpha.as_guarantee().arg();
-      break;
-    case Formula::kAction:
-      os << "[" << alpha.as_action().t() << "] " << alpha.as_action().arg();
-      break;
-  }
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const Formula::Ref& alpha) {
-  return os << *alpha;
-}
-#endif  // LIMBO_FORMULA_OUTPUT
-#endif  // LIMBO_FORMULA_H_
-
-#ifndef LIMBO_FORMAT_OUTPUT_H_
 template<typename InputIt>
-std::ostream& print_sequence(std::ostream& os,
-                             InputIt begin,
-                             InputIt end,
-                             const char* pre,
-                             const char* post,
-                             const char* sep) {
-  bool first = true;
-  os << pre;
-  for (auto it = begin; it != end; ++it) {
-    if (!first) {
-      os << sep;
+std::ostream& operator<<(std::ostream& os, const Sequence<InputIt>& s);
+std::ostream& operator<<(std::ostream& os, const RFormula& w);
+
+std::ostream& operator<<(std::ostream& os, const Fun& f) {
+  return os << RFormula(Alphabet::Instance()->Unstrip(Alphabet::Symbol::StrippedFun(f)));
+}
+
+std::ostream& operator<<(std::ostream& os, const Name& n) {
+  return os << RFormula(Alphabet::Instance()->Unstrip(Alphabet::Symbol::StrippedName(n)));
+}
+
+std::ostream& operator<<(std::ostream& os, const Literal& a) {
+  return os << a.lhs() << ' ' << (a.pos() ? Strings::kEquals : Strings::kNotEquals) << ' ' << a.rhs();
+}
+
+std::ostream& operator<<(std::ostream& os, const Clause& c) { return os << sequence(c, Strings::kOrS); }
+
+std::ostream& operator<<(std::ostream& os, const Alphabet::Sort& s) { return os << Registry::Instance()->Lookup(s); }
+std::ostream& operator<<(std::ostream& os, const Alphabet::Fun&  f) { return os << Registry::Instance()->Lookup(f); }
+std::ostream& operator<<(std::ostream& os, const Alphabet::Name& n) { return os << Registry::Instance()->Lookup(n); }
+std::ostream& operator<<(std::ostream& os, const Alphabet::Var&  x) { return os << Registry::Instance()->Lookup(x); }
+
+std::ostream& operator<<(std::ostream& os, const Alphabet::Symbol& s) {
+  switch (s.tag) {
+    case Alphabet::Symbol::kFun:             return os << s.u.f;
+    case Alphabet::Symbol::kName:            return os << s.u.n;
+    case Alphabet::Symbol::kVar:             return os << s.u.x;
+    case Alphabet::Symbol::kStrippedFun:     return os << Strings::kStrip << s.u.f_s << Strings::kStrip;
+    case Alphabet::Symbol::kStrippedName:    return os << Strings::kStrip << s.u.n_s << Strings::kStrip;
+    case Alphabet::Symbol::kEquals:          return os << Strings::kEquals;
+    case Alphabet::Symbol::kNotEquals:       return os << Strings::kNotEquals;
+    case Alphabet::Symbol::kStrippedLiteral: return os << Strings::kStrip << s.u.a << Strings::kStrip;
+    case Alphabet::Symbol::kStrippedClause:  return os << Strings::kStrip << *s.u.c << Strings::kStrip;
+    case Alphabet::Symbol::kNot:             return os << Strings::kNot << ' ';
+    case Alphabet::Symbol::kOr:              return os << Strings::kOr;
+    case Alphabet::Symbol::kAnd:             return os << Strings::kAnd;
+    case Alphabet::Symbol::kExists:          return os << Strings::kExists << " " << s.u.x;
+    case Alphabet::Symbol::kForall:          return os << Strings::kForall << " " << s.u.x;
+    case Alphabet::Symbol::kKnow:            return os << Strings::kKnow << '_' << s.u.k;
+    case Alphabet::Symbol::kMaybe:           return os << Strings::kMaybe << '_' << s.u.k;
+    case Alphabet::Symbol::kBelieve:         return os << Strings::kBelieve << '_' << s.u.k << ',' << s.u.l;
+    case Alphabet::Symbol::kAction:          return os << Strings::kAction << ' ';
+  }
+}
+
+std::ostream& operator<<(std::ostream& os, const Alphabet::RWord& w) { return os << sequence(w, " "); }
+std::ostream& operator<<(std::ostream& os, const Alphabet::Word&  w) { return os << sequence(w, " "); }
+
+std::ostream& operator<<(std::ostream& os, const RFormula& r) {
+  switch (r.tag()) {
+    case Alphabet::Symbol::kFun:
+    case Alphabet::Symbol::kVar:
+    case Alphabet::Symbol::kName:            return os << r.head() << sequence(r.args(), ",",
+                                                                               r.arity() > 0 ? "(" : "",
+                                                                               r.arity() > 0 ? ")" : "");
+    case Alphabet::Symbol::kEquals:
+    case Alphabet::Symbol::kNotEquals:       return os << r.arg(0) << ' ' << r.head() << ' ' << r.arg(1);
+    case Alphabet::Symbol::kStrippedFun:
+    case Alphabet::Symbol::kStrippedName:
+    case Alphabet::Symbol::kStrippedLiteral:
+    case Alphabet::Symbol::kStrippedClause:  return os << r.head();
+    case Alphabet::Symbol::kOr:              return os << sequence(r.args(), Strings::kOrS, "[", "]");
+    case Alphabet::Symbol::kAnd:             return os << sequence(r.args(), Strings::kAndS, "{", "}");
+    case Alphabet::Symbol::kNot:
+    case Alphabet::Symbol::kExists:
+    case Alphabet::Symbol::kForall:
+    case Alphabet::Symbol::kKnow:
+    case Alphabet::Symbol::kMaybe:           return os << r.head() << ' ' << r.arg(0);
+    case Alphabet::Symbol::kBelieve:         return os << r.head() << ' ' << r.arg(0) << " \u27FE " << r.arg(1);
+    case Alphabet::Symbol::kAction:          return os << r.head() << ' ' << r.arg(0) << ' ' << r.arg(1);
+  }
+}
+
+std::ostream& operator<<(std::ostream& os, const Formula& f) { return os << f.readable(); }
+
+template<typename InputIt>
+std::ostream& operator<<(std::ostream& os, const Sequence<InputIt>& s) {
+  os << s.lead;
+  for (auto it = s.begin; it != s.end; ++it) {
+    if (it != s.begin) {
+      os << s.sep;
     }
     os << *it;
-    first = false;
   }
-  os << post;
+  os << s.trail;
   return os;
 }
-
-template<typename T1, typename T2>
-std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> p) {
-  os << "(" << p.first << ", " << p.second << ")";
-  return os;
-}
-
-template<typename Range>
-std::ostream& print_range(std::ostream& os, const Range& r,
-                          const char* pre,
-                          const char* post,
-                          const char* sep) {
-  return print_sequence(os, r.begin(), r.end(), pre, post, sep);
-}
-
-template<typename T, size_t N>
-std::ostream& operator<<(std::ostream& os, const std::array<T, N>& arr) {
-  print_sequence(os, arr.begin(), arr.end(), "[", "]", ", ");
-  return os;
-}
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
-  print_sequence(os, vec.begin(), vec.end(), "[", "]", ", ");
-  return os;
-}
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::list<T>& list) {
-  os << '[';
-  print_sequence(os, list.begin(), list.end(), "[", "]", ", ");
-  os << '[';
-  return os;
-}
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::set<T>& set) {
-  print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
-  return os;
-}
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const std::multiset<T>& set) {
-  print_sequence(os, set.begin(), set.end(), "m{", "}m", ", ");
-  return os;
-}
-
-template<typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const std::unordered_set<T, H, E>& set) {
-  print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
-  return os;
-}
-
-template<typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const std::unordered_multiset<T, H, E>& set) {
-  print_sequence(os, set.begin(), set.end(), "m{", "}m", ", ");
-  return os;
-}
-
-template<typename K, typename T>
-std::ostream& operator<<(std::ostream& os, const std::map<K, T>& map) {
-  print_sequence(os, map.begin(), map.end(), "{", "}", ", ");
-  return os;
-}
-
-template<typename K, typename T>
-std::ostream& operator<<(std::ostream& os, const std::multimap<K, T>& map) {
-  print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
-  return os;
-}
-
-template<typename K, typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const std::unordered_map<K, T, H, E>& map) {
-  print_sequence(os, map.begin(), map.end(), "{", "}", ", ");
-  return os;
-}
-
-template<typename K, typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const std::unordered_multimap<K, T, H, E>& map) {
-  print_sequence(os, map.begin(), map.end(), "m{", "}m", ", ");
-  return os;
-}
-#endif  // LIMBO_FORMAT_OUTPUT_H_
-
-#ifdef LIMBO_INTERNAL_HASHSET_H_
-#ifndef LIMBO_INTERNAL_HASHSET_OUTPUT
-#define LIMBO_INTERNAL_HASHSET_OUTPUT
-template<typename T, typename H, typename E>
-std::ostream& operator<<(std::ostream& os, const internal::HashSet<T, H, E>& set) {
-  print_sequence(os, set.begin(), set.end(), "{", "}", ", ");
-  return os;
-}
-#endif  // LIMBO_INTERNAL_HASHSET_OUTPUT
-#endif  // LIMBO_INTERNAL_HASHSET_H_
-
-#ifdef LIMBO_INTERNAL_MAYBE_H_
-#ifndef LIMBO_INTERNAL_MAYBE_OUTPUT
-#define LIMBO_INTERNAL_MAYBE_OUTPUT
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const internal::Maybe<T>& m) {
-  if (m) {
-    os << "Just(" << m.val << ")";
-  } else {
-    os << "Nothing";
-  }
-  return os;
-}
-#endif  // LIMBO_INTERNAL_MAYBE_OUTPUT
-#endif  // LIMBO_INTERNAL_MAYBE_H_
-
-#ifdef LIMBO_INTERNAL_INTS_H_
-#ifndef LIMBO_INTERNAL_INTS_OUTPUT
-#define LIMBO_INTERNAL_INTS_OUTPUT
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const internal::Integer<T>& i) {
-  os << T(i);
-  return os;
-}
-#endif  // LIMBO_INTERNAL_INTS_OUTPUT
-#endif  // LIMBO_INTERNAL_INTS_H_
 
 }  // namespace format
 }  // namespace limbo
 
-using limbo::format::operator<<;
-using limbo::format::print_range;
+using limbo::format::operator<<;  // I too often forget this, so for now, it's here
 
-#ifndef LIMBO_FORMAT_OUTPUT_H_
-#define LIMBO_FORMAT_OUTPUT_H_
 #endif  // LIMBO_FORMAT_OUTPUT_H_
 

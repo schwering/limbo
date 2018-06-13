@@ -242,10 +242,8 @@ class Alphabet : private internal::Singleton<Alphabet> {
       assert(term());
       if (stripped()) {
         const RWord w = Instance()->Unstrip(*this);
-        assert(w.begin() != w.end());
-        const Symbol s = *w.begin();
-        assert(!s.stripped() && s.term());
-        return s.tag == kFun ? s.u.f.sort() : s.tag == kName ? s.u.n.sort() : s.u.x.sort();
+        assert(w.begin() != w.end() && !w.begin()->stripped());
+        return w.begin()->sort();
       } else if (tag == kFun) {
         return u.f.sort();
       } else if (tag == kName) {
@@ -476,7 +474,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
   std::vector<internal::DenseMap<Fun, Fun>> swear_funcs_;
 };
 
-class CommonFormula {
+class FormulaCommons {
  public:
   using Abc = Alphabet;
   using Symbol = Abc::Symbol;
@@ -519,7 +517,7 @@ class CommonFormula {
   }
 };
 
-class RFormula : private CommonFormula {
+class RFormula : private FormulaCommons {
  public:
   using RWord = Abc::RWord;
 
@@ -532,12 +530,14 @@ class RFormula : private CommonFormula {
   Symbol::Tag tag() const { return head().tag; }
   int arity() const { return head().arity(); }
 
-  RFormula arg(int i) const {
-    args_.reserve(arity());
-    for (int j = args_.size(); j <= i; ++j) {
-      args_.push_back(RFormula(j > 0 ? args_[j-1].end() : std::next(begin())));
-    }
+  const RFormula& arg(int i) const {
+    InitArg(i);
     return args_[i];
+  }
+
+  const std::vector<RFormula>& args() const {
+    InitArg(arity() - 1);
+    return args_;
   }
 
   Symbol::CRef begin() const { return rword_.begin(); }
@@ -659,18 +659,27 @@ class RFormula : private CommonFormula {
     }
   }
 
+  void InitArg(int i) const { const_cast<RFormula*>(this)->InitArg(i); }
+
+  void InitArg(int i) {
+    args_.reserve(arity());
+    for (int j = args_.size(); j <= i; ++j) {
+      args_.push_back(RFormula(j > 0 ? args_[j-1].end() : std::next(begin())));
+    }
+  }
+
   RWord rword_;
   mutable std::vector<RFormula> args_;
-  unsigned meta_init_             : 1;
-  unsigned strongly_well_formed_  : 1;
-  unsigned weakly_well_formed_    : 1;
-  unsigned nnf_                   : 1;
-  unsigned objective_             : 1;
-  unsigned static_                : 1;
-  unsigned ground_                : 1;
+  unsigned meta_init_            : 1;
+  unsigned strongly_well_formed_ : 1;
+  unsigned weakly_well_formed_   : 1;
+  unsigned nnf_                  : 1;
+  unsigned objective_            : 1;
+  unsigned static_               : 1;
+  unsigned ground_               : 1;
 };
 
-class Formula : private CommonFormula {
+class Formula : private FormulaCommons {
  public:
   using RWord = Abc::RWord;
   using Word = Abc::Word;
