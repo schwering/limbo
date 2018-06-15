@@ -77,22 +77,22 @@ static void CreateTerms(UnaryFunction f, int n, std::vector<typename std::result
 static bool LoadCnf(std::istream& stream,
                     std::vector<std::vector<Literal>>* cnf,
                     Name* extra_name) {
-  std::vector<Fun> funcs;
+  std::vector<Fun> funs;
   std::vector<Name> names;
   Name T;
   Name F;
   cnf->clear();
   bool prop = false;
   for (std::string line; std::getline(stream, line); ) {
-    int n_funcs;
+    int n_funs;
     int n_names;
     int n_clauses;
     if (line.length() == 0) {
       continue;
     } else if (line.length() >= 1 && line[0] == 'c') {
       // ignore comment
-    } else if (sscanf(line.c_str(), "p cnf %d %d", &n_funcs, &n_clauses) == 2) {  // propositional CNF
-      CreateTerms([](int i) { return Fun(i); }, n_funcs, &funcs);
+    } else if (sscanf(line.c_str(), "p cnf %d %d", &n_funs, &n_clauses) == 2) {  // propositional CNF
+      CreateTerms([](int i) { return Fun(i); }, n_funs, &funs);
       names.clear();
       T = Name(1);
       F = Name(2);
@@ -100,8 +100,8 @@ static bool LoadCnf(std::istream& stream,
       names.push_back(F);
       *extra_name = F;
       prop = true;
-    } else if (sscanf(line.c_str(), "p fcnf %d %d %d", &n_funcs, &n_names, &n_clauses) == 3) {  // func CNF
-      CreateTerms([](int i) { return Fun(i); }, n_funcs, &funcs);
+    } else if (sscanf(line.c_str(), "p fcnf %d %d %d", &n_funs, &n_names, &n_clauses) == 3) {  // func CNF
+      CreateTerms([](int i) { return Fun(i); }, n_funs, &funs);
       CreateTerms([](int i) { return Name(i); }, n_names + 1, &names);
       *extra_name = names.back();
       prop = false;
@@ -109,7 +109,7 @@ static bool LoadCnf(std::istream& stream,
       std::vector<Literal> lits;
       int i = -1;
       for (std::istringstream iss(line); (iss >> i) && i != 0; ) {
-        const Fun f = funcs[(i < 0 ? -i : i) - 1];
+        const Fun f = funs[(i < 0 ? -i : i) - 1];
 #if 0
         const Literal a = i < 0 ? Literal::Eq(f, F) : Literal::Eq(f, T);
 #else
@@ -127,7 +127,7 @@ static bool LoadCnf(std::istream& stream,
       char eq = '\0';
       for (std::istringstream iss(line); (iss >> i >> eq >> j) && eq == '='; ) {
         assert(j >= 1);
-        const Fun f = funcs[(i < 0 ? -i : i) - 1];
+        const Fun f = funs[(i < 0 ? -i : i) - 1];
         const Name n = names[j - 1];
         const Literal a = i < 0 ? Literal::Neq(f, n) : Literal::Eq(f, n);
         lits.push_back(a);
@@ -197,7 +197,22 @@ int main(int argc, char *argv[]) {
   bool prop = false;
   for (int i = 1; i < argc; ++i) {
     if (argv[i] == std::string("-h") || argv[i] == std::string("--help")) {
-      std::cout << "Usage: [-k=<k>] " << argv[0] << std::endl;
+      std::cout << "Usage: " << argv[0] << " [options] [file]" << std::endl;
+      std::cout << std::endl;
+      std::cout << "If file is not specified, input is read from stdin." << std::endl;
+      std::cout << "Input must be in DIMACS CNF format or the functional extension thereof." << std::endl;
+      std::cout << std::endl;
+      std::cout << "Options:" << std::endl;
+      std::cout << "--iterations=int -i=int  repretitions with clauses learnt so far (default: " << iterations << ")" << std::endl;
+      std::cout << "--columns=int    -c=int  columns in output, e.g, 9 for sudoku (default: " << n_columns << ")" << std::endl;
+      std::cout << "--restart=int    -r=int  conflicts before restart, (default: " << restarts << ", infinity: -1)" << std::endl;
+      std::cout << "--extra=bool     -e=bool whether extra name is added (default: " << extra << ")" << std::endl;
+      std::cout << std::endl;
+#ifndef NDEBUG
+      std::cout << "Debugging is turned on (NDEBUG is not defined)." << std::endl;
+#else
+      std::cout << "Debugging is turned off (NDEBUG is defined)." << std::endl;
+#endif
       return 1;
     } else if (sscanf(argv[i], "--iterations=%d", &iterations) == 1 || sscanf(argv[i], "-i=%d", &iterations) == 1) {
     } else if (sscanf(argv[i], "--columns=%d", &n_columns) == 1 || sscanf(argv[i], "-c=%d", &n_columns) == 1) {
@@ -235,9 +250,9 @@ int main(int argc, char *argv[]) {
       struct winsize win_size;
       ioctl(STDOUT_FILENO, TIOCGWINSZ, &win_size);
       const int lit_width = 10;
-      const int win_width = (n_columns != 0 ? n_columns : static_cast<int>(std::ceil(std::sqrt(solver.funcs().upper_bound())))) * lit_width;
+      const int win_width = (n_columns != 0 ? n_columns : static_cast<int>(std::ceil(std::sqrt(solver.funs().upper_bound())))) * lit_width;
       int i = 0;
-      for (const Fun f : solver.funcs()) {
+      for (const Fun f : solver.funs()) {
         if (f.null()) {
           continue;
         }

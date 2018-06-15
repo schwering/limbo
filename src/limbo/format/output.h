@@ -42,6 +42,9 @@ class Registry : private internal::Singleton<Registry> {
   const std::string& Lookup(const Alphabet::Var&  var,  const char* def = "x") const { return L(&vars_,  var,  def); }
 
  private:
+  template<typename T>
+  using StringMap = internal::DenseMap<T, std::string, internal::FastAdjustBoundCheck>;
+
   Registry() = default;
   Registry(const Registry&) = delete;
   Registry(Registry&&) = delete;
@@ -49,14 +52,12 @@ class Registry : private internal::Singleton<Registry> {
   Registry& operator=(Registry&&) = delete;
 
   template<typename T>
-  void R(internal::DenseMap<T, std::string>* map, const T& x, const std::string& s) {
-    (*map).Capacitate(x, [](auto i) { return internal::next_power_of_two(i) + 1; });
+  void R(StringMap<T>* map, const T& x, const std::string& s) {
     (*map)[x] = s;
   }
 
   template<typename T>
-  const std::string& L(internal::DenseMap<T, std::string>* map, const T& x, const char* def) const {
-    (*map).Capacitate(x, [](auto i) { return internal::next_power_of_two(i) + 1; });
+  const std::string& L(StringMap<T>* map, const T& x, const char* def) const {
     if ((*map)[x].length() == 0) {
       std::stringstream ss;
       ss << def << x.index();
@@ -65,10 +66,10 @@ class Registry : private internal::Singleton<Registry> {
     return (*map)[x];
   }
 
-  mutable internal::DenseMap<Alphabet::Sort, std::string> sorts_;
-  mutable internal::DenseMap<Alphabet::Fun, std::string>  funs_;
-  mutable internal::DenseMap<Alphabet::Name, std::string> names_;
-  mutable internal::DenseMap<Alphabet::Var, std::string>  vars_;
+  mutable StringMap<Alphabet::Sort> sorts_;
+  mutable StringMap<Alphabet::Fun>  funs_;
+  mutable StringMap<Alphabet::Name> names_;
+  mutable StringMap<Alphabet::Var>  vars_;
 };
 
 struct Strings {
@@ -142,8 +143,8 @@ std::ostream& operator<<(std::ostream& os, const Alphabet::Symbol& s) {
     case Alphabet::Symbol::kNot:             return os << Strings::kNot << ' ';
     case Alphabet::Symbol::kOr:              return os << Strings::kOr;
     case Alphabet::Symbol::kAnd:             return os << Strings::kAnd;
-    case Alphabet::Symbol::kExists:          return os << Strings::kExists << " " << s.u.x;
-    case Alphabet::Symbol::kForall:          return os << Strings::kForall << " " << s.u.x;
+    case Alphabet::Symbol::kExists:          return os << Strings::kExists << ' ' << s.u.x;
+    case Alphabet::Symbol::kForall:          return os << Strings::kForall << ' ' << s.u.x;
     case Alphabet::Symbol::kKnow:            return os << Strings::kKnow << '_' << s.u.k;
     case Alphabet::Symbol::kMaybe:           return os << Strings::kMaybe << '_' << s.u.k;
     case Alphabet::Symbol::kBelieve:         return os << Strings::kBelieve << '_' << s.u.k << ',' << s.u.l;

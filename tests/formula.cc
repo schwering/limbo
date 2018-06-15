@@ -37,12 +37,6 @@ TEST(FormulaTest, Rectify) {
   F w = F::Exists(x, F::Or(F::Forall(y, F::Exists(z, F::Equals(fxy.Clone(), fyz.Clone()))),
                            F::Exists(x, F::Forall(y, F::Exists(z, F::Exists(u, F::Equals(gfxy.Clone(), gfyz.Clone())))))));
 
-  // Skolemize
-  // Swearize
-  // Rectify
-  // Flatten
-  // PushInwards
-
   {
     std::cout << "" << std::endl;
     F phi(F::Know(0, F::Exists(x, F::Equals(F::Fun(c, std::list<F>{}), F::Name(n, std::list<F>{})))));

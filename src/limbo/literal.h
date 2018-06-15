@@ -66,7 +66,7 @@ class Literal {
   static Literal FromId(id_t id) { return Literal(id); }
 
   Literal() = default;
-  Literal(bool pos, Fun lhs, Name rhs) : id_(Bits::interleave(lhs.index(), (rhs.index() << 1) | pos)) {}
+  Literal(bool pos, Fun lhs, Name rhs) : Literal(Bits::interleave(lhs.index(), (rhs.index() << 1) | pos)) {}
 
   bool pos() const { return id_ & 1; }
   bool neg() const { return !pos(); }
@@ -90,7 +90,7 @@ class Literal {
   // (f != n1), (f != n2) for distinct n1, n2.
   static bool Valid(const Literal a, const Literal b) {
     const id_t x = a.id_ ^ b.id_;
-    return x == 1 || (x != 0 && a.neg() && b.neg() && Bits::deinterleave_hi(x) == 0);
+    return x == 1 || (x != 0 && a.neg() && b.neg() && (x & Bits::kHi) == 0);
   }
 
   // Complementary(a, b) holds when a, b match one of the following:
@@ -99,19 +99,19 @@ class Literal {
   // (f == n1), (f == n2) for distinct n1, n2.
   static bool Complementary(const Literal a, const Literal b) {
     const id_t x = a.id_ ^ b.id_;
-    return x == 1 || (x != 0 && a.pos() && b.pos() && Bits::deinterleave_hi(x) == 0);
+    return x == 1 || (x != 0 && a.pos() && b.pos() && (x & Bits::kHi) == 0);
   }
 
   // ProperlySubsumes(a, b) holds when a is (f == n1) and b is (f != n2) for distinct n1, n2.
   static bool ProperlySubsumes(Literal a, Literal b) {
     const id_t x = a.id_ ^ b.id_;
-    return x != 1 && (x & 1) && a.pos() && Bits::deinterleave_hi(x) == 0;
+    return x != 1 && (x & 1) && a.pos() && (x & Bits::kHi) == 0;
   }
 
   // Subsumes(a, b) holds when a == b or ProperlySubsumes(a, b).
   static bool Subsumes(Literal a, Literal b) {
     const id_t x = a.id_ ^ b.id_;
-    return x == 0 || (x != 1 && (x & 1) && a.pos() && Bits::deinterleave_hi(x) == 0);
+    return x == 0 || (x != 1 && (x & 1) && a.pos() && (x & Bits::kHi) == 0);
   }
 
   bool Subsumes(Literal b) const { return Subsumes(*this, b); }
@@ -119,7 +119,8 @@ class Literal {
   bool ProperlySubsumes(Literal b) const { return ProperlySubsumes(*this, b); }
 
  private:
-  static_assert(sizeof(Fun::id_t) == sizeof(Name::id_t), "Fun and Name must have size id_t");
+  static_assert(sizeof(Fun::id_t) == sizeof(Name::id_t), "Fun::id_t and Name::id_t must be identical");
+  static_assert(sizeof(Fun::id_t) + sizeof(Name::id_t) == sizeof(id_t), "Fun::id_t and Name::id_t must fit in id_t");
 
   explicit Literal(id_t id) : id_(id) {}
 

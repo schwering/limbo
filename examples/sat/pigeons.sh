@@ -1,5 +1,5 @@
-echo "Limbo / propositional"
-for i in $(seq 1 9); do f=pigeon/cnf-$i; echo -n "$f: " && cat $f | ./sat | grep -i satisfiable; done
+#echo "Limbo / propositional"
+#for i in $(seq 1 9); do f=pigeon/cnf-$i; echo -n "$f: " && cat $f | ./sat | grep -i satisfiable; done
 echo "Limbo / propositional functionalized"
 for i in $(seq 1 9); do f=pigeon/cnf-$i; echo -n "$f: " && cat $f | ./functionalize | ./sat | grep -i satisfiable; done
 echo "Limbo / functional"

@@ -31,22 +31,20 @@ struct Bits {};
 
 template<typename T>
 struct Bits<T, sizeof(u16)> {
+  static constexpr u32 kHi = 0xAAAAAAAA;
+  static constexpr u32 kLo = 0x55555555;
   static u32 interleave(u16 hi, u16 lo) { return _pdep_u32(hi, kHi) | _pdep_u32(lo, kLo); }
   static u16 deinterleave_hi(u32 z) { return _pext_u32(z, kHi); }
   static u16 deinterleave_lo(u32 z) { return _pext_u32(z, kLo); }
- private:
-  static constexpr u32 kHi = 0xAAAAAAAA;
-  static constexpr u32 kLo = 0x55555555;
 };
 
 template<typename T>
 struct Bits<T, sizeof(u32)> {
+  static constexpr u64 kHi = 0xAAAAAAAAAAAAAAAA;
+  static constexpr u64 kLo = 0x5555555555555555;
   static u64 interleave(u32 hi, u32 lo) { return _pdep_u64(hi, kHi) | _pdep_u64(lo, kLo); }
   static u32 deinterleave_hi(u64 z) { return _pext_u64(z, kHi); }
   static u32 deinterleave_lo(u64 z) { return _pext_u64(z, kLo); }
- private:
-  static constexpr u64 kHi = 0xAAAAAAAAAAAAAAAA;
-  static constexpr u64 kLo = 0x5555555555555555;
 };
 
 ulong next_power_of_two(ulong n) {

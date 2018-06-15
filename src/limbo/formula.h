@@ -334,7 +334,6 @@ class Alphabet : private internal::Singleton<Alphabet> {
     // and the standard names of each order can only be formed with argumenst of
     // lower order.
     const Sort s = Sort(++last_sort_);
-    sort_rigid_.Capacitate(s, [](auto i) { return internal::next_power_of_two(i) + 1; });
     sort_rigid_[s] = rigid;
     return s;
   }
@@ -346,9 +345,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
       std::abort();
     }
     const Fun f = Fun(++last_fun_);
-    fun_sort_.Capacitate(f, [](auto i) { return internal::next_power_of_two(i) + 1; });
     fun_sort_[f] = s;
-    fun_arity_.Capacitate(f, [](auto i) { return internal::next_power_of_two(i) + 1; });
     fun_arity_[f] = arity;
     return f;
   }
@@ -359,16 +356,13 @@ class Alphabet : private internal::Singleton<Alphabet> {
       std::abort();
     }
     const Name n = Name(++last_name_);
-    name_sort_.Capacitate(n, [](auto i) { return internal::next_power_of_two(i) + 1; });
     name_sort_[n] = s;
-    name_arity_.Capacitate(n, [](auto i) { return internal::next_power_of_two(i) + 1; });
     name_arity_[n] = arity;
     return n;
   }
 
   Var CreateVar(Sort s) {
     const Var x = Var(++last_var_);
-    var_sort_.Capacitate(x, [](auto i) { return internal::next_power_of_two(i) + 1; });
     var_sort_[x] = s;
     return x;
   }
@@ -378,10 +372,8 @@ class Alphabet : private internal::Singleton<Alphabet> {
       return f;
     } else {
       const int k = sitlen - 1;
-      swear_funcs_.reserve(internal::next_power_of_two(sitlen));
       swear_funcs_.resize(sitlen);
-      internal::DenseMap<Fun, Fun>& map = swear_funcs_[k];
-      map.Capacitate(f, [](auto i) { return internal::next_power_of_two(i) + 1; });
+      DenseMap<Fun, Fun>& map = swear_funcs_[k];
       if (map[f].null()) {
         map[f] = CreateFun(f.sort(), sitlen + f.arity());
       }
@@ -399,14 +391,12 @@ class Alphabet : private internal::Singleton<Alphabet> {
       if (w.begin()->tag == Symbol::kFun) {
         const limbo::Fun f = limbo::Fun(++last_fun_term_);
         const Symbol s = Symbol::StrippedFun(f);
-        term_fun_symbols_.Capacitate(f, [](auto i) { return internal::next_power_of_two(i) + 1; });
         term_fun_symbols_[f] = std::move(w);
         symbols_term_[term_fun_symbols_[f].readable()] = s;
         return s;
       } else {
         const limbo::Name n = limbo::Name(++last_name_term_);
         const Symbol s = Symbol::StrippedName(n);
-        term_name_symbols_.Capacitate(n, [](auto i) { return internal::next_power_of_two(i) + 1; });
         term_name_symbols_[n] = std::move(w);
         symbols_term_[term_name_symbols_[n].readable()] = s;
         return s;
@@ -450,6 +440,8 @@ class Alphabet : private internal::Singleton<Alphabet> {
     }
   };
 
+  template<typename Key, typename Value>
+  using DenseMap = internal::DenseMap<Key, Value, internal::FastAdjustBoundCheck>;
   using TermMap = std::unordered_map<RWord, Symbol, DeepHash, DeepEquals>;
 
   Alphabet() = default;
@@ -458,16 +450,16 @@ class Alphabet : private internal::Singleton<Alphabet> {
   Alphabet& operator=(const Alphabet&) = delete;
   Alphabet& operator=(Alphabet&&) = delete;
 
-  internal::DenseMap<Sort, bool> sort_rigid_;
-  internal::DenseMap<Fun, Sort>  fun_sort_;
-  internal::DenseMap<Fun, int>   fun_arity_;
-  internal::DenseMap<Name, Sort> name_sort_;
-  internal::DenseMap<Name, int>  name_arity_;
-  internal::DenseMap<Var, Sort>  var_sort_;
+  DenseMap<Sort, bool> sort_rigid_;
+  DenseMap<Fun,  Sort> fun_sort_;
+  DenseMap<Fun,  int>  fun_arity_;
+  DenseMap<Name, Sort> name_sort_;
+  DenseMap<Name, int>  name_arity_;
+  DenseMap<Var,  Sort> var_sort_;
 
   TermMap                               symbols_term_;
-  internal::DenseMap<limbo::Fun, Word>  term_fun_symbols_;
-  internal::DenseMap<limbo::Name, Word> term_name_symbols_;
+  DenseMap<limbo::Fun,  Word>  term_fun_symbols_;
+  DenseMap<limbo::Name, Word> term_name_symbols_;
   int last_sort_      = 0;
   int last_var_       = 0;
   int last_fun_       = 0;
@@ -475,7 +467,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
   int last_fun_term_  = 0;
   int last_name_term_ = 0;
 
-  std::vector<internal::DenseMap<Fun, Fun>> swear_funcs_;
+  std::vector<DenseMap<Fun, Fun>> swear_funcs_;
 };
 
 class FormulaCommons {
@@ -524,6 +516,8 @@ class FormulaCommons {
 class RFormula : private FormulaCommons {
  public:
   using RWord = Abc::RWord;
+  template<typename T>
+  using DenseSet = internal::DenseSet<T, internal::FastAdjustBoundCheck>;
 
   RFormula(Symbol::CRef begin, Symbol::CRef end) : rword_(begin, end), meta_init_(false) {}
   explicit RFormula(const RWord& w) : RFormula(w.begin(), w.end()) {}
@@ -547,22 +541,18 @@ class RFormula : private FormulaCommons {
   Symbol::CRef begin() const { return rword_.begin(); }
   Symbol::CRef end()   const { return rword_.end(); }
 
-  internal::DenseSet<Abc::Var> FreeVars() const {
+  DenseSet<Abc::Var> FreeVars() const {
     struct QuantifierMarker {
       QuantifierMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
       explicit QuantifierMarker(Scope scope) : scope(scope) {}
       Abc::Var x;
       Scope scope;
     };
-    internal::DenseSet<Abc::Var> free;
-    internal::DenseMap<Abc::Var, int> bound;
+    DenseSet<Abc::Var> free;
+    DenseMap<Abc::Var, int> bound;
     std::vector<QuantifierMarker> quantifiers;
     Scope::Observer scoper;
     for (auto it = begin(); it != end(); ) {
-      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall || it->tag == Abc::Symbol::kVar) {
-        bound.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
-        free.Capacitate(it->u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
-      }
       if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall) {
         ++bound[it->u.x];
         quantifiers.push_back(QuantifierMarker(it->u.x, scoper.scope()));
@@ -589,6 +579,9 @@ class RFormula : private FormulaCommons {
   bool ground()               const { if (!meta_init_) { InitMeta(); } return !ground_; }
 
  private:
+  template<typename Key, typename Value>
+  using DenseMap = internal::DenseMap<Key, Value, internal::FastAdjustBoundCheck>;
+
   void InitMeta() const { const_cast<RFormula*>(this)->InitMeta(); }
 
   void InitMeta() {
@@ -909,11 +902,10 @@ class Formula : private FormulaCommons {
       bool used = false;
       std::vector<NewVar> vars;
     };
-    internal::DenseMap<Abc::Var, NewVars> vars;
+    DenseMap<Abc::Var, NewVars> vars;
     Scope::Observer scoper;
     for (Symbol& s : *this) {
       if (s.tag == Symbol::kExists || s.tag == Symbol::kForall) {
-        vars.Capacitate(s.u.x, [](auto i) { return internal::next_power_of_two(i) + 1; });
         const Abc::Var y = !vars[s.u.x].used && !all_new ? s.u.x : Abc::Instance()->CreateVar(s.u.x.sort());
         vars[s.u.x].used = true;
         vars[s.u.x].vars.push_back(NewVar(y, scoper.scope()));
@@ -1147,7 +1139,7 @@ class Formula : private FormulaCommons {
   }
 
   // Replaces primitive terms, names, and primitive literals with their
-  // "stripped" version, that is, limbo::Fun, limbo::Name, limbo::Literal.
+  // stripped version, that is, limbo::Fun, limbo::Name, limbo::Literal.
   void Strip() {
     assert(readable().weakly_well_formed());
     struct TermMarker {
@@ -1238,6 +1230,9 @@ class Formula : private FormulaCommons {
   }
 
  private:
+  template<typename Key, typename Value>
+  using DenseMap = internal::DenseMap<Key, Value, internal::FastAdjustBoundCheck>;
+
   explicit Formula(Symbol s)                            { word_.Insert(end(), s); }
   Formula(Symbol s, Formula&& f)                        : Formula(s) { assert(s.arity() == 1); AddArg(f); }
   Formula(Symbol s, const Formula& f)                   : Formula(s) { assert(s.arity() == 1); AddArg(f); }

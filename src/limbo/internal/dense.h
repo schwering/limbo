@@ -15,9 +15,33 @@ namespace limbo {
 namespace internal {
 
 template<typename T, typename Index>
-struct IndexOf { Index operator()(const T t) const { return t.index(); } };
+struct IndexOf {
+  Index operator()(const T t) const { return t.index(); }
+};
 
-template<typename Key, typename Val, typename Index = int,
+struct NoBoundCheck {
+  template<typename T, typename Index>
+  void operator()(const T&, const Index&) const {}
+};
+
+struct SlowAdjustBoundCheck {
+  template<typename T, typename Index>
+  void operator()(const T& c, const Index& i) const {
+    c->Capacitate(i);
+  }
+};
+
+struct FastAdjustBoundCheck {
+  template<typename T, typename Index>
+  void operator()(const T& c, const Index& i) const {
+    c->Capacitate(next_power_of_two(i));
+  }
+};
+
+template<typename Key,
+         typename Val,
+         typename CheckBound = NoBoundCheck,
+         typename Index = int,
          typename IndexOf = IndexOf<Key, Index>>
 class DenseMap {
  public:
@@ -27,7 +51,6 @@ class DenseMap {
   using const_reference = typename Vec::const_reference;
   using iterator = typename Vec::iterator;
   using const_iterator = typename Vec::const_iterator;
-  struct PlusOneGrowth { int operator()(Index i) const { return i + 1; } };
 
   DenseMap() = default;
 
@@ -36,23 +59,16 @@ class DenseMap {
   DenseMap(DenseMap&&) = default;
   DenseMap& operator=(DenseMap&& c) = default;
 
-  template<typename UnaryFunction = PlusOneGrowth>
-  void Capacitate(const Key k, UnaryFunction growth = UnaryFunction()) { Capacitate(index_of_(k), growth); }
-
-  template<typename UnaryFunction = PlusOneGrowth>
-  void Capacitate(const Index i, UnaryFunction growth = UnaryFunction()) {
-    if (i >= vec_.size()) {
-      vec_.resize(growth(i));
-    }
-  }
+  void Capacitate(const Key k) { Capacitate(index_of_(k)); }
+  void Capacitate(const Index i) { if (i >= vec_.size()) { vec_.resize(i + 1); } }
 
   void Clear() { vec_.clear(); }
   bool Cleared() { return vec_.empty(); }
 
   Index upper_bound() const { return vec_.size(); }
 
-  reference operator[](const Index i) { assert(i < vec_.size()); return vec_[i]; }
-  const_reference operator[](const Index i) const { assert(i < vec_.size()); return vec_[i]; }
+  reference operator[](const Index i) { check_bound_(this, i); return vec_[i]; }
+  const_reference operator[](const Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i]; }
 
   reference operator[](const Key key) { return operator[](index_of_(key)); }
   const_reference operator[](const Key key) const { return operator[](index_of_(key)); }
@@ -64,21 +80,23 @@ class DenseMap {
   const_iterator end()   const { return vec_.end(); }
 
  private:
+  CheckBound check_bound_;
   IndexOf index_of_;
   Vec vec_;
 };
 
-template<typename T, typename Index = int,
+template<typename T,
+         typename CheckBound = NoBoundCheck,
+         typename Index = int,
          typename IndexOf = IndexOf<T, Index>>
 class DenseSet {
  public:
-  using Map = DenseMap<T, T, Index, IndexOf>;
+  using Map = DenseMap<T, T, CheckBound, Index, IndexOf>;
   using value_type = typename Map::value_type;
   using reference = typename Map::reference;
   using const_reference = typename Map::const_reference;
   using iterator = typename Map::iterator;
   using const_iterator = typename Map::const_iterator;
-  using PlusOneGrowth = typename Map::PlusOneGrowth;
 
   DenseSet() = default;
 
@@ -87,11 +105,8 @@ class DenseSet {
   DenseSet(DenseSet&&) = default;
   DenseSet& operator=(DenseSet&& c) = default;
 
-  template<typename UnaryFunction = PlusOneGrowth>
-  void Capacitate(const Index i, UnaryFunction growth = UnaryFunction()) { map_.Capacitate(i, growth); }
-
-  template<typename UnaryFunction = PlusOneGrowth>
-  void Capacitate(const T& x, UnaryFunction growth = UnaryFunction()) { map_.Capacitate(x, growth); }
+  void Capacitate(const Index i) { map_.Capacitate(i); }
+  void Capacitate(const T& x) { map_.Capacitate(x); }
 
   void Clear() { map_.Clear(); }
   bool Cleared() { return map_.empty(); }
@@ -116,12 +131,14 @@ class DenseSet {
   Map map_;
 };
 
-template<typename T, typename Less, typename Index = int,
+template<typename T,
+         typename Less,
+         typename CheckBound = NoBoundCheck,
+         typename Index = int,
          typename IndexOf = IndexOf<T, Index>>
 class Heap {
  public:
-  using Map = DenseMap<T, int, Index, IndexOf>;
-  using PlusOneGrowth = typename Map::PlusOneGrowth;
+  using Map = DenseMap<T, int, CheckBound, Index, IndexOf>;
 
   explicit Heap(Less less = Less()) : less_(less) { heap_.emplace_back(); }
 
@@ -132,11 +149,8 @@ class Heap {
 
   void set_less(Less less) { less_ = less; }
 
-  template<typename UnaryFunction = PlusOneGrowth>
-  void Capacitate(const T x, UnaryFunction growth = UnaryFunction()) { index_.Capacitate(x); }
-
-  template<typename UnaryFunction = PlusOneGrowth>
-  void Capacitate(const int i, UnaryFunction growth = UnaryFunction()) { index_.Capacitate(i); }
+  void Capacitate(const T x) { index_.Capacitate(x); }
+  void Capacitate(const int i) { index_.Capacitate(i); }
 
   void Clear() { heap_.clear(); index_.Clear(); heap_.emplace_back(); }
 

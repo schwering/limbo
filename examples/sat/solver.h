@@ -15,7 +15,6 @@
 
 #include <limbo/clause.h>
 #include <limbo/literal.h>
-#include <limbo/term.h>
 
 #include <limbo/internal/dense.h>
 
@@ -166,7 +165,7 @@ class Solver {
       const cref_t cr = clauses_[i];
       Clause& c = clause_factory_[cr];
       assert(c.size() >= 2);
-      const int removed = c.RemoveIf([this](Literal a) { return falsifies(a); });
+      const int removed = c.RemoveIf([this](Literal a) -> bool { return falsifies(a); });
       assert(!c.valid());
       if (c.unsat()) {
         empty_clause_ = true;
@@ -195,7 +194,7 @@ class Solver {
     for (int i = 1; i < n_clauses; ++i) {
       const cref_t cr = clauses_[i];
       Clause& c = clause_factory_[cr];
-      const int removed = c.RemoveIf([this](Literal a) { return falsifies(a); });
+      const int removed = c.RemoveIf([this](Literal a) -> bool { return falsifies(a); });
       assert(c.size() >= 2);
       assert(!c.valid());
       assert(!c.unsat());
@@ -228,7 +227,7 @@ class Solver {
 
   const std::vector<cref_t>&                        clauses() const { return clauses_; }
   const Clause&                                     clause(cref_t cr) const { return clause_factory_[cr]; }
-  const internal::DenseSet<Fun>&                    funcs() const { return funcs_; }
+  const internal::DenseSet<Fun>&                    funs() const { return funs_; }
   const internal::DenseMap<Fun, std::vector<Name>>& names() const { return names_; }
   const std::vector<Name>&                          names(Fun f) const { return names_[f]; }
   const internal::DenseMap<Fun, Name>&              model() const { return model_; }
@@ -261,14 +260,14 @@ class Solver {
           assert(c.size() >= 2);
           assert(!satisfies(c));
           assert(!falsifies(c[0]));
-          assert(std::all_of(c.begin() + 1, c.end(), [this](Literal a) { return falsifies(a); }));
+          assert(std::all_of(c.begin() + 1, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
           clauses_.push_back(cr);
           UpdateWatchers(cr, c);
           Enqueue(c[0], cr);
         }
         learnt.clear();
       } else {
-        const Fun f = func_order_.Top();
+        const Fun f = fun_order_.Top();
         if (f.null()) {
           return 1;
         }
@@ -332,9 +331,9 @@ class Solver {
 
   void Register(const Fun f, const Name n, const Name extra_n) {
     CapacitateMaps(f, n, extra_n);
-    if (!funcs_.Contains(f)) {
-      funcs_.Insert(f);
-      func_order_.Insert(f);
+    if (!funs_.Contains(f)) {
+      funs_.Insert(f);
+      fun_order_.Insert(f);
 #ifdef NAME_ORDER
       if (!data_[f][extra_n].occurs) {
         names_[f].push_back(extra_n);
@@ -374,8 +373,8 @@ class Solver {
     assert(!c.unsat());
     assert(!c.valid());
     assert(c.size() >= 2);
-    assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
-    assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
+    assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
+    assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
     const Fun f0 = c[0].lhs();
     const Fun f1 = c[1].lhs();
     assert(std::count(watchers_[f0].begin(), watchers_[f0].end(), cr) == 0);
@@ -394,8 +393,8 @@ class Solver {
       Literal a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
-    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) { return std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Literal a) { auto& ws = watchers_[a.lhs()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
-    assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) { const Clause& c = clause(cr); return satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }); }));
+    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) -> bool { return std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Literal a) -> bool { auto& ws = watchers_[a.lhs()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
+    assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) -> bool { const Clause& c = clause(cr); return satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }); }));
     return conflict;
   }
 
@@ -462,18 +461,18 @@ class Solver {
         cr_ptr1 = end;
         trail_head_ = trail_.size();
         conflict = cr;
-        assert(std::all_of(c.begin(), c.end(), [this](Literal a) { return falsifies(a); }));
+        assert(std::all_of(c.begin(), c.end(), [this](Literal a) -> bool { return falsifies(a); }));
       } else if (w != 0) {
         assert(w == 1 || w == 2);
         assert(falsifies(c[w >> 1]));
         assert(!falsifies(c[1 - (w >> 1)]));
         const Literal b = c[1 - (w >> 1)];
         Enqueue(b, cr);
-        assert(std::all_of(c.begin(), c.end(), [this, b](Literal a) { return a == b ? satisfies(a) : falsifies(a); }));
+        assert(std::all_of(c.begin(), c.end(), [this, b](Literal a) -> bool { return a == b ? satisfies(a) : falsifies(a); }));
       } else {
         assert(!falsifies(c[0]) && !falsifies(c[1]));
-        assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
-        assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) { return falsifies(a); }));
+        assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
+        assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
       }
     }
     ws.resize(cr_ptr2 - begin);
@@ -481,8 +480,8 @@ class Solver {
   }
 
   void Analyze(cref_t conflict, std::vector<Literal>* const learnt, level_t* const btlevel) {
-    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) { return std::all_of(ds.begin(), ds.end(),
-           [](const Data& d) { return !d.seen_subsumed && !d.wanted; }); }));
+    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(),
+           [](const Data& d) -> bool { return !d.seen_subsumed && !d.wanted; }); }));
     int depth = 0;
     Literal trail_a = Literal();
     uref_t trail_i = trail_.size() - 1;
@@ -504,7 +503,7 @@ class Solver {
     // not f != n or f == n'. Hence we might see f != n and f == n', but not
     // f == n or f != n'. Therefore marking (f,n) where n == model_[f]
     // uniquely identifies f != n and f == n' for all n' != n.
-    auto see_subsuming = [this](const Literal a) {
+    auto see_subsuming = [this](const Literal a) -> void {
       assert(falsifies(a));
       assert(a.pos() || !model_[a.lhs()].null());
       assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
@@ -517,7 +516,7 @@ class Solver {
     // Some literal subsumed by f != n was seen iff f != n was seen.
     // If f == n was seen, then n != model_[f] and (f,n) is marked.
     // If f != n was seen, then n == model_[f] and (f,model_[f]) is marked.
-    auto seen_subsumed = [this](const Literal a) {
+    auto seen_subsumed = [this](const Literal a) -> bool {
       assert(falsifies(a));
       assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
       const bool p = a.pos();
@@ -535,7 +534,7 @@ class Solver {
     // f == model_[f] because this will become f == n in the conflict clause.
     // This also means that we want exactly one literal, which eliminates the
     // need for traversing the whole level again to reset the wanted flag.
-    auto want_complementary_on_level = [this](const Literal a, level_t l) {
+    auto want_complementary_on_level = [this](const Literal a, level_t l) -> void {
       assert(falsifies(a));
       assert(data_[a.lhs()][a.rhs()].level <= l);
       assert(a.pos() || data_[a.lhs()][a.rhs()].level == l);
@@ -549,7 +548,7 @@ class Solver {
       data_[f][data_[f][n].level == l ? n : m].wanted = true;
     };
     // wanted_complementary_on_level(a,l) iff a on level l is wanted.
-    auto wanted_complementary_on_level = [this](const Literal a, level_t l) {
+    auto wanted_complementary_on_level = [this](const Literal a, level_t l) -> bool {
       assert(falsifies(a));
       assert(data_[a.lhs()][a.rhs()].level <= l);
       const bool p = a.pos();
@@ -560,7 +559,7 @@ class Solver {
              (p && ((data_[f][n].level == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted)));
     };
     // We un-want every trail literal after it has been traversed.
-    auto wanted = [this](const Literal a) {
+    auto wanted = [this](const Literal a) -> bool {
       assert(satisfies(a));
       const Fun f = a.lhs();
       const Name n = a.rhs();
@@ -568,7 +567,7 @@ class Solver {
     };
 
     auto handle_conflict = [this, &trail_a, &learnt, &depth, &see_subsuming, &seen_subsumed,
-                            &want_complementary_on_level, &wanted_complementary_on_level](const Literal a) {
+                            &want_complementary_on_level, &wanted_complementary_on_level](const Literal a) -> void {
       if (trail_a == a) {
         return;
       }
@@ -586,7 +585,7 @@ class Solver {
         ++depth;
         want_complementary_on_level(a, l);
       }
-      func_order_.Bump(a.lhs());
+      fun_order_.Bump(a.lhs());
 #ifdef NAME_ORDER
       name_order_[a.lhs()].Bump(a.rhs());
 #endif
@@ -642,10 +641,10 @@ class Solver {
       std::swap((*learnt)[1], (*learnt)[max]);
     }
     assert(level_of(trail_a) > *btlevel && *btlevel >= kRootLevel);
-    assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) { return falsifies(a); }));
-    assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) { return !satisfies(a); }));
-    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) { return std::all_of(ds.begin(), ds.end(), [](const Data& d) { return !d.seen_subsumed; }); }));
-    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) { return std::all_of(ds.begin(), ds.end(), [](const Data& d) { return !d.wanted; }); }));
+    assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) -> bool { return falsifies(a); }));
+    assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) -> bool { return !satisfies(a); }));
+    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.seen_subsumed; }); }));
+    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.wanted; }); }));
   }
 
   void NewLevel() { level_size_.push_back(trail_.size()); }
@@ -663,7 +662,7 @@ class Solver {
       data_[f][n].Update(!p, current_level(), reason);
       if (p) {
         model_[f] = n;
-        func_order_.Remove(f);
+        fun_order_.Remove(f);
       } else if (--domain_size_[f] == 1) {
 #ifdef NAME_ORDER
         name_order_[f].Remove(n);
@@ -675,10 +674,10 @@ class Solver {
         trail_.push_back(Literal::Eq(f, m));
         data_[f][m].Update(false, current_level(), kDomainRef);
         model_[f] = m;
-        func_order_.Remove(f);
+        fun_order_.Remove(f);
         assert(satisfies(Literal::Eq(f, m)));
       } else {
-        func_order_.BumpToFront(f);
+        fun_order_.BumpToFront(f);
 #ifdef NAME_ORDER
         name_order_[f].Remove(n);
 #endif
@@ -700,7 +699,7 @@ class Solver {
         if (!data_[f][n].model_neq) {
           data_[f][n].Reset();
         }
-        func_order_.Insert(f);
+        fun_order_.Insert(f);
       } else {
         data_[f][n].Reset();
         domain_size_[f]++;
@@ -771,11 +770,11 @@ class Solver {
   }
 
   bool satisfies(const Clause& c, const level_t l = -1) const {
-    return std::any_of(c.begin(), c.end(), [this, l](Literal a) { return satisfies(a, l); });
+    return std::any_of(c.begin(), c.end(), [this, l](Literal a) -> bool { return satisfies(a, l); });
   }
 
   bool falsifies(const Clause& c, const level_t l = -1) const {
-    return std::all_of(c.begin(), c.end(), [this, l](Literal a) { return falsifies(a, l); });
+    return std::all_of(c.begin(), c.end(), [this, l](Literal a) -> bool { return falsifies(a, l); });
   }
 
   level_t level_of(const Literal a) const {
@@ -812,12 +811,12 @@ class Solver {
 
   void CapacitateMaps(const Fun f, const Name n, const Name extra_n) {
     const int max_ni = n.index() > extra_n.index() ? n.index() : extra_n.index();
-    const int fi = f.index() >= funcs_.upper_bound() ? f.index() : -1;
+    const int fi = f.index() >= funs_.upper_bound() ? f.index() : -1;
     const int ni = data_.upper_bound() == 0 || max_ni >= data_[0].upper_bound() ? max_ni : -1;
     const int fig = (fi + 1) * 1.5;
     const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_[0].upper_bound();
     if (fi >= 0) {
-      funcs_.Capacitate(fig);
+      funs_.Capacitate(fig);
       names_.Capacitate(fig);
 #ifdef PHASING
       name_index_.Capacitate(fig);
@@ -826,7 +825,7 @@ class Solver {
       model_.Capacitate(fig);
       data_.Capacitate(fig);
       domain_size_.Capacitate(fig);
-      func_order_.Capacitate(fig);
+      fun_order_.Capacitate(fig);
 #ifdef NAME_ORDER
       name_order_.Capacitate(fig);
 #endif
@@ -855,9 +854,9 @@ class Solver {
   Clause::Factory clause_factory_;
   std::vector<cref_t> clauses_ = std::vector<cref_t>(1, 0);
 
-  // funcs_ is the set of functions that occur in clauses.
+  // funs_ is the set of functions that occur in clauses.
   // names_ is the set of names that occur in clauses plus extra names.
-  internal::DenseSet<Fun>                    funcs_;
+  internal::DenseSet<Fun>                    funs_;
   internal::DenseMap<Fun, std::vector<Name>> names_;
 #ifdef PHASING
   internal::DenseMap<Name, int>              name_index_;
@@ -885,9 +884,9 @@ class Solver {
   internal::DenseMap<Fun, internal::DenseMap<Name, Data>> data_;
   internal::DenseMap<Fun, int>                            domain_size_;
 
-  // func_order_ is a ranks functions by their activity.
-  // name_order_ is a ranks functions by their activity.
-  ActivityOrder                 func_order_;
+  // fun_order_ ranks functions by their activity.
+  // name_order_ ranks functions by their activity.
+  ActivityOrder                 fun_order_;
 #ifdef NAME_ORDER
   internal::DenseMap<Name, ActivityOrder> name_order_;
 #endif
