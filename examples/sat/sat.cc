@@ -41,6 +41,20 @@ std::ostream& operator<<(std::ostream& os, const Literal a) {
   return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const Clause& c) {
+  os << '(';
+  bool first = true;
+  for (const Literal a : c) {
+    if (!first) {
+      os << " \u2228 ";
+    }
+    os << a;
+    first = false;
+  }
+  os << ')';
+  return os;
+}
+
 class Timer {
  public:
   Timer() : start_(std::clock()) {}
@@ -94,11 +108,11 @@ static bool LoadCnf(std::istream& stream,
     } else if (sscanf(line.c_str(), "p cnf %d %d", &n_funs, &n_clauses) == 2) {  // propositional CNF
       CreateTerms([](int i) { return Fun(i); }, n_funs, &funs);
       names.clear();
-      T = Name(1);
-      F = Name(2);
+      F = Name(1);
+      T = Name(2);
       names.push_back(T);
       names.push_back(F);
-      *extra_name = F;
+      *extra_name = T;
       prop = true;
     } else if (sscanf(line.c_str(), "p fcnf %d %d %d", &n_funs, &n_names, &n_clauses) == 3) {  // func CNF
       CreateTerms([](int i) { return Fun(i); }, n_funs, &funs);
@@ -113,7 +127,7 @@ static bool LoadCnf(std::istream& stream,
 #if 0
         const Literal a = i < 0 ? Literal::Eq(f, F) : Literal::Eq(f, T);
 #else
-        const Literal a = i < 0 ? Literal::Neq(f, T) : Literal::Eq(f, T);
+        const Literal a = i < 0 ? Literal::Eq(f, F) : Literal::Neq(f, F);
 #endif
         lits.push_back(a);
       }
@@ -142,7 +156,7 @@ static bool LoadCnf(std::istream& stream,
   return prop;
 }
 
-bool Solve(Solver& solver, int n_conflicts_init, int conflicts_increase) {
+bool Solve(Solver* solver, int n_conflicts_init, int conflicts_increase) {
   struct Stats {
     int conflicts = 0;
     int conflicts_level_sum = 0;
@@ -172,7 +186,7 @@ bool Solve(Solver& solver, int n_conflicts_init, int conflicts_increase) {
   t.start();
   for (int i = 0; sat == 0; ++i) {
     n_conflicts = static_cast<int>(std::pow(conflicts_increase, i) * n_conflicts_init);
-    sat = solver.Solve(conflict_predicate, decision_predicate);
+    sat = solver->Solve(conflict_predicate, decision_predicate);
   }
   t.stop();
   printf("%s (in %.5lfs)\n", (sat > 0 ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
@@ -245,8 +259,8 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i <= iterations; ++i) {
     solver.Reset();
     solver.Simplify();
-    const bool sat = Solve(solver, restarts, 2);
-    if (sat) {
+    const bool sat = Solve(&solver, restarts, 2);
+    if (sat && n_columns >= 0) {
       struct winsize win_size;
       ioctl(STDOUT_FILENO, TIOCGWINSZ, &win_size);
       const int lit_width = 10;

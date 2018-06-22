@@ -20,6 +20,7 @@
 
 namespace limbo {
 
+template<typename T>
 class ActivityOrder {
  public:
   explicit ActivityOrder(double bump_step = 1.0) : bump_step_(bump_step) {}
@@ -42,50 +43,54 @@ class ActivityOrder {
   }
 
   void Capacitate(const int i) { heap_.Capacitate(i); activity_.Capacitate(i); }
-  void Capacitate(const Fun f) { heap_.Capacitate(f); activity_.Capacitate(f); }
+  void Capacitate(const T t) { heap_.Capacitate(t); activity_.Capacitate(t); }
 
   int size() const { return heap_.size(); }
 
-  Fun Top() const { return heap_.Top(); }
-  void Insert(const Fun f) { heap_.Insert(f); }
-  void Remove(const Fun f) { heap_.Remove(f); }
+  T Top() const { return heap_.Top(); }
+  void Insert(const T t) { heap_.Insert(t); }
+  void Remove(const T t) { heap_.Remove(t); }
+  bool Contains(const T t) const { return heap_.Contains(t); }
 
-  void BumpToFront(const Fun f) {
+  void BumpToFront(const T t) {
     for (const double& activity : activity_) {
-      if (activity_[f] < activity) {
-        activity_[f] = activity;
+      if (activity_[t] < activity) {
+        activity_[t] = activity;
       }
     }
-    activity_[f] += bump_step_;
-    if (heap_.Contains(f)) {
-      heap_.Increase(f);
+    activity_[t] += bump_step_;
+    if (heap_.Contains(t)) {
+      heap_.Increase(t);
     }
   }
 
-  void Bump(const Fun f) {
-    activity_[f] += bump_step_;
-    if (activity_[f] > 1e100) {
+  void Bump(const T t) {
+    activity_[t] += bump_step_;
+    if (activity_[t] > 1e100) {
       for (double& activity : activity_) {
         activity *= 1e-100;
       }
       bump_step_ *= 1e-100;
     }
-    if (heap_.Contains(f)) {
-      heap_.Increase(f);
+    if (heap_.Contains(t)) {
+      heap_.Increase(t);
     }
   }
 
+  typename std::vector<T>::const_iterator begin() const { return heap_.begin(); }
+  typename std::vector<T>::const_iterator end()   const { return heap_.end(); }
+
  private:
   struct ActivityCompare {
-    explicit ActivityCompare(const internal::DenseMap<Fun, double>* a) : activity_(a) {}
-    bool operator()(const Fun t1, const Fun t2) const { return (*activity_)[t1] > (*activity_)[t2]; }
+    explicit ActivityCompare(const internal::DenseMap<T, double>* a) : activity_(a) {}
+    bool operator()(const T t1, const T t2) const { return (*activity_)[t1] > (*activity_)[t2]; }
    private:
-    const internal::DenseMap<Fun, double>* activity_;
+    const internal::DenseMap<T, double>* activity_;
   };
 
-  double                               bump_step_;
-  internal::DenseMap<Fun, double>      activity_;
-  internal::Heap<Fun, ActivityCompare> heap_{ActivityCompare(&activity_)};
+  double                             bump_step_;
+  internal::DenseMap<T, double>      activity_;
+  internal::Heap<T, ActivityCompare> heap_{ActivityCompare(&activity_)};
 };
 
 class Solver {
@@ -267,10 +272,14 @@ class Solver {
         }
         learnt.clear();
       } else {
-        const Fun f = fun_order_.Top();
-        if (f.null()) {
-          return 1;
-        }
+        Fun f;
+        do {
+          f = fun_order_.Top();
+          if (f.null()) {
+            return 1;
+          }
+          fun_order_.Remove(f);
+        } while (!model_[f].null());
 #ifdef NAME_ORDER
         const Name n = name_order_[f].Top();
 #else
@@ -334,35 +343,23 @@ class Solver {
     if (!funs_.Contains(f)) {
       funs_.Insert(f);
       fun_order_.Insert(f);
-#ifdef NAME_ORDER
       if (!data_[f][extra_n].occurs) {
-        names_[f].push_back(extra_n);
+        data_[f][extra_n].occurs = true;
         ++domain_size_[f];
+        names_[f].push_back(extra_n);
+#ifdef NAME_ORDER
         name_order_[f].Insert(extra_n);
-        data_[f][extra_n].occurs = true;
-      }
-#else
-      if (!data_[f][extra_n].occurs) {
-        names_[f].push_back(extra_n);
-        ++domain_size_[f];
-        data_[f][extra_n].occurs = true;
-      }
 #endif
+      }
     }
+    if (!data_[f][n].occurs) {
+      data_[f][n].occurs = true;
+      ++domain_size_[f];
+      names_[f].push_back(n);
 #ifdef NAME_ORDER
-    if (!data_[f][n].occurs) {
-      names_[f].push_back(n);
-      ++domain_size_[f];
       name_order_[f].Insert(n);
-      data_[f][n].occurs = true;
-    }
-#else
-    if (!data_[f][n].occurs) {
-      names_[f].push_back(n);
-      ++domain_size_[f];
-      data_[f][n].occurs = true;
-    }
 #endif
+    }
 #ifdef NAME_ORDER
     assert(domain_size_[f] == name_order_[f].size());
 #endif
@@ -662,7 +659,6 @@ class Solver {
       data_[f][n].Update(!p, current_level(), reason);
       if (p) {
         model_[f] = n;
-        fun_order_.Remove(f);
       } else if (--domain_size_[f] == 1) {
 #ifdef NAME_ORDER
         name_order_[f].Remove(n);
@@ -674,7 +670,6 @@ class Solver {
         trail_.push_back(Literal::Eq(f, m));
         data_[f][m].Update(false, current_level(), kDomainRef);
         model_[f] = m;
-        fun_order_.Remove(f);
         assert(satisfies(Literal::Eq(f, m)));
       } else {
         fun_order_.BumpToFront(f);
@@ -699,7 +694,9 @@ class Solver {
         if (!data_[f][n].model_neq) {
           data_[f][n].Reset();
         }
-        fun_order_.Insert(f);
+        if (!fun_order_.Contains(f)) {
+          fun_order_.Insert(f);
+        }
       } else {
         data_[f][n].Reset();
         domain_size_[f]++;
@@ -716,6 +713,7 @@ class Solver {
     level_size_.resize(l);
   }
 
+#ifndef NAME_ORDER
   Name CandidateName(const Fun f) {
     assert(!f.null() && model_[f].null());
     const std::vector<Name>& names = names_[f];
@@ -748,6 +746,7 @@ class Solver {
 #endif
     return Name();
   }
+#endif
 
   bool satisfies(const Literal a, const level_t l = -1) const {
     const bool p = a.pos();
@@ -835,7 +834,7 @@ class Solver {
         ds.Capacitate(nig);
       }
 #ifdef NAME_ORDER
-      for (ActivityOrder& ao : name_order_) {
+      for (ActivityOrder<Name>& ao : name_order_) {
         ao.Capacitate(nig);
       }
 #endif
@@ -886,9 +885,9 @@ class Solver {
 
   // fun_order_ ranks functions by their activity.
   // name_order_ ranks functions by their activity.
-  ActivityOrder                 fun_order_;
+  ActivityOrder<Fun>                           fun_order_;
 #ifdef NAME_ORDER
-  internal::DenseMap<Name, ActivityOrder> name_order_;
+  internal::DenseMap<Fun, ActivityOrder<Name>> name_order_;
 #endif
 };
 
