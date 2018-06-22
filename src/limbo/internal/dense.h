@@ -21,19 +21,19 @@ struct IndexOf {
 
 struct NoBoundCheck {
   template<typename T, typename Index>
-  void operator()(const T&, const Index&) const {}
+  void operator()(T*, const Index&) const {}
 };
 
 struct SlowAdjustBoundCheck {
   template<typename T, typename Index>
-  void operator()(const T& c, const Index& i) const {
+  void operator()(T* c, const Index& i) const {
     c->Capacitate(i);
   }
 };
 
 struct FastAdjustBoundCheck {
   template<typename T, typename Index>
-  void operator()(const T& c, const Index& i) const {
+  void operator()(T* c, const Index& i) const {
     c->Capacitate(next_power_of_two(i));
   }
 };
@@ -159,7 +159,7 @@ class Heap {
 
   bool Contains(const T& x) const { return index_[x] != 0; }
 
-  T Top() const { return heap_[size() >= 1 ? 1 : 0]; }
+  T Top() const { return heap_[bool(size())]; }
 
   void Increase(const T& x) {
     assert(Contains(x));
@@ -187,7 +187,7 @@ class Heap {
     assert(!Contains(x));
   }
 
-  typename std::vector<T>::const_iterator begin() const { return heap_.begin(); }
+  typename std::vector<T>::const_iterator begin() const { return heap_.begin() + 1; }
   typename std::vector<T>::const_iterator end()   const { return heap_.end(); }
 
  private:
