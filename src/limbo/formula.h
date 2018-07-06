@@ -418,6 +418,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     internal::hash32_t operator()(const RWord& w) const {
       internal::hash32_t h = 0;
       for (const Symbol& s : w) {
+        assert(s.term());
         int i = 0;
         switch (s.tag) {
           case Symbol::kFun:          i = s.u.f.index();   break;

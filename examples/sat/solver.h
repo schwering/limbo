@@ -30,20 +30,20 @@ class ActivityOrder {
 
   ActivityOrder(ActivityOrder&& ao) :
       bump_step_(std::move(ao.bump_step_)),
-      activity_(std::move(ao.activity_)),
+      acti_(std::move(ao.acti_)),
       heap_(std::move(ao.heap_)) {
-    heap_.set_less(ActivityCompare(&activity_));
+    heap_.set_less(ActivityCompare(&acti_));
   }
   ActivityOrder& operator=(ActivityOrder&& ao) {
     bump_step_ = std::move(ao.bump_step_);
-    activity_ = std::move(ao.activity_);
+    acti_ = std::move(ao.acti_);
     heap_ = std::move(ao.heap_);
-    heap_.set_less(ActivityCompare(&activity_));
+    heap_.set_less(ActivityCompare(&acti_));
     return *this;
   }
 
-  void Capacitate(const int i) { heap_.Capacitate(i); activity_.Capacitate(i); }
-  void Capacitate(const T t) { heap_.Capacitate(t); activity_.Capacitate(t); }
+  void Capacitate(const int i) { heap_.Capacitate(i); acti_.Capacitate(i); }
+  void Capacitate(const T t) { heap_.Capacitate(t); acti_.Capacitate(t); }
 
   int size() const { return heap_.size(); }
 
@@ -52,45 +52,40 @@ class ActivityOrder {
   void Remove(const T t) { heap_.Remove(t); }
   bool Contains(const T t) const { return heap_.Contains(t); }
 
-  void BumpToFront(const T t) {
-    for (const double& activity : activity_) {
-      if (activity_[t] < activity) {
-        activity_[t] = activity;
-      }
-    }
-    activity_[t] += bump_step_;
-    if (heap_.Contains(t)) {
-      heap_.Increase(t);
-    }
-  }
-
-  void Bump(const T t) {
-    activity_[t] += bump_step_;
-    if (activity_[t] > 1e100) {
-      for (double& activity : activity_) {
-        activity *= 1e-100;
-      }
-      bump_step_ *= 1e-100;
-    }
-    if (heap_.Contains(t)) {
-      heap_.Increase(t);
-    }
-  }
-
   typename std::vector<T>::const_iterator begin() const { return heap_.begin(); }
   typename std::vector<T>::const_iterator end()   const { return heap_.end(); }
 
+  void BumpMax(const T t) { Bump(t, *std::max_element(acti_.begin(), acti_.end()) - acti_[t] + bump_step_); }
+  void Bump(const T t) { Bump(t, bump_step_); }
+  void Decay() { bump_step_ /= kDecayFactor; }
+
  private:
   struct ActivityCompare {
-    explicit ActivityCompare(const internal::DenseMap<T, double>* a) : activity_(a) {}
-    bool operator()(const T t1, const T t2) const { return (*activity_)[t1] > (*activity_)[t2]; }
+    explicit ActivityCompare(const internal::DenseMap<T, double>* a) : acti_(a) {}
+    bool operator()(const T t1, const T t2) const { return (*acti_)[t1] > (*acti_)[t2]; }
    private:
-    const internal::DenseMap<T, double>* activity_;
+    const internal::DenseMap<T, double>* acti_;
   };
 
+  static constexpr double kActivityThreshold = 1e100;
+  static constexpr double kDecayFactor = 0.95;
+
+  void Bump(const T t, const double bump) {
+    acti_[t] += bump;
+    if (acti_[t] > kActivityThreshold) {
+      for (double& activity : acti_) {
+        activity /= kActivityThreshold;
+      }
+      bump_step_ /= kActivityThreshold;
+    }
+    if (heap_.Contains(t)) {
+      heap_.Increase(t);
+    }
+  }
+
   double                             bump_step_;
-  internal::DenseMap<T, double>      activity_;
-  internal::Heap<T, ActivityCompare> heap_{ActivityCompare(&activity_)};
+  internal::DenseMap<T, double>      acti_;
+  internal::Heap<T, ActivityCompare> heap_{ActivityCompare(&acti_)};
 };
 
 class Solver {
@@ -271,6 +266,7 @@ class Solver {
           Enqueue(c[0], cr);
         }
         learnt.clear();
+        fun_order_.Decay();
       } else {
         Fun f;
         do {
@@ -672,7 +668,7 @@ class Solver {
         model_[f] = m;
         assert(satisfies(Literal::Eq(f, m)));
       } else {
-        fun_order_.BumpToFront(f);
+        fun_order_.BumpMax(f);
 #ifdef NAME_ORDER
         name_order_[f].Remove(n);
 #endif
