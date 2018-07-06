@@ -480,22 +480,46 @@ class Solver {
     uref_t trail_i = trail_.size() - 1;
     learnt->push_back(trail_a);
 
-    // see_subsuming(a) marks all literals subsumed by a as seen.
-    // By the following reasoning, it suffices to mark only a single literal
-    // that implicitly also determines the others as seen.
-    // When a literal has been added to the conflict clause, every subsuming
-    // literal would be redundant and should be skipped.
-    // (1) f == n is only subsumed by f == n.
-    // (2) f != n is only subsumed by f != n and f == n' for every n' != n.
-    // Every literal we see has a complementary literal on the trail, and the
-    // trail does not contain two mutually complementary literals.
-    // In case (1), the trail only contains f != n or f == n', but not f == n.
-    // Hence we will not see f != n. Therefore marking (f,n) where n !=
-    // model_[f] uniquely f == n as seen and nothing else.
-    // In case (2), the trail only contains f == n and perhaps f != n', but
-    // not f != n or f == n'. Hence we might see f != n and f == n', but not
-    // f == n or f != n'. Therefore marking (f,n) where n == model_[f]
-    // uniquely identifies f != n and f == n' for all n' != n.
+    // see_subsuming(a) marks all literals that subsume a as seen,
+    // seen_subsumed(a) holds iff some literal subsumed by a has been seen.
+    //
+    // Proof:
+    // (#) The stack contains a literal complementary to a.
+    // (*) The stack does not contain a literal that subsumes a.
+    // (1) f == n is subsumed (only) by f == n;
+    // (2) f == n is complementary (only) to f != n and f == n';
+    // (3) f != n is subsumed (only) by f != n and f == n';
+    // (4) f != n is complementary (only) to f == n;
+    // Here, (*) follows from (#) and the fact that the trail does not contain
+    // complementary literals.
+    //
+    // We show seen_subsumed(a) iff see_subsuming(a'), where a subsumes a'.
+    //
+    // Case 1:
+    //     seen_subsumed(f == n)
+    // iff (f,n) or else m and (f,m)
+    // iff see_subsuming(f == n) or
+    //     see_subsuming(f != n) or
+    //     m and see_subsuming(f == m) or
+    //     m and see_subsuming(f != m)
+    // iff (by ($) and (1))
+    //     see_subsuming(f == n) or
+    //     see_subsuming(f != n) or
+    //     m and see_subsuming(f != m)
+    // iff (by (#), (4), (1), ($))
+    //     see_subsuming(f == n) or
+    //     m and see_subsuming(f != m)
+    // iff (by (#) and (4))
+    //     see_subsuming(f == n) or
+    //     see_subsuming(f != n') for n' distinct from n
+    //
+    // Case 2:
+    //     seen_subsumed(f != n)
+    // iff (f,n) or else m and (f,m)
+    // iff see_subsuming(f == n) or
+    //     see_subsuming(f != n)
+    // iff (by (#), (2), (3), ($))
+    //     see_subsuming(f != n)
     auto see_subsuming = [this](const Literal a) -> void {
       assert(falsifies(a));
       assert(a.pos() || !model_[a.lhs()].null());
@@ -504,11 +528,6 @@ class Solver {
       const Name n = a.rhs();
       data_[f][n].seen_subsumed = 1;
     };
-    // seen_subsumed(a) iff some literal subsumed by a has been seen.
-    // Some literal subsumed by f == n was seen iff f == n or f != n' was seen for some n'.
-    // Some literal subsumed by f != n was seen iff f != n was seen.
-    // If f == n was seen, then n != model_[f] and (f,n) is marked.
-    // If f != n was seen, then n == model_[f] and (f,model_[f]) is marked.
     auto seen_subsumed = [this](const Literal a) -> bool {
       assert(falsifies(a));
       assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
