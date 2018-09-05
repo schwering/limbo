@@ -157,10 +157,15 @@ class Solver {
     Reset();
     assert(level_size_.size() == 1);
     assert(level_size_[0] == 0);
-    int n_clauses = clauses_.size();
+    const cref_t conflict = Propagate();
+    if (conflict != kNullRef) {
+      empty_clause_ = true;
+      return;
+    }
     for (std::vector<cref_t>& ws : watchers_) {
       ws.clear();
     }
+    int n_clauses = clauses_.size();
     for (int i = 1; i < n_clauses; ++i) {
       const cref_t cr = clauses_[i];
       Clause& c = clause_factory_[cr];
@@ -176,29 +181,6 @@ class Solver {
         clauses_[i--] = clauses_[--n_clauses];
       } else if (c.size() == 1) {
         Enqueue(c[0], kNullRef);
-        clause_factory_.Delete(cr, c.size() + removed);
-        clauses_[i--] = clauses_[--n_clauses];
-      } else {
-        UpdateWatchers(cr, c);
-      }
-    }
-    clauses_.resize(n_clauses);
-    const cref_t conflict = Propagate();
-    if (conflict != kNullRef) {
-      empty_clause_ = true;
-      return;
-    }
-    for (std::vector<cref_t>& ws : watchers_) {
-      ws.clear();
-    }
-    for (int i = 1; i < n_clauses; ++i) {
-      const cref_t cr = clauses_[i];
-      Clause& c = clause_factory_[cr];
-      const int removed = c.RemoveIf([this](Lit a) -> bool { return falsifies(a); });
-      assert(c.size() >= 2);
-      assert(!c.valid());
-      assert(!c.unsat());
-      if (satisfies(c)) {
         clause_factory_.Delete(cr, c.size() + removed);
         clauses_[i--] = clauses_[--n_clauses];
       } else {
