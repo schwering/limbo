@@ -19,7 +19,7 @@
 #include <type_traits>
 
 #include <limbo/clause.h>
-#include <limbo/literal.h>
+#include <limbo/lit.h>
 
 #include "solver.h"
 
@@ -27,24 +27,24 @@ using namespace limbo;
 using namespace limbo::internal;
 
 std::ostream& operator<<(std::ostream& os, const Fun f) {
-  os << f.index();
+  os << int(f);
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Name n) {
-  os << n.index();
+  os << int(n);
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Literal a) {
-  os << a.lhs() << ' ' << (a.pos() ? "\u003D" : "\u2260") << ' ' << a.rhs();
+std::ostream& operator<<(std::ostream& os, const Lit a) {
+  os << a.fun() << ' ' << (a.pos() ? "\u003D" : "\u2260") << ' ' << a.name();
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Clause& c) {
   os << '(';
   bool first = true;
-  for (const Literal a : c) {
+  for (const Lit a : c) {
     if (!first) {
       os << " \u2228 ";
     }
@@ -89,7 +89,7 @@ static void CreateTerms(UnaryFunction f, int n, std::vector<typename std::result
 }
 
 static bool LoadCnf(std::istream& stream,
-                    std::vector<std::vector<Literal>>* cnf,
+                    std::vector<std::vector<Lit>>* cnf,
                     Name* extra_name) {
   std::vector<Fun> funs;
   std::vector<Name> names;
@@ -120,14 +120,14 @@ static bool LoadCnf(std::istream& stream,
       *extra_name = names.back();
       prop = false;
     } else if (prop) {  // propositional clause
-      std::vector<Literal> lits;
+      std::vector<Lit> lits;
       int i = -1;
       for (std::istringstream iss(line); (iss >> i) && i != 0; ) {
         const Fun f = funs[(i < 0 ? -i : i) - 1];
 #if 0
-        const Literal a = i < 0 ? Literal::Eq(f, F) : Literal::Eq(f, T);
+        const Lit a = i < 0 ? Lit::Eq(f, F) : Lit::Eq(f, T);
 #else
-        const Literal a = i < 0 ? Literal::Eq(f, F) : Literal::Neq(f, F);
+        const Lit a = i < 0 ? Lit::Eq(f, F) : Lit::Neq(f, F);
 #endif
         lits.push_back(a);
       }
@@ -135,7 +135,7 @@ static bool LoadCnf(std::istream& stream,
         cnf->push_back(lits);
       }
     } else {  // functional clause
-      std::vector<Literal> lits;
+      std::vector<Lit> lits;
       int i;
       int j;
       char eq = '\0';
@@ -143,7 +143,7 @@ static bool LoadCnf(std::istream& stream,
         assert(j >= 1);
         const Fun f = funs[(i < 0 ? -i : i) - 1];
         const Name n = names[j - 1];
-        const Literal a = i < 0 ? Literal::Neq(f, n) : Literal::Eq(f, n);
+        const Lit a = i < 0 ? Lit::Neq(f, n) : Lit::Eq(f, n);
         lits.push_back(a);
       }
       if (eq == '=') {
@@ -168,14 +168,14 @@ bool Solve(Solver* solver, int n_conflicts_init, int conflicts_increase) {
   int n_conflicts = n_conflicts_init;
   int sat = 0;
 
-  auto conflict_predicate = [&](Solver::level_t level, Solver::cref_t conflict, const std::vector<Literal>& learnt, Solver::level_t btlevel) {
+  auto conflict_predicate = [&](Solver::level_t level, Solver::cref_t conflict, const std::vector<Lit>& learnt, Solver::level_t btlevel) {
     ++stats.conflicts;
     stats.conflicts_level_sum += level;
     stats.conflicts_btlevel_sum += btlevel;
     //std::cout << "Learnt from " << solver.clause(conflict) << " at level " << level << " that " << learnt << ", backtracking to " << btlevel << std::endl;
     return !restarts || stats.conflicts < n_conflicts;
   };
-  auto decision_predicate = [&](Solver::level_t level, Literal a) {
+  auto decision_predicate = [&](Solver::level_t level, Lit a) {
     ++stats.decisions;
     stats.decisions_level_sum += level;
     //std::cout << "Decided " << a << " at level " << level << std::endl;
@@ -201,7 +201,7 @@ bool Solve(Solver* solver, int n_conflicts_init, int conflicts_increase) {
 
 int main(int argc, char *argv[]) {
   std::srand(0);
-  std::vector<std::vector<Literal>> cnf;
+  std::vector<std::vector<Lit>> cnf;
   Name extra_name;
   int iterations = 1;
   int n_columns = 0;
@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
   t0.start();
   Solver solver{};
   auto extra_name_factory = [extra_name](const Fun) { return extra_name; };
-  for (const std::vector<Literal>& lits : cnf) {
+  for (const std::vector<Lit>& lits : cnf) {
     solver.AddClause(lits, extra_name_factory);
   }
   solver.Init();

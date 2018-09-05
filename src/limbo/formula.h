@@ -12,7 +12,7 @@
 #include <unordered_map>
 
 #include <limbo/clause.h>
-#include <limbo/literal.h>
+#include <limbo/lit.h>
 
 #include <limbo/internal/dense.h>
 #include <limbo/internal/hash.h>
@@ -26,41 +26,42 @@ class Alphabet : private internal::Singleton<Alphabet> {
   using id_t = int;
 
   template<typename T>
-  class Identifiable {
+  class IntRepresented {
    public:
-    Identifiable() = default;
-    explicit Identifiable(id_t id) : id_(id) {}
-    bool operator==(const Identifiable& i) const { return id_ == i.id_; }
-    bool operator!=(const Identifiable& i) const { return !(*this == i); }
+    IntRepresented() = default;
+    explicit IntRepresented(id_t id) : id_(id) {}
+    bool operator==(const IntRepresented& i) const { return id_ == i.id_; }
+    bool operator!=(const IntRepresented& i) const { return !(*this == i); }
+    explicit operator bool() const { return id_; }
+    explicit operator int() const { return id_; }
     bool null() const { return id_ == 0; }
-    int index() const { return id_; }
    private:
     id_t id_;
   };
 
-  class Sort : public Identifiable<Sort> {
+  class Sort : public IntRepresented<Sort> {
    public:
-    using Identifiable::Identifiable;
+    using IntRepresented::IntRepresented;
     bool rigid() const { return Instance()->sort_rigid_[*this]; }
   };
 
-  class Fun : public Identifiable<Sort> {
+  class Fun : public IntRepresented<Sort> {
    public:
-    using Identifiable::Identifiable;
+    using IntRepresented::IntRepresented;
     Sort sort() const { return Instance()->fun_sort_[*this]; }
     int arity() const { return Instance()->fun_arity_[*this]; }
   };
 
-  class Name : public Identifiable<Sort> {
+  class Name : public IntRepresented<Sort> {
    public:
-    using Identifiable::Identifiable;
+    using IntRepresented::IntRepresented;
     Sort sort() const { return Instance()->name_sort_[*this]; }
     int arity() const { return Instance()->name_arity_[*this]; }
   };
 
-  class Var : public Identifiable<Sort> {
+  class Var : public IntRepresented<Sort> {
    public:
-    using Identifiable::Identifiable;
+    using IntRepresented::IntRepresented;
     Sort sort() const { return Instance()->var_sort_[*this]; }
   };
 
@@ -80,27 +81,27 @@ class Alphabet : private internal::Singleton<Alphabet> {
     } u_;
   };
 
-  class QuasiLiteral {
+  class QuasiLit {
     class ConstArgs {
      public:
-      ConstArgs(const QuasiLiteral* owner) : owner_(owner) {}
+      ConstArgs(const QuasiLit* owner) : owner_(owner) {}
       std::vector<QuasiName>::const_iterator begin() const { return owner_->ns_.begin(); }
       std::vector<QuasiName>::const_iterator end()   const { return owner_->ns_.end() - 1; }
      private:
-      const QuasiLiteral* owner_;
+      const QuasiLit* owner_;
     };
 
     class Args {
      public:
-      Args(QuasiLiteral* owner) : owner_(owner) {}
+      Args(QuasiLit* owner) : owner_(owner) {}
       std::vector<QuasiName>::iterator begin() const { return owner_->ns_.begin(); }
       std::vector<QuasiName>::iterator end()   const { return owner_->ns_.end() - 1; }
      private:
-      QuasiLiteral* owner_;
+      QuasiLit* owner_;
     };
 
     template<typename InputIt>
-    QuasiLiteral(Fun f, InputIt args_begin, bool eq, QuasiName n) : eq_(eq), f_(f) {
+    QuasiLit(Fun f, InputIt args_begin, bool eq, QuasiName n) : eq_(eq), f_(f) {
       int arity = f.arity();
       ns_.resize(arity + 1);
       while (arity-- > 0) {
@@ -108,7 +109,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
       }
       ns_.push_back(n);
     }
-    QuasiLiteral(QuasiName n1, bool eq, QuasiName n2) : eq_(eq) {
+    QuasiLit(QuasiName n1, bool eq, QuasiName n2) : eq_(eq) {
       ns_.resize(2);
       ns_.push_back(n1);
       ns_.push_back(n2);
@@ -126,16 +127,16 @@ class Alphabet : private internal::Singleton<Alphabet> {
 
   class QuasiClause {
     QuasiClause() = default;
-          QuasiLiteral& operator[](int i)       { return as_[i]; }
-    const QuasiLiteral& operator[](int i) const { return as_[i]; }
+          QuasiLit& operator[](int i)       { return as_[i]; }
+    const QuasiLit& operator[](int i) const { return as_[i]; }
    private:
-    std::vector<QuasiLiteral> as_;
+    std::vector<QuasiLit> as_;
   };
 #endif
 
   struct Symbol {
     enum Tag {
-      kFun, kName, kVar, kStrippedFun, kStrippedName, kEquals, kNotEquals, kStrippedLiteral, kStrippedClause,
+      kFun, kName, kVar, kStrippedFun, kStrippedName, kEquals, kNotEquals, kStrippedLit, kStrippedClause,
       kNot, kOr, kAnd, kExists, kForall, kKnow, kMaybe, kBelieve, kAction
     };
 
@@ -143,24 +144,24 @@ class Alphabet : private internal::Singleton<Alphabet> {
     using Ref = List::iterator;
     using CRef = List::const_iterator;
 
-    static Symbol Fun(Fun f)                  { Symbol s; s.tag = kFun;             s.u.f = f;            return s; }
-    static Symbol Name(Name n)                { Symbol s; s.tag = kName;            s.u.n = n;            return s; }
-    static Symbol Var(Var x)                  { Symbol s; s.tag = kVar;             s.u.x = x;            return s; }
-    static Symbol StrippedFun(limbo::Fun f)   { Symbol s; s.tag = kStrippedFun;     s.u.f_s = f;          return s; }
-    static Symbol StrippedName(limbo::Name n) { Symbol s; s.tag = kStrippedName;    s.u.n_s = n;          return s; }
-    static Symbol Equals()                    { Symbol s; s.tag = kEquals;                                return s; }
-    static Symbol NotEquals()                 { Symbol s; s.tag = kNotEquals;                             return s; }
-    static Symbol Literal(Literal a)          { Symbol s; s.tag = kStrippedLiteral; s.u.a = a;            return s; }
-    static Symbol Clause(const Clause* c)     { Symbol s; s.tag = kStrippedClause;  s.u.c = c;            return s; }
-    static Symbol Not()                       { Symbol s; s.tag = kNot;                                   return s; }
-    static Symbol Exists(class Var x)         { Symbol s; s.tag = kExists;          s.u.x = x;            return s; }
-    static Symbol Forall(class Var x)         { Symbol s; s.tag = kForall;          s.u.x = x;            return s; }
-    static Symbol Or(int k)                   { Symbol s; s.tag = kOr;              s.u.k = k;            return s; }
-    static Symbol And(int k)                  { Symbol s; s.tag = kAnd;             s.u.k = k;            return s; }
-    static Symbol Know(int k)                 { Symbol s; s.tag = kKnow;            s.u.k = k;            return s; }
-    static Symbol Maybe(int k)                { Symbol s; s.tag = kMaybe;           s.u.k = k;            return s; }
-    static Symbol Believe(int k, int l)       { Symbol s; s.tag = kBelieve;         s.u.k = k; s.u.l = l; return s; }
-    static Symbol Action()                    { Symbol s; s.tag = kAction;                                return s; }
+    static Symbol Fun(Fun f)                  { Symbol s; s.tag = kFun;            s.u.f = f;            return s; }
+    static Symbol Name(Name n)                { Symbol s; s.tag = kName;           s.u.n = n;            return s; }
+    static Symbol Var(Var x)                  { Symbol s; s.tag = kVar;            s.u.x = x;            return s; }
+    static Symbol StrippedFun(limbo::Fun f)   { Symbol s; s.tag = kStrippedFun;    s.u.f_s = f;          return s; }
+    static Symbol StrippedName(limbo::Name n) { Symbol s; s.tag = kStrippedName;   s.u.n_s = n;          return s; }
+    static Symbol Equals()                    { Symbol s; s.tag = kEquals;                               return s; }
+    static Symbol NotEquals()                 { Symbol s; s.tag = kNotEquals;                            return s; }
+    static Symbol Lit(Lit a)                  { Symbol s; s.tag = kStrippedLit;    s.u.a = a;            return s; }
+    static Symbol Clause(const Clause* c)     { Symbol s; s.tag = kStrippedClause; s.u.c = c;            return s; }
+    static Symbol Not()                       { Symbol s; s.tag = kNot;                                  return s; }
+    static Symbol Exists(class Var x)         { Symbol s; s.tag = kExists;         s.u.x = x;            return s; }
+    static Symbol Forall(class Var x)         { Symbol s; s.tag = kForall;         s.u.x = x;            return s; }
+    static Symbol Or(int k)                   { Symbol s; s.tag = kOr;             s.u.k = k;            return s; }
+    static Symbol And(int k)                  { Symbol s; s.tag = kAnd;            s.u.k = k;            return s; }
+    static Symbol Know(int k)                 { Symbol s; s.tag = kKnow;           s.u.k = k;            return s; }
+    static Symbol Maybe(int k)                { Symbol s; s.tag = kMaybe;          s.u.k = k;            return s; }
+    static Symbol Believe(int k, int l)       { Symbol s; s.tag = kBelieve;        s.u.k = k; s.u.l = l; return s; }
+    static Symbol Action()                    { Symbol s; s.tag = kAction;                               return s; }
 
     Symbol() = default;
 
@@ -172,7 +173,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
       class Var            x;    // kVar, kExists, kForall
       limbo::Fun           f_s;  // kStrippedFun
       limbo::Name          n_s;  // kStrippedName
-      limbo::Literal       a;    // kStrippedLiteral
+      limbo::Lit           a;    // kStrippedLit
       const limbo::Clause* c;    // kStrippedClause
       int                  k;    // kOr, kAnd, kKnow, kMaybe, kBelieve
       int                  l;    // kBelieve
@@ -190,7 +191,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
         case kStrippedName:    return u.n_s == s.u.n_s;
         case kEquals:          return true;
         case kNotEquals:       return true;
-        case kStrippedLiteral: return u.a == s.u.a;
+        case kStrippedLit:     return u.a == s.u.a;
         case kStrippedClause:  return u.c->operator==(*s.u.c);
         case kNot:             return true;
         case kExists:          return u.x == s.u.x;
@@ -213,7 +214,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
         case kStrippedName:    return 0;
         case kEquals:          return 2;
         case kNotEquals:       return 2;
-        case kStrippedLiteral: return 0;
+        case kStrippedLit:     return 0;
         case kStrippedClause:  return 0;
         case kNot:             return 1;
         case kExists:          return 1;
@@ -228,13 +229,13 @@ class Alphabet : private internal::Singleton<Alphabet> {
     }
 
     bool stripped() const {
-      return tag == kStrippedFun || tag == kStrippedName || tag == kStrippedLiteral || tag == kStrippedClause;
+      return tag == kStrippedFun || tag == kStrippedName || tag == kStrippedLit || tag == kStrippedClause;
     }
     bool fun()        const { return tag == kFun || tag == kStrippedFun; }
     bool name()       const { return tag == kName || tag == kStrippedName; }
     bool var()        const { return tag == kVar; }
     bool term()       const { return fun() || name() || var(); }
-    bool literal()    const { return tag == kEquals || tag == kNotEquals || tag == kStrippedLiteral; }
+    bool literal()    const { return tag == kEquals || tag == kNotEquals || tag == kStrippedLit; }
     bool quantifier() const { return tag == kExists || tag == kForall; }
     bool objective()  const { return tag != kKnow || tag != kMaybe || tag != kBelieve; }
 
@@ -421,12 +422,12 @@ class Alphabet : private internal::Singleton<Alphabet> {
         assert(s.term());
         int i = 0;
         switch (s.tag) {
-          case Symbol::kFun:          i = s.u.f.index();   break;
-          case Symbol::kName:         i = s.u.n.index();   break;
-          case Symbol::kVar:          i = s.u.x.index();   break;
-          case Symbol::kStrippedFun:  i = s.u.f_s.index(); break;
-          case Symbol::kStrippedName: i = s.u.n_s.index(); break;
-          default:                                         break;
+          case Symbol::kFun:          i = int(s.u.f);   break;
+          case Symbol::kName:         i = int(s.u.n);   break;
+          case Symbol::kVar:          i = int(s.u.x);   break;
+          case Symbol::kStrippedFun:  i = int(s.u.f_s); break;
+          case Symbol::kStrippedName: i = int(s.u.n_s); break;
+          default:                                      break;
         }
         h ^= internal::jenkins_hash(s.tag);
         h ^= internal::jenkins_hash(i);
@@ -619,7 +620,7 @@ class RFormula : private FormulaCommons {
         case Symbol::kVar:
         case Symbol::kStrippedFun:
         case Symbol::kStrippedName:
-        case Symbol::kStrippedLiteral:
+        case Symbol::kStrippedLit:
         case Symbol::kStrippedClause:       break;
         case Symbol::kEquals:
         case Symbol::kNotEquals:    es.push_back(kQuasiName); es.push_back(kTerm); break;
@@ -778,7 +779,7 @@ class Formula : private FormulaCommons {
         case Symbol::kStrippedName:
         case Symbol::kEquals:
         case Symbol::kNotEquals:
-        case Symbol::kStrippedLiteral:
+        case Symbol::kStrippedLit:
         case Symbol::kStrippedClause:
         case Symbol::kOr:
         case Symbol::kAnd:
@@ -853,7 +854,7 @@ class Formula : private FormulaCommons {
         case Symbol::kName:
         case Symbol::kEquals:
         case Symbol::kNotEquals:
-        case Symbol::kStrippedLiteral:
+        case Symbol::kStrippedLit:
         case Symbol::kNot:
         case Symbol::kExists:
         case Symbol::kForall:
@@ -984,7 +985,7 @@ class Formula : private FormulaCommons {
         case Symbol::kAnd:
         case Symbol::kStrippedFun:
         case Symbol::kStrippedName:
-        case Symbol::kStrippedLiteral:
+        case Symbol::kStrippedLit:
         case Symbol::kStrippedClause:
           scoper.Munch(*it++);
           break;
@@ -1052,7 +1053,7 @@ class Formula : private FormulaCommons {
           break;
         case Symbol::kEquals:
         case Symbol::kNotEquals:
-        case Symbol::kStrippedLiteral:
+        case Symbol::kStrippedLit:
           if (andors.empty() || andors.back().reset) {
             const Symbol::Ref last = word_.Insert(it, Symbol::Or(1));
             scoper.Munch(*last);
@@ -1066,10 +1067,10 @@ class Formula : private FormulaCommons {
           }
           if (!nots.empty() && nots.back().neg) {
             switch (it->tag) {
-              case Symbol::kEquals:    it->tag = Symbol::kNotEquals; break;
-              case Symbol::kNotEquals: it->tag = Symbol::kEquals; break;
-              case Symbol::kStrippedLiteral:   it->u.a = it->u.a.flip(); break;
-              default:                 assert(false); std::abort();
+              case Symbol::kEquals:      it->tag = Symbol::kNotEquals; break;
+              case Symbol::kNotEquals:   it->tag = Symbol::kEquals; break;
+              case Symbol::kStrippedLit: it->u.a = it->u.a.flip(); break;
+              default:                   assert(false); std::abort();
             }
           }
           scoper.Munch(*it++);
@@ -1140,7 +1141,7 @@ class Formula : private FormulaCommons {
   }
 
   // Replaces primitive terms, names, and primitive literals with their
-  // stripped version, that is, limbo::Fun, limbo::Name, limbo::Literal.
+  // stripped version, that is, limbo::Fun, limbo::Name, limbo::Lit.
   void Strip() {
     assert(readable().weakly_well_formed());
     struct TermMarker {
@@ -1191,7 +1192,7 @@ class Formula : private FormulaCommons {
             bool pos = last_eq->tag == Symbol::kEquals;
             const limbo::Fun f = lhs->fun() ? lhs->u.f_s : rhs->u.f_s;
             const limbo::Name n = rhs->name() ? rhs->u.n_s : lhs->u.n_s;
-            s = Symbol::Literal(Literal(pos, f, n));
+            s = Symbol::Lit(Lit(pos, f, n));
           }
           it = word_.Erase(last_eq, std::next(rhs));
           word_.Insert(it, s);

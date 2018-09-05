@@ -10,7 +10,7 @@
 
 #include <limbo/clause.h>
 #include <limbo/formula.h>
-#include <limbo/literal.h>
+#include <limbo/lit.h>
 
 #define LIMBO_REG(t)  Registry::Instance()->Register((t), #t)
 #define LIMBO_MARK    (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
@@ -60,7 +60,7 @@ class Registry : private internal::Singleton<Registry> {
   const std::string& L(StringMap<T>* map, const T& x, const char* def) const {
     if ((*map)[x].length() == 0) {
       std::stringstream ss;
-      ss << def << x.index();
+      ss << def << int(x);
       (*map)[x] = ss.str();
     }
     return (*map)[x];
@@ -118,8 +118,8 @@ std::ostream& operator<<(std::ostream& os, const Name& n) {
   return os << RFormula(Alphabet::Instance()->Unstrip(Alphabet::Symbol::StrippedName(n)));
 }
 
-std::ostream& operator<<(std::ostream& os, const Literal& a) {
-  return os << a.lhs() << ' ' << (a.pos() ? Strings::kEquals : Strings::kNotEquals) << ' ' << a.rhs();
+std::ostream& operator<<(std::ostream& os, const Lit& a) {
+  return os << a.fun() << ' ' << (a.pos() ? Strings::kEquals : Strings::kNotEquals) << ' ' << a.name();
 }
 
 std::ostream& operator<<(std::ostream& os, const Clause& c) { return os << sequence(c, Strings::kOrS); }
@@ -131,24 +131,24 @@ std::ostream& operator<<(std::ostream& os, const Alphabet::Var&  x) { return os 
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::Symbol& s) {
   switch (s.tag) {
-    case Alphabet::Symbol::kFun:             return os << s.u.f;
-    case Alphabet::Symbol::kName:            return os << s.u.n;
-    case Alphabet::Symbol::kVar:             return os << s.u.x;
-    case Alphabet::Symbol::kStrippedFun:     return os << Strings::kStrip << s.u.f_s << Strings::kStrip;
-    case Alphabet::Symbol::kStrippedName:    return os << Strings::kStrip << s.u.n_s << Strings::kStrip;
-    case Alphabet::Symbol::kEquals:          return os << Strings::kEquals;
-    case Alphabet::Symbol::kNotEquals:       return os << Strings::kNotEquals;
-    case Alphabet::Symbol::kStrippedLiteral: return os << Strings::kStrip << s.u.a << Strings::kStrip;
-    case Alphabet::Symbol::kStrippedClause:  return os << Strings::kStrip << *s.u.c << Strings::kStrip;
-    case Alphabet::Symbol::kNot:             return os << Strings::kNot << ' ';
-    case Alphabet::Symbol::kOr:              return os << Strings::kOr;
-    case Alphabet::Symbol::kAnd:             return os << Strings::kAnd;
-    case Alphabet::Symbol::kExists:          return os << Strings::kExists << ' ' << s.u.x;
-    case Alphabet::Symbol::kForall:          return os << Strings::kForall << ' ' << s.u.x;
-    case Alphabet::Symbol::kKnow:            return os << Strings::kKnow << '_' << s.u.k;
-    case Alphabet::Symbol::kMaybe:           return os << Strings::kMaybe << '_' << s.u.k;
-    case Alphabet::Symbol::kBelieve:         return os << Strings::kBelieve << '_' << s.u.k << ',' << s.u.l;
-    case Alphabet::Symbol::kAction:          return os << Strings::kAction << ' ';
+    case Alphabet::Symbol::kFun:            return os << s.u.f;
+    case Alphabet::Symbol::kName:           return os << s.u.n;
+    case Alphabet::Symbol::kVar:            return os << s.u.x;
+    case Alphabet::Symbol::kStrippedFun:    return os << Strings::kStrip << s.u.f_s << Strings::kStrip;
+    case Alphabet::Symbol::kStrippedName:   return os << Strings::kStrip << s.u.n_s << Strings::kStrip;
+    case Alphabet::Symbol::kEquals:         return os << Strings::kEquals;
+    case Alphabet::Symbol::kNotEquals:      return os << Strings::kNotEquals;
+    case Alphabet::Symbol::kStrippedLit:    return os << Strings::kStrip << s.u.a << Strings::kStrip;
+    case Alphabet::Symbol::kStrippedClause: return os << Strings::kStrip << *s.u.c << Strings::kStrip;
+    case Alphabet::Symbol::kNot:            return os << Strings::kNot << ' ';
+    case Alphabet::Symbol::kOr:             return os << Strings::kOr;
+    case Alphabet::Symbol::kAnd:            return os << Strings::kAnd;
+    case Alphabet::Symbol::kExists:         return os << Strings::kExists << ' ' << s.u.x;
+    case Alphabet::Symbol::kForall:         return os << Strings::kForall << ' ' << s.u.x;
+    case Alphabet::Symbol::kKnow:           return os << Strings::kKnow << '_' << s.u.k;
+    case Alphabet::Symbol::kMaybe:          return os << Strings::kMaybe << '_' << s.u.k;
+    case Alphabet::Symbol::kBelieve:        return os << Strings::kBelieve << '_' << s.u.k << ',' << s.u.l;
+    case Alphabet::Symbol::kAction:         return os << Strings::kAction << ' ';
   }
 }
 
@@ -166,7 +166,7 @@ std::ostream& operator<<(std::ostream& os, const RFormula& r) {
     case Alphabet::Symbol::kNotEquals:       return os << r.arg(0) << ' ' << r.head() << ' ' << r.arg(1);
     case Alphabet::Symbol::kStrippedFun:
     case Alphabet::Symbol::kStrippedName:
-    case Alphabet::Symbol::kStrippedLiteral:
+    case Alphabet::Symbol::kStrippedLit:
     case Alphabet::Symbol::kStrippedClause:  return os << r.head();
     case Alphabet::Symbol::kOr:              return os << sequence(r.args(), Strings::kOrS, "[", "]");
     case Alphabet::Symbol::kAnd:             return os << sequence(r.args(), Strings::kAndS, "{", "}");

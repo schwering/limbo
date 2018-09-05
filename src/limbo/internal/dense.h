@@ -16,7 +16,7 @@ namespace internal {
 
 template<typename T, typename Index>
 struct IndexOf {
-  Index operator()(const T t) const { return t.index(); }
+  Index operator()(const T t) const { return int(t); }
 };
 
 struct NoBoundCheck {

@@ -2,11 +2,10 @@
 // Copyright 2014-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// A literal is an equality or inequality of a function and a object.
-//
+// A literal is an equality or inequality of a function and a name.
 
-#ifndef LIMBO_LITERAL_H_
-#define LIMBO_LITERAL_H_
+#ifndef LIMBO_LIT_H_
+#define LIMBO_LIT_H_
 
 #include <cassert>
 
@@ -28,8 +27,9 @@ class Fun {
   bool operator<(Fun f)  const { return id_ < f.id_; }
   bool operator>(Fun f)  const { return id_ > f.id_; }
 
+  explicit operator bool() const { return id_; }
+  explicit operator int() const { return id_; }
   bool null() const { return id_ == 0; }
-  int index() const { return id_; }
 
  private:
   id_t id_;
@@ -49,46 +49,49 @@ class Name {
   bool operator<(Name n)  const { return id_ < n.id_; }
   bool operator>(Name n)  const { return id_ > n.id_; }
 
+  explicit operator bool() const { return id_; }
+  explicit operator int() const { return id_; }
   bool null() const { return id_ == 0; }
-  int index() const { return id_; }
 
  private:
   id_t id_;
 };
 
-class Literal {
+class Lit {
  public:
   using id_t = internal::u64;
   using Bits = internal::Bits<Fun::id_t>;
 
-  static Literal Eq(Fun lhs, Name rhs) { return Literal(true, lhs, rhs); }
-  static Literal Neq(Fun lhs, Name rhs) { return Literal(false, lhs, rhs); }
-  static Literal FromId(id_t id) { return Literal(id); }
+  static Lit Eq(Fun fun, Name name) { return Lit(true, fun, name); }
+  static Lit Neq(Fun fun, Name name) { return Lit(false, fun, name); }
+  static Lit FromId(id_t id) { return Lit(id); }
 
-  Literal() = default;
-  Literal(bool pos, Fun lhs, Name rhs) : Literal(Bits::interleave(lhs.index(), (rhs.index() << 1) | pos)) {}
+  Lit() = default;
+  Lit(bool pos, Fun fun, Name name) : Lit(Bits::interleave(int(fun), (int(name) << 1) | pos)) {}
 
-  bool pos() const { return id_ & 1; }
-  bool neg() const { return !pos(); }
-  Fun  lhs() const { return Fun(Bits::deinterleave_hi(id_)); }
-  Name rhs() const { return Name(Bits::deinterleave_lo(id_) >> 1); }
+  bool pos()  const { return id_ & 1; }
+  bool neg()  const { return !pos(); }
+  Fun  fun()  const { return Fun(Bits::deinterleave_hi(id_)); }
+  Name name() const { return Name(Bits::deinterleave_lo(id_) >> 1); }
 
+  explicit operator bool() const { return id_; }
+  explicit operator int() const { return id_; }
   bool null() const { return id_ == 0; }
 
-  Literal flip() const { return Literal(id_ ^ 1); }
+  Lit flip() const { return Lit(id_ ^ 1); }
 
-  bool operator==(Literal a) const { return id_ == a.id_; }
-  bool operator!=(Literal a) const { return id_ != a.id_; }
-  bool operator<=(Literal a) const { return id_ <= a.id_; }
-  bool operator>=(Literal a) const { return id_ >= a.id_; }
-  bool operator<(Literal a)  const { return id_ < a.id_; }
-  bool operator>(Literal a)  const { return id_ > a.id_; }
+  bool operator==(Lit a) const { return id_ == a.id_; }
+  bool operator!=(Lit a) const { return id_ != a.id_; }
+  bool operator<=(Lit a) const { return id_ <= a.id_; }
+  bool operator>=(Lit a) const { return id_ >= a.id_; }
+  bool operator<(Lit a)  const { return id_ < a.id_; }
+  bool operator>(Lit a)  const { return id_ > a.id_; }
 
   // Valid(a, b) holds when a, b match one of the following:
   // (f == n), (f != n)
   // (f != n), (f == n)
   // (f != n1), (f != n2) for distinct n1, n2.
-  static bool Valid(const Literal a, const Literal b) {
+  static bool Valid(const Lit a, const Lit b) {
     const id_t x = a.id_ ^ b.id_;
     return x == 1 || (x != 0 && a.neg() && b.neg() && (x & Bits::kHi) == 0);
   }
@@ -97,37 +100,37 @@ class Literal {
   // (f == n), (f != n)
   // (f != n), (f == n)
   // (f == n1), (f == n2) for distinct n1, n2.
-  static bool Complementary(const Literal a, const Literal b) {
+  static bool Complementary(const Lit a, const Lit b) {
     const id_t x = a.id_ ^ b.id_;
     return x == 1 || (x != 0 && a.pos() && b.pos() && (x & Bits::kHi) == 0);
   }
 
   // ProperlySubsumes(a, b) holds when a is (f == n1) and b is (f != n2) for distinct n1, n2.
-  static bool ProperlySubsumes(Literal a, Literal b) {
+  static bool ProperlySubsumes(Lit a, Lit b) {
     const id_t x = a.id_ ^ b.id_;
     return x != 1 && (x & 1) && a.pos() && (x & Bits::kHi) == 0;
   }
 
   // Subsumes(a, b) holds when a == b or ProperlySubsumes(a, b).
-  static bool Subsumes(Literal a, Literal b) {
+  static bool Subsumes(Lit a, Lit b) {
     const id_t x = a.id_ ^ b.id_;
     return x == 0 || (x != 1 && (x & 1) && a.pos() && (x & Bits::kHi) == 0);
   }
 
-  bool Subsumes(Literal b) const { return Subsumes(*this, b); }
+  bool Subsumes(Lit b) const { return Subsumes(*this, b); }
 
-  bool ProperlySubsumes(Literal b) const { return ProperlySubsumes(*this, b); }
+  bool ProperlySubsumes(Lit b) const { return ProperlySubsumes(*this, b); }
 
  private:
   static_assert(sizeof(Fun::id_t) == sizeof(Name::id_t), "Fun::id_t and Name::id_t must be identical");
   static_assert(sizeof(Fun::id_t) + sizeof(Name::id_t) == sizeof(id_t), "Fun::id_t and Name::id_t must fit in id_t");
 
-  explicit Literal(id_t id) : id_(id) {}
+  explicit Lit(id_t id) : id_(id) {}
 
   id_t id_;
 };
 
 }  // namespace limbo
 
-#endif  // LIMBO_LITERAL_H_
+#endif  // LIMBO_LIT_H_
 

@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <limbo/clause.h>
-#include <limbo/literal.h>
+#include <limbo/lit.h>
 
 #include <limbo/internal/dense.h>
 
@@ -97,13 +97,13 @@ class Solver {
   Solver() = default;
 
   template<typename ExtraNameFactory>
-  void AddLiteral(const Literal a, ExtraNameFactory extra_name = ExtraNameFactory()) {
+  void AddLiteral(const Lit a, ExtraNameFactory extra_name = ExtraNameFactory()) {
     trail_.push_back(a);
-    Register(a.lhs(), a.rhs(), extra_name(a.lhs()));
+    Register(a.fun(), a.name(), extra_name(a.fun()));
   }
 
   template<typename ExtraNameFactory>
-  void AddClause(const std::vector<Literal>& as, ExtraNameFactory extra_name = ExtraNameFactory()) {
+  void AddClause(const std::vector<Lit>& as, ExtraNameFactory extra_name = ExtraNameFactory()) {
     if (as.size() == 0) {
       empty_clause_ = true;
     } else if (as.size() == 1) {
@@ -126,8 +126,8 @@ class Solver {
         clause_factory_.Delete(cr, as.size());
       } else {
         clauses_.push_back(cr);
-        for (const Literal a : c) {
-          Register(a.lhs(), a.rhs(), extra_name(a.lhs()));
+        for (const Lit a : c) {
+          Register(a.fun(), a.name(), extra_name(a.fun()));
         }
         UpdateWatchers(cr, c);
       }
@@ -136,9 +136,9 @@ class Solver {
 
   void Init() {
     assert(trail_head_ == 0);
-    std::vector<Literal> lits = std::move(trail_);
+    std::vector<Lit> lits = std::move(trail_);
     trail_.reserve(lits.size());
-    for (const Literal a : lits) {
+    for (const Lit a : lits) {
       if (falsifies(a)) {
         empty_clause_ = true;
         return;
@@ -165,7 +165,7 @@ class Solver {
       const cref_t cr = clauses_[i];
       Clause& c = clause_factory_[cr];
       assert(c.size() >= 2);
-      const int removed = c.RemoveIf([this](Literal a) -> bool { return falsifies(a); });
+      const int removed = c.RemoveIf([this](Lit a) -> bool { return falsifies(a); });
       assert(!c.valid());
       if (c.unsat()) {
         empty_clause_ = true;
@@ -194,7 +194,7 @@ class Solver {
     for (int i = 1; i < n_clauses; ++i) {
       const cref_t cr = clauses_[i];
       Clause& c = clause_factory_[cr];
-      const int removed = c.RemoveIf([this](Literal a) -> bool { return falsifies(a); });
+      const int removed = c.RemoveIf([this](Lit a) -> bool { return falsifies(a); });
       assert(c.size() >= 2);
       assert(!c.valid());
       assert(!c.unsat());
@@ -208,10 +208,10 @@ class Solver {
     clauses_.resize(n_clauses);
     int n_units = trail_.size();
     for (int i = 0; i < n_units; ++i) {
-      const Literal a = trail_[i];
+      const Lit a = trail_[i];
       const bool p = a.pos();
-      const Fun f = a.lhs();
-      const Name n = a.rhs();
+      const Fun f = a.fun();
+      const Name n = a.name();
       const Name m = model_[f];
       if (!p && !m.null()) {
         assert(m != n);
@@ -238,7 +238,7 @@ class Solver {
     if (empty_clause_) {
       return -1;
     }
-    std::vector<Literal> learnt;
+    std::vector<Lit> learnt;
     bool go = true;
     while (go) {
       const cref_t conflict = Propagate();
@@ -251,7 +251,7 @@ class Solver {
         go &= conflict_predicate(current_level(), conflict, learnt, btlevel);
         Backtrack(btlevel);
         if (learnt.size() == 1) {
-          const Literal a = learnt[0];
+          const Lit a = learnt[0];
           assert(!falsifies(a));
           Enqueue(a, kNullRef);
         } else {
@@ -260,7 +260,7 @@ class Solver {
           assert(c.size() >= 2);
           assert(!satisfies(c));
           assert(!falsifies(c[0]));
-          assert(std::all_of(c.begin() + 1, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
+          assert(std::all_of(c.begin() + 1, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
           clauses_.push_back(cr);
           UpdateWatchers(cr, c);
           Enqueue(c[0], cr);
@@ -285,7 +285,7 @@ class Solver {
           return -1;
         }
         NewLevel();
-        const Literal a = Literal::Eq(f, n);
+        const Lit a = Lit::Eq(f, n);
         Enqueue(a, kNullRef);
         go &= decision_predicate(current_level(), a);
       }
@@ -366,10 +366,10 @@ class Solver {
     assert(!c.unsat());
     assert(!c.valid());
     assert(c.size() >= 2);
-    assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
-    assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
-    const Fun f0 = c[0].lhs();
-    const Fun f1 = c[1].lhs();
+    assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
+    assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
+    const Fun f0 = c[0].fun();
+    const Fun f1 = c[1].fun();
     assert(std::count(watchers_[f0].begin(), watchers_[f0].end(), cr) == 0);
     assert(std::count(watchers_[f1].begin(), watchers_[f1].end(), cr) == 0);
     watchers_[f0].push_back(cr);
@@ -383,17 +383,17 @@ class Solver {
   cref_t Propagate() {
     cref_t conflict = kNullRef;
     while (trail_head_ < trail_.size() && conflict == kNullRef) {
-      Literal a = trail_[trail_head_++];
+      Lit a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
-    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) -> bool { return std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Literal a) -> bool { auto& ws = watchers_[a.lhs()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
-    assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) -> bool { const Clause& c = clause(cr); return satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }); }));
+    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) -> bool { return std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
+    assert(conflict != kNullRef || std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) -> bool { const Clause& c = clause(cr); return satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }); }));
     return conflict;
   }
 
-  cref_t Propagate(const Literal a) {
+  cref_t Propagate(const Lit a) {
     cref_t conflict = kNullRef;
-    const Fun f = a.lhs();
+    const Fun f = a.fun();
     std::vector<cref_t>& ws = watchers_[f];
     cref_t* const begin = ws.data();
     cref_t* const end = begin + ws.size();
@@ -403,15 +403,15 @@ class Solver {
       assert(begin == ws.data() && end == begin + ws.size());
       const cref_t cr = *cr_ptr1;
       Clause& c = clause_factory_[cr];
-      const Fun f0 = c[0].lhs();
-      const Fun f1 = c[1].lhs();
+      const Fun f0 = c[0].fun();
+      const Fun f1 = c[1].fun();
 
       // remove outdated watcher, skip
       if (f0 != f && f1 != f) {
         ++cr_ptr1;
         continue;
       }
-      assert(c[0].lhs() == f || c[1].lhs() == f);
+      assert(c[0].fun() == f || c[1].fun() == f);
 
       // w is a two-bit number where the i-th bit indicates that c[i] is falsified
       // w >> 1 is falsified (c[1] if it is, else c[0])
@@ -430,8 +430,8 @@ class Solver {
         if (!falsifies(c[k])) {
           const int l = w >> 1;
           assert(falsifies(c[l]));
-          const Fun fk = c[k].lhs();
-          if (fk != f0 && fk != f1 && fk != c[1-l].lhs()) {
+          const Fun fk = c[k].fun();
+          if (fk != f0 && fk != f1 && fk != c[1-l].fun()) {
             watchers_[fk].push_back(cr);
           }
           assert(std::count(watchers_[fk].begin(), watchers_[fk].end(), cr) >= 1);
@@ -439,7 +439,7 @@ class Solver {
           w = (w - 1) >> 1;  // 11 becomes 01, 10 becomes 00, 01 becomes 00
         }
       }
-      if (c[0].lhs() != f && c[1].lhs() != f) {
+      if (c[0].fun() != f && c[1].fun() != f) {
         ++cr_ptr1;
       }
       assert(((w & 1) != 0) == falsifies(c[0]));
@@ -454,29 +454,29 @@ class Solver {
         cr_ptr1 = end;
         trail_head_ = trail_.size();
         conflict = cr;
-        assert(std::all_of(c.begin(), c.end(), [this](Literal a) -> bool { return falsifies(a); }));
+        assert(std::all_of(c.begin(), c.end(), [this](Lit a) -> bool { return falsifies(a); }));
       } else if (w != 0) {
         assert(w == 1 || w == 2);
         assert(falsifies(c[w >> 1]));
         assert(!falsifies(c[1 - (w >> 1)]));
-        const Literal b = c[1 - (w >> 1)];
+        const Lit b = c[1 - (w >> 1)];
         Enqueue(b, cr);
-        assert(std::all_of(c.begin(), c.end(), [this, b](Literal a) -> bool { return a == b ? satisfies(a) : falsifies(a); }));
+        assert(std::all_of(c.begin(), c.end(), [this, b](Lit a) -> bool { return a == b ? satisfies(a) : falsifies(a); }));
       } else {
         assert(!falsifies(c[0]) && !falsifies(c[1]));
-        assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
-        assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Literal a) -> bool { return falsifies(a); }));
+        assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
+        assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
       }
     }
     ws.resize(cr_ptr2 - begin);
     return conflict;
   }
 
-  void Analyze(cref_t conflict, std::vector<Literal>* const learnt, level_t* const btlevel) {
+  void Analyze(cref_t conflict, std::vector<Lit>* const learnt, level_t* const btlevel) {
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(),
            [](const Data& d) -> bool { return !d.seen_subsumed && !d.wanted; }); }));
     int depth = 0;
-    Literal trail_a = Literal();
+    Lit trail_a = Lit();
     uref_t trail_i = trail_.size() - 1;
     learnt->push_back(trail_a);
 
@@ -520,20 +520,20 @@ class Solver {
     //     see_subsuming(f != n)
     // iff (by (#), (2), (3), ($))
     //     see_subsuming(f != n)
-    auto see_subsuming = [this](const Literal a) -> void {
+    auto see_subsuming = [this](const Lit a) -> void {
       assert(falsifies(a));
-      assert(a.pos() || !model_[a.lhs()].null());
-      assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
-      const Fun f = a.lhs();
-      const Name n = a.rhs();
+      assert(a.pos() || !model_[a.fun()].null());
+      assert(model_[a.fun()].null() || (a.pos() != (model_[a.fun()] == a.name())));
+      const Fun f = a.fun();
+      const Name n = a.name();
       data_[f][n].seen_subsumed = 1;
     };
-    auto seen_subsumed = [this](const Literal a) -> bool {
+    auto seen_subsumed = [this](const Lit a) -> bool {
       assert(falsifies(a));
-      assert(model_[a.lhs()].null() || (a.pos() != (model_[a.lhs()] == a.rhs())));
+      assert(model_[a.fun()].null() || (a.pos() != (model_[a.fun()] == a.name())));
       const bool p = a.pos();
-      const Fun f = a.lhs();
-      const Name n = a.rhs();
+      const Fun f = a.fun();
+      const Name n = a.name();
       const Name m = model_[f];
       return data_[f][n].seen_subsumed || (p && !m.null() && data_[f][m].seen_subsumed);
     };
@@ -546,40 +546,40 @@ class Solver {
     // f == model_[f] because this will become f == n in the conflict clause.
     // This also means that we want exactly one literal, which eliminates the
     // need for traversing the whole level again to reset the wanted flag.
-    auto want_complementary_on_level = [this](const Literal a, level_t l) -> void {
+    auto want_complementary_on_level = [this](const Lit a, level_t l) -> void {
       assert(falsifies(a));
-      assert(data_[a.lhs()][a.rhs()].level <= l);
-      assert(a.pos() || data_[a.lhs()][a.rhs()].level == l);
-      assert(a.pos() || model_[a.lhs()] == a.rhs());
-      assert(!a.pos() || data_[a.lhs()][a.rhs()].level != l || data_[a.lhs()][a.rhs()].model_neq);
-      assert(!a.pos() || data_[a.lhs()][a.rhs()].level == l || !model_[a.lhs()].null());
-      assert(!a.pos() || data_[a.lhs()][a.rhs()].level == l || data_[a.lhs()][model_[a.lhs()]].level == l);
-      const Fun f = a.lhs();
-      const Name n = a.rhs();
+      assert(data_[a.fun()][a.name()].level <= l);
+      assert(a.pos() || data_[a.fun()][a.name()].level == l);
+      assert(a.pos() || model_[a.fun()] == a.name());
+      assert(!a.pos() || data_[a.fun()][a.name()].level != l || data_[a.fun()][a.name()].model_neq);
+      assert(!a.pos() || data_[a.fun()][a.name()].level == l || !model_[a.fun()].null());
+      assert(!a.pos() || data_[a.fun()][a.name()].level == l || data_[a.fun()][model_[a.fun()]].level == l);
+      const Fun f = a.fun();
+      const Name n = a.name();
       const Name m = model_[f];
       data_[f][data_[f][n].level == l ? n : m].wanted = true;
     };
     // wanted_complementary_on_level(a,l) iff a on level l is wanted.
-    auto wanted_complementary_on_level = [this](const Literal a, level_t l) -> bool {
+    auto wanted_complementary_on_level = [this](const Lit a, level_t l) -> bool {
       assert(falsifies(a));
-      assert(data_[a.lhs()][a.rhs()].level <= l);
+      assert(data_[a.fun()][a.name()].level <= l);
       const bool p = a.pos();
-      const Fun f = a.lhs();
-      const Name n = a.rhs();
+      const Fun f = a.fun();
+      const Name n = a.name();
       const Name m = model_[f];
       return (!p && data_[f][n].wanted) ||
              (p && ((data_[f][n].level == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted)));
     };
     // We un-want every trail literal after it has been traversed.
-    auto wanted = [this](const Literal a) -> bool {
+    auto wanted = [this](const Lit a) -> bool {
       assert(satisfies(a));
-      const Fun f = a.lhs();
-      const Name n = a.rhs();
+      const Fun f = a.fun();
+      const Name n = a.name();
       return data_[f][n].wanted;
     };
 
     auto handle_conflict = [this, &trail_a, &learnt, &depth, &see_subsuming, &seen_subsumed,
-                            &want_complementary_on_level, &wanted_complementary_on_level](const Literal a) -> void {
+                            &want_complementary_on_level, &wanted_complementary_on_level](const Lit a) -> void {
       if (trail_a == a) {
         return;
       }
@@ -597,9 +597,9 @@ class Solver {
         ++depth;
         want_complementary_on_level(a, l);
       }
-      fun_order_.Bump(a.lhs());
+      fun_order_.Bump(a.fun());
 #ifdef NAME_ORDER
-      name_order_[a.lhs()].Bump(a.rhs());
+      name_order_[a.fun()].Bump(a.name());
 #endif
     };
 
@@ -608,14 +608,14 @@ class Solver {
       if (conflict == kDomainRef) {
         assert(!trail_a.null());
         assert(trail_a.pos());
-        const Fun f = trail_a.lhs();
+        const Fun f = trail_a.fun();
         for (const Name n : names_[f]) {
           assert(!n.null() && data_[f][n].occurs);
-          const Literal a = Literal::Eq(f, n);
+          const Lit a = Lit::Eq(f, n);
           handle_conflict(a);
         }
       } else {
-        for (const Literal a : clause(conflict)) {
+        for (const Lit a : clause(conflict)) {
           handle_conflict(a);
         }
       }
@@ -625,14 +625,14 @@ class Solver {
         assert(trail_i >= 0);
       }
       trail_a = trail_[trail_i + 1];
-      data_[trail_a.lhs()][trail_a.rhs()].wanted = false;
+      data_[trail_a.fun()][trail_a.name()].wanted = false;
       --depth;
       conflict = reason_of(trail_a);
     } while (depth > 0);
     (*learnt)[0] = trail_a.flip();
 
-    for (const Literal a : (*learnt)) {
-      data_[a.lhs()][a.rhs()].seen_subsumed = false;
+    for (const Lit a : *learnt) {
+      data_[a.fun()][a.name()].seen_subsumed = false;
     }
 
     learnt->resize(Clause::Normalize<Clause::kGuaranteeInvalid>(learnt->size(), learnt->data()));
@@ -653,22 +653,22 @@ class Solver {
       std::swap((*learnt)[1], (*learnt)[max]);
     }
     assert(level_of(trail_a) > *btlevel && *btlevel >= kRootLevel);
-    assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) -> bool { return falsifies(a); }));
-    assert(std::all_of(learnt->begin(), learnt->end(), [this](Literal a) -> bool { return !satisfies(a); }));
+    assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return falsifies(a); }));
+    assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return !satisfies(a); }));
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.seen_subsumed; }); }));
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.wanted; }); }));
   }
 
   void NewLevel() { level_size_.push_back(trail_.size()); }
 
-  void Enqueue(const Literal a, const cref_t reason) {
-    assert(data_[a.lhs()][a.rhs()].occurs);
+  void Enqueue(const Lit a, const cref_t reason) {
+    assert(data_[a.fun()][a.name()].occurs);
     const bool p = a.pos();
-    const Fun f = a.lhs();
-    const Name n = a.rhs();
+    const Fun f = a.fun();
+    const Name n = a.name();
     const Name m = model_[f];
     if (m.null() && (p || !data_[f][n].model_neq)) {
-      assert(domain_size_[a.lhs()] >= 1 + !a.pos());
+      assert(domain_size_[a.fun()] >= 1 + !a.pos());
       assert(!satisfies(a));
       trail_.push_back(a);
       data_[f][n].Update(!p, current_level(), reason);
@@ -681,11 +681,11 @@ class Solver {
 #else
         const Name m = CandidateName(f);
 #endif
-        assert(!satisfies(Literal::Eq(f, m)) && !falsifies(Literal::Eq(f, m)));
-        trail_.push_back(Literal::Eq(f, m));
+        assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
+        trail_.push_back(Lit::Eq(f, m));
         data_[f][m].Update(false, current_level(), kDomainRef);
         model_[f] = m;
-        assert(satisfies(Literal::Eq(f, m)));
+        assert(satisfies(Lit::Eq(f, m)));
       } else {
         fun_order_.BumpMax(f);
 #ifdef NAME_ORDER
@@ -702,8 +702,8 @@ class Solver {
   void Backtrack(const level_t l) {
     for (auto a = trail_.cbegin() + level_size_[l], e = trail_.cend(); a != e; ++a) {
       const bool p = a->pos();
-      const Fun f = a->lhs();
-      const Name n = a->rhs();
+      const Fun f = a->fun();
+      const Name n = a->name();
       model_[f] = Name();
       if (p) {
         if (!data_[f][n].model_neq) {
@@ -763,20 +763,20 @@ class Solver {
   }
 #endif
 
-  bool satisfies(const Literal a, const level_t l = -1) const {
+  bool satisfies(const Lit a, const level_t l = -1) const {
     const bool p = a.pos();
-    const Fun f = a.lhs();
-    const Name n = a.rhs();
+    const Fun f = a.fun();
+    const Name n = a.name();
     const Name m = model_[f];
     return ((p && m == n) ||
             (!p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
            (l < 0 || data_[f][n].level <= l);
   }
 
-  bool falsifies(const Literal a, const level_t l = -1) const {
+  bool falsifies(const Lit a, const level_t l = -1) const {
     const bool p = a.pos();
-    const Fun f = a.lhs();
-    const Name n = a.rhs();
+    const Fun f = a.fun();
+    const Name n = a.name();
     const Name m = model_[f];
     return ((!p && m == n) ||
             (p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
@@ -784,39 +784,39 @@ class Solver {
   }
 
   bool satisfies(const Clause& c, const level_t l = -1) const {
-    return std::any_of(c.begin(), c.end(), [this, l](Literal a) -> bool { return satisfies(a, l); });
+    return std::any_of(c.begin(), c.end(), [this, l](Lit a) -> bool { return satisfies(a, l); });
   }
 
   bool falsifies(const Clause& c, const level_t l = -1) const {
-    return std::all_of(c.begin(), c.end(), [this, l](Literal a) -> bool { return falsifies(a, l); });
+    return std::all_of(c.begin(), c.end(), [this, l](Lit a) -> bool { return falsifies(a, l); });
   }
 
-  level_t level_of(const Literal a) const {
+  level_t level_of(const Lit a) const {
     assert(satisfies(a));
-    assert(!a.pos() || model_[a.lhs()] == a.rhs());
+    assert(!a.pos() || model_[a.fun()] == a.name());
     const bool p = a.pos();
-    const Fun f = a.lhs();
-    const Name n = a.rhs();
+    const Fun f = a.fun();
+    const Name n = a.name();
     const Name m = model_[f];
     return !p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
   }
 
-  level_t level_of_complementary(const Literal a) const {
+  level_t level_of_complementary(const Lit a) const {
     assert(falsifies(a));
-    assert(a.pos() || model_[a.lhs()] == a.rhs());
+    assert(a.pos() || model_[a.fun()] == a.name());
     const bool p = a.pos();
-    const Fun f = a.lhs();
-    const Name n = a.rhs();
+    const Fun f = a.fun();
+    const Name n = a.name();
     const Name m = model_[f];
     return p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
   }
 
-  cref_t reason_of(const Literal a) const {
+  cref_t reason_of(const Lit a) const {
     assert(satisfies(a));
-    assert(!a.pos() || model_[a.lhs()] == a.rhs());
+    assert(!a.pos() || model_[a.fun()] == a.name());
     const bool p = a.pos();
-    const Fun f = a.lhs();
-    const Name n = a.rhs();
+    const Fun f = a.fun();
+    const Name n = a.name();
     const Name m = model_[f];
     return !p && data_[f][n].model_neq ? data_[f][n].reason : data_[f][m].reason;
   }
@@ -824,8 +824,8 @@ class Solver {
   level_t current_level() const { return level_size_.size(); }
 
   void CapacitateMaps(const Fun f, const Name n, const Name extra_n) {
-    const int max_ni = n.index() > extra_n.index() ? n.index() : extra_n.index();
-    const int fi = f.index() >= funs_.upper_bound() ? f.index() : -1;
+    const int max_ni = int(n) > int(extra_n) ? int(n) : int(extra_n);
+    const int fi = int(f) >= funs_.upper_bound() ? int(f) : -1;
     const int ni = data_.upper_bound() == 0 || max_ni >= data_[0].upper_bound() ? max_ni : -1;
     const int fig = (fi + 1) * 1.5;
     const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_[0].upper_bound();
@@ -887,7 +887,7 @@ class Solver {
   // literals set or derived up to level l.
   // trail_head_ is the index of the first literal of trail_ that hasn't been
   // propagated yet.
-  std::vector<Literal> trail_;
+  std::vector<Lit>     trail_;
   std::vector<uref_t>  level_size_ = std::vector<uref_t>(1, trail_.size());
   uref_t               trail_head_ = 0;
 

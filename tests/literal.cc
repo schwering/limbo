@@ -3,11 +3,11 @@
 
 #include <gtest/gtest.h>
 
-#include <limbo/literal.h>
+#include <limbo/lit.h>
 
 namespace limbo {
 
-TEST(LiteralTest, Bla) {
+TEST(LitTest, Bla) {
 }
 
 }  // namespace limbo

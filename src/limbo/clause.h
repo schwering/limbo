@@ -1,6 +1,16 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2014-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
+//
+// A clause is a finite disjunction of literals, each of which is an equality
+// or inequality of a function and a name. Clauses should always be normalised,
+// which means no literal in the clause is subsumed by another one; moreover,
+// unsatisfiable clauses are reduced to the empty clauses and valid clauses
+// are represented as unit clauses containing only the null literal.
+//
+// The only way a clause can mention the same function twice is in the form
+// of equalities for different names. All other cases are valid or not
+// normalised.
 
 #ifndef LIMBO_CLAUSE_H_
 #define LIMBO_CLAUSE_H_
@@ -13,7 +23,7 @@
 #include <memory>
 #include <vector>
 
-#include <limbo/literal.h>
+#include <limbo/lit.h>
 
 #include <limbo/internal/ints.h>
 
@@ -21,22 +31,22 @@ namespace limbo {
 
 class Clause {
  public:
-  using iterator = Literal*;
-  using const_iterator = const Literal*;
+  using iterator = Lit*;
+  using const_iterator = const Lit*;
   class Factory;
 
   static constexpr bool kGuaranteeInvalid = true;
   static constexpr bool kGuaranteeNormalized = true;
 
   template<bool guarantee_invalid = !kGuaranteeInvalid>
-  static int Normalize(int size, Literal* as) {
+  static int Normalize(int size, Lit* as) {
     int i1 = 0;
     int i2 = 0;
     while (i2 < size) {
       assert(i1 <= i2);
       for (int j = 0; j < i1; ++j) {
-        if (!guarantee_invalid && Literal::Valid(as[i2], as[j])) {
-          as[0] = Literal();
+        if (!guarantee_invalid && Lit::Valid(as[i2], as[j])) {
+          as[0] = Lit();
           return -1;
         }
         if (as[i2].Subsumes(as[j])) {
@@ -60,8 +70,8 @@ next: {}
     if (size() != c.size()) {
       return false;
     }
-    for (Literal a : *this) {
-      for (Literal b : c) {
+    for (Lit a : *this) {
+      for (Lit b : c) {
         if (a == b) {
           goto next;
         }
@@ -76,8 +86,8 @@ next: {}
   bool unit()  const { return h_.size == 1; }
   int size()   const { return h_.size; }
 
-  Literal& operator[](int i)       { assert(i >= 0 && i < size()); return as_[i]; }
-  Literal  operator[](int i) const { assert(i >= 0 && i < size()); return as_[i]; }
+  Lit& operator[](int i)       { assert(i >= 0 && i < size()); return as_[i]; }
+  Lit  operator[](int i) const { assert(i >= 0 && i < size()); return as_[i]; }
 
   iterator begin() { return &as_[0]; }
   iterator end()   { return &as_[0] + h_.size; }
@@ -92,8 +102,8 @@ next: {}
   bool unsat() const { return empty(); }
 
   bool Subsumes(const Clause& c) const {
-    for (Literal a : *this) {
-      for (Literal b : c) {
+    for (Lit a : *this) {
+      for (Lit b : c) {
         if (a.Subsumes(b)) {
           goto next;
         }
@@ -121,15 +131,15 @@ next: {}
   }
 
  private:
-  Clause(const Literal a) {
+  Clause(const Lit a) {
     h_.size = 1;
     as_[0] = a;
     assert(Normalized());
   }
 
-  Clause(int size, const Literal* first, bool guaranteed_normalized) {
+  Clause(int size, const Lit* first, bool guaranteed_normalized) {
     h_.size = size;
-    std::memcpy(begin(), first, size * sizeof(Literal));
+    std::memcpy(begin(), first, size * sizeof(Lit));
     if (!guaranteed_normalized) {
       size = Normalize(h_.size, as_);
       h_.size = size >= 0 ? size : 1;
@@ -149,7 +159,7 @@ next: {}
         if (i == j) {
           continue;
         }
-        if (Literal::Valid(as_[i], as_[j])) {
+        if (Lit::Valid(as_[i], as_[j])) {
           return false;
         }
         if (as_[i].Subsumes(as_[j])) {
@@ -165,7 +175,7 @@ next: {}
     unsigned learnt :  1;
     unsigned size   : 31;
   } h_;
-  Literal as_[0];
+  Lit as_[0];
 };
 
 class Clause::Factory {
@@ -178,21 +188,21 @@ class Clause::Factory {
   Factory(Factory&&) = default;
   Factory& operator=(Factory&&) = default;
 
-  cref_t New(Literal a) {
+  cref_t New(Lit a) {
     const cref_t cr = memory_.Allocate(clause_size(1));
     new (memory_.address(cr)) Clause(a);
     return cr;
   }
 
   template<bool guaranteed_normalized = !kGuaranteeNormalized>
-  cref_t New(int k, const Literal* as) {
+  cref_t New(int k, const Lit* as) {
     const cref_t cr = memory_.Allocate(clause_size(k));
     new (memory_.address(cr)) Clause(k, as, guaranteed_normalized);
     return cr;
   }
 
   template<bool guaranteed_normalized = !kGuaranteeNormalized>
-  cref_t New(const std::vector<Literal>& as) {
+  cref_t New(const std::vector<Lit>& as) {
     return New<guaranteed_normalized>(as.size(), as.data());
   }
 
@@ -255,7 +265,7 @@ class Clause::Factory {
   using Pool = MemoryPool<unsigned int>;
 
   Pool::size_t clause_size(Pool::size_t size) {
-    return memory_.bytes_to_chunks(sizeof(Clause) + size * sizeof(Literal));
+    return memory_.bytes_to_chunks(sizeof(Clause) + size * sizeof(Lit));
   }
 
   Pool memory_;
