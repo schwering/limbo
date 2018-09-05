@@ -391,6 +391,28 @@ class Solver {
     return conflict;
   }
 
+
+  // XXX new watchers:
+  //
+  // Two maps:
+  // M1: Lit -> Clauses for (1) and (2)
+  // M2: Fun -> Clauses for (2)
+  //
+  // (1) If f!=n in {c[0],c[1]} => watch f=n in M1
+  // (2) If f=n  in {c[0],c[1]} => watch f!=n in M1, f=n' in M2
+  //
+  // If f=n in trail:  iterate M1[f=n] and M2[f]
+  // If f!=n in trail: iterate M1[f!=n]
+  //
+  // A problem with this design is how to delete clauses that
+  // watch f!=n and f=n' when either of them is set. One way
+  // could be to do it lazily.
+  //
+  // One question is what to do if {f=n,f=n'} = {c[0],c[1]}:
+  // have one or two entries for c in M2?
+  //
+  // At the moment it's only one.
+
   cref_t Propagate(const Lit a) {
     cref_t conflict = kNullRef;
     const Fun f = a.fun();
@@ -406,66 +428,56 @@ class Solver {
       const Fun f0 = c[0].fun();
       const Fun f1 = c[1].fun();
 
-      // remove outdated watcher, skip
-      if (f0 != f && f1 != f) {
-        ++cr_ptr1;
-        continue;
-      }
-      assert(c[0].fun() == f || c[1].fun() == f);
-
       // w is a two-bit number where the i-th bit indicates that c[i] is falsified
       // w >> 1 is falsified (c[1] if it is, else c[0])
       // 1 - (w >> 1) is the other literal
-      char w = (static_cast<char>(falsifies(c[1])) << 1) | static_cast<char>(falsifies(c[0]));
+      char w = (static_cast<char>(f == f1 && falsifies(c[1])) << 1)
+              | static_cast<char>(f == f0 && falsifies(c[0]));
       if (w == 0 || satisfies(c[0]) || satisfies(c[1])) {
         *cr_ptr2++ = *cr_ptr1++;
         continue;
       }
       assert(w == 1 || w == 2 || w == 3);
-      assert(((w & 1) != 0) == falsifies(c[0]));
-      assert(((w & 2) != 0) == falsifies(c[1]));
+      assert(bool(w & 1) == (c[0].fun() == f && falsifies(c[0])));
+      assert(bool(w & 2) == (c[1].fun() == f && falsifies(c[1])));
 
       // find new watched literals if necessary
       for (int k = 2, s = c.size(); w != 0 && k < s; ++k) {
         if (!falsifies(c[k])) {
-          const int l = w >> 1;
-          assert(falsifies(c[l]));
+          const int i = w >> 1;
+          assert(falsifies(c[i]));
           const Fun fk = c[k].fun();
-          if (fk != f0 && fk != f1 && fk != c[1-l].fun()) {
+          if (fk != f0 && fk != f1 && fk != c[1-i].fun()) {
             watchers_[fk].push_back(cr);
           }
           assert(std::count(watchers_[fk].begin(), watchers_[fk].end(), cr) >= 1);
-          std::swap(c[l], c[k]);
+          std::swap(c[i], c[k]);
           w = (w - 1) >> 1;  // 11 becomes 01, 10 becomes 00, 01 becomes 00
         }
       }
+
+      assert(bool(w & 1) == (c[0].fun() == f && falsifies(c[0])));
+      assert(bool(w & 2) == (c[1].fun() == f && falsifies(c[1])));
+
+      // remove c if f is not watched anymore
       if (c[0].fun() != f && c[1].fun() != f) {
         ++cr_ptr1;
       }
-      assert(((w & 1) != 0) == falsifies(c[0]));
-      assert(((w & 2) != 0) == falsifies(c[1]));
 
-      // handle conflicts and/or propagated unit clauses
-      if (w == 3) {
-        assert(falsifies(c[w >> 1]));
-        assert(falsifies(c[1 - (w >> 1)]));
-        std::memmove(cr_ptr2, cr_ptr1, (end - cr_ptr1) * sizeof(cref_t));
-        cr_ptr2 += end - cr_ptr1;
-        cr_ptr1 = end;
-        trail_head_ = trail_.size();
-        conflict = cr;
-        assert(std::all_of(c.begin(), c.end(), [this](Lit a) -> bool { return falsifies(a); }));
-      } else if (w != 0) {
-        assert(w == 1 || w == 2);
-        assert(falsifies(c[w >> 1]));
-        assert(!falsifies(c[1 - (w >> 1)]));
-        const Lit b = c[1 - (w >> 1)];
-        Enqueue(b, cr);
-        assert(std::all_of(c.begin(), c.end(), [this, b](Lit a) -> bool { return a == b ? satisfies(a) : falsifies(a); }));
-      } else {
-        assert(!falsifies(c[0]) && !falsifies(c[1]));
-        assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
-        assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
+      // conflict or propagate
+      if (w != 0) {
+        const int i = 1 - (w >> 1);  // 11 becomes 0, 10 becomes 0, 01 becomes 1
+        if (w == 3 || falsifies(c[i])) {
+          assert(std::all_of(c.begin(), c.end(), [this](Lit a) -> bool { return falsifies(a); }));
+          std::memmove(cr_ptr2, cr_ptr1, (end - cr_ptr1) * sizeof(cref_t));
+          cr_ptr2 += end - cr_ptr1;
+          cr_ptr1 = end;
+          trail_head_ = trail_.size();
+          conflict = cr;
+        } else {
+          assert(std::all_of(c.begin(), c.end(), [this, &c, i](Lit a) -> bool { return (a != c[i]) == falsifies(a); }));
+          Enqueue(c[i], cr);
+        }
       }
     }
     ws.resize(cr_ptr2 - begin);
