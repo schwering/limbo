@@ -130,6 +130,7 @@ class Solver {
           Register(a.fun(), a.name(), extra_name(a.fun()));
         }
         UpdateWatchers(cr, c);
+        trail_head_ = 0;
       }
     }
   }

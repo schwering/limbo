@@ -23,7 +23,7 @@ def prop(x, y, v = None):
         i = x
     else:
         i = to_index(x, y)
-    return (1 if i >= 0 else -1) * (abs(i)*10 + v)
+    return (1 if i >= 0 else -1) * ((abs(i) - 1) * 9 + v)
 
 
 sudoku = sys.argv[1]
@@ -86,7 +86,7 @@ for x in range(1,10):
                 c = frozenset([-prop(x,y,v), -prop(x,y,vv)])
                 cs.add(c)
 
-print("p cnf %d %d" % (82 * 10 - 1, len(cs)))
+print("p cnf %d %d" % (81 * 9, len(cs)))
 for c in sorted(cs, key=len):
     for p in c:
         print("%4d " % (p,), end='')

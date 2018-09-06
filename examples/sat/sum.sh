@@ -1,5 +1,6 @@
 sed -ue 's/.\+(in //g' | \
 sed -ue 's/s)//g' | \
+sed -ue 's/s, sat-cdcl)//g' | \
 python3 -c "
 import sys
 sum = 0

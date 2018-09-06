@@ -67,13 +67,13 @@ class Timer {
   void reset() { start_ = 0; end_ = 0; rounds_ = 0; }
 
   double duration() const { return (end_ - start_) / (double) CLOCKS_PER_SEC; }
-  size_t rounds() const { return rounds_; }
+  std::size_t rounds() const { return rounds_; }
   double avg_duration() const { return duration() / rounds_; }
 
  private:
   std::clock_t start_;
   std::clock_t end_ = 0;
-  size_t rounds_ = 0;
+  std::size_t rounds_ = 0;
 };
 
 template<typename UnaryFunction, typename T = int>
@@ -199,13 +199,59 @@ bool Solve(Solver* solver, int n_conflicts_init, int conflicts_increase) {
   return sat > 0;
 }
 
+void PrintSolution(const Solver& solver, const bool prop, const int n_columns, const bool extra, const Name extra_name) {
+  struct winsize ws;
+  ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+  const int lit_width = 10;
+  const int win_width = (n_columns != 0 ? n_columns : static_cast<int>(std::ceil(std::sqrt(solver.funs().upper_bound())))) * lit_width;
+  int i = 0;
+  if (!prop) {
+    for (const Fun f : solver.funs()) {
+      if (f.null()) {
+        continue;
+      }
+      const Name n = solver.model()[f];
+      if (!extra && n == extra_name) {
+        continue;
+      }
+      std::stringstream fss; fss << f;
+      std::stringstream ess; ess << " = ";
+      std::stringstream nss; nss << n;
+      const std::string fs = fss.str();
+      const std::string es = ess.str();
+      const std::string ns = nss.str();
+      const int ews = es.length();
+      const int fws = std::max(1, (lit_width - ews - 1)/2 - static_cast<int>(fs.length()));
+      const int nws = std::max(1, (lit_width - ews - 1)/2 + (lit_width - ews - 1)%2 - static_cast<int>(ns.length()));
+      std::cout << std::string(fws, ' ') << fs << es << ns << std::string(nws, ' ');
+      if (++i % (win_width / lit_width) == 0) {
+        std::cout << std::endl;
+      }
+    }
+  } else {
+    for (const Fun f : solver.funs()) {
+      if (f.null()) {
+        continue;
+      }
+      const Name n = solver.model()[f];
+      if (!extra && n == extra_name) {
+        continue;
+      }
+      std::cout << (n != extra_name ? "-" : "") << int(f) << ' ';
+    }
+    std::cout << '0';
+  }
+  std::cout << std::endl;
+}
+
 int main(int argc, char *argv[]) {
   std::srand(0);
   std::vector<std::vector<Lit>> cnf;
   Name extra_name;
-  int iterations = 1;
+  int n_models = 1;
+  int n_iterations = 1;
   int n_columns = 0;
-  int restarts = -1;
+  int n_conflicts_before_restart = -1;
   int loaded = 0;
   int extra = true;
   bool prop = false;
@@ -217,10 +263,11 @@ int main(int argc, char *argv[]) {
       std::cout << "Input must be in DIMACS CNF format or the functional extension thereof." << std::endl;
       std::cout << std::endl;
       std::cout << "Options:" << std::endl;
-      std::cout << "--iterations=int -i=int  repretitions with clauses learnt so far (default: " << iterations << ")" << std::endl;
       std::cout << "--columns=int    -c=int  columns in output, e.g, 9 for sudoku (default: " << n_columns << ")" << std::endl;
-      std::cout << "--restart=int    -r=int  conflicts before restart, (default: " << restarts << ", infinity: -1)" << std::endl;
       std::cout << "--extra=bool     -e=bool whether extra name is added (default: " << extra << ")" << std::endl;
+      std::cout << "--iterations=int -i=int  repretitions with clauses learnt so far (default: " << n_iterations << ")" << std::endl;
+      std::cout << "--models=int     -n=int  how many models to find (default: " << n_models << ", infinity: -1)" << std::endl;
+      std::cout << "--restart=int    -r=int  conflicts before restart, (default: " << n_conflicts_before_restart << ", infinity: -1)" << std::endl;
       std::cout << std::endl;
 #ifndef NDEBUG
       std::cout << "Debugging is turned on (NDEBUG is not defined)." << std::endl;
@@ -228,10 +275,11 @@ int main(int argc, char *argv[]) {
       std::cout << "Debugging is turned off (NDEBUG is defined)." << std::endl;
 #endif
       return 1;
-    } else if (sscanf(argv[i], "--iterations=%d", &iterations) == 1 || sscanf(argv[i], "-i=%d", &iterations) == 1) {
     } else if (sscanf(argv[i], "--columns=%d", &n_columns) == 1 || sscanf(argv[i], "-c=%d", &n_columns) == 1) {
-    } else if (sscanf(argv[i], "--restart=%d", &restarts) == 1 || sscanf(argv[i], "-r=%d", &restarts) == 1) {
     } else if (sscanf(argv[i], "--extra=%d", &extra) == 1 || sscanf(argv[i], "-e=%d", &extra) == 1) {
+    } else if (sscanf(argv[i], "--iterations=%d", &n_iterations) == 1 || sscanf(argv[i], "-i=%d", &n_iterations) == 1) {
+    } else if (sscanf(argv[i], "--models=%d", &n_models) == 1 || sscanf(argv[i], "-n=%d", &n_models) == 1) {
+    } else if (sscanf(argv[i], "--restart=%d", &n_conflicts_before_restart) == 1 || sscanf(argv[i], "-r=%d", &n_conflicts_before_restart) == 1) {
     } else if (loaded == 0 && argv[i][0] != '-') {
       std::ifstream ifs = std::ifstream(argv[i]);
       prop = LoadCnf(ifs, &cnf, &extra_name);
@@ -248,54 +296,43 @@ int main(int argc, char *argv[]) {
   assert(loaded > 0);
   assert(!extra_name.null());
 
-  Timer t0;
-  t0.start();
+  Timer timer_total;
+  timer_total.start();
   Solver solver{};
   auto extra_name_factory = [extra_name](const Fun) { return extra_name; };
   for (const std::vector<Lit>& lits : cnf) {
     solver.AddClause(lits, extra_name_factory);
   }
   solver.Init();
-  for (int i = 1; i <= iterations; ++i) {
-    solver.Reset();
+  for (int i_iterations = 1; i_iterations <= n_iterations; ++i_iterations) {
     solver.Simplify();
-    const bool sat = Solve(&solver, restarts, 2);
-    if (sat && n_columns >= 0) {
-      struct winsize win_size;
-      ioctl(STDOUT_FILENO, TIOCGWINSZ, &win_size);
-      const int lit_width = 10;
-      const int win_width = (n_columns != 0 ? n_columns : static_cast<int>(std::ceil(std::sqrt(solver.funs().upper_bound())))) * lit_width;
-      int i = 0;
+    int i_models;
+    for (i_models = 0; i_models < n_models || n_models < 0; ++i_models) {
+      const bool sat = Solve(&solver, n_conflicts_before_restart, 2);
+      if (!sat) {
+        break;
+      }
+      if (n_columns >= 0) {
+        PrintSolution(solver, prop, n_columns, extra, extra_name);
+      }
+      std::vector<Lit> lits;
       for (const Fun f : solver.funs()) {
         if (f.null()) {
           continue;
         }
         const Name n = solver.model()[f];
-        if (!extra && n == extra_name) {
-          continue;
-        }
-        std::stringstream fss; fss << f;
-        std::stringstream ess; ess << " = ";
-        std::stringstream nss; nss << n;
-        const std::string fs = fss.str();
-        const std::string es = ess.str();
-        const std::string ns = nss.str();
-        const int ews = es.length();
-        const int fws = std::max(1, (lit_width - ews - 1)/2 - static_cast<int>(fs.length()));
-        const int nws = std::max(1, (lit_width - ews - 1)/2 + (lit_width - ews - 1)%2 - static_cast<int>(ns.length()));
-        std::cout << std::string(fws, ' ') << fs << es << ns << std::string(nws, ' ');
-        if (++i % (win_width / lit_width) == 0) {
-          std::cout << std::endl;
-        }
+        lits.push_back(Lit::Neq(f, n));
       }
-      std::cout << std::endl;
+      solver.AddClause(lits, extra_name_factory);
+    }
+    if (n_models != 1) {
+      std::cout << "Found " << i_models << " models" << std::endl;
     }
   }
-  t0.stop();
-  if (iterations > 1) {
-    std::cout << "Total took " << t0.duration() << " seconds" << std::endl;
+  timer_total.stop();
+  if (timer_total.rounds() > 1) {
+    std::cout << "Total took " << timer_total.duration() << " seconds" << std::endl;
   }
-
   return 0;
 }
 
