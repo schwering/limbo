@@ -17,21 +17,24 @@ class Fun {
  public:
   using id_t = internal::u32;
 
+  static Fun FromId(id_t id) { return Fun(id); }
+
   Fun() = default;
-  explicit Fun(id_t id) : id_(id) { assert(!null()); }
 
   bool operator==(Fun f) const { return id_ == f.id_; }
   bool operator!=(Fun f) const { return id_ != f.id_; }
   bool operator<=(Fun f) const { return id_ <= f.id_; }
   bool operator>=(Fun f) const { return id_ >= f.id_; }
-  bool operator<(Fun f)  const { return id_ < f.id_; }
-  bool operator>(Fun f)  const { return id_ > f.id_; }
+  bool operator< (Fun f) const { return id_ <  f.id_; }
+  bool operator> (Fun f) const { return id_ >  f.id_; }
 
   explicit operator bool() const { return id_; }
   explicit operator int() const { return id_; }
   bool null() const { return id_ == 0; }
 
  private:
+  explicit Fun(id_t id) : id_(id) { assert(!null()); }
+
   id_t id_;
 };
 
@@ -39,21 +42,24 @@ class Name {
  public:
   using id_t = Fun::id_t;
 
+  static Name FromId(id_t id) { return Name(id); }
+
   Name() = default;
-  explicit Name(id_t id) : id_(id) { assert(!null()); }
 
   bool operator==(Name n) const { return id_ == n.id_; }
   bool operator!=(Name n) const { return id_ != n.id_; }
   bool operator<=(Name n) const { return id_ <= n.id_; }
   bool operator>=(Name n) const { return id_ >= n.id_; }
-  bool operator<(Name n)  const { return id_ < n.id_; }
-  bool operator>(Name n)  const { return id_ > n.id_; }
+  bool operator< (Name n) const { return id_ <  n.id_; }
+  bool operator> (Name n) const { return id_ >  n.id_; }
 
   explicit operator bool() const { return id_; }
   explicit operator int() const { return id_; }
   bool null() const { return id_ == 0; }
 
  private:
+  explicit Name(id_t id) : id_(id) { assert(!null()); }
+
   id_t id_;
 };
 
@@ -66,13 +72,13 @@ class Lit {
   static Lit Neq(Fun fun, Name name) { return Lit(false, fun, name); }
   static Lit FromId(id_t id) { return Lit(id); }
 
-  Lit() = default;
-  Lit(bool pos, Fun fun, Name name) : Lit(Bits::interleave(int(fun), (int(name) << 1) | pos)) {}
+  explicit Lit() = default;
+  explicit Lit(bool pos, Fun fun, Name name) : Lit(Bits::interleave(int(fun), (int(name) << 1) | pos)) {}
 
   bool pos()  const { return id_ & 1; }
   bool neg()  const { return !pos(); }
-  Fun  fun()  const { return Fun(Bits::deinterleave_hi(id_)); }
-  Name name() const { return Name(Bits::deinterleave_lo(id_) >> 1); }
+  Fun  fun()  const { return Fun::FromId(Bits::deinterleave_hi(id_)); }
+  Name name() const { return Name::FromId(Bits::deinterleave_lo(id_) >> 1); }
 
   explicit operator bool() const { return id_; }
   explicit operator int() const { return id_; }
@@ -91,7 +97,7 @@ class Lit {
   // (f == n), (f != n)
   // (f != n), (f == n)
   // (f != n1), (f != n2) for distinct n1, n2.
-  static bool Valid(const Lit a, const Lit b) {
+  static bool Valid(Lit a, Lit b) {
     const id_t x = a.id_ ^ b.id_;
     return x == 1 || (x != 0 && a.neg() && b.neg() && (x & Bits::kHi) == 0);
   }
@@ -100,7 +106,7 @@ class Lit {
   // (f == n), (f != n)
   // (f != n), (f == n)
   // (f == n1), (f == n2) for distinct n1, n2.
-  static bool Complementary(const Lit a, const Lit b) {
+  static bool Complementary(Lit a, Lit b) {
     const id_t x = a.id_ ^ b.id_;
     return x == 1 || (x != 0 && a.pos() && b.pos() && (x & Bits::kHi) == 0);
   }

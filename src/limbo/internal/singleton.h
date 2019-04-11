@@ -2,7 +2,7 @@
 // Copyright 2017--2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// Integer utilities.
+// Singleton base class.
 
 #ifndef LIMBO_INTERNAL_SINGLETON_H_
 #define LIMBO_INTERNAL_SINGLETON_H_

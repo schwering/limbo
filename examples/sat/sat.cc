@@ -21,7 +21,8 @@
 #include <limbo/clause.h>
 #include <limbo/lit.h>
 
-#include "solver.h"
+//#include "sat.h"
+#include <limbo/sat.h>
 
 using namespace limbo;
 using namespace limbo::internal;
@@ -90,9 +91,9 @@ static void CreateTerms(UnaryFunction f, int n, std::vector<typename std::result
 
 static bool LoadCnf(std::istream& stream,
                     std::vector<std::vector<Lit>>* cnf,
+                    std::vector<Fun>* funs,
+                    std::vector<Name>* names,
                     Name* extra_name) {
-  std::vector<Fun> funs;
-  std::vector<Name> names;
   Name T;
   Name F;
   cnf->clear();
@@ -106,24 +107,27 @@ static bool LoadCnf(std::istream& stream,
     } else if (line.length() >= 1 && line[0] == 'c') {
       // ignore comment
     } else if (sscanf(line.c_str(), "p cnf %d %d", &n_funs, &n_clauses) == 2) {  // propositional CNF
-      CreateTerms([](int i) { return Fun(i); }, n_funs, &funs);
-      names.clear();
-      F = Name(1);
-      T = Name(2);
-      names.push_back(T);
-      names.push_back(F);
+      funs->clear();
+      names->clear();
+      CreateTerms([](int i) { return Fun::FromId(i); }, n_funs, funs);
+      F = Name::FromId(1);
+      T = Name::FromId(2);
+      names->push_back(T);
+      names->push_back(F);
       *extra_name = T;
       prop = true;
     } else if (sscanf(line.c_str(), "p fcnf %d %d %d", &n_funs, &n_names, &n_clauses) == 3) {  // func CNF
-      CreateTerms([](int i) { return Fun(i); }, n_funs, &funs);
-      CreateTerms([](int i) { return Name(i); }, n_names + 1, &names);
-      *extra_name = names.back();
+      funs->clear();
+      names->clear();
+      CreateTerms([](int i) { return Fun::FromId(i); }, n_funs, funs);
+      CreateTerms([](int i) { return Name::FromId(i); }, n_names + 1, names);
+      *extra_name = names->back();
       prop = false;
     } else if (prop) {  // propositional clause
       std::vector<Lit> lits;
       int i = -1;
       for (std::istringstream iss(line); (iss >> i) && i != 0; ) {
-        const Fun f = funs[(i < 0 ? -i : i) - 1];
+        const Fun f = (*funs)[(i < 0 ? -i : i) - 1];
 #if 0
         const Lit a = i < 0 ? Lit::Eq(f, F) : Lit::Eq(f, T);
 #else
@@ -141,8 +145,8 @@ static bool LoadCnf(std::istream& stream,
       char eq = '\0';
       for (std::istringstream iss(line); (iss >> i >> eq >> j) && eq == '='; ) {
         assert(j >= 1);
-        const Fun f = funs[(i < 0 ? -i : i) - 1];
-        const Name n = names[j - 1];
+        const Fun f = (*funs)[(i < 0 ? -i : i) - 1];
+        const Name n = (*names)[j - 1];
         const Lit a = i < 0 ? Lit::Neq(f, n) : Lit::Eq(f, n);
         lits.push_back(a);
       }
@@ -156,7 +160,7 @@ static bool LoadCnf(std::istream& stream,
   return prop;
 }
 
-bool Solve(Solver* solver, int n_conflicts_init, int conflicts_increase) {
+bool Solve(Sat* solver, int n_conflicts_init, int conflicts_increase) {
   struct Stats {
     int conflicts = 0;
     int conflicts_level_sum = 0;
@@ -168,16 +172,16 @@ bool Solve(Solver* solver, int n_conflicts_init, int conflicts_increase) {
   int n_conflicts = n_conflicts_init;
   int sat = 0;
 
-  auto conflict_predicate = [&](Solver::level_t level, Solver::cref_t conflict, const std::vector<Lit>& learnt, Solver::level_t btlevel) {
+  auto conflict_predicate = [&](auto level, auto conflict, const std::vector<Lit>& learnt, auto btlevel) {
     ++stats.conflicts;
-    stats.conflicts_level_sum += level;
-    stats.conflicts_btlevel_sum += btlevel;
+    stats.conflicts_level_sum += int(level);
+    stats.conflicts_btlevel_sum += int(btlevel);
     //std::cout << "Learnt from " << solver.clause(conflict) << " at level " << level << " that " << learnt << ", backtracking to " << btlevel << std::endl;
     return !restarts || stats.conflicts < n_conflicts;
   };
-  auto decision_predicate = [&](Solver::level_t level, Lit a) {
+  auto decision_predicate = [&](auto level, Lit a) {
     ++stats.decisions;
-    stats.decisions_level_sum += level;
+    stats.decisions_level_sum += int(level);
     //std::cout << "Decided " << a << " at level " << level << std::endl;
     return true;
   };
@@ -199,17 +203,16 @@ bool Solve(Solver* solver, int n_conflicts_init, int conflicts_increase) {
   return sat > 0;
 }
 
-void PrintSolution(const Solver& solver, const bool prop, const int n_columns, const bool extra, const Name extra_name) {
+void PrintSolution(const Sat& solver, const bool prop, const int n_columns,
+                   const std::vector<Fun>& funs, const std::vector<Name>& names,
+                   const bool extra, const Name extra_name) {
   struct winsize ws;
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
   const int lit_width = 10;
-  const int win_width = (n_columns != 0 ? n_columns : static_cast<int>(std::ceil(std::sqrt(solver.funs().upper_bound())))) * lit_width;
+  const int win_width = (n_columns != 0 ? n_columns : static_cast<int>(std::ceil(std::sqrt(funs.size())))) * lit_width;
   int i = 0;
   if (!prop) {
-    for (const Fun f : solver.funs()) {
-      if (f.null()) {
-        continue;
-      }
+    for (const Fun f : funs) {
       const Name n = solver.model()[f];
       if (!extra && n == extra_name) {
         continue;
@@ -229,10 +232,7 @@ void PrintSolution(const Solver& solver, const bool prop, const int n_columns, c
       }
     }
   } else {
-    for (const Fun f : solver.funs()) {
-      if (f.null()) {
-        continue;
-      }
+    for (const Fun f : funs) {
       const Name n = solver.model()[f];
       if (!extra && n == extra_name) {
         continue;
@@ -247,6 +247,8 @@ void PrintSolution(const Solver& solver, const bool prop, const int n_columns, c
 int main(int argc, char *argv[]) {
   std::srand(0);
   std::vector<std::vector<Lit>> cnf;
+  std::vector<Fun> funs;
+  std::vector<Name> names;
   Name extra_name;
   int n_models = 1;
   int n_iterations = 1;
@@ -282,7 +284,7 @@ int main(int argc, char *argv[]) {
     } else if (sscanf(argv[i], "--restart=%d", &n_conflicts_before_restart) == 1 || sscanf(argv[i], "-r=%d", &n_conflicts_before_restart) == 1) {
     } else if (loaded == 0 && argv[i][0] != '-') {
       std::ifstream ifs = std::ifstream(argv[i]);
-      prop = LoadCnf(ifs, &cnf, &extra_name);
+      prop = LoadCnf(ifs, &cnf, &funs, &names, &extra_name);
       ++loaded;
     } else {
       std::cout << "Cannot load '"<< argv[i] << "'" << std::endl;
@@ -290,7 +292,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (loaded == 0) {
-    prop = LoadCnf(std::cin, &cnf, &extra_name);
+    prop = LoadCnf(std::cin, &cnf, &funs, &names, &extra_name);
     ++loaded;
   }
   assert(loaded > 0);
@@ -298,7 +300,7 @@ int main(int argc, char *argv[]) {
 
   Timer timer_total;
   timer_total.start();
-  Solver solver{};
+  Sat solver;
   auto extra_name_factory = [extra_name](const Fun) { return extra_name; };
   for (const std::vector<Lit>& lits : cnf) {
     solver.AddClause(lits, extra_name_factory);
@@ -313,13 +315,10 @@ int main(int argc, char *argv[]) {
         break;
       }
       if (n_columns >= 0) {
-        PrintSolution(solver, prop, n_columns, extra, extra_name);
+        PrintSolution(solver, prop, n_columns, funs, names, extra, extra_name);
       }
       std::vector<Lit> lits;
-      for (const Fun f : solver.funs()) {
-        if (f.null()) {
-          continue;
-        }
+      for (const Fun f : funs) {
         const Name n = solver.model()[f];
         lits.push_back(Lit::Neq(f, n));
       }

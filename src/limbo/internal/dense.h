@@ -2,7 +2,7 @@
 // Copyright 2016-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// DenseMap, DenseSet, Heap classes, which are all based on representing values
+// DenseMap, DenseSet, MinHeap classes, which are all based on representing values
 // as dense integers close to zero.
 
 #ifndef LIMBO_DENSE_H_
@@ -14,9 +14,9 @@
 namespace limbo {
 namespace internal {
 
-template<typename T, typename Index>
-struct IndexOf {
-  Index operator()(const T t) const { return int(t); }
+template<typename Key, typename Index>
+struct KeyToIndex {
+  Index operator()(const Key k) const { return int(k); }
 };
 
 struct NoBoundCheck {
@@ -42,7 +42,7 @@ template<typename Key,
          typename Val,
          typename CheckBound = NoBoundCheck,
          typename Index = int,
-         typename IndexOf = IndexOf<Key, Index>>
+         typename KeyToIndex = KeyToIndex<Key, Index>>
 class DenseMap {
  public:
   using Vec = std::vector<Val>;
@@ -59,7 +59,7 @@ class DenseMap {
   DenseMap(DenseMap&&) = default;
   DenseMap& operator=(DenseMap&& c) = default;
 
-  void Capacitate(const Key k) { Capacitate(index_of_(k)); }
+  void Capacitate(const Key k) { Capacitate(k2i_(k)); }
   void Capacitate(const Index i) { if (i >= vec_.size()) { vec_.resize(i + 1); } }
 
   void Clear() { vec_.clear(); }
@@ -70,8 +70,8 @@ class DenseMap {
   reference operator[](const Index i) { check_bound_(this, i); return vec_[i]; }
   const_reference operator[](const Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i]; }
 
-  reference operator[](const Key key) { return operator[](index_of_(key)); }
-  const_reference operator[](const Key key) const { return operator[](index_of_(key)); }
+  reference operator[](const Key key) { return operator[](k2i_(key)); }
+  const_reference operator[](const Key key) const { return operator[](k2i_(key)); }
 
   iterator begin() { return vec_.begin(); }
   iterator end()   { return vec_.end(); }
@@ -81,17 +81,17 @@ class DenseMap {
 
  private:
   CheckBound check_bound_;
-  IndexOf index_of_;
+  KeyToIndex k2i_;
   Vec vec_;
 };
 
 template<typename T,
          typename CheckBound = NoBoundCheck,
          typename Index = int,
-         typename IndexOf = IndexOf<T, Index>>
+         typename KeyToIndex = KeyToIndex<T, Index>>
 class DenseSet {
  public:
-  using Map = DenseMap<T, T, CheckBound, Index, IndexOf>;
+  using Map = DenseMap<T, T, CheckBound, Index, KeyToIndex>;
   using value_type = typename Map::value_type;
   using reference = typename Map::reference;
   using const_reference = typename Map::const_reference;
@@ -135,17 +135,17 @@ template<typename T,
          typename Less,
          typename CheckBound = NoBoundCheck,
          typename Index = int,
-         typename IndexOf = IndexOf<T, Index>>
-class Heap {
+         typename KeyToIndex = KeyToIndex<T, Index>>
+class MinHeap {
  public:
-  using Map = DenseMap<T, int, CheckBound, Index, IndexOf>;
+  using Map = DenseMap<T, int, CheckBound, Index, KeyToIndex>;
 
-  explicit Heap(Less less = Less()) : less_(less) { heap_.emplace_back(); }
+  explicit MinHeap(Less less = Less()) : less_(less) { heap_.emplace_back(); }
 
-  Heap(const Heap&) = default;
-  Heap& operator=(const Heap&) = default;
-  Heap(Heap&&) = default;
-  Heap& operator=(Heap&&) = default;
+  MinHeap(const MinHeap&) = default;
+  MinHeap& operator=(const MinHeap&) = default;
+  MinHeap(MinHeap&&) = default;
+  MinHeap& operator=(MinHeap&&) = default;
 
   void set_less(Less less) { less_ = less; }
 
@@ -156,14 +156,22 @@ class Heap {
 
   int size()  const { return heap_.size() - 1; }
   bool empty() const { return heap_.size() == 1; }
+  const T& operator[](int i) const { return heap_[i + 1]; }
 
   bool Contains(const T& x) const { return index_[x] != 0; }
 
-  T Top() const { return heap_[bool(size())]; }
+  T top() const { return heap_[bool(size())]; }
 
   void Increase(const T& x) {
     assert(Contains(x));
     SiftUp(index_[x]);
+    assert(Contains(x));
+    assert(std::min_element(heap_.begin() + 1, heap_.end(), less_) == heap_.begin() + 1);
+  }
+
+  void Decrease(const T& x) {
+    Remove(x);
+    Insert(x);
   }
 
   void Insert(const T& x) {
@@ -172,6 +180,7 @@ class Heap {
     heap_.push_back(x);
     index_[x] = i;
     SiftUp(i);
+    assert(std::min_element(heap_.begin() + 1, heap_.end(), less_) == heap_.begin() + 1);
   }
 
   void Remove(const T& x) {
@@ -183,8 +192,10 @@ class Heap {
     index_[x] = 0;
     if (heap_.size() > i) {
       SiftDown(i);
+      SiftUp(i);
     }
     assert(!Contains(x));
+    assert(std::min_element(heap_.begin() + 1, heap_.end(), less_) == heap_.begin() + 1);
   }
 
   typename std::vector<T>::const_iterator begin() const { return heap_.begin() + 1; }

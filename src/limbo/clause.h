@@ -8,9 +8,8 @@
 // unsatisfiable clauses are reduced to the empty clauses and valid clauses
 // are represented as unit clauses containing only the null literal.
 //
-// The only way a clause can mention the same function twice is in the form
-// of equalities for different names. All other cases are valid or not
-// normalised.
+// The only way a normalized, non-valid clause can mention the same function
+// twice is in the form of equalities for different names.
 
 #ifndef LIMBO_CLAUSE_H_
 #define LIMBO_CLAUSE_H_
@@ -20,6 +19,7 @@
 #include <cstdlib>
 
 #include <functional>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -35,17 +35,26 @@ class Clause {
   using const_iterator = const Lit*;
   class Factory;
 
-  static constexpr bool kGuaranteeInvalid = true;
-  static constexpr bool kGuaranteeNormalized = true;
+  struct InvalidityPromise {
+    explicit InvalidityPromise(bool promised) : promised(promised) {}
+    bool promised;
+  };
+  struct NormalizationPromise {
+    explicit NormalizationPromise(bool promised) : promised(promised) {}
+    bool promised;
+  };
+  struct Learnt {
+    explicit Learnt(bool yes) : yes(yes) {}
+    bool yes;
+  };
 
-  template<bool guarantee_invalid = !kGuaranteeInvalid>
-  static int Normalize(int size, Lit* as) {
+  static int Normalize(int size, Lit* as, InvalidityPromise invalidity) {
     int i1 = 0;
     int i2 = 0;
     while (i2 < size) {
       assert(i1 <= i2);
       for (int j = 0; j < i1; ++j) {
-        if (!guarantee_invalid && Lit::Valid(as[i2], as[j])) {
+        if (!invalidity.promised && Lit::Valid(as[i2], as[j])) {
           as[0] = Lit();
           return -1;
         }
@@ -65,6 +74,13 @@ next: {}
     }
     return i1;
   }
+
+  Clause() = delete;
+  Clause(const Clause&) = delete;
+  Clause& operator=(const Clause& c) = delete;
+  Clause(Clause&&) = delete;
+  Clause& operator=(Clause&& c) = delete;
+  ~Clause() = delete;
 
   bool operator==(const Clause& c) const {
     if (size() != c.size()) {
@@ -86,6 +102,8 @@ next: {}
   bool unit()  const { return h_.size == 1; }
   int size()   const { return h_.size; }
 
+  bool learnt() const { return h_.learnt; }
+
   Lit& operator[](int i)       { assert(i >= 0 && i < size()); return as_[i]; }
   Lit  operator[](int i) const { assert(i >= 0 && i < size()); return as_[i]; }
 
@@ -97,6 +115,7 @@ next: {}
 
   const_iterator begin()  const { return cbegin(); }
   const_iterator end()    const { return cend(); }
+
 
   bool valid() const { return unit() && as_[0].null(); }
   bool unsat() const { return empty(); }
@@ -131,26 +150,27 @@ next: {}
   }
 
  private:
-  Clause(const Lit a) {
+  explicit Clause(const Lit a, Learnt learnt) {
+    h_.learnt = learnt.yes;
     h_.size = 1;
     as_[0] = a;
     assert(Normalized());
   }
 
-  Clause(int size, const Lit* first, bool guaranteed_normalized) {
+  explicit Clause(int size,
+                  const Lit* first,
+                  Learnt learnt,
+                  NormalizationPromise normalization = NormalizationPromise(false),
+                  InvalidityPromise invalid = InvalidityPromise(false)) {
+    h_.learnt = learnt.yes;
     h_.size = size;
     std::memcpy(begin(), first, size * sizeof(Lit));
-    if (!guaranteed_normalized) {
-      size = Normalize(h_.size, as_);
+    if (!normalization.promised) {
+      size = Normalize(h_.size, as_, invalid);
       h_.size = size >= 0 ? size : 1;
     }
     assert(Normalized());
   }
-
-  Clause(const Clause&) = delete;
-  Clause& operator=(const Clause& c) = delete;
-  Clause(Clause&&) = default;
-  Clause& operator=(Clause&& c) = default;
 
 #ifndef NDEBUG
   bool Normalized() {
@@ -180,43 +200,49 @@ next: {}
 
 class Clause::Factory {
  public:
-  using cref_t = unsigned int;
+  // Domain clauses are of the form (f = n1 v f = n2 v f = n3 v ...). There's
+  // no need to represent them explicitly. Having a distinguished reference for
+  // them is useful for conflict analysis in the SAT solver.
+  enum class CRef : unsigned int { kNull = 0, kDomain = std::numeric_limits<unsigned int>::max() };
 
-  Factory() = default;
+  explicit Factory() = default;
+
   Factory(const Factory&) = delete;
   Factory& operator=(const Factory&) = delete;
   Factory(Factory&&) = default;
   Factory& operator=(Factory&&) = default;
 
-  cref_t New(Lit a) {
-    const cref_t cr = memory_.Allocate(clause_size(1));
-    new (memory_.address(cr)) Clause(a);
+  CRef New(Lit a, Learnt learnt) {
+    const CRef cr = memory_.Allocate(clause_size(1));
+    new (memory_.address(cr)) Clause(a, learnt);
     return cr;
   }
 
-  template<bool guaranteed_normalized = !kGuaranteeNormalized>
-  cref_t New(int k, const Lit* as) {
-    const cref_t cr = memory_.Allocate(clause_size(k));
-    new (memory_.address(cr)) Clause(k, as, guaranteed_normalized);
+  CRef New(int k,
+           const Lit* as,
+           Learnt learnt = Learnt(false),
+           NormalizationPromise normalization = NormalizationPromise(false)) {
+    const CRef cr = memory_.Allocate(clause_size(k));
+    new (memory_.address(cr)) Clause(k, as, learnt, normalization);
     return cr;
   }
 
-  template<bool guaranteed_normalized = !kGuaranteeNormalized>
-  cref_t New(const std::vector<Lit>& as) {
-    return New<guaranteed_normalized>(as.size(), as.data());
+  CRef New(const std::vector<Lit>& as,
+           Learnt learnt,
+           NormalizationPromise normalization = NormalizationPromise(false)) {
+    return New(as.size(), as.data(), learnt, normalization);
   }
 
-  void Delete(cref_t cr, int k) { memory_.Free(cr, k); }
+  void Delete(CRef cr, int k) { memory_.Free(cr, k); }
 
-  Clause& operator[](cref_t r) { return reinterpret_cast<Clause&>(memory_[r]); }
-  const Clause& operator[](cref_t r) const { return reinterpret_cast<const Clause&>(memory_[r]); }
+        Clause& operator[](CRef r)       { return reinterpret_cast<      Clause&>(memory_[r]); }
+  const Clause& operator[](CRef r) const { return reinterpret_cast<const Clause&>(memory_[r]); }
 
  private:
   template<typename T>
   class MemoryPool {
    public:
     using size_t = unsigned int;
-    using ref_t = unsigned int;
 
     explicit MemoryPool(size_t n = 1024 * 1024) { Capacitate(n); }
     ~MemoryPool() { if (memory_) { std::free(memory_); } }
@@ -228,24 +254,24 @@ class Clause::Factory {
 
     size_t bytes_to_chunks(size_t n) { return (n + sizeof(T) - 1) / sizeof(T); }
 
-    ref_t Allocate(size_t n) {
-      const ref_t r = size_;
+    CRef Allocate(size_t n) {
+      const CRef r = CRef(size_);
       size_ += n;
       Capacitate(size_);
       return r;
     }
 
-    void Free(cref_t r, int k) {
-      if (r + k == size_) {
-        size_ = r;
+    void Free(CRef r, int k) {
+      if (size_t(r) + k == size_) {
+        size_ = size_t(r);
       }
     }
 
-    T& operator[](ref_t r) { return memory_[r]; }
-    const T& operator[](ref_t r) const { return memory_[r]; }
+    T& operator[](CRef r) { return memory_[size_t(r)]; }
+    const T& operator[](CRef r) const { return memory_[size_t(r)]; }
 
-    T* address(ref_t r) const { return &memory_[r]; }
-    ref_t reference(const T* r) const { return r - &memory_[0]; }
+    T* address(CRef r) const { return &memory_[size_t(r)]; }
+    CRef reference(const T* r) const { return r - &memory_[0]; }
 
    private:
     void Capacitate(size_t n) {

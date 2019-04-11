@@ -28,13 +28,22 @@ class Alphabet : private internal::Singleton<Alphabet> {
   template<typename T>
   class IntRepresented {
    public:
-    IntRepresented() = default;
+    explicit IntRepresented() = default;
     explicit IntRepresented(id_t id) : id_(id) {}
+
+    IntRepresented(const IntRepresented&) = default;
+    IntRepresented& operator=(const IntRepresented&) = default;
+    IntRepresented(IntRepresented&&) = default;
+    IntRepresented& operator=(IntRepresented&&) = default;
+
     bool operator==(const IntRepresented& i) const { return id_ == i.id_; }
     bool operator!=(const IntRepresented& i) const { return !(*this == i); }
+
     explicit operator bool() const { return id_; }
     explicit operator int() const { return id_; }
+
     bool null() const { return id_ == 0; }
+
    private:
     id_t id_;
   };
@@ -68,8 +77,8 @@ class Alphabet : private internal::Singleton<Alphabet> {
 #if 0
   class QuasiName {
    public:
-    QuasiName(Name n) : ground_(true) { u_.n = n; }
-    QuasiName(Var v) : ground_(false) { u_.v = v; }
+    explicit QuasiName(Name n) : ground_(true) { u_.n = n; }
+    explicit QuasiName(Var v) : ground_(false) { u_.v = v; }
     bool ground() const { return !ground_; }
     Name name() const { return u_.n; }
     Var var() const { return u_.v; }
@@ -84,7 +93,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
   class QuasiLit {
     class ConstArgs {
      public:
-      ConstArgs(const QuasiLit* owner) : owner_(owner) {}
+      explicit ConstArgs(const QuasiLit* owner) : owner_(owner) {}
       std::vector<QuasiName>::const_iterator begin() const { return owner_->ns_.begin(); }
       std::vector<QuasiName>::const_iterator end()   const { return owner_->ns_.end() - 1; }
      private:
@@ -93,7 +102,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
 
     class Args {
      public:
-      Args(QuasiLit* owner) : owner_(owner) {}
+      explicit Args(QuasiLit* owner) : owner_(owner) {}
       std::vector<QuasiName>::iterator begin() const { return owner_->ns_.begin(); }
       std::vector<QuasiName>::iterator end()   const { return owner_->ns_.end() - 1; }
      private:
@@ -101,7 +110,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     };
 
     template<typename InputIt>
-    QuasiLit(Fun f, InputIt args_begin, bool eq, QuasiName n) : eq_(eq), f_(f) {
+    explicit QuasiLit(Fun f, InputIt args_begin, bool eq, QuasiName n) : eq_(eq), f_(f) {
       int arity = f.arity();
       ns_.resize(arity + 1);
       while (arity-- > 0) {
@@ -109,7 +118,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
       }
       ns_.push_back(n);
     }
-    QuasiLit(QuasiName n1, bool eq, QuasiName n2) : eq_(eq) {
+    explicit QuasiLit(QuasiName n1, bool eq, QuasiName n2) : eq_(eq) {
       ns_.resize(2);
       ns_.push_back(n1);
       ns_.push_back(n2);
@@ -126,7 +135,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
   };
 
   class QuasiClause {
-    QuasiClause() = default;
+    explicit QuasiClause() = default;
           QuasiLit& operator[](int i)       { return as_[i]; }
     const QuasiLit& operator[](int i) const { return as_[i]; }
    private:
@@ -163,7 +172,12 @@ class Alphabet : private internal::Singleton<Alphabet> {
     static Symbol Believe(int k, int l)       { Symbol s; s.tag = kBelieve;        s.u.k = k; s.u.l = l; return s; }
     static Symbol Action()                    { Symbol s; s.tag = kAction;                               return s; }
 
-    Symbol() = default;
+    explicit Symbol() = default;
+
+    Symbol(const Symbol&) = default;
+    Symbol& operator=(const Symbol&) = default;
+    Symbol(Symbol&&) = default;
+    Symbol& operator=(Symbol&&) = default;
 
     Tag tag;
 
@@ -258,10 +272,17 @@ class Alphabet : private internal::Singleton<Alphabet> {
 
   class RWord {
    public:
-    RWord() = default;
-    RWord(Symbol::CRef begin, Symbol::CRef end) : begin_(begin), end_(end) {}
+    explicit RWord() = default;
+    explicit RWord(Symbol::CRef begin, Symbol::CRef end) : begin_(begin), end_(end) {}
+
+    RWord(const RWord&) = default;
+    RWord& operator=(const RWord&) = default;
+    RWord(RWord&&) = default;
+    RWord& operator=(RWord&&) = default;
+
     Symbol::CRef begin() const { return begin_; }
     Symbol::CRef end() const { return end_; }
+
    private:
     Symbol::CRef begin_;
     Symbol::CRef end_;
@@ -269,12 +290,12 @@ class Alphabet : private internal::Singleton<Alphabet> {
 
   class Word {
    public:
-    Word() = default;
-    Word(const RWord& w) : Word(w.begin(), w.end()) {}
-    Word(Symbol::List&& w) : symbols_(w) {}
+    explicit Word() = default;
+    explicit Word(const RWord& w) : Word(w.begin(), w.end()) {}
+    explicit Word(Symbol::List&& w) : symbols_(w) {}
 
     template<typename InputIt>
-    Word(InputIt begin, InputIt end) : symbols_(begin, end) {}
+    explicit Word(InputIt begin, InputIt end) : symbols_(begin, end) {}
 
     Word(Word&&) = default;
     Word& operator=(Word&&) = default;
@@ -368,7 +389,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     return x;
   }
 
-  Fun Squaring(const int sitlen, const Fun f) {
+  Fun Squaring(int sitlen, Fun f) {
     if (sitlen == 0) {
       return f;
     } else {
@@ -446,10 +467,11 @@ class Alphabet : private internal::Singleton<Alphabet> {
   using DenseMap = internal::DenseMap<Key, Value, internal::FastAdjustBoundCheck>;
   using TermMap = std::unordered_map<RWord, Symbol, DeepHash, DeepEquals>;
 
-  Alphabet() = default;
+  explicit Alphabet() = default;
+
   Alphabet(const Alphabet&) = delete;
-  Alphabet(Alphabet&&) = delete;
   Alphabet& operator=(const Alphabet&) = delete;
+  Alphabet(Alphabet&&) = delete;
   Alphabet& operator=(Alphabet&&) = delete;
 
   DenseMap<Sort, bool> sort_rigid_;
@@ -481,7 +503,13 @@ class FormulaCommons {
    public:
     class Observer {
      public:
-      Observer() = default;
+      explicit Observer() = default;
+
+      Observer(const Observer&) = delete;
+      Observer& operator=(const Observer&) = delete;
+      Observer(Observer&&) = delete;
+      Observer& operator=(Observer&&) = delete;
+
       void Munch(const Symbol& s) { k_ += s.arity(); --k_; }
       void Vomit(const Symbol& s) { k_ -= s.arity(); --k_; }
       Scope scope() const { return Scope(k_); }
@@ -489,16 +517,16 @@ class FormulaCommons {
       int left(const Scope& scope) const { return k_ - scope.k_; }
 
      private:
-      Observer(const Observer&) = delete;
-      Observer& operator=(const Observer&) = delete;
-      Observer(Observer&&) = delete;
-      Observer& operator=(Observer&&) = delete;
-
       int k_ = 0;
     };
 
-    Scope() = default;
+    explicit Scope() = default;
     explicit Scope(int k) : k_(k) {}
+
+    Scope(const Scope&) = default;
+    Scope& operator=(const Scope&) = default;
+    Scope(Scope&&) = default;
+    Scope& operator=(Scope&&) = default;
 
    private:
     int k_ = -1;
@@ -521,7 +549,7 @@ class RFormula : private FormulaCommons {
   template<typename T>
   using DenseSet = internal::DenseSet<T, internal::FastAdjustBoundCheck>;
 
-  RFormula(Symbol::CRef begin, Symbol::CRef end) : rword_(begin, end), meta_init_(false) {}
+  explicit RFormula(Symbol::CRef begin, Symbol::CRef end) : rword_(begin, end), meta_init_(false) {}
   explicit RFormula(const RWord& w) : RFormula(w.begin(), w.end()) {}
   explicit RFormula(Symbol::CRef begin) : RFormula(begin, End(begin)) {}
 
@@ -718,6 +746,8 @@ class Formula : private FormulaCommons {
   explicit Formula(Word&& w) : word_(std::move(w)) {}
   explicit Formula(const RFormula& f) : word_(f.rword()) {}
 
+  Formula(const Formula&) = delete;
+  Formula& operator=(const Formula&) = delete;
   Formula(Formula&&) = default;
   Formula& operator=(Formula&&) = default;
 
@@ -754,13 +784,13 @@ class Formula : private FormulaCommons {
   void Skolemize() {
     assert(readable().weakly_well_formed());
     struct ForallMarker {
-      ForallMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
+      explicit ForallMarker(Abc::Var x, Scope scope) : x(x), scope(scope) {}
       explicit ForallMarker(Scope scope) : scope(scope) {}
       Abc::Var x;
       Scope scope;
     };
     struct NotMarker {
-      NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
+      explicit NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
       explicit NotMarker(Scope scope) : neg(false), scope(scope) {}
       unsigned neg : 1;
       Scope scope;
@@ -834,7 +864,7 @@ class Formula : private FormulaCommons {
   void Squaring() {
     assert(readable().weakly_well_formed());
     struct ActionMarker {
-      ActionMarker(Symbol::List symbols, Scope scope) : symbols(symbols), scope(scope) {}
+      explicit ActionMarker(Symbol::List symbols, Scope scope) : symbols(symbols), scope(scope) {}
       Symbol::List symbols;
       Scope scope;
     };
@@ -894,13 +924,13 @@ class Formula : private FormulaCommons {
   void Rectify(bool all_new = false) {
     assert(readable().weakly_well_formed());
     struct NewVar {
-      NewVar() = default;
-      NewVar(Abc::Var x, Scope scope) : x(x), scope(scope) {}
+      explicit NewVar() = default;
+      explicit NewVar(Abc::Var x, Scope scope) : x(x), scope(scope) {}
       Abc::Var x;
       Scope scope;
     };
     struct NewVars {
-      NewVars() = default;
+      explicit NewVars() = default;
       bool used = false;
       std::vector<NewVar> vars;
     };
@@ -935,7 +965,7 @@ class Formula : private FormulaCommons {
   void Flatten() {
     assert(readable().weakly_well_formed());
     struct NotMarker {
-      NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
+      explicit NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
       explicit NotMarker(Scope scope) : reset(true), scope(scope) {}
       unsigned reset : 1;
       unsigned neg   : 1;
@@ -1018,21 +1048,21 @@ class Formula : private FormulaCommons {
   void PushInwards() {
     assert(readable().weakly_well_formed());
     struct AndOrMarker {
-      AndOrMarker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
+      explicit AndOrMarker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
       explicit AndOrMarker(Scope scope) : reset(true), scope(scope) {}
       unsigned reset : 1;
       Symbol::Ref ref;
       Scope scope;
     };
     struct ActionMarker {
-      ActionMarker(Symbol::List symbols, Scope scope) : symbols(symbols), scope(scope) {}
+      explicit ActionMarker(Symbol::List symbols, Scope scope) : symbols(symbols), scope(scope) {}
       explicit ActionMarker(Scope scope) : reset(true), scope(scope) {}
       unsigned reset : 1;
       Symbol::List symbols;
       Scope scope;
     };
     struct NotMarker {
-      NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
+      explicit NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
       explicit NotMarker(Scope scope) : reset(true), scope(scope) {}
       unsigned reset : 1;
       unsigned neg   : 1;
@@ -1145,7 +1175,7 @@ class Formula : private FormulaCommons {
   void Strip() {
     assert(readable().weakly_well_formed());
     struct TermMarker {
-      TermMarker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
+      explicit TermMarker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
       bool ok = true;
       Symbol::Ref ref;
       Scope scope;
@@ -1209,7 +1239,7 @@ class Formula : private FormulaCommons {
   void Reduce(UnaryPredicate select = UnaryPredicate(), UnaryFunction reduce = UnaryFunction()) {
     assert(readable().weakly_well_formed());
     struct Marker {
-      Marker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
+      explicit Marker(Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
       Symbol::Ref ref;
       Scope scope;
     };
@@ -1235,11 +1265,11 @@ class Formula : private FormulaCommons {
   template<typename Key, typename Value>
   using DenseMap = internal::DenseMap<Key, Value, internal::FastAdjustBoundCheck>;
 
-  explicit Formula(Symbol s)                            { word_.Insert(end(), s); }
-  Formula(Symbol s, Formula&& f)                        : Formula(s) { assert(s.arity() == 1); AddArg(f); }
-  Formula(Symbol s, const Formula& f)                   : Formula(s) { assert(s.arity() == 1); AddArg(f); }
-  Formula(Symbol s, Formula&& f, Formula&& g)           : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
-  Formula(Symbol s, const Formula& f, const Formula& g) : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
+  explicit Formula(Symbol s)                                                  { word_.Insert(end(), s); }
+  explicit Formula(Symbol s, Formula&& f)                        : Formula(s) { assert(s.arity() == 1); AddArg(f); }
+  explicit Formula(Symbol s, const Formula& f)                   : Formula(s) { assert(s.arity() == 1); AddArg(f); }
+  explicit Formula(Symbol s, Formula&& f, Formula&& g)           : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
+  explicit Formula(Symbol s, const Formula& f, const Formula& g) : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
 
   template<typename Formulas>
   void AddArgs(Formulas&& args) {

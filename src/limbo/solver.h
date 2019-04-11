@@ -1,371 +1,810 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016-2017 Christoph Schwering
+// Copyright 2014-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
-//
-// Solver implements non-modal limited belief implications. The key methods
-// are Entails(), Determines(), and Consistent(), which determine whether the
-// knowledge base consisting of the clauses added with AddClause() entails a
-// query, determines a terms's denotation or is consistent with it,
-// respectively. They are are sound but incomplete: if they return true, this
-// answer is correct with respect to classical logic; if they return false,
-// this may not be correct and should be rather interpreted as "don't know."
-// The method EntailsComplete() uses Consistent() to implement a complete but
-// unsound entailment relation. It is safe to call AddClause() between
-// evaluating queries with Entails(), Determines(), EntailsComplete(), or
-// Consistent().
-//
-// Splitting and assigning is done at a deterministic point, namely after
-// reducing the outermost logical operators with conjunctive meaning (negated
-// disjunction, double negation, negated existential).
-//
-// In the special case that the set of clauses can be shown to be inconsistent
-// after the splits, Determines() returns the null term to indicate that [t=n]
-// is entailed by the clauses for arbitrary n.
 
 #ifndef LIMBO_SOLVER_H_
 #define LIMBO_SOLVER_H_
 
-#include <cassert>
+#include <cstdlib>
 
-#include <unordered_set>
+#include <algorithm>
+#include <limits>
+#include <memory>
+#include <utility>
+#include <vector>
 
-#include <limbo/formula.h>
-#include <limbo/grounder.h>
-#include <limbo/literal.h>
-#include <limbo/setup.h>
-#include <limbo/term.h>
+#include <limbo/clause.h>
+#include <limbo/lit.h>
 
-#include <limbo/internal/ints.h>
-#include <limbo/internal/maybe.h>
+#include <limbo/internal/dense.h>
 
 namespace limbo {
 
 class Solver {
  public:
-  template<typename T>
-  using Maybe = internal::Maybe<T>;
+  using uref_t = int;
+  using cref_t = Clause::Factory::cref_t;
+  using level_t = int;
 
-  static constexpr bool kConsistencyGuarantee = true;
-  static constexpr bool kNoConsistencyGuarantee = false;
+  explicit Solver() = default;
 
-  Solver(Symbol::Factory* sf, Term::Factory* tf) : tf_(tf), grounder_(sf, tf) {}
   Solver(const Solver&) = delete;
   Solver& operator=(const Solver&) = delete;
   Solver(Solver&&) = default;
   Solver& operator=(Solver&&) = default;
 
-  Grounder& grounder() { return grounder_; }
-  const Grounder& grounder() const { return grounder_; }
-
-  const Setup& setup() const { return grounder_.setup(); }
-
-  bool Entails(Formula::belief_level k, const Formula& phi, bool assume_consistent = false) {
-    assert(phi.non_modal());
-    assert(phi.free_vars().all_empty());
-    Grounder::Undo undo1;
-    if (assume_consistent) {
-      grounder_.GuaranteeConsistency(phi, &undo1);
-    }
-    Grounder::Undo undo2;
-    grounder_.PrepareForQuery(phi, &undo2);
-    const bool entailed = Subsumes(Clause{}) || phi.trivially_valid() ||
-        Split(k, [this, &phi]() { return Reduce(phi); }, [](bool r1, bool r2) { return r1 && r2; }, true, false);
-    return entailed;
+  template<typename ExtraNameFactory>
+  void AddLiteral(const Lit a, ExtraNameFactory extra_name = ExtraNameFactory()) {
+    trail_.push_back(a);
+    Register(a.fun(), a.name(), extra_name(a.fun()));
   }
 
-  Maybe<Term> Determines(Formula::belief_level k, Term lhs, bool assume_consistent = false) {
-    assert(lhs.primitive());
-    Grounder::Undo undo1;
-    if (assume_consistent) {
-      grounder_.GuaranteeConsistency(lhs, &undo1);
+  template<typename ExtraNameFactory>
+  void AddClause(const std::vector<Lit>& as, ExtraNameFactory extra_name = ExtraNameFactory()) {
+    if (as.size() == 0) {
+      empty_clause_ = true;
+    } else if (as.size() == 1) {
+      AddLiteral(as[0], extra_name);
+    } else {
+      const cref_t cr = clause_factory_.New(as, Clause::Learnt(false));
+      Clause& c = clause_factory_[cr];
+      if (c.valid()) {
+        clause_factory_.Delete(cr, as.size());
+        return;
+      }
+      if (c.unsat()) {
+        empty_clause_ = true;
+        clause_factory_.Delete(cr, as.size());
+        return;
+      }
+      assert(c.size() >= 1);
+      if (c.size() == 1) {
+        AddLiteral(c[0], extra_name);
+        clause_factory_.Delete(cr, as.size());
+      } else {
+        clauses_.push_back(cr);
+        for (const Lit a : c) {
+          Register(a.fun(), a.name(), extra_name(a.fun()));
+        }
+        UpdateWatchers(cr, c);
+        trail_head_ = 0;
+      }
     }
-    Grounder::Undo undo2;
-    grounder_.PrepareForQuery(lhs, &undo2);
-    Maybe<Term> inconsistent_result = internal::Just(Term());
-    Maybe<Term> unsuccessful_result = internal::Nothing;
-    Maybe<Term> t = Split(k,
-                          [this, lhs]() { return Determines(lhs); },
-                          [](Maybe<Term> r1, Maybe<Term> r2) {
-                            return r1 && r2 && r1.val == r2.val ? r1 :
-                                   r1 && r2 && r1.val.null()    ? r2 :
-                                   r1 && r2 && r2.val.null()    ? r1 :
-                                                                  internal::Nothing;
-                          },
-                          inconsistent_result, unsuccessful_result);
-    return t;
   }
 
-  bool EntailsComplete(int k, const Formula& phi, bool assume_consistent = false) {
-    assert(phi.non_modal());
-    assert(phi.free_vars().all_empty());
-    Formula::Ref psi = Formula::Factory::Not(phi.Clone());
-    return !Consistent(k, *psi, assume_consistent);
+  void Init() {
+    assert(trail_head_ == 0);
+    std::vector<Lit> lits = std::move(trail_);
+    trail_.reserve(lits.size());
+    for (const Lit a : lits) {
+      if (falsifies(a)) {
+        empty_clause_ = true;
+        return;
+      }
+      Enqueue(a, cref_t::kNull);
+    }
   }
 
-  bool Consistent(int k, const Formula& phi, bool assume_consistent = false) {
-    assert(phi.non_modal());
-    assert(phi.free_vars().all_empty());
-    Grounder::Undo undo1;
-    if (assume_consistent) {
-      grounder_.GuaranteeConsistency(phi, &undo1);
+  void Reset() {
+    if (current_level() != kRootLevel) {
+      Backtrack(kRootLevel);
     }
-    Grounder::Undo undo2;
-    grounder_.PrepareForQuery(phi, &undo2);
-    return !phi.trivially_unsatisfiable() && Fix(k, [this, &phi]() { return Reduce(phi); });
+  }
+
+  void Simplify() {
+    Reset();
+    assert(level_size_.size() == 1);
+    assert(level_size_[0] == 0);
+    const cref_t conflict = Propagate();
+    if (conflict != cref_t::kNull) {
+      empty_clause_ = true;
+      return;
+    }
+    for (std::vector<cref_t>& ws : watchers_) {
+      ws.clear();
+    }
+    int n_clauses = clauses_.size();
+    for (int i = 1; i < n_clauses; ++i) {
+      const cref_t cr = clauses_[i];
+      Clause& c = clause_factory_[cr];
+      assert(c.size() >= 2);
+      const int removed = c.RemoveIf([this](Lit a) -> bool { return falsifies(a); });
+      assert(!c.valid());
+      if (c.unsat()) {
+        empty_clause_ = true;
+        clause_factory_.Delete(cr, c.size() + removed);
+        return;
+      } else if (satisfies(c)) {
+        clause_factory_.Delete(cr, c.size() + removed);
+        clauses_[i--] = clauses_[--n_clauses];
+      } else if (c.size() == 1) {
+        Enqueue(c[0], cref_t::kNull);
+        clause_factory_.Delete(cr, c.size() + removed);
+        clauses_[i--] = clauses_[--n_clauses];
+      } else {
+        UpdateWatchers(cr, c);
+      }
+    }
+    clauses_.resize(n_clauses);
+    int n_units = trail_.size();
+    for (int i = 0; i < n_units; ++i) {
+      const Lit a = trail_[i];
+      const bool p = a.pos();
+      const Fun f = a.fun();
+      const Name n = a.name();
+      const Name m = model_[f];
+      if (!p && !m.null()) {
+        assert(m != n);
+        trail_[i--] = trail_[--n_units];
+        data_[f][n].Reset();
+      }
+      data_[f][n].reason = cref_t::kNull;
+      assert(satisfies(a));
+    }
+    trail_.resize(n_units);
+    trail_head_ = trail_.size();
+  }
+
+  const std::vector<cref_t>&           clauses()         const { return clauses_; }
+  const Clause&                        clause(cref_t cr) const { return clause_factory_[cr]; }
+  const internal::DenseMap<Fun, Name>& model()           const { return model_; }
+
+  template<typename ConflictPredicate, typename DecisionPredicate>
+  int Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
+            DecisionPredicate decision_predicate = DecisionPredicate()) {
+    if (empty_clause_) {
+      return -1;
+    }
+    std::vector<Lit> learnt;
+    bool go = true;
+    while (go) {
+      const cref_t conflict = Propagate();
+      if (conflict != cref_t::kNull) {
+        if (current_level() == kRootLevel) {
+          return -1;
+        }
+        level_t btlevel;
+        Analyze(conflict, &learnt, &btlevel);
+        go &= conflict_predicate(current_level(), conflict, learnt, btlevel);
+        Backtrack(btlevel);
+        const cref_t cr = clause_factory_.New(learnt, Clause::Learnt(true), Clause::NormalizationPromise(true));
+        const Clause& c = clause(cr);
+        assert(c.size() >= 1);
+        assert(!satisfies(c));
+        assert(!falsifies(c[0]));
+        assert(std::all_of(c.begin() + 1, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
+        clauses_.push_back(cr);
+        if (!c.unit()) {
+          UpdateWatchers(cr, c);
+        }
+        const Lit a = c[0];
+        fun_order_.BumpToFront(a.fun());
+        Enqueue(c[0], cr);
+        learnt.clear();
+        fun_order_.Decay();
+      } else {
+        Fun f;
+        do {
+          f = fun_order_.top();
+          if (f.null()) {
+            return 1;
+          }
+          fun_order_.Remove(f);
+        } while (!model_[f].null());
+        const Name n = name_order_[f].top();
+        if (n.null()) {
+          return -1;
+        }
+        AddNewLevel();
+        const Lit a = Lit::Eq(f, n);
+        Enqueue(a, cref_t::kNull);
+        go &= decision_predicate(current_level(), a);
+      }
+    }
+    Backtrack(kRootLevel);
+    return 0;
   }
 
  private:
-  typedef internal::size_t size_t;
-  typedef Formula::SortedTermSet SortedTermSet;
+  template<typename T>
+  class ActivityOrder {
+   public:
+    explicit ActivityOrder(double bump_step = 1.0) : bump_step_(bump_step) {}
 
-  bool Reduce(const Formula& phi) {
-    assert(phi.non_modal());
-    switch (phi.type()) {
-      case Formula::kAtomic: {
-        const Clause c = phi.as_atomic().arg();
-        assert(c.ground());
-        assert(c.valid() || c.primitive());
-        return c.valid() || Subsumes(c);
-      }
-      case Formula::kNot: {
-        switch (phi.as_not().arg().type()) {
-          case Formula::kAtomic: {
-            const Clause c = phi.as_not().arg().as_atomic().arg();
-            return std::all_of(c.begin(), c.end(), [this](Literal a) {
-              Formula::Ref psi = Formula::Factory::Atomic(Clause{a.flip()});
-              return Reduce(*psi);
-            });
-          }
-          case Formula::kNot: {
-            return Reduce(phi.as_not().arg().as_not().arg());
-          }
-          case Formula::kOr: {
-            Formula::Ref left = Formula::Factory::Not(phi.as_not().arg().as_or().lhs().Clone());
-            Formula::Ref right = Formula::Factory::Not(phi.as_not().arg().as_or().rhs().Clone());
-            return Reduce(*left) && Reduce(*right);
-          }
-          case Formula::kExists: {
-            const Term x = phi.as_not().arg().as_exists().x();
-            const Formula& psi = phi.as_not().arg().as_exists().arg();
-            const SortedTermSet& xs = psi.free_vars();
-            if (xs.all_empty()) {
-              Formula::Ref xi = Formula::Factory::Not(psi.Clone());
-              return Reduce(*xi);
-            } else {
-              const Grounder::Names ns = grounder_.names(x.sort());
-              assert(ns.begin() != ns.end());
-              return std::all_of(ns.begin(), ns.end(), [this, &psi, x](const Term n) {
-                Formula::Ref xi = Formula::Factory::Not(psi.Clone());
-                xi->SubstituteFree(Term::Substitution(x, n), tf_);
-                return Reduce(*xi);
-              });
-            }
-          }
-          case Formula::kKnow:
-          case Formula::kCons:
-          case Formula::kBel:
-          case Formula::kGuarantee:
-          case Formula::kAction:
-            assert(false);
-            break;
-        }
-      }
-      case Formula::kOr: {
-        const Formula& left = phi.as_or().lhs();
-        const Formula& right = phi.as_or().rhs();
-        return Reduce(left) || Reduce(right);
-      }
-      case Formula::kExists: {
-        const Term x = phi.as_exists().x();
-        const Formula& psi = phi.as_exists().arg();
-        const SortedTermSet& xs = psi.free_vars();
-        if (xs.all_empty()) {
-          return Reduce(psi);
-        } else {
-          const Grounder::Names ns = grounder_.names(x.sort());
-          assert(ns.begin() != ns.end());
-          return std::any_of(ns.begin(), ns.end(), [this, &psi, x](const Term n) {
-            Formula::Ref xi = psi.Clone();
-            xi->SubstituteFree(Term::Substitution(x, n), tf_);
-            return Reduce(*xi);
-          });
-        }
-      }
-      case Formula::kKnow:
-      case Formula::kCons:
-      case Formula::kBel:
-      case Formula::kGuarantee:
-      case Formula::kAction:
-        assert(false);
+    ActivityOrder(const ActivityOrder&) = delete;
+    ActivityOrder& operator=(const ActivityOrder&) = delete;
+
+    ActivityOrder(ActivityOrder&& ao) :
+        bump_step_(ao.bump_step_),
+        acti_(std::move(ao.acti_)),
+        heap_(std::move(ao.heap_)) {
+      heap_.set_less(ActivityCompare(&acti_));
     }
-    throw;
+    ActivityOrder& operator=(ActivityOrder&& ao) {
+      bump_step_ = ao.bump_step_;
+      acti_ = std::move(ao.acti_);
+      heap_ = std::move(ao.heap_);
+      heap_.set_less(ActivityCompare(&acti_));
+      return *this;
+    }
+
+    void Capacitate(const int i) { heap_.Capacitate(i); acti_.Capacitate(i); }
+
+    T top()                  const { return heap_.top(); }
+    bool Contains(const T t) const { return heap_.Contains(t); }
+    int size()               const { return heap_.size(); }
+
+    void Insert(const T t) { heap_.Insert(t); }
+    void Remove(const T t) { heap_.Remove(t); }
+
+    void BumpToFront(const T t) { Bump(t, acti_[top()] - acti_[t] + bump_step_); }
+    void Bump(const T t)        { Bump(t, bump_step_); }
+    void Decay()                { bump_step_ /= kDecayFactor; }
+
+   private:
+    struct ActivityCompare {
+      explicit ActivityCompare(const internal::DenseMap<T, double>* a) : acti_(a) {}
+      bool operator()(const T t1, const T t2) const { return (*acti_)[t1] > (*acti_)[t2]; }
+     private:
+      const internal::DenseMap<T, double>* acti_;
+    };
+
+    static constexpr double kActivityThreshold = 1e100;
+    static constexpr double kDecayFactor = 0.95;
+
+    void Bump(const T t, const double bump) {
+      acti_[t] += bump;
+      if (acti_[t] > kActivityThreshold) {
+        for (double& activity : acti_) {
+          activity /= kActivityThreshold;
+        }
+        bump_step_ /= kActivityThreshold;
+      }
+      if (heap_.Contains(t)) {
+        heap_.Increase(t);
+      }
+    }
+
+    double                                bump_step_;
+    internal::DenseMap<T, double>         acti_;
+    internal::MinHeap<T, ActivityCompare> heap_{ActivityCompare(&acti_)};
+  };
+
+  struct Data {  // meta data for a pair (f,n)
+    explicit Data() = default;
+
+    Data(const Data&) = default;
+    Data& operator=(const Data&) = default;
+    Data(Data&&) = default;
+    Data& operator=(Data&&) = default;
+
+    void Update(const bool model_neq, const level_t level, const cref_t reason) {
+      this->model_neq = model_neq;
+      this->level = level;
+      this->reason = reason;
+    }
+
+    void Reset() {
+      assert(!seen_subsumed);
+      assert(!wanted);
+      assert(occurs);
+      model_neq = false;
+      level = 0;
+      reason = cref_t::kNull;
+    }
+
+    unsigned seen_subsumed :  1;  // true iff a literal subsumed by f = n / f != n on the trail (helper for Analyze())
+    unsigned wanted        :  1;  // true iff a literal complementary to f = n / f != n is wanted (helper for Analyze())
+    unsigned occurs        :  1;  // true iff f occurs with n in added clauses or literals
+    unsigned model_neq     :  1;  // true iff f != n was set or derived
+    unsigned level         : 27;  // level at which f = n or f != n was set or derived
+    cref_t reason;                // clause which derived f = n or f != n
+  };
+
+  static_assert(sizeof(Data) == 4 + sizeof(cref_t), "Data should be 4 + 4 bytes");
+
+  static constexpr cref_t cref_t::kNull = 0;
+  static constexpr cref_t kDomainRef = -1;  // XXX TODO test that kDomainRef can cause a conflict (probably true because f=n is added when domain reaches size 1)
+  static constexpr level_t kRootLevel = 1;
+
+  void Register(const Fun f, const Name n, const Name extra_n) {
+    CapacitateMaps(f, n, extra_n);
+    if (!fun_order_.Contains(f)) {
+      fun_order_.Insert(f);
+      if (!data_[f][extra_n].occurs) {
+        data_[f][extra_n].occurs = true;
+        name_order_[f].Insert(extra_n);
+      }
+    }
+    if (!data_[f][n].occurs) {
+      data_[f][n].occurs = true;
+      name_order_[f].Insert(n);
+    }
   }
 
-  template<typename T, typename GoalPredicate, typename MergeResultPredicate>
-  T Split(int k, GoalPredicate goal, MergeResultPredicate merge, T inconsistent_result, T unsuccessful_result) {
-    if (setup().contains_empty_clause()) {
-      return unsuccessful_result;
+  void UpdateWatchers(const cref_t cr, const Clause& c) {
+    assert(&clause(cr) == &c);
+    assert(!c.unsat());
+    assert(!c.valid());
+    assert(c.size() >= 2);
+    assert(!falsifies(c[0]) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
+    assert(!falsifies(c[1]) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
+    const Fun f0 = c[0].fun();
+    const Fun f1 = c[1].fun();
+    assert(std::count(watchers_[f0].begin(), watchers_[f0].end(), cr) == 0);
+    assert(std::count(watchers_[f1].begin(), watchers_[f1].end(), cr) == 0);
+    watchers_[f0].push_back(cr);
+    if (f0 != f1) {
+      watchers_[f1].push_back(cr);
     }
-    if (k == 0) {
-      return goal();
+    assert(std::count(watchers_[f0].begin(), watchers_[f0].end(), cr) >= 1);
+    assert(std::count(watchers_[f1].begin(), watchers_[f1].end(), cr) >= 1);
+  }
+
+  cref_t Propagate() {
+    cref_t conflict = cref_t::kNull;
+    while (trail_head_ < trail_.size() && conflict == cref_t::kNull) {
+      Lit a = trail_[trail_head_++];
+      conflict = Propagate(a);
     }
-    bool recursed = false;
-    for (const Term t : grounder_.lhs_terms()) {
-      if (Determines(t)) {
+    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) -> bool { return clause(cr).learnt() || std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
+    assert(conflict != cref_t::kNull || std::all_of(clauses_.begin()+1, clauses_.end(), [this](cref_t cr) -> bool { const Clause& c = clause(cr); return c.learnt() || satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }); }));
+    return conflict;
+  }
+
+
+  // XXX new watchers:
+  //
+  // Two maps:
+  // M1: Lit -> Clauses for (1) and (2)
+  // M2: Fun -> Clauses for (2)
+  //
+  // (1) If f!=n in {c[0],c[1]} => watch f=n in M1
+  // (2) If f=n  in {c[0],c[1]} => watch f!=n in M1, f=n' in M2
+  //
+  // If f=n in trail:  iterate M1[f=n] and M2[f]
+  // If f!=n in trail: iterate M1[f!=n]
+  //
+  // A problem with this design is how to delete clauses that
+  // watch f!=n and f=n' when either of them is set. One way
+  // could be to do it lazily.
+  //
+  // One question is what to do if {f=n,f=n'} = {c[0],c[1]}:
+  // have one or two entries for c in M2?
+  //
+  // At the moment it's only one.
+
+  cref_t Propagate(const Lit a) {
+    cref_t conflict = cref_t::kNull;
+    const Fun f = a.fun();
+    std::vector<cref_t>& ws = watchers_[f];
+    cref_t* const begin = ws.data();
+    cref_t* const end = begin + ws.size();
+    cref_t* cr_ptr1 = begin;
+    cref_t* cr_ptr2 = begin;
+    while (cr_ptr1 != end) {
+      const cref_t cr = *cr_ptr1;
+      Clause& c = clause_factory_[cr];
+      const Fun f0 = c[0].fun();
+      const Fun f1 = c[1].fun();
+
+      assert(conflict == cref_t::kNull);
+      assert(std::count(cr_ptr1, end, cr) == 1);
+
+      // w is a two-bit number where the i-th bit indicates that c[i] is falsified
+      char w = (static_cast<char>(f == f1 && falsifies(c[1])) << 1)
+              | static_cast<char>(f == f0 && falsifies(c[0]));
+      if (w == 0 || satisfies(c[0]) || satisfies(c[1])) {
+        *cr_ptr2++ = *cr_ptr1++;
         continue;
       }
-      auto merged_result = unsuccessful_result;
-      for (const Term n : grounder_.rhs_names(t)) {
-        Grounder::Undo undo;
-        const Literal a = Literal::Eq(t, n);
-        assert(!a.valid() && !a.unsatisfiable());
-        const Setup::Result add_result = grounder_.AddClause(Clause{a}, &undo);
-        if (add_result == Setup::kInconsistent) {
-          merged_result = !merged_result ? inconsistent_result : merge(merged_result, inconsistent_result);
-          if (!merged_result) {
-            goto next_term;
-          }
-          recursed = true;
-          goto next_name;
-        }
-        {
-          const T split_result = Split(k-1, goal, merge, inconsistent_result, unsuccessful_result);
-          if (!split_result) {
-            goto next_term;
-          }
-          merged_result = !merged_result ? split_result : merge(merged_result, split_result);
-        }
-        if (!merged_result) {
-          goto next_term;
-        }
-        recursed = true;
-next_name:
-        {};
-      }
-      return merged_result;
-next_term:
-      {}
-    }
-    return recursed ? unsuccessful_result : goal();
-  }
 
-  template<typename GoalPredicate>
-  bool Fix(int k, GoalPredicate goal) {
-    if (Subsumes(Clause{})) {
-      return false;
-    }
-    if (k > 0) {
-      std::unordered_set<Literal> as;
-      for (const Term t : grounder_.lhs_terms()) {
-        for (const Term n : grounder_.rhs_names(t)) {
-          {
-            const Literal a = Literal::Eq(t, n);
-            Grounder::Undo undo;
-            const Setup::Result add_result = grounder_.AddClause(Clause{a}, &undo, true);
-            const bool succ = add_result != Setup::kSubsumed && Fix(k-1, goal);
-            if (succ) {
-              return true;
-            }
+      assert(w == 1 || w == 2 || w == 3);
+      assert(bool(w & 1) == (c[0].fun() == f && falsifies(c[0])));
+      assert(bool(w & 2) == (c[1].fun() == f && falsifies(c[1])));
+
+      // find new watched literals if necessary
+      for (int k = 2, s = c.size(); w != 0 && k < s; ++k) {
+        if (!falsifies(c[k])) {
+          const int i = w >> 1;
+          assert(falsifies(c[i]));
+          const Fun fk = c[k].fun();
+          if (fk != f0 && fk != f1 && fk != c[1-i].fun()) {
+            assert(std::count(watchers_[fk].begin(), watchers_[fk].end(), cr) == 0);
+            watchers_[fk].push_back(cr);
           }
-          {
-            const Literal a = grounder_.Variablify(Literal::Eq(t, n));
-            if (!as.insert(a).second) {
-              Grounder::Undo undo;
-              const Setup::Result add_result = grounder_.AddClause(Clause{a}, &undo, true);
-              const bool succ = add_result != Setup::kSubsumed && Fix(k-1, goal);
-              if (succ) {
-                return true;
-              }
-            }
-          }
+          std::swap(c[i], c[k]);
+          w = (w - 1) >> 1;  // 11 becomes 01, 10 becomes 00, 01 becomes 00
+        }
+      }
+
+      assert(w == 0 || std::all_of(c.begin() + 2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
+      assert(bool(w & 1) == (c[0].fun() == f && falsifies(c[0])));
+      assert(bool(w & 2) == (c[1].fun() == f && falsifies(c[1])));
+
+      // remove c if f is not watched anymore
+      if (c[0].fun() != f && c[1].fun() != f) {
+        ++cr_ptr1;
+      }
+
+      // conflict or propagate
+      if (w != 0) {
+        const int i = 1 - (w >> 1);  // 11 becomes 0, 10 becomes 0, 01 becomes 1
+        if (w == 3 || falsifies(c[i])) {
+          std::memmove(cr_ptr2, cr_ptr1, (end - cr_ptr1) * sizeof(cref_t));
+          cr_ptr2 += end - cr_ptr1;
+          cr_ptr1 = end;
+          trail_head_ = trail_.size();
+          conflict = cr;
+        } else {
+          Enqueue(c[i], cr);
         }
       }
     }
-    return Consistent() && goal();
+    ws.resize(cr_ptr2 - begin);
+    return conflict;
   }
 
-  bool Subsumes(const Clause& c) const {
-    if (grounder_.relevance_filter()) {
-      auto r = grounder_.relevant_clauses();
-      return setup().Subsumes(c, r.begin(), r.end());
+  void Analyze(cref_t conflict, std::vector<Lit>* const learnt, level_t* const btlevel) {
+    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(),
+           [](const Data& d) -> bool { return !d.seen_subsumed && !d.wanted; }); }));
+    int depth = 0;
+    Lit trail_a = Lit();
+    uref_t trail_i = trail_.size() - 1;
+    learnt->push_back(trail_a);
+
+    // see_subsuming(a) marks all literals that subsume a as seen,
+    // seen_subsumed(a) holds iff some literal subsumed by a has been seen.
+    //
+    // Proof:
+    // (#) The stack contains a literal complementary to a.
+    // (*) The stack does not contain a literal that subsumes a.
+    // (1) f == n is subsumed (only) by f == n;
+    // (2) f == n is complementary (only) to f != n and f == n';
+    // (3) f != n is subsumed (only) by f != n and f == n';
+    // (4) f != n is complementary (only) to f == n;
+    // Here, (*) follows from (#) and the fact that the trail does not contain
+    // complementary literals.
+    //
+    // We show seen_subsumed(a) iff see_subsuming(a'), where a subsumes a'.
+    //
+    // Case 1:
+    //     seen_subsumed(f == n)
+    // iff (f,n) or else m and (f,m)
+    // iff see_subsuming(f == n) or
+    //     see_subsuming(f != n) or
+    //     m and see_subsuming(f == m) or
+    //     m and see_subsuming(f != m)
+    // iff (by ($) and (1))
+    //     see_subsuming(f == n) or
+    //     see_subsuming(f != n) or
+    //     m and see_subsuming(f != m)
+    // iff (by (#), (4), (1), ($))
+    //     see_subsuming(f == n) or
+    //     m and see_subsuming(f != m)
+    // iff (by (#) and (4))
+    //     see_subsuming(f == n) or
+    //     see_subsuming(f != n') for n' distinct from n
+    //
+    // Case 2:
+    //     seen_subsumed(f != n)
+    // iff (f,n) or else m and (f,m)
+    // iff see_subsuming(f == n) or
+    //     see_subsuming(f != n)
+    // iff (by (#), (2), (3), ($))
+    //     see_subsuming(f != n)
+    auto see_subsuming = [this](const Lit a) -> void {
+      assert(falsifies(a));
+      assert(a.pos() || !model_[a.fun()].null());
+      assert(model_[a.fun()].null() || (a.pos() != (model_[a.fun()] == a.name())));
+      const Fun f = a.fun();
+      const Name n = a.name();
+      data_[f][n].seen_subsumed = 1;
+    };
+    auto seen_subsumed = [this](const Lit a) -> bool {
+      assert(falsifies(a));
+      assert(model_[a.fun()].null() || (a.pos() != (model_[a.fun()] == a.name())));
+      const bool p = a.pos();
+      const Fun f = a.fun();
+      const Name n = a.name();
+      const Name m = model_[f];
+      return data_[f][n].seen_subsumed || (p && !m.null() && data_[f][m].seen_subsumed);
+    };
+
+    // want_complementary_on_level(a,l) marks all literals on level l that
+    // are complementary to a as wanted.
+    // By the following reasoning, it suffices to mark only a single literal
+    // that implicitly also determines the others as wanted.
+    // When we want a complementary literal to f == n, we prefer f != n over
+    // f == model_[f] because this will become f == n in the conflict clause.
+    // This also means that we want exactly one literal, which eliminates the
+    // need for traversing the whole level again to reset the wanted flag.
+    auto want_complementary_on_level = [this](const Lit a, level_t l) -> void {
+      assert(falsifies(a));
+      assert(data_[a.fun()][a.name()].level <= l);
+      assert(a.pos() || data_[a.fun()][a.name()].level == l);
+      assert(a.pos() || model_[a.fun()] == a.name());
+      assert(!a.pos() || data_[a.fun()][a.name()].level != l || data_[a.fun()][a.name()].model_neq);
+      assert(!a.pos() || data_[a.fun()][a.name()].level == l || !model_[a.fun()].null());
+      assert(!a.pos() || data_[a.fun()][a.name()].level == l || data_[a.fun()][model_[a.fun()]].level == l);
+      const Fun f = a.fun();
+      const Name n = a.name();
+      const Name m = model_[f];
+      data_[f][data_[f][n].level == l ? n : m].wanted = true;
+    };
+    // wanted_complementary_on_level(a,l) iff a on level l is wanted.
+    auto wanted_complementary_on_level = [this](const Lit a, level_t l) -> bool {
+      assert(falsifies(a));
+      assert(data_[a.fun()][a.name()].level <= l);
+      const bool p = a.pos();
+      const Fun f = a.fun();
+      const Name n = a.name();
+      const Name m = model_[f];
+      return (!p && data_[f][n].wanted) ||
+             (p && ((data_[f][n].level == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted)));
+    };
+    // We un-want every trail literal after it has been traversed.
+    auto wanted = [this](const Lit a) -> bool {
+      assert(satisfies(a));
+      const Fun f = a.fun();
+      const Name n = a.name();
+      return data_[f][n].wanted;
+    };
+
+    auto handle_conflict = [this, &trail_a, &learnt, &depth, &see_subsuming, &seen_subsumed,
+                            &want_complementary_on_level, &wanted_complementary_on_level](const Lit a) -> void {
+      if (trail_a == a) {
+        return;
+      }
+      assert(falsifies(a));
+      assert(!satisfies(a));
+      const level_t l = level_of_complementary(a);
+      if (l == kRootLevel || seen_subsumed(a) || wanted_complementary_on_level(a, l)) {
+        return;
+      }
+      if (l < current_level()) {
+        learnt->push_back(a);
+        see_subsuming(a);
+      } else {
+        assert(l == current_level());
+        ++depth;
+        want_complementary_on_level(a, l);
+      }
+      fun_order_.Bump(a.fun());
+      name_order_[a.fun()].Bump(a.name());
+    };
+
+    do {
+      assert(conflict != cref_t::kNull);
+      if (conflict == kDomainRef) {
+        assert(!trail_a.null());
+        assert(trail_a.pos());
+        const Fun f = trail_a.fun();
+        for (int i = 1; i < data_[f].upper_bound(); ++i) {
+          const Name n = Name::FromId(i);
+          if (data_[f][n].occurs) {
+            const Lit a = Lit::Eq(f, n);
+            handle_conflict(a);
+          }
+        }
+      } else {
+        for (const Lit a : clause(conflict)) {
+          handle_conflict(a);
+        }
+      }
+      assert(depth > 0);
+
+      while (!wanted(trail_[trail_i--])) {
+        assert(trail_i >= 0);
+      }
+      trail_a = trail_[trail_i + 1];
+      data_[trail_a.fun()][trail_a.name()].wanted = false;
+      --depth;
+      conflict = reason_of(trail_a);
+    } while (depth > 0);
+    (*learnt)[0] = trail_a.flip();
+
+    for (const Lit a : *learnt) {
+      data_[a.fun()][a.name()].seen_subsumed = false;
+    }
+
+    learnt->resize(Clause::Normalize(learnt->size(), learnt->data(), Clause::InvalidityPromise(true)));
+
+    if (learnt->size() == 1) {
+      *btlevel = kRootLevel;
     } else {
-      return setup().Subsumes(c);
-    }
-  }
-
-  Maybe<Term> Determines(const Term t) const {
-    return setup().Determines(t);
-  }
-
-  bool Consistent() const {
-    if (grounder_.relevance_filter()) {
-      auto clauses = grounder_.relevant_clauses();
-      return Consistent(clauses.begin(), clauses.end(),
-                        [this](const Symbol::Sort sort) { return grounder_.names(sort); });
-    } else {
-      return Consistent([this](const Symbol::Sort sort) { return grounder_.names(sort); });
-    }
-  }
-
-  template<typename UnaryFunction>
-  bool Consistent(UnaryFunction names) const {
-    if (grounder_.setup().contains_empty_clause()) {
-      return false;
-    }
-    std::unordered_set<Literal, Literal::LhsHash> lits;
-    for (Setup::ClauseRange::Index i : grounder_.setup().clauses()) {
-      const Maybe<Clause> c = grounder_.setup().clause(i);
-      if (c) {
-        lits.insert(c.val.begin(), c.val.end());
-      }
-    }
-    return ConsistentSet(lits, names);
-  }
-
-  template<typename ClauseInputIt, typename UnaryFunction>
-  bool Consistent(ClauseInputIt first_clause, ClauseInputIt last_clause, UnaryFunction names) const {
-    if (grounder_.setup().contains_empty_clause()) {
-      return false;
-    }
-    std::unordered_set<Literal, Literal::LhsHash> lits = grounder_.setup().units();
-    for (auto it = first_clause; it != last_clause; ++it) {
-      const Maybe<Clause> c = grounder_.setup().clause(*it);
-      if (c) {
-        lits.insert(c.val.begin(), c.val.end());
-      }
-    }
-    return ConsistentSet(lits, names);
-  }
-
-  template<typename UnaryFunction>
-  static bool ConsistentSet(const std::unordered_set<Literal, Literal::LhsHash>& lits, UnaryFunction names) {
-    std::unordered_set<Term> lhss;
-    for (const Literal a : lits) {
-      assert(lits.bucket_count() > 0);
-      const size_t bucket = lits.bucket(a);
-      const auto begin = lits.begin(bucket);
-      const auto end = lits.end(bucket);
-      for (auto it = begin; it != end; ++it) {
-        const Literal b = *it;
-        assert(Literal::Complementary(a, b) == Literal::Complementary(b, a));
-        if (Literal::Complementary(a, b)) {
-          return false;
+      assert(learnt->size() >= 2);
+      uref_t max = 1;
+      *btlevel = level_of_complementary((*learnt)[max]);
+      for (uref_t i = 2, s = learnt->size(); i != s; ++i) {
+        level_t l = level_of_complementary((*learnt)[i]);
+        if (*btlevel < l) {
+          max = i;
+          *btlevel = l;
         }
       }
-      lhss.insert(a.lhs());
+      std::swap((*learnt)[1], (*learnt)[max]);
     }
-    for (const Term t : lhss) {
-      for (const Term n : names(t.sort())) {
-        if (lits.count(Literal::Neq(t, n)) == 0) {
-          break;
-        }
-      }
-    }
-    return true;
+    assert(level_of(trail_a) > *btlevel && *btlevel >= kRootLevel);
+    assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return falsifies(a); }));
+    assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return !satisfies(a); }));
+    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.seen_subsumed; }); }));
+    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.wanted; }); }));
   }
 
-  Term::Factory* tf_;
-  Grounder grounder_;
+  void AddNewLevel() { level_size_.push_back(trail_.size()); }
+
+  void Enqueue(const Lit a, const cref_t reason) {
+    assert(data_[a.fun()][a.name()].occurs);
+    const bool p = a.pos();
+    const Fun f = a.fun();
+    const Name n = a.name();
+    const Name m = model_[f];
+    if (m.null() && (p || !data_[f][n].model_neq)) {
+      assert(name_order_[a.fun()].size() >= 1 + !a.pos());
+      assert(!satisfies(a));
+      trail_.push_back(a);
+      data_[f][n].Update(!p, current_level(), reason);
+      if (p) {
+        model_[f] = n;
+      } else if (name_order_[f].size() == 2) {
+        name_order_[f].Remove(n);
+        const Name m = name_order_[f].top();
+        assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
+        trail_.push_back(Lit::Eq(f, m));
+        data_[f][m].Update(false, current_level(), kDomainRef);
+        model_[f] = m;
+        assert(satisfies(Lit::Eq(f, m)));
+      } else {
+        fun_order_.BumpToFront(f);
+        name_order_[f].Remove(n);
+      }
+    }
+    assert(satisfies(a));
+  }
+
+  void Backtrack(const level_t l) {
+    for (auto a = trail_.cbegin() + level_size_[l], e = trail_.cend(); a != e; ++a) {
+      const bool p = a->pos();
+      const Fun f = a->fun();
+      const Name n = a->name();
+      model_[f] = Name();
+      if (p) {
+        if (!data_[f][n].model_neq) {
+          data_[f][n].Reset();
+        }
+        if (!fun_order_.Contains(f)) {
+          fun_order_.Insert(f);
+        }
+      } else {
+        data_[f][n].Reset();
+        name_order_[f].Insert(n);
+      }
+    }
+    trail_.resize(level_size_[l]);
+    trail_head_ = trail_.size();
+    level_size_.resize(l);
+  }
+
+  bool satisfies(const Lit a, const level_t l = -1) const {
+    const bool p = a.pos();
+    const Fun f = a.fun();
+    const Name n = a.name();
+    const Name m = model_[f];
+    return ((p && m == n) ||
+            (!p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
+           (l < 0 || data_[f][n].level <= l);
+  }
+
+  bool falsifies(const Lit a, const level_t l = -1) const {
+    const bool p = a.pos();
+    const Fun f = a.fun();
+    const Name n = a.name();
+    const Name m = model_[f];
+    return ((!p && m == n) ||
+            (p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
+           (l < 0 || data_[f][n].level <= l);
+  }
+
+  bool satisfies(const Clause& c, const level_t l = -1) const {
+    return std::any_of(c.begin(), c.end(), [this, l](Lit a) -> bool { return satisfies(a, l); });
+  }
+
+  bool falsifies(const Clause& c, const level_t l = -1) const {
+    return std::all_of(c.begin(), c.end(), [this, l](Lit a) -> bool { return falsifies(a, l); });
+  }
+
+  level_t level_of(const Lit a) const {
+    assert(satisfies(a));
+    assert(!a.pos() || model_[a.fun()] == a.name());
+    const bool p = a.pos();
+    const Fun f = a.fun();
+    const Name n = a.name();
+    const Name m = model_[f];
+    return !p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
+  }
+
+  level_t level_of_complementary(const Lit a) const {
+    assert(falsifies(a));
+    assert(a.pos() || model_[a.fun()] == a.name());
+    const bool p = a.pos();
+    const Fun f = a.fun();
+    const Name n = a.name();
+    const Name m = model_[f];
+    return p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
+  }
+
+  cref_t reason_of(const Lit a) const {
+    assert(satisfies(a));
+    assert(!a.pos() || model_[a.fun()] == a.name());
+    const bool p = a.pos();
+    const Fun f = a.fun();
+    const Name n = a.name();
+    const Name m = model_[f];
+    return !p && data_[f][n].model_neq ? data_[f][n].reason : data_[f][m].reason;
+  }
+
+  level_t current_level() const { return level_size_.size(); }
+
+  void CapacitateMaps(const Fun f, const Name n, const Name extra_n) {
+    const int max_ni = int(n) > int(extra_n) ? int(n) : int(extra_n);
+    const int fi = int(f) >= data_.upper_bound() ? int(f) : -1;
+    const int ni = data_.upper_bound() == 0 || max_ni >= data_[0].upper_bound() ? max_ni : -1;
+    const int fig = (fi + 1) * 1.5;
+    const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_[0].upper_bound();
+    if (fi >= 0) {
+      watchers_.Capacitate(fig);
+      model_.Capacitate(fig);
+      data_.Capacitate(fig);
+      fun_order_.Capacitate(fig);
+      name_order_.Capacitate(fig);
+    }
+    if (fi >= 0 || ni >= 0) {
+      for (internal::DenseMap<Name, Data>& ds : data_) {
+        ds.Capacitate(nig);
+      }
+      for (ActivityOrder<Name>& ao : name_order_) {
+        ao.Capacitate(nig);
+      }
+    }
+    if (ni >= 0) {
+      for (internal::DenseMap<Name, Data>& ds : data_) {
+        ds.Capacitate(nig);
+      }
+    }
+  }
+
+  // empty_clause_ is true iff the empty clause has been derived.
+  bool empty_clause_ = false;
+
+  // clauses_ is the sequence of clauses added initially or learnt.
+  Clause::Factory     clause_factory_;
+  std::vector<cref_t> clauses_ = std::vector<cref_t>(1, cref_t(cref_t::kNull));  // XXX C++14 hack
+
+  // fun_order_ ranks functions by their activity.
+  // name_order_ ranks functions by their activity for a given function.
+  ActivityOrder<Fun>                           fun_order_;
+  internal::DenseMap<Fun, ActivityOrder<Name>> name_order_;
+
+  // watchers_ maps every function to a sequence of clauses that watch it.
+  // Every non-unit clause watches two functions, and when a literal with this
+  // function is propagated, the watching clauses are inspected.
+  internal::DenseMap<Fun, std::vector<cref_t>> watchers_;
+
+  // trail_ is a sequence of literals in the order they were derived.
+  // level_size_ groups the literals of trail_ into chunks by their level at
+  // which they were derived, where level_size_[l] determines the number of
+  // literals set or derived up to level l.
+  // trail_head_ is the index of the first literal of trail_ that hasn't been
+  // propagated yet.
+  std::vector<Lit>    trail_;
+  std::vector<uref_t> level_size_ = std::vector<uref_t>(1, trail_.size());
+  uref_t              trail_head_ = 0;
+
+  // model_ is an assignment of functions to names, i.e., positive literals.
+  // data_ is meta data for every function and name pair (cf. Data).
+  internal::DenseMap<Fun, Name>                           model_;
+  internal::DenseMap<Fun, internal::DenseMap<Name, Data>> data_;
 };
 
 }  // namespace limbo

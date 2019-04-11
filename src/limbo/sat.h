@@ -2,8 +2,8 @@
 // Copyright 2014-2018 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 
-#ifndef LIMBO_SOLVER_H_
-#define LIMBO_SOLVER_H_
+#ifndef LIMBO_SAT_H_
+#define LIMBO_SAT_H_
 
 #include <cstdlib>
 
@@ -20,77 +20,16 @@
 
 namespace limbo {
 
-template<typename T>
-class ActivityOrder {
+class Sat {
  public:
-  explicit ActivityOrder(double bump_step = 1.0) : bump_step_(bump_step) {}
-
-  ActivityOrder(const ActivityOrder&) = delete;
-  ActivityOrder& operator=(const ActivityOrder&) = delete;
-
-  ActivityOrder(ActivityOrder&& ao) :
-      bump_step_(std::move(ao.bump_step_)),
-      acti_(std::move(ao.acti_)),
-      heap_(std::move(ao.heap_)) {
-    heap_.set_less(ActivityCompare(&acti_));
-  }
-  ActivityOrder& operator=(ActivityOrder&& ao) {
-    bump_step_ = std::move(ao.bump_step_);
-    acti_ = std::move(ao.acti_);
-    heap_ = std::move(ao.heap_);
-    heap_.set_less(ActivityCompare(&acti_));
-    return *this;
-  }
-
-  void Capacitate(const int i) { heap_.Capacitate(i); acti_.Capacitate(i); }
-
-  T top() const { return heap_.top(); }
-  void Insert(const T t) { heap_.Insert(t); }
-  void Remove(const T t) { heap_.Remove(t); }
-  bool Contains(const T t) const { return heap_.Contains(t); }
-
-  void BumpMax(const T t) { Bump(t, acti_[top()] - acti_[t] + bump_step_); }
-  void Bump(const T t)    { Bump(t, bump_step_); }
-  void Decay()            { bump_step_ /= kDecayFactor; }
-
- private:
-  struct ActivityCompare {
-    explicit ActivityCompare(const internal::DenseMap<T, double>* a) : acti_(a) {}
-    bool operator()(const T t1, const T t2) const { return (*acti_)[t1] > (*acti_)[t2]; }
-   private:
-    const internal::DenseMap<T, double>* acti_;
-  };
-
-  static constexpr double kActivityThreshold = 1e100;
-  static constexpr double kDecayFactor = 0.95;
-
-  void Bump(const T t, const double bump) {
-    acti_[t] += bump;
-    if (acti_[t] > kActivityThreshold) {
-      for (double& activity : acti_) {
-        activity /= kActivityThreshold;
-      }
-      bump_step_ /= kActivityThreshold;
-    }
-    if (heap_.Contains(t)) {
-      heap_.Increase(t);
-    }
-  }
-
-  double                                bump_step_;
-  internal::DenseMap<T, double>         acti_;
-  internal::MinHeap<T, ActivityCompare> heap_{ActivityCompare(&acti_)};
-};
-
-class Solver {
- public:
-  using uref_t = int;
   using CRef = Clause::Factory::CRef;
-  using level_t = int;
 
-  Solver() = default;
-  Solver(Solver&&) = default;
-  Solver& operator=(Solver&&) = default;
+  explicit Sat() = default;
+
+  Sat(const Sat&) = delete;
+  Sat& operator=(const Sat&) = delete;
+  Sat(Sat&&) = default;
+  Sat& operator=(Sat&&) = default;
 
   template<typename ExtraNameFactory>
   void AddLiteral(const Lit a, ExtraNameFactory extra_name = ExtraNameFactory()) {
@@ -105,7 +44,7 @@ class Solver {
     } else if (as.size() == 1) {
       AddLiteral(as[0], extra_name);
     } else {
-      const CRef cr = clause_factory_.New(as, Clause::Learnt(false));
+      const CRef cr = CRef(clause_factory_.New(as, Clause::Learnt(false)));
       Clause& c = clause_factory_[cr];
       if (c.valid()) {
         clause_factory_.Delete(cr, as.size());
@@ -133,7 +72,9 @@ class Solver {
 
   void Init() {
     assert(trail_head_ == 0);
+    assert(level_size_.size() == 1);
     std::vector<Lit> lits = std::move(trail_);
+    trail_.resize(0);
     trail_.reserve(lits.size());
     for (const Lit a : lits) {
       if (falsifies(a)) {
@@ -145,8 +86,8 @@ class Solver {
   }
 
   void Reset() {
-    if (current_level() != kRootLevel) {
-      Backtrack(kRootLevel);
+    if (current_level() != Level::kRoot) {
+      Backtrack(Level::kRoot);
     }
   }
 
@@ -204,12 +145,9 @@ class Solver {
     trail_head_ = trail_.size();
   }
 
-  const std::vector<CRef>&                          clauses() const { return clauses_; }
-  const Clause&                                     clause(CRef cr) const { return clause_factory_[cr]; }
-  const internal::DenseSet<Fun>&                    funs() const { return funs_; }
-  const internal::DenseMap<Fun, std::vector<Name>>& names() const { return names_; }
-  const std::vector<Name>&                          names(Fun f) const { return names_[f]; }
-  const internal::DenseMap<Fun, Name>&              model() const { return model_; }
+  const std::vector<CRef>&           clauses()         const { return clauses_; }
+  const Clause&                        clause(CRef cr) const { return clause_factory_[cr]; }
+  const internal::DenseMap<Fun, Name>& model()           const { return model_; }
 
   template<typename ConflictPredicate, typename DecisionPredicate>
   int Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
@@ -222,28 +160,27 @@ class Solver {
     while (go) {
       const CRef conflict = Propagate();
       if (conflict != CRef::kNull) {
-        if (current_level() == kRootLevel) {
+        if (current_level() == Level::kRoot) {
           return -1;
         }
-        level_t btlevel;
+        Level btlevel;
         Analyze(conflict, &learnt, &btlevel);
         go &= conflict_predicate(current_level(), conflict, learnt, btlevel);
         Backtrack(btlevel);
-        if (learnt.size() == 1) {
-          const Lit a = learnt[0];
-          assert(!falsifies(a));
-          Enqueue(a, CRef::kNull);
-        } else {
+        assert(learnt.size() >= 1);
+        if (learnt.size() > 1) {
           const CRef cr = clause_factory_.New(learnt, Clause::Learnt(true), Clause::NormalizationPromise(true));
           const Clause& c = clause(cr);
-          assert(c.size() >= 2);
-          assert(!satisfies(c));
-          assert(!falsifies(c[0]));
+          assert(c.size() >= 1);
+          assert(!satisfies(c[0]) && !falsifies(c[0]));
           assert(std::all_of(c.begin() + 1, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
           clauses_.push_back(cr);
           UpdateWatchers(cr, c);
-          Enqueue(c[0], cr);
+          Enqueue(learnt[0], cr);
+        } else {
+          Enqueue(learnt[0], CRef::kNull);
         }
+        //Promote(learnt[0]);
         learnt.clear();
         fun_order_.Decay();
       } else {
@@ -255,32 +192,106 @@ class Solver {
           }
           fun_order_.Remove(f);
         } while (!model_[f].null());
-#ifdef NAME_ORDER
         const Name n = name_order_[f].top();
-#else
-        const Name n = CandidateName(f);
-#endif
         if (n.null()) {
           return -1;
         }
-        NewLevel();
+        AddNewLevel();
         const Lit a = Lit::Eq(f, n);
         Enqueue(a, CRef::kNull);
         go &= decision_predicate(current_level(), a);
       }
     }
-    Backtrack(kRootLevel);
+    Backtrack(Level::kRoot);
     return 0;
   }
 
  private:
-  struct Data {  // meta data for a pair (f,n)
-    Data() = default;
+  enum class Level : int { kAll = -1, kRoot = 1 };
 
-    void Update(const bool neq, const level_t l, const CRef r) {
-      model_neq = neq;
-      level = l;
-      reason = r;
+  template<typename T>
+  class ActivityOrder {
+   public:
+    explicit ActivityOrder(double bump_step = 1.0) : bump_step_(bump_step) {}
+
+    ActivityOrder(const ActivityOrder&) = delete;
+    ActivityOrder& operator=(const ActivityOrder&) = delete;
+
+    ActivityOrder(ActivityOrder&& ao) :
+        bump_step_(ao.bump_step_),
+        acti_(std::move(ao.acti_)),
+        heap_(std::move(ao.heap_)) {
+      heap_.set_less(ActivityCompare(&acti_));
+    }
+    ActivityOrder& operator=(ActivityOrder&& ao) {
+      bump_step_ = ao.bump_step_;
+      acti_ = std::move(ao.acti_);
+      heap_ = std::move(ao.heap_);
+      heap_.set_less(ActivityCompare(&acti_));
+      return *this;
+    }
+
+    void Capacitate(const int i) { heap_.Capacitate(i); acti_.Capacitate(i); }
+
+    T top()              const { return heap_.top(); }
+    bool Contains(T t)   const { return heap_.Contains(t); }
+    int size()           const { return heap_.size(); }
+    T operator[](int i)  const { return heap_[i]; }
+    double activity(T x) const { return acti_[x]; }
+
+    void Insert(T t) { heap_.Insert(t); }
+    void Remove(T t) { heap_.Remove(t); }
+
+    void BumpToFront(T t) { Bump(t, acti_[top()] - acti_[t] + bump_step_); }
+    void BumpToRear(T t)  { Bump(t, -1 * bump_step_); }
+    void BumpUp(T t)      { Bump(t, bump_step_); }
+    void Decay()          { bump_step_ /= kDecayFactor; }
+
+   private:
+    struct ActivityCompare {
+      explicit ActivityCompare(const internal::DenseMap<T, double>* a) : acti_(a) {}
+      bool operator()(const T t1, const T t2) const { return (*acti_)[t1] > (*acti_)[t2]; }
+     private:
+      const internal::DenseMap<T, double>* acti_;
+    };
+
+    static constexpr double kActivityThreshold = 1e100;
+    static constexpr double kDecayFactor = 0.95;
+
+    void Bump(const T t, const double bump) {
+      acti_[t] += bump;
+      if (acti_[t] > kActivityThreshold) {
+        for (double& activity : acti_) {
+          activity /= kActivityThreshold;
+        }
+        bump_step_ /= kActivityThreshold;
+      }
+      if (heap_.Contains(t)) {
+        if (bump >= 0) {
+          heap_.Increase(t);
+        } else {
+          heap_.Decrease(t);
+        }
+      }
+    }
+
+    double                                bump_step_;
+    internal::DenseMap<T, double>         acti_;
+    internal::MinHeap<T, ActivityCompare> heap_{ActivityCompare(&acti_)};
+  };
+
+  struct Data {  // meta data for a pair (f,n)
+    explicit Data() = default;
+
+    Data(const Data&) = default;
+    Data& operator=(const Data&) = default;
+    Data(Data&&) = default;
+    Data& operator=(Data&&) = default;
+
+    void Update(const bool model_neq, const Level level, const CRef reason) {
+      this->model_neq = model_neq;
+      this->level_ = unsigned(level);
+      this->reason = reason;
     }
 
     void Reset() {
@@ -288,47 +299,35 @@ class Solver {
       assert(!wanted);
       assert(occurs);
       model_neq = false;
-      level = 0;
+      level_ = 0;
       reason = CRef::kNull;
     }
 
-    unsigned seen_subsumed :  1;  // auxiliary flag to keep track of seen trail literals
-    unsigned wanted        :  1;  // auxiliary flag to keep track of seen trail literals
+    Level level() const { return Level(level_); }
+
+    unsigned seen_subsumed :  1;  // true iff a literal subsumed by f = n / f != n on the trail (helper for Analyze())
+    unsigned wanted        :  1;  // true iff a literal complementary to f = n / f != n is wanted (helper for Analyze())
     unsigned occurs        :  1;  // true iff f occurs with n in added clauses or literals
     unsigned model_neq     :  1;  // true iff f != n was set or derived
-    unsigned level         : 28;  // level at which f = n or f != n was set or derived
-    CRef reason;                  // clause which derived f = n or f != n
+    unsigned level_        : 27;  // level at which f = n or f != n was set or derived
+    CRef reason;                // clause which derived f = n or f != n
   };
 
   static_assert(sizeof(Data) == 4 + sizeof(CRef), "Data should be 4 + 4 bytes");
 
-  static constexpr level_t kRootLevel = 1;
-
   void Register(const Fun f, const Name n, const Name extra_n) {
     CapacitateMaps(f, n, extra_n);
-    if (!funs_.Contains(f)) {
-      funs_.Insert(f);
+    if (!fun_order_.Contains(f)) {
       fun_order_.Insert(f);
       if (!data_[f][extra_n].occurs) {
         data_[f][extra_n].occurs = true;
-        ++domain_size_[f];
-        names_[f].push_back(extra_n);
-#ifdef NAME_ORDER
         name_order_[f].Insert(extra_n);
-#endif
       }
     }
     if (!data_[f][n].occurs) {
       data_[f][n].occurs = true;
-      ++domain_size_[f];
-      names_[f].push_back(n);
-#ifdef NAME_ORDER
       name_order_[f].Insert(n);
-#endif
     }
-#ifdef NAME_ORDER
-    assert(domain_size_[f] == name_order_[f].size());
-#endif
   }
 
   void UpdateWatchers(const CRef cr, const Clause& c) {
@@ -356,8 +355,8 @@ class Solver {
       Lit a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
-    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { return std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
-    assert(conflict != CRef::kNull || std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { const Clause& c = clause(cr); return satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }); }));
+    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { return clause(cr).learnt() || std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
+    assert(conflict != CRef::kNull || std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { const Clause& c = clause(cr); return c.learnt() || satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }); }));
     return conflict;
   }
 
@@ -430,13 +429,14 @@ class Solver {
       assert(w == 0 || std::all_of(c.begin() + 2, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
       assert(bool(w & 1) == (c[0].fun() == f && falsifies(c[0])));
       assert(bool(w & 2) == (c[1].fun() == f && falsifies(c[1])));
+      assert(!(c[0].fun() != f && c[1].fun() != f) || w == 0);
 
       // remove c if f is not watched anymore
-      if (c[0].fun() != f && c[1].fun() != f) {
+      if (w == 0 && c[0].fun() != f && c[1].fun() != f) {
         ++cr_ptr1;
       }
 
-      // conflict or propagate
+      // conflict or propagate or promote
       if (w != 0) {
         const int i = 1 - (w >> 1);  // 11 becomes 0, 10 becomes 0, 01 becomes 1
         if (w == 3 || falsifies(c[i])) {
@@ -447,6 +447,7 @@ class Solver {
           conflict = cr;
         } else {
           Enqueue(c[i], cr);
+          *cr_ptr2++ = *cr_ptr1++;
         }
       }
     }
@@ -454,12 +455,12 @@ class Solver {
     return conflict;
   }
 
-  void Analyze(CRef conflict, std::vector<Lit>* const learnt, level_t* const btlevel) {
+  void Analyze(CRef conflict, std::vector<Lit>* const learnt, Level* const btlevel) {
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(),
            [](const Data& d) -> bool { return !d.seen_subsumed && !d.wanted; }); }));
     int depth = 0;
     Lit trail_a = Lit();
-    uref_t trail_i = trail_.size() - 1;
+    int trail_i = trail_.size() - 1;
     learnt->push_back(trail_a);
 
     // see_subsuming(a) marks all literals that subsume a as seen,
@@ -528,29 +529,29 @@ class Solver {
     // f == model_[f] because this will become f == n in the conflict clause.
     // This also means that we want exactly one literal, which eliminates the
     // need for traversing the whole level again to reset the wanted flag.
-    auto want_complementary_on_level = [this](const Lit a, level_t l) -> void {
+    auto want_complementary_on_level = [this](const Lit a, Level l) -> void {
       assert(falsifies(a));
-      assert(data_[a.fun()][a.name()].level <= l);
-      assert(a.pos() || data_[a.fun()][a.name()].level == l);
+      assert(data_[a.fun()][a.name()].level() <= l);
+      assert(a.pos() || data_[a.fun()][a.name()].level() == l);
       assert(a.pos() || model_[a.fun()] == a.name());
-      assert(!a.pos() || data_[a.fun()][a.name()].level != l || data_[a.fun()][a.name()].model_neq);
-      assert(!a.pos() || data_[a.fun()][a.name()].level == l || !model_[a.fun()].null());
-      assert(!a.pos() || data_[a.fun()][a.name()].level == l || data_[a.fun()][model_[a.fun()]].level == l);
+      assert(!a.pos() || data_[a.fun()][a.name()].level() != l || data_[a.fun()][a.name()].model_neq);
+      assert(!a.pos() || data_[a.fun()][a.name()].level() == l || !model_[a.fun()].null());
+      assert(!a.pos() || data_[a.fun()][a.name()].level() == l || data_[a.fun()][model_[a.fun()]].level() == l);
       const Fun f = a.fun();
       const Name n = a.name();
       const Name m = model_[f];
-      data_[f][data_[f][n].level == l ? n : m].wanted = true;
+      data_[f][data_[f][n].level() == l ? n : m].wanted = true;
     };
     // wanted_complementary_on_level(a,l) iff a on level l is wanted.
-    auto wanted_complementary_on_level = [this](const Lit a, level_t l) -> bool {
+    auto wanted_complementary_on_level = [this](const Lit a, Level l) -> bool {
       assert(falsifies(a));
-      assert(data_[a.fun()][a.name()].level <= l);
+      assert(data_[a.fun()][a.name()].level() <= l);
       const bool p = a.pos();
       const Fun f = a.fun();
       const Name n = a.name();
       const Name m = model_[f];
       return (!p && data_[f][n].wanted) ||
-             (p && ((data_[f][n].level == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted)));
+             (p && ((data_[f][n].level() == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted)));
     };
     // We un-want every trail literal after it has been traversed.
     auto wanted = [this](const Lit a) -> bool {
@@ -567,8 +568,8 @@ class Solver {
       }
       assert(falsifies(a));
       assert(!satisfies(a));
-      const level_t l = level_of_complementary(a);
-      if (l == kRootLevel || seen_subsumed(a) || wanted_complementary_on_level(a, l)) {
+      const Level l = level_of_complementary(a);
+      if (l == Level::kRoot || seen_subsumed(a) || wanted_complementary_on_level(a, l)) {
         return;
       }
       if (l < current_level()) {
@@ -579,22 +580,23 @@ class Solver {
         ++depth;
         want_complementary_on_level(a, l);
       }
-      fun_order_.Bump(a.fun());
-#ifdef NAME_ORDER
-      name_order_[a.fun()].Bump(a.name());
-#endif
+      fun_order_.BumpUp(a.fun());
+      //name_order_[a.fun()].BumpUp(a.name());
     };
 
     do {
       assert(conflict != CRef::kNull);
+      // XXX TODO test that kDomainRef can cause a conflict (probably true because f=n is added when domain reaches size 1)
       if (conflict == CRef::kDomain) {
         assert(!trail_a.null());
         assert(trail_a.pos());
         const Fun f = trail_a.fun();
-        for (const Name n : names_[f]) {
-          assert(!n.null() && data_[f][n].occurs);
-          const Lit a = Lit::Eq(f, n);
-          handle_conflict(a);
+        for (int i = 1; i < data_[f].upper_bound(); ++i) {
+          const Name n = Name::FromId(i);
+          if (data_[f][n].occurs) {
+            const Lit a = Lit::Eq(f, n);
+            handle_conflict(a);
+          }
         }
       } else {
         for (const Lit a : clause(conflict)) {
@@ -620,13 +622,13 @@ class Solver {
     learnt->resize(Clause::Normalize(learnt->size(), learnt->data(), Clause::InvalidityPromise(true)));
 
     if (learnt->size() == 1) {
-      *btlevel = kRootLevel;
+      *btlevel = Level::kRoot;
     } else {
       assert(learnt->size() >= 2);
-      uref_t max = 1;
+      int max = 1;
       *btlevel = level_of_complementary((*learnt)[max]);
-      for (uref_t i = 2, s = learnt->size(); i != s; ++i) {
-        level_t l = level_of_complementary((*learnt)[i]);
+      for (int i = 2, s = learnt->size(); i != s; ++i) {
+        Level l = level_of_complementary((*learnt)[i]);
         if (*btlevel < l) {
           max = i;
           *btlevel = l;
@@ -634,55 +636,57 @@ class Solver {
       }
       std::swap((*learnt)[1], (*learnt)[max]);
     }
-    assert(level_of(trail_a) > *btlevel && *btlevel >= kRootLevel);
+    assert(level_of(trail_a) > *btlevel && *btlevel >= Level::kRoot);
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return falsifies(a); }));
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return !satisfies(a); }));
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.seen_subsumed; }); }));
     assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.wanted; }); }));
   }
 
-  void NewLevel() { level_size_.push_back(trail_.size()); }
+  void AddNewLevel() { level_size_.push_back(trail_.size()); }
+
+  void Promote(const Lit a) {
+    //printf("Promote(%d %s %d) @ %d\n", int(a.fun()), a.pos() ? "=" : "!=", int(a.name()), current_level());
+    fun_order_.BumpToFront(a.fun());
+    if (a.pos()) {
+      name_order_[a.fun()].BumpToFront(a.name());
+    } else {
+      name_order_[a.fun()].BumpToRear(a.name());
+    }
+  }
 
   void Enqueue(const Lit a, const CRef reason) {
+    //printf("Enqueue(%d %s %d, %d) @ %d\n", int(a.fun()), a.pos() ? "=" : "!=", int(a.name()), int(reason), current_level());
     assert(data_[a.fun()][a.name()].occurs);
     const bool p = a.pos();
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
     if (m.null() && (p || !data_[f][n].model_neq)) {
-      assert(domain_size_[a.fun()] >= 1 + !a.pos());
+      assert(name_order_[a.fun()].size() >= 1 + !a.pos());
       assert(!satisfies(a));
       trail_.push_back(a);
       data_[f][n].Update(!p, current_level(), reason);
       if (p) {
         model_[f] = n;
-      } else if (--domain_size_[f] == 1) {
-#ifdef NAME_ORDER
+      } else if (name_order_[f].size() == 2) {
         name_order_[f].Remove(n);
         const Name m = name_order_[f].top();
-#else
-        const Name m = CandidateName(f);
-#endif
         assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
         trail_.push_back(Lit::Eq(f, m));
         data_[f][m].Update(false, current_level(), CRef::kDomain);
         model_[f] = m;
         assert(satisfies(Lit::Eq(f, m)));
       } else {
-        fun_order_.BumpMax(f);
-#ifdef NAME_ORDER
+        fun_order_.BumpToFront(f);
         name_order_[f].Remove(n);
-#endif
       }
     }
     assert(satisfies(a));
-#ifdef NAME_ORDER
-    assert(domain_size_[f] == name_order_[f].size());
-#endif
   }
 
-  void Backtrack(const level_t l) {
-    for (auto a = trail_.cbegin() + level_size_[l], e = trail_.cend(); a != e; ++a) {
+  void Backtrack(const Level l) {
+    for (auto a = trail_.cbegin() + level_size_[int(l)], e = trail_.cend(); a != e; ++a) {
       const bool p = a->pos();
       const Fun f = a->fun();
       const Name n = a->name();
@@ -696,101 +700,60 @@ class Solver {
         }
       } else {
         data_[f][n].Reset();
-        domain_size_[f]++;
-#ifdef NAME_ORDER
         name_order_[f].Insert(n);
-#endif
       }
-#ifdef NAME_ORDER
-      assert(domain_size_[f] == name_order_[f].size());
-#endif
     }
-    trail_.resize(level_size_[l]);
+    trail_.resize(level_size_[int(l)]);
     trail_head_ = trail_.size();
-    level_size_.resize(l);
+    level_size_.resize(int(l));
   }
 
-#ifndef NAME_ORDER
-  Name CandidateName(const Fun f) {
-    assert(!f.null() && model_[f].null());
-    const std::vector<Name>& names = names_[f];
-    const int size = names.size();
-#ifdef PHASING
-    const int offset = name_index_[f];
-    for (int i = offset; i >= 0; --i) {
-      const Name n = names[i];
-      assert(!n.null() && data_[f][n].occurs);
-      if (!data_[f][n].model_neq) {
-        name_index_[f] = i;
-        return n;
-      }
-    }
-    for (int i = size - 1; i > offset; --i) {
-      const Name n = names[i];
-      assert(!n.null() && data_[f][n].occurs);
-      if (!data_[f][n].model_neq) {
-        name_index_[f] = i;
-        return n;
-      }
-    }
-#else
-    for (int i = size - 1; i >= 0; --i) {
-      const Name n = names[i];
-      if (!n.null() && data_[f][n].occurs && !data_[f][n].model_neq) {
-        return n;
-      }
-    }
-#endif
-    return Name();
-  }
-#endif
-
-  bool satisfies(const Lit a, const level_t l = -1) const {
+  bool satisfies(const Lit a, const Level l = Level::kAll) const {
     const bool p = a.pos();
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
     return ((p && m == n) ||
             (!p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
-           (l < 0 || data_[f][n].level <= l);
+           (l == Level::kAll || data_[f][n].level() <= l);
   }
 
-  bool falsifies(const Lit a, const level_t l = -1) const {
+  bool falsifies(const Lit a, const Level l = Level::kAll) const {
     const bool p = a.pos();
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
     return ((!p && m == n) ||
             (p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
-           (l < 0 || data_[f][n].level <= l);
+           (l == Level::kAll || data_[f][n].level() <= l);
   }
 
-  bool satisfies(const Clause& c, const level_t l = -1) const {
+  bool satisfies(const Clause& c, const Level l = Level::kAll) const {
     return std::any_of(c.begin(), c.end(), [this, l](Lit a) -> bool { return satisfies(a, l); });
   }
 
-  bool falsifies(const Clause& c, const level_t l = -1) const {
+  bool falsifies(const Clause& c, const Level l = Level::kAll) const {
     return std::all_of(c.begin(), c.end(), [this, l](Lit a) -> bool { return falsifies(a, l); });
   }
 
-  level_t level_of(const Lit a) const {
+  Level level_of(const Lit a) const {
     assert(satisfies(a));
     assert(!a.pos() || model_[a.fun()] == a.name());
     const bool p = a.pos();
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    return !p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
+    return !p && data_[f][n].model_neq ? data_[f][n].level() : data_[f][m].level();
   }
 
-  level_t level_of_complementary(const Lit a) const {
+  Level level_of_complementary(const Lit a) const {
     assert(falsifies(a));
     assert(a.pos() || model_[a.fun()] == a.name());
     const bool p = a.pos();
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    return p && data_[f][n].model_neq ? data_[f][n].level : data_[f][m].level;
+    return p && data_[f][n].model_neq ? data_[f][n].level() : data_[f][m].level();
   }
 
   CRef reason_of(const Lit a) const {
@@ -803,38 +766,28 @@ class Solver {
     return !p && data_[f][n].model_neq ? data_[f][n].reason : data_[f][m].reason;
   }
 
-  level_t current_level() const { return level_size_.size(); }
+  Level current_level() const { return Level(level_size_.size()); }
 
   void CapacitateMaps(const Fun f, const Name n, const Name extra_n) {
     const int max_ni = int(n) > int(extra_n) ? int(n) : int(extra_n);
-    const int fi = int(f) >= funs_.upper_bound() ? int(f) : -1;
+    const int fi = int(f) >= data_.upper_bound() ? int(f) : -1;
     const int ni = data_.upper_bound() == 0 || max_ni >= data_[0].upper_bound() ? max_ni : -1;
     const int fig = (fi + 1) * 1.5;
     const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_[0].upper_bound();
     if (fi >= 0) {
-      funs_.Capacitate(fig);
-      names_.Capacitate(fig);
-#ifdef PHASING
-      name_index_.Capacitate(fig);
-#endif
       watchers_.Capacitate(fig);
       model_.Capacitate(fig);
       data_.Capacitate(fig);
-      domain_size_.Capacitate(fig);
       fun_order_.Capacitate(fig);
-#ifdef NAME_ORDER
       name_order_.Capacitate(fig);
-#endif
     }
     if (fi >= 0 || ni >= 0) {
       for (internal::DenseMap<Name, Data>& ds : data_) {
         ds.Capacitate(nig);
       }
-#ifdef NAME_ORDER
       for (ActivityOrder<Name>& ao : name_order_) {
         ao.Capacitate(nig);
       }
-#endif
     }
     if (ni >= 0) {
       for (internal::DenseMap<Name, Data>& ds : data_) {
@@ -846,17 +799,15 @@ class Solver {
   // empty_clause_ is true iff the empty clause has been derived.
   bool empty_clause_ = false;
 
-  // clauses_ is the sequence of clauses added initially or learnt.
+  // clauses_ is the sequence of clauses added initially or learnt where
+  // learnt clauses.
   Clause::Factory clause_factory_;
-  std::vector<CRef> clauses_ = std::vector<CRef>(1, CRef::kNull);  // XXX C++14 hack
+  std::vector<CRef> clauses_ = std::vector<CRef>(1, CRef::kNull);
 
-  // funs_ is the set of functions that occur in clauses.
-  // names_ is the set of names that occur in clauses plus extra names.
-  internal::DenseSet<Fun>                    funs_;
-  internal::DenseMap<Fun, std::vector<Name>> names_;
-#ifdef PHASING
-  internal::DenseMap<Name, int>              name_index_;
-#endif
+  // fun_order_ ranks functions by their activity.
+  // name_order_ ranks functions by their activity for a given function.
+  ActivityOrder<Fun>                           fun_order_;
+  internal::DenseMap<Fun, ActivityOrder<Name>> name_order_;
 
   // watchers_ maps every function to a sequence of clauses that watch it.
   // Every clause watches two functions, and when a literal with this function
@@ -869,26 +820,17 @@ class Solver {
   // literals set or derived up to level l.
   // trail_head_ is the index of the first literal of trail_ that hasn't been
   // propagated yet.
-  std::vector<Lit>     trail_;
-  std::vector<uref_t>  level_size_ = std::vector<uref_t>(1, trail_.size());
-  uref_t               trail_head_ = 0;
+  std::vector<Lit> trail_;
+  std::vector<int> level_size_ = std::vector<int>(1, trail_.size());
+  int              trail_head_ = 0;
 
   // model_ is an assignment of functions to names, i.e., positive literals.
   // data_ is meta data for every function and name pair (cf. Data).
-  // domain_size_ is the number of candidates for every function.
   internal::DenseMap<Fun, Name>                           model_;
   internal::DenseMap<Fun, internal::DenseMap<Name, Data>> data_;
-  internal::DenseMap<Fun, int>                            domain_size_;
-
-  // fun_order_ ranks functions by their activity.
-  // name_order_ ranks functions by their activity.
-  ActivityOrder<Fun>                           fun_order_;
-#ifdef NAME_ORDER
-  internal::DenseMap<Fun, ActivityOrder<Name>> name_order_;
-#endif
 };
 
 }  // namespace limbo
 
-#endif  // LIMBO_SOLVER_H_
+#endif  // LIMBO_SAT_H_
 
