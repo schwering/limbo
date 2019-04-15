@@ -44,21 +44,21 @@ class Sat {
     } else if (as.size() == 1) {
       AddLiteral(as[0], extra_name);
     } else {
-      const CRef cr = CRef(clause_factory_.New(as, Clause::Learnt(false)));
-      Clause& c = clause_factory_[cr];
+      const CRef cr = CRef(clausef_.New(as));
+      Clause& c = clausef_[cr];
       if (c.valid()) {
-        clause_factory_.Delete(cr, as.size());
+        clausef_.Delete(cr, as.size());
         return;
       }
       if (c.unsat()) {
         empty_clause_ = true;
-        clause_factory_.Delete(cr, as.size());
+        clausef_.Delete(cr, as.size());
         return;
       }
       assert(c.size() >= 1);
       if (c.size() == 1) {
         AddLiteral(c[0], extra_name);
-        clause_factory_.Delete(cr, as.size());
+        clausef_.Delete(cr, as.size());
       } else {
         clauses_.push_back(cr);
         for (const Lit a : c) {
@@ -106,20 +106,20 @@ class Sat {
     int n_clauses = clauses_.size();
     for (int i = 1; i < n_clauses; ++i) {
       const CRef cr = clauses_[i];
-      Clause& c = clause_factory_[cr];
+      Clause& c = clausef_[cr];
       assert(c.size() >= 2);
       const int removed = c.RemoveIf([this](Lit a) -> bool { return falsifies(a); });
       assert(!c.valid());
       if (c.unsat()) {
         empty_clause_ = true;
-        clause_factory_.Delete(cr, c.size() + removed);
+        clausef_.Delete(cr, c.size() + removed);
         return;
       } else if (satisfies(c)) {
-        clause_factory_.Delete(cr, c.size() + removed);
+        clausef_.Delete(cr, c.size() + removed);
         clauses_[i--] = clauses_[--n_clauses];
       } else if (c.size() == 1) {
         Enqueue(c[0], CRef::kNull);
-        clause_factory_.Delete(cr, c.size() + removed);
+        clausef_.Delete(cr, c.size() + removed);
         clauses_[i--] = clauses_[--n_clauses];
       } else {
         UpdateWatchers(cr, c);
@@ -136,18 +136,21 @@ class Sat {
       if (!p && !m.null()) {
         assert(m != n);
         trail_[i--] = trail_[--n_units];
-        data_[f][n].Reset();
+        model_data_[f][n].Reset();
       }
-      data_[f][n].reason = CRef::kNull;
+      model_data_[f][n].reason = CRef::kNull;
       assert(satisfies(a));
     }
     trail_.resize(n_units);
     trail_head_ = trail_.size();
   }
 
-  const std::vector<CRef>&           clauses()         const { return clauses_; }
-  const Clause&                        clause(CRef cr) const { return clause_factory_[cr]; }
-  const internal::DenseMap<Fun, Name>& model()           const { return model_; }
+  const std::vector<CRef>&             clauses()       const { return clauses_; }
+  const Clause&                        clause(CRef cr) const { return clausef_[cr]; }
+  const internal::DenseMap<Fun, Name>& model()         const { return model_; }
+
+  bool propagate_with_learnt() const { return propagate_with_learned_; }
+  void set_propagate_with_learnt(bool b) { propagate_with_learned_ = b; }
 
   template<typename ConflictPredicate, typename DecisionPredicate>
   int Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
@@ -169,8 +172,9 @@ class Sat {
         Backtrack(btlevel);
         assert(learnt.size() >= 1);
         if (learnt.size() > 1) {
-          const CRef cr = clause_factory_.New(learnt, Clause::Learnt(true), Clause::NormalizationPromise(true));
-          const Clause& c = clause(cr);
+          const CRef cr = clausef_.New(learnt, Clause::NormalizationPromise(true));
+          Clause& c = clausef_[cr];
+          c.set_learnt(true);
           assert(c.size() >= 1);
           assert(!satisfies(c[0]) && !falsifies(c[0]));
           assert(std::all_of(c.begin() + 1, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
@@ -180,7 +184,6 @@ class Sat {
         } else {
           Enqueue(learnt[0], CRef::kNull);
         }
-        //Promote(learnt[0]);
         learnt.clear();
         fun_order_.Decay();
       } else {
@@ -201,6 +204,7 @@ class Sat {
         Enqueue(a, CRef::kNull);
         go &= decision_predicate(current_level(), a);
       }
+      assert(level_size_.back() < trail_.size());
     }
     Backtrack(Level::kRoot);
     return 0;
@@ -212,7 +216,7 @@ class Sat {
   template<typename T>
   class ActivityOrder {
    public:
-    explicit ActivityOrder(double bump_step = 1.0) : bump_step_(bump_step) {}
+    explicit ActivityOrder(double bump_step = kBumpStepInit) : bump_step_(bump_step) {}
 
     ActivityOrder(const ActivityOrder&) = delete;
     ActivityOrder& operator=(const ActivityOrder&) = delete;
@@ -255,9 +259,6 @@ class Sat {
       const internal::DenseMap<T, double>* acti_;
     };
 
-    static constexpr double kActivityThreshold = 1e100;
-    static constexpr double kDecayFactor = 0.95;
-
     void Bump(const T t, const double bump) {
       acti_[t] += bump;
       if (acti_[t] > kActivityThreshold) {
@@ -280,13 +281,13 @@ class Sat {
     internal::MinHeap<T, ActivityCompare> heap_{ActivityCompare(&acti_)};
   };
 
-  struct Data {  // meta data for a pair (f,n)
-    explicit Data() = default;
+  struct ModelData {  // meta data for a pair (f,n)
+    explicit ModelData() = default;
 
-    Data(const Data&) = default;
-    Data& operator=(const Data&) = default;
-    Data(Data&&) = default;
-    Data& operator=(Data&&) = default;
+    ModelData(const ModelData&) = default;
+    ModelData& operator=(const ModelData&) = default;
+    ModelData(ModelData&&) = default;
+    ModelData& operator=(ModelData&&) = default;
 
     void Update(const bool model_neq, const Level level, const CRef reason) {
       this->model_neq = model_neq;
@@ -313,25 +314,45 @@ class Sat {
     CRef reason;                // clause which derived f = n or f != n
   };
 
-  static_assert(sizeof(Data) == 4 + sizeof(CRef), "Data should be 4 + 4 bytes");
+
+  static_assert(sizeof(ModelData) == 4 + sizeof(CRef), "ModelData should be 4 + 4 bytes");
+
+
+  static constexpr double kBumpStepInit = 1.0;
+  static constexpr double kActivityThreshold = 1e100;
+  static constexpr double kDecayFactor = 0.95;
+
+
+  void ClauseBump(Clause& c) {
+    c.set_activity(c.activity() + clause_bump_step_);
+    if (c.activity() > kActivityThreshold) {
+      for (const CRef cr : clauses_) {
+        Clause& c = clausef_[cr];
+        c.set_activity(c.activity() / kActivityThreshold);
+      }
+      clause_bump_step_ /= kActivityThreshold;
+    }
+  }
+
+  void ClauseDecay() { clause_bump_step_ /= kDecayFactor; }
 
   void Register(const Fun f, const Name n, const Name extra_n) {
     CapacitateMaps(f, n, extra_n);
     if (!fun_order_.Contains(f)) {
       fun_order_.Insert(f);
-      if (!data_[f][extra_n].occurs) {
-        data_[f][extra_n].occurs = true;
+      if (!model_data_[f][extra_n].occurs) {
+        model_data_[f][extra_n].occurs = true;
         name_order_[f].Insert(extra_n);
       }
     }
-    if (!data_[f][n].occurs) {
-      data_[f][n].occurs = true;
+    if (!model_data_[f][n].occurs) {
+      model_data_[f][n].occurs = true;
       name_order_[f].Insert(n);
     }
   }
 
   void UpdateWatchers(const CRef cr, const Clause& c) {
-    assert(&clause(cr) == &c);
+    assert(&clausef_[cr] == &c);
     assert(!c.unsat());
     assert(!c.valid());
     assert(c.size() >= 2);
@@ -355,11 +376,10 @@ class Sat {
       Lit a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
-    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { return clause(cr).learnt() || std::all_of(clause(cr).begin(), clause(cr).begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
-    assert(conflict != CRef::kNull || std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { const Clause& c = clause(cr); return c.learnt() || satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }); }));
+    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { return clausef_[cr].learnt() || std::all_of(clausef_[cr].begin(), clausef_[cr].begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
+    assert(conflict != CRef::kNull || std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { const Clause& c = clausef_[cr]; return c.learnt() || satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }); }));
     return conflict;
   }
-
 
   // XXX new watchers:
   //
@@ -392,16 +412,22 @@ class Sat {
     CRef* cr_ptr2 = begin;
     while (cr_ptr1 != end) {
       const CRef cr = *cr_ptr1;
-      Clause& c = clause_factory_[cr];
-      const Fun f0 = c[0].fun();
-      const Fun f1 = c[1].fun();
+      Clause& c = clausef_[cr];
 
       assert(conflict == CRef::kNull);
       assert(std::count(cr_ptr1, end, cr) == 1);
 
+      if (c.learnt() && !propagate_with_learned_) {
+        *cr_ptr2++ = *cr_ptr1++;
+        continue;
+      }
+
+      const Fun f0 = c[0].fun();
+      const Fun f1 = c[1].fun();
+
       // w is a two-bit number where the i-th bit indicates that c[i] is falsified
-      char w = (static_cast<char>(f == f1 && falsifies(c[1])) << 1)
-              | static_cast<char>(f == f0 && falsifies(c[0]));
+      char w = (char(f == f1 && falsifies(c[1])) << 1)
+              | char(f == f0 && falsifies(c[0]));
       if (w == 0 || satisfies(c[0]) || satisfies(c[1])) {
         *cr_ptr2++ = *cr_ptr1++;
         continue;
@@ -449,15 +475,18 @@ class Sat {
           Enqueue(c[i], cr);
           *cr_ptr2++ = *cr_ptr1++;
         }
+        ClauseBump(c);
       }
     }
     ws.resize(cr_ptr2 - begin);
+    ClauseDecay();
     return conflict;
   }
 
   void Analyze(CRef conflict, std::vector<Lit>* const learnt, Level* const btlevel) {
-    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(),
-           [](const Data& d) -> bool { return !d.seen_subsumed && !d.wanted; }); }));
+    assert(std::all_of(model_data_.begin(), model_data_.end(),
+                       [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(),
+                       [](const ModelData& d) -> bool { return !d.seen_subsumed && !d.wanted; }); }));
     int depth = 0;
     Lit trail_a = Lit();
     int trail_i = trail_.size() - 1;
@@ -509,7 +538,7 @@ class Sat {
       assert(model_[a.fun()].null() || (a.pos() != (model_[a.fun()] == a.name())));
       const Fun f = a.fun();
       const Name n = a.name();
-      data_[f][n].seen_subsumed = 1;
+      model_data_[f][n].seen_subsumed = 1;
     };
     auto seen_subsumed = [this](const Lit a) -> bool {
       assert(falsifies(a));
@@ -518,7 +547,7 @@ class Sat {
       const Fun f = a.fun();
       const Name n = a.name();
       const Name m = model_[f];
-      return data_[f][n].seen_subsumed || (p && !m.null() && data_[f][m].seen_subsumed);
+      return model_data_[f][n].seen_subsumed || (p && !m.null() && model_data_[f][m].seen_subsumed);
     };
 
     // want_complementary_on_level(a,l) marks all literals on level l that
@@ -531,34 +560,34 @@ class Sat {
     // need for traversing the whole level again to reset the wanted flag.
     auto want_complementary_on_level = [this](const Lit a, Level l) -> void {
       assert(falsifies(a));
-      assert(data_[a.fun()][a.name()].level() <= l);
-      assert(a.pos() || data_[a.fun()][a.name()].level() == l);
+      assert(model_data_[a.fun()][a.name()].level() <= l);
+      assert(a.pos() || model_data_[a.fun()][a.name()].level() == l);
       assert(a.pos() || model_[a.fun()] == a.name());
-      assert(!a.pos() || data_[a.fun()][a.name()].level() != l || data_[a.fun()][a.name()].model_neq);
-      assert(!a.pos() || data_[a.fun()][a.name()].level() == l || !model_[a.fun()].null());
-      assert(!a.pos() || data_[a.fun()][a.name()].level() == l || data_[a.fun()][model_[a.fun()]].level() == l);
+      assert(!a.pos() || model_data_[a.fun()][a.name()].level() != l || model_data_[a.fun()][a.name()].model_neq);
+      assert(!a.pos() || model_data_[a.fun()][a.name()].level() == l || !model_[a.fun()].null());
+      assert(!a.pos() || model_data_[a.fun()][a.name()].level() == l || model_data_[a.fun()][model_[a.fun()]].level() == l);
       const Fun f = a.fun();
       const Name n = a.name();
       const Name m = model_[f];
-      data_[f][data_[f][n].level() == l ? n : m].wanted = true;
+      model_data_[f][model_data_[f][n].level() == l ? n : m].wanted = true;
     };
     // wanted_complementary_on_level(a,l) iff a on level l is wanted.
     auto wanted_complementary_on_level = [this](const Lit a, Level l) -> bool {
       assert(falsifies(a));
-      assert(data_[a.fun()][a.name()].level() <= l);
+      assert(model_data_[a.fun()][a.name()].level() <= l);
       const bool p = a.pos();
       const Fun f = a.fun();
       const Name n = a.name();
       const Name m = model_[f];
-      return (!p && data_[f][n].wanted) ||
-             (p && ((data_[f][n].level() == l && data_[f][n].wanted) || (!m.null() && data_[f][m].wanted)));
+      return (!p && model_data_[f][n].wanted) ||
+             (p && ((model_data_[f][n].level() == l && model_data_[f][n].wanted) || (!m.null() && model_data_[f][m].wanted)));
     };
     // We un-want every trail literal after it has been traversed.
     auto wanted = [this](const Lit a) -> bool {
       assert(satisfies(a));
       const Fun f = a.fun();
       const Name n = a.name();
-      return data_[f][n].wanted;
+      return model_data_[f][n].wanted;
     };
 
     auto handle_conflict = [this, &trail_a, &learnt, &depth, &see_subsuming, &seen_subsumed,
@@ -591,15 +620,15 @@ class Sat {
         assert(!trail_a.null());
         assert(trail_a.pos());
         const Fun f = trail_a.fun();
-        for (int i = 1; i < data_[f].upper_bound(); ++i) {
+        for (int i = 1; i < model_data_[f].upper_bound(); ++i) {
           const Name n = Name::FromId(i);
-          if (data_[f][n].occurs) {
+          if (model_data_[f][n].occurs) {
             const Lit a = Lit::Eq(f, n);
             handle_conflict(a);
           }
         }
       } else {
-        for (const Lit a : clause(conflict)) {
+        for (const Lit a : clausef_[conflict]) {
           handle_conflict(a);
         }
       }
@@ -609,14 +638,14 @@ class Sat {
         assert(trail_i >= 0);
       }
       trail_a = trail_[trail_i + 1];
-      data_[trail_a.fun()][trail_a.name()].wanted = false;
+      model_data_[trail_a.fun()][trail_a.name()].wanted = false;
       --depth;
       conflict = reason_of(trail_a);
     } while (depth > 0);
     (*learnt)[0] = trail_a.flip();
 
     for (const Lit a : *learnt) {
-      data_[a.fun()][a.name()].seen_subsumed = false;
+      model_data_[a.fun()][a.name()].seen_subsumed = false;
     }
 
     learnt->resize(Clause::Normalize(learnt->size(), learnt->data(), Clause::InvalidityPromise(true)));
@@ -639,8 +668,8 @@ class Sat {
     assert(level_of(trail_a) > *btlevel && *btlevel >= Level::kRoot);
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return falsifies(a); }));
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return !satisfies(a); }));
-    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.seen_subsumed; }); }));
-    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const Data& d) -> bool { return !d.wanted; }); }));
+    assert(std::all_of(model_data_.begin(), model_data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const ModelData& d) -> bool { return !d.seen_subsumed; }); }));
+    assert(std::all_of(model_data_.begin(), model_data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const ModelData& d) -> bool { return !d.wanted; }); }));
   }
 
   void AddNewLevel() { level_size_.push_back(trail_.size()); }
@@ -657,16 +686,16 @@ class Sat {
 
   void Enqueue(const Lit a, const CRef reason) {
     //printf("Enqueue(%d %s %d, %d) @ %d\n", int(a.fun()), a.pos() ? "=" : "!=", int(a.name()), int(reason), current_level());
-    assert(data_[a.fun()][a.name()].occurs);
+    assert(model_data_[a.fun()][a.name()].occurs);
     const bool p = a.pos();
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    if (m.null() && (p || !data_[f][n].model_neq)) {
+    if (m.null() && (p || !model_data_[f][n].model_neq)) {
       assert(name_order_[a.fun()].size() >= 1 + !a.pos());
       assert(!satisfies(a));
       trail_.push_back(a);
-      data_[f][n].Update(!p, current_level(), reason);
+      model_data_[f][n].Update(!p, current_level(), reason);
       if (p) {
         model_[f] = n;
       } else if (name_order_[f].size() == 2) {
@@ -674,7 +703,7 @@ class Sat {
         const Name m = name_order_[f].top();
         assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
         trail_.push_back(Lit::Eq(f, m));
-        data_[f][m].Update(false, current_level(), CRef::kDomain);
+        model_data_[f][m].Update(false, current_level(), CRef::kDomain);
         model_[f] = m;
         assert(satisfies(Lit::Eq(f, m)));
       } else {
@@ -692,14 +721,14 @@ class Sat {
       const Name n = a->name();
       model_[f] = Name();
       if (p) {
-        if (!data_[f][n].model_neq) {
-          data_[f][n].Reset();
+        if (!model_data_[f][n].model_neq) {
+          model_data_[f][n].Reset();
         }
         if (!fun_order_.Contains(f)) {
           fun_order_.Insert(f);
         }
       } else {
-        data_[f][n].Reset();
+        model_data_[f][n].Reset();
         name_order_[f].Insert(n);
       }
     }
@@ -714,8 +743,8 @@ class Sat {
     const Name n = a.name();
     const Name m = model_[f];
     return ((p && m == n) ||
-            (!p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
-           (l == Level::kAll || data_[f][n].level() <= l);
+            (!p && ((!m.null() && m != n) || model_data_[f][n].model_neq))) &&
+           (l == Level::kAll || model_data_[f][n].level() <= l);
   }
 
   bool falsifies(const Lit a, const Level l = Level::kAll) const {
@@ -724,8 +753,8 @@ class Sat {
     const Name n = a.name();
     const Name m = model_[f];
     return ((!p && m == n) ||
-            (p && ((!m.null() && m != n) || data_[f][n].model_neq))) &&
-           (l == Level::kAll || data_[f][n].level() <= l);
+            (p && ((!m.null() && m != n) || model_data_[f][n].model_neq))) &&
+           (l == Level::kAll || model_data_[f][n].level() <= l);
   }
 
   bool satisfies(const Clause& c, const Level l = Level::kAll) const {
@@ -743,7 +772,7 @@ class Sat {
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    return !p && data_[f][n].model_neq ? data_[f][n].level() : data_[f][m].level();
+    return !p && model_data_[f][n].model_neq ? model_data_[f][n].level() : model_data_[f][m].level();
   }
 
   Level level_of_complementary(const Lit a) const {
@@ -753,7 +782,7 @@ class Sat {
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    return p && data_[f][n].model_neq ? data_[f][n].level() : data_[f][m].level();
+    return p && model_data_[f][n].model_neq ? model_data_[f][n].level() : model_data_[f][m].level();
   }
 
   CRef reason_of(const Lit a) const {
@@ -763,26 +792,26 @@ class Sat {
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    return !p && data_[f][n].model_neq ? data_[f][n].reason : data_[f][m].reason;
+    return !p && model_data_[f][n].model_neq ? model_data_[f][n].reason : model_data_[f][m].reason;
   }
 
   Level current_level() const { return Level(level_size_.size()); }
 
   void CapacitateMaps(const Fun f, const Name n, const Name extra_n) {
     const int max_ni = int(n) > int(extra_n) ? int(n) : int(extra_n);
-    const int fi = int(f) >= data_.upper_bound() ? int(f) : -1;
-    const int ni = data_.upper_bound() == 0 || max_ni >= data_[0].upper_bound() ? max_ni : -1;
+    const int fi = int(f) >= model_data_.upper_bound() ? int(f) : -1;
+    const int ni = model_data_.upper_bound() == 0 || max_ni >= model_data_[0].upper_bound() ? max_ni : -1;
     const int fig = (fi + 1) * 1.5;
-    const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_[0].upper_bound();
+    const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : model_data_[0].upper_bound();
     if (fi >= 0) {
       watchers_.Capacitate(fig);
       model_.Capacitate(fig);
-      data_.Capacitate(fig);
+      model_data_.Capacitate(fig);
       fun_order_.Capacitate(fig);
       name_order_.Capacitate(fig);
     }
     if (fi >= 0 || ni >= 0) {
-      for (internal::DenseMap<Name, Data>& ds : data_) {
+      for (internal::DenseMap<Name, ModelData>& ds : model_data_) {
         ds.Capacitate(nig);
       }
       for (ActivityOrder<Name>& ao : name_order_) {
@@ -790,19 +819,22 @@ class Sat {
       }
     }
     if (ni >= 0) {
-      for (internal::DenseMap<Name, Data>& ds : data_) {
+      for (internal::DenseMap<Name, ModelData>& ds : model_data_) {
         ds.Capacitate(nig);
       }
     }
   }
+
 
   // empty_clause_ is true iff the empty clause has been derived.
   bool empty_clause_ = false;
 
   // clauses_ is the sequence of clauses added initially or learnt where
   // learnt clauses.
-  Clause::Factory clause_factory_;
+  Clause::Factory clausef_;
   std::vector<CRef> clauses_ = std::vector<CRef>(1, CRef::kNull);
+  bool propagate_with_learned_ = true;
+  double clause_bump_step_ = kBumpStepInit;
 
   // fun_order_ ranks functions by their activity.
   // name_order_ ranks functions by their activity for a given function.
@@ -825,9 +857,9 @@ class Sat {
   int              trail_head_ = 0;
 
   // model_ is an assignment of functions to names, i.e., positive literals.
-  // data_ is meta data for every function and name pair (cf. Data).
-  internal::DenseMap<Fun, Name>                           model_;
-  internal::DenseMap<Fun, internal::DenseMap<Name, Data>> data_;
+  // model_data_ is meta data for every function and name pair (cf. ModelData).
+  internal::DenseMap<Fun, Name>                                model_;
+  internal::DenseMap<Fun, internal::DenseMap<Name, ModelData>> model_data_;
 };
 
 }  // namespace limbo

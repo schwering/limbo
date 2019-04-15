@@ -43,10 +43,6 @@ class Clause {
     explicit NormalizationPromise(bool promised) : promised(promised) {}
     bool promised;
   };
-  struct Learnt {
-    explicit Learnt(bool yes) : yes(yes) {}
-    bool yes;
-  };
 
   static int Normalize(int size, Lit* as, InvalidityPromise invalidity) {
     int i1 = 0;
@@ -102,7 +98,11 @@ next: {}
   bool unit()  const { return h_.size == 1; }
   int size()   const { return h_.size; }
 
+  void set_learnt(bool b) { h_.learnt = b; }
   bool learnt() const { return h_.learnt; }
+
+  void set_activity(double a) { activity_ = a; }
+  double activity() const { return activity_; }
 
   Lit& operator[](int i)       { assert(i >= 0 && i < size()); return as_[i]; }
   Lit  operator[](int i) const { assert(i >= 0 && i < size()); return as_[i]; }
@@ -150,19 +150,17 @@ next: {}
   }
 
  private:
-  explicit Clause(const Lit a, Learnt learnt) {
-    h_.learnt = learnt.yes;
+  explicit Clause(const Lit a) {
     h_.size = 1;
+    h_.learnt = 0;
     as_[0] = a;
     assert(Normalized());
   }
 
   explicit Clause(int size,
                   const Lit* first,
-                  Learnt learnt,
                   NormalizationPromise normalization = NormalizationPromise(false),
                   InvalidityPromise invalid = InvalidityPromise(false)) {
-    h_.learnt = learnt.yes;
     h_.size = size;
     std::memcpy(begin(), first, size * sizeof(Lit));
     if (!normalization.promised) {
@@ -195,6 +193,7 @@ next: {}
     unsigned learnt :  1;
     unsigned size   : 31;
   } h_;
+  double activity_ = 0.0;
   Lit as_[0];
 };
 
@@ -212,25 +211,20 @@ class Clause::Factory {
   Factory(Factory&&) = default;
   Factory& operator=(Factory&&) = default;
 
-  CRef New(Lit a, Learnt learnt) {
+  CRef New(Lit a) {
     const CRef cr = memory_.Allocate(clause_size(1));
-    new (memory_.address(cr)) Clause(a, learnt);
+    new (memory_.address(cr)) Clause(a);
     return cr;
   }
 
-  CRef New(int k,
-           const Lit* as,
-           Learnt learnt = Learnt(false),
-           NormalizationPromise normalization = NormalizationPromise(false)) {
+  CRef New(int k, const Lit* as, NormalizationPromise normalization = NormalizationPromise(false)) {
     const CRef cr = memory_.Allocate(clause_size(k));
-    new (memory_.address(cr)) Clause(k, as, learnt, normalization);
+    new (memory_.address(cr)) Clause(k, as, normalization);
     return cr;
   }
 
-  CRef New(const std::vector<Lit>& as,
-           Learnt learnt,
-           NormalizationPromise normalization = NormalizationPromise(false)) {
-    return New(as.size(), as.data(), learnt, normalization);
+  CRef New(const std::vector<Lit>& as, NormalizationPromise normalization = NormalizationPromise(false)) {
+    return New(as.size(), as.data(), normalization);
   }
 
   void Delete(CRef cr, int k) { memory_.Free(cr, k); }
