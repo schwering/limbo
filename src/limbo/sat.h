@@ -198,10 +198,12 @@ class Sat {
         } while (!model_[f].null());
         Name n;
         do {
+          assert(fun_n_names_[f] - model_neqs_[f] <= fun_names_[f].size());
           if (fun_names_[f].empty()) {
             return -1;
           }
           n = fun_names_[f].PopFront();
+          model_data_[f][n].popped = true;
         } while (model_data_[f][n].model_neq);
         AddNewLevel();
         const Lit a = Lit::Eq(f, n);
@@ -289,7 +291,8 @@ class Sat {
     static constexpr bool kModelNeq = true;
     static constexpr bool kModelEq = false;
 
-    explicit ModelData() = default;
+    explicit ModelData()
+        : seen_subsumed(0), wanted(0), occurs(0), popped(0), model_neq(0), level(0), reason(CRef::kNull) {}
 
     ModelData(const ModelData&) = default;
     ModelData& operator=(const ModelData&) = default;
@@ -314,8 +317,9 @@ class Sat {
     unsigned seen_subsumed :  1;  // true iff a literal subsumed by f = n / f != n on the trail (helper for Analyze())
     unsigned wanted        :  1;  // true iff a literal complementary to f = n / f != n is wanted (helper for Analyze())
     unsigned occurs        :  1;  // true iff f occurs with n in added clauses or literals
+    unsigned popped        :  1;  // true iff n has been popped from fun_names_[f]
     unsigned model_neq     :  1;  // true iff f != n was set or derived
-    unsigned level         : 28;  // level at which f = n or f != n was set or derived
+    unsigned level         : 27;  // level at which f = n or f != n was set or derived
     CRef reason;                  // clause which derived f = n or f != n
   };
 
@@ -682,37 +686,6 @@ class Sat {
 
   void AddNewLevel() { level_size_.push_back(trail_.size()); }
 
-//  void Enqueue(const Lit a, const CRef reason) {
-//    assert(model_data_[a.fun()][a.name()].occurs);
-//    const bool p = a.pos();
-//    const Fun f = a.fun();
-//    const Name n = a.name();
-//    const Name m = model_[f];
-//    if (m.null() && (p || !model_data_[f][n].model_neq)) {
-//      assert(fun_names_[a.fun()].size() >= 1 + !a.pos());
-//      assert(!satisfies(a));
-//      trail_.push_back(a);
-//      model_data_[f][n].Update(!p, current_level(), reason);
-//      if (p) {
-//        model_[f] = n;
-//      } else if (fun_n_names_[f] - model_neqs_[f] == 2) {
-//        Name m;
-//        do {
-//          assert(!fun_names_[f].empty());
-//          m = fun_names_[f].PopFront();
-//        } while (model_data_[f][m].model_neq);
-//        assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
-//        trail_.push_back(Lit::Eq(f, m));
-//        model_data_[f][m].Update(false, current_level(), CRef::kDomain);
-//        model_[f] = m;
-//        assert(satisfies(Lit::Eq(f, m)));
-//      } else {
-//        funs_.BumpToFront(f);
-//      }
-//    }
-//    assert(satisfies(a));
-//  }
-
   void Enqueue(const Lit a, const CRef reason) {
     assert(model_data_[a.fun()][a.name()].occurs);
     return a.pos() ? EnqueueEq(a, reason) : EnqueueNeq(a, reason);
@@ -742,7 +715,8 @@ class Sat {
     const Name n = a.name();
     const Name m = model_[f];
     if (m.null() && !model_data_[f][n].model_neq) {
-      assert(fun_names_[a.fun()].size() >= 1 + !a.pos());
+      assert(!model_data_[a.fun()][a.name()].popped);
+      assert(fun_names_[a.fun()].size() >= !a.pos());
       assert(!satisfies(a));
       trail_.push_back(a);
       model_data_[f][n].Update(ModelData::kModelNeq, current_level(), reason);
@@ -750,8 +724,10 @@ class Sat {
       if (fun_n_names_[f] - model_neqs_[f] == 1) {
         Name m;
         do {
+          assert(fun_n_names_[f] - model_neqs_[f] <= fun_names_[f].size());
           assert(!fun_names_[f].empty());
           m = fun_names_[f].PopFront();
+          model_data_[f][m].popped = true;
         } while (model_data_[f][m].model_neq);
         assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
         EnqueueEq(Lit::Eq(f, m), CRef::kDomain);
@@ -763,23 +739,26 @@ class Sat {
   }
 
   void Backtrack(const Level l) {
-    for (auto a = trail_.cbegin() + level_size_[int(l)], e = trail_.cend(); a != e; ++a) {
+    for (auto a = trail_.rbegin(), e = trail_.rend() - level_size_[int(l)]; a != e; ++a) {
       const bool p = a->pos();
       const Fun f = a->fun();
       const Name n = a->name();
       if (p) {
         model_[f] = Name();
         --model_eqs_;
-        assert(!model_data_[f][n].model_neq);
         if (!funs_.Contains(f)) {
           funs_.Insert(f);
         }
       } else {
         --model_neqs_[f];
-        model_data_[f][n].Reset();
+      }
+      if (model_data_[f][n].popped) {
+        fun_names_[f].PushBack(n);
+        model_data_[f][n].popped = false;
       }
       model_data_[f][n].Reset();
-      fun_names_[f].PushBack(n);
+      assert(!satisfies(*a) && !falsifies(*a));
+      assert(fun_n_names_[f] - model_neqs_[f] <= fun_names_[f].size());
     }
     trail_.resize(level_size_[int(l)]);
     trail_head_ = trail_.size();
