@@ -411,13 +411,13 @@ class Alphabet : private internal::Singleton<Alphabet> {
       return it->second;
     } else {
       if (w.begin()->tag == Symbol::kFun) {
-        const limbo::Fun f = limbo::Fun(++last_fun_term_);
+        const limbo::Fun f = limbo::Fun::FromId(++last_fun_term_);
         const Symbol s = Symbol::StrippedFun(f);
         term_fun_symbols_[f] = std::move(w);
         symbols_term_[term_fun_symbols_[f].readable()] = s;
         return s;
       } else {
-        const limbo::Name n = limbo::Name(++last_name_term_);
+        const limbo::Name n = limbo::Name::FromId(++last_name_term_);
         const Symbol s = Symbol::StrippedName(n);
         term_name_symbols_[n] = std::move(w);
         symbols_term_[term_name_symbols_[n].readable()] = s;

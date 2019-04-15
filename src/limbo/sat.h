@@ -17,6 +17,7 @@
 #include <limbo/lit.h>
 
 #include <limbo/internal/dense.h>
+#include <limbo/internal/ringbuffer.h>
 
 namespace limbo {
 
@@ -26,10 +27,10 @@ class Sat {
 
   explicit Sat() = default;
 
-  Sat(const Sat&) = delete;
+  Sat(const Sat&)            = delete;
   Sat& operator=(const Sat&) = delete;
-  Sat(Sat&&) = default;
-  Sat& operator=(Sat&&) = default;
+  Sat(Sat&&)                 = default;
+  Sat& operator=(Sat&&)      = default;
 
   template<typename ExtraNameFactory>
   void AddLiteral(const Lit a, ExtraNameFactory extra_name = ExtraNameFactory()) {
@@ -185,23 +186,26 @@ class Sat {
           Enqueue(learnt[0], CRef::kNull);
         }
         learnt.clear();
-        fun_order_.Decay();
+        funs_.Decay();
       } else {
         Fun f;
         do {
-          f = fun_order_.top();
+          f = funs_.top();
           if (f.null()) {
             return 1;
           }
-          fun_order_.Remove(f);
+          funs_.Remove(f);
         } while (!model_[f].null());
-        const Name n = name_order_[f].top();
-        if (n.null()) {
-          return -1;
-        }
+        Name n;
+        do {
+          if (fun_names_[f].empty()) {
+            return -1;
+          }
+          n = fun_names_[f].PopFront();
+        } while (model_data_[f][n].model_neq);
         AddNewLevel();
         const Lit a = Lit::Eq(f, n);
-        Enqueue(a, CRef::kNull);
+        EnqueueEq(a, CRef::kNull);
         go &= decision_predicate(current_level(), a);
       }
       assert(level_size_.back() < trail_.size());
@@ -211,7 +215,7 @@ class Sat {
   }
 
  private:
-  enum class Level : int { kAll = -1, kRoot = 1 };
+  enum class Level : int { kAll = -1, kNull = 0, kRoot = 1 };
 
   template<typename T>
   class ActivityOrder {
@@ -282,6 +286,9 @@ class Sat {
   };
 
   struct ModelData {  // meta data for a pair (f,n)
+    static constexpr bool kModelNeq = true;
+    static constexpr bool kModelEq = false;
+
     explicit ModelData() = default;
 
     ModelData(const ModelData&) = default;
@@ -291,7 +298,7 @@ class Sat {
 
     void Update(const bool model_neq, const Level level, const CRef reason) {
       this->model_neq = model_neq;
-      this->level_ = unsigned(level);
+      this->level = unsigned(level);
       this->reason = reason;
     }
 
@@ -300,18 +307,16 @@ class Sat {
       assert(!wanted);
       assert(occurs);
       model_neq = false;
-      level_ = 0;
+      level = unsigned(Level::kNull);
       reason = CRef::kNull;
     }
-
-    Level level() const { return Level(level_); }
 
     unsigned seen_subsumed :  1;  // true iff a literal subsumed by f = n / f != n on the trail (helper for Analyze())
     unsigned wanted        :  1;  // true iff a literal complementary to f = n / f != n is wanted (helper for Analyze())
     unsigned occurs        :  1;  // true iff f occurs with n in added clauses or literals
     unsigned model_neq     :  1;  // true iff f != n was set or derived
-    unsigned level_        : 27;  // level at which f = n or f != n was set or derived
-    CRef reason;                // clause which derived f = n or f != n
+    unsigned level         : 28;  // level at which f = n or f != n was set or derived
+    CRef reason;                  // clause which derived f = n or f != n
   };
 
 
@@ -338,16 +343,18 @@ class Sat {
 
   void Register(const Fun f, const Name n, const Name extra_n) {
     CapacitateMaps(f, n, extra_n);
-    if (!fun_order_.Contains(f)) {
-      fun_order_.Insert(f);
+    if (!funs_.Contains(f)) {
+      funs_.Insert(f);
       if (!model_data_[f][extra_n].occurs) {
         model_data_[f][extra_n].occurs = true;
-        name_order_[f].Insert(extra_n);
+        fun_names_[f].PushBack(extra_n);
+        ++fun_n_names_[f];
       }
     }
     if (!model_data_[f][n].occurs) {
       model_data_[f][n].occurs = true;
-      name_order_[f].Insert(n);
+      fun_names_[f].PushBack(n);
+      ++fun_n_names_[f];
     }
   }
 
@@ -560,27 +567,28 @@ class Sat {
     // need for traversing the whole level again to reset the wanted flag.
     auto want_complementary_on_level = [this](const Lit a, Level l) -> void {
       assert(falsifies(a));
-      assert(model_data_[a.fun()][a.name()].level() <= l);
-      assert(a.pos() || model_data_[a.fun()][a.name()].level() == l);
+      assert(Level(model_data_[a.fun()][a.name()].level) <= l);
+      assert(a.pos() || Level(model_data_[a.fun()][a.name()].level) == l);
       assert(a.pos() || model_[a.fun()] == a.name());
-      assert(!a.pos() || model_data_[a.fun()][a.name()].level() != l || model_data_[a.fun()][a.name()].model_neq);
-      assert(!a.pos() || model_data_[a.fun()][a.name()].level() == l || !model_[a.fun()].null());
-      assert(!a.pos() || model_data_[a.fun()][a.name()].level() == l || model_data_[a.fun()][model_[a.fun()]].level() == l);
+      assert(!a.pos() || Level(model_data_[a.fun()][a.name()].level) != l || model_data_[a.fun()][a.name()].model_neq);
+      assert(!a.pos() || Level(model_data_[a.fun()][a.name()].level) == l || !model_[a.fun()].null());
+      assert(!a.pos() || Level(model_data_[a.fun()][a.name()].level) == l || Level(model_data_[a.fun()][model_[a.fun()]].level) == l);
       const Fun f = a.fun();
       const Name n = a.name();
       const Name m = model_[f];
-      model_data_[f][model_data_[f][n].level() == l ? n : m].wanted = true;
+      model_data_[f][Level(model_data_[f][n].level) == l ? n : m].wanted = true;
     };
     // wanted_complementary_on_level(a,l) iff a on level l is wanted.
     auto wanted_complementary_on_level = [this](const Lit a, Level l) -> bool {
       assert(falsifies(a));
-      assert(model_data_[a.fun()][a.name()].level() <= l);
+      assert(Level(model_data_[a.fun()][a.name()].level) <= l);
       const bool p = a.pos();
       const Fun f = a.fun();
       const Name n = a.name();
       const Name m = model_[f];
       return (!p && model_data_[f][n].wanted) ||
-             (p && ((model_data_[f][n].level() == l && model_data_[f][n].wanted) || (!m.null() && model_data_[f][m].wanted)));
+             (p && ((Level(model_data_[f][n].level) == l && model_data_[f][n].wanted) ||
+                    (!m.null() && model_data_[f][m].wanted)));
     };
     // We un-want every trail literal after it has been traversed.
     auto wanted = [this](const Lit a) -> bool {
@@ -609,8 +617,8 @@ class Sat {
         ++depth;
         want_complementary_on_level(a, l);
       }
-      fun_order_.BumpUp(a.fun());
-      //name_order_[a.fun()].BumpUp(a.name());
+      funs_.BumpUp(a.fun());
+      //fun_names_[a.fun()].BumpUp(a.name());
     };
 
     do {
@@ -674,41 +682,81 @@ class Sat {
 
   void AddNewLevel() { level_size_.push_back(trail_.size()); }
 
-  void Promote(const Lit a) {
-    //printf("Promote(%d %s %d) @ %d\n", int(a.fun()), a.pos() ? "=" : "!=", int(a.name()), current_level());
-    fun_order_.BumpToFront(a.fun());
-    if (a.pos()) {
-      name_order_[a.fun()].BumpToFront(a.name());
-    } else {
-      name_order_[a.fun()].BumpToRear(a.name());
-    }
-  }
+//  void Enqueue(const Lit a, const CRef reason) {
+//    assert(model_data_[a.fun()][a.name()].occurs);
+//    const bool p = a.pos();
+//    const Fun f = a.fun();
+//    const Name n = a.name();
+//    const Name m = model_[f];
+//    if (m.null() && (p || !model_data_[f][n].model_neq)) {
+//      assert(fun_names_[a.fun()].size() >= 1 + !a.pos());
+//      assert(!satisfies(a));
+//      trail_.push_back(a);
+//      model_data_[f][n].Update(!p, current_level(), reason);
+//      if (p) {
+//        model_[f] = n;
+//      } else if (fun_n_names_[f] - model_neqs_[f] == 2) {
+//        Name m;
+//        do {
+//          assert(!fun_names_[f].empty());
+//          m = fun_names_[f].PopFront();
+//        } while (model_data_[f][m].model_neq);
+//        assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
+//        trail_.push_back(Lit::Eq(f, m));
+//        model_data_[f][m].Update(false, current_level(), CRef::kDomain);
+//        model_[f] = m;
+//        assert(satisfies(Lit::Eq(f, m)));
+//      } else {
+//        funs_.BumpToFront(f);
+//      }
+//    }
+//    assert(satisfies(a));
+//  }
 
   void Enqueue(const Lit a, const CRef reason) {
-    //printf("Enqueue(%d %s %d, %d) @ %d\n", int(a.fun()), a.pos() ? "=" : "!=", int(a.name()), int(reason), current_level());
     assert(model_data_[a.fun()][a.name()].occurs);
-    const bool p = a.pos();
+    return a.pos() ? EnqueueEq(a, reason) : EnqueueNeq(a, reason);
+  }
+
+  void EnqueueEq(const Lit a, const CRef reason) {
+    assert(a.pos());
+    assert(!falsifies(a));
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    if (m.null() && (p || !model_data_[f][n].model_neq)) {
-      assert(name_order_[a.fun()].size() >= 1 + !a.pos());
+    if (m.null()) {
+      assert(!satisfies(a));
+      assert(fun_names_[a.fun()].size() >= !a.pos());
+      trail_.push_back(a);
+      model_[f] = n;
+      model_data_[f][n].Update(ModelData::kModelEq, current_level(), reason);
+      ++model_eqs_;
+    }
+    assert(satisfies(a));
+  }
+
+  void EnqueueNeq(const Lit a, const CRef reason) {
+    assert(!a.pos());
+    assert(!falsifies(a));
+    const Fun f = a.fun();
+    const Name n = a.name();
+    const Name m = model_[f];
+    if (m.null() && !model_data_[f][n].model_neq) {
+      assert(fun_names_[a.fun()].size() >= 1 + !a.pos());
       assert(!satisfies(a));
       trail_.push_back(a);
-      model_data_[f][n].Update(!p, current_level(), reason);
-      if (p) {
-        model_[f] = n;
-      } else if (name_order_[f].size() == 2) {
-        name_order_[f].Remove(n);
-        const Name m = name_order_[f].top();
+      model_data_[f][n].Update(ModelData::kModelNeq, current_level(), reason);
+      ++model_neqs_[f];
+      if (fun_n_names_[f] - model_neqs_[f] == 1) {
+        Name m;
+        do {
+          assert(!fun_names_[f].empty());
+          m = fun_names_[f].PopFront();
+        } while (model_data_[f][m].model_neq);
         assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
-        trail_.push_back(Lit::Eq(f, m));
-        model_data_[f][m].Update(false, current_level(), CRef::kDomain);
-        model_[f] = m;
-        assert(satisfies(Lit::Eq(f, m)));
+        EnqueueEq(Lit::Eq(f, m), CRef::kDomain);
       } else {
-        fun_order_.BumpToFront(f);
-        name_order_[f].Remove(n);
+        funs_.BumpToFront(f);
       }
     }
     assert(satisfies(a));
@@ -719,50 +767,49 @@ class Sat {
       const bool p = a->pos();
       const Fun f = a->fun();
       const Name n = a->name();
-      model_[f] = Name();
       if (p) {
-        if (!model_data_[f][n].model_neq) {
-          model_data_[f][n].Reset();
-        }
-        if (!fun_order_.Contains(f)) {
-          fun_order_.Insert(f);
+        model_[f] = Name();
+        --model_eqs_;
+        assert(!model_data_[f][n].model_neq);
+        if (!funs_.Contains(f)) {
+          funs_.Insert(f);
         }
       } else {
+        --model_neqs_[f];
         model_data_[f][n].Reset();
-        name_order_[f].Insert(n);
       }
+      model_data_[f][n].Reset();
+      fun_names_[f].PushBack(n);
     }
     trail_.resize(level_size_[int(l)]);
     trail_head_ = trail_.size();
     level_size_.resize(int(l));
   }
 
-  bool satisfies(const Lit a, const Level l = Level::kAll) const {
+  bool satisfies(const Lit a) const {
     const bool p = a.pos();
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
     return ((p && m == n) ||
-            (!p && ((!m.null() && m != n) || model_data_[f][n].model_neq))) &&
-           (l == Level::kAll || model_data_[f][n].level() <= l);
+            (!p && ((!m.null() && m != n) || model_data_[f][n].model_neq)));
   }
 
-  bool falsifies(const Lit a, const Level l = Level::kAll) const {
+  bool falsifies(const Lit a) const {
     const bool p = a.pos();
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
     return ((!p && m == n) ||
-            (p && ((!m.null() && m != n) || model_data_[f][n].model_neq))) &&
-           (l == Level::kAll || model_data_[f][n].level() <= l);
+            (p && ((!m.null() && m != n) || model_data_[f][n].model_neq)));
   }
 
-  bool satisfies(const Clause& c, const Level l = Level::kAll) const {
-    return std::any_of(c.begin(), c.end(), [this, l](Lit a) -> bool { return satisfies(a, l); });
+  bool satisfies(const Clause& c) const {
+    return std::any_of(c.begin(), c.end(), [this](Lit a) -> bool { return satisfies(a); });
   }
 
-  bool falsifies(const Clause& c, const Level l = Level::kAll) const {
-    return std::all_of(c.begin(), c.end(), [this, l](Lit a) -> bool { return falsifies(a, l); });
+  bool falsifies(const Clause& c) const {
+    return std::all_of(c.begin(), c.end(), [this](Lit a) -> bool { return falsifies(a); });
   }
 
   Level level_of(const Lit a) const {
@@ -772,7 +819,7 @@ class Sat {
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    return !p && model_data_[f][n].model_neq ? model_data_[f][n].level() : model_data_[f][m].level();
+    return Level(!p && model_data_[f][n].model_neq ? model_data_[f][n].level : model_data_[f][m].level);
   }
 
   Level level_of_complementary(const Lit a) const {
@@ -782,7 +829,7 @@ class Sat {
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    return p && model_data_[f][n].model_neq ? model_data_[f][n].level() : model_data_[f][m].level();
+    return Level(p && model_data_[f][n].model_neq ? model_data_[f][n].level : model_data_[f][m].level);
   }
 
   CRef reason_of(const Lit a) const {
@@ -804,19 +851,21 @@ class Sat {
     const int fig = (fi + 1) * 1.5;
     const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : model_data_[0].upper_bound();
     if (fi >= 0) {
+      funs_.Capacitate(fig);
+      fun_names_.Capacitate(fig);
+      fun_n_names_.Capacitate(fig);
       watchers_.Capacitate(fig);
       model_.Capacitate(fig);
       model_data_.Capacitate(fig);
-      fun_order_.Capacitate(fig);
-      name_order_.Capacitate(fig);
+      model_neqs_.Capacitate(fig);
     }
     if (fi >= 0 || ni >= 0) {
       for (internal::DenseMap<Name, ModelData>& ds : model_data_) {
         ds.Capacitate(nig);
       }
-      for (ActivityOrder<Name>& ao : name_order_) {
-        ao.Capacitate(nig);
-      }
+      //for (RingBuffer<Name>& ns : fun_names_) {
+      //  ns.Capacitate(nig);
+      //}
     }
     if (ni >= 0) {
       for (internal::DenseMap<Name, ModelData>& ds : model_data_) {
@@ -836,10 +885,13 @@ class Sat {
   bool propagate_with_learned_ = true;
   double clause_bump_step_ = kBumpStepInit;
 
-  // fun_order_ ranks functions by their activity.
-  // name_order_ ranks functions by their activity for a given function.
-  ActivityOrder<Fun>                           fun_order_;
-  internal::DenseMap<Fun, ActivityOrder<Name>> name_order_;
+  // funs_ ranks unassigned functions by their activity.
+  // fun_names_ contains names n for each function f; some of them may
+  // be excluded by literals f != n on the trail.
+  // fun_n_names_ is the number of names that occured per function.
+  ActivityOrder<Fun>                        funs_;
+  internal::DenseMap<Fun, int>              fun_n_names_;
+  internal::DenseMap<Fun, RingBuffer<Name>> fun_names_;
 
   // watchers_ maps every function to a sequence of clauses that watch it.
   // Every clause watches two functions, and when a literal with this function
@@ -860,6 +912,8 @@ class Sat {
   // model_data_ is meta data for every function and name pair (cf. ModelData).
   internal::DenseMap<Fun, Name>                                model_;
   internal::DenseMap<Fun, internal::DenseMap<Name, ModelData>> model_data_;
+  int                                                          model_eqs_ = 0;
+  internal::DenseMap<Fun, int>                                 model_neqs_;
 };
 
 }  // namespace limbo

@@ -19,7 +19,12 @@ class Fun {
 
   static Fun FromId(id_t id) { return Fun(id); }
 
-  Fun() = default;
+  explicit Fun() = default;
+
+  Fun(const Fun&)            = default;
+  Fun& operator=(const Fun&) = default;
+  Fun(Fun&&)                 = default;
+  Fun& operator=(Fun&&)      = default;
 
   bool operator==(Fun f) const { return id_ == f.id_; }
   bool operator!=(Fun f) const { return id_ != f.id_; }
@@ -44,7 +49,12 @@ class Name {
 
   static Name FromId(id_t id) { return Name(id); }
 
-  Name() = default;
+  explicit Name() = default;
+
+  Name(const Name&)            = default;
+  Name& operator=(const Name&) = default;
+  Name(Name&&)                 = default;
+  Name& operator=(Name&&)      = default;
 
   bool operator==(Name n) const { return id_ == n.id_; }
   bool operator!=(Name n) const { return id_ != n.id_; }
@@ -74,6 +84,11 @@ class Lit {
 
   explicit Lit() = default;
   explicit Lit(bool pos, Fun fun, Name name) : Lit(Bits::interleave(int(fun), (int(name) << 1) | pos)) {}
+
+  Lit(const Lit&)            = default;
+  Lit& operator=(const Lit&) = default;
+  Lit(Lit&&)                 = default;
+  Lit& operator=(Lit&&)      = default;
 
   bool pos()  const { return id_ & 1; }
   bool neg()  const { return !pos(); }

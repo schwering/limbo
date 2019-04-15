@@ -71,12 +71,12 @@ next: {}
     return i1;
   }
 
-  Clause() = delete;
-  Clause(const Clause&) = delete;
+  Clause()                           = delete;
+  Clause(const Clause&)              = delete;
   Clause& operator=(const Clause& c) = delete;
-  Clause(Clause&&) = delete;
-  Clause& operator=(Clause&& c) = delete;
-  ~Clause() = delete;
+  Clause(Clause&&)                   = delete;
+  Clause& operator=(Clause&& c)      = delete;
+  ~Clause()                          = delete;
 
   bool operator==(const Clause& c) const {
     if (size() != c.size()) {
