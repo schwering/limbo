@@ -176,7 +176,6 @@ class Sat {
           const CRef cr = clausef_.New(learnt, Clause::NormalizationPromise(true));
           Clause& c = clausef_[cr];
           c.set_learnt(true);
-          assert(c.size() >= 1);
           assert(!satisfies(c[0]) && !falsifies(c[0]));
           assert(std::all_of(c.begin() + 1, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
           clauses_.push_back(cr);
@@ -188,23 +187,14 @@ class Sat {
         learnt.clear();
         funs_.Decay();
       } else {
-        Fun f;
-        do {
-          f = funs_.top();
-          if (f.null()) {
-            return 1;
-          }
-          funs_.Remove(f);
-        } while (!model_[f].null());
-        Name n;
-        do {
-          assert(fun_n_names_[f] - model_neqs_[f] <= fun_names_[f].size());
-          if (fun_names_[f].empty()) {
-            return -1;
-          }
-          n = fun_names_[f].PopFront();
-          model_data_[f][n].popped = true;
-        } while (model_data_[f][n].model_neq);
+        Fun f = NextFun();
+        if (f.null()) {
+          return 1;
+        }
+        Name n = NextName(f);
+        if (n.null()) {
+          return -1;
+        }
         AddNewLevel();
         const Lit a = Lit::Eq(f, n);
         EnqueueEq(a, CRef::kNull);
@@ -622,7 +612,6 @@ class Sat {
         want_complementary_on_level(a, l);
       }
       funs_.BumpUp(a.fun());
-      //fun_names_[a.fun()].BumpUp(a.name());
     };
 
     do {
@@ -722,13 +711,7 @@ class Sat {
       model_data_[f][n].Update(ModelData::kModelNeq, current_level(), reason);
       ++model_neqs_[f];
       if (fun_n_names_[f] - model_neqs_[f] == 1) {
-        Name m;
-        do {
-          assert(fun_n_names_[f] - model_neqs_[f] <= fun_names_[f].size());
-          assert(!fun_names_[f].empty());
-          m = fun_names_[f].PopFront();
-          model_data_[f][m].popped = true;
-        } while (model_data_[f][m].model_neq);
+        const Name m = NextName(f);
         assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
         EnqueueEq(Lit::Eq(f, m), CRef::kDomain);
       } else {
@@ -763,6 +746,30 @@ class Sat {
     trail_.resize(level_size_[int(l)]);
     trail_head_ = trail_.size();
     level_size_.resize(int(l));
+  }
+
+  Fun NextFun() {
+    Fun f;
+    do {
+      f = funs_.top();
+      if (f.null()) {
+        return Fun();
+      }
+      funs_.Remove(f);
+    } while (!model_[f].null());
+    return f;
+  }
+
+  Name NextName(const Fun f) {
+    Name n;
+    do {
+      if (fun_names_[f].empty()) {
+        return Name();
+      }
+      n = fun_names_[f].PopFront();
+      model_data_[f][n].popped = true;
+    } while (model_data_[f][n].model_neq);
+    return n;
   }
 
   bool satisfies(const Lit a) const {
@@ -859,10 +866,10 @@ class Sat {
 
   // clauses_ is the sequence of clauses added initially or learnt where
   // learnt clauses.
-  Clause::Factory clausef_;
-  std::vector<CRef> clauses_ = std::vector<CRef>(1, CRef::kNull);
-  bool propagate_with_learned_ = true;
-  double clause_bump_step_ = kBumpStepInit;
+  Clause::Factory   clausef_;
+  std::vector<CRef> clauses_                = std::vector<CRef>(1, CRef::kNull);
+  bool              propagate_with_learned_ = true;
+  double            clause_bump_step_       = kBumpStepInit;
 
   // funs_ ranks unassigned functions by their activity.
   // fun_names_ contains names n for each function f; some of them may

@@ -3,11 +3,13 @@
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A literal is an equality or inequality of a function and a name.
+// Fun, Name, Lit are trivial types and not zero-initialized implicitly.
 
 #ifndef LIMBO_LIT_H_
 #define LIMBO_LIT_H_
 
 #include <cassert>
+#include <type_traits>
 
 #include <limbo/internal/ints.h>
 
@@ -150,6 +152,10 @@ class Lit {
 
   id_t id_;
 };
+
+static_assert(std::is_trivial<Fun>::value, "Fun should be trivial type");
+static_assert(std::is_trivial<Name>::value, "Name should be trivial type");
+static_assert(std::is_trivial<Lit>::value, "Lit should be trivial type");
 
 }  // namespace limbo
 
