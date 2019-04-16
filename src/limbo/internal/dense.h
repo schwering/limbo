@@ -59,19 +59,19 @@ class DenseMap {
   DenseMap(DenseMap&&) = default;
   DenseMap& operator=(DenseMap&& c) = default;
 
-  void Capacitate(const Key k) { Capacitate(k2i_(k)); }
-  void Capacitate(const Index i) { if (i >= vec_.size()) { vec_.resize(i + 1); } }
+  void Capacitate(Key k) { Capacitate(k2i_(k)); }
+  void Capacitate(Index i) { if (i >= vec_.size()) { vec_.resize(i + 1); } }
 
   void Clear() { vec_.clear(); }
   bool Cleared() { return vec_.empty(); }
 
   Index upper_bound() const { return vec_.size(); }
 
-  reference operator[](const Index i) { check_bound_(this, i); return vec_[i]; }
-  const_reference operator[](const Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i]; }
+        reference operator[](Index i)       { check_bound_(this, i); return vec_[i]; }
+  const_reference operator[](Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i]; }
 
-  reference operator[](const Key key) { return operator[](k2i_(key)); }
-  const_reference operator[](const Key key) const { return operator[](k2i_(key)); }
+        reference operator[](Key key)       { return operator[](k2i_(key)); }
+  const_reference operator[](Key key) const { return operator[](k2i_(key)); }
 
   iterator begin() { return vec_.begin(); }
   iterator end()   { return vec_.end(); }
@@ -105,7 +105,7 @@ class DenseSet {
   DenseSet(DenseSet&&) = default;
   DenseSet& operator=(DenseSet&& c) = default;
 
-  void Capacitate(const Index i) { map_.Capacitate(i); }
+  void Capacitate(Index i) { map_.Capacitate(i); }
   void Capacitate(const T& x) { map_.Capacitate(x); }
 
   void Clear() { map_.Clear(); }
@@ -118,8 +118,8 @@ class DenseSet {
   void Insert(const T& x) { assert(!x.null()); map_[x] = x; }
   void Remove(const T& x) { assert(!x.null()); map_[x] = T(); }
 
-  reference operator[](const Index i) { return map_[i]; }
-  const_reference operator[](const Index i) const { return map_[i]; }
+        reference operator[](Index i)       { return map_[i]; }
+  const_reference operator[](Index i) const { return map_[i]; }
 
   iterator begin() { return map_.begin(); }
   iterator end()   { return map_.end(); }
@@ -142,10 +142,10 @@ class MinHeap {
 
   explicit MinHeap(Less less = Less()) : less_(less) { heap_.emplace_back(); }
 
-  MinHeap(const MinHeap&) = default;
+  MinHeap(const MinHeap&)            = default;
   MinHeap& operator=(const MinHeap&) = default;
-  MinHeap(MinHeap&&) = default;
-  MinHeap& operator=(MinHeap&&) = default;
+  MinHeap(MinHeap&&)                 = default;
+  MinHeap& operator=(MinHeap&&)      = default;
 
   void set_less(Less less) { less_ = less; }
 

@@ -39,6 +39,7 @@ namespace limbo {
 class Sat {
  public:
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
+  enum class Level : int  { kNull = 0, kRoot = 1 };
   using CRef = Clause::Factory::CRef;
 
   explicit Sat() = default;
@@ -157,8 +158,8 @@ class Sat {
   int  size()       const { return trail_eqs_; }
   Name value(Fun f) const { return model_[f]; }
 
-  bool propagate_with_learnt() const { return propagate_with_learned_; }
-  void set_propagate_with_learnt(bool b) { propagate_with_learned_ = b; }
+  bool     propagate_with_learnt()       const { return propagate_with_learned_; }
+  void set_propagate_with_learnt(bool b)       { propagate_with_learned_ = b; }
 
   template<typename ConflictPredicate, typename DecisionPredicate>
   Truth Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
@@ -214,8 +215,6 @@ class Sat {
   }
 
  private:
-  enum class Level : int { kNull = 0, kRoot = 1 };
-
   struct FunNameData {
     static constexpr bool kModelNeq = true;
     static constexpr bool kModelEq  = false;
