@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2018 Christoph Schwering
+// Copyright 2018-2019 Christoph Schwering
 //
 // A SAT solver using Limbo data structures. The purpose of this file is
 // to find reasons why Limbo is so slow.
@@ -308,7 +308,6 @@ int main(int argc, char *argv[]) {
   for (const std::vector<Lit>& lits : cnf) {
     solver.AddClause(lits, extra_name_factory);
   }
-  solver.Init();
   for (int i_iterations = 1; i_iterations <= n_iterations; ++i_iterations) {
     solver.Simplify();
     int i_models;
@@ -325,6 +324,7 @@ int main(int argc, char *argv[]) {
         const Name n = solver.value(f);
         lits.push_back(Lit::Neq(f, n));
       }
+      //solver.Reset();
       solver.AddClause(lits, extra_name_factory);
     }
     if (n_models != 1) {

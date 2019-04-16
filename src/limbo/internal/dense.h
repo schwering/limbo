@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016-2018 Christoph Schwering
+// Copyright 2016-2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // DenseMap, DenseSet, MinHeap classes, which are all based on representing values
@@ -45,12 +45,12 @@ template<typename Key,
          typename KeyToIndex = KeyToIndex<Key, Index>>
 class DenseMap {
  public:
-  using Vec = std::vector<Val>;
-  using value_type = typename Vec::value_type;
-  using reference = typename Vec::reference;
+  using Vec             = std::vector<Val>;
+  using value_type      = typename Vec::value_type;
+  using reference       = typename Vec::reference;
   using const_reference = typename Vec::const_reference;
-  using iterator = typename Vec::iterator;
-  using const_iterator = typename Vec::const_iterator;
+  using iterator        = typename Vec::iterator;
+  using const_iterator  = typename Vec::const_iterator;
 
   DenseMap() = default;
 
@@ -91,12 +91,12 @@ template<typename T,
          typename KeyToIndex = KeyToIndex<T, Index>>
 class DenseSet {
  public:
-  using Map = DenseMap<T, T, CheckBound, Index, KeyToIndex>;
-  using value_type = typename Map::value_type;
-  using reference = typename Map::reference;
+  using Map             = DenseMap<T, T, CheckBound, Index, KeyToIndex>;
+  using value_type      = typename Map::value_type;
+  using reference       = typename Map::reference;
   using const_reference = typename Map::const_reference;
-  using iterator = typename Map::iterator;
-  using const_iterator = typename Map::const_iterator;
+  using iterator        = typename Map::iterator;
+  using const_iterator  = typename Map::const_iterator;
 
   DenseSet() = default;
 

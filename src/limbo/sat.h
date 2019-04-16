@@ -1,6 +1,21 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014-2018 Christoph Schwering
+// Copyright 2014-2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
+//
+// Satisfiability solver for grounded clauses with functions and names.
+// The life-cycle works as follows:
+//
+//  1. AddLiteral() and/or AddClause() to populate the knowledge base.
+//  2. Init() to prepare for solving.
+//  3. Simplify() [opt.] to eliminate unsatisfied clauses etc.
+//  4. Solve() to find an assignment.
+//  5. value() and size() to access model.
+//  6. Reset() (optional) to reset the current assignment.
+//  7. AddLiteral() or AddClause() to extend knowledge base.
+//  8. Simplify() [opt.] to reset the assignment (!) and simplify the clauses.
+//  9. Solve() to find an assignment.
+// 10. value() and size() to access model.
+// 11. Repeat from step 6.
 
 #ifndef LIMBO_SAT_H_
 #define LIMBO_SAT_H_
@@ -23,7 +38,7 @@ namespace limbo {
 
 class Sat {
  public:
-  enum class Truth : int { kUnsat = -1, kUnknown = 0, kSat = 1 };
+  enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
 
   explicit Sat() = default;
@@ -35,8 +50,12 @@ class Sat {
 
   template<typename ExtraNameFactory>
   void AddLiteral(const Lit a, ExtraNameFactory extra_name = ExtraNameFactory()) {
-    trail_.push_back(a);
     Register(a.fun(), a.name(), extra_name(a.fun()));
+    if (falsifies(a)) {
+      empty_clause_ = true;
+    } else {
+      Enqueue(a, CRef::kNull);
+    }
   }
 
   template<typename ExtraNameFactory>
@@ -69,21 +88,6 @@ class Sat {
         UpdateWatchers(cr, c);
         trail_head_ = 0;
       }
-    }
-  }
-
-  void Init() {
-    assert(trail_head_ == 0);
-    assert(level_size_.size() == 1);
-    std::vector<Lit> lits = std::move(trail_);
-    trail_.resize(0);
-    trail_.reserve(lits.size());
-    for (const Lit a : lits) {
-      if (falsifies(a)) {
-        empty_clause_ = true;
-        return;
-      }
-      Enqueue(a, CRef::kNull);
     }
   }
 
@@ -188,7 +192,7 @@ class Sat {
           Enqueue(learnt[0], CRef::kNull);
         }
         learnt.clear();
-        FunDecay();
+        DecayFun();
       } else {
         Fun f = NextFun();
         if (f.null()) {
@@ -210,19 +214,19 @@ class Sat {
   }
 
  private:
-  enum class Level : int { kAll = -1, kNull = 0, kRoot = 1 };
+  enum class Level : int { kNull = 0, kRoot = 1 };
 
-  struct FunNameData {  // meta data for a pair (f,n)
+  struct FunNameData {
     static constexpr bool kModelNeq = true;
-    static constexpr bool kModelEq = false;
+    static constexpr bool kModelEq  = false;
 
     explicit FunNameData()
         : occurs(0), popped(0), model_neq(0), seen_subsumed(0), wanted(0), level(0), reason(CRef::kNull) {}
 
-    FunNameData(const FunNameData&) = default;
-    FunNameData& operator=(const FunNameData&) = default;
-    FunNameData(FunNameData&&) = default;
-    FunNameData& operator=(FunNameData&&) = default;
+    FunNameData(const FunNameData&)            = delete;
+    FunNameData& operator=(const FunNameData&) = delete;
+    FunNameData(FunNameData&&)                 = default;
+    FunNameData& operator=(FunNameData&&)      = default;
 
     void Update(const bool model_neq, const Level level, const CRef reason) {
       this->model_neq = model_neq;
@@ -258,13 +262,12 @@ class Sat {
 
   static_assert(sizeof(FunNameData) == 4 + sizeof(CRef), "FunNameData should be 4 + 4 bytes");
 
-
   static constexpr double kBumpStepInit = 1.0;
   static constexpr double kActivityThreshold = 1e100;
   static constexpr double kDecayFactor = 0.95;
 
 
-  void ClauseBump(Clause& c) {
+  void Bump(Clause& c) {
     c.set_activity(c.activity() + clause_bump_step_);
     if (c.activity() > kActivityThreshold) {
       for (const CRef cr : clauses_) {
@@ -275,7 +278,7 @@ class Sat {
     }
   }
 
-  void FunBump(const Fun f, const double bump) {
+  void Bump(const Fun f, const double bump) {
     fun_activity_[f] += bump;
     if (fun_activity_[f] > kActivityThreshold) {
       for (double& a : fun_activity_) {
@@ -292,28 +295,11 @@ class Sat {
     }
   }
 
-  void FunBumpToFront(const Fun f) { FunBump(f, fun_activity_[fun_queue_.top()] - fun_activity_[f] + fun_bump_step_); }
-  void FunBump(const Fun f)        { FunBump(f, fun_bump_step_); }
+  void BumpToFront(const Fun f) { Bump(f, fun_activity_[fun_queue_.top()] - fun_activity_[f] + fun_bump_step_); }
+  void Bump(const Fun f)        { Bump(f, fun_bump_step_); }
 
-  void ClauseDecay() { clause_bump_step_ /= kDecayFactor; }
-  void FunDecay()    { fun_bump_step_    /= kDecayFactor; }
-
-  void Register(const Fun f, const Name n, const Name extra_n) {
-    CapacitateMaps(f, n, extra_n);
-    if (!fun_queue_.Contains(f)) {
-      fun_queue_.Insert(f);
-      if (!data_[f][extra_n].occurs) {
-        data_[f][extra_n].occurs = true;
-        domain_[f].PushBack(extra_n);
-        ++domain_size_[f];
-      }
-    }
-    if (!data_[f][n].occurs) {
-      data_[f][n].occurs = true;
-      domain_[f].PushBack(n);
-      ++domain_size_[f];
-    }
-  }
+  void DecayClause() { clause_bump_step_ /= kDecayFactor; }
+  void DecayFun()    { fun_bump_step_    /= kDecayFactor; }
 
   void UpdateWatchers(const CRef cr, const Clause& c) {
     assert(&clausef_[cr] == &c);
@@ -439,11 +425,11 @@ class Sat {
           Enqueue(c[i], cr);
           *cr_ptr2++ = *cr_ptr1++;
         }
-        ClauseBump(c);
+        Bump(c);
       }
     }
     ws.resize(cr_ptr2 - begin);
-    ClauseDecay();
+    DecayClause();
     return conflict;
   }
 
@@ -574,12 +560,11 @@ class Sat {
         ++depth;
         want_complementary_on_level(a, l);
       }
-      FunBump(a.fun());
+      Bump(a.fun());
     };
 
     do {
       assert(conflict != CRef::kNull);
-      // XXX TODO test that kDomainRef can cause a conflict (probably true because f=n is added when domain reaches size 1)
       if (conflict == CRef::kDomain) {
         assert(!trail_a.null());
         assert(trail_a.pos());
@@ -678,7 +663,7 @@ class Sat {
         assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
         EnqueueEq(Lit::Eq(f, m), CRef::kDomain);
       } else {
-        FunBumpToFront(f);
+        BumpToFront(f);
       }
     }
     assert(satisfies(a));
@@ -716,7 +701,7 @@ class Sat {
     do {
       f = fun_queue_.top();
       if (f.null()) {
-        return Fun();
+        break;
       }
       fun_queue_.Remove(f);
     } while (!model_[f].null());
@@ -724,10 +709,10 @@ class Sat {
   }
 
   Name NextName(const Fun f) {
-    Name n;
+    Name n = Name();
     do {
       if (domain_[f].empty()) {
-        return Name();
+        break;
       }
       n = domain_[f].PopFront();
       data_[f][n].popped = true;
@@ -793,6 +778,23 @@ class Sat {
 
   Level current_level() const { return Level(level_size_.size()); }
 
+  void Register(const Fun f, const Name n, const Name extra_n) {
+    CapacitateMaps(f, n, extra_n);
+    if (!fun_queue_.Contains(f)) {
+      fun_queue_.Insert(f);
+      if (!data_[f][extra_n].occurs) {
+        data_[f][extra_n].occurs = true;
+        domain_[f].PushBack(extra_n);
+        ++domain_size_[f];
+      }
+    }
+    if (!data_[f][n].occurs) {
+      data_[f][n].occurs = true;
+      domain_[f].PushBack(n);
+      ++domain_size_[f];
+    }
+  }
+
   void CapacitateMaps(const Fun f, const Name n, const Name extra_n) {
     const int max_ni = int(n) > int(extra_n) ? int(n) : int(extra_n);
     const int fi = int(f) >= data_.upper_bound() ? int(f) : -1;
@@ -825,8 +827,9 @@ class Sat {
   // empty_clause_ is true iff the empty clause has been derived.
   bool empty_clause_ = false;
 
-  // clauses_ is the sequence of clauses added initially or learnt where
-  // learnt clauses.
+  // clauses_ is the sequence of clauses added initially or learnt.
+  // propagate_with_learnt_ is true iff learnt clauses are not considered in
+  //    Propagate().
   Clause::Factory   clausef_;
   std::vector<CRef> clauses_                = std::vector<CRef>(1, CRef::kNull);
   bool              propagate_with_learned_ = true;
@@ -834,21 +837,22 @@ class Sat {
 
   // domain_size_ is the number of names that occured per function.
   // domain_ contains at most domain_size_ names n that are potential values
-  // for each f; some of those may already be excluded by f != n on the trail.
+  //    for each f; some of those may already be excluded by f != n on the
+  //    trail.
   internal::DenseMap<Fun, int>              domain_size_;
   internal::DenseMap<Fun, RingBuffer<Name>> domain_;
 
   // watchers_ maps every function to a sequence of clauses that watch it;
-  // every clause watches two functions, and when a literal with this function
-  // is propagated, the watching clauses are inspected.
+  //    every clause watches two functions, and when a literal with this
+  //    function is propagated, the watching clauses are inspected.
   internal::DenseMap<Fun, std::vector<CRef>> watchers_;
 
   // trail_ is a sequence of literals in the order they were derived.
   // level_size_ groups the literals of trail_ into chunks by their level at
-  // which they were derived, where level_size_[l] determines the number of
-  // literals set or derived up to level l.
+  //    which they were derived, where level_size_[l] determines the number of
+  //    literals set or derived up to level l.
   // trail_head_ is the index of the first literal of trail_ that hasn't been
-  // propagated yet.
+  //    propagated yet.
   // trail_eqs_ is the number of equalities on the trail.
   // trail_neqs_ is the number of inequalities on the trail for a function.
   std::vector<Lit>             trail_;
@@ -864,7 +868,6 @@ class Sat {
 
   // fun_activity_ assigns an activity to each function.
   // fun_queue_ ranks the clauses by activity (highest first).
-  // fun_bump_step_ is the current increment value.
   internal::DenseMap<Fun, double>         fun_activity_;
   internal::MinHeap<Fun, ActivityCompare> fun_queue_{ActivityCompare(&fun_activity_)};
   double                                  fun_bump_step_ = kBumpStepInit;

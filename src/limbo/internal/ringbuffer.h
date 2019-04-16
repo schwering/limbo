@@ -1,4 +1,9 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
+// Copyright 2019 Christoph Schwering
+// Licensed under the MIT license. See LICENSE file in the project root.
+//
+// RingBuffer that grows on demand.
+
 #ifndef LIMBO_RINGBUFFER_H_
 #define LIMBO_RINGBUFFER_H_
 
@@ -22,8 +27,8 @@ class RingBuffer {
   bool empty() const { return begin_ == end_; }
   bool full()  const { return xs_ == nullptr || size() == capacity_ - 1; }
 
-        T& operator[](const int i)       { return xs_[(begin_ + i) % capacity_]; }
-  const T& operator[](const int i) const { return xs_[(begin_ + i) % capacity_]; }
+        T& operator[](int i)       { return xs_[(begin_ + i) % capacity_]; }
+  const T& operator[](int i) const { return xs_[(begin_ + i) % capacity_]; }
 
   void PushFront(T&& x) {
     if (full()) {

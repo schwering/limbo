@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014-2018 Christoph Schwering
+// Copyright 2014-2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // A literal is an equality or inequality of a function and a name.
@@ -36,7 +36,7 @@ class Fun {
   bool operator> (Fun f) const { return id_ >  f.id_; }
 
   explicit operator bool() const { return id_; }
-  explicit operator int() const { return id_; }
+  explicit operator int()  const { return id_; }
   bool null() const { return id_ == 0; }
 
  private:
@@ -66,7 +66,7 @@ class Name {
   bool operator> (Name n) const { return id_ >  n.id_; }
 
   explicit operator bool() const { return id_; }
-  explicit operator int() const { return id_; }
+  explicit operator int()  const { return id_; }
   bool null() const { return id_ == 0; }
 
  private:
