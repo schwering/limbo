@@ -170,7 +170,7 @@ bool Solve(Sat* solver, int n_conflicts_init, int conflicts_increase) {
   } stats;
   bool restarts = n_conflicts_init >= 0;
   int n_conflicts = n_conflicts_init;
-  int sat = 0;
+  Sat::Truth truth = Sat::Truth::kUnknown;
 
   auto conflict_predicate = [&](auto level, auto conflict, const std::vector<Lit>& learnt, auto btlevel) {
     ++stats.conflicts;
@@ -188,22 +188,22 @@ bool Solve(Sat* solver, int n_conflicts_init, int conflicts_increase) {
 
   Timer t;
   t.start();
-  for (int i = 0; sat == 0; ++i) {
+  for (int i = 0; truth == Sat::Truth::kUnknown; ++i) {
     n_conflicts = static_cast<int>(std::pow(conflicts_increase, i) * n_conflicts_init);
-    sat = solver->Solve(conflict_predicate, decision_predicate);
+    truth = solver->Solve(conflict_predicate, decision_predicate);
   }
   t.stop();
-  printf("%s (in %.5lfs)\n", (sat > 0 ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
+  printf("%s (in %.5lfs)\n", (truth == Sat::Truth::kSat ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
   printf("Conflicts: %d (at average level %lf to average level %lf) | Decisions: %d (at average level %lf)\n",
          stats.conflicts,
          (static_cast<double>(stats.conflicts_level_sum)/static_cast<double>(stats.conflicts)),
          (static_cast<double>(stats.conflicts_btlevel_sum)/static_cast<double>(stats.conflicts)),
          stats.decisions,
          (static_cast<double>(stats.decisions_level_sum)/static_cast<double>(stats.decisions)));
-  return sat > 0;
+  return truth == Sat::Truth::kSat;
 }
 
-void PrintSolution(const Sat& solver, const bool prop, const int n_columns,
+void PrintSolution(const Sat& solver, const bool prop, const int n_columns, bool show_funs,
                    const std::vector<Fun>& funs, const std::vector<Name>& names,
                    const bool extra, const Name extra_name) {
   struct winsize ws;
@@ -213,12 +213,12 @@ void PrintSolution(const Sat& solver, const bool prop, const int n_columns,
   int i = 0;
   if (!prop) {
     for (const Fun f : funs) {
-      const Name n = solver.model()[f];
+      const Name n = solver.value(f);
       if (!extra && n == extra_name) {
         continue;
       }
-      std::stringstream fss; fss << f;
-      std::stringstream ess; ess << " = ";
+      std::stringstream fss; if (show_funs) { fss << f; }
+      std::stringstream ess; if (show_funs) { ess << " = "; }
       std::stringstream nss; nss << n;
       const std::string fs = fss.str();
       const std::string es = ess.str();
@@ -233,7 +233,7 @@ void PrintSolution(const Sat& solver, const bool prop, const int n_columns,
     }
   } else {
     for (const Fun f : funs) {
-      const Name n = solver.model()[f];
+      const Name n = solver.value(f);
       if (!extra && n == extra_name) {
         continue;
       }
@@ -253,6 +253,7 @@ int main(int argc, char *argv[]) {
   int n_models = 1;
   int n_iterations = 1;
   int n_columns = 0;
+  int show_funs = true;
   int n_conflicts_before_restart = -1;
   int loaded = 0;
   int extra = true;
@@ -267,6 +268,7 @@ int main(int argc, char *argv[]) {
       std::cout << "Options:" << std::endl;
       std::cout << "--columns=int    -c=int  columns in output, e.g, 9 for sudoku (default: " << n_columns << ")" << std::endl;
       std::cout << "--extra=bool     -e=bool whether extra name is added (default: " << extra << ")" << std::endl;
+      std::cout << "--showfuns=bool  -f=bool show funs on output (default: " << show_funs << ")" << std::endl;
       std::cout << "--iterations=int -i=int  repretitions with clauses learnt so far (default: " << n_iterations << ")" << std::endl;
       std::cout << "--models=int     -n=int  how many models to find (default: " << n_models << ", infinity: -1)" << std::endl;
       std::cout << "--restart=int    -r=int  conflicts before restart, (default: " << n_conflicts_before_restart << ", infinity: -1)" << std::endl;
@@ -279,6 +281,7 @@ int main(int argc, char *argv[]) {
       return 1;
     } else if (sscanf(argv[i], "--columns=%d", &n_columns) == 1 || sscanf(argv[i], "-c=%d", &n_columns) == 1) {
     } else if (sscanf(argv[i], "--extra=%d", &extra) == 1 || sscanf(argv[i], "-e=%d", &extra) == 1) {
+    } else if (sscanf(argv[i], "--showfuns=%d", &show_funs) == 1 || sscanf(argv[i], "-f=%d", &show_funs) == 1) {
     } else if (sscanf(argv[i], "--iterations=%d", &n_iterations) == 1 || sscanf(argv[i], "-i=%d", &n_iterations) == 1) {
     } else if (sscanf(argv[i], "--models=%d", &n_models) == 1 || sscanf(argv[i], "-n=%d", &n_models) == 1) {
     } else if (sscanf(argv[i], "--restart=%d", &n_conflicts_before_restart) == 1 || sscanf(argv[i], "-r=%d", &n_conflicts_before_restart) == 1) {
@@ -315,11 +318,11 @@ int main(int argc, char *argv[]) {
         break;
       }
       if (n_columns >= 0) {
-        PrintSolution(solver, prop, n_columns, funs, names, extra, extra_name);
+        PrintSolution(solver, prop, n_columns, show_funs, funs, names, extra, extra_name);
       }
       std::vector<Lit> lits;
       for (const Fun f : funs) {
-        const Name n = solver.model()[f];
+        const Name n = solver.value(f);
         lits.push_back(Lit::Neq(f, n));
       }
       solver.AddClause(lits, extra_name_factory);
