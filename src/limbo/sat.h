@@ -177,7 +177,7 @@ class Sat {
         }
         Level btlevel;
         Analyze(conflict, &learnt, &btlevel);
-        go &= conflict_predicate(current_level(), conflict, learnt, btlevel);
+        go &= conflict_predicate(int(current_level()), conflict, learnt, int(btlevel));
         Backtrack(btlevel);
         assert(learnt.size() >= 1);
         if (learnt.size() > 1) {
@@ -192,6 +192,7 @@ class Sat {
         } else {
           Enqueue(learnt[0], CRef::kNull);
         }
+        BumpToFront(learnt[0].fun());
         learnt.clear();
         DecayFun();
       } else {
@@ -206,7 +207,7 @@ class Sat {
         AddNewLevel();
         const Lit a = Lit::Eq(f, n);
         EnqueueEq(a, CRef::kNull);
-        go &= decision_predicate(current_level(), a);
+        go &= decision_predicate(int(current_level()), a);
       }
       assert(level_size_.back() < trail_.size());
     }
@@ -366,7 +367,7 @@ class Sat {
       assert(conflict == CRef::kNull);
       assert(std::count(cr_ptr1, end, cr) == 1);
 
-      if (c.learnt() && !propagate_with_learned_) {
+      if (!propagate_with_learned_ && c.learnt()) {
         *cr_ptr2++ = *cr_ptr1++;
         continue;
       }
@@ -661,8 +662,6 @@ class Sat {
         const Name m = NextName(f);
         assert(!satisfies(Lit::Eq(f, m)) && !falsifies(Lit::Eq(f, m)));
         EnqueueEq(Lit::Eq(f, m), CRef::kDomain);
-      } else {
-        BumpToFront(f);
       }
     }
     assert(satisfies(a));
