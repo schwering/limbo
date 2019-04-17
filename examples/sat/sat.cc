@@ -172,16 +172,16 @@ bool Solve(Sat* solver, int n_conflicts_init, int conflicts_increase) {
   int n_conflicts = n_conflicts_init;
   Sat::Truth truth = Sat::Truth::kUnknown;
 
-  auto conflict_predicate = [&](auto level, auto conflict, const std::vector<Lit>& learnt, auto btlevel) {
+  auto conflict_predicate = [&](int level, Sat::CRef conflict, const std::vector<Lit>& learnt, int btlevel) {
     ++stats.conflicts;
-    stats.conflicts_level_sum += int(level);
-    stats.conflicts_btlevel_sum += int(btlevel);
+    stats.conflicts_level_sum += level;
+    stats.conflicts_btlevel_sum += btlevel;
     //std::cout << "Learnt from " << solver.clause(conflict) << " at level " << level << " that " << learnt << ", backtracking to " << btlevel << std::endl;
     return !restarts || stats.conflicts < n_conflicts;
   };
-  auto decision_predicate = [&](auto level, Lit a) {
+  auto decision_predicate = [&](int level, Lit a) {
     ++stats.decisions;
-    stats.decisions_level_sum += int(level);
+    stats.decisions_level_sum += level;
     //std::cout << "Decided " << a << " at level " << level << std::endl;
     return true;
   };
