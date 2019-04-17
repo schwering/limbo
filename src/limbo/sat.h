@@ -6,16 +6,14 @@
 // The life-cycle works as follows:
 //
 //  1. AddLiteral() and/or AddClause() to populate the knowledge base.
-//  2. Init() to prepare for solving.
-//  3. Simplify() [opt.] to eliminate unsatisfied clauses etc.
+//  3. Simplify() [opt.] to simplify clauses.
 //  4. Solve() to find an assignment.
 //  5. value() and size() to access model.
-//  6. Reset() (optional) to reset the current assignment.
-//  7. AddLiteral() or AddClause() to extend knowledge base.
-//  8. Simplify() [opt.] to reset the assignment (!) and simplify the clauses.
-//  9. Solve() to find an assignment.
-// 10. value() and size() to access model.
-// 11. Repeat from step 6.
+//  6. Reset() [opt.] to reset the current assignment.
+//  7. Repeat from 1.
+//
+// After the first call to Simplify() or Solve(), newly added literals or
+// clauses must not contain new names.
 
 #ifndef LIMBO_SAT_H_
 #define LIMBO_SAT_H_
@@ -51,12 +49,11 @@ class Sat {
 
   template<typename ExtraNameFactory>
   void AddLiteral(const Lit a, ExtraNameFactory extra_name = ExtraNameFactory()) {
+    // Cannot Enqueue() here because the domains aren't complete yet and
+    // domain clause propagation might thus be incorrect. InitTrail() must
+    // be called to Enqueue().
     Register(a.fun(), a.name(), extra_name(a.fun()));
-    if (falsifies(a)) {
-      empty_clause_ = true;
-    } else {
-      Enqueue(a, CRef::kNull);
-    }
+    trail_.push_back(a);
   }
 
   template<typename ExtraNameFactory>
@@ -66,25 +63,30 @@ class Sat {
     } else if (as.size() == 1) {
       AddLiteral(as[0], extra_name);
     } else {
-      const CRef cr = CRef(clausef_.New(as));
+      const CRef cr = clausef_.New(as);
       Clause& c = clausef_[cr];
       if (c.valid()) {
         clausef_.Delete(cr, as.size());
-        return;
-      }
-      if (c.unsat()) {
+      } else if (c.unsat()) {
         empty_clause_ = true;
         clausef_.Delete(cr, as.size());
-        return;
-      }
-      assert(c.size() >= 1);
-      if (c.size() == 1) {
+      } else if (c.size() == 1) {
         AddLiteral(c[0], extra_name);
         clausef_.Delete(cr, as.size());
       } else {
+        assert(c.size() >= 2);
         clauses_.push_back(cr);
         for (const Lit a : c) {
           Register(a.fun(), a.name(), extra_name(a.fun()));
+        }
+        for (int i = 0; i < 2; ++i) {
+          if (falsifies(c[i])) {
+            for (int j = i + 1; j < c.size(); ++j) {
+              if (!falsifies(c[j]) || level_of_complementary(c[i]) < level_of_complementary(c[j])) {
+                std::swap(c[i], c[j]);
+              }
+            }
+          }
         }
         UpdateWatchers(cr, c);
         trail_head_ = 0;
@@ -94,14 +96,16 @@ class Sat {
 
   void Reset() {
     if (current_level() != Level::kRoot) {
+      InitTrail();
       Backtrack(Level::kRoot);
     }
   }
 
   void Simplify() {
-    Reset();
-    assert(level_size_.size() == 1);
-    assert(level_size_[0] == 0);
+    InitTrail();
+    if (empty_clause_) {
+      return;
+    }
     const CRef conflict = Propagate();
     if (conflict != CRef::kNull) {
       empty_clause_ = true;
@@ -115,41 +119,25 @@ class Sat {
       const CRef cr = clauses_[i];
       Clause& c = clausef_[cr];
       assert(c.size() >= 2);
-      const int removed = c.RemoveIf([this](Lit a) -> bool { return falsifies(a); });
+      bool satisfied = false;
+      c.RemoveIf([this, &satisfied](Lit a) -> bool {
+        satisfied |= satisfies(a) && level_of(a) <= Level::kRoot;
+        return falsifies(a) && level_of_complementary(a) <= Level::kRoot;
+      });
       assert(!c.valid());
       if (c.unsat()) {
         empty_clause_ = true;
-        clausef_.Delete(cr, c.size() + removed);
         return;
-      } else if (satisfies(c)) {
-        clausef_.Delete(cr, c.size() + removed);
+      } else if (satisfied) {
         clauses_[i--] = clauses_[--n_clauses];
       } else if (c.size() == 1) {
         Enqueue(c[0], CRef::kNull);
-        clausef_.Delete(cr, c.size() + removed);
         clauses_[i--] = clauses_[--n_clauses];
       } else {
         UpdateWatchers(cr, c);
       }
     }
     clauses_.resize(n_clauses);
-    int n_units = trail_.size();
-    for (int i = 0; i < n_units; ++i) {
-      const Lit a = trail_[i];
-      const bool p = a.pos();
-      const Fun f = a.fun();
-      const Name n = a.name();
-      const Name m = model_[f];
-      if (!p && !m.null()) {
-        assert(m != n);
-        trail_[i--] = trail_[--n_units];
-        data_[f][n].Reset();
-      }
-      data_[f][n].reason = CRef::kNull;
-      assert(satisfies(a));
-    }
-    trail_.resize(n_units);
-    trail_head_ = trail_.size();
   }
 
   const std::vector<CRef>& clauses()       const { return clauses_; }
@@ -164,6 +152,7 @@ class Sat {
   template<typename ConflictPredicate, typename DecisionPredicate>
   Truth Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
               DecisionPredicate decision_predicate = DecisionPredicate()) {
+    InitTrail();
     if (empty_clause_) {
       return Truth::kUnsat;
     }
@@ -173,6 +162,7 @@ class Sat {
       const CRef conflict = Propagate();
       if (conflict != CRef::kNull) {
         if (current_level() == Level::kRoot) {
+          empty_clause_ = true;
           return Truth::kUnsat;
         }
         Level btlevel;
@@ -326,7 +316,7 @@ class Sat {
       Lit a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
-    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { return clausef_[cr].learnt() || std::all_of(clausef_[cr].begin(), clausef_[cr].begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
+    //assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { return clausef_[cr].learnt() || std::all_of(clausef_[cr].begin(), clausef_[cr].begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
     assert(conflict != CRef::kNull || std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { const Clause& c = clausef_[cr]; return c.learnt() || satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }); }));
     return conflict;
   }
@@ -775,6 +765,21 @@ class Sat {
   }
 
   Level current_level() const { return Level(level_size_.size()); }
+
+  void InitTrail() {
+    std::vector<Lit> lits;
+    lits.reserve(trail_.size() - trail_head_);
+    for (auto a = trail_.begin() + trail_head_, e = trail_.end(); a != e; ++a) {
+      lits.push_back(*a);
+    }
+    for (const Lit a : lits) {
+      if (falsifies(a)) {
+        empty_clause_ = true;
+        return;
+      }
+      Enqueue(a, CRef::kNull);
+    }
+  }
 
   void Register(const Fun f, const Name n, const Name extra_n) {
     CapacitateMaps(f, n, extra_n);

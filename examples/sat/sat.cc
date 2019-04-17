@@ -324,12 +324,14 @@ int main(int argc, char *argv[]) {
         const Name n = solver.value(f);
         lits.push_back(Lit::Neq(f, n));
       }
-      //solver.Reset();
-      solver.AddClause(lits, extra_name_factory);
+      if (n_models != 1) {
+        solver.AddClause(lits, extra_name_factory);
+      }
     }
     if (n_models != 1) {
       std::cout << "Found " << i_models << " models" << std::endl;
     }
+    solver.Reset();
   }
   timer_total.stop();
   if (timer_total.rounds() > 1) {

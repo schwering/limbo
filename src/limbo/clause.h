@@ -113,8 +113,8 @@ next: {}
   const_iterator cbegin() const { return &as_[0]; }
   const_iterator cend()   const { return &as_[0] + h_.size; }
 
-  const_iterator begin()  const { return cbegin(); }
-  const_iterator end()    const { return cend(); }
+  const_iterator begin() const { return cbegin(); }
+  const_iterator end()   const { return cend(); }
 
 
   bool valid() const { return unit() && as_[0].null(); }
@@ -206,10 +206,10 @@ class Clause::Factory {
 
   explicit Factory() = default;
 
-  Factory(const Factory&) = delete;
+  Factory(const Factory&)            = delete;
   Factory& operator=(const Factory&) = delete;
-  Factory(Factory&&) = default;
-  Factory& operator=(Factory&&) = default;
+  Factory(Factory&&)                 = default;
+  Factory& operator=(Factory&&)      = default;
 
   CRef New(Lit a) {
     const CRef cr = memory_.Allocate(clause_size(1));
@@ -241,10 +241,10 @@ class Clause::Factory {
     explicit MemoryPool(size_t n = 1024 * 1024) { Capacitate(n); }
     ~MemoryPool() { if (memory_) { std::free(memory_); } }
 
-    MemoryPool(const MemoryPool&) = delete;
+    MemoryPool(const MemoryPool&)            = delete;
     MemoryPool& operator=(const MemoryPool&) = delete;
-    MemoryPool(MemoryPool&&) = default;
-    MemoryPool& operator=(MemoryPool&&) = default;
+    MemoryPool(MemoryPool&&)                 = default;
+    MemoryPool& operator=(MemoryPool&&)      = default;
 
     size_t bytes_to_chunks(size_t n) { return (n + sizeof(T) - 1) / sizeof(T); }
 
@@ -261,10 +261,10 @@ class Clause::Factory {
       }
     }
 
-    T& operator[](CRef r) { return memory_[size_t(r)]; }
+          T& operator[](CRef r)       { return memory_[size_t(r)]; }
     const T& operator[](CRef r) const { return memory_[size_t(r)]; }
 
-    T* address(CRef r) const { return &memory_[size_t(r)]; }
+    T*   address(CRef r)       const { return &memory_[size_t(r)]; }
     CRef reference(const T* r) const { return r - &memory_[0]; }
 
    private:
