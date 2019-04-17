@@ -31,15 +31,15 @@ class Registry : private internal::Singleton<Registry> {
     instance = nullptr;
   }
 
-  void Register(const Alphabet::Sort& sort, const std::string& s) { R(&sorts_, sort, s); }
-  void Register(const Alphabet::Fun&  fun,  const std::string& s) { R(&funs_,  fun,  s); }
-  void Register(const Alphabet::Name& name, const std::string& s) { R(&names_, name, s); }
-  void Register(const Alphabet::Var&  var,  const std::string& s) { R(&vars_,  var,  s); }
+  void Register(const Alphabet::Sort& sort,       const std::string& s) { R(&sorts_, sort, s); }
+  void Register(const Alphabet::FunSymbol&  fun,  const std::string& s) { R(&funs_,  fun,  s); }
+  void Register(const Alphabet::NameSymbol& name, const std::string& s) { R(&names_, name, s); }
+  void Register(const Alphabet::VarSymbol&  var,  const std::string& s) { R(&vars_,  var,  s); }
 
-  const std::string& Lookup(const Alphabet::Sort& sort, const char* def = "s") const { return L(&sorts_, sort, def); }
-  const std::string& Lookup(const Alphabet::Fun&  fun,  const char* def = "f") const { return L(&funs_,  fun,  def); }
-  const std::string& Lookup(const Alphabet::Name& name, const char* def = "n") const { return L(&names_, name, def); }
-  const std::string& Lookup(const Alphabet::Var&  var,  const char* def = "x") const { return L(&vars_,  var,  def); }
+  const std::string& Lookup(const Alphabet::Sort& sort,       const char* def = "s") const { return L(&sorts_, sort, def); }
+  const std::string& Lookup(const Alphabet::FunSymbol&  fun,  const char* def = "f") const { return L(&funs_,  fun,  def); }
+  const std::string& Lookup(const Alphabet::NameSymbol& name, const char* def = "n") const { return L(&names_, name, def); }
+  const std::string& Lookup(const Alphabet::VarSymbol&  var,  const char* def = "x") const { return L(&vars_,  var,  def); }
 
  private:
   template<typename T>
@@ -66,10 +66,10 @@ class Registry : private internal::Singleton<Registry> {
     return (*map)[x];
   }
 
-  mutable StringMap<Alphabet::Sort> sorts_;
-  mutable StringMap<Alphabet::Fun>  funs_;
-  mutable StringMap<Alphabet::Name> names_;
-  mutable StringMap<Alphabet::Var>  vars_;
+  mutable StringMap<Alphabet::Sort>       sorts_;
+  mutable StringMap<Alphabet::FunSymbol>  funs_;
+  mutable StringMap<Alphabet::NameSymbol> names_;
+  mutable StringMap<Alphabet::VarSymbol>  vars_;
 };
 
 struct Strings {
@@ -124,10 +124,10 @@ std::ostream& operator<<(std::ostream& os, const Lit& a) {
 
 std::ostream& operator<<(std::ostream& os, const Clause& c) { return os << sequence(c, Strings::kOrS); }
 
-std::ostream& operator<<(std::ostream& os, const Alphabet::Sort& s) { return os << Registry::Instance()->Lookup(s); }
-std::ostream& operator<<(std::ostream& os, const Alphabet::Fun&  f) { return os << Registry::Instance()->Lookup(f); }
-std::ostream& operator<<(std::ostream& os, const Alphabet::Name& n) { return os << Registry::Instance()->Lookup(n); }
-std::ostream& operator<<(std::ostream& os, const Alphabet::Var&  x) { return os << Registry::Instance()->Lookup(x); }
+std::ostream& operator<<(std::ostream& os, const Alphabet::Sort& s)       { return os << Registry::Instance()->Lookup(s); }
+std::ostream& operator<<(std::ostream& os, const Alphabet::FunSymbol&  f) { return os << Registry::Instance()->Lookup(f); }
+std::ostream& operator<<(std::ostream& os, const Alphabet::NameSymbol& n) { return os << Registry::Instance()->Lookup(n); }
+std::ostream& operator<<(std::ostream& os, const Alphabet::VarSymbol&  x) { return os << Registry::Instance()->Lookup(x); }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::Symbol& s) {
   switch (s.tag) {

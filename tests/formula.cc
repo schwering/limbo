@@ -19,14 +19,14 @@ using F = Formula;
 TEST(FormulaTest, Rectify) {
   Alphabet* abc = Alphabet::Instance();
   Abc::Sort s = abc->CreateSort(false);
-  Abc::Var x = abc->CreateVar(s);         LIMBO_REG(x);
-  Abc::Var y = abc->CreateVar(s);         LIMBO_REG(y);
-  Abc::Var z = abc->CreateVar(s);         LIMBO_REG(z);
-  Abc::Var u = abc->CreateVar(s);         LIMBO_REG(u);
-  Abc::Name n = abc->CreateName(s, 0);    LIMBO_REG(n);
-  Abc::Fun c = abc->CreateFun(s, 0);      LIMBO_REG(c);
-  Abc::Fun f = abc->CreateFun(s, 2);      LIMBO_REG(f);
-  Abc::Fun g = abc->CreateFun(s, 1);      LIMBO_REG(g);
+  Abc::VarSymbol x = abc->CreateVar(s);         LIMBO_REG(x);
+  Abc::VarSymbol y = abc->CreateVar(s);         LIMBO_REG(y);
+  Abc::VarSymbol z = abc->CreateVar(s);         LIMBO_REG(z);
+  Abc::VarSymbol u = abc->CreateVar(s);         LIMBO_REG(u);
+  Abc::NameSymbol n = abc->CreateName(s, 0);    LIMBO_REG(n);
+  Abc::FunSymbol c = abc->CreateFun(s, 0);      LIMBO_REG(c);
+  Abc::FunSymbol f = abc->CreateFun(s, 2);      LIMBO_REG(f);
+  Abc::FunSymbol g = abc->CreateFun(s, 1);      LIMBO_REG(g);
 
   auto arg = [](Formula&& f1) { std::list<F> args; args.emplace_back(std::move(f1)); return args; };
   auto args = [](Formula&& f1, Formula&& f2) { std::list<F> args; args.emplace_back(std::move(f1)); args.emplace_back(std::move(f2)); return args; };
