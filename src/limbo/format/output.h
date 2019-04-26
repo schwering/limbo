@@ -5,6 +5,7 @@
 #ifndef LIMBO_FORMAT_OUTPUT_H_
 #define LIMBO_FORMAT_OUTPUT_H_
 
+#include <cstdlib>
 #include <ostream>
 #include <sstream>
 
@@ -150,6 +151,7 @@ std::ostream& operator<<(std::ostream& os, const Alphabet::Symbol& s) {
     case Alphabet::Symbol::kBelieve:        return os << Strings::kBelieve << '_' << s.u.k << ',' << s.u.l;
     case Alphabet::Symbol::kAction:         return os << Strings::kAction << ' ';
   }
+  std::abort();
 }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::RWord& w) { return os << sequence(w, " "); }
@@ -178,6 +180,7 @@ std::ostream& operator<<(std::ostream& os, const RFormula& r) {
     case Alphabet::Symbol::kBelieve:         return os << r.head() << ' ' << r.arg(0) << " \u27FE " << r.arg(1);
     case Alphabet::Symbol::kAction:          return os << r.head() << ' ' << r.arg(0) << ' ' << r.arg(1);
   }
+  std::abort();
 }
 
 std::ostream& operator<<(std::ostream& os, const Formula& f) { return os << f.readable(); }

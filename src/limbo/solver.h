@@ -5,18 +5,10 @@
 #ifndef LIMBO_SOLVER_H_
 #define LIMBO_SOLVER_H_
 
-#include <cstdlib>
-
 #include <algorithm>
-#include <limits>
-#include <memory>
-#include <utility>
 #include <vector>
 
-#include <limbo/clause.h>
-#include <limbo/lit.h>
 #include <limbo/sat.h>
-
 #include <limbo/internal/dense.h>
 
 namespace limbo {
@@ -30,19 +22,21 @@ class Solver {
   Solver(Solver&&)                 = default;
   Solver& operator=(Solver&&)      = default;
 
-  template<typename ExtraNameFactory>
-  void AddLiteral(const Lit a) {
-    sat_.AddLiteral(a, extra_name_);
+  void AddClause(std::vector<Lit>&& as) {
+    clauses_.emplace_back(as);
+    AddTerms(clauses_.back());
   }
 
-  template<typename ExtraNameFactory>
   void AddClause(const std::vector<Lit>& as) {
-    sat_.AddClause(as, extra_name_);
+    clauses_.push_back(as);
+    AddTerms(clauses_.back());
   }
 
   void Solve() {
-    constexpr int K = 10;
-    std::vector<Model> models(K);
+    internal::DenseMap<Fun, bool> covered;
+
+    covered.Capacitate(funs_.upper_bound());
+
     sat_.Simplify();
     for (int i = 0; i < K; ++i) {
       Solve(&models[i]);
@@ -53,31 +47,58 @@ class Solver {
   using Model = internal::DenseMap<Fun, bool>;
 
   struct ExtraNameFactory {
-    Name operator()(Fun f) const {
-      return Name();  // TODO
-    }
-  };
-
-  struct ConflictPredicate {
-    bool operator()(Sat::Level level, Sat::CRef conflict, Sat::Level btlevel) const {
-      return true;  // TODO
-    }
-  };
-
-  struct DecisionPredicate {
-    bool operator()(Sat::Level level, Lit a) const {
-      return true;  // TODO
-    }
+    explicit ExtraNameFactory(const Name* n) : n_(n) {}
+    Name operator()(Fun) const { return *n_; }
+   private:
+    const Name* n_;
   };
 
   void Solve(Model* m) {
-    Sat::Truth truth = sat_.Solve(conflict_predicate_, decision_predicate_);
+    Sat sat;
+    for (const std::vector<Lit>& as : clauses_) {
+      sat.AddClause(as, [this](Fun) { return extra_name_; });
+    }
+    Sat::Truth truth = sat.Solve(
+        [this](int, Sat::CRef, const std::vector<Lit>&, int) -> bool { return HandleConflict(); },
+        [this](int, Lit)                                     -> bool { return HandleDecision(); });
   }
 
-  Sat sat_;
-  ExtraNameFactory extra_name_;
-  ConflictPredicate conflict_predicate_;
-  DecisionPredicate decision_predicate_;
+  bool HandleConflict() const {
+    return true;
+  }
+
+  bool HandleDecision() const {
+    return true;
+  }
+
+  void AddTerms(const std::vector<Lit>& as) {
+    for (const Lit a : as) {
+      const Fun f = a.fun();
+      const Name n = a.name();
+      funs_.Capacitate(f);
+      if (!funs_[f]) {
+        funs_[f] = true;
+      }
+      names_.Capacitate(n);
+      if (!names_[n]) {
+        names_[n] = true;
+        extra_name_ = Name::FromId(std::max(int(n) + 1, int(extra_name_)));
+      }
+      //names_.Capacitate(f);
+      //extra_names_.Capacitate(f);
+      //if (!names_[f][n]) {
+      //  names_[f][n] = true;
+      //  extra_names_[f] = Name::FromId(std::max(int(n) + 1, int(extra_names_[f])));
+      //}
+    }
+  }
+
+  std::vector<std::vector<Lit>>  clauses_;
+  internal::DenseMap<Fun, bool>  funs_;
+  internal::DenseMap<Name, bool> names_;
+  Name                           extra_name_;
+  //internal::DenseMap<Fun, internal::DenseMap<Name, bool>> names_;
+  //internal::DenseMap<Fun, Name>                           extra_names_;
 };
 
 }  // namespace limbo

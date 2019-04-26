@@ -78,7 +78,6 @@ class Name {
 class Lit {
  public:
   using id_t = internal::u64;
-  using Bits = internal::Bits<Fun::id_t>;
 
   static Lit Eq(Fun fun, Name name) { return Lit(true, fun, name); }
   static Lit Neq(Fun fun, Name name) { return Lit(false, fun, name); }
@@ -98,7 +97,7 @@ class Lit {
   Name name() const { return Name::FromId(Bits::deinterleave_lo(id_) >> 1); }
 
   explicit operator bool() const { return id_; }
-  explicit operator int() const { return id_; }
+  explicit operator int()  const { return id_; }
   bool null() const { return id_ == 0; }
 
   Lit flip() const { return Lit(id_ ^ 1); }
@@ -107,8 +106,8 @@ class Lit {
   bool operator!=(Lit a) const { return id_ != a.id_; }
   bool operator<=(Lit a) const { return id_ <= a.id_; }
   bool operator>=(Lit a) const { return id_ >= a.id_; }
-  bool operator<(Lit a)  const { return id_ < a.id_; }
-  bool operator>(Lit a)  const { return id_ > a.id_; }
+  bool operator< (Lit a) const { return id_ < a.id_; }
+  bool operator> (Lit a) const { return id_ > a.id_; }
 
   // Valid(a, b) holds when a, b match one of the following:
   // (f == n), (f != n)
@@ -145,6 +144,8 @@ class Lit {
   bool ProperlySubsumes(Lit b) const { return ProperlySubsumes(*this, b); }
 
  private:
+  using Bits = internal::Bits<Fun::id_t>;
+
   static_assert(sizeof(Fun::id_t) == sizeof(Name::id_t), "Fun::id_t and Name::id_t must be identical");
   static_assert(sizeof(Fun::id_t) + sizeof(Name::id_t) == sizeof(id_t), "Fun::id_t and Name::id_t must fit in id_t");
 

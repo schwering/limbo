@@ -5,12 +5,12 @@
 // to find reasons why Limbo is so slow.
 
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <sys/ioctl.h>
 #include <unistd.h>
-
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -20,7 +20,6 @@
 
 #include <limbo/clause.h>
 #include <limbo/lit.h>
-
 //#include "sat.h"
 #include <limbo/sat.h>
 
@@ -194,6 +193,9 @@ bool Solve(Sat* solver, int n_conflicts_init, int conflicts_increase) {
   }
   t.stop();
   printf("%s (in %.5lfs)\n", (truth == Sat::Truth::kSat ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
+  printf("Clauses: %d | Propagate from learnt: %s\n",
+         int(solver->clauses().size()) - 1,
+         solver->propagate_with_learnt() ? "yes" : "no");
   printf("Conflicts: %d (at average level %lf to average level %lf) | Decisions: %d (at average level %lf)\n",
          stats.conflicts,
          (static_cast<double>(stats.conflicts_level_sum)/static_cast<double>(stats.conflicts)),
@@ -312,6 +314,8 @@ int main(int argc, char *argv[]) {
     solver.Simplify();
     int i_models;
     for (i_models = 0; i_models < n_models || n_models < 0; ++i_models) {
+      solver.set_propagate_with_learnt(true);
+      solver.set_propagate_with_learnt(false);
       const bool sat = Solve(&solver, n_conflicts_before_restart, 2);
       if (!sat) {
         break;

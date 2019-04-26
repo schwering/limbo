@@ -17,14 +17,12 @@
 #include <cassert>
 #include <cstring>
 #include <cstdlib>
-
 #include <functional>
 #include <limits>
 #include <memory>
 #include <vector>
 
 #include <limbo/lit.h>
-
 #include <limbo/internal/ints.h>
 
 namespace limbo {

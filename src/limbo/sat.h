@@ -19,16 +19,13 @@
 #define LIMBO_SAT_H_
 
 #include <cstdlib>
-
 #include <algorithm>
-#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include <limbo/clause.h>
 #include <limbo/lit.h>
-
 #include <limbo/internal/dense.h>
 #include <limbo/internal/ringbuffer.h>
 
@@ -37,7 +34,6 @@ namespace limbo {
 class Sat {
  public:
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
-  enum class Level : int  { kNull = 0, kRoot = 1 };
   using CRef = Clause::Factory::CRef;
 
   explicit Sat() = default;
@@ -75,20 +71,30 @@ class Sat {
         clausef_.Delete(cr, as.size());
       } else {
         assert(c.size() >= 2);
-        clauses_.push_back(cr);
         for (const Lit a : c) {
           Register(a.fun(), a.name(), extra_name(a.fun()));
         }
-        for (int i = 0; i < 2; ++i) {
-          if (falsifies(c[i])) {
-            for (int j = i + 1; j < c.size(); ++j) {
-              if (!falsifies(c[j]) || level_of_complementary(c[i]) < level_of_complementary(c[j])) {
-                std::swap(c[i], c[j]);
+        if (falsifies(c[0]) || falsifies(c[1])) {
+          auto better = [this, &c](int i, int j) {
+            return !falsifies(c[i]) || level_of_complementary(c[i]) > level_of_complementary(c[j]);
+          };
+          if (better(1, 0)) {
+            std::swap(c[0], c[1]);
+          }
+          for (int i = 2; i < c.size(); ++i) {
+            if (better(i, 1)) {
+              std::swap(c[1], c[i]);
+              if (better(1, 0)) {
+                std::swap(c[0], c[1]);
+              }
+              if (!falsifies(c[1])) {
+                break;
               }
             }
           }
         }
-        UpdateWatchers(cr, c);
+        clauses_.push_back(cr);
+        Watch(cr, c);
         trail_head_ = 0;
       }
     }
@@ -134,7 +140,7 @@ class Sat {
         Enqueue(c[0], CRef::kNull);
         clauses_[i--] = clauses_[--n_clauses];
       } else {
-        UpdateWatchers(cr, c);
+        Watch(cr, c);
       }
     }
     clauses_.resize(n_clauses);
@@ -177,7 +183,7 @@ class Sat {
           assert(!satisfies(c[0]) && !falsifies(c[0]));
           assert(std::all_of(c.begin() + 1, c.end(), [this](Lit a) -> bool { return falsifies(a); }));
           clauses_.push_back(cr);
-          UpdateWatchers(cr, c);
+          Watch(cr, c);
           Enqueue(learnt[0], cr);
         } else {
           Enqueue(learnt[0], CRef::kNull);
@@ -206,6 +212,8 @@ class Sat {
   }
 
  private:
+  enum class Level : int  { kNull = 0, kRoot = 1 };
+
   struct FunNameData {
     static constexpr bool kModelNeq = true;
     static constexpr bool kModelEq  = false;
@@ -291,7 +299,7 @@ class Sat {
   void DecayClause() { clause_bump_step_ /= kDecayFactor; }
   void DecayFun()    { fun_bump_step_    /= kDecayFactor; }
 
-  void UpdateWatchers(const CRef cr, const Clause& c) {
+  void Watch(const CRef cr, const Clause& c) {
     assert(&clausef_[cr] == &c);
     assert(!c.unsat());
     assert(!c.valid());
@@ -838,13 +846,6 @@ class Sat {
   bool              propagate_with_learned_ = true;
   double            clause_bump_step_       = kBumpStepInit;
 
-  // domain_size_ is the number of names that occured per function.
-  // domain_ contains at most domain_size_ names n that are potential values
-  //    for each f; some of those may already be excluded by f != n on the
-  //    trail.
-  internal::DenseMap<Fun, int>              domain_size_;
-  internal::DenseMap<Fun, RingBuffer<Name>> domain_;
-
   // watchers_ maps every function to a sequence of clauses that watch it;
   //    every clause watches two functions, and when a literal with this
   //    function is propagated, the watching clauses are inspected.
@@ -863,6 +864,13 @@ class Sat {
   int                          trail_head_ = 0;
   int                          trail_eqs_  = 0;
   internal::DenseMap<Fun, int> trail_neqs_;
+
+  // domain_size_ is the number of names that occured per function.
+  // domain_ contains at least domain_size_ - trail_neqs_[f] and at most
+  //    domain_size_ names n that are potential values for each f; some of
+  //    those may already be excluded by f != n on the trail.
+  internal::DenseMap<Fun, int>              domain_size_;
+  internal::DenseMap<Fun, RingBuffer<Name>> domain_;
 
   // model_ is an assignment of functions to names, i.e., positive literals.
   // data_ is meta data for every function and name pair (cf. FunNameData).

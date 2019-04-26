@@ -5,15 +5,14 @@
 #ifndef LIMBO_FORMULA_H_
 #define LIMBO_FORMULA_H_
 
+#include <cstdlib>
 #include <cassert>
-
 #include <algorithm>
 #include <list>
 #include <unordered_map>
 
 #include <limbo/clause.h>
 #include <limbo/lit.h>
-
 #include <limbo/internal/dense.h>
 #include <limbo/internal/hash.h>
 #include <limbo/internal/ints.h>
@@ -217,6 +216,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
         case kBelieve:         return u.k == s.u.k && u.l == s.u.l;
         case kAction:          return true;
       }
+      std::abort();
     }
 
     int arity() const {
@@ -240,6 +240,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
         case kBelieve:         return 1;
         case kAction:          return 2;
       }
+      std::abort();
     }
 
     bool stripped() const {

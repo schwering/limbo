@@ -2,8 +2,8 @@
 // Copyright 2016-2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// DenseMap, DenseSet, MinHeap classes, which are all based on representing values
-// as dense integers close to zero.
+// DenseMap, DenseSet, MinHeap classes, which are all based on representing
+// keys or entries, respectively, as non-negative integers close to zero.
 
 #ifndef LIMBO_DENSE_H_
 #define LIMBO_DENSE_H_
