@@ -54,10 +54,10 @@ class DenseMap {
 
   DenseMap() = default;
 
-  DenseMap(const DenseMap&) = default;
+  DenseMap(const DenseMap&)              = default;
   DenseMap& operator=(const DenseMap& c) = default;
-  DenseMap(DenseMap&&) = default;
-  DenseMap& operator=(DenseMap&& c) = default;
+  DenseMap(DenseMap&&)                   = default;
+  DenseMap& operator=(DenseMap&& c)      = default;
 
   void Capacitate(Key k) { Capacitate(k2i_(k)); }
   void Capacitate(Index i) { if (i >= vec_.size()) { vec_.resize(i + 1); } }
@@ -100,10 +100,10 @@ class DenseSet {
 
   DenseSet() = default;
 
-  DenseSet(const DenseSet&) = default;
+  DenseSet(const DenseSet&)              = default;
   DenseSet& operator=(const DenseSet& c) = default;
-  DenseSet(DenseSet&&) = default;
-  DenseSet& operator=(DenseSet&& c) = default;
+  DenseSet(DenseSet&&)                   = default;
+  DenseSet& operator=(DenseSet&& c)      = default;
 
   void Capacitate(Index i) { map_.Capacitate(i); }
   void Capacitate(const T& x) { map_.Capacitate(x); }

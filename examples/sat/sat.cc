@@ -159,36 +159,35 @@ static bool LoadCnf(std::istream& stream,
   return prop;
 }
 
-bool Solve(Sat* solver, int n_conflicts_init, int conflicts_increase) {
+bool Solve(Sat* solver, int max_conflicts_init, int conflicts_increase) {
   struct Stats {
-    int conflicts = 0;
-    int conflicts_level_sum = 0;
-    int conflicts_btlevel_sum = 0;
-    int decisions = 0;
-    int decisions_level_sum = 0;
+    int n_conflicts             = 0;
+    int n_decisions             = 0;
+    double avg_conflict_level   = 0;
+    double avg_conflict_btlevel = 0;
+    double avg_decision_level   = 0;
   } stats;
-  bool restarts = n_conflicts_init >= 0;
-  int n_conflicts = n_conflicts_init;
+  bool restarts = max_conflicts_init >= 0;
+  int max_conflicts = max_conflicts_init;
   Sat::Truth truth = Sat::Truth::kUnknown;
 
-  auto conflict_predicate = [&](int level, Sat::CRef conflict, const std::vector<Lit>& learnt, int btlevel) {
-    ++stats.conflicts;
-    stats.conflicts_level_sum += level;
-    stats.conflicts_btlevel_sum += btlevel;
-    //std::cout << "Learnt from " << solver.clause(conflict) << " at level " << level << " that " << learnt << ", backtracking to " << btlevel << std::endl;
-    return !restarts || stats.conflicts < n_conflicts;
+  auto update_avg = [](double* avg, auto n, auto x) { *avg = double(n) / double(n + 1) * *avg + double(x) / double(n + 1); };
+  auto conflict_predicate = [&](int level, Sat::CRef, const std::vector<Lit>&, int btlevel) {
+    update_avg(&stats.avg_conflict_level,   stats.n_conflicts, level);
+    update_avg(&stats.avg_conflict_btlevel, stats.n_conflicts, btlevel);
+    ++stats.n_conflicts;
+    return !restarts || stats.n_conflicts < max_conflicts;
   };
-  auto decision_predicate = [&](int level, Lit a) {
-    ++stats.decisions;
-    stats.decisions_level_sum += level;
-    //std::cout << "Decided " << a << " at level " << level << std::endl;
+  auto decision_predicate = [&](int level, Lit) {
+    update_avg(&stats.avg_decision_level, stats.n_decisions, level);
+    ++stats.n_decisions;
     return true;
   };
 
   Timer t;
   t.start();
   for (int i = 0; truth == Sat::Truth::kUnknown; ++i) {
-    n_conflicts = static_cast<int>(std::pow(conflicts_increase, i) * n_conflicts_init);
+    max_conflicts = static_cast<int>(std::pow(conflicts_increase, i) * max_conflicts_init);
     truth = solver->Solve(conflict_predicate, decision_predicate);
   }
   t.stop();
@@ -197,11 +196,11 @@ bool Solve(Sat* solver, int n_conflicts_init, int conflicts_increase) {
          int(solver->clauses().size()) - 1,
          solver->propagate_with_learnt() ? "yes" : "no");
   printf("Conflicts: %d (at average level %lf to average level %lf) | Decisions: %d (at average level %lf)\n",
-         stats.conflicts,
-         (static_cast<double>(stats.conflicts_level_sum)/static_cast<double>(stats.conflicts)),
-         (static_cast<double>(stats.conflicts_btlevel_sum)/static_cast<double>(stats.conflicts)),
-         stats.decisions,
-         (static_cast<double>(stats.decisions_level_sum)/static_cast<double>(stats.decisions)));
+         stats.n_conflicts,
+         stats.avg_conflict_level,
+         stats.avg_conflict_btlevel,
+         stats.n_decisions,
+         stats.avg_decision_level);
   return truth == Sat::Truth::kSat;
 }
 
@@ -215,7 +214,7 @@ void PrintSolution(const Sat& solver, const bool prop, const int n_columns, bool
   int i = 0;
   if (!prop) {
     for (const Fun f : funs) {
-      const Name n = solver.value(f);
+      const Name n = solver.model()[f];
       if (!extra && n == extra_name) {
         continue;
       }
@@ -235,7 +234,7 @@ void PrintSolution(const Sat& solver, const bool prop, const int n_columns, bool
     }
   } else {
     for (const Fun f : funs) {
-      const Name n = solver.value(f);
+      const Name n = solver.model()[f];
       if (!extra && n == extra_name) {
         continue;
       }
@@ -315,7 +314,7 @@ int main(int argc, char *argv[]) {
     int i_models;
     for (i_models = 0; i_models < n_models || n_models < 0; ++i_models) {
       solver.set_propagate_with_learnt(true);
-      solver.set_propagate_with_learnt(false);
+      //solver.set_propagate_with_learnt(false);
       const bool sat = Solve(&solver, n_conflicts_before_restart, 2);
       if (!sat) {
         break;
@@ -325,7 +324,7 @@ int main(int argc, char *argv[]) {
       }
       std::vector<Lit> lits;
       for (const Fun f : funs) {
-        const Name n = solver.value(f);
+        const Name n = solver.model()[f];
         lits.push_back(Lit::Neq(f, n));
       }
       if (n_models != 1) {

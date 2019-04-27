@@ -149,8 +149,8 @@ class Sat {
   const std::vector<CRef>& clauses()       const { return clauses_; }
   const Clause&            clause(CRef cr) const { return clausef_[cr]; }
 
-  int  size()       const { return trail_eqs_; }
-  Name value(Fun f) const { return model_[f]; }
+  int                                  model_size() const { return trail_eqs_; }
+  const internal::DenseMap<Fun, Name>& model()      const { return model_; }
 
   bool     propagate_with_learnt()       const { return propagate_with_learned_; }
   void set_propagate_with_learnt(bool b)       { propagate_with_learned_ = b; }
@@ -192,18 +192,18 @@ class Sat {
         learnt.clear();
         DecayFun();
       } else {
-        Fun f = NextFun();
+        const Fun f = NextFun();
         if (f.null()) {
           return Truth::kSat;
         }
-        Name n = NextName(f);
+        const Name n = NextName(f);
         if (n.null()) {
           return Truth::kUnsat;
         }
-        AddNewLevel();
         const Lit a = Lit::Eq(f, n);
-        EnqueueEq(a, CRef::kNull);
         go &= decision_predicate(int(current_level()), a);
+        AddNewLevel();
+        EnqueueEq(a, CRef::kNull);
       }
       assert(level_size_.back() < trail_.size());
     }

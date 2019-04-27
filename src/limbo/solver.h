@@ -54,13 +54,25 @@ class Solver {
   };
 
   void Solve(Model* m) {
+    const int max_conflicts = 50;
+    int n_conflicts = 0;
+    int model_size;
+    internal::DenseMap<Fun, Name> model;
     Sat sat;
     for (const std::vector<Lit>& as : clauses_) {
       sat.AddClause(as, [this](Fun) { return extra_name_; });
     }
     Sat::Truth truth = sat.Solve(
-        [this](int, Sat::CRef, const std::vector<Lit>&, int) -> bool { return HandleConflict(); },
-        [this](int, Lit)                                     -> bool { return HandleDecision(); });
+        [this, &](int, Sat::CRef, const std::vector<Lit>&, int) -> bool {
+          return ++n_conflicts <= max_conflicts;
+        },
+        [this, &](int, Lit) -> bool {
+          if (model_size < sat.size()) {
+            model_size = sat.model_size();
+            model = sat.model();
+          }
+          return true;
+        });
   }
 
   bool HandleConflict() const {
