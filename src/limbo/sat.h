@@ -35,6 +35,7 @@ class Sat {
  public:
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
+  struct DefaultActivity { double operator()(Fun) const { return 0.0; } };
 
   explicit Sat() = default;
 
@@ -43,21 +44,25 @@ class Sat {
   Sat(Sat&&)                 = default;
   Sat& operator=(Sat&&)      = default;
 
-  template<typename ExtraNameFactory>
-  void AddLiteral(const Lit a, ExtraNameFactory extra_name = ExtraNameFactory()) {
+  template<typename ExtraNameFunction, typename ActivityFunction = DefaultActivity>
+  void AddLiteral(const Lit a,
+                  ExtraNameFunction extra_name = ExtraNameFunction(),
+                  ActivityFunction activity = ActivityFunction()) {
     // Cannot Enqueue() here because the domains aren't complete yet and
     // domain clause propagation might thus be incorrect. InitTrail() must
     // be called to Enqueue().
-    Register(a.fun(), a.name(), extra_name(a.fun()));
+    Register(a.fun(), a.name(), extra_name(a.fun()), activity(a.fun()));
     trail_.push_back(a);
   }
 
-  template<typename ExtraNameFactory>
-  void AddClause(const std::vector<Lit>& as, ExtraNameFactory extra_name = ExtraNameFactory()) {
+  template<typename ExtraNameFunction, typename ActivityFunction = DefaultActivity>
+  void AddClause(const std::vector<Lit>& as,
+                 ExtraNameFunction extra_name = ExtraNameFunction(),
+                 ActivityFunction activity = ActivityFunction()) {
     if (as.size() == 0) {
       empty_clause_ = true;
     } else if (as.size() == 1) {
-      AddLiteral(as[0], extra_name);
+      AddLiteral(as[0], extra_name, activity);
     } else {
       const CRef cr = clausef_.New(as);
       Clause& c = clausef_[cr];
@@ -67,12 +72,12 @@ class Sat {
         empty_clause_ = true;
         clausef_.Delete(cr, as.size());
       } else if (c.size() == 1) {
-        AddLiteral(c[0], extra_name);
+        AddLiteral(c[0], extra_name, activity);
         clausef_.Delete(cr, as.size());
       } else {
         assert(c.size() >= 2);
         for (const Lit a : c) {
-          Register(a.fun(), a.name(), extra_name(a.fun()));
+          Register(a.fun(), a.name(), extra_name(a.fun()), activity(a.fun()));
         }
         if (falsifies(c[0]) || falsifies(c[1])) {
           auto better = [this, &c](int i, int j) {
@@ -117,7 +122,7 @@ class Sat {
       empty_clause_ = true;
       return;
     }
-    for (std::vector<CRef>& ws : watchers_) {
+    for (std::vector<CRef>& ws : watchers_.values()) {
       ws.clear();
     }
     int n_clauses = clauses_.size();
@@ -279,12 +284,12 @@ class Sat {
   void Bump(const Fun f, const double bump) {
     fun_activity_[f] += bump;
     if (fun_activity_[f] > kActivityThreshold) {
-      for (double& a : fun_activity_) {
+      for (double& a : fun_activity_.values()) {
         a /= kActivityThreshold;
       }
       fun_bump_step_ /= kActivityThreshold;
     }
-    if (fun_queue_.Contains(f)) {
+    if (fun_queue_.contains(f)) {
       if (bump >= 0) {
         fun_queue_.Increase(f);
       } else {
@@ -567,7 +572,7 @@ class Sat {
         assert(!trail_a.null());
         assert(trail_a.pos());
         const Fun f = trail_a.fun();
-        for (int i = 1; i < data_[f].upper_bound(); ++i) {
+        for (int i = 1; i <= data_[f].upper_bound(); ++i) {
           const Name n = Name::FromId(i);
           if (data_[f][n].occurs) {
             const Lit a = Lit::Eq(f, n);
@@ -673,7 +678,7 @@ class Sat {
       if (p) {
         model_[f] = Name();
         --trail_eqs_;
-        if (!fun_queue_.Contains(f)) {
+        if (!fun_queue_.contains(f)) {
           fun_queue_.Insert(f);
         }
       } else {
@@ -789,9 +794,10 @@ class Sat {
     }
   }
 
-  void Register(const Fun f, const Name n, const Name extra_n) {
+  void Register(const Fun f, const Name n, const Name extra_n, double activity) {
     CapacitateMaps(f, n, extra_n);
-    if (!fun_queue_.Contains(f)) {
+    if (!fun_queue_.contains(f)) {
+      fun_activity_[f] = activity;
       fun_queue_.Insert(f);
       if (!data_[f][extra_n].occurs) {
         data_[f][extra_n].occurs = true;
@@ -808,10 +814,10 @@ class Sat {
 
   void CapacitateMaps(const Fun f, const Name n, const Name extra_n) {
     const int max_ni = int(n) > int(extra_n) ? int(n) : int(extra_n);
-    const int fi = int(f) >= data_.upper_bound() ? int(f) : -1;
-    const int ni = data_.upper_bound() == 0 || max_ni >= data_[0].upper_bound() ? max_ni : -1;
+    const int fi = int(f) > data_.upper_bound() ? int(f) : -1;
+    const int ni = data_.upper_bound() < 0 || max_ni > data_[0].upper_bound() ? max_ni : -1;
     const int fig = (fi + 1) * 1.5;
-    const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_[0].upper_bound();
+    const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_[0].upper_bound() + 1;
     if (fi >= 0) {
       fun_queue_.Capacitate(fig);
       fun_activity_.Capacitate(fig);
@@ -823,12 +829,12 @@ class Sat {
       trail_neqs_.Capacitate(fig);
     }
     if (fi >= 0 || ni >= 0) {
-      for (internal::DenseMap<Name, FunNameData>& ds : data_) {
+      for (internal::DenseMap<Name, FunNameData>& ds : data_.values()) {
         ds.Capacitate(nig);
       }
     }
     if (ni >= 0) {
-      for (internal::DenseMap<Name, FunNameData>& ds : data_) {
+      for (internal::DenseMap<Name, FunNameData>& ds : data_.values()) {
         ds.Capacitate(nig);
       }
     }

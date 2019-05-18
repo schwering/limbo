@@ -5,8 +5,8 @@
 // DenseMap, DenseSet, MinHeap classes, which are all based on representing
 // keys or entries, respectively, as non-negative integers close to zero.
 
-#ifndef LIMBO_DENSE_H_
-#define LIMBO_DENSE_H_
+#ifndef LIMBO_INTERNAL_DENSE_H_
+#define LIMBO_INTERNAL_DENSE_H_
 
 #include <algorithm>
 #include <vector>
@@ -17,6 +17,11 @@ namespace internal {
 template<typename Key, typename Index>
 struct KeyToIndex {
   Index operator()(const Key k) const { return int(k); }
+};
+
+template<typename Key, typename Index>
+struct IndexToKey {
+  Key operator()(const Index i) const { return Key::FromId(i); }
 };
 
 struct NoBoundCheck {
@@ -42,7 +47,8 @@ template<typename Key,
          typename Val,
          typename CheckBound = NoBoundCheck,
          typename Index = int,
-         typename KeyToIndex = KeyToIndex<Key, Index>>
+         typename KeyToIndex = KeyToIndex<Key, Index>,
+         typename IndexToKey = IndexToKey<Key, Index>>
 class DenseMap {
  public:
   using Vec             = std::vector<Val>;
@@ -52,20 +58,101 @@ class DenseMap {
   using iterator        = typename Vec::iterator;
   using const_iterator  = typename Vec::const_iterator;
 
-  DenseMap() = default;
+  // Wrapper for operator*() and operator++(int).
+  template<typename InputIt>
+  class IteratorProxy {
+   public:
+    typedef typename InputIt::value_type value_type;
+    typedef typename InputIt::reference reference;
+    typedef typename InputIt::pointer pointer;
+
+    explicit IteratorProxy(reference v) : v_(v) {}
+    reference operator*() const { return v_; }
+    pointer operator->() const { return &v_; }
+
+   private:
+    mutable typename std::remove_const<value_type>::type v_;
+  };
+
+  struct KeyIterator {
+    using difference_type = Index;
+    using value_type = Key;
+    using pointer = const value_type*;
+    using reference = value_type;
+    using iterator_category = std::random_access_iterator_tag;
+
+    typedef IteratorProxy<KeyIterator> proxy;
+
+    explicit KeyIterator(Index i, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
+        : k2i(k2i), i2k(i2k), index(i) {}
+
+    bool operator==(KeyIterator it) const { return index == it.index; }
+    bool operator!=(KeyIterator it) const { return !(*this == it); }
+
+    reference operator*() const { return i2k(index); }
+    KeyIterator& operator++() { ++index; return *this; }
+    KeyIterator& operator--() { --index; return *this; }
+
+    proxy operator->() const { return proxy(operator*()); }
+    proxy operator++(int) { proxy p(operator*()); operator++(); return p; }
+    proxy operator--(int) { proxy p(operator*()); operator--(); return p; }
+
+    KeyIterator& operator+=(difference_type n) { index += n; return *this; }
+    KeyIterator& operator-=(difference_type n) { index -= n; return *this; }
+    friend KeyIterator operator+(KeyIterator it, difference_type n) { it += n; return it; }
+    friend KeyIterator operator+(difference_type n, KeyIterator it) { it += n; return it; }
+    friend KeyIterator operator-(KeyIterator it, difference_type n) { it -= n; return it; }
+    friend difference_type operator-(KeyIterator a, KeyIterator b) { return a.index - b.index; }
+    reference operator[](difference_type n) const { return *(*this + n); }
+    bool operator<(KeyIterator it) const { return index < it.index; }
+    bool operator>(KeyIterator it) const { return index > it.index; }
+    bool operator<=(KeyIterator it) const { return !(*this > it); }
+    bool operator>=(KeyIterator it) const { return !(*this < it); }
+
+   private:
+    KeyToIndex k2i;
+    IndexToKey i2k;
+    Index index;
+  };
+
+  template<typename T>
+  struct Range {
+    Range(T begin, T end) : begin_(begin), end_(end) {}
+    T begin() const { return begin_; }
+    T end()   const { return end_; }
+   private:
+    T begin_;
+    T end_;
+  };
+
+  explicit DenseMap(KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey()) : k2i_(k2i), i2k_(i2k) {}
+
+  explicit DenseMap(Index max, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
+      : DenseMap(k2i, i2k) { Capacitate(max); }
+
+  explicit DenseMap(Index max, Val init, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
+      : DenseMap(k2i, i2k) { Capacitate(max, init); }
+
+  explicit DenseMap(Key max, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
+      : DenseMap(k2i(max), k2i, i2k) {}
+
+  explicit DenseMap(Key max, Val init, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
+      : DenseMap(k2i(max), init, k2i, i2k) {}
 
   DenseMap(const DenseMap&)              = default;
   DenseMap& operator=(const DenseMap& c) = default;
   DenseMap(DenseMap&&)                   = default;
   DenseMap& operator=(DenseMap&& c)      = default;
 
-  void Capacitate(Key k) { Capacitate(k2i_(k)); }
-  void Capacitate(Index i) { if (i >= vec_.size()) { vec_.resize(i + 1); } }
+  void Capacitate(Key k)          { Capacitate(k2i_(k)); }
+  void Capacitate(Key k, Val v)   { Capacitate(k2i_(k), v); }
+  void Capacitate(Index i)        { if (i >= vec_.size()) { vec_.resize(i + 1); } }
+  void Capacitate(Index i, Val v) { if (i >= vec_.size()) { vec_.resize(i + 1, v); } }
 
   void Clear() { vec_.clear(); }
   bool Cleared() { return vec_.empty(); }
 
-  Index upper_bound() const { return vec_.size(); }
+  Index upper_bound() const { return Index(vec_.size()) - 1; }
 
         reference operator[](Index i)       { check_bound_(this, i); return vec_[i]; }
   const_reference operator[](Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i]; }
@@ -73,62 +160,17 @@ class DenseMap {
         reference operator[](Key key)       { return operator[](k2i_(key)); }
   const_reference operator[](Key key) const { return operator[](k2i_(key)); }
 
-  iterator begin() { return vec_.begin(); }
-  iterator end()   { return vec_.end(); }
-
-  const_iterator begin() const { return vec_.begin(); }
-  const_iterator end()   const { return vec_.end(); }
+  Range<KeyIterator> keys() const {
+    return Range<KeyIterator>(KeyIterator(0, k2i_, i2k_), KeyIterator(vec_.size(), k2i_, i2k_));
+  }
+  Range<const_iterator> values() const { return Range<const_iterator>(vec_.begin(), vec_.end()); }
+  Range<      iterator> values()       { return Range<      iterator>(vec_.begin(), vec_.end()); }
 
  private:
   CheckBound check_bound_;
   KeyToIndex k2i_;
+  IndexToKey i2k_;
   Vec vec_;
-};
-
-template<typename T,
-         typename CheckBound = NoBoundCheck,
-         typename Index = int,
-         typename KeyToIndex = KeyToIndex<T, Index>>
-class DenseSet {
- public:
-  using Map             = DenseMap<T, T, CheckBound, Index, KeyToIndex>;
-  using value_type      = typename Map::value_type;
-  using reference       = typename Map::reference;
-  using const_reference = typename Map::const_reference;
-  using iterator        = typename Map::iterator;
-  using const_iterator  = typename Map::const_iterator;
-
-  DenseSet() = default;
-
-  DenseSet(const DenseSet&)              = default;
-  DenseSet& operator=(const DenseSet& c) = default;
-  DenseSet(DenseSet&&)                   = default;
-  DenseSet& operator=(DenseSet&& c)      = default;
-
-  void Capacitate(Index i) { map_.Capacitate(i); }
-  void Capacitate(const T& x) { map_.Capacitate(x); }
-
-  void Clear() { map_.Clear(); }
-  bool Cleared() { return map_.empty(); }
-
-  Index upper_bound() const { return map_.upper_bound(); }
-
-  bool Contains(const T& x) const { return !x.null() && map_[x] == x; }
-
-  void Insert(const T& x) { assert(!x.null()); map_[x] = x; }
-  void Remove(const T& x) { assert(!x.null()); map_[x] = T(); }
-
-        reference operator[](Index i)       { return map_[i]; }
-  const_reference operator[](Index i) const { return map_[i]; }
-
-  iterator begin() { return map_.begin(); }
-  iterator end()   { return map_.end(); }
-
-  const_iterator begin() const { return map_.begin(); }
-  const_iterator end()   const { return map_.end(); }
-
- private:
-  Map map_;
 };
 
 template<typename T,
@@ -158,14 +200,14 @@ class MinHeap {
   bool empty() const { return heap_.size() == 1; }
   const T& operator[](int i) const { return heap_[i + 1]; }
 
-  bool Contains(const T& x) const { return index_[x] != 0; }
+  bool contains(const T& x) const { return index_[x] != 0; }
 
   T top() const { return heap_[bool(size())]; }
 
   void Increase(const T& x) {
-    assert(Contains(x));
+    assert(contains(x));
     SiftUp(index_[x]);
-    assert(Contains(x));
+    assert(contains(x));
     assert(std::min_element(heap_.begin() + 1, heap_.end(), less_) == heap_.begin() + 1);
   }
 
@@ -175,7 +217,7 @@ class MinHeap {
   }
 
   void Insert(const T& x) {
-    assert(!Contains(x));
+    assert(!contains(x));
     const int i = heap_.size();
     heap_.push_back(x);
     index_[x] = i;
@@ -184,7 +226,7 @@ class MinHeap {
   }
 
   void Remove(const T& x) {
-    assert(Contains(x));
+    assert(contains(x));
     const int i = index_[x];
     heap_[i] = heap_.back();
     index_[heap_[i]] = i;
@@ -194,7 +236,7 @@ class MinHeap {
       SiftDown(i);
       SiftUp(i);
     }
-    assert(!Contains(x));
+    assert(!contains(x));
     assert(std::min_element(heap_.begin() + 1, heap_.end(), less_) == heap_.begin() + 1);
   }
 
@@ -245,5 +287,5 @@ class MinHeap {
 }  // namespace internal
 }  // namespace limbo
 
-#endif  // LIMBO_DENSE_H_
+#endif  // LIMBO_INTERNAL_DENSE_H_
 
