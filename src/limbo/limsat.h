@@ -10,6 +10,7 @@
 
 #include <limbo/sat.h>
 #include <limbo/internal/dense.h>
+#include <limbo/internal/subsets.h>
 
 namespace limbo {
 
@@ -39,31 +40,37 @@ class LimSat {
  private:
   enum class SolverType { kWithLearntClauses, kWithoutLearntClauses };
 
-  void GetNewlyAssigned(const internal::DenseMap<Fun, Name> model,
-                        internal::DenseMap<Fun, bool>* wanted,
-                        std::vector<Fun>* funs,
-                        bool* all_assigned) {
-    funs->clear();
-    *all_assigned = true;
-    for (const Fun f : wanted->keys()) {
-      if ((*wanted)[f]) {
-        if (!model[f].null()) {
-          if ((*wanted)[f]) { printf("newly set: %d [%d, %d]\n", int(f), bool((*wanted)[f]), bool(funs_[f])); }
-          (*wanted)[f] = false;
-          funs->push_back(f);
-        } else {
-          //printf("not set: %d [%d, %d]\n", int(f), bool((*wanted)[f]), bool(funs_[f]));
-          *all_assigned = false;
+  bool FindModels(int min_model_size) {
+    std::vector<internal::DenseMap<Fun, Name>> models;
+    std::vector<std::vector<Fun>> newly_assigned_in;
+    const bool all_covered = FindAllAssigningModels(min_model_size, &models, &newly_assigned_in);
+    if (!all_covered) {
+      return false;
+    }
+    return internal::AllCombinedSubsetsOfSize(newly_assigned_in, min_model_size, [&](const std::vector<Fun>& must) {
+      for (const internal::DenseMap<Fun, Name>& model : models) {
+        if (AssignsAll(model, must)) {
+          return true;
         }
       }
-    }
+      internal::DenseMap<Fun, Name> model;
+      internal::DenseMap<Fun, bool> wanted(max_fun(), false);
+      for (const Fun f : must) {
+        wanted[f] = true;
+      }
+      constexpr bool propagate_with_learnt = false;
+      constexpr bool wanted_is_must = true;
+      const bool succ = FindModel(min_model_size, propagate_with_learnt, wanted_is_must, wanted, &model);
+      return succ;
+    });
   }
 
-  bool FindModels(int min_model_size) {
-    // newly_assigned_in[i] contains the functions first assigned in model i
-    std::vector<std::vector<Fun>> newly_assigned_in;
+  bool FindAllAssigningModels(int min_model_size,
+                              std::vector<internal::DenseMap<Fun, Name>>* models,
+                              std::vector<std::vector<Fun>>* newly_assigned_in) {
+    models->clear();
+    newly_assigned_in->clear();
     internal::DenseMap<Fun, bool> wanted = funs_;
-
     bool propagate_with_learnt = true;
     bool wanted_is_must = false;
     bool all_assigned = false;
@@ -79,7 +86,7 @@ class LimSat {
         return false;
       }
       std::vector<Fun> newly_assigned;
-      GetNewlyAssigned(model, &wanted, &newly_assigned, &all_assigned);
+      ExtractAssignedFunctions(model, &wanted, &newly_assigned, &all_assigned);
       if (newly_assigned.empty() && !wanted_is_must) {
         wanted_is_must = true;
         continue;
@@ -87,107 +94,67 @@ class LimSat {
       if (newly_assigned.empty() && min_model_size == 0) {
         return true;
       }
-      for (auto it = newly_assigned_in.begin(); it != newly_assigned_in.end(); ) {
-        if (it->size() <= newly_assigned.size() &&
-            std::includes(newly_assigned.begin(), newly_assigned.end(), it->begin(), it->end())) {
-          it = newly_assigned_in.erase(it);
+      for (int i = 0; i < int(models->size()); ) {
+        if (AssignsAll(model, (*newly_assigned_in)[i])) {
+          newly_assigned = MergeFunLists(newly_assigned, (*newly_assigned_in)[i]);
+          models->erase(models->begin() + i);
+          newly_assigned_in->erase(newly_assigned_in->begin() + i);
         } else {
-          ++it;
+          ++i;
         }
       }
-      newly_assigned_in.push_back(newly_assigned);
+      models->push_back(model);
+      newly_assigned_in->push_back(newly_assigned);
     }
+    printf("all assigned (%d) with %lu models\n", all_assigned, newly_assigned_in->size());
+    return true;
+  }
 
-    std::vector<int> not_yet_assigned_in(newly_assigned_in.size());
-    for (int i = int(not_yet_assigned_in.size()) - 2; i >= 0; --i) {
-      not_yet_assigned_in[i] = int(newly_assigned_in[i+1].size()) + not_yet_assigned_in[i+1];
-    }
-
-    return AllCombinedSubsetsOfSize(newly_assigned_in, not_yet_assigned_in, min_model_size, [&](const std::vector<Fun>& funs) {
-      internal::DenseMap<Fun, Name> model;
-      internal::DenseMap<Fun, bool> wanted(max_fun(), false);
-      for (const Fun f : funs) {
-        wanted[f] = true;
+  void ExtractAssignedFunctions(const internal::DenseMap<Fun, Name> model,
+                                internal::DenseMap<Fun, bool>* wanted,
+                                std::vector<Fun>* newly_assigned,
+                                bool* all_assigned) {
+    newly_assigned->clear();
+    *all_assigned = true;
+    for (const Fun f : wanted->keys()) {
+      if ((*wanted)[f]) {
+        if (assigns(model, f)) {
+          if ((*wanted)[f]) { printf("newly set: %d [%d, %d]\n", int(f), bool((*wanted)[f]), bool(funs_[f])); }
+          (*wanted)[f] = false;
+          newly_assigned->push_back(f);
+        } else {
+          *all_assigned = false;
+        }
       }
-      constexpr bool propagate_with_learnt = false;
-      constexpr bool wanted_is_must = true;
-      const bool succ = FindModel(min_model_size, propagate_with_learnt, wanted_is_must, wanted, &model);
-      return succ;
-    });
-  }
-
-  template<typename UnaryPredicate>
-  bool AllCombinedSubsetsOfSize(const std::vector<std::vector<Fun>>& newly_assigned_in,
-                                const std::vector<int>& not_yet_assigned_in,
-                                const int need,
-                                UnaryPredicate pred = UnaryPredicate()) {
-    std::vector<Fun> funs;
-    return AllCombinedSubsetsOfSize(newly_assigned_in, not_yet_assigned_in, need, 0, &funs, pred);
-  }
-
-  template<typename UnaryPredicate>
-  bool AllCombinedSubsetsOfSize(const std::vector<std::vector<Fun>>& newly_assigned_in,
-                                const std::vector<int>& not_yet_assigned_in,
-                                const int need,
-                                const int index,
-                                std::vector<Fun>* funs,
-                                UnaryPredicate pred = UnaryPredicate()) {
-    assert(newly_assigned_in.size() == not_yet_assigned_in.size());
-    assert(index < int(newly_assigned_in.size()));
-    assert(!newly_assigned_in[index].empty());
-    if (index == int(newly_assigned_in.size())) {
-      return need == 0 && pred(*funs);
     }
-    const std::vector<Fun> fafs = newly_assigned_in[index];
-    // What is the minimum number of functions we need to assign from this bucket?
-    //     (need - min_assign < not_yet_assigned_in[index] - (not_yet_assigned_in.size() - index - 1))
-    // <=> (min_assign > need - not_yet_assigned_in[index] + not_yet_assigned_in.size() - index - 1)
-    // <=> (min_assign >= need - not_yet_assigned_in[index] + not_yet_assigned_in.size() - index - 1)
-    const int min_assign = std::max(0, need - not_yet_assigned_in[index] + int(not_yet_assigned_in.size()) - index - 1);
-    // What is the maximum number of functions we can assign from this buckt?
-    const int max_assign = std::min(need, int(fafs.size()) - 1);
-    for (int i = min_assign; i < max_assign; ++i) {
-      const bool succ = AllSubsetsOfSize(fafs.begin(), fafs.end(), i, funs, [&](std::vector<Fun>* funs) {
-        return AllCombinedSubsetsOfSize(newly_assigned_in, not_yet_assigned_in, need - i, index + 1, funs, pred);
-      });
-      if (!succ) {
+  }
+
+  static bool assigns(const internal::DenseMap<Fun, Name>& model, Fun f) {
+    return !model[f].null();
+  }
+
+  static bool AssignsAll(const internal::DenseMap<Fun, Name>& model, std::vector<Fun> funs) {
+    for (const Fun f : funs) {
+      if (!assigns(model, f)) {
         return false;
       }
     }
     return true;
   }
 
-  template<typename RandomAccessIt, typename UnaryPredicate>
-  bool AllSubsetsOfSize(RandomAccessIt first,
-                        RandomAccessIt last,
-                        const int subset_size,
-                        std::vector<Fun>* funs,
-                        UnaryPredicate pred = UnaryPredicate()) {
-    auto dist = std::distance(first, last);
-    if (dist == 0) {
-      return subset_size == 0 && pred(funs);
-    } else if (dist < subset_size) {
-      return false;
-    } else {
-      if (dist > subset_size) {
-        const bool succ = AllSubsetsOfSize(std::next(first), last, subset_size, funs, pred);
-        if (!succ) {
-          return false;
-        }
-      }
-      funs->push_back(*first);
-      const bool succ = AllSubsetsOfSize(std::next(first), last, subset_size - 1, funs, pred);
-      funs->pop_back();
-      return succ;
-    }
+  static std::vector<Fun> MergeFunLists(const std::vector<Fun>& funs1, const std::vector<Fun>& funs2) {
+    std::vector<Fun> v;
+    v.resize(std::set_union(funs1.begin(), funs1.end(), funs2.begin(), funs2.end(), v.begin()) - v.begin());
+    return v;
   }
 
   bool FindModel(const int min_model_size,
                  const bool propagate_with_learnt,
                  const bool wanted_is_must,
                  const internal::DenseMap<Fun, bool>& wanted,
-                 internal::DenseMap<Fun, Name>* model) {
-    printf("min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false");
+                 internal::DenseMap<Fun, Name>* model,
+                 int index = 0) {
+    printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false");
     for (Fun f : wanted.keys()) {
       if (wanted[f]) {
         printf(" %d", int(f));
@@ -196,7 +163,7 @@ class LimSat {
     printf("\n");
     auto wanted_covered = [&](const internal::DenseMap<Fun, Name>& m) -> bool {
       for (Fun f : wanted.keys()) {
-        if (wanted[f] && m[f].null()) {
+        if (wanted[f] && !assigns(m, f)) {
           return false;
         }
       }
@@ -222,17 +189,32 @@ class LimSat {
         [&](int, Sat::CRef, const std::vector<Lit>&, int) -> bool {
           return ++n_conflicts <= max_conflicts;
         },
-        [&](int, Lit) -> bool {
-          if (min_model_size <= model_size && model_size < sat.model_size() &&
+        [&](int, Lit a) -> bool {
+          //printf("   %d %s %d\n", int(a.fun()), a.pos() ? "=" : "!=", int(a.name()));
+          if (min_model_size <= sat.model_size() && model_size < sat.model_size() &&
               (!wanted_is_must || wanted_covered(sat.model()))) {
             model_size = sat.model_size();
             *model = sat.model();
           }
           return true;
         });
-    printf("truth = %s\n", truth == Sat::Truth::kSat ? "SAT" : truth == Sat::Truth::kUnsat ? "UNSAT" : "UNKNOWN");
-    printf("model_size = %d\n", model_size);
-    printf("return value = %d\n", truth == Sat::Truth::kSat ? true : model_size >= min_model_size);
+    //printf("truth = %s\n", truth == Sat::Truth::kSat ? "SAT" : truth == Sat::Truth::kUnsat ? "UNSAT" : "UNKNOWN");
+    //printf("model_size = %d\n", model_size);
+    //printf("return value = %d\n", truth == Sat::Truth::kSat ? true : model_size >= min_model_size);
+    if (truth == Sat::Truth::kSat ? true : model_size >= min_model_size) {
+      printf("FindModel: true, model_size = %d, assignment =", model_size);
+      if (truth == Sat::Truth::kSat) {
+        *model = sat.model();
+      }
+      for (const Fun f : model->keys()) {
+        if (assigns(*model, f)) {
+          printf(" (%d = %d)", int(f), int((*model)[f]));
+        }
+      }
+      printf("\n");
+    } else {
+      printf("FindModel: false\n");
+    }
     if (truth == Sat::Truth::kSat) {
       assert(wanted_covered(sat.model()));
       *model = sat.model();
