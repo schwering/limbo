@@ -21,7 +21,7 @@ struct KeyToIndex {
 
 template<typename Key, typename Index>
 struct IndexToKey {
-  Key operator()(const Index i) const { return Key::FromId(i); }
+  Key operator()(const Index i) const { return i == 0 ? Key() : Key::FromId(i); }
 };
 
 struct NoBoundCheck {

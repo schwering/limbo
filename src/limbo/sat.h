@@ -36,6 +36,7 @@ class Sat {
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
   struct DefaultActivity { double operator()(Fun) const { return 0.0; } };
+  struct DefaultAdmissibility { bool operator()(Sat*) const { return true; } };
 
   explicit Sat() = default;
 
@@ -160,9 +161,10 @@ class Sat {
   bool     propagate_with_learnt()       const { return propagate_with_learned_; }
   void set_propagate_with_learnt(bool b)       { propagate_with_learned_ = b; }
 
-  template<typename ConflictPredicate, typename DecisionPredicate>
+  template<typename ConflictPredicate, typename DecisionPredicate, typename AdmissiblePredicate = DefaultAdmissibility>
   Truth Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
-              DecisionPredicate decision_predicate = DecisionPredicate()) {
+              DecisionPredicate decision_predicate = DecisionPredicate(),
+              AdmissiblePredicate admissible_predicate = AdmissiblePredicate()) {
     InitTrail();
     if (empty_clause_) {
       return Truth::kUnsat;
@@ -437,8 +439,8 @@ class Sat {
   }
 
   void Analyze(CRef conflict, std::vector<Lit>* const learnt, Level* const btlevel) {
-    assert(std::all_of(data_.begin(), data_.end(),
-                       [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(),
+    assert(std::all_of(data_.values().begin(), data_.values().end(),
+                       [](const auto& ds) -> bool { return std::all_of(ds.values().begin(), ds.values().end(),
                        [](const FunNameData& d) -> bool { return !d.seen_subsumed && !d.wanted; }); }));
     int depth = 0;
     Lit trail_a = Lit();
@@ -620,8 +622,8 @@ class Sat {
     assert(level_of(trail_a) > *btlevel && *btlevel >= Level::kRoot);
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return falsifies(a); }));
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return !satisfies(a); }));
-    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const FunNameData& d) -> bool { return !d.seen_subsumed; }); }));
-    assert(std::all_of(data_.begin(), data_.end(), [](const auto& ds) -> bool { return std::all_of(ds.begin(), ds.end(), [](const FunNameData& d) -> bool { return !d.wanted; }); }));
+    assert(std::all_of(data_.values().begin(), data_.values().end(), [](const auto& ds) -> bool { return std::all_of(ds.values().begin(), ds.values().end(), [](const FunNameData& d) -> bool { return !d.seen_subsumed; }); }));
+    assert(std::all_of(data_.values().begin(), data_.values().end(), [](const auto& ds) -> bool { return std::all_of(ds.values().begin(), ds.values().end(), [](const FunNameData& d) -> bool { return !d.wanted; }); }));
   }
 
   void AddNewLevel() { level_size_.push_back(trail_.size()); }

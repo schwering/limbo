@@ -4,19 +4,21 @@ _Note: This `rewrite` branch is far from finished. Check out the `master` branch
 
 Limbo is a **reasoning system** for modelling and querying an agent's
 knowledge. Limbo features a **highly expressive** modelling language
-(with functions, equality, quantification, introspective modal
-operators), but  maintains **attractive computational** properties.
+that includes functions, equality, quantification, introspective modal
+operators, but  maintains **attractive computational** properties.
 
-Great expressivity usually brings along great computational complexity.
-Limbo avoids the computational cliff using the *theory of limited
-belief*, which offers a principled way to control the computational
-effort and preserves decidability and, in the propositional case, even
+Great expressivity usually brings great computational complexity. Limbo
+avoids the computational cliff using a *theory of limited belief*,
+which offers a principled way to control the computational effort and
+preserves decidability and, in the propositional case, even
 tractability.
 
-A quick example of the modelling language: the statement "I know
+A quick example of the modelling language: the statement "I know that
 Sally's father is rich, but I don't know who he is" can be encoded
 by the following Limbo formula:
-**K**<sub>1</sub> exists *x* (fatherOf(Sally) = *x* ^ rich(*x*) = T ^ **M**<sub>1</sub> fatherOf(Sally) /= *x*).
+
+> **K**<sub>1</sub> exists *x* (fatherOf(Sally) = *x* ^ rich(*x*) = T ^ **M**<sub>1</sub> fatherOf(Sally) /= *x*).
+
 The operators **K**<sub>1</sub> and **M**<sub>1</sub> refer to what
 the agent knows or considers possible, respectively, at *belief level*
 1; the belief level is the key concept that controls the computational
@@ -83,17 +85,13 @@ For more theoretical background see the papers linked below.
   define and query a knowledge base through a simple text interface.
   You can also use it from the command line; the the code is
   [here](examples/tui/).
-* There's are
+* There are
   [Minesweeper](http://www.cse.unsw.edu.au/~cschwering/limbo/minesweeper/) and
   [Sudoku](http://www.cse.unsw.edu.au/~cschwering/limbo/sudoku/) web demos. You
   can use them it from the command line as well; the the code is
   [here](examples/minesweeper/) and [here](examples/sudoku/).
-* The main part of the C++ API is [kb.h](src/limbo/kb.h),
-  [formula.h](src/limbo/formula.h), [clause.h](src/limbo/clause.h),
-  [literal.h](src/limbo/literal.h), [term.h](src/limbo/term.h), in this
-  order. Optional C++ operator overloadings are provided by
-  [format/cpp/syntax.h](src/limbo/format/cpp/syntax.h) to make creating
-  formulas a little more convenient.
+  (The on-line demos are still based on an earlier version. They'll be updated
+  when the current rewrite is finished.)
 
 ## Future work
 
@@ -105,8 +103,6 @@ Interesting KR concepts to be added include:
 
 To improve the performance, we could investigate:
 
-* Clause learning, including its theoretical implications.
-* Backjumping.
 * More efficient grounding.
 
 ## Installation
@@ -136,25 +132,27 @@ I'm working on a technical report that includes all new developments since [1, 2
 1. A Reasoning System for a First-Order Logic of Limited Belief. <br>
    C. Schwering. <br>
    In *Proc. IJCAI*, 2017. <br>
-   [pdf](https://schwering.github.io/schwering/ijcai-2017.pdf),
-   [proofs](https://arxiv.org/abs/1705.01817),
-   [slides](https://schwering.github.io/schwering/ijcai-2017-slides.pdf)
+   [pdf](https://schwering.github.io/ijcai-2017.pdf),
+   [slides](https://schwering.github.io/ijcai-2017-slides.pdf)
 2. Limbo: A Reasoning System for Limited Belief <br>
    C. Schwering. <br>
    In *Proc. IJCAI*, 2017. <br>
-   [pdf](https://schwering.github.io/schwering/ijcai-2017-demo.pdf)
+   [pdf](https://schwering.github.io/ijcai-2017-demo.pdf)
 3. The Complexity of Limited Belief Reasoning — The Quantifier-Free Case <br>
    Y. Chen, A. Saffidine, C. Schwering. <br>
    In *Proc. IJCAI*, 2018. <br>
-   [pdf](https://schwering.github.io/schwering/ijcai-2018.pdf)
+   [pdf](https://schwering.github.io/ijcai-2018.pdf),
+   [slides](https://schwering.github.io/ijcai-2018-slides.pdf)
 4. A Representation Theorem for Reasoning in First-Order Multi-Agent Knowledge Bases <br>
    C. Schwering, M. Pagnucco. <br>
    In *Proc. AAMAS*, 2019. <br>
-   [pdf](https://schwering.github.io/schwering/aamas-2019.pdf)
+   [pdf](https://schwering.github.io/aamas-2019.pdf),
+   [slides](https://schwering.github.io/aamas-2019-slides.pdf)
 5. Reasoning in the Situation Calculus with Limited Belief <br>
    C. Schwering. <br>
    Commonsense, 2017. <br>
-   [pdf](https://schwering.github.io/schwering/commonsense-2017.pdf)
+   [pdf](https://schwering.github.io/commonsense-2017a.pdf),
+   [slides](https://schwering.github.io/commonsense-2017a-slides.pdf)
 6. Decidable Reasoning in a Logic of Limited Belief with Function Symbols. <br>
    G. Lakemeyer and H. Levesque. <br>
    In *Proc. KR*, 2016. <br>
@@ -162,8 +160,8 @@ I'm working on a technical report that includes all new developments since [1, 2
 7. Decidable Reasoning in a First-Order Logic of Limited Conditional Belief. <br>
    C. Schwering and G. Lakemeyer. <br>
    In *Proc. ECAI*, 2016. <br>
-   [pdf](https://schwering.github.io/schwering/ecai-2016.pdf),
-   [slides](https://schwering.github.io/schwering/ecai-2016-slides.pdf)
+   [pdf](https://schwering.github.io/ecai-2016.pdf),
+   [slides](https://schwering.github.io/ecai-2016-slides.pdf)
 8. Decidable Reasoning in a Fragment of the Epistemic Situation Calculus. <br>
    G. Lakemeyer and H. Levesque. <br>
    In *Proc. KR*, 2014. <br>
