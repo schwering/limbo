@@ -66,7 +66,7 @@ class LimSat {
   };
 
   static bool assigns(const internal::DenseMap<Fun, Name>& model, const Fun f) {
-    return !model[f].null();
+    return model.in_range(f) && !model[f].null();
   }
 
   static bool AssignsAll(const internal::DenseMap<Fun, Name>& model, const std::vector<Fun>& funs) {

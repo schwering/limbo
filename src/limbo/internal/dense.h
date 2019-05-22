@@ -48,7 +48,8 @@ template<typename Key,
          typename CheckBound = NoBoundCheck,
          typename Index = int,
          typename KeyToIndex = KeyToIndex<Key, Index>,
-         typename IndexToKey = IndexToKey<Key, Index>>
+         typename IndexToKey = IndexToKey<Key, Index>,
+         Index kOffset = 0>
 class DenseMap {
  public:
   using Vec             = std::vector<Val>;
@@ -146,22 +147,25 @@ class DenseMap {
 
   void Capacitate(Key k)          { Capacitate(k2i_(k)); }
   void Capacitate(Key k, Val v)   { Capacitate(k2i_(k), v); }
-  void Capacitate(Index i)        { if (i >= vec_.size()) { vec_.resize(i + 1); } }
-  void Capacitate(Index i, Val v) { if (i >= vec_.size()) { vec_.resize(i + 1, v); } }
+  void Capacitate(Index i)        { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset); } }
+  void Capacitate(Index i, Val v) { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset, v); } }
 
   void Clear() { vec_.clear(); }
   bool Cleared() { return vec_.empty(); }
 
-  Index upper_bound() const { return Index(vec_.size()) - 1; }
+  bool in_range(Key k)   const { return in_range(k2i_(k)); }
+  bool in_range(Index i) const { return kOffset <= i && i < vec_.size() - kOffset; }
 
-        reference operator[](Index i)       { check_bound_(this, i); return vec_[i]; }
-  const_reference operator[](Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i]; }
+  Index upper_bound() const { return Index(vec_.size()) - 1 + kOffset; }
+
+        reference operator[](Index i)       { check_bound_(this, i); return vec_[i - kOffset]; }
+  const_reference operator[](Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i - kOffset]; }
 
         reference operator[](Key key)       { return operator[](k2i_(key)); }
   const_reference operator[](Key key) const { return operator[](k2i_(key)); }
 
   Range<KeyIterator> keys() const {
-    return Range<KeyIterator>(KeyIterator(0, k2i_, i2k_), KeyIterator(vec_.size(), k2i_, i2k_));
+    return Range<KeyIterator>(KeyIterator(kOffset, k2i_, i2k_), KeyIterator(vec_.size() + kOffset, k2i_, i2k_));
   }
   Range<const_iterator> values() const { return Range<const_iterator>(vec_.begin(), vec_.end()); }
   Range<      iterator> values()       { return Range<      iterator>(vec_.begin(), vec_.end()); }

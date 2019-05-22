@@ -36,7 +36,7 @@ class Sat {
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
   struct DefaultActivity { double operator()(Fun) const { return 0.0; } };
-  struct DefaultAdmissibility { bool operator()(Sat*) const { return true; } };
+  struct DefaultNogood { bool operator()(std::vector<Lit>*) const { return false; } };
 
   explicit Sat() = default;
 
@@ -161,25 +161,28 @@ class Sat {
   bool     propagate_with_learnt()       const { return propagate_with_learned_; }
   void set_propagate_with_learnt(bool b)       { propagate_with_learned_ = b; }
 
-  template<typename ConflictPredicate, typename DecisionPredicate, typename AdmissiblePredicate = DefaultAdmissibility>
+  template<typename ConflictPredicate,
+           typename DecisionPredicate,
+           typename NogoodPredicate = DefaultNogood>
   Truth Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
               DecisionPredicate decision_predicate = DecisionPredicate(),
-              AdmissiblePredicate admissible_predicate = AdmissiblePredicate()) {
+              NogoodPredicate   nogood_predicate   = NogoodPredicate()) {
     InitTrail();
     if (empty_clause_) {
       return Truth::kUnsat;
     }
+    std::vector<Lit> nogood;
     std::vector<Lit> learnt;
     bool go = true;
     while (go) {
       const CRef conflict = Propagate();
-      if (conflict != CRef::kNull) {
+      if (conflict != CRef::kNull || nogood_predicate(&nogood)) {
         if (current_level() == Level::kRoot) {
           empty_clause_ = true;
           return Truth::kUnsat;
         }
         Level btlevel;
-        Analyze(conflict, &learnt, &btlevel);
+        Analyze(conflict, nogood, &learnt, &btlevel);
         go &= conflict_predicate(int(current_level()), conflict, learnt, int(btlevel));
         Backtrack(btlevel);
         assert(learnt.size() >= 1);
@@ -196,7 +199,6 @@ class Sat {
           Enqueue(learnt[0], CRef::kNull);
         }
         BumpToFront(learnt[0].fun());
-        learnt.clear();
         DecayFun();
       } else {
         const Fun f = NextFun();
@@ -212,6 +214,8 @@ class Sat {
         AddNewLevel();
         EnqueueEq(a, CRef::kNull);
       }
+      learnt.clear();
+      nogood.clear();
       assert(level_size_.back() < trail_.size());
     }
     Backtrack(Level::kRoot);
@@ -438,7 +442,8 @@ class Sat {
     return conflict;
   }
 
-  void Analyze(CRef conflict, std::vector<Lit>* const learnt, Level* const btlevel) {
+  void Analyze(CRef conflict, const std::vector<Lit>& nogood, std::vector<Lit>* const learnt, Level* const btlevel) {
+    assert(learnt->empty());
     assert(std::all_of(data_.values().begin(), data_.values().end(),
                        [](const auto& ds) -> bool { return std::all_of(ds.values().begin(), ds.values().end(),
                        [](const FunNameData& d) -> bool { return !d.seen_subsumed && !d.wanted; }); }));
@@ -580,6 +585,10 @@ class Sat {
             const Lit a = Lit::Eq(f, n);
             handle_conflict(a);
           }
+        }
+      } else if (conflict == CRef::kNull) {
+        for (const Lit a : nogood) {
+          handle_conflict(a.flip());
         }
       } else {
         for (const Lit a : clausef_[conflict]) {
