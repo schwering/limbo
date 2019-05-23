@@ -274,9 +274,9 @@ class Sat {
   static constexpr double kDecayFactor = 0.95;
 
 
-  void Bump(Clause& c) {
-    c.set_activity(c.activity() + clause_bump_step_);
-    if (c.activity() > kActivityThreshold) {
+  void Bump(Clause* c) {
+    c->set_activity(c->activity() + clause_bump_step_);
+    if (c->activity() > kActivityThreshold) {
       for (const CRef cr : clauses_) {
         Clause& c = clausef_[cr];
         c.set_activity(c.activity() / kActivityThreshold);
@@ -329,11 +329,11 @@ class Sat {
 
   CRef Propagate() {
     CRef conflict = CRef::kNull;
-    while (trail_head_ < trail_.size() && conflict == CRef::kNull) {
+    while (trail_head_ < int(trail_.size()) && conflict == CRef::kNull) {
       Lit a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
-    //assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { return clausef_[cr].learnt() || std::all_of(clausef_[cr].begin(), clausef_[cr].begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
+    assert(std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { return clausef_[cr].learnt() || std::all_of(clausef_[cr].begin(), clausef_[cr].begin()+2, [this, cr](Lit a) -> bool { auto& ws = watchers_[a.fun()]; return std::count(ws.begin(), ws.end(), cr) >= 1; }); }));
     assert(conflict != CRef::kNull || std::all_of(clauses_.begin()+1, clauses_.end(), [this](CRef cr) -> bool { const Clause& c = clausef_[cr]; return c.learnt() || satisfies(c) || (!falsifies(c[0]) && !falsifies(c[1])) || std::all_of(c.begin()+2, c.end(), [this](Lit a) -> bool { return falsifies(a); }); }));
     return conflict;
   }
@@ -432,7 +432,7 @@ class Sat {
           Enqueue(c[i], cr);
           *cr_ptr2++ = *cr_ptr1++;
         }
-        Bump(c);
+        Bump(&c);
       }
     }
     ws.resize(cr_ptr2 - begin);

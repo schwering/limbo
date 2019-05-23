@@ -4,8 +4,8 @@
 //
 // RingBuffer that grows on demand.
 
-#ifndef LIMBO_RINGBUFFER_H_
-#define LIMBO_RINGBUFFER_H_
+#ifndef LIMBO_INTERNAL_RINGBUFFER_H_
+#define LIMBO_INTERNAL_RINGBUFFER_H_
 
 #include <cassert>
 #include <utility>
@@ -104,5 +104,5 @@ class RingBuffer {
   int end_ = 0;  // exclusive
 };
 
-#endif  // LIMBO_RINGBUFFER_H_
+#endif  // LIMBO_INTERNAL_RINGBUFFER_H_
 

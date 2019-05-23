@@ -6,8 +6,10 @@
 #define LIMBO_FORMAT_OUTPUT_H_
 
 #include <cstdlib>
+#include <memory>
 #include <ostream>
 #include <sstream>
+#include <string>
 
 #include <limbo/clause.h>
 #include <limbo/formula.h>

@@ -9,7 +9,10 @@
 #include <cassert>
 #include <algorithm>
 #include <list>
+#include <memory>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include <limbo/clause.h>
 #include <limbo/lit.h>
