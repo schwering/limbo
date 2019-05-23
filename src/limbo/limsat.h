@@ -42,18 +42,18 @@ class LimSat {
 
   struct FoundModel {
     FoundModel() : succ(false) {}
-    FoundModel(internal::DenseMap<Fun, Name>&& model) : model(model), succ(true) {}
-    FoundModel(const internal::DenseMap<Fun, Name>& model) : model(model), succ(true) {}
-    internal::DenseMap<Fun, Name> model;
+    FoundModel(TermMap<Fun, Name>&& model) : model(model), succ(true) {}
+    FoundModel(const TermMap<Fun, Name>& model) : model(model), succ(true) {}
+    TermMap<Fun, Name> model;
     bool succ;
   };
 
   struct FoundCoveringModels {
     FoundCoveringModels() : all_covered(false) {}
-    FoundCoveringModels(std::vector<internal::DenseMap<Fun, Name>>&& models,
+    FoundCoveringModels(std::vector<TermMap<Fun, Name>>&& models,
                         std::vector<std::vector<Fun>>&& newly_assigned_in)
         : models(models), newly_assigned_in(newly_assigned_in), all_covered(true) {}
-    std::vector<internal::DenseMap<Fun, Name>> models;
+    std::vector<TermMap<Fun, Name>> models;
     std::vector<std::vector<Fun>> newly_assigned_in;
     bool all_covered;
   };
@@ -65,11 +65,11 @@ class LimSat {
     bool all_assigned = false;
   };
 
-  static bool assigns(const internal::DenseMap<Fun, Name>& model, const Fun f) {
+  static bool assigns(const TermMap<Fun, Name>& model, const Fun f) {
     return model.in_range(f) && !model[f].null();
   }
 
-  static bool AssignsAll(const internal::DenseMap<Fun, Name>& model, const std::vector<Fun>& funs) {
+  static bool AssignsAll(const TermMap<Fun, Name>& model, const std::vector<Fun>& funs) {
     for (const Fun f : funs) {
       if (!assigns(model, f)) {
         return false;
@@ -78,7 +78,7 @@ class LimSat {
     return true;
   }
 
-  static bool AssignsAll(const internal::DenseMap<Fun, Name>& model, const internal::DenseMap<Fun, bool>& wanted) {
+  static bool AssignsAll(const TermMap<Fun, Name>& model, const TermMap<Fun, bool>& wanted) {
     for (const Fun f : wanted.keys()) {
       if (wanted[f] && !assigns(model, f)) {
         return false;
@@ -94,8 +94,8 @@ class LimSat {
     return zs;
   }
 
-  static AssignedFunctions GetAndUnwantNewlyAssignedFunctions(const internal::DenseMap<Fun, Name> model,
-                                                              internal::DenseMap<Fun, bool>* wanted) {
+  static AssignedFunctions GetAndUnwantNewlyAssignedFunctions(const TermMap<Fun, Name> model,
+                                                              TermMap<Fun, bool>* wanted) {
     std::vector<Fun> newly_assigned;
     bool all_assigned = true;
     for (const Fun f : wanted->keys()) {
@@ -130,12 +130,12 @@ class LimSat {
                                               [&](const std::vector<Fun>& must) -> bool {
       // Skip sets of functions that have been covered already.
       // In the example, {3,4} and {3,5} are implied by M2.
-      for (const internal::DenseMap<Fun, Name>& model : fcm.models) {
+      for (const TermMap<Fun, Name>& model : fcm.models) {
         if (AssignsAll(model, must)) {
           return true;
         }
       }
-      internal::DenseMap<Fun, bool> wanted(max_fun(), false);
+      TermMap<Fun, bool> wanted(max_fun(), false);
       for (const Fun f : must) {
         wanted[f] = true;
       }
@@ -147,9 +147,9 @@ class LimSat {
   }
 
   FoundCoveringModels FindCoveringModels(const int min_model_size) {
-    std::vector<internal::DenseMap<Fun, Name>> models;
+    std::vector<TermMap<Fun, Name>> models;
     std::vector<std::vector<Fun>> newly_assigned_in;
-    internal::DenseMap<Fun, bool> wanted = funs_;
+    TermMap<Fun, bool> wanted = funs_;
     bool propagate_with_learnt = true;
     bool wanted_is_must = false;
     for (;;) {
@@ -190,7 +190,7 @@ class LimSat {
   FoundModel FindModel(const int min_model_size,
                        const bool propagate_with_learnt,
                        const bool wanted_is_must,
-                       const internal::DenseMap<Fun, bool>& wanted) {
+                       const TermMap<Fun, bool>& wanted) {
     //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
     static constexpr double activity_offset = 1000.0;
     static constexpr int max_conflicts = 50;
@@ -203,7 +203,7 @@ class LimSat {
                     [&](const Fun f) -> double { return wanted[f] * activity_offset; });
     }
     sat.set_propagate_with_learnt(propagate_with_learnt);
-    internal::DenseMap<Fun, Name> model;
+    TermMap<Fun, Name> model;
     const Sat::Truth truth = sat.Solve(
         [&](int, Sat::CRef, const std::vector<Lit>&, int) -> bool {
           return ++n_conflicts <= max_conflicts;
@@ -254,11 +254,11 @@ class LimSat {
   Fun max_fun() const { return Fun::FromId(funs_.upper_bound()); }
 
   std::vector<std::vector<Lit>>  clauses_;
-  internal::DenseMap<Fun, bool>  funs_;
-  internal::DenseMap<Name, bool> names_;
+  TermMap<Fun, bool>  funs_;
+  TermMap<Name, bool> names_;
   Name                           extra_name_;
-  //internal::DenseMap<Fun, internal::DenseMap<Name, bool>> names_;
-  //internal::DenseMap<Fun, Name>                           extra_names_;
+  //TermMap<Fun, TermMap<Name, bool>> names_;
+  //TermMap<Fun, Name>                extra_names_;
 };
 
 }  // namespace limbo

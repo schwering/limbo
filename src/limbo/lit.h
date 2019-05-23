@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include <limbo/internal/ints.h>
+#include <limbo/internal/dense.h>
 
 namespace limbo {
 
@@ -157,6 +158,22 @@ class Lit {
 static_assert(std::is_trivial<Fun>::value, "Fun should be trivial type");
 static_assert(std::is_trivial<Name>::value, "Name should be trivial type");
 static_assert(std::is_trivial<Lit>::value, "Lit should be trivial type");
+
+template<typename T>
+struct TermToId {
+  int operator()(const T k) const { return int(k); }
+};
+
+template<typename T>
+struct IdToTerm {
+  T operator()(const int i) const { return T::FromId(i); }
+};
+
+template<typename T, typename Val>
+using TermMap = internal::DenseMap<T, Val, int, 1, TermToId<T>, IdToTerm<T>, internal::NoBoundCheck>;
+
+template<typename T, typename Less>
+using MinHeap = internal::DenseMinHeap<T, Less, int, 1, TermToId<T>, IdToTerm<T>, internal::NoBoundCheck>;
 
 }  // namespace limbo
 

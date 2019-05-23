@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2018-2019 Christoph Schwering
+// Copyright 2019 Christoph Schwering
 //
 // A limited SAT solver using Limbo data structures.
 

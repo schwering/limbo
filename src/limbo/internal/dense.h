@@ -2,8 +2,8 @@
 // Copyright 2016-2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
-// DenseMap, DenseSet, MinHeap classes, which are all based on representing
-// keys or entries, respectively, as non-negative integers close to zero.
+// DenseMap, DenseMinHeap classes, which are based on representing keys or
+// entries, respectively, as non-negative integers close to zero.
 
 #ifndef LIMBO_INTERNAL_DENSE_H_
 #define LIMBO_INTERNAL_DENSE_H_
@@ -13,16 +13,6 @@
 
 namespace limbo {
 namespace internal {
-
-template<typename Key, typename Index>
-struct KeyToIndex {
-  Index operator()(const Key k) const { return int(k); }
-};
-
-template<typename Key, typename Index>
-struct IndexToKey {
-  Key operator()(const Index i) const { return i == 0 ? Key() : Key::FromId(i); }
-};
 
 struct NoBoundCheck {
   template<typename T, typename Index>
@@ -45,11 +35,11 @@ struct FastAdjustBoundCheck {
 
 template<typename Key,
          typename Val,
-         typename CheckBound = NoBoundCheck,
-         typename Index = int,
-         typename KeyToIndex = KeyToIndex<Key, Index>,
-         typename IndexToKey = IndexToKey<Key, Index>,
-         Index kOffset = 0>
+         typename Index,
+         Index kOffset,
+         typename KeyToIndex,
+         typename IndexToKey,
+         typename CheckBound>
 class DenseMap {
  public:
   using Vec             = std::vector<Val>;
@@ -150,13 +140,17 @@ class DenseMap {
   void Capacitate(Index i)        { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset); } }
   void Capacitate(Index i, Val v) { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset, v); } }
 
+  bool empty() const { return vec_.empty(); }
+
   void Clear() { vec_.clear(); }
-  bool Cleared() { return vec_.empty(); }
 
   bool in_range(Key k)   const { return in_range(k2i_(k)); }
   bool in_range(Index i) const { return kOffset <= i && i < vec_.size() - kOffset; }
 
   Index upper_bound() const { return Index(vec_.size()) - 1 + kOffset; }
+
+        reference head()       { return operator[](kOffset); }
+  const_reference head() const { return operator[](kOffset); }
 
         reference operator[](Index i)       { check_bound_(this, i); return vec_[i - kOffset]; }
   const_reference operator[](Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i - kOffset]; }
@@ -179,19 +173,19 @@ class DenseMap {
 
 template<typename T,
          typename Less,
-         typename CheckBound = NoBoundCheck,
-         typename Index = int,
-         typename KeyToIndex = KeyToIndex<T, Index>>
-class MinHeap {
+         typename Index,
+         Index kOffset,
+         typename KeyToIndex,
+         typename IndexToKey,
+         typename CheckBound>
+class DenseMinHeap {
  public:
-  using Map = DenseMap<T, int, CheckBound, Index, KeyToIndex>;
+  explicit DenseMinHeap(Less less = Less()) : less_(less) { heap_.emplace_back(); }
 
-  explicit MinHeap(Less less = Less()) : less_(less) { heap_.emplace_back(); }
-
-  MinHeap(const MinHeap&)            = default;
-  MinHeap& operator=(const MinHeap&) = default;
-  MinHeap(MinHeap&&)                 = default;
-  MinHeap& operator=(MinHeap&&)      = default;
+  DenseMinHeap(const DenseMinHeap&)            = default;
+  DenseMinHeap& operator=(const DenseMinHeap&) = default;
+  DenseMinHeap(DenseMinHeap&&)                 = default;
+  DenseMinHeap& operator=(DenseMinHeap&&)      = default;
 
   void set_less(Less less) { less_ = less; }
 
@@ -248,6 +242,8 @@ class MinHeap {
   typename std::vector<T>::const_iterator end()   const { return heap_.end(); }
 
  private:
+  using Map = DenseMap<T, int, Index, kOffset, KeyToIndex, IndexToKey, CheckBound>;
+
   static int left(const int i)   { return 2 * i; }
   static int right(const int i)  { return 2 * i + 1; }
   static int parent(const int i) { return i / 2; }

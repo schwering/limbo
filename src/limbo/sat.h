@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014-2019 Christoph Schwering
+// Copyright 2018-2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Satisfiability solver for grounded clauses with functions and names.
@@ -36,7 +36,7 @@ class Sat {
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
   struct DefaultActivity { double operator()(Fun) const { return 0.0; } };
-  struct DefaultNogood { bool operator()(std::vector<Lit>*) const { return false; } };
+  struct DefaultReject { bool operator()(std::vector<Lit>*) const { return false; } };
 
   explicit Sat() = default;
 
@@ -155,34 +155,34 @@ class Sat {
   const std::vector<CRef>& clauses()       const { return clauses_; }
   const Clause&            clause(CRef cr) const { return clausef_[cr]; }
 
-  int                                  model_size() const { return trail_eqs_; }
-  const internal::DenseMap<Fun, Name>& model()      const { return model_; }
+  int                       model_size() const { return trail_eqs_; }
+  const TermMap<Fun, Name>& model()      const { return model_; }
 
   bool     propagate_with_learnt()       const { return propagate_with_learned_; }
   void set_propagate_with_learnt(bool b)       { propagate_with_learned_ = b; }
 
   template<typename ConflictPredicate,
            typename DecisionPredicate,
-           typename NogoodPredicate = DefaultNogood>
+           typename RejectPredicate = DefaultReject>
   Truth Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
               DecisionPredicate decision_predicate = DecisionPredicate(),
-              NogoodPredicate   nogood_predicate   = NogoodPredicate()) {
+              RejectPredicate   reject_predicate   = RejectPredicate()) {
     InitTrail();
     if (empty_clause_) {
       return Truth::kUnsat;
     }
-    std::vector<Lit> nogood;
+    std::vector<Lit> reject;
     std::vector<Lit> learnt;
     bool go = true;
     while (go) {
       const CRef conflict = Propagate();
-      if (conflict != CRef::kNull || nogood_predicate(&nogood)) {
+      if (conflict != CRef::kNull || reject_predicate((reject.clear(), &reject))) {
         if (current_level() == Level::kRoot) {
           empty_clause_ = true;
           return Truth::kUnsat;
         }
         Level btlevel;
-        Analyze(conflict, nogood, &learnt, &btlevel);
+        Analyze(conflict, reject, (learnt.clear(), &learnt), &btlevel);
         go &= conflict_predicate(int(current_level()), conflict, learnt, int(btlevel));
         Backtrack(btlevel);
         assert(learnt.size() >= 1);
@@ -214,8 +214,6 @@ class Sat {
         AddNewLevel();
         EnqueueEq(a, CRef::kNull);
       }
-      learnt.clear();
-      nogood.clear();
       assert(level_size_.back() < trail_.size());
     }
     Backtrack(Level::kRoot);
@@ -262,10 +260,10 @@ class Sat {
   };
 
   struct ActivityCompare {
-    explicit ActivityCompare(const internal::DenseMap<Fun, double>* activity) : activity_(activity) {}
+    explicit ActivityCompare(const TermMap<Fun, double>* activity) : activity_(activity) {}
     bool operator()(const Fun f1, const Fun f2) const { return (*activity_)[f1] > (*activity_)[f2]; }
    private:
-    const internal::DenseMap<Fun, double>* activity_;
+    const TermMap<Fun, double>* activity_;
   };
 
 
@@ -442,7 +440,7 @@ class Sat {
     return conflict;
   }
 
-  void Analyze(CRef conflict, const std::vector<Lit>& nogood, std::vector<Lit>* const learnt, Level* const btlevel) {
+  void Analyze(CRef conflict, const std::vector<Lit>& reject, std::vector<Lit>* const learnt, Level* const btlevel) {
     assert(learnt->empty());
     assert(std::all_of(data_.values().begin(), data_.values().end(),
                        [](const auto& ds) -> bool { return std::all_of(ds.values().begin(), ds.values().end(),
@@ -579,16 +577,15 @@ class Sat {
         assert(!trail_a.null());
         assert(trail_a.pos());
         const Fun f = trail_a.fun();
-        for (int i = 1; i <= data_[f].upper_bound(); ++i) {
-          const Name n = Name::FromId(i);
+        for (const Name n : data_[f].keys()) {
           if (data_[f][n].occurs) {
             const Lit a = Lit::Eq(f, n);
             handle_conflict(a);
           }
         }
       } else if (conflict == CRef::kNull) {
-        for (const Lit a : nogood) {
-          handle_conflict(a.flip());
+        for (const Lit a : reject) {
+          handle_conflict(a);
         }
       } else {
         for (const Lit a : clausef_[conflict]) {
@@ -826,9 +823,9 @@ class Sat {
   void CapacitateMaps(const Fun f, const Name n, const Name extra_n) {
     const int max_ni = int(n) > int(extra_n) ? int(n) : int(extra_n);
     const int fi = int(f) > data_.upper_bound() ? int(f) : -1;
-    const int ni = data_.upper_bound() < 0 || max_ni > data_[0].upper_bound() ? max_ni : -1;
+    const int ni = data_.empty() || max_ni > data_.head().upper_bound() ? max_ni : -1;
     const int fig = (fi + 1) * 1.5;
-    const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_[0].upper_bound() + 1;
+    const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_.head().upper_bound() + 1;
     if (fi >= 0) {
       fun_queue_.Capacitate(fig);
       fun_activity_.Capacitate(fig);
@@ -840,12 +837,12 @@ class Sat {
       trail_neqs_.Capacitate(fig);
     }
     if (fi >= 0 || ni >= 0) {
-      for (internal::DenseMap<Name, FunNameData>& ds : data_.values()) {
+      for (TermMap<Name, FunNameData>& ds : data_.values()) {
         ds.Capacitate(nig);
       }
     }
     if (ni >= 0) {
-      for (internal::DenseMap<Name, FunNameData>& ds : data_.values()) {
+      for (TermMap<Name, FunNameData>& ds : data_.values()) {
         ds.Capacitate(nig);
       }
     }
@@ -866,7 +863,7 @@ class Sat {
   // watchers_ maps every function to a sequence of clauses that watch it;
   //    every clause watches two functions, and when a literal with this
   //    function is propagated, the watching clauses are inspected.
-  internal::DenseMap<Fun, std::vector<CRef>> watchers_;
+  TermMap<Fun, std::vector<CRef>> watchers_;
 
   // trail_ is a sequence of literals in the order they were derived.
   // level_size_ groups the literals of trail_ into chunks by their level at
@@ -876,29 +873,29 @@ class Sat {
   //    propagated yet.
   // trail_eqs_ is the number of equalities on the trail.
   // trail_neqs_ is the number of inequalities on the trail for a function.
-  std::vector<Lit>             trail_;
-  std::vector<int>             level_size_ = std::vector<int>(1, trail_.size());
-  int                          trail_head_ = 0;
-  int                          trail_eqs_  = 0;
-  internal::DenseMap<Fun, int> trail_neqs_;
+  std::vector<Lit>  trail_;
+  std::vector<int>  level_size_ = std::vector<int>(1, trail_.size());
+  int               trail_head_ = 0;
+  int               trail_eqs_  = 0;
+  TermMap<Fun, int> trail_neqs_;
 
   // domain_size_ is the number of names that occured per function.
   // domain_ contains at least domain_size_ - trail_neqs_[f] and at most
   //    domain_size_ names n that are potential values for each f; some of
   //    those may already be excluded by f != n on the trail.
-  internal::DenseMap<Fun, int>              domain_size_;
-  internal::DenseMap<Fun, RingBuffer<Name>> domain_;
+  TermMap<Fun, int>              domain_size_;
+  TermMap<Fun, RingBuffer<Name>> domain_;
 
   // model_ is an assignment of functions to names, i.e., positive literals.
   // data_ is meta data for every function and name pair (cf. FunNameData).
-  internal::DenseMap<Fun, Name>                                  model_;
-  internal::DenseMap<Fun, internal::DenseMap<Name, FunNameData>> data_;
+  TermMap<Fun, Name>                       model_;
+  TermMap<Fun, TermMap<Name, FunNameData>> data_;
 
   // fun_activity_ assigns an activity to each function.
   // fun_queue_ ranks the clauses by activity (highest first).
-  internal::DenseMap<Fun, double>         fun_activity_;
-  internal::MinHeap<Fun, ActivityCompare> fun_queue_{ActivityCompare(&fun_activity_)};
-  double                                  fun_bump_step_ = kBumpStepInit;
+  TermMap<Fun, double>          fun_activity_;
+  MinHeap<Fun, ActivityCompare> fun_queue_{ActivityCompare(&fun_activity_)};
+  double                        fun_bump_step_ = kBumpStepInit;
 };
 
 }  // namespace limbo
