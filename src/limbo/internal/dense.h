@@ -152,7 +152,7 @@ class DenseMap {
         reference head()       { return operator[](kOffset); }
   const_reference head() const { return operator[](kOffset); }
 
-        reference operator[](Index i)       { check_bound_(this, i); return vec_[i - kOffset]; }
+        reference operator[](Index i)       { check_bound_(this, i);                        return vec_[i - kOffset]; }
   const_reference operator[](Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i - kOffset]; }
 
         reference operator[](Key key)       { return operator[](k2i_(key)); }

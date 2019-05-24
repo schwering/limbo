@@ -46,7 +46,7 @@ class Registry : private internal::Singleton<Registry> {
 
  private:
   template<typename T>
-  using StringMap = internal::DenseMap<T, std::string, internal::FastAdjustBoundCheck>;
+  using StringMap = Alphabet::DenseMap<T, std::string>;
 
   Registry() = default;
   Registry(const Registry&) = delete;

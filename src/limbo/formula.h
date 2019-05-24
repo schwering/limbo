@@ -76,6 +76,22 @@ class Alphabet : private internal::Singleton<Alphabet> {
     Sort sort() const { return Instance()->var_sort_[*this]; }
   };
 
+  template<typename T>
+  struct ToId {
+    int operator()(const T k) const { return int(k); }
+  };
+
+  template<typename T>
+  struct FromId {
+    T operator()(const int i) const { return T::FromId(i); }
+  };
+
+  template<typename Key, typename Value>
+  using DenseMap = internal::DenseMap<Key, Value, int, 1, ToId<Key>, FromId<Key>, internal::FastAdjustBoundCheck>;
+
+  template<typename Key>
+  using DenseSet = DenseMap<Key, bool>;
+
 #if 0
   class QuasiName {
    public:
@@ -152,27 +168,27 @@ class Alphabet : private internal::Singleton<Alphabet> {
     };
 
     using List = std::list<Symbol>;
-    using Ref = List::iterator;
+    using Ref  = List::iterator;
     using CRef = List::const_iterator;
 
-    static Symbol Fun(FunSymbol f)            { Symbol s; s.tag = kFun;            s.u.f = f;            return s; }
-    static Symbol Name(NameSymbol n)          { Symbol s; s.tag = kName;           s.u.n = n;            return s; }
-    static Symbol Var(VarSymbol x)            { Symbol s; s.tag = kVar;            s.u.x = x;            return s; }
-    static Symbol StrippedFun(class Fun f)    { Symbol s; s.tag = kStrippedFun;    s.u.f_s = f;          return s; }
-    static Symbol StrippedName(class Name n)  { Symbol s; s.tag = kStrippedName;   s.u.n_s = n;          return s; }
-    static Symbol Equals()                    { Symbol s; s.tag = kEquals;                               return s; }
-    static Symbol NotEquals()                 { Symbol s; s.tag = kNotEquals;                            return s; }
-    static Symbol Lit(Lit a)                  { Symbol s; s.tag = kStrippedLit;    s.u.a = a;            return s; }
-    static Symbol Clause(const Clause* c)     { Symbol s; s.tag = kStrippedClause; s.u.c = c;            return s; }
-    static Symbol Not()                       { Symbol s; s.tag = kNot;                                  return s; }
-    static Symbol Exists(VarSymbol x)         { Symbol s; s.tag = kExists;         s.u.x = x;            return s; }
-    static Symbol Forall(VarSymbol x)         { Symbol s; s.tag = kForall;         s.u.x = x;            return s; }
-    static Symbol Or(int k)                   { Symbol s; s.tag = kOr;             s.u.k = k;            return s; }
-    static Symbol And(int k)                  { Symbol s; s.tag = kAnd;            s.u.k = k;            return s; }
-    static Symbol Know(int k)                 { Symbol s; s.tag = kKnow;           s.u.k = k;            return s; }
-    static Symbol Maybe(int k)                { Symbol s; s.tag = kMaybe;          s.u.k = k;            return s; }
-    static Symbol Believe(int k, int l)       { Symbol s; s.tag = kBelieve;        s.u.k = k; s.u.l = l; return s; }
-    static Symbol Action()                    { Symbol s; s.tag = kAction;                               return s; }
+    static Symbol Fun(FunSymbol f)           { Symbol s; s.tag = kFun;            s.u.f = f;            return s; }
+    static Symbol Name(NameSymbol n)         { Symbol s; s.tag = kName;           s.u.n = n;            return s; }
+    static Symbol Var(VarSymbol x)           { Symbol s; s.tag = kVar;            s.u.x = x;            return s; }
+    static Symbol StrippedFun(class Fun f)   { Symbol s; s.tag = kStrippedFun;    s.u.f_s = f;          return s; }
+    static Symbol StrippedName(class Name n) { Symbol s; s.tag = kStrippedName;   s.u.n_s = n;          return s; }
+    static Symbol Equals()                   { Symbol s; s.tag = kEquals;                               return s; }
+    static Symbol NotEquals()                { Symbol s; s.tag = kNotEquals;                            return s; }
+    static Symbol Lit(Lit a)                 { Symbol s; s.tag = kStrippedLit;    s.u.a = a;            return s; }
+    static Symbol Clause(const Clause* c)    { Symbol s; s.tag = kStrippedClause; s.u.c = c;            return s; }
+    static Symbol Not()                      { Symbol s; s.tag = kNot;                                  return s; }
+    static Symbol Exists(VarSymbol x)        { Symbol s; s.tag = kExists;         s.u.x = x;            return s; }
+    static Symbol Forall(VarSymbol x)        { Symbol s; s.tag = kForall;         s.u.x = x;            return s; }
+    static Symbol Or(int k)                  { Symbol s; s.tag = kOr;             s.u.k = k;            return s; }
+    static Symbol And(int k)                 { Symbol s; s.tag = kAnd;            s.u.k = k;            return s; }
+    static Symbol Know(int k)                { Symbol s; s.tag = kKnow;           s.u.k = k;            return s; }
+    static Symbol Maybe(int k)               { Symbol s; s.tag = kMaybe;          s.u.k = k;            return s; }
+    static Symbol Believe(int k, int l)      { Symbol s; s.tag = kBelieve;        s.u.k = k; s.u.l = l; return s; }
+    static Symbol Action()                   { Symbol s; s.tag = kAction;                               return s; }
 
     explicit Symbol() = default;
 
@@ -246,16 +262,16 @@ class Alphabet : private internal::Singleton<Alphabet> {
       std::abort();
     }
 
-    bool stripped() const {
-      return tag == kStrippedFun || tag == kStrippedName || tag == kStrippedLit || tag == kStrippedClause;
-    }
-    bool fun()        const { return tag == kFun || tag == kStrippedFun; }
-    bool name()       const { return tag == kName || tag == kStrippedName; }
-    bool var()        const { return tag == kVar; }
-    bool term()       const { return fun() || name() || var(); }
-    bool literal()    const { return tag == kEquals || tag == kNotEquals || tag == kStrippedLit; }
-    bool quantifier() const { return tag == kExists || tag == kForall; }
-    bool objective()  const { return tag != kKnow || tag != kMaybe || tag != kBelieve; }
+    bool stripped_formula() const { return tag == kStrippedLit || tag == kStrippedClause; }
+    bool stripped_term()    const { return tag == kStrippedFun || tag == kStrippedName; }
+    bool stripped()         const { return stripped_term() || stripped_formula(); }
+    bool fun()              const { return tag == kFun || tag == kStrippedFun; }
+    bool name()             const { return tag == kName || tag == kStrippedName; }
+    bool var()              const { return tag == kVar; }
+    bool term()             const { return fun() || name() || var(); }
+    bool literal()          const { return tag == kEquals || tag == kNotEquals || tag == kStrippedLit; }
+    bool quantifier()       const { return tag == kExists || tag == kForall; }
+    bool objective()        const { return tag != kKnow || tag != kMaybe || tag != kBelieve; }
 
     Sort sort() const {
       assert(term());
@@ -285,7 +301,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     RWord& operator=(RWord&&)      = default;
 
     Symbol::CRef begin() const { return begin_; }
-    Symbol::CRef end() const { return end_; }
+    Symbol::CRef end()   const { return end_; }
 
    private:
     Symbol::CRef begin_;
@@ -452,7 +468,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
           case Symbol::kVar:          i = int(s.u.x);   break;
           case Symbol::kStrippedFun:  i = int(s.u.f_s); break;
           case Symbol::kStrippedName: i = int(s.u.n_s); break;
-          default:                                      break;
+          default:                                           break;
         }
         h ^= internal::jenkins_hash(s.tag);
         h ^= internal::jenkins_hash(i);
@@ -467,8 +483,6 @@ class Alphabet : private internal::Singleton<Alphabet> {
     }
   };
 
-  template<typename Key, typename Value>
-  using DenseMap = internal::DenseMap<Key, Value, internal::FastAdjustBoundCheck>;
   using TermMap = std::unordered_map<RWord, Symbol, DeepHash, DeepEquals>;
 
   explicit Alphabet() = default;
@@ -516,9 +530,9 @@ class FormulaCommons {
 
       void Munch(const Symbol& s) { k_ += s.arity(); --k_; }
       void Vomit(const Symbol& s) { k_ -= s.arity(); --k_; }
-      Scope scope() const { return Scope(k_); }
-      bool active(const Scope& scope) const { return k_ >= scope.k_; }
-      int left(const Scope& scope) const { return k_ - scope.k_; }
+      Scope scope()                     const { return Scope(k_); }
+      bool active(const Scope& scope)   const { return k_ >= scope.k_; }
+      int remaining(const Scope& scope) const { return k_ - scope.k_; }
 
      private:
       int k_ = 0;
@@ -545,13 +559,14 @@ class FormulaCommons {
     }
     return it;
   }
+
+ protected:
+  FormulaCommons() = default;
 };
 
 class RFormula : private FormulaCommons {
  public:
   using RWord = Abc::RWord;
-  template<typename T>
-  using DenseSet = internal::DenseSet<T, internal::FastAdjustBoundCheck>;
 
   explicit RFormula(Symbol::CRef begin, Symbol::CRef end) : rword_(begin, end), meta_init_(false) {}
   explicit RFormula(const RWord& w) : RFormula(w.begin(), w.end()) {}
@@ -575,15 +590,15 @@ class RFormula : private FormulaCommons {
   Symbol::CRef begin() const { return rword_.begin(); }
   Symbol::CRef end()   const { return rword_.end(); }
 
-  DenseSet<Abc::VarSymbol> FreeVars() const {
+  Abc::DenseSet<Abc::VarSymbol> FreeVars() const {
     struct QuantifierMarker {
       QuantifierMarker(Abc::VarSymbol x, Scope scope) : x(x), scope(scope) {}
       explicit QuantifierMarker(Scope scope) : scope(scope) {}
       Abc::VarSymbol x;
       Scope scope;
     };
-    DenseSet<Abc::VarSymbol> free;
-    DenseMap<Abc::VarSymbol, int> bound;
+    Abc::DenseSet<Abc::VarSymbol> free;
+    Abc::DenseMap<Abc::VarSymbol, int> bound;
     std::vector<QuantifierMarker> quantifiers;
     Scope::Observer scoper;
     for (auto it = begin(); it != end(); ) {
@@ -591,7 +606,7 @@ class RFormula : private FormulaCommons {
         ++bound[it->u.x];
         quantifiers.push_back(QuantifierMarker(it->u.x, scoper.scope()));
       } else if (it->tag == Abc::Symbol::kVar && bound[it->u.x] == 0) {
-        free.Insert(it->u.x);
+        free[it->u.x] = true;
       }
       scoper.Munch(*it++);
       while (!quantifiers.empty() && !scoper.active(quantifiers.back().scope)) {
@@ -604,7 +619,7 @@ class RFormula : private FormulaCommons {
 
   // Strongly well formed means the formula is well formed as defined in the
   // paper, i.e., quasi-primitive literals, quasi-trivial actions (flattened).
-  // Weakly well formed admits nested functions.
+  // Weakly well formed admits nested functions and right-hand side functions.
   bool strongly_well_formed() const { if (!meta_init_) { InitMeta(); } return strongly_well_formed_; }
   bool weakly_well_formed()   const { if (!meta_init_) { InitMeta(); } return weakly_well_formed_; }
   bool nnf()                  const { if (!meta_init_) { InitMeta(); } return nnf_; }
@@ -613,9 +628,6 @@ class RFormula : private FormulaCommons {
   bool ground()               const { if (!meta_init_) { InitMeta(); } return !ground_; }
 
  private:
-  template<typename Key, typename Value>
-  using DenseMap = internal::DenseMap<Key, Value, internal::FastAdjustBoundCheck>;
-
   void InitMeta() const { const_cast<RFormula*>(this)->InitMeta(); }
 
   void InitMeta() {
@@ -673,7 +685,8 @@ class RFormula : private FormulaCommons {
       if (action_scope_active && !scoper.active(action_scope)) {
         action_scope_active = false;
       }
-      if (s.tag == Symbol::kNot || (s.tag != Symbol::kAction && !(s.stripped() && !s.term()) && action_scope_active)) {
+      if (s.tag == Symbol::kNot ||
+          (s.tag != Symbol::kAction && !(s.stripped() && !s.term()) && action_scope_active)) {
         nnf_ = false;
       }
       if (!s.objective()) {
@@ -757,17 +770,17 @@ class Formula : private FormulaCommons {
 
   Formula Clone() { return Formula(word_.Clone()); }
 
-  RFormula readable() const { return RFormula(begin(), end()); }
-  const Word& word() const { return word_; }
-  const Symbol& head() const { return *begin(); }
-  Symbol::Tag tag() const { return head().tag; }
-  int arity() const { return head().arity(); }
-
-  Symbol::Ref begin() { return word_.begin(); }
-  Symbol::Ref end()   { return word_.end(); }
+  RFormula      readable() const { return RFormula(begin(), end()); }
+  const Word&   word()     const { return word_; }
+  const Symbol& head()     const { return *begin(); }
+  Symbol::Tag   tag()      const { return head().tag; }
+  int           arity()    const { return head().arity(); }
 
   Symbol::CRef begin() const { return word_.begin(); }
   Symbol::CRef end()   const { return word_.end(); }
+
+  Symbol::Ref begin() { return word_.begin(); }
+  Symbol::Ref end()   { return word_.end(); }
 
   void Normalize() {
     Rectify();
@@ -938,7 +951,7 @@ class Formula : private FormulaCommons {
       bool used = false;
       std::vector<NewVar> vars;
     };
-    DenseMap<Abc::VarSymbol, NewVars> vars;
+    Abc::DenseMap<Abc::VarSymbol, NewVars> vars;
     Scope::Observer scoper;
     for (Symbol& s : *this) {
       if (s.tag == Symbol::kExists || s.tag == Symbol::kForall) {
@@ -950,7 +963,7 @@ class Formula : private FormulaCommons {
         s.u.x = vars[s.u.x].vars.back().x;
       }
       scoper.Munch(s);
-      for (auto& nvs : vars) {
+      for (auto& nvs : vars.values()) {
         while (!nvs.vars.empty() && !scoper.active(nvs.vars.back().scope)) {
           nvs.vars.pop_back();
         }
@@ -1266,9 +1279,6 @@ class Formula : private FormulaCommons {
   }
 
  private:
-  template<typename Key, typename Value>
-  using DenseMap = internal::DenseMap<Key, Value, internal::FastAdjustBoundCheck>;
-
   explicit Formula(Symbol s)                                                  { word_.Insert(end(), s); }
   explicit Formula(Symbol s, Formula&& f)                        : Formula(s) { assert(s.arity() == 1); AddArg(f); }
   explicit Formula(Symbol s, const Formula& f)                   : Formula(s) { assert(s.arity() == 1); AddArg(f); }
