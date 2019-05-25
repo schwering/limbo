@@ -66,7 +66,7 @@ class LimSat {
   };
 
   static bool assigns(const TermMap<Fun, Name>& model, const Fun f) {
-    return model.in_range(f) && !model[f].null();
+    return model.key_in_range(f) && !model[f].null();
   }
 
   static bool AssignsAll(const TermMap<Fun, Name>& model, const std::vector<Fun>& funs) {
@@ -135,7 +135,8 @@ class LimSat {
           return true;
         }
       }
-      TermMap<Fun, bool> wanted(max_fun(), false);
+      TermMap<Fun, bool> wanted;
+      wanted.FitForKey(max_fun(), false);
       for (const Fun f : must) {
         wanted[f] = true;
       }
@@ -233,17 +234,17 @@ class LimSat {
     for (const Lit a : as) {
       const Fun f = a.fun();
       const Name n = a.name();
-      funs_.Capacitate(f);
+      funs_.FitForKey(f);
       if (!funs_[f]) {
         funs_[f] = true;
       }
-      names_.Capacitate(n);
+      names_.FitForKey(n);
       if (!names_[n]) {
         names_[n] = true;
         extra_name_ = Name::FromId(std::max(int(n) + 1, int(extra_name_)));
       }
-      //names_.Capacitate(f);
-      //extra_names_.Capacitate(f);
+      //names_.FitForKey(f);
+      //extra_names_.FitForKey(f);
       //if (!names_[f][n]) {
       //  names_[f][n] = true;
       //  extra_names_[f] = Name::FromId(std::max(int(n) + 1, int(extra_names_[f])));

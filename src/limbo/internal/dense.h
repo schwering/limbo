@@ -22,14 +22,14 @@ struct NoBoundCheck {
 struct SlowAdjustBoundCheck {
   template<typename T, typename Index>
   void operator()(T* c, const Index& i) const {
-    c->Capacitate(i);
+    c->FitForIndex(i);
   }
 };
 
 struct FastAdjustBoundCheck {
   template<typename T, typename Index>
   void operator()(T* c, const Index& i) const {
-    c->Capacitate(next_power_of_two(i));
+    c->FitForIndex(next_power_of_two(i));
   }
 };
 
@@ -118,45 +118,36 @@ class DenseMap {
 
   explicit DenseMap(KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey()) : k2i_(k2i), i2k_(i2k) {}
 
-  explicit DenseMap(Index max, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
-      : DenseMap(k2i, i2k) { Capacitate(max); }
-
-  explicit DenseMap(Index max, Val init, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
-      : DenseMap(k2i, i2k) { Capacitate(max, init); }
-
-  explicit DenseMap(Key max, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
-      : DenseMap(k2i(max), k2i, i2k) {}
-
-  explicit DenseMap(Key max, Val init, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
-      : DenseMap(k2i(max), init, k2i, i2k) {}
-
   DenseMap(const DenseMap&)              = default;
   DenseMap& operator=(const DenseMap& c) = default;
   DenseMap(DenseMap&&)                   = default;
   DenseMap& operator=(DenseMap&& c)      = default;
 
-  void Capacitate(Key k)          { Capacitate(k2i_(k)); }
-  void Capacitate(Key k, Val v)   { Capacitate(k2i_(k), v); }
-  void Capacitate(Index i)        { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset); } }
-  void Capacitate(Index i, Val v) { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset, v); } }
+  void FitForKey(Key k)            { FitForIndex(k2i_(k)); }
+  void FitForKey(Key k, Val v)     { FitForIndex(k2i_(k), v); }
+  void FitForIndex(Index i)        { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset); } }
+  void FitForIndex(Index i, Val v) { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset, v); } }
 
   bool empty() const { return vec_.empty(); }
 
   void Clear() { vec_.clear(); }
 
-  bool in_range(Key k)   const { return in_range(k2i_(k)); }
-  bool in_range(Index i) const { return kOffset <= i && i < vec_.size() - kOffset; }
+  bool key_in_range(Key k)     const { return index_in_range(k2i_(k)); }
+  bool index_in_range(Index i) const { return kOffset <= i && i < vec_.size() - kOffset; }
 
   Index upper_bound() const { return Index(vec_.size()) - 1 + kOffset; }
 
-        reference head()       { return operator[](kOffset); }
-  const_reference head() const { return operator[](kOffset); }
+        reference at_index(Index i)       { check_bound_(this, i);                        return vec_[i - kOffset]; }
+  const_reference at_index(Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i - kOffset]; }
 
-        reference operator[](Index i)       { check_bound_(this, i);                        return vec_[i - kOffset]; }
-  const_reference operator[](Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i - kOffset]; }
+        reference at_key(Key key)       { return at_index(k2i_(key)); }
+  const_reference at_key(Key key) const { return at_index(k2i_(key)); }
 
-        reference operator[](Key key)       { return operator[](k2i_(key)); }
-  const_reference operator[](Key key) const { return operator[](k2i_(key)); }
+        reference operator[](Key key)       { return at_key(key); }
+  const_reference operator[](Key key) const { return at_key(key); }
+
+        reference head()       { return at_index(kOffset); }
+  const_reference head() const { return at_index(kOffset); }
 
   Range<KeyIterator> keys() const {
     return Range<KeyIterator>(KeyIterator(kOffset, k2i_, i2k_), KeyIterator(vec_.size() + kOffset, k2i_, i2k_));
@@ -189,8 +180,8 @@ class DenseMinHeap {
 
   void set_less(Less less) { less_ = less; }
 
-  void Capacitate(const T x) { index_.Capacitate(x); }
-  void Capacitate(const int i) { index_.Capacitate(i); }
+  void FitForElement(const T x) { index_.FitForKey(x); }
+  void FitForIndex(const int i) { index_.FitForIndex(i); }
 
   void Clear() { heap_.clear(); index_.Clear(); heap_.emplace_back(); }
 

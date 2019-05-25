@@ -6,12 +6,9 @@
 #include <iostream>
 
 #include <limbo/formula.h>
-
-#include <limbo/format/output.h>
+#include <limbo/io/output.h>
 
 namespace limbo {
-
-using namespace limbo::format;
 
 using Abc = Alphabet;
 using F = Formula;

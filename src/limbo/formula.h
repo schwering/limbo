@@ -1189,6 +1189,8 @@ class Formula : private FormulaCommons {
     assert(readable().weakly_well_formed());
   }
 
+  // Replaces existential and universal quantifiers with disjunctions or
+  // conjunctions, respectively, over the names.
   void Ground(const Abc::DenseMap<Abc::Sort, std::vector<class Name>>& subst) {
     struct SubstitutionMarker {
       explicit SubstitutionMarker(Abc::VarSymbol x,

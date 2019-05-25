@@ -803,7 +803,7 @@ class Sat {
   }
 
   void Register(const Fun f, const Name n, const Name extra_n, double activity) {
-    CapacitateMaps(f, n, extra_n);
+    FitMaps(f, n, extra_n);
     if (!fun_queue_.contains(f)) {
       fun_activity_[f] = activity;
       fun_queue_.Insert(f);
@@ -820,30 +820,30 @@ class Sat {
     }
   }
 
-  void CapacitateMaps(const Fun f, const Name n, const Name extra_n) {
+  void FitMaps(const Fun f, const Name n, const Name extra_n) {
     const int max_ni = int(n) > int(extra_n) ? int(n) : int(extra_n);
     const int fi = int(f) > data_.upper_bound() ? int(f) : -1;
     const int ni = data_.empty() || max_ni > data_.head().upper_bound() ? max_ni : -1;
     const int fig = (fi + 1) * 1.5;
     const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_.head().upper_bound() + 1;
     if (fi >= 0) {
-      fun_queue_.Capacitate(fig);
-      fun_activity_.Capacitate(fig);
-      domain_.Capacitate(fig);
-      domain_size_.Capacitate(fig);
-      watchers_.Capacitate(fig);
-      model_.Capacitate(fig);
-      data_.Capacitate(fig);
-      trail_neqs_.Capacitate(fig);
+      fun_queue_.FitForIndex(fig);
+      fun_activity_.FitForIndex(fig);
+      domain_.FitForIndex(fig);
+      domain_size_.FitForIndex(fig);
+      watchers_.FitForIndex(fig);
+      model_.FitForIndex(fig);
+      data_.FitForIndex(fig);
+      trail_neqs_.FitForIndex(fig);
     }
     if (fi >= 0 || ni >= 0) {
       for (TermMap<Name, FunNameData>& ds : data_.values()) {
-        ds.Capacitate(nig);
+        ds.FitForIndex(nig);
       }
     }
     if (ni >= 0) {
       for (TermMap<Name, FunNameData>& ds : data_.values()) {
-        ds.Capacitate(nig);
+        ds.FitForIndex(nig);
       }
     }
   }

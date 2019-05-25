@@ -1,9 +1,9 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2014-2018 Christoph Schwering
+// Copyright 2014-2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 
-#ifndef LIMBO_FORMAT_OUTPUT_H_
-#define LIMBO_FORMAT_OUTPUT_H_
+#ifndef LIMBO_IO_OUTPUT_H_
+#define LIMBO_IO_OUTPUT_H_
 
 #include <cstdlib>
 #include <memory>
@@ -15,11 +15,11 @@
 #include <limbo/formula.h>
 #include <limbo/lit.h>
 
-#define LIMBO_REG(t)  Registry::Instance()->Register((t), #t)
+#define LIMBO_REG(t)  limbo::io::Registry::Instance()->Register((t), #t)
 #define LIMBO_MARK    (std::cout << __FILE__ << ":" << __LINE__ << std::endl)
 
 namespace limbo {
-namespace format {
+namespace io {
 
 class Registry : private internal::Singleton<Registry> {
  public:
@@ -210,10 +210,10 @@ std::ostream& operator<<(std::ostream& os, const Sequence<InputIt>& s) {
   return os;
 }
 
-}  // namespace format
+}  // namespace io
 }  // namespace limbo
 
-using limbo::format::operator<<;  // I too often forget this, so for now, it's here
+using limbo::io::operator<<;  // I too often forget this, so for now, it's here
 
-#endif  // LIMBO_FORMAT_OUTPUT_H_
+#endif  // LIMBO_IO_OUTPUT_H_
 
