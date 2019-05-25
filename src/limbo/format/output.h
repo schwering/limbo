@@ -114,11 +114,21 @@ std::ostream& operator<<(std::ostream& os, const Sequence<InputIt>& s);
 std::ostream& operator<<(std::ostream& os, const RFormula& w);
 
 std::ostream& operator<<(std::ostream& os, const Fun& f) {
-  return os << RFormula(Alphabet::Instance()->Unstrip(Alphabet::Symbol::StrippedFun(f)));
+  const Alphabet::RWord w = Alphabet::Instance()->Unstrip(Alphabet::Symbol::StrippedFun(f));
+  if (w.empty()) {
+    return os << 'f' << int(f);
+  } else {
+    return os << RFormula(w);
+  }
 }
 
 std::ostream& operator<<(std::ostream& os, const Name& n) {
-  return os << RFormula(Alphabet::Instance()->Unstrip(Alphabet::Symbol::StrippedName(n)));
+  const Alphabet::RWord w = Alphabet::Instance()->Unstrip(Alphabet::Symbol::StrippedName(n));
+  if (w.empty()) {
+    return os << 'n' << int(n);
+  } else {
+    return os << RFormula(w);
+  }
 }
 
 std::ostream& operator<<(std::ostream& os, const Lit& a) {

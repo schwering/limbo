@@ -23,7 +23,9 @@ TEST(FormulaTest, Rectify) {
   Abc::VarSymbol y = abc->CreateVar(s);         LIMBO_REG(y);
   Abc::VarSymbol z = abc->CreateVar(s);         LIMBO_REG(z);
   Abc::VarSymbol u = abc->CreateVar(s);         LIMBO_REG(u);
+  Abc::NameSymbol m = abc->CreateName(s, 0);    LIMBO_REG(m);
   Abc::NameSymbol n = abc->CreateName(s, 0);    LIMBO_REG(n);
+  Abc::NameSymbol o = abc->CreateName(s, 0);    LIMBO_REG(o);
   Abc::FunSymbol c = abc->CreateFun(s, 0);      LIMBO_REG(c);
   Abc::FunSymbol f = abc->CreateFun(s, 2);      LIMBO_REG(f);
   Abc::FunSymbol g = abc->CreateFun(s, 1);      LIMBO_REG(g);
@@ -63,6 +65,27 @@ TEST(FormulaTest, Rectify) {
     std::cout << "Push: " << phi << std::endl;
     phi.Strip();
     std::cout << "Strp: " << phi << std::endl;
+  }
+
+  {
+    Abc::DenseMap<Abc::Sort, std::vector<Name>> subst;
+    subst[s] = {Name::FromId(1), Name::FromId(2), Name::FromId(3)};
+    std::cout << "" << std::endl;
+    //F phi(F::And(F::Exists(x, F::Equals(F::Var(x), F::Var(x))), F::Exists(x, F::Equals(F::Var(x), F::Var(x)))));
+    F phi(F::Exists(x, F::Equals(F::Var(x), F::Var(x))));
+    std::cout << "Orig: " << phi << std::endl;
+    phi.Ground(subst);
+    std::cout << "Grou: " << phi << std::endl;
+  }
+
+  {
+    Abc::DenseMap<Abc::Sort, std::vector<Name>> subst;
+    subst[s] = {Name::FromId(1), Name::FromId(2), Name::FromId(3)};
+    std::cout << "" << std::endl;
+    F phi(F::And(F::Forall(x, F::Equals(F::Var(x), F::Var(x))), F::Exists(x, F::Equals(F::Var(x), F::Var(x)))));
+    std::cout << "Orig: " << phi << std::endl;
+    phi.Ground(subst);
+    std::cout << "Grou: " << phi << std::endl;
   }
 }
 

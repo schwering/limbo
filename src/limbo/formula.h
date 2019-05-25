@@ -300,6 +300,8 @@ class Alphabet : private internal::Singleton<Alphabet> {
     RWord(RWord&&)                 = default;
     RWord& operator=(RWord&&)      = default;
 
+    bool empty() const { return begin_ == end_; }
+
     Symbol::CRef begin() const { return begin_; }
     Symbol::CRef end()   const { return end_; }
 
@@ -324,7 +326,8 @@ class Alphabet : private internal::Singleton<Alphabet> {
 
     RWord readable() const { return RWord(begin(), end()); }
 
-    int size() const { return symbols_.size(); }
+    bool empty() const { return symbols_.empty(); }
+    int size()   const { return symbols_.size(); }
 
     Symbol::Ref begin() { return symbols_.begin(); }
     Symbol::Ref end()   { return symbols_.end(); }
@@ -529,10 +532,9 @@ class FormulaCommons {
       Observer& operator=(Observer&&) = delete;
 
       void Munch(const Symbol& s) { k_ += s.arity(); --k_; }
-      void Vomit(const Symbol& s) { k_ -= s.arity(); --k_; }
-      Scope scope()                     const { return Scope(k_); }
-      bool active(const Scope& scope)   const { return k_ >= scope.k_; }
-      int remaining(const Scope& scope) const { return k_ - scope.k_; }
+      void Vomit(const Symbol& s) { k_ -= s.arity(); --k_; }  // XXX shouldn't it be ++k_?
+      Scope scope()                   const { return Scope(k_); }
+      bool active(const Scope& scope) const { return k_ >= scope.k_; }
 
      private:
       int k_ = 0;
@@ -1185,6 +1187,59 @@ class Formula : private FormulaCommons {
     }
     assert(readable().nnf());
     assert(readable().weakly_well_formed());
+  }
+
+  void Ground(const Abc::DenseMap<Abc::Sort, std::vector<class Name>>& subst) {
+    struct SubstitutionMarker {
+      explicit SubstitutionMarker(Abc::VarSymbol x,
+                                  std::vector<class Name>::const_iterator n_begin,
+                                  std::vector<class Name>::const_iterator n_end,
+                                  Scope scope)
+          : x(x), n_begin(n_begin), n_end(n_end), scope(scope) {}
+      Abc::VarSymbol x;
+      std::vector<class Name>::const_iterator n_begin;
+      std::vector<class Name>::const_iterator n_end;
+      Scope scope;
+    };
+    std::vector<SubstitutionMarker> markers;
+    Abc::DenseMap<Abc::VarSymbol, class Name> map;
+    Scope::Observer scoper;
+    for (auto it = begin(); it != end(); ++it) {
+      scoper.Munch(*it);
+      if (it->tag == Symbol::kExists || it->tag == Symbol::kForall) {
+        const Abc::VarSymbol x = it->u.x;
+        const std::vector<class Name>& names = subst[x.sort()];
+        const Symbol::Ref first = std::next(it);
+        Symbol::Ref before = End(first);
+        Symbol::List subformula = word_.TakeOut(first, before);
+        for (int i = int(names.size()); i > 0; --i) {
+          Symbol::List formula = subformula;
+          const Symbol::Ref new_before = formula.begin();
+          word_.PutIn(before, std::move(formula));
+          before = new_before;
+        }
+        if (!names.empty()) {
+          markers.push_back(SubstitutionMarker(x, names.begin(), names.end(), scoper.scope()));
+          map[x] = names.front();
+        }
+        const int arity = int(names.size());
+        *it = it->tag == Symbol::kExists ? Symbol::Or(arity) : Symbol::And(arity);
+      } else if (it->tag == Symbol::kVar) {
+        const Abc::VarSymbol x = it->u.x;
+        if (!map[x].null()) {
+          *it = Symbol::StrippedName(map[x]);
+        }
+      }
+      for (int i = int(markers.size()) - 1; i >= 0 && !scoper.active(markers[i].scope); --i) {
+        markers[i].scope = scoper.scope();
+        ++markers[i].n_begin;
+        if (markers[i].n_begin == markers[i].n_end) {
+          markers.pop_back();
+        } else {
+          map[markers[i].x] = *markers[i].n_begin;
+        }
+      }
+    }
   }
 
   // Replaces primitive terms, names, and primitive literals with their
