@@ -136,6 +136,7 @@ std::ostream& operator<<(std::ostream& os, const Lit& a) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Clause& c) { return os << sequence(c, Strings::kOrS); }
+std::ostream& operator<<(std::ostream& os, const std::vector<Lit>& as) { return os << sequence(as); }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::Sort& s)       { return os << Registry::Instance()->Lookup(s); }
 std::ostream& operator<<(std::ostream& os, const Alphabet::FunSymbol&  f) { return os << Registry::Instance()->Lookup(f); }
@@ -152,7 +153,6 @@ std::ostream& operator<<(std::ostream& os, const Alphabet::Symbol& s) {
     case Alphabet::Symbol::kEquals:         return os << Strings::kEquals;
     case Alphabet::Symbol::kNotEquals:      return os << Strings::kNotEquals;
     case Alphabet::Symbol::kStrippedLit:    return os << Strings::kStrip << s.u.a << Strings::kStrip;
-    case Alphabet::Symbol::kStrippedClause: return os << Strings::kStrip << *s.u.c << Strings::kStrip;
     case Alphabet::Symbol::kNot:            return os << Strings::kNot << ' ';
     case Alphabet::Symbol::kOr:             return os << Strings::kOr;
     case Alphabet::Symbol::kAnd:            return os << Strings::kAnd;
@@ -173,24 +173,23 @@ std::ostream& operator<<(std::ostream& os, const RFormula& r) {
   switch (r.tag()) {
     case Alphabet::Symbol::kFun:
     case Alphabet::Symbol::kVar:
-    case Alphabet::Symbol::kName:            return os << r.head() << sequence(r.args(), ",",
-                                                                               r.arity() > 0 ? "(" : "",
-                                                                               r.arity() > 0 ? ")" : "");
+    case Alphabet::Symbol::kName:         return os << r.head() << sequence(r.args(), ",",
+                                                                            r.arity() > 0 ? "(" : "",
+                                                                            r.arity() > 0 ? ")" : "");
     case Alphabet::Symbol::kEquals:
-    case Alphabet::Symbol::kNotEquals:       return os << r.arg(0) << ' ' << r.head() << ' ' << r.arg(1);
+    case Alphabet::Symbol::kNotEquals:    return os << r.arg(0) << ' ' << r.head() << ' ' << r.arg(1);
     case Alphabet::Symbol::kStrippedFun:
     case Alphabet::Symbol::kStrippedName:
-    case Alphabet::Symbol::kStrippedLit:
-    case Alphabet::Symbol::kStrippedClause:  return os << r.head();
-    case Alphabet::Symbol::kOr:              return os << sequence(r.args(), Strings::kOrS, "[", "]");
-    case Alphabet::Symbol::kAnd:             return os << sequence(r.args(), Strings::kAndS, "{", "}");
+    case Alphabet::Symbol::kStrippedLit:  return os << r.head();
+    case Alphabet::Symbol::kOr:           return os << sequence(r.args(), Strings::kOrS, "[", "]");
+    case Alphabet::Symbol::kAnd:          return os << sequence(r.args(), Strings::kAndS, "{", "}");
     case Alphabet::Symbol::kNot:
     case Alphabet::Symbol::kExists:
     case Alphabet::Symbol::kForall:
     case Alphabet::Symbol::kKnow:
-    case Alphabet::Symbol::kMaybe:           return os << r.head() << ' ' << r.arg(0);
-    case Alphabet::Symbol::kBelieve:         return os << r.head() << ' ' << r.arg(0) << " \u27FE " << r.arg(1);
-    case Alphabet::Symbol::kAction:          return os << r.head() << ' ' << r.arg(0) << ' ' << r.arg(1);
+    case Alphabet::Symbol::kMaybe:        return os << r.head() << ' ' << r.arg(0);
+    case Alphabet::Symbol::kBelieve:      return os << r.head() << ' ' << r.arg(0) << " \u27FE " << r.arg(1);
+    case Alphabet::Symbol::kAction:       return os << r.head() << ' ' << r.arg(0) << ' ' << r.arg(1);
   }
   std::abort();
 }

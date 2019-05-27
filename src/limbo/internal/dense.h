@@ -135,7 +135,8 @@ class DenseMap {
   bool key_in_range(Key k)     const { return index_in_range(k2i_(k)); }
   bool index_in_range(Index i) const { return kOffset <= i && i < vec_.size() - kOffset; }
 
-  Index upper_bound() const { return Index(vec_.size()) - 1 + kOffset; }
+  Index upper_bound_index() const { return Index(vec_.size()) - 1 + kOffset; }
+  Key   upper_bound_key()   const { return i2k_(upper_bound_index()); }
 
         reference at_index(Index i)       { check_bound_(this, i);                        return vec_[i - kOffset]; }
   const_reference at_index(Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i - kOffset]; }

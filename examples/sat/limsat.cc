@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
 
   LimSat solver;
   for (const std::vector<Lit>& lits : cnf) {
-    solver.AddClause(lits);
+    solver.add_clause(lits);
   }
   Solve(&solver, k_splits);
   return 0;

@@ -36,7 +36,7 @@ class Sat {
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
   struct DefaultActivity { double operator()(Fun) const { return 0.0; } };
-  struct DefaultReject { bool operator()(std::vector<Lit>*) const { return false; } };
+  struct DefaultNogood { bool operator()(const TermMap<Fun, Name>&, std::vector<Lit>*) const { return false; } };
 
   explicit Sat() = default;
 
@@ -106,6 +106,14 @@ class Sat {
     }
   }
 
+  template<typename ExtraNameFunction, typename ActivityFunction = DefaultActivity>
+  void Register(const Fun f,
+                const Name n,
+                ExtraNameFunction extra_name = ExtraNameFunction(),
+                ActivityFunction activity = ActivityFunction()) {
+    Register(f, n, extra_name(f), activity(f));
+  }
+
   void Reset() {
     if (current_level() != Level::kRoot) {
       InitTrail();
@@ -163,26 +171,26 @@ class Sat {
 
   template<typename ConflictPredicate,
            typename DecisionPredicate,
-           typename RejectPredicate = DefaultReject>
+           typename NogoodPredicate = DefaultNogood>
   Truth Solve(ConflictPredicate conflict_predicate = ConflictPredicate(),
               DecisionPredicate decision_predicate = DecisionPredicate(),
-              RejectPredicate   reject_predicate   = RejectPredicate()) {
+              NogoodPredicate   nogood_predicate   = NogoodPredicate()) {
     InitTrail();
     if (empty_clause_) {
       return Truth::kUnsat;
     }
-    std::vector<Lit> reject;
+    std::vector<Lit> nogood;
     std::vector<Lit> learnt;
     bool go = true;
     while (go) {
       const CRef conflict = Propagate();
-      if (conflict != CRef::kNull || reject_predicate((reject.clear(), &reject))) {
+      if (conflict != CRef::kNull || nogood_predicate(model_, (nogood.clear(), &nogood))) {
         if (current_level() == Level::kRoot) {
           empty_clause_ = true;
           return Truth::kUnsat;
         }
         Level btlevel;
-        Analyze(conflict, reject, (learnt.clear(), &learnt), &btlevel);
+        Analyze(conflict, nogood, (learnt.clear(), &learnt), &btlevel);
         go &= conflict_predicate(int(current_level()), conflict, learnt, int(btlevel));
         Backtrack(btlevel);
         assert(learnt.size() >= 1);
@@ -440,7 +448,8 @@ class Sat {
     return conflict;
   }
 
-  void Analyze(CRef conflict, const std::vector<Lit>& reject, std::vector<Lit>* const learnt, Level* const btlevel) {
+  void Analyze(CRef conflict, const std::vector<Lit>& nogood, std::vector<Lit>* const learnt, Level* const btlevel) {
+    assert(conflict != CRef::kNull || !nogood.empty());
     assert(learnt->empty());
     assert(std::all_of(data_.values().begin(), data_.values().end(),
                        [](const auto& ds) -> bool { return std::all_of(ds.values().begin(), ds.values().end(),
@@ -584,8 +593,8 @@ class Sat {
           }
         }
       } else if (conflict == CRef::kNull) {
-        for (const Lit a : reject) {
-          handle_conflict(a);
+        for (const Lit a : nogood) {
+          handle_conflict(a.flip());
         }
       } else {
         for (const Lit a : clausef_[conflict]) {
@@ -822,10 +831,10 @@ class Sat {
 
   void FitMaps(const Fun f, const Name n, const Name extra_n) {
     const int max_ni = int(n) > int(extra_n) ? int(n) : int(extra_n);
-    const int fi = int(f) > data_.upper_bound() ? int(f) : -1;
-    const int ni = data_.empty() || max_ni > data_.head().upper_bound() ? max_ni : -1;
+    const int fi = int(f) > data_.upper_bound_index() ? int(f) : -1;
+    const int ni = data_.empty() || max_ni > data_.head().upper_bound_index() ? max_ni : -1;
     const int fig = (fi + 1) * 1.5;
-    const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_.head().upper_bound() + 1;
+    const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_.head().upper_bound_index() + 1;
     if (fi >= 0) {
       fun_queue_.FitForIndex(fig);
       fun_activity_.FitForIndex(fig);

@@ -13,6 +13,218 @@ namespace limbo {
 using Abc = Alphabet;
 using F = Formula;
 
+TEST(FormulaTest, Satisfies) {
+  std::vector<Fun> f;
+  std::vector<Name> n;
+  f.push_back(Fun());
+  n.push_back(Name());
+  for (int i = 1; i <= 10; ++i) {
+    f.push_back(Fun::FromId(i));
+    n.push_back(Name::FromId(i));
+  }
+  TermMap<Fun, Name> model;
+  for (int i = 1; i <= 10; ++i) {
+    model.FitForKey(f[i]);
+    model[f[i]] = n[i];
+  }
+  auto eq = [&f, &n](int i, int j) { return Lit::Eq(f[i], n[j]); };
+  auto neq = [&f, &n](int i, int j) { return Lit::Neq(f[i], n[j]); };
+  auto feq = [&eq](int i, int j) { return Formula::Lit(eq(i, j)); };
+  auto fneq = [&neq](int i, int j) { return Formula::Lit(neq(i, j)); };
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(feq(1, 1).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>{eq(1, 1)});
+  }
+
+  // variantsion of one disjunction
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(feq(1, 1), feq(2, 2)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(1, 1)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(feq(1, 1), fneq(2, 2)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(1, 1)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(fneq(1, 1), feq(2, 2)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(2, 2)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::Or(fneq(1, 1), fneq(2, 2)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  // variantsion of one conjunction
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::And(feq(1, 1), feq(2, 2)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(1, 1), eq(2, 2)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::And(feq(1, 1), fneq(2, 2)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::And(fneq(1, 1), feq(2, 2)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::And(fneq(1, 1), fneq(2, 2)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  // variations of two disjunctions
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(feq(1, 1), Formula::Or(feq(2, 2), feq(3, 3))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>{eq(1, 1)});
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(Formula::Or(feq(1, 1), feq(2, 2)), feq(3, 3)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>{eq(1, 1)});
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(fneq(1, 1), Formula::Or(feq(2, 2), feq(3, 3))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>{eq(2, 2)});
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(Formula::Or(fneq(1, 1), feq(2, 2)), feq(3, 3)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>{eq(2, 2)});
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(fneq(1, 1), Formula::Or(fneq(2, 2), feq(3, 3))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>{eq(3, 3)});
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(Formula::Or(fneq(1, 1), fneq(2, 2)), feq(3, 3)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>{eq(3, 3)});
+  }
+
+  // variations of two conjunctions
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::And(feq(1, 1), Formula::And(feq(2, 2), feq(3, 3))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(1, 1), eq(2, 2), eq(3, 3)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::And(Formula::And(feq(1, 1), feq(2, 2)), feq(3, 3)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(1, 1), eq(2, 2), eq(3, 3)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::And(fneq(1, 1), Formula::And(feq(2, 2), feq(3, 3))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::And(Formula::And(fneq(1, 1), feq(2, 2)), feq(3, 3)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::And(feq(1, 1), Formula::And(fneq(2, 2), feq(3, 3))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::And(Formula::And(feq(1, 1), fneq(2, 2)), feq(3, 3)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::And(feq(1, 1), Formula::And(fneq(2, 2), fneq(3, 3))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::And(Formula::And(feq(1, 1), fneq(2, 2)), fneq(3, 3)).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>());
+  }
+
+  // variations of a disjunction of two conjunctions
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(Formula::And(feq(1, 1), feq(2, 2)),
+                            Formula::And(feq(3, 3), feq(4, 4))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(1, 1), eq(2, 2)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(Formula::And(feq(1, 1), feq(2, 2)),
+                            Formula::And(fneq(3, 3), fneq(4, 4))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(1, 1), eq(2, 2)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(Formula::And(feq(1, 1), fneq(2, 2)),
+                            Formula::And(feq(3, 3), feq(4, 4))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(3, 3), eq(4, 4)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_TRUE(Formula::Or(Formula::And(fneq(1, 1), feq(2, 2)),
+                            Formula::And(feq(3, 3), feq(4, 4))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({eq(3, 3), eq(4, 4)}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::Or(Formula::And(feq(1, 1), fneq(2, 2)),
+                             Formula::And(feq(3, 3), fneq(4, 4))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::Or(Formula::And(fneq(1, 1), feq(2, 2)),
+                             Formula::And(feq(3, 3), fneq(4, 4))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({}));
+  }
+
+  {
+    std::vector<Lit> reason;
+    EXPECT_FALSE(Formula::Or(Formula::And(feq(1, 1), fneq(2, 2)),
+                             Formula::And(fneq(3, 3), feq(4, 4))).readable().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>({}));
+  }
+}
+
 TEST(FormulaTest, Rectify) {
   Alphabet* abc = Alphabet::Instance();
   Abc::Sort s = abc->CreateSort(false);

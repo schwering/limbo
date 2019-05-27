@@ -26,7 +26,8 @@ TEST(DenseMapTest, general) {
   EXPECT_EQ(map[2], "two");
   EXPECT_EQ(length(map.keys()), 3u);
   EXPECT_EQ(length(map.values()), 3u);
-  EXPECT_EQ(map.upper_bound(), 2);
+  EXPECT_EQ(map.upper_bound_key(), 2);
+  EXPECT_EQ(map.upper_bound_index(), 2);
 
   const IntMap<int, std::string> map2 = map;
   EXPECT_EQ(length(map2.keys()), 3u);
@@ -48,7 +49,8 @@ TEST(DenseMapTest, general) {
   map[4] = "four";
   EXPECT_EQ(length(map.keys()), 5u);
   EXPECT_EQ(length(map.values()), 5u);
-  EXPECT_EQ(map.upper_bound(), 4);
+  EXPECT_EQ(map.upper_bound_key(), 4);
+  EXPECT_EQ(map.upper_bound_index(), 4);
   EXPECT_EQ(map[0], "zero");
   EXPECT_EQ(map[1], "one");
   EXPECT_EQ(map[2], "two");
