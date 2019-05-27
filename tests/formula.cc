@@ -34,6 +34,12 @@ TEST(FormulaTest, Satisfies) {
 
   {
     std::vector<Lit> reason;
+    EXPECT_FALSE(RFormula().SatisfiedBy(model, &reason));
+    EXPECT_EQ(reason, std::vector<Lit>{});
+  }
+
+  {
+    std::vector<Lit> reason;
     EXPECT_TRUE(feq(1, 1).readable().SatisfiedBy(model, &reason));
     EXPECT_EQ(reason, std::vector<Lit>{eq(1, 1)});
   }

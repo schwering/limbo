@@ -305,8 +305,13 @@ class Alphabet : private internal::Singleton<Alphabet> {
     Symbol::CRef end()   const { return end_; }
 
    private:
-    Symbol::CRef begin_;
-    Symbol::CRef end_;
+    template<typename T>
+    struct EmptyList {
+      static const std::list<T> kInstance;
+    };
+
+    Symbol::CRef begin_ = EmptyList<Symbol>::kInstance.begin();
+    Symbol::CRef end_ = EmptyList<Symbol>::kInstance.end();
   };
 
   class Word {
@@ -514,6 +519,9 @@ class Alphabet : private internal::Singleton<Alphabet> {
   std::vector<DenseMap<FunSymbol, FunSymbol>> swear_funcs_;
 };
 
+template<typename T>
+const std::list<T> Alphabet::RWord::EmptyList<T>::kInstance;
+
 class FormulaCommons {
  public:
   using Abc = Alphabet;
@@ -566,7 +574,7 @@ class FormulaCommons {
 
 class RFormula : private FormulaCommons {
  public:
-  explicit RFormula() = default;
+  explicit RFormula() : meta_init_(false) {}
   explicit RFormula(Abc::Symbol::CRef begin, Abc::Symbol::CRef end) : rword_(begin, end), meta_init_(false) {}
   explicit RFormula(const Abc::RWord& w) : RFormula(w.begin(), w.end()) {}
   explicit RFormula(Abc::Symbol::CRef begin) : RFormula(begin, End(begin)) {}
