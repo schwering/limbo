@@ -449,7 +449,6 @@ class Sat {
   }
 
   void Analyze(CRef conflict, const std::vector<Lit>& nogood, std::vector<Lit>* const learnt, Level* const btlevel) {
-    assert(conflict != CRef::kNull || !nogood.empty());
     assert(learnt->empty());
     assert(std::all_of(data_.values().begin(), data_.values().end(),
                        [](const auto& ds) -> bool { return std::all_of(ds.values().begin(), ds.values().end(),
@@ -581,7 +580,6 @@ class Sat {
     };
 
     do {
-      assert(conflict != CRef::kNull);
       if (conflict == CRef::kDomain) {
         assert(!trail_a.null());
         assert(trail_a.pos());
@@ -601,11 +599,8 @@ class Sat {
           handle_conflict(a);
         }
       }
-      assert(depth > 0);
-
-      while (!wanted(trail_[trail_i--])) {
-        assert(trail_i >= 0);
-      }
+      assert(conflict == CRef::kNull || depth > 0);
+      while (trail_i >= 0 && !wanted(trail_[trail_i--])) {}
       trail_a = trail_[trail_i + 1];
       data_[trail_a.fun()][trail_a.name()].wanted = false;
       --depth;

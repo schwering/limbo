@@ -125,21 +125,21 @@ class DenseMap {
 
   void FitForKey(Key k)            { FitForIndex(k2i_(k)); }
   void FitForKey(Key k, Val v)     { FitForIndex(k2i_(k), v); }
-  void FitForIndex(Index i)        { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset); } }
-  void FitForIndex(Index i, Val v) { if (i - kOffset >= vec_.size()) { vec_.resize(i + 1 - kOffset, v); } }
+  void FitForIndex(Index i)        { i -= kOffset; if (i >= vec_.size()) { vec_.resize(i + 1); } }
+  void FitForIndex(Index i, Val v) { i -= kOffset; if (i >= vec_.size()) { vec_.resize(i + 1, v); } }
 
   bool empty() const { return vec_.empty(); }
 
   void Clear() { vec_.clear(); }
 
   bool key_in_range(Key k)     const { return index_in_range(k2i_(k)); }
-  bool index_in_range(Index i) const { return kOffset <= i && i < vec_.size() - kOffset; }
+  bool index_in_range(Index i) const { i -= kOffset; return 0 <= i && i < vec_.size(); }
 
   Index upper_bound_index() const { return Index(vec_.size()) - 1 + kOffset; }
   Key   upper_bound_key()   const { return i2k_(upper_bound_index()); }
 
-        reference at_index(Index i)       { check_bound_(this, i);                        return vec_[i - kOffset]; }
-  const_reference at_index(Index i) const { check_bound_(const_cast<DenseMap*>(this), i); return vec_[i - kOffset]; }
+        reference at_index(Index i)       { i -= kOffset; check_bound_(this, i);                        return vec_[i]; }
+  const_reference at_index(Index i) const { i -= kOffset; check_bound_(const_cast<DenseMap*>(this), i); return vec_[i]; }
 
         reference at_key(Key key)       { return at_index(k2i_(key)); }
   const_reference at_key(Key key) const { return at_index(k2i_(key)); }
