@@ -1,14 +1,15 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016-2017 Christoph Schwering
+// Copyright 2016-2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Max-munch lexer for the problem description language.
 //
-// The compuational complexity is pretty bad (O(n^2)), but we don't expect very
-// long tokens, so parsing shouldn't be the bottleneck.
+// The compuational complexity is pretty bad (O(n^2)), but I don't expect very
+// long tokens, so parsing shouldn't be the bottleneck. In any case, it should
+// be rewritten some day.
 
-#ifndef LIMBO_FORMAT_PDL_LEXER_H_
-#define LIMBO_FORMAT_PDL_LEXER_H_
+#ifndef LIMBO_IO_LEXER_H_
+#define LIMBO_IO_LEXER_H_
 
 #include <cassert>
 
@@ -18,18 +19,15 @@
 #include <string>
 #include <utility>
 
-#include <limbo/internal/iter.h>
-
 namespace limbo {
-namespace format {
-namespace pdl {
+namespace io {
 
 class Token {
  public:
   enum Id { kError, kRigid, kSort, kVar, kName, kFun, kSlash, kSensor, kReal, kKB, kLet, kQuery, kAssert, kRefute,
     kColon, kComma, kLess, kGreater, kEquality, kInequality, kNot, kOr, kAnd, kForall, kExists, kRArrow, kLRArrow,
-    kDoubleRArrow, kLParen, kRParen, kLBracket, kRBracket, kBox, kKnow, kCons, kBel, kGuarantee, kRegress, kAssign,
-    kIf, kElse, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment, kUint, kString, kIdentifier };
+    kDoubleRArrow, kLParen, kRParen, kLBracket, kRBracket, kBox, kKnow, kMaybe, kBelieve, kGuarantee, kRegress,
+    kAssign, kIf, kElse, kWhile, kFor, kIn, kBegin, kEnd, kCall, kComment, kUint, kString, kIdentifier };
 
   Token() : id_(kError) {}
   explicit Token(Id id) : id_(id) {}
@@ -52,7 +50,7 @@ class Lexer {
    public:
     Word(ForwardIt begin, ForwardIt end) : begin_(begin), end_(end) {}
     ForwardIt begin() const { return begin_; }
-    ForwardIt end() const { return end_; }
+    ForwardIt end()   const { return end_; }
     std::string str() const { return std::string(begin_, end_); }
    private:
     ForwardIt begin_;
@@ -63,21 +61,37 @@ class Lexer {
   enum Match { kMismatch, kPrefixMatch, kFullMatch };
   typedef std::list<std::pair<Token::Id, std::function<Match(Word)>>> LexemeVector;
 
-  struct iterator {
-    typedef std::ptrdiff_t difference_type;
-    typedef Token value_type;
-    typedef value_type reference;
-    typedef value_type* pointer;
-    typedef std::forward_iterator_tag iterator_category;
-    typedef limbo::internal::iterator_proxy<iterator> proxy;
+  // Wrapper for operator*() and operator++(int).
+  template<typename InputIt>
+  class IteratorProxy {
+   public:
+    using value_type = typename InputIt::value_type;
+    using reference  = typename InputIt::reference;
+    using pointer    = typename InputIt::pointer;
 
-    iterator() = default;
-    iterator(const LexemeVector* lexemes, ForwardIt it, ForwardIt end) : lexemes_(lexemes), it_(it), end_(end) {
+    explicit IteratorProxy(reference v) : v_(v) {}
+    reference operator*() const { return v_; }
+    pointer operator->() const { return &v_; }
+
+   private:
+    mutable typename std::remove_const<value_type>::type v_;
+  };
+
+  struct TokenIterator {
+    using difference_type = std::ptrdiff_t;
+    using value_type = Token;
+    using reference = value_type;
+    using pointer = value_type*;
+    using iterator_category = std::forward_iterator_tag;
+    using proxy = IteratorProxy<TokenIterator>;
+
+    TokenIterator() = default;
+    TokenIterator(const LexemeVector* lexemes, ForwardIt it, ForwardIt end) : lexemes_(lexemes), it_(it), end_(end) {
       SkipToNext();
     }
 
-    bool operator==(const iterator& it) const { return it_ == it.it_ && end_ == it.end_; }
-    bool operator!=(const iterator& it) const { return !(*this == it); }
+    bool operator==(const TokenIterator& it) const { return it_ == it.it_ && end_ == it.end_; }
+    bool operator!=(const TokenIterator& it) const { return !(*this == it); }
 
     reference operator*() const {
       const Word w = CurrentWord();
@@ -85,7 +99,7 @@ class Lexer {
       return Token(m.second, w.str());
     }
 
-    iterator& operator++() {
+    TokenIterator& operator++() {
       it_ = CurrentWord().end();
       SkipToNext();
       return *this;
@@ -179,8 +193,8 @@ class Lexer {
     lexemes_.emplace_back(Token::kRBracket,     [](Word w) { return IsPrefix(w, "]"); });
     lexemes_.emplace_back(Token::kBox,          [](Word w) { return IsPrefix(w, "[]"); });
     lexemes_.emplace_back(Token::kKnow,         [](Word w) { return IsPrefix(w, {"K", "Know", "know"}); });
-    lexemes_.emplace_back(Token::kCons,         [](Word w) { return IsPrefix(w, {"M", "Cons", "cons"}); });
-    lexemes_.emplace_back(Token::kBel,          [](Word w) { return IsPrefix(w, {"B", "Bel", "bel"}); });
+    lexemes_.emplace_back(Token::kMaybe,        [](Word w) { return IsPrefix(w, {"M", "Maybe", "cons"}); });
+    lexemes_.emplace_back(Token::kBelieve,      [](Word w) { return IsPrefix(w, {"B", "Bel", "bel"}); });
     lexemes_.emplace_back(Token::kGuarantee,    [](Word w) { return IsPrefix(w, {"G", "Gua", "gua"}); });
     lexemes_.emplace_back(Token::kRegress,      [](Word w) { return IsPrefix(w, {"REG", "Reg", "reg", "Regress", "regress"}); });  // NOLINT
     lexemes_.emplace_back(Token::kAssign,       [](Word w) { return IsPrefix(w, ":="); });
@@ -215,12 +229,12 @@ class Lexer {
                                                   : kMismatch; });
   }
 
-  iterator begin() const { return iterator(&lexemes_, begin_, end_); }
-  iterator end()   const { return iterator(&lexemes_, end_, end_); }
+  TokenIterator begin() const { return TokenIterator(&lexemes_, begin_, end_); }
+  TokenIterator end()   const { return TokenIterator(&lexemes_, end_, end_); }
 
  private:
   static_assert(std::is_convertible<typename ForwardIt::iterator_category, std::forward_iterator_tag>::value,
-                "ForwardIt has wrong iterator category");
+                "ForwardIt has wrong TokenIterator category");
 
   static Match IsPrefix(Word w, const std::string& s) {
     size_t len = std::distance(w.begin(), w.end());
@@ -285,8 +299,8 @@ std::ostream& operator<<(std::ostream& os, Token::Id t) {
     case Token::kRBracket:     return os << "]";
     case Token::kBox:          return os << "[]";
     case Token::kKnow:         return os << "K";
-    case Token::kCons:         return os << "M";
-    case Token::kBel:          return os << "B";
+    case Token::kMaybe:        return os << "M";
+    case Token::kBelieve:      return os << "B";
     case Token::kGuarantee:    return os << "G";
     case Token::kRegress:      return os << "REG";
     case Token::kAssign:       return os << ":=";
@@ -311,9 +325,8 @@ std::ostream& operator<<(std::ostream& os, const Token& t) {
   return os << "Token(" << t.id() << "," << t.str() << ")";
 }
 
-}  // namespace pdl
-}  // namespace format
+}  // namespace io
 }  // namespace limbo
 
-#endif  // LIMBO_FORMAT_PDL_LEXER_H_
+#endif  // LIMBO_IO_LEXER_H_
 

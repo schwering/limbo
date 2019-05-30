@@ -14,11 +14,11 @@ namespace internal {
 
 template<typename T>
 struct Singleton {
-  static std::unique_ptr<T> instance;
+  static std::unique_ptr<T> instance_;
 };
 
 template<typename T>
-std::unique_ptr<T> Singleton<T>::instance;
+std::unique_ptr<T> Singleton<T>::instance_;
 
 }  // namespace internal
 }  // namespace limbo

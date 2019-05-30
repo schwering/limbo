@@ -53,9 +53,9 @@ class DenseMap {
   template<typename InputIt>
   class IteratorProxy {
    public:
-    typedef typename InputIt::value_type value_type;
-    typedef typename InputIt::reference reference;
-    typedef typename InputIt::pointer pointer;
+    using value_type = typename InputIt::value_type;
+    using reference  = typename InputIt::reference;
+    using pointer    = typename InputIt::pointer;
 
     explicit IteratorProxy(reference v) : v_(v) {}
     reference operator*() const { return v_; }
@@ -72,7 +72,7 @@ class DenseMap {
     using reference = value_type;
     using iterator_category = std::random_access_iterator_tag;
 
-    typedef IteratorProxy<KeyIterator> proxy;
+    using proxy = IteratorProxy<KeyIterator>;
 
     explicit KeyIterator(Index i, KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey())
         : k2i(k2i), i2k(i2k), index(i) {}
@@ -138,8 +138,8 @@ class DenseMap {
   Index upper_bound_index() const { return Index(vec_.size()) - 1 + kOffset; }
   Key   upper_bound_key()   const { return i2k_(upper_bound_index()); }
 
-        reference at_index(Index i)       { i -= kOffset; check_bound_(this, i);                        return vec_[i]; }
-  const_reference at_index(Index i) const { i -= kOffset; check_bound_(const_cast<DenseMap*>(this), i); return vec_[i]; }
+        reference at_index(Index i)       { cb_(this, i);                        i -= kOffset; return vec_[i]; }
+  const_reference at_index(Index i) const { cb_(const_cast<DenseMap*>(this), i); i -= kOffset; return vec_[i]; }
 
         reference at_key(Key key)       { return at_index(k2i_(key)); }
   const_reference at_key(Key key) const { return at_index(k2i_(key)); }
@@ -157,7 +157,7 @@ class DenseMap {
   Range<      iterator> values()       { return Range<      iterator>(vec_.begin(), vec_.end()); }
 
  private:
-  CheckBound check_bound_;
+  CheckBound cb_;
   KeyToIndex k2i_;
   IndexToKey i2k_;
   Vec vec_;

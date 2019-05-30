@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include <limbo/formula.h>
+#include <limbo/io/input.h>
 #include <limbo/io/output.h>
 
 namespace limbo {
@@ -231,8 +232,31 @@ TEST(FormulaTest, Satisfies) {
   }
 }
 
+TEST(FormulaTest, Input) {
+  {
+    const std::string input = "f_bla = n_bla";
+    std::stringstream ss(input);
+    Formula ff;
+    ss >> ff;
+    std::cout << input << std::endl;
+    std::cout << ff << std::endl;
+  }
+  {
+    Alphabet* abc = Alphabet::instance();
+    Abc::Sort s = abc->CreateSort(false);
+    Abc::FunSymbol f = abc->CreateFun(s, 2);      LIMBO_REG(f);
+    Abc::FunSymbol g = abc->CreateFun(s, 1);      LIMBO_REG(g);
+    const std::string input = "ex x ex y f(x,y) = g(x)";
+    std::stringstream ss(input);
+    Formula ff;
+    ss >> ff;
+    std::cout << input << std::endl;
+    std::cout << ff << std::endl;
+  }
+}
+
 TEST(FormulaTest, Rectify) {
-  Alphabet* abc = Alphabet::Instance();
+  Alphabet* abc = Alphabet::instance();
   Abc::Sort s = abc->CreateSort(false);
   Abc::VarSymbol x = abc->CreateVar(s);         LIMBO_REG(x);
   Abc::VarSymbol y = abc->CreateVar(s);         LIMBO_REG(y);

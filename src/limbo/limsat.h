@@ -1,6 +1,20 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
 // Copyright 2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
+//
+// Limited satisfiability solver that checks if for all functions f_1, ..., f_k,
+// there are names n_1, ..., n_k such that the partial model obtained by closing
+// f_1 = n_1, ..., f_k = n_k under unit propagation with the clauses satisfies
+// all those clauses and does not satisfy the query.
+//
+// Provided the NNF of the query does not contain valid subclauses, the above
+// statement is equivalent to: for all f_1, ..., f_k, for some n_1, ..., n_k,
+// there is a multi-valued world that satisfies all clauses closed under unit
+// propagation with f_1 = n_1, ..., f_k = n_k and is consistent for all units,
+// and falsifies the clause.
+//
+// This formulation in turn is the negation of the (new) semantics of limited
+// belief.
 
 #ifndef LIMBO_LIMSAT_H_
 #define LIMBO_LIMSAT_H_

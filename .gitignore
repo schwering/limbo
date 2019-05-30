@@ -27,16 +27,19 @@ target
 Testing
 
 test-driver
-tests/clause
-tests/dense
-tests/formula
-tests/hash
-tests/limsat
-tests/lit
+tests/clause-test
+tests/dense-test
+tests/formula-test
+tests/hash-test
+tests/ints-test
+tests/limsat-test
+tests/lit-test
 tests/Makefile
-tests/sat
-tests/subsets
-tests/syntax
+tests/ringbuffer-test
+tests/sat-test
+tests/singleton-test
+tests/subsets-test
+tests/syntax-test
 
 examples/minesweeper/minesweeper
 examples/minesweeper/minesweeper-js.js*
