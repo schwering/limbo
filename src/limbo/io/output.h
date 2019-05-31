@@ -13,6 +13,7 @@
 #include <limbo/clause.h>
 #include <limbo/formula.h>
 #include <limbo/lit.h>
+#include <limbo/internal/maybe.h>
 #include <limbo/io/iocontext.h>
 
 namespace limbo {
@@ -112,14 +113,14 @@ std::ostream& operator<<(std::ostream& os, const Alphabet::Symbol& s) {
     case Alphabet::Symbol::kEquals:         return os << strings::kEquals;
     case Alphabet::Symbol::kNotEquals:      return os << strings::kNotEquals;
     case Alphabet::Symbol::kStrippedLit:    return os << strings::kStrip << s.u.a << strings::kStrip;
-    case Alphabet::Symbol::kNot:            return os << strings::kNot << ' ';
+    case Alphabet::Symbol::kNot:            return os << strings::kNot;
     case Alphabet::Symbol::kOr:             return os << strings::kOr;
     case Alphabet::Symbol::kAnd:            return os << strings::kAnd;
     case Alphabet::Symbol::kExists:         return os << strings::kExists << ' ' << s.u.x;
     case Alphabet::Symbol::kForall:         return os << strings::kForall << ' ' << s.u.x;
     case Alphabet::Symbol::kKnow:           return os << strings::kKnow << '_' << s.u.k;
     case Alphabet::Symbol::kMaybe:          return os << strings::kMaybe << '_' << s.u.k;
-    case Alphabet::Symbol::kBelieve:        return os << strings::kBelieve << '_' << s.u.k << ',' << s.u.l;
+    case Alphabet::Symbol::kBelieve:        return os << strings::kBelieve << '_' << s.u.kl.k << ',' << s.u.kl.l;
     case Alphabet::Symbol::kAction:         return os << strings::kAction << ' ';
   }
   std::abort();
@@ -173,6 +174,16 @@ std::ostream& operator<<(std::ostream& os, const Sequence<InputIt>& s) {
     os << *it;
   }
   os << s.trail;
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const limbo::internal::Maybe<T>& m) {
+  if (m) {
+    os << "Just(" << m.val << ")";
+  } else {
+    os << "Nothing";
+  }
   return os;
 }
 

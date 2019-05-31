@@ -246,7 +246,21 @@ TEST(FormulaTest, Input) {
     Abc::Sort s = abc->CreateSort(false);
     Abc::FunSymbol f = abc->CreateFun(s, 2);      LIMBO_REG(f);
     Abc::FunSymbol g = abc->CreateFun(s, 1);      LIMBO_REG(g);
-    const std::string input = "ex x ex y f(x,y) = g(x)";
+    const std::string input = "ex x ex y f(x,y) = g(x) MY_SEPARATOR_TOKEN fa x fa y ex z f(x,y) = g(z)";  // a token is needed because the lexer scans for the next token (and fails) but can't push it back onto the stream (or can it?)
+    std::stringstream ss(input);
+    Formula ff;
+    Formula gg;
+    ss >> ff >> gg;
+    std::cout << input << std::endl;
+    std::cout << ff << std::endl;
+    std::cout << gg << std::endl;
+  }
+  {
+    Alphabet* abc = Alphabet::instance();
+    Abc::Sort s = abc->CreateSort(false);
+    Abc::FunSymbol f = abc->CreateFun(s, 2);      LIMBO_REG(f);
+    Abc::FunSymbol g = abc->CreateFun(s, 1);      LIMBO_REG(g);
+    const std::string input = "ex x ex y f(x,y) = g(x) v fa x fa y ex z f(x,y) = g(z) <-> ex x f(g(x),g(x)) = x";
     std::stringstream ss(input);
     Formula ff;
     ss >> ff;

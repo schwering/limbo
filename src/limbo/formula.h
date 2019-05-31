@@ -165,7 +165,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
 
   struct Symbol {
     enum Tag {
-      kFun, kName, kVar, kStrippedFun, kStrippedName, kEquals, kNotEquals, kStrippedLit,
+      kFun = 1, kName, kVar, kStrippedFun, kStrippedName, kEquals, kNotEquals, kStrippedLit,
       kNot, kOr, kAnd, kExists, kForall, kKnow, kMaybe, kBelieve, kAction
     };
 
@@ -188,7 +188,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     static Symbol And(int k)                 { Symbol s; s.tag = kAnd;          s.u.k = k;            return s; }
     static Symbol Know(int k)                { Symbol s; s.tag = kKnow;         s.u.k = k;            return s; }
     static Symbol Maybe(int k)               { Symbol s; s.tag = kMaybe;        s.u.k = k;            return s; }
-    static Symbol Believe(int k, int l)      { Symbol s; s.tag = kBelieve;      s.u.k = k; s.u.l = l; return s; }
+    static Symbol Believe(int k, int l)      { Symbol s; s.tag = kBelieve;      s.u.kl = {k,l};       return s; }
     static Symbol Action()                   { Symbol s; s.tag = kAction;                             return s; }
 
     explicit Symbol() = default;
@@ -207,8 +207,11 @@ class Alphabet : private internal::Singleton<Alphabet> {
       class Fun  f_s;  // kStrippedFun
       class Name n_s;  // kStrippedName
       class Lit  a;    // kStrippedLit
-      int        k;    // kOr, kAnd, kKnow, kMaybe, kBelieve
-      int        l;    // kBelieve
+      int        k;    // kOr, kAnd, kKnow, kMaybe
+      struct {
+        int      k;
+        int      l;
+      } kl;            // kBelieve
     } u;
 
     bool operator==(const Symbol& s) const {
@@ -231,7 +234,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
         case kAnd:          return u.k == s.u.k;
         case kKnow:         return u.k == s.u.k;
         case kMaybe:        return u.k == s.u.k;
-        case kBelieve:      return u.k == s.u.k && u.l == s.u.l;
+        case kBelieve:      return u.kl.k == s.u.kl.k && u.kl.l == s.u.kl.l;
         case kAction:       return true;
       }
       std::abort();
@@ -579,7 +582,7 @@ class RFormula : private FormulaCommons {
   explicit RFormula(Abc::Symbol::CRef begin) : RFormula(begin, End(begin)) {}
 
   const Abc::RWord& rword() const { return rword_; }
-  const Abc::Symbol& head() const { return *begin(); }
+  const Abc::Symbol head()  const { return !empty() ? *begin() : Abc::Symbol(); }
   Abc::Symbol::Tag tag()    const { return head().tag; }
   int arity()               const { return head().arity(); }
 
@@ -707,13 +710,15 @@ class RFormula : private FormulaCommons {
   // Strongly well formed means the formula is well formed as defined in the
   // paper, i.e., quasi-primitive literals, quasi-trivial actions (flattened).
   // Weakly well formed admits nested functions and right-hand side functions.
-  bool strongly_well_formed() const { if (!meta_init_) { InitMeta(); } return strongly_well_formed_; }
-  bool weakly_well_formed()   const { if (!meta_init_) { InitMeta(); } return weakly_well_formed_; }
-  bool nnf()                  const { if (!meta_init_) { InitMeta(); } return nnf_; }
-  bool objective()            const { if (!meta_init_) { InitMeta(); } return objective_; }
-  bool dynamic()              const { if (!meta_init_) { InitMeta(); } return !static_; }
-  bool ground()               const { if (!meta_init_) { InitMeta(); } return !ground_; }
   bool stripped()             const { if (!meta_init_) { InitMeta(); } return stripped_; }
+  bool ground()               const { if (!meta_init_) { InitMeta(); } return ground_; }
+  bool objective()            const { if (!meta_init_) { InitMeta(); } return objective_; }
+  bool subjective()           const { if (!meta_init_) { InitMeta(); } return subjective_; }
+  bool dynamic()              const { if (!meta_init_) { InitMeta(); } return !static_; }
+  bool nnf()                  const { if (!meta_init_) { InitMeta(); } return nnf_; }
+  bool proper_plus()          const { if (!meta_init_) { InitMeta(); } return proper_plus_; }
+  bool weakly_well_formed()   const { if (!meta_init_) { InitMeta(); } return weakly_well_formed_; }
+  bool strongly_well_formed() const { if (!meta_init_) { InitMeta(); } return strongly_well_formed_; }
 
  private:
   void InitMeta() const { const_cast<RFormula*>(this)->InitMeta(); }
@@ -723,17 +728,48 @@ class RFormula : private FormulaCommons {
     std::vector<Expectation> es;
     Scope::Observer scoper;
     Scope action_scope;
-    bool action_scope_active = false;
-    meta_init_ = true;
+    Scope negation_scope;
+    Scope epistemic_scope;
+    bool action_scope_active    = false;
+    bool negation_scope_active  = false;
+    bool epistemic_scope_active = false;
+    meta_init_            = true;
+    stripped_             = true;
+    ground_               = true;
+    objective_            = true;
+    subjective_           = true;
+    static_               = true;
+    nnf_                  = true;
+    proper_plus_          = true;
+    weakly_well_formed_   = true;
     strongly_well_formed_ = true;
-    weakly_well_formed_ = true;
-    nnf_ = true;
-    objective_ = true;
-    static_ = true;
-    ground_ = true;
-    stripped_ = true;
     for (auto it = begin(); it != end(); ) {
       const Abc::Symbol& s = *it;
+      if (s.tag == Abc::Symbol::kNot && !negation_scope_active) {
+        negation_scope = scoper.scope();
+        negation_scope_active = true;
+      }
+      if (s.tag == Abc::Symbol::kAction && !action_scope_active) {
+        action_scope = scoper.scope();
+        action_scope_active = true;
+      }
+      if (!s.objective() && !action_scope_active) {
+        epistemic_scope = scoper.scope();
+        epistemic_scope_active = true;
+      }
+      negation_scope_active  &= scoper.active(negation_scope);
+      action_scope_active    &= scoper.active(action_scope);
+      epistemic_scope_active &= scoper.active(epistemic_scope);
+      stripped_    &= !s.unstripped();
+      ground_      &= s.tag != Abc::Symbol::kVar && !s.quantifier();
+      objective_   &= s.objective();
+      subjective_  &= epistemic_scope_active || (!s.fun() && s.tag != Abc::Symbol::kStrippedLit);
+      static_      &= s.tag != Abc::Symbol::kAction;
+      nnf_         &= s.tag != Abc::Symbol::kNot &&
+                      (!action_scope_active || s.tag == Abc::Symbol::kAction || s.term() || s.literal());
+      proper_plus_ &= s.term() || s.literal() ||
+                      (negation_scope_active && (s.tag == Abc::Symbol::kExists || s.tag == Abc::Symbol::kAnd)) ||
+                      (!negation_scope_active && (s.tag == Abc::Symbol::kForall || s.tag == Abc::Symbol::kOr));
       if (it != begin()) {
         if (!es.empty()) {
           switch (es.back()) {
@@ -743,7 +779,7 @@ class RFormula : private FormulaCommons {
           }
           es.pop_back();
         } else {
-          weakly_well_formed_ &= !s.term();
+          weakly_well_formed_   &= !s.term();
           strongly_well_formed_ &= !s.term();
         }
       }
@@ -766,35 +802,10 @@ class RFormula : private FormulaCommons {
         case Abc::Symbol::kBelieve:      for (int i = 0; i < s.arity(); ++i) { es.push_back(kFormula); } break;
         case Abc::Symbol::kAction:       es.push_back(kFormula); es.push_back(kQuasiName); break;
       }
-      if (s.tag == Abc::Symbol::kAction && !action_scope_active) {
-        action_scope = scoper.scope();
-        action_scope_active = true;
-      }
-      if (action_scope_active && !scoper.active(action_scope)) {
-        action_scope_active = false;
-      }
-      if (s.tag == Abc::Symbol::kNot ||
-          (s.tag != Abc::Symbol::kAction && !(s.stripped() && !s.term()) && action_scope_active)) {
-        nnf_ = false;
-      }
-      if (!s.objective()) {
-        objective_ = false;
-      }
-      if (s.tag == Abc::Symbol::kAction) {
-        static_ = false;
-      }
-      if (s.tag == Abc::Symbol::kVar || s.quantifier()) {
-        ground_ = false;
-      }
-      if (s.unstripped()) {
-        stripped_ = false;
-      }
       scoper.Munch(*it++);
     }
-    if (!es.empty()) {
-      weakly_well_formed_ = false;
-      strongly_well_formed_ = false;
-    }
+    weakly_well_formed_   &= es.empty();
+    strongly_well_formed_ &= es.empty();
   }
 
   void InitArg(int i) const { const_cast<RFormula*>(this)->InitArg(i); }
@@ -809,13 +820,15 @@ class RFormula : private FormulaCommons {
   Abc::RWord rword_;
   mutable std::vector<RFormula> args_;
   unsigned meta_init_            : 1;
-  unsigned strongly_well_formed_ : 1;
-  unsigned weakly_well_formed_   : 1;
-  unsigned nnf_                  : 1;
-  unsigned objective_            : 1;
-  unsigned static_               : 1;
   unsigned ground_               : 1;
   unsigned stripped_             : 1;
+  unsigned objective_            : 1;
+  unsigned subjective_           : 1;
+  unsigned static_               : 1;
+  unsigned nnf_                  : 1;
+  unsigned proper_plus_          : 1;
+  unsigned weakly_well_formed_   : 1;
+  unsigned strongly_well_formed_ : 1;
 };
 
 class Formula : private FormulaCommons {

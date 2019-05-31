@@ -22,9 +22,10 @@
 #include <list>
 
 #include <limbo/formula.h>
+#include <limbo/internal/maybe.h>
 #include <limbo/io/iocontext.h>
 #include <limbo/io/lexer.h>
-#include <limbo/internal/maybe.h>
+#include <limbo/io/output.h>
 
 namespace limbo {
 namespace io {
@@ -34,7 +35,43 @@ namespace io {
 #define LIMBO_STR__LINE__   LIMBO_S_(__LINE__)
 #define LIMBO_MSG(msg)      (std::string(msg) +" (in rule "+ __FUNCTION__ +":"+ LIMBO_STR__LINE__ +")")
 
-template<typename ForwardIt>
+struct DefaultEventHandler {
+  void SortRegistered(Alphabet::Sort sort) {
+    std::cout << "Registered sort " << sort << std::endl;
+  }
+
+  void FunSymbolRegistered(Alphabet::FunSymbol f) {
+    std::cout << "Registered function symbol " << f << std::endl;
+  }
+
+  void SensorFunSymbolRegistered(Alphabet::FunSymbol f) {
+    std::cout << "Registered sensor function symbol " << f << std::endl;
+  }
+
+  void NameSymbolRegistered(Alphabet::NameSymbol n) {
+    std::cout << "Registered name symbol " << n << std::endl;
+  }
+
+  void VarSymbolRegistered(Alphabet::VarSymbol x) {
+    std::cout << "Registered variable symbol " << x << std::endl;
+  }
+
+  void MetaSymbolRegistered(IoContext::MetaSymbol m) {
+    std::cout << "Registered meta symbol " << IoContext::instance()->meta_registry().ToString(m, "m") << std::endl;
+  }
+
+  bool Add(const Formula& f) {
+    std::cout << "Added " << f << std::endl;
+    return true;
+  }
+
+  bool Query(const Formula& f) {
+    std::cout << "Queried " << f << std::endl;
+    return true;
+  }
+};
+
+template<typename ForwardIt, typename EventHandler = DefaultEventHandler>
 class Parser {
  public:
   using Lexer         = Lexer<ForwardIt>;
@@ -141,13 +178,13 @@ class Parser {
     }
   };
 
-  Parser(ForwardIt begin, ForwardIt end) : lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()) {}
+  Parser(ForwardIt begin, ForwardIt end, EventHandler eh = EventHandler())
+      : eh_(eh), lexer_(begin, end), begin_(lexer_.begin()), end_(lexer_.end()) {}
 
   void set_default_if_undeclared(bool b) { default_if_undeclared_ = b; }
   bool default_if_undeclared() const { return default_if_undeclared_; }
 
-  Result<Computation<>> Parse() { return start(); }
-
+  Result<Computation<>>        Parse()        { return start(); }
   Result<Computation<Formula>> ParseFormula() { return formula(); }
 
  private:
@@ -201,7 +238,9 @@ class Parser {
           Advance();
           a += [this, rigid, id]() {
             if (!sort_registry().Registered(id)) {
-              sort_registry().Register(id, rigid);
+              const Abc::Sort sort = abc()->CreateSort(rigid);
+              sort_registry().Register(sort, id);
+              eh_.SortRegistered(sort);
               return Success<>();
             } else {
               return Error<>(LIMBO_MSG("Sort "+ id +" is already registered"));
@@ -237,10 +276,16 @@ class Parser {
                   !name_registry().Registered(id) &&
                   !var_registry().Registered(id) &&
                   !meta_registry().Registered(id)) {
+                const Abc::Sort sort = sort_registry().ToSymbol(sort_id, false);
                 if (var) {
-                  var_registry().Register(id, sort_id);
+                  const Abc::VarSymbol x = abc()->CreateVar(sort);
+                  var_registry().Register(x, id);
+                  eh_.VarSymbolRegistered(x);
                 } else {
-                  name_registry().Register(id, sort_id);
+                  const int arity = 0;  // TODO name arities?
+                  const Abc::NameSymbol n = abc()->CreateName(sort, arity);
+                  name_registry().Register(n, id);
+                  eh_.NameSymbolRegistered(n);
                 }
                 return Success<>();
               } else {
@@ -300,9 +345,14 @@ class Parser {
             if (sensor && !sort_registry().Registered(d.sensor_id)) {
               return Error<>(LIMBO_MSG("Sensor sort "+ d.sensor_id +" is not registered"));
             }
-            fun_registry().Register(d.fun_id, d.arity, sort_id);
+            const Abc::Sort sort = sort_registry().ToSymbol(sort_id, false);
+            const Abc::FunSymbol f = abc()->CreateFun(sort, d.arity);
+            fun_registry().Register(f, d.fun_id);
             if (!sensor) {
               //io()->RegisterSensorFunction(d.fun_id, sort_id, d.sensor_id);
+              //eh_.SensorFunRegistered(f);
+            } else {
+              eh_.FunSymbolRegistered(f);
             }
             return Success<>();
           };
@@ -583,6 +633,7 @@ class Parser {
       });
     }
     if (Is(Tok(), Token::kGuarantee)) {
+      return Error<Computation<Formula>>(LIMBO_MSG("Guarantee currently not implemented"));
       Advance();
       Result<Computation<Formula>> alpha = primary_formula();
       if (!alpha) {
@@ -593,6 +644,7 @@ class Parser {
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected primary formula within modality"), alpha);
         }
+        //return Success(Formula::Factory::Guarantee(std::move(alpha.val)));
         return Error<Formula>(LIMBO_MSG("Guarantee currently not implemented"), alpha);
       });
     }
@@ -623,6 +675,7 @@ class Parser {
       });
     }
     if (Is(Tok(), Token::kRegress)) {
+      return Error<Computation<Formula>>(LIMBO_MSG("Regression currently not implemented"));
       Advance();
       Result<Computation<Formula>> alpha = primary_formula();
       if (!alpha) {
@@ -634,6 +687,7 @@ class Parser {
           return Error<Formula>(LIMBO_MSG("Expected primary formula within modality"), alpha);
         }
         return Error<Formula>(LIMBO_MSG("Regression currently not implemented"), alpha);
+        //return Success(io()->Regress(*alpha.val));
       });
     }
     if (Is(Tok(), Token::kLParen)) {
@@ -798,6 +852,7 @@ class Parser {
     if (!Is(Tok(), Token::kReal)) {
       return Unapplicable<Computation<>>(LIMBO_MSG("Expected 'Real'"));
     }
+    return Error<Computation<>>(LIMBO_MSG("Real world currently not implemented"));
     Advance();
     if (!Is(Tok(), Token::kColon)) {
       return Error<Computation<>>(LIMBO_MSG("Expected ':'"));
@@ -807,17 +862,17 @@ class Parser {
     if (!a) {
       return Error<Computation<>>(LIMBO_MSG("Expected real world literal"), a);
     }
-    return Success<Computation<>>([this, a_a = a.val]() {
+    return Success<Computation<>>([a_a = a.val]() {
       Result<Formula> a = a_a.Compute();
       if (!a) {
         return Error<>(LIMBO_MSG("Expected real world literal"), a);
       }
-      if (!a.val.ground() || a.val.unsatisfiable()) {
-        return Error<>(LIMBO_MSG("Real world literal must be ground and satisfiable"));
-      }
+      //if (!a.val.readable().ground() || a.val.unsatisfiable()) {
+      //  return Error<>(LIMBO_MSG("Real world literal must be ground and satisfiable"));
+      //}
       //io()->AddReal(a.val);
       //return Success<>();
-      return Error<>(LIMBO_MSG("Real world currently not implemented"), std::move(a));
+      return Error<>(LIMBO_MSG("Real world currently not implemented"), a);
     });
   }
 
@@ -832,79 +887,79 @@ class Parser {
       return Error<Computation<>>(LIMBO_MSG("Expected ':'"));
     }
     Advance();
-    if (Is(Tok(0), Token::kBox)) {
-      Advance();
-      // Remainder is:
-      // [ [atomic_term] ] term = atomic_term <-> formula
-      const bool ssa = Is(Tok(), Token::kLBracket);
-      Result<Computation<Formula>> t;
-      if (ssa) {
-        Advance();
-        t = atomic_term();
-        if (!t) {
-          return Error<Computation<>>(LIMBO_MSG("Expected action variable"), t);
-        }
-        if (!Is(Tok(), Token::kRBracket)) {
-          return Error<Computation<>>(LIMBO_MSG("Expected ']'"));
-        }
-        Advance();
-      }
-      Result<Computation<Formula>> a = literal();
-      if (!a) {
-        return Error<Computation<>>(LIMBO_MSG("Expected KB dynamic left-hand side literal"), a);
-      }
-      if (!Is(Tok(), Token::kLRArrow)) {
-        return Error<Computation<>>(LIMBO_MSG("Expected '<->'"));
-      }
-      Advance();
-      Result<Computation<Formula>> alpha = formula();
-      if (!alpha) {
-        return Error<Computation<>>(LIMBO_MSG("Expected KB dynamic right-hand side formula"), alpha);
-      }
-      return Success<Computation<>>([this, ssa, t_a = t.val, a_a = a.val, alpha_a = alpha.val]() {
-        Result<Formula> t;
-        if (ssa) {
-          t = t_a.Compute();
-          if (!t || !t.val.variable()) {
-            return Error<>(LIMBO_MSG("Expected action variable"), t);
-          }
-        }
-        Result<Formula> a = a_a.Compute();
-        if (!a) {
-          return Error<>(LIMBO_MSG("Expected KB dynamic left-hand side literal"), a);
-        }
-        if (!(a.val.pos() && a.val.lhs().sort() == a.val.rhs().sort() && !a.val.lhs().sort().rigid())) {
-          return Error<>(LIMBO_MSG("Left-hand side literal of dynamic axiom must be of the form f(x,...) = y "
-                                   "f, y of same, non-rigid sort"));
-        }
-        Result<Formula> alpha = alpha_a.Compute();
-        if (!alpha) {
-          return Error<>(LIMBO_MSG("Expected KB dynamic right-hand side formula"), alpha);
-        }
-        if (!(alpha.val->objective() && !alpha.val->dynamic())) {
-          return Error<>(LIMBO_MSG("KB dynamic right-hand side formula must not contain modal operators"), alpha);
-        }
-        //Formula::SortedTermSet xs;
-        //a.val.Traverse([&xs](const Term t) { if (t.variable()) { xs.insert(t); } return true; });
-        //if (ssa) {
-        //  t.val.Traverse([&xs](const Term t) { if (t.variable()) { xs.insert(t); } return true; });
-        //}
-        //for (Term y : alpha.val->free_vars().values()) {
-        //  if (!xs.contains(y)) {
-        //    return Error<>(LIMBO_MSG("Free variables in the right-hand side of dynamic axiom must be bound by the "
-        //                             "left-hand side"));
-        //  }
-        //}
-        //if ((ssa && io()->Add(t.val, a.val, *alpha.val)) ||
-        //    (!ssa && io()->Add(a.val, *alpha.val))) {
-        //  return Success<>();
-        //} else {
-        //  return Error<>(LIMBO_MSG("Couldn't add formula to KB; is it proper+ "
-        //                          "(i.e., its NF must be a universally quantified clause)?"));
-        //}
-        return Error<Formula>(LIMBO_MSG("SSAs currently not implemented"), alpha);
-      });
-    } else {
+    //if (Is(Tok(0), Token::kBox)) {
+    //  return Error<Computation<Formula>>(LIMBO_MSG("SSAs currently not implemented"), alpha);
+    //  Advance();
+    //  // Remainder is:
+    //  // [ [atomic_term] ] term = atomic_term <-> formula
+    //  const bool ssa = Is(Tok(), Token::kLBracket);
+    //  Result<Computation<Formula>> t;
+    //  if (ssa) {
+    //    Advance();
+    //    t = atomic_term();
+    //    if (!t) {
+    //      return Error<Computation<>>(LIMBO_MSG("Expected action variable"), t);
+    //    }
+    //    if (!Is(Tok(), Token::kRBracket)) {
+    //      return Error<Computation<>>(LIMBO_MSG("Expected ']'"));
+    //    }
+    //    Advance();
+    //  }
+    //  Result<Computation<Formula>> a = literal();
+    //  if (!a) {
+    //    return Error<Computation<>>(LIMBO_MSG("Expected KB dynamic left-hand side literal"), a);
+    //  }
+    //  if (!Is(Tok(), Token::kLRArrow)) {
+    //    return Error<Computation<>>(LIMBO_MSG("Expected '<->'"));
+    //  }
+    //  Advance();
+    //  Result<Computation<Formula>> alpha = formula();
+    //  if (!alpha) {
+    //    return Error<Computation<>>(LIMBO_MSG("Expected KB dynamic right-hand side formula"), alpha);
+    //  }
+    //  return Success<Computation<>>([this, ssa, t_a = t.val, a_a = a.val, alpha_a = alpha.val]() {
+    //    Result<Formula> t;
+    //    if (ssa) {
+    //      t = t_a.Compute();
+    //      if (!t || !t.val.head().var()) {
+    //        return Error<>(LIMBO_MSG("Expected action variable"), t);
+    //      }
+    //    }
+    //    Result<Formula> a = a_a.Compute();
+    //    if (!a) {
+    //      return Error<>(LIMBO_MSG("Expected KB dynamic left-hand side literal"), a);
+    //    }
+    //    if (!(a.val.pos() && a.val.lhs().sort() == a.val.rhs().sort() && !a.val.lhs().sort().rigid())) {
+    //      return Error<>(LIMBO_MSG("Left-hand side literal of dynamic axiom must be of the form f(x,...) = y "
+    //                               "f, y of same, non-rigid sort"));
+    //    }
+    //    Result<Formula> alpha = alpha_a.Compute();
+    //    if (!alpha) {
+    //      return Error<>(LIMBO_MSG("Expected KB dynamic right-hand side formula"), alpha);
+    //    }
+    //    if (!(alpha.val->objective() && !alpha.val->dynamic())) {
+    //      return Error<>(LIMBO_MSG("KB dynamic right-hand side formula must not contain modal operators"), alpha);
+    //    }
+    //    //Formula::SortedTermSet xs;
+    //    //a.val.Traverse([&xs](const Term t) { if (t.variable()) { xs.insert(t); } return true; });
+    //    //if (ssa) {
+    //    //  t.val.Traverse([&xs](const Term t) { if (t.variable()) { xs.insert(t); } return true; });
+    //    //}
+    //    //for (Term y : alpha.val->free_vars().values()) {
+    //    //  if (!xs.contains(y)) {
+    //    //    return Error<>(LIMBO_MSG("Free variables in the right-hand side of dynamic axiom must be bound by the "
+    //    //                             "left-hand side"));
+    //    //  }
+    //    //}
+    //    //if ((ssa && io()->Add(t.val, a.val, alpha.val)) ||
+    //    //    (!ssa && io()->Add(a.val, alpha.val))) {
+    //    //  return Success<>();
+    //    //} else {
+    //    //  return Error<>(LIMBO_MSG("Couldn't add formula to KB; is it proper+ "
+    //    //                          "(i.e., its NF must be a universally quantified clause)?"));
+    //    //}
+    //  });
+    //} else {
       // Remainder is:
       // formula
       Result<Computation<Formula>> alpha = formula();
@@ -916,15 +971,14 @@ class Parser {
         if (!alpha) {
           return Error<>(LIMBO_MSG("Expected KB formula"), alpha);
         }
-        //if (io()->Add(*alpha.val)) {
-        //  return Success<>();
-        //} else {
-        //  return Error<>(LIMBO_MSG("Couldn't add formula to KB; is it proper+ "
-        //                          "(i.e., its NF must be a universally quantified clause)?"));
-        //}
-        return Error<Formula>(LIMBO_MSG("KB currently not implemented"), alpha);
+        if (eh_.Add(alpha.val)) {
+          return Success<>();
+        } else {
+          return Error<>(LIMBO_MSG("Couldn't add formula to KB; is it proper+ "
+                                  "(i.e., its NF must be a universally quantified clause)?"));
+        }
       });
-    }
+    //}
   }
 
   // subjective_formula --> formula
@@ -938,13 +992,11 @@ class Parser {
       if (!alpha) {
         return Error<Formula>(LIMBO_MSG("Expected subjective formula"), alpha);
       }
-#if 0
-      if (!alpha.val->subjective()) {
+      if (!alpha.val.readable().subjective()) {
         return Error<Formula>(LIMBO_MSG("Expected subjective formula "
-                                              "(i.e., no functions outside of modal operators; "
-                                              "probably caused by missing brackets)"));
+                                        "(i.e., no functions outside of modal operators; "
+                                        "probably caused by missing brackets)"));
       }
-#endif
       return Success<Formula>(std::move(alpha.val));
     });
   }
@@ -977,7 +1029,7 @@ class Parser {
       if (!alpha) {
         return Error<>(LIMBO_MSG("Expected query/assertion/refutation subjective_formula"), alpha);
       }
-      const bool r = io()->Query(*alpha.val);
+      const bool r = eh_.Query(alpha.val);
       if (is_query) {
         return Success<>();
       } else if (r == is_assert) {
@@ -985,7 +1037,7 @@ class Parser {
       } else {
         std::stringstream ss;
         using limbo::io::operator<<;
-        ss << (is_assert ? "Assertion" : "Refutation") << " of " << *alpha.val << " failed";
+        ss << (is_assert ? "Assertion" : "Refutation") << " of " << alpha.val << " failed";
         return Error<>(LIMBO_MSG(ss.str()));
       }
     });
@@ -1024,7 +1076,7 @@ class Parser {
     const std::string sort = Tok().val.str();
     Advance();
     return Success<Computation<IdTerms>>([this, id, sort_id = sort, ts_a = ts]() {
-      if (!default_sort_string(sort_id) || !sort_registry()->Registered(sort_id)) {
+      if (!default_sort_string(sort_id) || !sort_registry().Registered(sort_id)) {
         return Error<IdTerms>(LIMBO_MSG("Sort "+ sort_id +" is not registered"));
       }
       const Abc::Sort sort = sort_registry().ToSymbol(sort_id, false);
@@ -1077,11 +1129,12 @@ class Parser {
       else_block = Success<Computation<>>([]() { return Success<>(); });
     }
     return Success<Computation<>>([this, bind_a = bind.val, alpha_a = alpha.val, if_block_a = if_block.val,
-                              else_block_a = else_block.val](IoContext* io) {
+                              else_block_a = else_block.val]() {
       Result<IdTerms> bind = bind_a.Compute();
       const std::string id = bind.val.first;
       bool cond;
       if (!id.empty()) {
+        return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
         cond = false;
         for (Formula& t : bind.val.second) {
           //io()->RegisterMetaVariable(id, t);
@@ -1089,27 +1142,25 @@ class Parser {
           if (!alpha) {
             return Error<>(LIMBO_MSG("Expected condition if_else"), alpha);
           }
-          //if (io()->Query(*alpha.val)) {
-          //  cond = true;
-          //  break;
-          //}
+          if (eh_.Query(alpha.val)) {
+            cond = true;
+            break;
+          }
           //io()->UnregisterMetaVariable(id);
-          return Error<Formula>(LIMBO_MSG("Meta variables currently not implemented"), alpha);
         }
       } else {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<>(LIMBO_MSG("Expected condition if_else"), alpha);
         }
-        //cond = io()->Query(*alpha.val);
-        return Error<Formula>(LIMBO_MSG("Queries currently not implemented"), alpha);
+        cond = eh_.Query(alpha.val);
       }
       Result<> r;
       if (cond) {
         r = if_block_a.Compute();
         if (!id.empty()) {
+          return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
           //io()->UnregisterMetaVariable(id);
-          return Error<Formula>(LIMBO_MSG("Meta variables currently not implemented"), alpha);
         }
       } else {
         r = else_block_a.Compute();
@@ -1150,7 +1201,7 @@ class Parser {
       else_block = Success<Computation<>>([]() { return Success<>(); });
     }
     return Success<Computation<>>([this, bind_a = bind.val, alpha_a = alpha.val, while_block_a = while_block.val,
-                              else_block_a = else_block.val]() {
+                                   else_block_a = else_block.val]() {
       Result<IdTerms> bind = bind_a.Compute();
       const std::string id = bind.val.first;
       bool once = false;
@@ -1159,16 +1210,16 @@ class Parser {
         if (!id.empty()) {
           cond = false;
           for (Formula& t : bind.val.second) {
+            return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
             //io()->RegisterMetaVariable(id, t);
             Result<Formula> alpha = alpha_a.Compute();
             if (!alpha) {
               return Error<>(LIMBO_MSG("Expected condition while_loop"), alpha);
             }
-            return Error<Formula>(LIMBO_MSG("Meta variables currently not implemented"), alpha);
-            //if (io()->Query(*alpha.val)) {
-            //  cond = true;
-            //  break;
-            //}
+            if (eh_.Query(alpha.val)) {
+              cond = true;
+              break;
+            }
             //io()->UnregisterMetaVariable(id);
           }
         } else {
@@ -1176,15 +1227,14 @@ class Parser {
           if (!alpha) {
             return Error<>(LIMBO_MSG("Expected condition while_loop"), alpha);
           }
-          return Error<Formula>(LIMBO_MSG("Meta variables currently not implemented"), alpha);
-          //cond = io()->Query(*alpha.val);
+          cond = eh_.Query(alpha.val);
         }
         if (cond) {
           once = true;
           Result<> r = while_block_a.Compute();
           if (!id.empty()) {
+            return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
             //io()->UnregisterMetaVariable(id);
-            return Error<Formula>(LIMBO_MSG("Meta variables currently not implemented"), alpha);
           }
           if (!r) {
             return Error<>(LIMBO_MSG("Expected block in while_loop"), r);
@@ -1240,20 +1290,20 @@ class Parser {
       }
       bool once = false;
       for (Formula& t : bind.val.second) {
+        return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
         //io()->RegisterMetaVariable(id, t);
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<>(LIMBO_MSG("Expected condition for_loop"), alpha);
         }
-        return Error<Formula>(LIMBO_MSG("Meta variables currently not implemented"), alpha);
-        //if (io()->Query(*alpha.val)) {
-        //  once = true;
-        //  Result<> r = for_block_a.Compute();
-        //  if (!r) {
-        //    io()->UnregisterMetaVariable(id);
-        //    return Error<>(LIMBO_MSG("Expected block in for_loop"), r);
-        //  }
-        //}
+        if (eh_.Query(alpha.val)) {
+          once = true;
+          Result<> r = for_block_a.Compute();
+          if (!r) {
+            //io()->UnregisterMetaVariable(id);
+            return Error<>(LIMBO_MSG("Expected block in for_loop"), r);
+          }
+        }
         //io()->UnregisterMetaVariable(id);
       }
       if (!once) {
@@ -1271,6 +1321,7 @@ class Parser {
     if (!Is(Tok(), Token::kLet)) {
       return Unapplicable<Computation<>>(LIMBO_MSG("Expected abbreviation operator 'let'"));
     }
+    return Error<Computation<>>(LIMBO_MSG("Formula abbreviations currently not implemented"));
     Advance();
     if (!Is(Tok(), Token::kIdentifier)) {
       return Error<Computation<>>(LIMBO_MSG("Expected fresh identifier"));
@@ -1285,13 +1336,12 @@ class Parser {
     if (!alpha) {
       return Error<Computation<>>(LIMBO_MSG("Expected formula"), alpha);
     }
-    return Success<Computation<>>([this, id, alpha_a = alpha.val]() {
+    return Success<Computation<>>([id, alpha_a = alpha.val]() {
       Result<Formula> alpha = alpha_a.Compute();
       if (!alpha) {
         return Error<>(LIMBO_MSG("Expected formula"), alpha);
       }
-      return Error<Formula>(LIMBO_MSG("Formula abbreviations currently not implemented"), alpha);
-      //io()->RegisterFormula(id, *alpha.val);
+      //io()->RegisterFormula(id, alpha.val);
       return Success<>();
     });
   }
@@ -1331,13 +1381,13 @@ class Parser {
     }
     Advance();
     return Success<Computation<>>([this, id, ts_as = ts]() {
+      return Error<>(LIMBO_MSG("Procedure calls currently not implemented"));
       std::list<Formula> ts;
       for (const Computation<Formula>& arg_a : ts_as) {
         Result<Formula> t = arg_a.Compute();
         ts.push_back(std::move(t.val));
       }
       //io()->Call(id, ts);
-      return Error<>(LIMBO_MSG("Procedure calls currently not implemented"));
       return Success<>();
     });
   }
@@ -1439,6 +1489,7 @@ class Parser {
     return end_;
   }
 
+  static auto  abc()           { return Abc::instance(); }
   static auto  io()            { return IoContext::instance(); }
   static auto& sort_registry() { return io()->sort_registry(); }
   static auto& fun_registry()  { return io()->fun_registry(); }
@@ -1483,23 +1534,24 @@ class Parser {
   static const char* kErrorLabel;
   static const char* kCausesLabel;
 
-  bool default_if_undeclared_ = false;
-  Lexer lexer_;
-  mutable TokenIterator begin_;  // don't use begin_ directly: to avoid the stream blocking us, Advance() actually increments
+  EventHandler   eh_;
+  bool           default_if_undeclared_ = false;
+  Lexer          lexer_;
+  mutable        TokenIterator begin_;  // don't use begin_ directly: to avoid the stream blocking us, Advance() actually increments
   mutable size_t begin_plus_ = 0;  // begin_plus_ instead of begin_; use begin() to obtain the incremented iterator.
-  TokenIterator end_;
-  size_t n_blocks_ = 0;
+  TokenIterator  end_;
+  size_t         n_blocks_ = 0;
 };
 
 
-template<typename ForwardIt>
-const char* Parser<ForwardIt>::kUnapplicableLabel = "Unappl.: ";
+template<typename ForwardIt, typename EventHandler>
+const char* Parser<ForwardIt, EventHandler>::kUnapplicableLabel = "Unappl.: ";
 
-template<typename ForwardIt>
-const char* Parser<ForwardIt>::kErrorLabel        = "Failure: ";
+template<typename ForwardIt, typename EventHandler>
+const char* Parser<ForwardIt, EventHandler>::kErrorLabel        = "Failure: ";
 
-template<typename ForwardIt>
-const char* Parser<ForwardIt>::kCausesLabel       = " causes: ";
+template<typename ForwardIt, typename EventHandler>
+const char* Parser<ForwardIt, EventHandler>::kCausesLabel       = " causes: ";
 
 }  // namespace io
 }  // namespace limbo

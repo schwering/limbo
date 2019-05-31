@@ -48,9 +48,9 @@ class LimSat {
     for (const Lit a : clauses_.back()) {
       const Fun f = a.fun();
       const Name n = a.name();
-      domains_.FitForKey(f);
-      domains_[f].FitForKey(n);
-      domains_[f][n] = true;
+      kb_domains_.FitForKey(f);
+      kb_domains_[f].FitForKey(n);
+      kb_domains_[f][n] = true;
       max_name_ = Name::FromId(std::max(int(n), int(max_name_)));
     }
   }
@@ -58,21 +58,6 @@ class LimSat {
   void set_query(const RFormula& f) {
     assert(f.ground() && f.stripped());
     query_ = f;
-    for (const Alphabet::Symbol& s : f) {
-      if (s.tag == Alphabet::Symbol::kStrippedLit) {
-        const Fun f = s.u.a.fun();
-        const Name n = s.u.a.name();
-        domains_.FitForKey(f);
-        domains_[f].FitForKey(n);
-        if (!domains_[f][n]) {
-          domains_[f][n] = true;
-          query_terms_.FitForKey(f);
-          query_terms_[f].push_back(n);
-        }
-      } else {
-        assert(!s.stripped());
-      }
-    }
   }
 
   bool Solve(int k) {
@@ -153,7 +138,27 @@ class LimSat {
     return AssignedFunctions(std::move(newly_assigned), all_assigned);
   }
 
+  void UpdateDomainsForQuery() {
+    domains_ = kb_domains_;
+    for (const Alphabet::Symbol& s : query_) {
+      if (s.tag == Alphabet::Symbol::kStrippedLit) {
+        const Fun f = s.u.a.fun();
+        const Name n = s.u.a.name();
+        domains_.FitForKey(f);
+        domains_[f].FitForKey(n);
+        if (!domains_[f][n]) {
+          domains_[f][n] = true;
+          query_terms_.FitForKey(f);
+          query_terms_[f].push_back(n);
+        }
+      } else {
+        assert(!s.stripped());
+      }
+    }
+  }
+
   bool FindModels(const int min_model_size) {
+    UpdateDomainsForQuery();
     // Find models such that every function is assigned a value in some model.
     // For example, consider a problem with functions 1,2,3,4,5 and minimum
     // model size 2.
@@ -286,6 +291,7 @@ class LimSat {
 
   std::vector<std::vector<Lit>>     clauses_;
   TermMap<Fun, std::vector<Name>>   query_terms_;
+  TermMap<Fun, TermMap<Name, bool>> kb_domains_;
   TermMap<Fun, TermMap<Name, bool>> domains_;
   Name                              max_name_;
   RFormula                          query_;

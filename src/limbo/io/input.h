@@ -107,5 +107,5 @@ std::istream& operator>>(std::istream& is, Formula& f) {
 
 using limbo::io::operator>>;  // I too often forget this, so for now, it's here
 
-#endif  // LIMBO_IO_OUTPUT_H_
+#endif  // LIMBO_IO_INPUT_H_
 
