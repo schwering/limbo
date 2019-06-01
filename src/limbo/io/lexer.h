@@ -137,7 +137,7 @@ class Lexer {
           break;
         }
       }
-      assert(it != jt);
+      assert(m.second == Token::kError || it != jt);
       return Word(it, jt);
     }
 

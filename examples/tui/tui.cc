@@ -62,22 +62,23 @@ class EventHandler {
   }
 
   bool Add(const Formula& f) {
-    std::vector<Lit> c;
     Formula ff = f.Clone();
+    ff.Normalize();
     ff.Strip();
-    ff.Reduce([&c](const Alphabet::Symbol s) { if (s.tag == Alphabet::Symbol::kStrippedLit) { c.push_back(s.u.a); } return false; },
-              [](const RFormula&) { return Formula(); });
     if (!ff.readable().proper_plus()) {
       return false;
     } else {
-      std::cout << "Added " << c << std::endl;
+      std::vector<Lit> c;
+      ff.Reduce([&c](const Alphabet::Symbol s) { if (s.tag == Alphabet::Symbol::kStrippedLit) { c.push_back(s.u.a); } return false; },
+                [](const RFormula&) { return Formula(); });
       lim_sat_->add_clause(c);
+      std::cout << "Added " << c << std::endl;
       return true;
     }
   }
 
   bool Query(const Formula& f) {
-    std::cout << "Queried " << f << std::endl;
+    std::cout << "Query " << f << std::endl;
     int belief_level = 0;
     const Alphabet::Symbol s = f.readable().head();
     if (s.tag == Alphabet::Symbol::kKnow) {
@@ -210,6 +211,7 @@ int main(int argc, char** argv) {
     const std::string kPrompt = "tui> ";
     while ((line_ptr = linenoise(kPrompt.c_str())) != nullptr) {
       const std::string line = line_ptr;
+      std::free(line_ptr);
       if (is_prefix(kIncludeCommand, line)) {
         const std::string file = line.substr(kIncludeCommand.length());
         std::ifstream stream(file);

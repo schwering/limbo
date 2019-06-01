@@ -147,6 +147,11 @@ class Parser {
     template<typename NullaryFunction>
     Computation(NullaryFunction func) : Base::shared_ptr(new Function(func)) {}
 
+    Computation(const Computation&)            = default;
+    Computation& operator=(const Computation&) = default;
+    Computation(Computation&&)                 = default;
+    Computation& operator=(Computation&&)      = default;
+
     Result<T> Compute() const {
       Function* f = Base::get();
       if (f) {
@@ -156,25 +161,22 @@ class Parser {
       }
     }
 
-    friend Computation operator+(Computation a, Computation b) {
-      if (!a) {
-        return b;
+    Computation& operator+=(Computation&& b) {
+      if (!*this) {
+        *this = b;
+        return *this;
+      } else if (!b) {
+        return *this;
+      } else {
+        *this = [this, b = std::move(b)]() {
+          Result<> r = (*(*this))();
+          if (!r) {
+            return std::move(r);
+          }
+          return (*b)();
+        };
+        return *this;
       }
-      if (!b) {
-        return a;
-      }
-      return [a, b]() {
-        Result<> r = (*a)();
-        if (!r) {
-          return r;
-        }
-        return (*b)();
-      };
-    }
-
-    Computation operator+=(Computation a) {
-      *this = *this + a;
-      return *this;
     }
   };
 
@@ -520,7 +522,7 @@ class Parser {
       if (!alpha) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected a primary formula within negation"), std::move(alpha));
       }
-      return Success<Computation<Formula>>([alpha_a = alpha.val]() {
+      return Success<Computation<Formula>>([alpha_a = std::move(alpha.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected a primary formula within negation"), alpha);
@@ -539,7 +541,9 @@ class Parser {
       if (!alpha) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected primary formula within quantifier"), alpha);
       }
-      return Success<Computation<Formula>>([ex, x_a = x.val, alpha_a = alpha.val]() {
+      return Success<Computation<Formula>>([ex = std::move(ex),
+                                            x_a = std::move(x.val),
+                                            alpha_a = std::move(alpha.val)]() {
         Result<Formula> x = x_a.Compute();
         if (!x || !x.val.head().var()) {
           return Error<Formula>(LIMBO_MSG("Expected variable in quantifier"), x);
@@ -572,7 +576,7 @@ class Parser {
       if (!alpha) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected primary formula within modality"), alpha);
       }
-      return Success<Computation<Formula>>([know, belief_k, alpha_a = alpha.val]() {
+      return Success<Computation<Formula>>([know, belief_k, alpha_a = std::move(alpha.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected primary formula within modality"), alpha);
@@ -620,7 +624,10 @@ class Parser {
       if (!beta) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected primary formula within modality"), beta);
       }
-      return Success<Computation<Formula>>([belief_k, belief_l, alpha_a = alpha.val, beta_a = beta.val]() {
+      return Success<Computation<Formula>>([belief_k,
+                                           belief_l,
+                                            alpha_a = std::move(alpha.val),
+                                            beta_a = std::move(beta.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected primary formula within modality"), alpha);
@@ -639,7 +646,7 @@ class Parser {
       if (!alpha) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected primary formula within modality"), alpha);
       }
-      return Success<Computation<Formula>>([alpha_a = alpha.val]() {
+      return Success<Computation<Formula>>([alpha_a = std::move(alpha.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected primary formula within modality"), alpha);
@@ -662,7 +669,7 @@ class Parser {
       if (!alpha) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected a primary formula within action"), alpha);
       }
-      return Success<Computation<Formula>>([t_a = t.val, alpha_a = alpha.val]() {
+      return Success<Computation<Formula>>([t_a = std::move(t.val), alpha_a = std::move(alpha.val)]() {
         Result<Formula> t = t_a.Compute();
         if (!t) {
           return Error<Formula>(LIMBO_MSG("Expected a term in action"), t);
@@ -681,7 +688,7 @@ class Parser {
       if (!alpha) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected primary formula within regression operator"), alpha);
       }
-      return Success<Computation<Formula>>([alpha_a = alpha.val]() {
+      return Success<Computation<Formula>>([alpha_a = std::move(alpha.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected primary formula within modality"), alpha);
@@ -700,7 +707,7 @@ class Parser {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected closing right parenthesis ')'"));
       }
       Advance();
-      return Success<Computation<Formula>>([alpha_a = alpha.val]() {
+      return Success<Computation<Formula>>([alpha_a = std::move(alpha.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected formula within brackets"), alpha);
@@ -720,7 +727,7 @@ class Parser {
     if (!a) {
       return Error<Computation<Formula>>(LIMBO_MSG("Expected literal"), a);
     }
-    return Success<Computation<Formula>>([a_a = a.val]() {
+    return Success<Computation<Formula>>([a_a = std::move(a.val)]() {
       Result<Formula> a = a_a.Compute();
       if (!a) {
         return Error<Formula>(LIMBO_MSG("Expected literal"), a);
@@ -741,7 +748,7 @@ class Parser {
       if (!beta) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected left conjunctive formula"), beta);
       }
-      alpha = Success<Computation<Formula>>([alpha_a = alpha.val, beta_a = beta.val]() {
+      alpha = Success<Computation<Formula>>([alpha_a = std::move(alpha.val), beta_a = std::move(beta.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected left conjunctive formula"), alpha);
@@ -768,7 +775,7 @@ class Parser {
       if (!beta) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected right argument conjunctive formula"), beta);
       }
-      alpha = Success<Computation<Formula>>([alpha_a = alpha.val, beta_a = beta.val]() {
+      alpha = Success<Computation<Formula>>([alpha_a = std::move(alpha.val), beta_a = std::move(beta.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected left argument conjunctive formula"), alpha);
@@ -796,7 +803,7 @@ class Parser {
       if (!beta) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected right argument disjunctive formula"), beta);
       }
-      alpha = Success<Computation<Formula>>([alpha_a = alpha.val, beta_a = beta.val]() {
+      alpha = Success<Computation<Formula>>([alpha_a = std::move(alpha.val), beta_a = std::move(beta.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected left argument disjunctive formula"), alpha);
@@ -824,7 +831,7 @@ class Parser {
       if (!beta) {
         return Error<Computation<Formula>>(LIMBO_MSG("Expected right argument implication formula"), beta);
       }
-      alpha = Success<Computation<Formula>>([alpha_a = alpha.val, beta_a = beta.val]() {
+      alpha = Success<Computation<Formula>>([alpha_a = std::move(alpha.val), beta_a = std::move(beta.val)]() {
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<Formula>(LIMBO_MSG("Expected left argument implication formula"), alpha);
@@ -1414,7 +1421,7 @@ class Parser {
           if (!r) {
             return Error<Computation<>>(LIMBO_MSG("Expected branch in block"), r);
           }
-          a += r.val;
+          a += std::move(r.val);
         }
       }
       return Success<Computation<>>(std::move(a));
@@ -1442,14 +1449,14 @@ class Parser {
   Result<Computation<>> start() {
     Computation<> a = []() { return Success<>(); };
     while (Tok()) {
-      const Result<Computation<>> r = branch();
+      Result<Computation<>> r = branch();
       if (!r) {
         std::stringstream ss;
         using limbo::io::operator<<;
         ss << Tok(0) << " " << Tok(1) << " " << Tok(2) << "...";
         return Error<Computation<>>(LIMBO_MSG("Error in start with unparsed input "+ ss.str()), r);
       }
-      a += r.val;
+      a += std::move(r.val);
     }
     return Success<Computation<>>(std::move(a));
   }
