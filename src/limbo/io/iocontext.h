@@ -17,27 +17,28 @@
 
 #include <limbo/formula.h>
 
-#define LIMBO_REG(t) \
-  [](auto& x) {\
+#define LIMBO_REG(sym)            LIMBO_REG_STR(sym, #sym)
+#define LIMBO_REG_STR(sym, str)   \
+  [](auto& sym0) {\
     struct Dispatcher {\
-      void operator()(limbo::Alphabet::Sort sym) const {\
-        limbo::io::IoContext::instance()->sort_registry().Register(sym, #t);\
+      void operator()(limbo::Alphabet::Sort s) const {\
+        limbo::io::IoContext::instance()->sort_registry().Register(s, str);\
       }\
-      void operator()(limbo::Alphabet::FunSymbol sym) const {\
-        limbo::io::IoContext::instance()->fun_registry().Register(sym, #t);\
+      void operator()(limbo::Alphabet::FunSymbol f) const {\
+        limbo::io::IoContext::instance()->fun_registry().Register(f, str);\
       }\
-      void operator()(limbo::Alphabet::NameSymbol sym) const {\
-        limbo::io::IoContext::instance()->name_registry().Register(sym, #t);\
+      void operator()(limbo::Alphabet::NameSymbol n) const {\
+        limbo::io::IoContext::instance()->name_registry().Register(n, str);\
       }\
-      void operator()(limbo::Alphabet::VarSymbol sym) const {\
-        limbo::io::IoContext::instance()->var_registry().Register(sym, #t);\
+      void operator()(limbo::Alphabet::VarSymbol x) const {\
+        limbo::io::IoContext::instance()->var_registry().Register(x, str);\
       }\
-      void operator()(limbo::io::IoContext::MetaSymbol sym) const {\
-        limbo::io::IoContext::instance()->meta_registry().Register(sym, #t);\
+      void operator()(limbo::io::IoContext::MetaSymbol m) const {\
+        limbo::io::IoContext::instance()->meta_registry().Register(m, str);\
       }\
     };\
-    Dispatcher()(x);\
-  }(t);
+    Dispatcher()(sym0);\
+  }(sym);
 
 namespace limbo {
 namespace io {

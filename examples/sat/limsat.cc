@@ -157,10 +157,15 @@ static bool LoadCnf(std::istream& stream,
   return prop;
 }
 
-bool Solve(LimSat* solver, int k_splits) {
+bool Solve(const std::vector<std::vector<Lit>>& cnf, int k_splits, const RFormula& query) {
+  LimSat lim_sat;
+  for (const std::vector<Lit>& lits : cnf) {
+    lim_sat.AddClause(lits);
+  }
   Timer t;
   t.start();
-  const bool truth = solver->Solve(k_splits);
+  assert(query.empty());
+  const bool truth = lim_sat.Solve(k_splits, query);
   t.stop();
   printf("%d-%s (in %.5lfs)\n", k_splits, (truth ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
   return truth;
@@ -207,11 +212,9 @@ int main(int argc, char *argv[]) {
   }
   assert(loaded > 0);
 
-  LimSat solver;
-  for (const std::vector<Lit>& lits : cnf) {
-    solver.add_clause(lits);
-  }
-  Solve(&solver, k_splits);
+  const Formula query = Formula();
+
+  Solve(cnf, k_splits, query.readable());
   return 0;
 }
 

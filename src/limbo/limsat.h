@@ -38,12 +38,12 @@ class LimSat {
   LimSat(LimSat&&)                 = default;
   LimSat& operator=(LimSat&&)      = default;
 
-  void add_clause(const std::vector<Lit>& as) {
+  void AddClause(const std::vector<Lit>& as) {
     std::vector<Lit> copy = as;
-    add_clause(std::move(copy));
+    AddClause(std::move(copy));
   }
 
-  void add_clause(std::vector<Lit>&& as) {
+  void AddClause(std::vector<Lit>&& as) {
     clauses_.emplace_back(as);
     for (const Lit a : clauses_.back()) {
       const Fun f = a.fun();
@@ -55,13 +55,8 @@ class LimSat {
     }
   }
 
-  void set_query(const RFormula& f) {
-    assert(f.ground() && f.stripped());
-    query_ = f;
-  }
-
-  bool Solve(int k) {
-    return FindModels(k);
+  bool Solve(int k, const RFormula& query) {
+    return FindModels(k, query);
   }
 
  private:
@@ -138,18 +133,19 @@ class LimSat {
     return AssignedFunctions(std::move(newly_assigned), all_assigned);
   }
 
-  void UpdateDomainsForQuery() {
-    domains_ = kb_domains_;
-    for (const Alphabet::Symbol& s : query_) {
+  static void UpdateDomainsForQuery(const RFormula& query,
+                                    TermMap<Fun, std::vector<Name>>* query_terms,
+                                    TermMap<Fun, TermMap<Name, bool>>* domains) {
+    for (const Alphabet::Symbol& s : query) {
       if (s.tag == Alphabet::Symbol::kStrippedLit) {
         const Fun f = s.u.a.fun();
         const Name n = s.u.a.name();
-        domains_.FitForKey(f);
-        domains_[f].FitForKey(n);
-        if (!domains_[f][n]) {
-          domains_[f][n] = true;
-          query_terms_.FitForKey(f);
-          query_terms_[f].push_back(n);
+        (*domains).FitForKey(f);
+        (*domains)[f].FitForKey(n, false);
+        if (!(*domains)[f][n]) {
+          (*domains)[f][n] = true;
+          (*query_terms).FitForKey(f);
+          (*query_terms)[f].push_back(n);
         }
       } else {
         assert(!s.stripped());
@@ -157,8 +153,10 @@ class LimSat {
     }
   }
 
-  bool FindModels(const int min_model_size) {
-    UpdateDomainsForQuery();
+  bool FindModels(const int min_model_size, const RFormula& query) {
+    TermMap<Fun, std::vector<Name>> query_terms;
+    TermMap<Fun, TermMap<Name, bool>> domains = kb_domains_;
+    UpdateDomainsForQuery(query, &query_terms, &domains);
     // Find models such that every function is assigned a value in some model.
     // For example, consider a problem with functions 1,2,3,4,5 and minimum
     // model size 2.
@@ -166,7 +164,7 @@ class LimSat {
     // covers all functions. M1 and M2 imply models that assign the subsets of
     // cardinality of size 2 of {1,2,3} and {3,4,5}, that is,
     // {1,2}, {2,3}, {1,3}, and {3,4}, {4,5}, {3,5}.
-    const FoundCoveringModels fcm = FindCoveringModels(min_model_size);
+    const FoundCoveringModels fcm = FindCoveringModels(min_model_size, query, query_terms, domains);
     if (!fcm.all_covered) {
       return false;
     }
@@ -183,29 +181,32 @@ class LimSat {
         }
       }
       TermMap<Fun, bool> wanted;
-      wanted.FitForKey(domains_.upper_bound_key(), false);
+      wanted.FitForKey(domains.upper_bound_key(), false);
       for (const Fun f : must) {
         wanted[f] = true;
       }
       constexpr bool propagate_with_learnt = false;
       constexpr bool wanted_is_must = true;
-      const FoundModel fm = FindModel(min_model_size, propagate_with_learnt, wanted_is_must, wanted);
+      const FoundModel fm = FindModel(min_model_size, query, query_terms, propagate_with_learnt, wanted_is_must, wanted);
       return fm.succ;
     });
   }
 
-  FoundCoveringModels FindCoveringModels(const int min_model_size) {
+  FoundCoveringModels FindCoveringModels(const int min_model_size,
+                                         const RFormula& query,
+                                         const TermMap<Fun, std::vector<Name>>& query_terms,
+                                         const TermMap<Fun, TermMap<Name, bool>>& domains) {
     std::vector<TermMap<Fun, Name>> models;
     std::vector<std::vector<Fun>> newly_assigned_in;
     TermMap<Fun, bool> wanted;
-    wanted.FitForKey(domains_.upper_bound_key());
-    for (const Fun f : domains_.keys()) {
-      wanted[f] = !domains_[f].empty();
+    wanted.FitForKey(domains.upper_bound_key());
+    for (const Fun f : domains.keys()) {
+      wanted[f] = !domains[f].empty();
     }
     bool propagate_with_learnt = true;
     bool wanted_is_must = false;
     for (;;) {
-      const FoundModel fm = FindModel(min_model_size, propagate_with_learnt, wanted_is_must, wanted);
+      const FoundModel fm = FindModel(min_model_size, query, query_terms, propagate_with_learnt, wanted_is_must, wanted);
       if (!fm.succ && propagate_with_learnt) {
         propagate_with_learnt = false;
         continue;
@@ -240,22 +241,24 @@ class LimSat {
   }
 
   FoundModel FindModel(const int min_model_size,
+                       const RFormula& query,
+                       const TermMap<Fun, std::vector<Name>>& query_terms,
                        const bool propagate_with_learnt,
                        const bool wanted_is_must,
                        const TermMap<Fun, bool>& wanted) {
     //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
-    static constexpr double activity_offset = 1000.0;
+    static constexpr double activity_bump = 1000.0;
     static constexpr int max_conflicts = 50;
     int n_conflicts = 0;
     int model_size = 0;
     Sat sat;
-    auto extra_name_factory = [&](const Fun)   -> Name   { return Name::FromId(int(max_name_) + 1); };
-    auto activity           = [&](const Fun f) -> double { return wanted[f] * activity_offset; };
+    auto extra_name_factory = [this]   (const Fun)   { return Name::FromId(int(max_name_) + 1); };
+    auto activity           = [&wanted](const Fun f) { return wanted[f] * activity_bump; };
     for (const std::vector<Lit>& as : clauses_) {
       sat.AddClause(as, extra_name_factory, activity);
     }
-    for (const Fun f : query_terms_.keys()) {
-      for (const Name n : query_terms_[f]) {
+    for (const Fun f : query_terms.keys()) {
+      for (const Name n : query_terms[f]) {
         sat.Register(f, n, extra_name_factory, activity);
       }
     }
@@ -274,7 +277,7 @@ class LimSat {
           return true;
         },
         [&](const TermMap<Fun, Name>& model, std::vector<Lit>* nogood) {
-          return query_.SatisfiedBy(model, nogood);
+          return query.SatisfiedBy(model, nogood);
         });
     if (truth == Sat::Truth::kSat) {
       //printf("FindModel: true, model_size = %d, assignment =", sat.model_size()); for (const Fun f : sat.model().keys()) { if (assigns(sat.model(), f)) { printf(" (%d = %d)", int(f), int(sat.model()[f])); } } printf("\n");
@@ -290,11 +293,8 @@ class LimSat {
   }
 
   std::vector<std::vector<Lit>>     clauses_;
-  TermMap<Fun, std::vector<Name>>   query_terms_;
   TermMap<Fun, TermMap<Name, bool>> kb_domains_;
-  TermMap<Fun, TermMap<Name, bool>> domains_;
   Name                              max_name_;
-  RFormula                          query_;
 };
 
 }  // namespace limbo

@@ -835,11 +835,13 @@ class Formula : private FormulaCommons {
  public:
   template<typename Formulas>
   static Formula Fun(Abc::FunSymbol f, Formulas&& args)            { Formula ff(Abc::Symbol::Fun(f)); ff.AddArgs(args); return ff; }
+  static Formula Fun(Abc::FunSymbol f)                             { Formula ff(Abc::Symbol::Fun(f)); return ff; }
+  static Formula Fun(class Fun f)                                  { Formula ff(Abc::Symbol::StrippedFun(f)); return ff; }
   template<typename Formulas>
   static Formula Name(Abc::NameSymbol n, Formulas&& args)          { Formula ff(Abc::Symbol::Name(n)); ff.AddArgs(args); return ff; }
-  static Formula Fun(Abc::FunSymbol f)                             { Formula ff(Abc::Symbol::Fun(f)); return ff; }
   static Formula Name(Abc::NameSymbol n)                           { Formula ff(Abc::Symbol::Name(n)); return ff; }
-  static Formula Lit(Lit a)                                        { return Formula(Abc::Symbol::Lit(a)); }
+  static Formula Name(class Name n)                                { Formula ff(Abc::Symbol::StrippedName(n)); return ff; }
+  static Formula Lit(class Lit a)                                  { return Formula(Abc::Symbol::Lit(a)); }
   static Formula Var(Abc::VarSymbol x)                             { return Formula(Abc::Symbol::Var(x)); }
   static Formula Equals(Formula&& f1, Formula&& f2)                { return Formula(Abc::Symbol::Equals(), f1, f2); }
   static Formula Equals(const Formula& f1, const Formula& f2)      { return Formula(Abc::Symbol::Equals(), f1, f2); }
