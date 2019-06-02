@@ -51,7 +51,7 @@ class LimSat {
       kb_domains_.FitForKey(f);
       kb_domains_[f].FitForKey(n);
       kb_domains_[f][n] = true;
-      max_name_ = Name::FromId(std::max(int(n), int(max_name_)));
+      max_name_id_ = std::max(int(n), max_name_id_);
     }
   }
 
@@ -252,7 +252,7 @@ class LimSat {
     int n_conflicts = 0;
     int model_size = 0;
     Sat sat;
-    auto extra_name_factory = [this]   (const Fun)   { return Name::FromId(int(max_name_) + 1); };
+    auto extra_name_factory = [this]   (const Fun)   { return Name::FromId(max_name_id_ + 1); };
     auto activity           = [&wanted](const Fun f) { return wanted[f] * activity_bump; };
     for (const std::vector<Lit>& as : clauses_) {
       sat.AddClause(as, extra_name_factory, activity);
@@ -294,7 +294,7 @@ class LimSat {
 
   std::vector<std::vector<Lit>>     clauses_;
   TermMap<Fun, TermMap<Name, bool>> kb_domains_;
-  Name                              max_name_;
+  int                               max_name_id_ = 0;
 };
 
 }  // namespace limbo
