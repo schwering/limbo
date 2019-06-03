@@ -16,7 +16,7 @@
 
 struct Point {
   Point() {}
-  Point(std::size_t x, std::size_t y) : x(x), y(y) {}
+  Point(int x, int y) : x(x), y(y) {}
 
   bool operator<(const Point& p) const {
     return x < p.x || (x == p.x && y < p.y);
@@ -26,8 +26,8 @@ struct Point {
     return x == p.x && y == p.y;
   }
 
-  std::size_t x;
-  std::size_t y;
+  int x;
+  int y;
 };
 
 std::ostream& operator<<(std::ostream& os, const Point& p) {
@@ -54,8 +54,8 @@ class Game {
   void set(Point p, int n) { set(p.x, p.y, n); }
 
   bool solved() const {
-    for (std::size_t x = 1; x <= 9; ++x) {
-      for (std::size_t y = 1; y <= 9; ++y) {
+    for (int x = 1; x <= 9; ++x) {
+      for (int y = 1; y <= 9; ++y) {
         if (get(x, y) == 0) {
           return false;
         }
@@ -65,30 +65,30 @@ class Game {
   }
 
   bool legal() const {
-    for (std::size_t x = 1; x <= 9; ++x) {
-      for (std::size_t y = 1; y <= 9; ++y) {
-        for (std::size_t yy = 1; yy <= 9; ++yy) {
+    for (int x = 1; x <= 9; ++x) {
+      for (int y = 1; y <= 9; ++y) {
+        for (int yy = 1; yy <= 9; ++yy) {
           if (y != yy && get(x, y) != 0 && get(x, yy) != 0 && get(x, y) == get(x, yy)) {
             return false;
           }
         }
       }
     }
-    for (std::size_t x = 1; x <= 9; ++x) {
-      for (std::size_t xx = 1; xx <= 9; ++xx) {
-        for (std::size_t y = 1; y <= 9; ++y) {
+    for (int x = 1; x <= 9; ++x) {
+      for (int xx = 1; xx <= 9; ++xx) {
+        for (int y = 1; y <= 9; ++y) {
           if (x != xx && get(x, y) != 0 && get(xx, y) != 0 && get(x, y) == get(xx, y)) {
             return false;
           }
         }
       }
     }
-    for (std::size_t i = 1; i < 3; ++i) {
-      for (std::size_t j = 1; j < 3; ++j) {
-        for (std::size_t x = 3*i-2; x <= 3*i; ++x) {
-          for (std::size_t xx = 3*i-2; xx <= 3*i; ++xx) {
-            for (std::size_t y = 3*j-2; y <= 3*j; ++y) {
-              for (std::size_t yy = 3*j-2; yy <= 3*j; ++yy) {
+    for (int i = 1; i < 3; ++i) {
+      for (int j = 1; j < 3; ++j) {
+        for (int x = 3*i-2; x <= 3*i; ++x) {
+          for (int xx = 3*i-2; xx <= 3*i; ++xx) {
+            for (int y = 3*j-2; y <= 3*j; ++y) {
+              for (int yy = 3*j-2; yy <= 3*j; ++yy) {
                 if ((x != xx || y != yy) && get(x, y) != 0 && get(xx, yy) != 0 && get(x, y) == get(xx, yy)) {
                   return false;
                 }
@@ -98,8 +98,8 @@ class Game {
         }
       }
     }
-    for (std::size_t x = 1; x <= 9; ++x) {
-      for (std::size_t y = 1; y <= 9; ++y) {
+    for (int x = 1; x <= 9; ++x) {
+      for (int y = 1; y <= 9; ++y) {
         if (get(x, y) != 0 && (get(x, y) < 1 || get(x, y) > 9)) {
           return false;
         }
@@ -110,8 +110,8 @@ class Game {
 
   void PrintDimacs(std::ostream* os) {
     *os << "c Sudoku instance" << std::endl;
-    for (size_t x = 1; x <= 9; ++x) {
-      for (size_t y = 1; y <= 9; ++y) {
+    for (int x = 1; x <= 9; ++x) {
+      for (int y = 1; y <= 9; ++y) {
         int i = x + (y - 1) * 9;
         int j = get(x, y);
         if (1 <= j && j <= 9) {

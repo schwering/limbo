@@ -22,6 +22,7 @@
 #include <limbo/internal/dense.h>
 #include <limbo/internal/hash.h>
 #include <limbo/internal/ints.h>
+#include <limbo/internal/maybe.h>
 #include <limbo/internal/singleton.h>
 
 namespace limbo {
@@ -55,27 +56,27 @@ class Alphabet : private internal::Singleton<Alphabet> {
   class Sort : public IntRepresented {
    public:
     using IntRepresented::IntRepresented;
-    bool rigid() const { return instance()->sort_rigid_[*this]; }
+    bool rigid() const { return instance().sort_rigid_[*this]; }
   };
 
   class FunSymbol : public IntRepresented {
    public:
     using IntRepresented::IntRepresented;
-    Sort sort() const { return instance()->fun_sort_[*this]; }
-    int arity() const { return instance()->fun_arity_[*this]; }
+    Sort sort() const { return instance().fun_sort_[*this]; }
+    int arity() const { return instance().fun_arity_[*this]; }
   };
 
   class NameSymbol : public IntRepresented {
    public:
     using IntRepresented::IntRepresented;
-    Sort sort() const { return instance()->name_sort_[*this]; }
-    int arity() const { return instance()->name_arity_[*this]; }
+    Sort sort() const { return instance().name_sort_[*this]; }
+    int arity() const { return instance().name_arity_[*this]; }
   };
 
   class VarSymbol : public IntRepresented {
    public:
     using IntRepresented::IntRepresented;
-    Sort sort() const { return instance()->var_sort_[*this]; }
+    Sort sort() const { return instance().var_sort_[*this]; }
   };
 
   template<typename T>
@@ -277,7 +278,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     Sort sort() const {
       assert(term());
       if (stripped()) {
-        const RWord w = instance()->Unstrip(*this);
+        const RWord w = instance().Unstrip(*this);
         assert(w.begin() != w.end() && !w.begin()->stripped());
         return w.begin()->sort();
       } else if (tag == kFun) {
@@ -325,6 +326,9 @@ class Alphabet : private internal::Singleton<Alphabet> {
     template<typename InputIt>
     explicit Word(InputIt begin, InputIt end) : symbols_(begin, end) {}
 
+    bool operator==(const Word& w) const { return symbols_ == w.symbols_; }
+    bool operator!=(const Word& w) const { return !(*this == w); }
+
     Word(Word&&)            = default;
     Word& operator=(Word&&) = default;
 
@@ -369,11 +373,11 @@ class Alphabet : private internal::Singleton<Alphabet> {
     Symbol::List symbols_;
   };
 
-  static Alphabet* instance() {
+  static Alphabet& instance() {
     if (instance_ == nullptr) {
       instance_ = std::unique_ptr<Alphabet>(new Alphabet());
     }
-    return instance_.get();
+    return *instance_.get();
   }
 
   static void reset_instance() {
@@ -457,12 +461,11 @@ class Alphabet : private internal::Singleton<Alphabet> {
 
   RWord Unstrip(const Symbol& s) const {
     assert(s.stripped() && s.term());
-    if (s.tag == Symbol::kStrippedFun) {
-      return term_fun_symbols_[s.u.f_s].readable();
-    } else {
-      return term_name_symbols_[s.u.n_s].readable();
-    }
+    return s.tag == Symbol::kStrippedFun ? Unstrip(s.u.f_s) : Unstrip(s.u.n_s);
   }
+
+  RWord Unstrip(Fun f)  const { return term_fun_symbols_[f].readable(); }
+  RWord Unstrip(Name n) const { return term_name_symbols_[n].readable(); }
 
  private:
   struct DeepHash {
@@ -626,6 +629,45 @@ class RFormula : private FormulaCommons {
       }
     }
     return free;
+  }
+
+  Abc::DenseSet<Abc::VarSymbol> BoundVars() const {
+    Abc::DenseSet<Abc::VarSymbol> bound;
+    for (auto it = begin(); it != end(); ) {
+      if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall) {
+        bound[it->u.x] = true;
+      }
+    }
+    return bound;
+  }
+
+  internal::Maybe<std::vector<std::vector<Lit>>> CnfClauses() {
+    assert(weakly_well_formed() && ground() && stripped());
+    std::vector<std::vector<Lit>> cs;
+    Scope::Observer scoper;
+    bool or_flag = false;
+    Scope or_scope = scoper.scope();
+    for (auto it = begin(); it != end(); ) {
+      if (it->tag == Abc::Symbol::kAnd) {
+        cs.emplace_back();
+      } else if (it->tag == Abc::Symbol::kOr) {
+        if (!or_flag) {
+          or_flag = true;
+          or_scope = scoper.scope();
+          cs.emplace_back();
+        }
+      } else if (it->tag == Abc::Symbol::kStrippedLit) {
+        if (!or_flag) {
+          cs.emplace_back();
+        }
+        cs.back().push_back(it->u.a);
+      } else {
+        return internal::Nothing;
+      }
+      scoper.Munch(*it++);
+      or_flag &= scoper.active(or_scope);
+    }
+    return internal::Just(std::move(cs));
   }
 
   bool SatisfiedBy(const TermMap<Fun, Name>& model, std::vector<Lit>* reason) const {
@@ -812,8 +854,8 @@ class RFormula : private FormulaCommons {
 
   void InitArg(int i) {
     args_.reserve(arity());
-    for (int j = args_.size(); j <= i; ++j) {
-      args_.push_back(RFormula(j > 0 ? args_[j-1].end() : std::next(begin())));
+    while (int(args_.size()) <= i) {
+      args_.push_back(RFormula(!args_.empty() ? args_.back().end() : std::next(begin())));
     }
   }
 
@@ -855,8 +897,12 @@ class Formula : private FormulaCommons {
   static Formula Forall(Abc::VarSymbol x, const Formula& f)        { return Formula(Abc::Symbol::Forall(x), f); }
   static Formula Or(Formula&& f1, Formula&& f2)                    { return Formula(Abc::Symbol::Or(2), f1, f2); }
   static Formula Or(const Formula& f1, const Formula& f2)          { return Formula(Abc::Symbol::Or(2), f1, f2); }
+  template<typename Formulas>
+  static Formula Or(Formulas&& fs)                                 { Formula ff(Abc::Symbol::Or(fs.size())); ff.AddArgs(fs); return ff; }
   static Formula And(Formula&& f1, Formula&& f2)                   { return Formula(Abc::Symbol::And(2), f1, f2); }
   static Formula And(const Formula& f1, const Formula& f2)         { return Formula(Abc::Symbol::And(2), f1, f2); }
+  template<typename Formulas>
+  static Formula And(Formulas&& fs)                                { Formula ff(Abc::Symbol::And(fs.size())); ff.AddArgs(fs); return ff; }
   static Formula Know(int k, Formula&& f)                          { return Formula(Abc::Symbol::Know(k), f); }
   static Formula Know(int k, const Formula& f)                     { return Formula(Abc::Symbol::Know(k), f); }
   static Formula Maybe(int k, Formula&& f)                         { return Formula(Abc::Symbol::Maybe(k), f); }
@@ -875,6 +921,9 @@ class Formula : private FormulaCommons {
   Formula& operator=(const Formula&) = delete;
   Formula(Formula&&)                 = default;
   Formula& operator=(Formula&&)      = default;
+
+  bool operator==(const Formula& f) const { return word_ == f.word_; }
+  bool operator!=(const Formula& f) const { return !(*this == f); }
 
   Formula Clone() const { return Formula(word_.Clone()); }
 
@@ -949,7 +998,7 @@ class Formula : private FormulaCommons {
             for (const ForallMarker& fm : foralls) {
               symbols.push_back(Abc::Symbol::Var(fm.x));
             }
-            const Abc::FunSymbol f = Abc::instance()->CreateFun(s.u.x.sort(), symbols.size());
+            const Abc::FunSymbol f = Abc::instance().CreateFun(s.u.x.sort(), symbols.size());
             symbols.push_front(Abc::Symbol::Fun(f));
             symbols.push_back(Abc::Symbol::Var(s.u.x));
             symbols.push_front(pos ? Abc::Symbol::NotEquals() : Abc::Symbol::Equals());
@@ -1000,7 +1049,7 @@ class Formula : private FormulaCommons {
       switch (it->tag) {
         case Abc::Symbol::kFun:
           scoper.Munch(*it);
-          it->u.f = Abc::instance()->Squaring(actions.size(), it->u.f);
+          it->u.f = Abc::instance().Squaring(actions.size(), it->u.f);
           ++it;
           for (const ActionMarker& am : actions) {
             word_.Insert(it, am.symbols.begin(), am.symbols.end());
@@ -1063,7 +1112,7 @@ class Formula : private FormulaCommons {
     Scope::Observer scoper;
     for (Abc::Symbol& s : *this) {
       if (s.tag == Abc::Symbol::kExists || s.tag == Abc::Symbol::kForall) {
-        const Abc::VarSymbol y = !vars[s.u.x].used && !all_new ? s.u.x : Abc::instance()->CreateVar(s.u.x.sort());
+        const Abc::VarSymbol y = !vars[s.u.x].used && !all_new ? s.u.x : Abc::instance().CreateVar(s.u.x.sort());
         vars[s.u.x].used = true;
         vars[s.u.x].vars.push_back(NewVar(y, scoper.scope()));
         s.u.x = y;
@@ -1105,7 +1154,7 @@ class Formula : private FormulaCommons {
       switch (it->tag) {
         case Abc::Symbol::kFun:
           if (!tolerate_fun) {
-            const Abc::VarSymbol x = Abc::instance()->CreateVar(it->u.f.sort());
+            const Abc::VarSymbol x = Abc::instance().CreateVar(it->u.f.sort());
             it = word_.Insert(it, Abc::Symbol::Var(x));
             const Abc::Symbol::Ref first = std::next(it);
             const Abc::Symbol::Ref last = End(first);
@@ -1378,7 +1427,7 @@ class Formula : private FormulaCommons {
         const TermMarker& tm = terms.back();
         if (tm.ok) {
           Abc::Word w = Abc::Word(word_.TakeOut(tm.ref, it));
-          const Abc::Symbol s = Abc::instance()->Strip(std::move(w));
+          const Abc::Symbol s = Abc::instance().Strip(std::move(w));
           word_.Insert(it, s);
         }
         terms.pop_back();

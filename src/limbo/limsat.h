@@ -20,6 +20,7 @@
 #define LIMBO_LIMSAT_H_
 
 #include <algorithm>
+#include <set>
 #include <vector>
 
 #include <limbo/formula.h>
@@ -38,26 +39,30 @@ class LimSat {
   LimSat(LimSat&&)                 = default;
   LimSat& operator=(LimSat&&)      = default;
 
-  void AddClause(const std::vector<Lit>& as) {
+  bool AddClause(const std::vector<Lit>& as) {
     std::vector<Lit> copy = as;
-    AddClause(std::move(copy));
+    return AddClause(std::move(copy));
   }
 
-  void AddClause(std::vector<Lit>&& as) {
-    clauses_.emplace_back(as);
-    for (const Lit a : clauses_.back()) {
-      const Fun f = a.fun();
-      const Name n = a.name();
-      kb_domains_.FitForKey(f);
-      kb_domains_[f].FitForKey(n);
-      kb_domains_[f][n] = true;
-      max_name_id_ = std::max(int(n), max_name_id_);
+  bool AddClause(std::vector<Lit>&& as) {
+    std::sort(as.begin(), as.end());
+    auto p = clauses_.insert(std::move(as));
+    if (p.second) {
+      for (const Lit a : *p.first) {
+        const Fun f = a.fun();
+        const Name n = a.name();
+        clauses_domains_.FitForKey(f);
+        clauses_domains_[f].FitForKey(n);
+        clauses_domains_[f][n] = true;
+        clauses_max_name_id_ = std::max(int(n), clauses_max_name_id_);
+      }
     }
+    return p.second;
   }
 
-  bool Solve(int k, const RFormula& query) {
-    return FindModels(k, query);
-  }
+  const std::set<std::vector<Lit>>& clauses() const { return clauses_; }
+
+  bool Solve(int k, const RFormula& query) { return FindModels(k, query); }
 
  private:
   enum class SolverType { kWithLearntClauses, kWithoutLearntClauses };
@@ -155,7 +160,7 @@ class LimSat {
 
   bool FindModels(const int min_model_size, const RFormula& query) {
     TermMap<Fun, std::vector<Name>> query_terms;
-    TermMap<Fun, TermMap<Name, bool>> domains = kb_domains_;
+    TermMap<Fun, TermMap<Name, bool>> domains = clauses_domains_;
     UpdateDomainsForQuery(query, &query_terms, &domains);
     // Find models such that every function is assigned a value in some model.
     // For example, consider a problem with functions 1,2,3,4,5 and minimum
@@ -252,7 +257,7 @@ class LimSat {
     int n_conflicts = 0;
     int model_size = 0;
     Sat sat;
-    auto extra_name_factory = [this]   (const Fun)   { return Name::FromId(max_name_id_ + 1); };
+    auto extra_name_factory = [this]   (const Fun)   { return Name::FromId(clauses_max_name_id_ + 1); };
     auto activity           = [&wanted](const Fun f) { return wanted[f] * activity_bump; };
     for (const std::vector<Lit>& as : clauses_) {
       sat.AddClause(as, extra_name_factory, activity);
@@ -292,9 +297,9 @@ class LimSat {
     }
   }
 
-  std::vector<std::vector<Lit>>     clauses_;
-  TermMap<Fun, TermMap<Name, bool>> kb_domains_;
-  int                               max_name_id_ = 0;
+  std::set<std::vector<Lit>>        clauses_;
+  TermMap<Fun, TermMap<Name, bool>> clauses_domains_;
+  int                               clauses_max_name_id_ = 0;
 };
 
 }  // namespace limbo

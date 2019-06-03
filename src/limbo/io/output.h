@@ -58,7 +58,7 @@ std::ostream& operator<<(std::ostream& os, const Sequence<InputIt>& s);
 std::ostream& operator<<(std::ostream& os, const RFormula& w);
 
 std::ostream& operator<<(std::ostream& os, const Fun& f) {
-  const Alphabet::RWord w = Alphabet::instance()->Unstrip(Alphabet::Symbol::StrippedFun(f));
+  const Alphabet::RWord w = Alphabet::instance().Unstrip(f);
   if (w.empty()) {
     return os << 'f' << int(f);
   } else {
@@ -67,7 +67,7 @@ std::ostream& operator<<(std::ostream& os, const Fun& f) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Name& n) {
-  const Alphabet::RWord w = Alphabet::instance()->Unstrip(Alphabet::Symbol::StrippedName(n));
+  const Alphabet::RWord w = Alphabet::instance().Unstrip(n);
   if (w.empty()) {
     return os << 'n' << int(n);
   } else {
@@ -88,19 +88,19 @@ std::ostream& operator<<(std::ostream& os, const std::vector<Lit>& as) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::Sort& s) {
-  return os << IoContext::instance()->sort_registry().ToString(s, "s");
+  return os << IoContext::instance().sort_registry().ToString(s, "s");
 }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::FunSymbol&  f) {
-  return os << IoContext::instance()->fun_registry().ToString(f, "f");
+  return os << IoContext::instance().fun_registry().ToString(f, "f");
 }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::NameSymbol& n) {
-  return os << IoContext::instance()->name_registry().ToString(n, "n");
+  return os << IoContext::instance().name_registry().ToString(n, "n");
 }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::VarSymbol&  x) {
-  return os << IoContext::instance()->var_registry().ToString(x, "x");
+  return os << IoContext::instance().var_registry().ToString(x, "x");
 }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::Symbol& s) {
@@ -126,7 +126,7 @@ std::ostream& operator<<(std::ostream& os, const Alphabet::Symbol& s) {
   std::abort();
 }
 std::ostream& operator<<(std::ostream& os, const IoContext::MetaSymbol&  m) {
-  return os << IoContext::instance()->meta_registry().ToString(m, "m");
+  return os << IoContext::instance().meta_registry().ToString(m, "m");
 }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::RWord& w) {

@@ -9,7 +9,7 @@
 #include <string>
 #include <sstream>
 
-#include <limbo/format/output.h>
+#include <limbo/io/output.h>
 
 #include "game.h"
 #include "kb.h"
@@ -73,16 +73,16 @@ class Printer {
     const std::string PIPE = "\u2551";
     const std::string CROSS = "\u256c";
     *os_ << colors_->fill(3);
-    for (size_t x = 1; x <= 9; ++x) {
+    for (int x = 1; x <= 9; ++x) {
       *os_ << colors_->dim() << colors_->dim() << colors_->fill(1) << x << colors_->fill(1) << colors_->reset();
       if (x == 3 || x == 6) {
         *os_ << colors_->dim() << colors_->fill(1) << colors_->reset();
       }
     }
     *os_ << std::endl;
-    for (size_t y = 1; y <= 9; ++y) {
+    for (int y = 1; y <= 9; ++y) {
       *os_ << colors_->dim() << colors_->fill(1) << y << colors_->fill(1) << colors_->reset();
-      for (size_t x = 1; x <= 9; ++x) {
+      for (int x = 1; x <= 9; ++x) {
         Label l = label(g, Point(x, y));
         *os_ << colors_->fill(1) << l << colors_->fill(1);
         if (x == 3 || x == 6) {
@@ -92,7 +92,7 @@ class Printer {
       *os_ << std::endl;
       if (y == 3 || y == 6) {
         *os_ << colors_->fill(1) << colors_->dim() << colors_->fill(2);
-        for (size_t x = 1; x <= 9; ++x) {
+        for (int x = 1; x <= 9; ++x) {
           *os_ << DASH << DASH << DASH;
           if (x == 3 || x == 6) {
             *os_ << CROSS;

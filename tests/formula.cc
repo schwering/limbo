@@ -242,10 +242,10 @@ TEST(FormulaTest, Input) {
     std::cout << ff << std::endl;
   }
   {
-    Alphabet* abc = Alphabet::instance();
-    Abc::Sort s = abc->CreateSort(false);
-    Abc::FunSymbol f = abc->CreateFun(s, 2);      LIMBO_REG(f);
-    Abc::FunSymbol g = abc->CreateFun(s, 1);      LIMBO_REG(g);
+    Alphabet& abc = Alphabet::instance();
+    Abc::Sort s = abc.CreateSort(false);
+    Abc::FunSymbol f = abc.CreateFun(s, 2);      LIMBO_REG(f);
+    Abc::FunSymbol g = abc.CreateFun(s, 1);      LIMBO_REG(g);
     const std::string input = "ex x ex y f(x,y) = g(x) MY_SEPARATOR_TOKEN fa x fa y ex z f(x,y) = g(z)";  // a token is needed because the lexer scans for the next token (and fails) but can't push it back onto the stream (or can it?)
     std::stringstream ss(input);
     Formula ff;
@@ -256,10 +256,10 @@ TEST(FormulaTest, Input) {
     std::cout << gg << std::endl;
   }
   {
-    Alphabet* abc = Alphabet::instance();
-    Abc::Sort s = abc->CreateSort(false);
-    Abc::FunSymbol f = abc->CreateFun(s, 2);      LIMBO_REG(f);
-    Abc::FunSymbol g = abc->CreateFun(s, 1);      LIMBO_REG(g);
+    Alphabet& abc = Alphabet::instance();
+    Abc::Sort s = abc.CreateSort(false);
+    Abc::FunSymbol f = abc.CreateFun(s, 2);      LIMBO_REG(f);
+    Abc::FunSymbol g = abc.CreateFun(s, 1);      LIMBO_REG(g);
     const std::string input = "ex x ex y f(x,y) = g(x) v fa x fa y ex z f(x,y) = g(z) <-> ex x f(g(x),g(x)) = x";
     std::stringstream ss(input);
     Formula ff;
@@ -270,18 +270,18 @@ TEST(FormulaTest, Input) {
 }
 
 TEST(FormulaTest, Rectify) {
-  Alphabet* abc = Alphabet::instance();
-  Abc::Sort s = abc->CreateSort(false);
-  Abc::VarSymbol x = abc->CreateVar(s);         LIMBO_REG(x);
-  Abc::VarSymbol y = abc->CreateVar(s);         LIMBO_REG(y);
-  Abc::VarSymbol z = abc->CreateVar(s);         LIMBO_REG(z);
-  Abc::VarSymbol u = abc->CreateVar(s);         LIMBO_REG(u);
-  Abc::NameSymbol m = abc->CreateName(s, 0);    LIMBO_REG(m);
-  Abc::NameSymbol n = abc->CreateName(s, 0);    LIMBO_REG(n);
-  Abc::NameSymbol o = abc->CreateName(s, 0);    LIMBO_REG(o);
-  Abc::FunSymbol c = abc->CreateFun(s, 0);      LIMBO_REG(c);
-  Abc::FunSymbol f = abc->CreateFun(s, 2);      LIMBO_REG(f);
-  Abc::FunSymbol g = abc->CreateFun(s, 1);      LIMBO_REG(g);
+  Alphabet& abc = Alphabet::instance();
+  Abc::Sort s = abc.CreateSort(false);
+  Abc::VarSymbol x = abc.CreateVar(s);         LIMBO_REG(x);
+  Abc::VarSymbol y = abc.CreateVar(s);         LIMBO_REG(y);
+  Abc::VarSymbol z = abc.CreateVar(s);         LIMBO_REG(z);
+  Abc::VarSymbol u = abc.CreateVar(s);         LIMBO_REG(u);
+  Abc::NameSymbol m = abc.CreateName(s, 0);    LIMBO_REG(m);
+  Abc::NameSymbol n = abc.CreateName(s, 0);    LIMBO_REG(n);
+  Abc::NameSymbol o = abc.CreateName(s, 0);    LIMBO_REG(o);
+  Abc::FunSymbol c = abc.CreateFun(s, 0);      LIMBO_REG(c);
+  Abc::FunSymbol f = abc.CreateFun(s, 2);      LIMBO_REG(f);
+  Abc::FunSymbol g = abc.CreateFun(s, 1);      LIMBO_REG(g);
 
   auto arg = [](Formula&& f1) { std::list<F> args; args.emplace_back(std::move(f1)); return args; };
   auto args = [](Formula&& f1, Formula&& f2) { std::list<F> args; args.emplace_back(std::move(f1)); args.emplace_back(std::move(f2)); return args; };

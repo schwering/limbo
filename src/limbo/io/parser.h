@@ -1,5 +1,5 @@
 // vim:filetype=cpp:textwidth=120:shiftwidth=2:softtabstop=2:expandtab
-// Copyright 2016-2017 Christoph Schwering
+// Copyright 2016-2019 Christoph Schwering
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Recursive descent parser for the problem description language. The grammar
@@ -57,7 +57,7 @@ struct DefaultEventHandler {
   }
 
   void MetaSymbolRegistered(IoContext::MetaSymbol m) {
-    std::cout << "Registered meta symbol " << IoContext::instance()->meta_registry().ToString(m, "m") << std::endl;
+    std::cout << "Registered meta symbol " << IoContext::instance().meta_registry().ToString(m, "m") << std::endl;
   }
 
   bool Add(const Formula& f) {
@@ -240,7 +240,7 @@ class Parser {
           Advance();
           a += [this, rigid, id]() {
             if (!sort_registry().Registered(id)) {
-              const Abc::Sort sort = abc()->CreateSort(rigid);
+              const Abc::Sort sort = abc().CreateSort(rigid);
               sort_registry().Register(sort, id);
               eh_.SortRegistered(sort);
               return Success<>();
@@ -280,12 +280,12 @@ class Parser {
                   !meta_registry().Registered(id)) {
                 const Abc::Sort sort = sort_registry().ToSymbol(sort_id, false);
                 if (var) {
-                  const Abc::VarSymbol x = abc()->CreateVar(sort);
+                  const Abc::VarSymbol x = abc().CreateVar(sort);
                   var_registry().Register(x, id);
                   eh_.VarSymbolRegistered(x);
                 } else {
                   const int arity = 0;  // TODO name arities?
-                  const Abc::NameSymbol n = abc()->CreateName(sort, arity);
+                  const Abc::NameSymbol n = abc().CreateName(sort, arity);
                   name_registry().Register(n, id);
                   eh_.NameSymbolRegistered(n);
                 }
@@ -348,10 +348,10 @@ class Parser {
               return Error<>(LIMBO_MSG("Sensor sort "+ d.sensor_id +" is not registered"));
             }
             const Abc::Sort sort = sort_registry().ToSymbol(sort_id, false);
-            const Abc::FunSymbol f = abc()->CreateFun(sort, d.arity);
+            const Abc::FunSymbol f = abc().CreateFun(sort, d.arity);
             fun_registry().Register(f, d.fun_id);
             if (!sensor) {
-              //io()->RegisterSensorFunction(d.fun_id, sort_id, d.sensor_id);
+              //io().RegisterSensorFunction(d.fun_id, sort_id, d.sensor_id);
               //eh_.SensorFunRegistered(f);
             } else {
               eh_.FunSymbolRegistered(f);
@@ -460,7 +460,7 @@ class Parser {
           return Success(Formula::Fun(f, std::move(args)));
         } else if (default_meta_string(id) || meta_registry().Registered(id)) {
           const typename IoContext::MetaSymbol m = meta_registry().ToSymbol(id);  // XXX why typename??
-          const Formula& alpha = io()->get_meta_value(m);
+          const Formula& alpha = io().get_meta_value(m);
           return Success(alpha.Clone());
         } else {
           return Error<Formula>(LIMBO_MSG("Error in term"));
@@ -694,7 +694,7 @@ class Parser {
           return Error<Formula>(LIMBO_MSG("Expected primary formula within modality"), alpha);
         }
         return Error<Formula>(LIMBO_MSG("Regression currently not implemented"), alpha);
-        //return Success(io()->Regress(*alpha.val));
+        //return Success(io().Regress(*alpha.val));
       });
     }
     if (Is(Tok(), Token::kLParen)) {
@@ -877,7 +877,7 @@ class Parser {
       //if (!a.val.readable().ground() || a.val.unsatisfiable()) {
       //  return Error<>(LIMBO_MSG("Real world literal must be ground and satisfiable"));
       //}
-      //io()->AddReal(a.val);
+      //io().AddReal(a.val);
       //return Success<>();
       return Error<>(LIMBO_MSG("Real world currently not implemented"), a);
     });
@@ -958,8 +958,8 @@ class Parser {
     //    //                             "left-hand side"));
     //    //  }
     //    //}
-    //    //if ((ssa && io()->Add(t.val, a.val, alpha.val)) ||
-    //    //    (!ssa && io()->Add(a.val, alpha.val))) {
+    //    //if ((ssa && io().Add(t.val, a.val, alpha.val)) ||
+    //    //    (!ssa && io().Add(a.val, alpha.val))) {
     //    //  return Success<>();
     //    //} else {
     //    //  return Error<>(LIMBO_MSG("Couldn't add formula to KB; is it proper+ "
@@ -1089,7 +1089,7 @@ class Parser {
       const Abc::Sort sort = sort_registry().ToSymbol(sort_id, false);
       std::list<Formula> ts;
       //if (ts_a.empty()) {
-      //  const KnowledgeBase::TermSet& ns = io()->kb().mentioned_names(sort);
+      //  const KnowledgeBase::TermSet& ns = io().kb().mentioned_names(sort);
       //  ts.insert(ts.end(), ns.begin(), ns.end());
       //} else {
         for (const Computation<Formula>& t_a : ts_a) {
@@ -1144,7 +1144,7 @@ class Parser {
         return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
         cond = false;
         for (Formula& t : bind.val.second) {
-          //io()->RegisterMetaVariable(id, t);
+          //io().RegisterMetaVariable(id, t);
           Result<Formula> alpha = alpha_a.Compute();
           if (!alpha) {
             return Error<>(LIMBO_MSG("Expected condition if_else"), alpha);
@@ -1153,7 +1153,7 @@ class Parser {
             cond = true;
             break;
           }
-          //io()->UnregisterMetaVariable(id);
+          //io().UnregisterMetaVariable(id);
         }
       } else {
         Result<Formula> alpha = alpha_a.Compute();
@@ -1167,7 +1167,7 @@ class Parser {
         r = if_block_a.Compute();
         if (!id.empty()) {
           return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
-          //io()->UnregisterMetaVariable(id);
+          //io().UnregisterMetaVariable(id);
         }
       } else {
         r = else_block_a.Compute();
@@ -1218,7 +1218,7 @@ class Parser {
           cond = false;
           for (Formula& t : bind.val.second) {
             return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
-            //io()->RegisterMetaVariable(id, t);
+            //io().RegisterMetaVariable(id, t);
             Result<Formula> alpha = alpha_a.Compute();
             if (!alpha) {
               return Error<>(LIMBO_MSG("Expected condition while_loop"), alpha);
@@ -1227,7 +1227,7 @@ class Parser {
               cond = true;
               break;
             }
-            //io()->UnregisterMetaVariable(id);
+            //io().UnregisterMetaVariable(id);
           }
         } else {
           Result<Formula> alpha = alpha_a.Compute();
@@ -1241,7 +1241,7 @@ class Parser {
           Result<> r = while_block_a.Compute();
           if (!id.empty()) {
             return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
-            //io()->UnregisterMetaVariable(id);
+            //io().UnregisterMetaVariable(id);
           }
           if (!r) {
             return Error<>(LIMBO_MSG("Expected block in while_loop"), r);
@@ -1298,7 +1298,7 @@ class Parser {
       bool once = false;
       for (Formula& t : bind.val.second) {
         return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
-        //io()->RegisterMetaVariable(id, t);
+        //io().RegisterMetaVariable(id, t);
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<>(LIMBO_MSG("Expected condition for_loop"), alpha);
@@ -1307,11 +1307,11 @@ class Parser {
           once = true;
           Result<> r = for_block_a.Compute();
           if (!r) {
-            //io()->UnregisterMetaVariable(id);
+            //io().UnregisterMetaVariable(id);
             return Error<>(LIMBO_MSG("Expected block in for_loop"), r);
           }
         }
-        //io()->UnregisterMetaVariable(id);
+        //io().UnregisterMetaVariable(id);
       }
       if (!once) {
         Result<> r = else_block_a.Compute();
@@ -1348,7 +1348,7 @@ class Parser {
       if (!alpha) {
         return Error<>(LIMBO_MSG("Expected formula"), alpha);
       }
-      //io()->RegisterFormula(id, alpha.val);
+      //io().RegisterFormula(id, alpha.val);
       return Success<>();
     });
   }
@@ -1394,7 +1394,7 @@ class Parser {
         Result<Formula> t = arg_a.Compute();
         ts.push_back(std::move(t.val));
       }
-      //io()->Call(id, ts);
+      //io().Call(id, ts);
       return Success<>();
     });
   }
@@ -1496,13 +1496,13 @@ class Parser {
     return end_;
   }
 
-  static auto  abc()           { return Abc::instance(); }
-  static auto  io()            { return IoContext::instance(); }
-  static auto& sort_registry() { return io()->sort_registry(); }
-  static auto& fun_registry()  { return io()->fun_registry(); }
-  static auto& name_registry() { return io()->name_registry(); }
-  static auto& var_registry()  { return io()->var_registry(); }
-  static auto& meta_registry() { return io()->meta_registry(); }
+  static auto& abc()           { return Abc::instance(); }
+  static auto& io()            { return IoContext::instance(); }
+  static auto& sort_registry() { return io().sort_registry(); }
+  static auto& fun_registry()  { return io().fun_registry(); }
+  static auto& name_registry() { return io().name_registry(); }
+  static auto& var_registry()  { return io().var_registry(); }
+  static auto& meta_registry() { return io().meta_registry(); }
 
   static bool Registered(const std::string& s) {
     return sort_registry().Registered(s) ||

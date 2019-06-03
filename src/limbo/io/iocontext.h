@@ -19,26 +19,26 @@
 
 #define LIMBO_REG(sym)            LIMBO_REG_STR(sym, #sym)
 #define LIMBO_REG_STR(sym, str)   \
-  [](auto& sym0) {\
+  [](auto& sym0, auto& str0) {\
     struct Dispatcher {\
-      void operator()(limbo::Alphabet::Sort s) const {\
-        limbo::io::IoContext::instance()->sort_registry().Register(s, str);\
+      void operator()(limbo::Alphabet::Sort sort, const char* s) {\
+        limbo::io::IoContext::instance().sort_registry().Register(sort, s);\
       }\
-      void operator()(limbo::Alphabet::FunSymbol f) const {\
-        limbo::io::IoContext::instance()->fun_registry().Register(f, str);\
+      void operator()(limbo::Alphabet::FunSymbol f, const char* s) {\
+        limbo::io::IoContext::instance().fun_registry().Register(f, s);\
       }\
-      void operator()(limbo::Alphabet::NameSymbol n) const {\
-        limbo::io::IoContext::instance()->name_registry().Register(n, str);\
+      void operator()(limbo::Alphabet::NameSymbol n, const char* s) {\
+        limbo::io::IoContext::instance().name_registry().Register(n, s);\
       }\
-      void operator()(limbo::Alphabet::VarSymbol x) const {\
-        limbo::io::IoContext::instance()->var_registry().Register(x, str);\
+      void operator()(limbo::Alphabet::VarSymbol x, const char* s) {\
+        limbo::io::IoContext::instance().var_registry().Register(x, s);\
       }\
-      void operator()(limbo::io::IoContext::MetaSymbol m) const {\
-        limbo::io::IoContext::instance()->meta_registry().Register(m, str);\
+      void operator()(limbo::io::IoContext::MetaSymbol m, const char *s) {\
+        limbo::io::IoContext::instance().meta_registry().Register(m, s);\
       }\
     };\
-    Dispatcher()(sym0);\
-  }(sym);
+    Dispatcher()(sym0, str0);\
+  }(sym, str);
 
 namespace limbo {
 namespace io {
@@ -48,22 +48,22 @@ struct CreateSymbolFunction {};
 
 template<>
 struct CreateSymbolFunction<Alphabet::Sort> {
-  Alphabet::Sort operator()(bool rigid) const { return Alphabet::instance()->CreateSort(rigid); }
+  Alphabet::Sort operator()(bool rigid) const { return Alphabet::instance().CreateSort(rigid); }
 };
 
 template<>
 struct CreateSymbolFunction<Alphabet::FunSymbol> {
-  Alphabet::FunSymbol operator()(int arity) const { return Alphabet::instance()->CreateFun(Alphabet::Sort(1), arity); }
+  Alphabet::FunSymbol operator()(int arity) const { return Alphabet::instance().CreateFun(Alphabet::Sort(1), arity); }
 };
 
 template<>
 struct CreateSymbolFunction<Alphabet::NameSymbol> {
-  Alphabet::NameSymbol operator()(int arity) const { return Alphabet::instance()->CreateName(Alphabet::Sort(1), arity); }
+  Alphabet::NameSymbol operator()(int arity) const { return Alphabet::instance().CreateName(Alphabet::Sort(1), arity); }
 };
 
 template<>
 struct CreateSymbolFunction<Alphabet::VarSymbol> {
-  Alphabet::VarSymbol operator()() const { return Alphabet::instance()->CreateVar(Alphabet::Sort(1)); }
+  Alphabet::VarSymbol operator()() const { return Alphabet::instance().CreateVar(Alphabet::Sort(1)); }
 };
 
 class IoContext : public limbo::internal::Singleton<IoContext> {
@@ -75,7 +75,7 @@ class IoContext : public limbo::internal::Singleton<IoContext> {
   };
 
   struct CreateMetaSymbolFunction {
-    MetaSymbol operator()() const { return IoContext::instance()->CreateMeta(); }
+    MetaSymbol operator()() const { return IoContext::instance().CreateMeta(); }
   };
 
   template<typename Sym, typename CreateSymbolFunction = CreateSymbolFunction<Sym>>
@@ -130,11 +130,11 @@ class IoContext : public limbo::internal::Singleton<IoContext> {
   using VarRegistry  = SymbolRegistry<Abc::VarSymbol>;
   using MetaRegistry = SymbolRegistry<MetaSymbol, CreateMetaSymbolFunction>;
 
-  static IoContext* instance() {
+  static IoContext& instance() {
     if (instance_ == nullptr) {
       instance_ = std::unique_ptr<IoContext>(new IoContext());
     }
-    return instance_.get();
+    return *instance_.get();
   }
 
   static void reset_instance() {

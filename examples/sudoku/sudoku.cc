@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
   }
   const char* cfg = argv[1];
   int max_k = atoi(argv[2]);
-  bool solved = Play(cfg, max_k, TerminalColors(), &std::cout, true);
+  bool solved = Play(cfg, max_k, TerminalColors(), &std::cout);
   return solved ? 0 : 1;
 }
 

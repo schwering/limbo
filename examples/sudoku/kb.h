@@ -4,58 +4,72 @@
 #ifndef EXAMPLES_SUDOKU_KB_H_
 #define EXAMPLES_SUDOKU_KB_H_
 
+#include <iostream>
 #include <sstream>
 #include <vector>
 
-#include <limbo/solver.h>
+#include <limbo/limsat.h>
 #include <limbo/internal/maybe.h>
-#include <limbo/internal/iter.h>
-#include <limbo/format/output.h>
+#include <limbo/io/output.h>
 
 #include "game.h"
 #include "timer.h"
 
 class KnowledgeBase {
  public:
-  explicit KnowledgeBase(int max_k)
-      : max_k_(max_k),
-        solver_(limbo::Symbol::Factory::Instance(), limbo::Term::Factory::Instance()),
-        VAL_(CreateNonrigidSort()),
-        val_(CreateFunctionSymbol(VAL_, 2)) {
-    limbo::format::RegisterSort(VAL_, "");
-    limbo::format::RegisterSymbol(val_, "val");
-    for (std::size_t i = 1; i <= 9; ++i) {
-      vals_.push_back(CreateName(VAL_));
-      std::stringstream ss;
-      ss << i;
-      limbo::format::RegisterSymbol(vals_.back().symbol(), ss.str());
+  template<typename T>
+  using Maybe  = limbo::internal::Maybe<T>;
+
+  explicit KnowledgeBase(int max_k) : max_k_(max_k) {
+    sort_ = abc().CreateSort(false);
+    f_.resize(9 * 9);
+    n_.resize(9);
+    fs_.resize(9 * 9);
+    ns_.resize(9);
+    for (int x = 1; x <= 9; ++x) {
+      for (int y = 1; y <= 9; ++y) {
+        const char f_str[] = {char('0' + x), char('0' + y), '\0'};
+        cell(x, y) = abc().CreateFun(sort_, 0);
+        LIMBO_REG_STR(cell(x, y), f_str);
+        Formula ff = Formula::Fun(cell(x, y));
+        ff.Strip();
+        cellf(x, y) = ff.head().u.f_s;
+      }
     }
-    for (std::size_t x = 1; x <= 9; ++x) {
-      for (std::size_t y = 1; y <= 9; ++y) {
-        for (std::size_t yy = 1; yy <= 9; ++yy) {
+    for (int i = 1; i <= 9; ++i) {
+      const char n_str[] = {char('0' + i), '\0'};
+      val(i) = abc().CreateName(sort_, 0);
+      LIMBO_REG_STR(val(i), n_str);
+      Formula ff = Formula::Name(val(i));
+      ff.Strip();
+      valn(i) = ff.head().u.n_s;
+    }
+    for (int x = 1; x <= 9; ++x) {
+      for (int y = 1; y <= 9; ++y) {
+        for (int yy = 1; yy <= 9; ++yy) {
           if (y != yy) {
-            Add(limbo::Literal::Neq(val(x, y), val(x, yy)));
+            Add(neq(cell(x, y), cell(x, yy)));
           }
         }
       }
     }
-    for (std::size_t x = 1; x <= 9; ++x) {
-      for (std::size_t xx = 1; xx <= 9; ++xx) {
-        for (std::size_t y = 1; y <= 9; ++y) {
+    for (int x = 1; x <= 9; ++x) {
+      for (int xx = 1; xx <= 9; ++xx) {
+        for (int y = 1; y <= 9; ++y) {
           if (x != xx) {
-            Add(limbo::Literal::Neq(val(x, y), val(xx, y)));
+            Add(neq(cell(x, y), cell(xx, y)));
           }
         }
       }
     }
-    for (std::size_t i = 1; i <= 3; ++i) {
-      for (std::size_t j = 1; j <= 3; ++j) {
-        for (std::size_t x = 3*i-2; x <= 3*i; ++x) {
-          for (std::size_t xx = 3*i-2; xx <= 3*i; ++xx) {
-            for (std::size_t y = 3*j-2; y <= 3*j; ++y) {
-              for (std::size_t yy = 3*j-2; yy <= 3*j; ++yy) {
+    for (int i = 1; i <= 3; ++i) {
+      for (int j = 1; j <= 3; ++j) {
+        for (int x = 3*i-2; x <= 3*i; ++x) {
+          for (int xx = 3*i-2; xx <= 3*i; ++xx) {
+            for (int y = 3*j-2; y <= 3*j; ++y) {
+              for (int yy = 3*j-2; yy <= 3*j; ++yy) {
                 if (x != xx || y != yy) {
-                  Add(limbo::Literal::Neq(val(x, y), val(xx, yy)));
+                  Add(neq(cell(x, y), cell(xx, yy)));
                 }
               }
             }
@@ -63,23 +77,23 @@ class KnowledgeBase {
         }
       }
     }
-    for (std::size_t x = 1; x <= 9; ++x) {
-      for (std::size_t y = 1; y <= 9; ++y) {
-        std::vector<limbo::Literal> lits;
-        for (std::size_t i = 1; i <= 9; ++i) {
-          lits.push_back(limbo::Literal::Eq(val(x, y), n(i)));
+    for (int x = 1; x <= 9; ++x) {
+      for (int y = 1; y <= 9; ++y) {
+        std::vector<Formula> as;
+        for (int i = 1; i <= 9; ++i) {
+          as.push_back(eq(cell(x, y), val(i)));
         }
-        Add(limbo::Clause(lits.begin(), lits.end()));
+        Add(Formula::Or(std::move(as)));
       }
     }
   }
 
   void InitGame(const Game* g) {
-    for (std::size_t x = 1; x <= 9; ++x) {
-      for (std::size_t y = 1; y <= 9; ++y) {
+    for (int x = 1; x <= 9; ++x) {
+      for (int y = 1; y <= 9; ++y) {
         int i = g->get(Point(x, y));
         if (i != 0) {
-          Add(limbo::Literal::Eq(val(x, y), n(i)));
+          Add(eq(cell(x, y), val(i)));
         }
       }
     }
@@ -87,27 +101,23 @@ class KnowledgeBase {
 
   int max_k() const { return max_k_; }
 
-  limbo::Solver& solver() { UpdateSolver(); return solver_; }
-  const limbo::Solver& solver() const { const_cast<KnowledgeBase&>(*this).UpdateSolver(); return solver_; }
-  const limbo::Setup& setup() const { const_cast<KnowledgeBase&>(*this).UpdateSolver(); return solver().setup(); }
+  void Add(Point p, int i) { Add(eq(cellf(p), valn(i))); }
 
-  void Add(Point p, int i) { Add(limbo::Clause{limbo::Literal::Eq(val(p), n(i))}); }
-
-  limbo::internal::Maybe<int> Val(Point p, int k) {
+  Maybe<int> Val(Point p, int k) {
     t_.start();
-    UpdateSolver();
-    const limbo::internal::Maybe<limbo::Term> r = solver().Determines(k, val(p), limbo::Solver::kConsistencyGuarantee);
-    assert(std::all_of(limbo::internal::int_iterator<size_t>(1), limbo::internal::int_iterator<size_t>(9),
-           [&](size_t i) {
-             limbo::Formula::Ref f = limbo::Formula::Factory::Atomic(limbo::Clause{limbo::Literal::Eq(val(p), n(i))});
-             return solver().Entails(k, *f) == (r && r.val == n(i));
-           }));
-    if (r) {
-      assert(!r.val.null());
-      for (std::size_t i = 1; i <= 9; ++i) {
-        if (r.val.null() || r.val == n(i)) {
-          return limbo::internal::Just(i);
-        }
+    //const Maybe<Name> r = lim_sat_.Determines(k, cell(p));
+    //if (r) {
+    //  assert(!r.val.null());
+    //  for (int i = 1; i <= 9; ++i) {
+    //    if (r.val.null() || abc().Unstrip(r.val) == val(i)) {
+    //      return limbo::internal::Just(i);
+    //    }
+    //  }
+    //}
+    for (int i = 1; i <= 9; ++i) {
+      printf("x = %d, y = %d, i = %d, size = %lu\n", p.x, p.y, i, lim_sat_.clauses().size());
+      if (lim_sat_.Solve(k, eq(cellf(p), valn(i)).readable())) {
+        return limbo::internal::Just(i);
       }
     }
     t_.stop();
@@ -119,30 +129,23 @@ class KnowledgeBase {
 
   void PrintDimacs(std::ostream* os) {
     using namespace limbo;
-    using namespace limbo::format;
-    using namespace limbo::internal;
-    std::unordered_set<Clause> cs;
-    for (auto i : setup().clauses()) {
-      const Maybe<Clause> c = setup().clause(i);
-      if (c) {
-        cs.insert(c.val);
-      }
-    }
+    using namespace limbo::io;
+    const std::set<std::vector<Lit>>& cs = lim_sat_.clauses();
     *os << "p fcnf 81 9 " << (cs.size() + 81) << std::endl;
     *os << "c Sudoku rules" << std::endl;
-    for (const Clause& c : cs) {
-      for (Literal a : c) {
+    for (const std::vector<Lit>& c : cs) {
+      for (Lit a : c) {
         int i = 0;
-        for (std::size_t x = 1; x <= 9; ++x) {
-          for (std::size_t y = 1; y <= 9; ++y) {
-            if (a.lhs() == val(x, y)) {
+        for (int x = 1; x <= 9; ++x) {
+          for (int y = 1; y <= 9; ++y) {
+            if (a.fun() == cellf(x, y)) {
               i = x + (y - 1) * 9;
             }
           }
         }
         int j = 0;
-        for (std::size_t m = 1; m <= 9; ++m) {
-          if (a.rhs() == n(m)) {
+        for (int m = 1; m <= 9; ++m) {
+          if (a.name() == valn(m)) {
             j = m;
           }
         }
@@ -158,65 +161,72 @@ next: {}
   }
 
  private:
-  void Add(const limbo::Literal a) { Add(limbo::Clause{a}); }
-  void Add(const limbo::Clause& c) { clauses_.push_back(c); }
+  using Abc     = limbo::Alphabet;
+  using Fun     = limbo::Fun;
+  using Name    = limbo::Name;
+  using Lit     = limbo::Lit;
+  using Formula = limbo::Formula;
+  using LimSat  = limbo::LimSat;
 
-  void UpdateSolver() {
-    if (n_processed_clauses_ == clauses_.size()) {
-      return;
+  void Add(Formula&& f) {
+    Abc::DenseMap<Abc::Sort, std::vector<Name>> subst;
+    subst[sort_] = n_;
+    //std::cout << f << std::endl;
+    f.Normalize();
+    //std::cout << f << std::endl;
+    f.Ground(subst);
+    //std::cout << f << std::endl;
+    f.Strip();
+    //std::cout << f << std::endl;
+    Maybe<std::vector<std::vector<Lit>>> cs = f.readable().CnfClauses();
+    if (!cs) {
+      std::cerr << "No clauses extracted from " << f << std::endl;
+    } else {
+      //std::cout << cs.val.size() << " clauses" << std::endl;
+      for (std::vector<Lit>& c : cs.val) {
+        //std::cout << c << std::endl;
+        Add(std::move(c));
+      }
     }
-    for (auto it = clauses_.begin() + n_processed_clauses_; it != clauses_.end(); ++it) {
-      limbo::Formula::FlattenClause(&*it, nullptr,
-                                    limbo::Symbol::Factory::Instance(),
-                                    limbo::Term::Factory::Instance());
-    }
-    solver_.grounder().AddClauses(clauses_.begin() + n_processed_clauses_, clauses_.end());
-    solver_.grounder().Consolidate();
-    n_processed_clauses_ = clauses_.size();
+    //std::cout << std::endl;
   }
 
-  limbo::Term n(std::size_t n) const {
-    return vals_[n-1];
-  }
+  void Add(Lit a) { std::vector<Lit> c; c.push_back(a); Add(std::move(c)); }
 
-  limbo::Term val(Point p) const {
-    return val(p.x, p.y);
-  }
+  void Add(std::vector<Lit>&& c) { lim_sat_.AddClause(std::move(c)); }
 
-  limbo::Term val(std::size_t x, std::size_t y) const {
-    return CreateFunction(val_, limbo::Term::Vector{vals_[x-1], vals_[y-1]});
-  }
+  Abc& abc() const { return Abc::instance(); }
 
-  limbo::Symbol::Sort CreateNonrigidSort() const {
-    return limbo::Symbol::Factory::Instance()->CreateNonrigidSort();
-  }
+  Fun   cellf(Point p)      const { return cellf(p.x, p.y); }
+  Fun   cellf(int x, int y) const { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return f_[(x-1) * 9 + y-1]; }
+  Name  valn(int i)         const { assert(1 <= i && i <= 9); return n_[i-1]; }
+  Fun&  cellf(int x, int y)       { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return f_[(x-1) * 9 + y-1]; }
+  Name& valn(int i)               { assert(1 <= i && i <= 9); return n_[i-1]; }
 
-  limbo::Symbol CreateFunctionSymbol(limbo::Symbol::Sort sort, limbo::Symbol::Arity arity) const {
-    return limbo::Symbol::Factory::Instance()->CreateFunction(sort, arity);
-  }
+  Abc::FunSymbol   cell(Point p)      const { return cell(p.x, p.y); }
+  Abc::FunSymbol   cell(int x, int y) const { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return fs_[(x-1) * 9 + y-1]; }
+  Abc::NameSymbol  val(int i)         const { assert(1 <= i && i <= 9); return ns_[i-1]; }
+  Abc::FunSymbol&  cell(int x, int y)       { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return fs_[(x-1) * 9 + y-1]; }
+  Abc::NameSymbol& val(int i)               { assert(1 <= i && i <= 9); return ns_[i-1]; }
 
-  limbo::Term CreateName(limbo::Symbol::Sort sort) const {
-    return limbo::Term::Factory::Instance()->CreateTerm(limbo::Symbol::Factory::Instance()->CreateName(sort));
-  }
+  Formula eq(Fun f, Name n) const { return Formula::Lit(Lit::Eq(f, n)); }
+  Formula neq(Fun f, Name n) const { return Formula::Lit(Lit::Neq(f, n)); }
 
-  limbo::Term CreateVariable(limbo::Symbol::Sort sort) const {
-    return limbo::Term::Factory::Instance()->CreateTerm(limbo::Symbol::Factory::Instance()->CreateVariable(sort));
-  }
+  Formula eq(Abc::FunSymbol f, Abc::NameSymbol n) const { return Formula::Equals(Formula::Fun(f), Formula::Name(n)); }
+  Formula eq(Abc::FunSymbol f, Abc::FunSymbol ff) const { return Formula::Equals(Formula::Fun(f), Formula::Fun(ff)); }
+  Formula neq(Abc::FunSymbol f, Abc::NameSymbol n) const { return Formula::NotEquals(Formula::Fun(f), Formula::Name(n)); }
+  Formula neq(Abc::FunSymbol f, Abc::FunSymbol ff) const { return Formula::NotEquals(Formula::Fun(f), Formula::Fun(ff)); }
 
-  limbo::Term CreateFunction(limbo::Symbol symbol, const limbo::Term::Vector& args) const {
-    return limbo::Term::Factory::Instance()->CreateTerm(symbol, args);
-  }
+  int    max_k_;
+  LimSat lim_sat_;
 
-  int max_k_;
+  Abc::Sort sort_;
 
-  std::vector<limbo::Clause> clauses_;
-  size_t n_processed_clauses_ = 0;
+  std::vector<Fun>  f_;
+  std::vector<Name> n_;
 
-  limbo::Solver solver_;
-
-  limbo::Symbol::Sort VAL_;
-  limbo::Symbol val_;
-  limbo::Term::Vector vals_;
+  std::vector<Abc::FunSymbol>  fs_;
+  std::vector<Abc::NameSymbol> ns_;
 
   Timer t_;
 };
