@@ -649,7 +649,6 @@ class RFormula : private FormulaCommons {
     Scope or_scope = scoper.scope();
     for (auto it = begin(); it != end(); ) {
       if (it->tag == Abc::Symbol::kAnd) {
-        cs.emplace_back();
       } else if (it->tag == Abc::Symbol::kOr) {
         if (!or_flag) {
           or_flag = true;
