@@ -85,7 +85,11 @@ class Lit {
   static Lit FromId(id_t id) { return Lit(id); }
 
   explicit Lit() = default;
-  explicit Lit(bool pos, Fun fun, Name name) : Lit(Bits::interleave(int(fun), (int(name) << 1) | pos)) {}
+  explicit Lit(bool pos, Fun fun, Name name) : Lit(Bits::merge(int(fun), (int(name) << 1) | pos)) {
+    assert(this->pos() == pos);
+    assert(this->fun() == fun);
+    assert(this->name() == name);
+  }
 
   Lit(const Lit&)            = default;
   Lit& operator=(const Lit&) = default;
@@ -94,8 +98,8 @@ class Lit {
 
   bool pos()  const { return id_ & 1; }
   bool neg()  const { return !pos(); }
-  Fun  fun()  const { return Fun::FromId(Bits::deinterleave_hi(id_)); }
-  Name name() const { return Name::FromId(Bits::deinterleave_lo(id_) >> 1); }
+  Fun  fun()  const { return Fun::FromId(Bits::split_hi(id_)); }
+  Name name() const { return Name::FromId(Bits::split_lo(id_) >> 1); }
 
   explicit operator bool() const { return id_; }
   explicit operator int()  const { return id_; }
@@ -145,7 +149,7 @@ class Lit {
   bool ProperlySubsumes(Lit b) const { return ProperlySubsumes(*this, b); }
 
  private:
-  using Bits = internal::Bits<Fun::id_t>;
+  using Bits = internal::BitConcatenator<Fun::id_t>;
 
   static_assert(sizeof(Fun::id_t) == sizeof(Name::id_t), "Fun::id_t and Name::id_t must be identical");
   static_assert(sizeof(Fun::id_t) + sizeof(Name::id_t) == sizeof(id_t), "Fun::id_t and Name::id_t must fit in id_t");

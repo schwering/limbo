@@ -256,7 +256,7 @@ class LimSat {
     static constexpr int max_conflicts = 50;
     int n_conflicts = 0;
     int model_size = 0;
-    Sat sat;
+    Sat sat;  // TODO The sat object must be re-used accross FindModel() calls for better performance!!
     auto extra_name_factory = [this]   (const Fun)   { return Name::FromId(clauses_max_name_id_ + 1); };
     auto activity           = [&wanted](const Fun f) { return wanted[f] * activity_bump; };
     for (const std::vector<Lit>& as : clauses_) {

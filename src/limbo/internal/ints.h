@@ -27,24 +27,45 @@ using uptr_t = std::uintptr_t;
 using iptr_t = std::intptr_t;
 
 template<typename T, int = sizeof(T)>
-struct Bits {};
+struct BitInterleaver {};
 
 template<typename T>
-struct Bits<T, sizeof(u16)> {
+struct BitInterleaver<T, sizeof(u16)> {
   static constexpr u32 kHi = 0xAAAAAAAA;
   static constexpr u32 kLo = 0x55555555;
-  static u32 interleave(u16 hi, u16 lo) { return _pdep_u32(hi, kHi) | _pdep_u32(lo, kLo); }
-  static u16 deinterleave_hi(u32 z) { return _pext_u32(z, kHi); }
-  static u16 deinterleave_lo(u32 z) { return _pext_u32(z, kLo); }
+  static u32 merge(u16 hi, u16 lo) { return _pdep_u32(hi, kHi) | _pdep_u32(lo, kLo); }
+  static u16 split_hi(u32 z) { return _pext_u32(z, kHi); }
+  static u16 split_lo(u32 z) { return _pext_u32(z, kLo); }
 };
 
 template<typename T>
-struct Bits<T, sizeof(u32)> {
+struct BitInterleaver<T, sizeof(u32)> {
   static constexpr u64 kHi = 0xAAAAAAAAAAAAAAAA;
   static constexpr u64 kLo = 0x5555555555555555;
-  static u64 interleave(u32 hi, u32 lo) { return _pdep_u64(hi, kHi) | _pdep_u64(lo, kLo); }
-  static u32 deinterleave_hi(u64 z) { return _pext_u64(z, kHi); }
-  static u32 deinterleave_lo(u64 z) { return _pext_u64(z, kLo); }
+  static u64 merge(u32 hi, u32 lo) { return _pdep_u64(hi, kHi) | _pdep_u64(lo, kLo); }
+  static u32 split_hi(u64 z) { return _pext_u64(z, kHi); }
+  static u32 split_lo(u64 z) { return _pext_u64(z, kLo); }
+};
+
+template<typename T, int = sizeof(T)>
+struct BitConcatenator {};
+
+template<typename T>
+struct BitConcatenator<T, sizeof(u16)> {
+  static constexpr u32 kLo = ~u16(0);
+  static constexpr u32 kHi = ~kLo;
+  static u32 merge(u16 hi, u16 lo) { return (u32(hi) << 16) | u32(lo); }
+  static u16 split_hi(u32 z) { return u16(z >> 16); }
+  static u16 split_lo(u32 z) { return u16(z); }
+};
+
+template<typename T>
+struct BitConcatenator<T, sizeof(u32)> {
+  static constexpr u64 kLo = ~u32(0);
+  static constexpr u64 kHi = ~kLo;
+  static u64 merge(u32 hi, u32 lo) { return (u64(hi) << 32) | u64(lo); }
+  static u32 split_hi(u64 z) { return u32(z >> 32); }
+  static u32 split_lo(u64 z) { return u32(z); }
 };
 
 ulong next_power_of_two(ulong n) {
