@@ -20,6 +20,7 @@
 #define LIMBO_LIMSAT_H_
 
 #include <algorithm>
+#include <iterator>
 #include <set>
 #include <vector>
 
@@ -32,6 +33,8 @@ namespace limbo {
 
 class LimSat {
  public:
+  using LitVec = std::vector<Lit>;
+
   explicit LimSat() = default;
 
   LimSat(const LimSat&)            = delete;
@@ -39,28 +42,29 @@ class LimSat {
   LimSat(LimSat&&)                 = default;
   LimSat& operator=(LimSat&&)      = default;
 
-  bool AddClause(const std::vector<Lit>& as) {
-    std::vector<Lit> copy = as;
+  bool AddClause(const LitVec& as) {
+    LitVec copy = as;
     return AddClause(std::move(copy));
   }
 
-  bool AddClause(std::vector<Lit>&& as) {
+  bool AddClause(LitVec&& as) {
     std::sort(as.begin(), as.end());
     auto p = clauses_.insert(std::move(as));
     if (p.second) {
+      clauses_not_yet_added_.push_back(p.first);
       for (const Lit a : *p.first) {
         const Fun f = a.fun();
         const Name n = a.name();
-        clauses_domains_.FitForKey(f);
-        clauses_domains_[f].FitForKey(n);
-        clauses_domains_[f][n] = true;
-        clauses_max_name_id_ = std::max(int(n), clauses_max_name_id_);
+        domains_.FitForKey(f);
+        domains_[f].FitForKey(n);
+        domains_[f][n] = true;
+        max_name_id_ = std::max(int(n), max_name_id_);
       }
     }
     return p.second;
   }
 
-  const std::set<std::vector<Lit>>& clauses() const { return clauses_; }
+  const std::set<LitVec>& clauses() const { return clauses_; }
 
   bool Solve(int k, const RFormula& query) { return FindModels(k, query); }
 
@@ -117,7 +121,7 @@ class LimSat {
   template<typename T>
   static std::vector<Fun> Merge(const std::vector<T>& xs, const std::vector<Fun>& ys) {
     std::vector<Fun> zs;
-    zs.resize(std::set_union(xs.begin(), xs.end(), ys.begin(), ys.end(), zs.begin()) - zs.begin());
+    std::set_union(xs.begin(), xs.end(), ys.begin(), ys.end(), std::back_inserter(zs));
     return zs;
   }
 
@@ -138,30 +142,9 @@ class LimSat {
     return AssignedFunctions(std::move(newly_assigned), all_assigned);
   }
 
-  static void UpdateDomainsForQuery(const RFormula& query,
-                                    TermMap<Fun, std::vector<Name>>* query_terms,
-                                    TermMap<Fun, TermMap<Name, bool>>* domains) {
-    for (const Alphabet::Symbol& s : query) {
-      if (s.tag == Alphabet::Symbol::kStrippedLit) {
-        const Fun f = s.u.a.fun();
-        const Name n = s.u.a.name();
-        (*domains).FitForKey(f);
-        (*domains)[f].FitForKey(n, false);
-        if (!(*domains)[f][n]) {
-          (*domains)[f][n] = true;
-          (*query_terms).FitForKey(f);
-          (*query_terms)[f].push_back(n);
-        }
-      } else {
-        assert(!s.stripped());
-      }
-    }
-  }
-
   bool FindModels(const int min_model_size, const RFormula& query) {
-    TermMap<Fun, std::vector<Name>> query_terms;
-    TermMap<Fun, TermMap<Name, bool>> domains = clauses_domains_;
-    UpdateDomainsForQuery(query, &query_terms, &domains);
+    //printf("FindModels:%d\n", __LINE__);
+    UpdateDomainsForQuery(query);
     // Find models such that every function is assigned a value in some model.
     // For example, consider a problem with functions 1,2,3,4,5 and minimum
     // model size 2.
@@ -169,7 +152,7 @@ class LimSat {
     // covers all functions. M1 and M2 imply models that assign the subsets of
     // cardinality of size 2 of {1,2,3} and {3,4,5}, that is,
     // {1,2}, {2,3}, {1,3}, and {3,4}, {4,5}, {3,5}.
-    const FoundCoveringModels fcm = FindCoveringModels(min_model_size, query, query_terms, domains);
+    const FoundCoveringModels fcm = FindCoveringModels(min_model_size, query);
     if (!fcm.all_covered) {
       return false;
     }
@@ -186,32 +169,30 @@ class LimSat {
         }
       }
       TermMap<Fun, bool> wanted;
-      wanted.FitForKey(domains.upper_bound_key(), false);
+      wanted.FitForKey(domains_.upper_bound_key(), false);
       for (const Fun f : must) {
         wanted[f] = true;
       }
       constexpr bool propagate_with_learnt = false;
       constexpr bool wanted_is_must = true;
-      const FoundModel fm = FindModel(min_model_size, query, query_terms, propagate_with_learnt, wanted_is_must, wanted);
+      const FoundModel fm = FindModel(min_model_size, query, propagate_with_learnt, wanted_is_must, wanted);
       return fm.succ;
     });
   }
 
-  FoundCoveringModels FindCoveringModels(const int min_model_size,
-                                         const RFormula& query,
-                                         const TermMap<Fun, std::vector<Name>>& query_terms,
-                                         const TermMap<Fun, TermMap<Name, bool>>& domains) {
+  FoundCoveringModels FindCoveringModels(const int min_model_size, const RFormula& query) {
     std::vector<TermMap<Fun, Name>> models;
     std::vector<std::vector<Fun>> newly_assigned_in;
     TermMap<Fun, bool> wanted;
-    wanted.FitForKey(domains.upper_bound_key());
-    for (const Fun f : domains.keys()) {
-      wanted[f] = !domains[f].empty();
+    wanted.FitForKey(domains_.upper_bound_key());
+    for (const Fun f : domains_.keys()) {
+      wanted[f] = !domains_[f].empty();
     }
     bool propagate_with_learnt = true;
     bool wanted_is_must = false;
     for (;;) {
-      const FoundModel fm = FindModel(min_model_size, query, query_terms, propagate_with_learnt, wanted_is_must, wanted);
+      //printf("FindCoveringModels:%d\n", __LINE__);
+      const FoundModel fm = FindModel(min_model_size, query, propagate_with_learnt, wanted_is_must, wanted);
       if (!fm.succ && propagate_with_learnt) {
         propagate_with_learnt = false;
         continue;
@@ -247,59 +228,95 @@ class LimSat {
 
   FoundModel FindModel(const int min_model_size,
                        const RFormula& query,
-                       const TermMap<Fun, std::vector<Name>>& query_terms,
                        const bool propagate_with_learnt,
                        const bool wanted_is_must,
                        const TermMap<Fun, bool>& wanted) {
     //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
-    static constexpr double activity_bump = 1000.0;
-    static constexpr int max_conflicts = 50;
+//int NEW = 1;
+//    if (NEW) {
+      ResetAndUpdateSat(wanted);
+//    } else {
+//      sat_ = Sat();
+//      auto extra_name_factory = [this](Fun) { return Name::FromId(max_name_id_ + 1); };
+//      auto activity           = [&](const Fun f) -> double { return wanted[f] * kActivityOffset; };
+//      for (const std::vector<Lit>& as : clauses_) {
+//        sat_.AddClause(as, extra_name_factory, activity);
+//      }
+//      sat_.Reset(Sat::KeepLearnt(propagate_with_learnt),
+//                 [&wanted](Fun f) { return wanted.key_in_range(f) ? wanted[f] * kActivityOffset : 0.0; });
+//    }
+    sat_.set_propagate_with_learnt(propagate_with_learnt);
+    TermMap<Fun, Name> model;
     int n_conflicts = 0;
     int model_size = 0;
-    Sat sat;  // TODO The sat object must be re-used accross FindModel() calls for better performance!!
-    auto extra_name_factory = [this]   (const Fun)   { return Name::FromId(clauses_max_name_id_ + 1); };
-    auto activity           = [&wanted](const Fun f) { return wanted[f] * activity_bump; };
-    for (const std::vector<Lit>& as : clauses_) {
-      sat.AddClause(as, extra_name_factory, activity);
-    }
-    for (const Fun f : query_terms.keys()) {
-      for (const Name n : query_terms[f]) {
-        sat.Register(f, n, extra_name_factory, activity);
-      }
-    }
-    sat.set_propagate_with_learnt(propagate_with_learnt);
-    TermMap<Fun, Name> model;
-    const Sat::Truth truth = sat.Solve(
-        [&](int, Sat::CRef, const std::vector<Lit>&, int) -> bool {
-          return ++n_conflicts <= max_conflicts;
+    const Sat::Truth truth = sat_.Solve(
+        [&](int, Sat::CRef, const LitVec&, int) -> bool {
+          return ++n_conflicts <= kMaxConflicts;
         },
         [&](int, Lit) -> bool {
-          if (min_model_size <= sat.model_size() && model_size < sat.model_size() &&
-              (!wanted_is_must || AssignsAll(sat.model(), wanted))) {
-            model_size = sat.model_size();
-            model = sat.model();
+          if (min_model_size <= sat_.model_size() && model_size < sat_.model_size() &&
+              (!wanted_is_must || AssignsAll(sat_.model(), wanted))) {
+            model_size = sat_.model_size();
+            model = sat_.model();
           }
           return true;
         },
-        [&](const TermMap<Fun, Name>& model, std::vector<Lit>* nogood) {
+        [&](const TermMap<Fun, Name>& model, LitVec* nogood) {
           return query.SatisfiedBy(model, nogood);
         });
     if (truth == Sat::Truth::kSat) {
-      //printf("FindModel: true, model_size = %d, assignment =", sat.model_size()); for (const Fun f : sat.model().keys()) { if (assigns(sat.model(), f)) { printf(" (%d = %d)", int(f), int(sat.model()[f])); } } printf("\n");
-      assert(AssignsAll(sat.model(), wanted));
-      return FoundModel(sat.model());
+      //printf("FindModel %d: true, model_size = %d, assignment =", __LINE__, sat_.model_size()); for (const Fun f : sat_.model().keys()) { if (assigns(sat_.model(), f)) { printf(" (%d = %d)", int(f), int(sat_.model()[f])); } } printf("\n");
+      assert(AssignsAll(sat_.model(), wanted));
+      return FoundModel(sat_.model());
     } else if (model_size >= min_model_size) {
-      //printf("FindModel: true, model_size = %d, assignment =", model_size); for (const Fun f : model.keys()) { if (assigns(model, f)) { printf(" (%d = %d)", int(f), int(model[f])); } } printf("\n");
+      //printf("FindModel %d: true, model_size = %d, assignment =", __LINE__, model_size); for (const Fun f : model.keys()) { if (assigns(model, f)) { printf(" (%d = %d)", int(f), int(model[f])); } } printf("\n");
       return FoundModel(std::move(model));
     } else {
-      //printf("FindModel: false\n");
+      //printf("FindModel %d: false\n", __LINE__);
       return FoundModel();
     }
   }
 
-  std::set<std::vector<Lit>>        clauses_;
-  TermMap<Fun, TermMap<Name, bool>> clauses_domains_;
-  int                               clauses_max_name_id_ = 0;
+  void UpdateDomainsForQuery(const RFormula& query) {
+    auto extra_name_factory = [this](Fun) { return Name::FromId(max_name_id_ + 1); };
+    for (const Alphabet::Symbol& s : query) {
+      if (s.tag == Alphabet::Symbol::kStrippedLit) {
+        const Fun f = s.u.a.fun();
+        const Name n = s.u.a.name();
+        domains_.FitForKey(f);
+        domains_[f].FitForKey(n, false);
+        if (!domains_[f][n]) {
+          domains_[f][n] = true;
+          max_name_id_ = std::max(int(n), max_name_id_);
+          sat_.Register(f, n, extra_name_factory);
+        }
+      } else {
+        assert(!s.stripped());
+      }
+    }
+  }
+
+  void ResetAndUpdateSat(const TermMap<Fun, bool>& wanted) {
+    auto extra_name_factory = [this](Fun) { return Name::FromId(max_name_id_ + 1); };
+    sat_.Reset(Sat::KeepLearnt(false),
+               [&wanted](Fun f) { return wanted.key_in_range(f) ? wanted[f] * kActivityOffset : 0.0; });
+    for (; sat_init_index_ < int(clauses_.size()); ++sat_init_index_) {
+      auto clause_it = clauses_not_yet_added_[sat_init_index_];
+      sat_.AddClause(*clause_it, extra_name_factory);
+    }
+  }
+
+  static constexpr double kActivityOffset = 1000.0;
+  static constexpr int    kMaxConflicts   = 50;
+
+  std::set<LitVec>                              clauses_;
+  std::vector<std::set<LitVec>::const_iterator> clauses_not_yet_added_;
+
+  TermMap<Fun, TermMap<Name, bool>> domains_;
+  int                               max_name_id_ = 0;
+
+  Sat sat_;
+  int sat_init_index_ = 0;
 };
 
 }  // namespace limbo
