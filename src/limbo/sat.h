@@ -37,6 +37,7 @@ class Sat {
   using CRef = Clause::Factory::CRef;
   struct DefaultActivity { double operator()(Fun) const { return 0.0; } };
   struct DefaultNogood { bool operator()(const TermMap<Fun, Name>&, std::vector<Lit>*) const { return false; } };
+  struct KeepLearnt { explicit KeepLearnt(bool yes) : yes(yes) {} bool yes; };
 
   explicit Sat() = default;
 
@@ -49,10 +50,11 @@ class Sat {
   void AddLiteral(const Lit a,
                   ExtraNameFunction extra_name = ExtraNameFunction(),
                   ActivityFunction activity = ActivityFunction()) {
+    assert(level_size_.empty());
+    Register(a.fun(), a.name(), extra_name(a.fun()), activity(a.fun()));
     // Cannot Enqueue() here because the domains aren't complete yet and
     // domain clause propagation might thus be incorrect. InitTrail() must
     // be called to Enqueue().
-    Register(a.fun(), a.name(), extra_name(a.fun()), activity(a.fun()));
     trail_.push_back(a);
   }
 
@@ -114,28 +116,42 @@ class Sat {
     Register(f, n, extra_name(f), activity(f));
   }
 
-  void Reset() {
-    if (current_level() != Level::kRoot) {
-      InitTrail();
-      Backtrack(Level::kRoot);
+  void Reset(KeepLearnt keep_learnt = KeepLearnt(true)) {
+    Level level = keep_learnt.yes ? Level::kRoot : Level::kBase;
+    if (level < current_level()) {
+      Backtrack(level);
+    }
+    if (!keep_learnt.yes) {
+      for (std::vector<CRef>& ws : watchers_.values()) {
+        for (auto cr = ws.begin(); cr != ws.end(); ) {
+          if (clausef_[*cr].learnt()) {
+            cr = ws.erase(cr);
+          } else {
+            ++cr;
+          }
+        }
+      }
+      int n_clauses = clauses_.size();
+      while (n_clauses >= 1 && clausef_[clauses_[n_clauses - 1]].learnt()) {
+        --n_clauses;
+      }
+      clauses_.resize(n_clauses);
     }
   }
 
   template<typename ActivityFunction>
-  void Reset(ActivityFunction activity = ActivityFunction()) {
-    Reset();
-    for (const Fun f : fun_activity_.keys()) {
-      const double old = fun_activity_[f];
-      fun_activity_[f] = activity(f);
-      if (fun_activity_[f] != old && fun_queue_.contains(f)) {
-        fun_queue_.Remove(f);
-        fun_queue_.Insert(f);
+  void Reset(KeepLearnt keep_learnt = KeepLearnt(true), ActivityFunction activity = ActivityFunction()) {
+    Reset(keep_learnt);
+    for (const Fun f : fun_activity_->keys()) {
+      if (fun_queue_.contains(f)) {
+        const double old = (*fun_activity_)[f];
+        (*fun_activity_)[f] = activity(f);
+        if ((*fun_activity_)[f] > old) {
+          fun_queue_.Increase(f);
+        } else if ((*fun_activity_)[f] < old) {
+          fun_queue_.Decrease(f);
+        }
       }
-      //if (fun_activity_[f] > old) {
-      //  fun_queue_.Increase(f);
-      //} else if (fun_activity_[f] < old) {
-      //  fun_queue_.Decrease(f);
-      //}
     }
   }
 
@@ -203,15 +219,14 @@ class Sat {
     while (go) {
       const CRef conflict = Propagate();
       if (conflict != CRef::kNull || nogood_predicate(model_, (nogood.clear(), &nogood))) {
-        if (current_level() == Level::kRoot) {
-          empty_clause_ = true;
+        if (current_level() <= Level::kRoot) {
           return Truth::kUnsat;
         }
         Level btlevel;
         Analyze(conflict, nogood, (learnt.clear(), &learnt), &btlevel);
+        assert(btlevel >= Level::kRoot && learnt.size() >= 1);
         go &= conflict_predicate(int(current_level()), conflict, learnt, int(btlevel));
         Backtrack(btlevel);
-        assert(learnt.size() >= 1);
         if (learnt.size() > 1) {
           const CRef cr = clausef_.New(learnt, Clause::NormalizationPromise(true));
           Clause& c = clausef_[cr];
@@ -242,12 +257,14 @@ class Sat {
       }
       assert(level_size_.back() < trail_.size());
     }
-    Backtrack(Level::kRoot);
+    if (current_level() > Level::kRoot) {
+      Backtrack(Level::kRoot);
+    }
     return Truth::kUnknown;
   }
 
  private:
-  enum class Level : int  { kNull = 0, kRoot = 1 };
+  enum class Level : int  { kBase = 0, kRoot = 1 };
 
   struct FunNameData {
     static constexpr bool kModelNeq = true;
@@ -272,7 +289,7 @@ class Sat {
       assert(!wanted);
       assert(occurs);
       model_neq = false;
-      level = unsigned(Level::kNull);
+      level = 0;
       reason = CRef::kNull;
     }
 
@@ -287,24 +304,10 @@ class Sat {
 
   class ActivityCompare {
    public:
-    explicit ActivityCompare(const TermMap<Fun, double>* fun_activity,
-                             const MinHeap<Fun, ActivityCompare>* fun_queue) {
-      const char* fa = reinterpret_cast<const char*>(fun_activity);
-      const char* fq = reinterpret_cast<const char*>(fun_queue);
-      diff_ = fq - fa;
-    }
-
-    bool operator()(const Fun f1, const Fun f2) const { return activity()[f1] > activity()[f2]; }
-
+    explicit ActivityCompare(const TermMap<Fun, double>* fa) : fa_(fa) {}
+    bool operator()(const Fun f1, const Fun f2) const { return (*fa_)[f1] > (*fa_)[f2]; }
    private:
-    const TermMap<Fun, double>& activity() const {
-      const char* that = reinterpret_cast<const char*>(this);
-      const char* addr = that - diff_;
-      const TermMap<Fun, double>* ptr = reinterpret_cast<const TermMap<Fun, double>*>(addr);
-      return *ptr;
-    }
-
-    std::ptrdiff_t diff_;
+    const TermMap<Fun, double>* fa_;
   };
 
 
@@ -327,9 +330,9 @@ class Sat {
   }
 
   void Bump(const Fun f, const double bump) {
-    fun_activity_[f] += bump;
-    if (fun_activity_[f] > kActivityThreshold) {
-      for (double& a : fun_activity_.values()) {
+    (*fun_activity_)[f] += bump;
+    if ((*fun_activity_)[f] > kActivityThreshold) {
+      for (double& a : fun_activity_->values()) {
         a /= kActivityThreshold;
       }
       fun_bump_step_ /= kActivityThreshold;
@@ -343,7 +346,7 @@ class Sat {
     }
   }
 
-  void BumpToFront(const Fun f) { Bump(f, fun_activity_[fun_queue_.top()] - fun_activity_[f] + fun_bump_step_); }
+  void BumpToFront(const Fun f) { Bump(f, (*fun_activity_)[fun_queue_.top()] - (*fun_activity_)[f] + fun_bump_step_); }
   void Bump(const Fun f)        { Bump(f, fun_bump_step_); }
 
   void DecayClause() { clause_bump_step_ /= kDecayFactor; }
@@ -598,7 +601,7 @@ class Sat {
       assert(falsifies(a));
       assert(!satisfies(a));
       const Level l = level_of_complementary(a);
-      if (l == Level::kRoot || seen_subsumed(a) || wanted_complementary_on_level(a, l)) {
+      if (l <= Level::kRoot || seen_subsumed(a) || wanted_complementary_on_level(a, l)) {
         return;
       }
       if (l < current_level()) {
@@ -661,6 +664,7 @@ class Sat {
         }
       }
       std::swap((*learnt)[1], (*learnt)[max]);
+      *btlevel = std::max(*btlevel, Level::kRoot);
     }
     assert(level_of(trail_a) > *btlevel && *btlevel >= Level::kRoot);
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return falsifies(a); }));
@@ -715,11 +719,12 @@ class Sat {
     assert(satisfies(a));
   }
 
-  void Backtrack(const Level l) {
-    for (auto a = trail_.rbegin(), e = trail_.rend() - level_size_[int(l)]; a != e; ++a) {
-      const bool p = a->pos();
-      const Fun f = a->fun();
-      const Name n = a->name();
+  void Backtrack(Level l) {
+    for (int i = trail_head_ - 1; i >= level_size_[int(l)]; --i) {
+      const Lit a = trail_[i];
+      const bool p = a.pos();
+      const Fun f = a.fun();
+      const Name n = a.name();
       if (p) {
         model_[f] = Name();
         --trail_eqs_;
@@ -734,11 +739,11 @@ class Sat {
         data_[f][n].popped = false;
       }
       data_[f][n].Reset();
-      assert(!satisfies(*a) && !falsifies(*a));
+      assert(!satisfies(a) && !falsifies(a));
       assert(domain_size_[f] - trail_neqs_[f] <= domain_[f].size());
     }
     trail_.resize(level_size_[int(l)]);
-    trail_head_ = trail_.size();
+    trail_head_ = level_size_[int(l)];
     level_size_.resize(int(l));
   }
 
@@ -771,8 +776,8 @@ class Sat {
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    return ((p && m == n) ||
-            (!p && ((!m.null() && m != n) || data_[f][n].model_neq)));
+    return (p && m == n) ||
+           (!p && ((!m.null() && m != n) || data_[f][n].model_neq));
   }
 
   bool falsifies(const Lit a) const {
@@ -780,8 +785,8 @@ class Sat {
     const Fun f = a.fun();
     const Name n = a.name();
     const Name m = model_[f];
-    return ((!p && m == n) ||
-            (p && ((!m.null() && m != n) || data_[f][n].model_neq)));
+    return (!p && m == n) ||
+           (p && ((!m.null() && m != n) || data_[f][n].model_neq));
   }
 
   bool satisfies(const Clause& c) const {
@@ -827,22 +832,25 @@ class Sat {
   void InitTrail() {
     std::vector<Lit> lits;
     lits.reserve(trail_.size() - trail_head_);
-    for (auto a = trail_.begin() + trail_head_, e = trail_.end(); a != e; ++a) {
-      lits.push_back(*a);
+    for (int i = trail_head_, s = trail_.size(); i < s; ++i) {
+      lits.push_back(trail_[i]);
     }
     for (const Lit a : lits) {
       if (falsifies(a)) {
         empty_clause_ = true;
-        return;
+        break;
       }
       Enqueue(a, CRef::kNull);
+    }
+    if (level_size_.empty()) {
+      AddNewLevel();
     }
   }
 
   void Register(const Fun f, const Name n, const Name extra_n, double activity) {
     FitMaps(f, n, extra_n);
     if (!fun_queue_.contains(f)) {
-      fun_activity_[f] = activity;
+      (*fun_activity_)[f] = activity;
       fun_queue_.Insert(f);
       if (!data_[f][extra_n].occurs) {
         data_[f][extra_n].occurs = true;
@@ -865,7 +873,7 @@ class Sat {
     const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_.head().upper_bound_index() + 1;
     if (fi >= 0) {
       fun_queue_.FitForIndex(fig);
-      fun_activity_.FitForIndex(fig);
+      fun_activity_->FitForIndex(fig);
       domain_.FitForIndex(fig);
       domain_size_.FitForIndex(fig);
       watchers_.FitForIndex(fig);
@@ -911,7 +919,7 @@ class Sat {
   // trail_eqs_ is the number of equalities on the trail.
   // trail_neqs_ is the number of inequalities on the trail for a function.
   std::vector<Lit>  trail_;
-  std::vector<int>  level_size_ = std::vector<int>(1, trail_.size());
+  std::vector<int>  level_size_;
   int               trail_head_ = 0;
   int               trail_eqs_  = 0;
   TermMap<Fun, int> trail_neqs_;
@@ -930,9 +938,9 @@ class Sat {
 
   // fun_activity_ assigns an activity to each function.
   // fun_queue_ ranks the clauses by activity (highest first).
-  TermMap<Fun, double>          fun_activity_;
-  MinHeap<Fun, ActivityCompare> fun_queue_{ActivityCompare(&fun_activity_, &fun_queue_)};
-  double                        fun_bump_step_ = kBumpStepInit;
+  std::unique_ptr<TermMap<Fun, double>> fun_activity_{new TermMap<Fun, double>()};
+  MinHeap<Fun, ActivityCompare>         fun_queue_{ActivityCompare(fun_activity_.get())};
+  double                                fun_bump_step_ = kBumpStepInit;
 };
 
 }  // namespace limbo

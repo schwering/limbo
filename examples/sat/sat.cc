@@ -26,6 +26,7 @@
 using namespace limbo;
 using namespace limbo::internal;
 
+#ifndef LIMBO_IO_OUTPUT_H_
 std::ostream& operator<<(std::ostream& os, const Fun f) {
   os << int(f);
   return os;
@@ -54,6 +55,7 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
   os << ')';
   return os;
 }
+#endif
 
 class Timer {
  public:
