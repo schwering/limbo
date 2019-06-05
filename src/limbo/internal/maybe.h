@@ -21,21 +21,20 @@ namespace internal {
 
 template<typename T>
 struct Maybe {
-  Maybe()                  : yes(false) {}
-  explicit Maybe(T&& val)  : val(std::forward<T>(val)), yes(true) {}
-  Maybe(bool yes, T&& val) : val(std::forward<T>(val)), yes(yes) {}
+  Maybe()                           : yes(false) {}
+  explicit Maybe(T&& val)           : val(std::forward<T>(val)), yes(true) {}
+  explicit Maybe(bool yes, T&& val) : val(std::forward<T>(val)), yes(yes) {}
+  ~Maybe() = default;
 
-  Maybe(const Maybe&) = default;
+  Maybe(const Maybe&)            = default;
   Maybe& operator=(const Maybe&) = default;
   template<typename U>
   Maybe(const Maybe<U>& m) : val(m.val), yes(m.yes) {}
 
-  Maybe(Maybe&&) = default;
+  Maybe(Maybe&&)            = default;
   Maybe& operator=(Maybe&&) = default;
   template<typename U>
   Maybe(Maybe<U>&& m) : val(m.val), yes(m.yes) {}
-
-  ~Maybe() = default;
 
   bool operator==(const Maybe& m) const { return yes == m.yes && (!yes || val == m.val); }
   bool operator!=(const Maybe& m) const { return !(*this == m); }

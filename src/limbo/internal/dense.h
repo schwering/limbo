@@ -180,6 +180,8 @@ class DenseMinHeap {
   DenseMinHeap& operator=(DenseMinHeap&&)      = default;
 
   void set_less(Less less) { less_ = less; }
+        Less& less()       { return less; }
+  const Less& less() const { return less; }
 
   void FitForElement(const T x) { index_.FitForKey(x); }
   void FitForIndex(const int i) { index_.FitForIndex(i); }

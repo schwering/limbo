@@ -464,8 +464,8 @@ class Alphabet : private internal::Singleton<Alphabet> {
     return s.tag == Symbol::kStrippedFun ? Unstrip(s.u.f_s) : Unstrip(s.u.n_s);
   }
 
-  RWord Unstrip(Fun f)  const { return term_fun_symbols_[f].readable(); }
-  RWord Unstrip(Name n) const { return term_name_symbols_[n].readable(); }
+  RWord Unstrip(Fun f)  const { return term_fun_symbols_.key_in_range(f) ? term_fun_symbols_[f].readable() : RWord(); }
+  RWord Unstrip(Name n) const { return term_name_symbols_.key_in_range(n) ? term_name_symbols_[n].readable() : RWord(); }
 
  private:
   struct DeepHash {
