@@ -115,8 +115,8 @@ class KnowledgeBase {
     //  }
     //}
     for (int i = 1; i <= 9; ++i) {
-      printf("x = %d, y = %d, i = %d, size = %lu\n", p.x, p.y, i, lim_sat_.clauses().size());
-      if (lim_sat_.Solve(k, eq(cellf(p), valn(i)).readable())) {
+      //printf("x = %d, y = %d, i = %d, size = %lu\n", p.x, p.y, i, lim_sat_.clauses().size());
+      if (!lim_sat_.Solve(k, eq(cellf(p), valn(i)).readable())) {
         return limbo::internal::Just(i);
       }
     }
@@ -155,7 +155,7 @@ class KnowledgeBase {
         *os << (i < 10 ? " " : "") << (a.pos() ? ' ' : '-') << i << '=' << j << ' ';
       }
       *os << '0' << std::endl;
-      *os << "c " << c << std::endl;
+      *os << "c Clause '" << c << "' has size " << c.size() << std::endl;
 next: {}
     }
   }
@@ -169,12 +169,10 @@ next: {}
   using LimSat  = limbo::LimSat;
 
   void Add(Formula&& f) {
-    Abc::DenseMap<Abc::Sort, std::vector<Name>> subst;
-    subst[sort_] = n_;
     //std::cout << f << std::endl;
     f.Normalize();
     //std::cout << f << std::endl;
-    f.Ground(subst);
+    f.Ground([this](const Abc::Sort) -> const auto& { return n_; });
     //std::cout << f << std::endl;
     f.Strip();
     //std::cout << f << std::endl;
@@ -183,8 +181,10 @@ next: {}
       std::cerr << "No clauses extracted from " << f << std::endl;
     } else {
       //std::cout << cs.val.size() << " clauses" << std::endl;
+      //for (std::vector<Lit>& c : cs.val) {
+      //  std::cout << c.size() << ": " << c << std::endl;
+      //}
       for (std::vector<Lit>& c : cs.val) {
-        //std::cout << c << std::endl;
         Add(std::move(c));
       }
     }
@@ -193,7 +193,7 @@ next: {}
 
   void Add(Lit a) { std::vector<Lit> c; c.push_back(a); Add(std::move(c)); }
 
-  void Add(std::vector<Lit>&& c) { lim_sat_.AddClause(std::move(c)); }
+  void Add(std::vector<Lit>&& c) { assert(!c.empty()); lim_sat_.AddClause(std::move(c)); }
 
   Abc& abc() const { return Abc::instance(); }
 

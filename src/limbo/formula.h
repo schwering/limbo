@@ -1340,16 +1340,16 @@ class Formula : private FormulaCommons {
 
   // Replaces existential and universal quantifiers with disjunctions or
   // conjunctions, respectively, over the names.
-  void Ground(const Abc::DenseMap<Abc::Sort, std::vector<class Name>>& subst) {
+  template<typename UnaryFunction>
+  void Ground(UnaryFunction sort_names) {
+    using Container = decltype(std::declval<UnaryFunction>()(Abc::Sort()));
+    using Iterator = decltype(std::declval<const Container>().begin());
     struct SubstitutionMarker {
-      explicit SubstitutionMarker(Abc::VarSymbol x,
-                                  std::vector<class Name>::const_iterator n_begin,
-                                  std::vector<class Name>::const_iterator n_end,
-                                  Scope scope)
+      explicit SubstitutionMarker(Abc::VarSymbol x, Iterator n_begin, Iterator n_end, Scope scope)
           : x(x), n_begin(n_begin), n_end(n_end), scope(scope) {}
       Abc::VarSymbol x;
-      std::vector<class Name>::const_iterator n_begin;
-      std::vector<class Name>::const_iterator n_end;
+      Iterator n_begin;
+      Iterator n_end;
       Scope scope;
     };
     std::vector<SubstitutionMarker> markers;
@@ -1359,21 +1359,21 @@ class Formula : private FormulaCommons {
       scoper.Munch(*it);
       if (it->tag == Abc::Symbol::kExists || it->tag == Abc::Symbol::kForall) {
         const Abc::VarSymbol x = it->u.x;
-        const std::vector<class Name>& names = subst[x.sort()];
+        const Container names = sort_names(x.sort());
+        const int arity = int(std::distance(names.begin(), names.end()));
         const Abc::Symbol::Ref first = std::next(it);
         Abc::Symbol::Ref before = End(first);
         Abc::Symbol::List subformula = word_.TakeOut(first, before);
-        for (int i = int(names.size()); i > 0; --i) {
+        for (int i = arity; i > 0; --i) {
           Abc::Symbol::List formula = subformula;
           const Abc::Symbol::Ref new_before = formula.begin();
           word_.PutIn(before, std::move(formula));
           before = new_before;
         }
-        if (!names.empty()) {
+        if (arity > 0) {
           markers.push_back(SubstitutionMarker(x, names.begin(), names.end(), scoper.scope()));
-          map[x] = names.front();
+          map[x] = *names.begin();
         }
-        const int arity = int(names.size());
         *it = it->tag == Abc::Symbol::kExists ? Abc::Symbol::Or(arity) : Abc::Symbol::And(arity);
       } else if (it->tag == Abc::Symbol::kVar) {
         const Abc::VarSymbol x = it->u.x;
