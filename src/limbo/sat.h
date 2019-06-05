@@ -82,7 +82,7 @@ class Sat {
         }
         if (falsifies(c[0]) || falsifies(c[1])) {
           auto better = [this, &c](int i, int j) {
-            return !falsifies(c[i]) || level_of_complementary(c[i]) > level_of_complementary(c[j]);
+            return !falsifies(c[i]) || (falsifies(c[j]) && level_of_complementary(c[i]) > level_of_complementary(c[j]));
           };
           if (better(1, 0)) {
             std::swap(c[0], c[1]);
@@ -118,6 +118,24 @@ class Sat {
     if (current_level() != Level::kRoot) {
       InitTrail();
       Backtrack(Level::kRoot);
+    }
+  }
+
+  template<typename ActivityFunction>
+  void Reset(ActivityFunction activity = ActivityFunction()) {
+    Reset();
+    for (const Fun f : fun_activity_.keys()) {
+      const double old = fun_activity_[f];
+      fun_activity_[f] = activity(f);
+      if (fun_activity_[f] != old && fun_queue_.contains(f)) {
+        fun_queue_.Remove(f);
+        fun_queue_.Insert(f);
+      }
+      //if (fun_activity_[f] > old) {
+      //  fun_queue_.Increase(f);
+      //} else if (fun_activity_[f] < old) {
+      //  fun_queue_.Decrease(f);
+      //}
     }
   }
 
@@ -267,11 +285,26 @@ class Sat {
     CRef reason;                  // clause which derived f = n or f != n
   };
 
-  struct ActivityCompare {
-    explicit ActivityCompare(const TermMap<Fun, double>* activity) : activity_(activity) {}
-    bool operator()(const Fun f1, const Fun f2) const { return (*activity_)[f1] > (*activity_)[f2]; }
+  class ActivityCompare {
+   public:
+    explicit ActivityCompare(const TermMap<Fun, double>* fun_activity,
+                             const MinHeap<Fun, ActivityCompare>* fun_queue) {
+      const char* fa = reinterpret_cast<const char*>(fun_activity);
+      const char* fq = reinterpret_cast<const char*>(fun_queue);
+      diff_ = fq - fa;
+    }
+
+    bool operator()(const Fun f1, const Fun f2) const { return activity()[f1] > activity()[f2]; }
+
    private:
-    const TermMap<Fun, double>* activity_;
+    const TermMap<Fun, double>& activity() const {
+      const char* that = reinterpret_cast<const char*>(this);
+      const char* addr = that - diff_;
+      const TermMap<Fun, double>* ptr = reinterpret_cast<const TermMap<Fun, double>*>(addr);
+      return *ptr;
+    }
+
+    std::ptrdiff_t diff_;
   };
 
 
@@ -898,7 +931,7 @@ class Sat {
   // fun_activity_ assigns an activity to each function.
   // fun_queue_ ranks the clauses by activity (highest first).
   TermMap<Fun, double>          fun_activity_;
-  MinHeap<Fun, ActivityCompare> fun_queue_{ActivityCompare(&fun_activity_)};
+  MinHeap<Fun, ActivityCompare> fun_queue_{ActivityCompare(&fun_activity_, &fun_queue_)};
   double                        fun_bump_step_ = kBumpStepInit;
 };
 
