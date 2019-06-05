@@ -237,7 +237,7 @@ class Clause::Factory {
     using size_t = unsigned int;
 
     explicit MemoryPool(size_t n = 1024 * 1024) { Capacitate(n); }
-    ~MemoryPool() { if (memory_) { std::free(memory_); } }
+    ~MemoryPool() = default;
 
     MemoryPool(const MemoryPool&)            = delete;
     MemoryPool& operator=(const MemoryPool&) = delete;
@@ -266,16 +266,20 @@ class Clause::Factory {
     CRef reference(const T* r) const { return r - &memory_[0]; }
 
    private:
+    struct Deleter {
+      void operator()(T* memory) { if (memory) { std::free(memory); } }
+    };
+
     void Capacitate(size_t n) {
       if (n > capacity_) {
         while (n > capacity_) {
           capacity_ += ((capacity_ / 2) + (capacity_ / 8) + 2) & ~1;
         }
-        memory_ = static_cast<T*>(std::realloc(memory_, capacity_ * sizeof(T)));
+        memory_.reset(static_cast<T*>(std::realloc(memory_.release(), capacity_ * sizeof(T))));
       }
     }
 
-    T* memory_ = nullptr;
+    std::unique_ptr<T[], Deleter> memory_ = nullptr;
     size_t capacity_ = 0;
     size_t size_ = 1;
   };
