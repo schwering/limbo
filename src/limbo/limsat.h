@@ -51,14 +51,19 @@ class LimSat {
     std::sort(as.begin(), as.end());
     auto p = clauses_.insert(std::move(as));
     if (p.second) {
-      clauses_not_yet_added_.push_back(p.first);
+      clauses_vec_.push_back(*p.first);
+      //clauses_not_yet_added_.push_back(p.first);
       for (const Lit a : *p.first) {
         const Fun f = a.fun();
         const Name n = a.name();
         domains_.FitForKey(f);
         domains_[f].FitForKey(n);
         domains_[f][n] = true;
-        max_name_id_ = std::max(int(n), max_name_id_);
+        extra_name_id_ = std::max(int(n), extra_name_id_);
+        if (!sat_.registered(f, n)) {
+          assert(!extra_name_registered_);
+          sat_.Register(f, n);
+        }
       }
     }
     return p.second;
@@ -232,19 +237,23 @@ class LimSat {
                        const bool wanted_is_must,
                        const TermMap<Fun, bool>& wanted) {
     //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
-//int NEW = 1;
-//    if (NEW) {
-      ResetAndUpdateSat(wanted);
-//    } else {
-//      sat_ = Sat();
-//      auto extra_name_factory = [this](Fun) { return Name::FromId(max_name_id_ + 1); };
-//      auto activity           = [&](const Fun f) -> double { return wanted[f] * kActivityOffset; };
-//      for (const std::vector<Lit>& as : clauses_) {
-//        sat_.AddClause(as, extra_name_factory, activity);
-//      }
-//      sat_.Reset(Sat::KeepLearnt(propagate_with_learnt),
-//                 [&wanted](Fun f) { return wanted.key_in_range(f) ? wanted[f] * kActivityOffset : 0.0; });
-//    }
+    auto activity = [&wanted](Fun f) { return wanted.key_in_range(f) ? wanted[f] * kActivityOffset : 0.0; };
+#if 0
+    InitSat(wanted);
+#else
+    sat_ = Sat();
+    for (const auto& c : clauses_vec_) {
+      for (const Lit a : c) {
+        sat_.Register(a.fun(), a.name(), activity);
+      }
+    }
+    sat_.RegisterExtraName(Name::FromId(extra_name_id_ + 1));
+    for (const auto& c : clauses_vec_) {
+      sat_.AddClause(c);
+    }
+    sat_.Reset(Sat::KeepLearnt(propagate_with_learnt), activity);
+#endif
+    sat_.Print();
     sat_.set_propagate_with_learnt(propagate_with_learnt);
     TermMap<Fun, Name> model;
     int n_conflicts = 0;
@@ -278,7 +287,6 @@ class LimSat {
   }
 
   void UpdateDomainsForQuery(const RFormula& query) {
-    auto extra_name_factory = [this](Fun) { return Name::FromId(max_name_id_ + 1); };
     for (const Alphabet::Symbol& s : query) {
       if (s.tag == Alphabet::Symbol::kStrippedLit) {
         const Fun f = s.u.a.fun();
@@ -287,8 +295,8 @@ class LimSat {
         domains_[f].FitForKey(n, false);
         if (!domains_[f][n]) {
           domains_[f][n] = true;
-          max_name_id_ = std::max(int(n), max_name_id_);
-          sat_.Register(f, n, extra_name_factory);
+          extra_name_id_ = std::max(int(n), extra_name_id_);
+          sat_.Register(f, n);
         }
       } else {
         assert(!s.stripped());
@@ -296,13 +304,22 @@ class LimSat {
     }
   }
 
-  void ResetAndUpdateSat(const TermMap<Fun, bool>& wanted) {
-    auto extra_name_factory = [this](Fun) { return Name::FromId(max_name_id_ + 1); };
-    sat_.Reset(Sat::KeepLearnt(false),
-               [&wanted](Fun f) { return wanted.key_in_range(f) ? wanted[f] * kActivityOffset : 0.0; });
+  template<typename ActivityFunction>
+  void InitSat(ActivityFunction activity = ActivityFunction()) {
+    if (!extra_name_registered_) {
+      sat_.RegisterExtraName(Name::FromId(extra_name_id_ + 1));
+      extra_name_registered_ = true;
+    } else {
+      sat_.Reset(Sat::KeepLearnt(false), activity);
+    }
+#if 0
     for (; sat_init_index_ < int(clauses_.size()); ++sat_init_index_) {
       auto clause_it = clauses_not_yet_added_[sat_init_index_];
-      sat_.AddClause(*clause_it, extra_name_factory);
+      sat_.AddClause(*clause_it);
+    }
+#endif
+    for (auto i = sat_.clauses().size() - 1; i < clauses_vec_.size(); ++i) {
+      sat_.AddClause(clauses_vec_[i]);
     }
   }
 
@@ -310,10 +327,12 @@ class LimSat {
   static constexpr int    kMaxConflicts   = 50;
 
   std::set<LitVec>                              clauses_;
-  std::vector<std::set<LitVec>::const_iterator> clauses_not_yet_added_;
+  std::vector<LitVec>                           clauses_vec_;
+  //std::vector<std::set<LitVec>::const_iterator> clauses_not_yet_added_;
 
   TermMap<Fun, TermMap<Name, bool>> domains_;
-  int                               max_name_id_ = 0;
+  bool                              extra_name_registered_ = false;
+  int                               extra_name_id_ = 0;
 
   Sat sat_;
   int sat_init_index_ = 0;

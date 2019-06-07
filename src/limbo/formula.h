@@ -480,7 +480,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
           case Symbol::kVar:          i = int(s.u.x);   break;
           case Symbol::kStrippedFun:  i = int(s.u.f_s); break;
           case Symbol::kStrippedName: i = int(s.u.n_s); break;
-          default:                                           break;
+          default:                                      break;
         }
         h ^= internal::jenkins_hash(s.tag);
         h ^= internal::jenkins_hash(i);

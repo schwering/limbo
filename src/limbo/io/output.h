@@ -187,6 +187,91 @@ std::ostream& operator<<(std::ostream& os, const limbo::internal::Maybe<T>& m) {
   return os;
 }
 
+#ifdef LIMBO_SAT_H_
+#ifndef NDEBUG
+void Sat::Print() const {
+  auto& o = std::cout;
+  auto e = '\n';
+  o << "empty_clause_ = " << std::boolalpha << empty_clause_ << e;
+  for (int i = 1; i < int(clauses_.size()); ++i) {
+    o << "clauses_[" << i << "] = " << int(clauses_[i]) << " = " << clausef_[clauses_[i]] << e;
+  }
+  for (const Fun f : watchers_.keys()) {
+    o << "watchers_[" << f << "] =";
+    for (const CRef cr : watchers_[f]) {
+      o << " " << int(cr);
+    }
+    o << e;
+  }
+  o << "propagate_with_learnt_ = " << std::boolalpha << propagate_with_learnt_ << e;
+  o << "clause_bump_step_ = " << clause_bump_step_ << e;
+  assert(std::all_of(trail_.begin(), trail_.end(), [this](Lit a) { return satisfies(a); }));
+  for (int i = 0; i < int(trail_.size()); ++i) {
+    o << "trail_[" << i << "] = " << trail_[i] << " at level " << int(level_of(trail_[i])) << " due to " << int(reason_of(trail_[i]));
+    if (reason_of(trail_[i]) == CRef::kNull) {
+    } else if (reason_of(trail_[i]) == CRef::kDomain) {
+      const Fun f = trail_[i].fun();
+      o << " = domain clause for " << f << ":";
+      for (const Name n : data_[f].keys()) {
+        if (data_[f][n].occurs) {
+          o << " " << n;
+        }
+      }
+    } else {
+      o << clausef_[reason_of(trail_[i])];
+    }
+    o << e;
+  }
+  for (int i = 0; i < int(level_size_.size()); ++i) {
+    o << "level_size_[" << i << "] = " << level_size_[i] << e;
+    for (int j = i == 0 ? 0 : level_size_[i-1]; j < level_size_[i]; ++j) {
+      assert(int(level_of(trail_[j])) == i);
+      assert(satisfies(trail_[j]));
+    }
+  }
+  o << "trail_head_ = " << trail_head_ << e;
+  o << "trail_eqs_ = " << trail_eqs_ << e;
+  for (const Fun f : domain_size_.keys()) {
+    o << "trail_neqs_[" << f << "] = " << trail_neqs_[f] << e;
+  }
+  for (const Fun f : domain_size_.keys()) {
+    o << "domain_size_[" << f << "] = " << domain_size_[f] << e;
+  }
+  for (const Fun f : domain_.keys()) {
+    o << "domain_[" << f << "] =";
+    for (int i = 0; i < domain_[f].size(); ++i) {
+      o << " " << domain_[f][i];
+    }
+    o << e;
+  }
+  for (const Fun f : model_.keys()) {
+    o << "model_[" << f << "] = " << model_[f] << e;
+  }
+  for (const Fun f : data_.keys()) {
+    for (const Name n : data_[f].keys()) {
+      o << "data_[" << f << "][" << n << "] = {" <<
+          "occurs = " << data_[f][n].occurs << ", " <<
+          "popped = " << data_[f][n].popped << ", " <<
+          "model_neq = " << data_[f][n].model_neq << ", " <<
+          "seen_subsumed = " << data_[f][n].seen_subsumed << ", " <<
+          "wanted = " << data_[f][n].wanted << ", " <<
+          "level = " << data_[f][n].level << ", " <<
+          "reason = " << int(data_[f][n].reason) << "} " << e;
+    }
+  }
+  for (const Fun f : fun_activity_->keys()) {
+    o << "fun_activity_[" << f << "] = " << (*fun_activity_)[f] << e;
+  }
+  o << "fun_queue_ =";
+  for (const Fun f : fun_queue_) {
+    o << " " << f;
+  }
+  o << e;
+  o << "fun_bump_step_ = " << fun_bump_step_ << e;
+}
+#endif
+#endif
+
 }  // namespace io
 }  // namespace limbo
 

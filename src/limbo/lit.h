@@ -173,11 +173,11 @@ struct IdToTerm {
   T operator()(const int i) const { return T::FromId(i); }
 };
 
-template<typename T, typename Val>
-using TermMap = internal::DenseMap<T, Val, int, 1, TermToId<T>, IdToTerm<T>, internal::NoBoundCheck>;
+template<typename T, typename Val, typename BoundCheck = internal::NoBoundCheck>
+using TermMap = internal::DenseMap<T, Val, int, 1, TermToId<T>, IdToTerm<T>, BoundCheck>;
 
-template<typename T, typename Less>
-using MinHeap = internal::DenseMinHeap<T, Less, int, 1, TermToId<T>, IdToTerm<T>, internal::NoBoundCheck>;
+template<typename T, typename Less, typename BoundCheck = internal::NoBoundCheck>
+using MinHeap = internal::DenseMinHeap<T, Less, int, 1, TermToId<T>, IdToTerm<T>, BoundCheck>;
 
 }  // namespace limbo
 

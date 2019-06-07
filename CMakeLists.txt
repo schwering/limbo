@@ -3,8 +3,8 @@ project (limbo)
 
 include (CTest)
 
-set (CMAKE_BUILD_TYPE Release)
-#set (CMAKE_BUILD_TYPE Debug)
+#set (CMAKE_BUILD_TYPE Release)
+set (CMAKE_BUILD_TYPE Debug)
 
 set (CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -34,7 +34,7 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     # because of missing copy assignment operators
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC")
 endif ()
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
+#set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
 
 # Release configuration
 if (CMAKE_BUILD_TYPE MATCHES Release)

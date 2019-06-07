@@ -98,6 +98,7 @@ static bool LoadCnf(std::istream& stream,
   Name T;
   Name F;
   cnf->clear();
+  bool header = false;
   bool prop = false;
   for (std::string line; std::getline(stream, line); ) {
     int n_funs;
@@ -108,6 +109,7 @@ static bool LoadCnf(std::istream& stream,
     } else if (line.length() >= 1 && line[0] == 'c') {
       // ignore comment
     } else if (sscanf(line.c_str(), "p cnf %d %d", &n_funs, &n_clauses) == 2) {  // propositional CNF
+      header = true;
       funs->clear();
       names->clear();
       CreateTerms([](int i) { return Fun::FromId(i); }, n_funs, funs);
@@ -118,6 +120,7 @@ static bool LoadCnf(std::istream& stream,
       *extra_name = T;
       prop = true;
     } else if (sscanf(line.c_str(), "p fcnf %d %d %d", &n_funs, &n_names, &n_clauses) == 3) {  // func CNF
+      header = true;
       funs->clear();
       names->clear();
       CreateTerms([](int i) { return Fun::FromId(i); }, n_funs, funs);
@@ -155,13 +158,18 @@ static bool LoadCnf(std::istream& stream,
         cnf->push_back(lits);
       } else {
         std::cerr << "Parse error: '" << line << "'" << std::endl;
+        std::abort();
       }
     }
+  }
+  if (!header) {
+    std::cerr << "Parse error: no header found" << std::endl;
+    std::abort();
   }
   return prop;
 }
 
-bool Solve(Sat* solver, int max_conflicts_init, int conflicts_increase) {
+bool Solve(Sat* sat, int max_conflicts_init, int conflicts_increase) {
   struct Stats {
     int n_conflicts             = 0;
     int n_decisions             = 0;
@@ -190,13 +198,13 @@ bool Solve(Sat* solver, int max_conflicts_init, int conflicts_increase) {
   t.start();
   for (int i = 0; truth == Sat::Truth::kUnknown; ++i) {
     max_conflicts = static_cast<int>(std::pow(conflicts_increase, i) * max_conflicts_init);
-    truth = solver->Solve(conflict_predicate, decision_predicate);
+    truth = sat->Solve(conflict_predicate, decision_predicate);
   }
   t.stop();
   printf("%s (in %.5lfs)\n", (truth == Sat::Truth::kSat ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
   printf("Clauses: %d | Propagate from learnt: %s\n",
-         int(solver->clauses().size()) - 1,
-         solver->propagate_with_learnt() ? "yes" : "no");
+         int(sat->clauses().size()) - 1,
+         sat->propagate_with_learnt() ? "yes" : "no");
   printf("Conflicts: %d (at average level %lf to average level %lf) | Decisions: %d (at average level %lf)\n",
          stats.n_conflicts,
          stats.avg_conflict_level,
@@ -206,7 +214,7 @@ bool Solve(Sat* solver, int max_conflicts_init, int conflicts_increase) {
   return truth == Sat::Truth::kSat;
 }
 
-void PrintSolution(const Sat& solver, const bool prop, const int n_columns, bool show_funs,
+void PrintSolution(const Sat& sat, const bool prop, const int n_columns, bool show_funs,
                    const std::vector<Fun>& funs, const std::vector<Name>& names,
                    const bool extra, const Name extra_name) {
   struct winsize ws;
@@ -216,7 +224,7 @@ void PrintSolution(const Sat& solver, const bool prop, const int n_columns, bool
   int i = 0;
   if (!prop) {
     for (const Fun f : funs) {
-      const Name n = solver.model()[f];
+      const Name n = sat.model()[f];
       if (!extra && n == extra_name) {
         continue;
       }
@@ -236,7 +244,7 @@ void PrintSolution(const Sat& solver, const bool prop, const int n_columns, bool
     }
   } else {
     for (const Fun f : funs) {
-      const Name n = solver.model()[f];
+      const Name n = sat.model()[f];
       if (!extra && n == extra_name) {
         continue;
       }
@@ -306,37 +314,44 @@ int main(int argc, char *argv[]) {
 
   Timer timer_total;
   timer_total.start();
-  Sat solver;
-  auto extra_name_factory = [extra_name](const Fun) { return extra_name; };
+  Sat sat;
   for (const std::vector<Lit>& lits : cnf) {
-    solver.AddClause(lits, extra_name_factory);
+    for (const Lit a : lits) {
+      if (!sat.registered(a.fun(), a.name())) {
+        sat.Register(a.fun(), a.name());
+      }
+    }
+  }
+  sat.RegisterExtraName(extra_name);
+  for (const std::vector<Lit>& lits : cnf) {
+    sat.AddClause(lits);
   }
   for (int i_iterations = 1; i_iterations <= n_iterations; ++i_iterations) {
-    solver.Simplify();
+    sat.Simplify();
     int i_models;
     for (i_models = 0; i_models < n_models || n_models < 0; ++i_models) {
-      solver.set_propagate_with_learnt(true);
-      //solver.set_propagate_with_learnt(false);
-      const bool sat = Solve(&solver, n_conflicts_before_restart, 2);
-      if (!sat) {
+      sat.set_propagate_with_learnt(true);
+      //sat.set_propagate_with_learnt(false);
+      const bool satisfied = Solve(&sat, n_conflicts_before_restart, 2);
+      if (!satisfied) {
         break;
       }
       if (n_columns >= 0) {
-        PrintSolution(solver, prop, n_columns, show_funs, funs, names, extra, extra_name);
+        PrintSolution(sat, prop, n_columns, show_funs, funs, names, extra, extra_name);
       }
       std::vector<Lit> lits;
       for (const Fun f : funs) {
-        const Name n = solver.model()[f];
+        const Name n = sat.model()[f];
         lits.push_back(Lit::Neq(f, n));
       }
       if (n_models != 1) {
-        solver.AddClause(lits, extra_name_factory);
+        sat.AddClause(lits);
       }
     }
     if (n_models != 1) {
       std::cout << "Found " << i_models << " models" << std::endl;
     }
-    solver.Reset();
+    sat.Reset();
   }
   timer_total.stop();
   if (timer_total.rounds() > 1) {
