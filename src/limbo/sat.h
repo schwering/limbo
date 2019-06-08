@@ -67,6 +67,7 @@ class Sat {
     for (const Fun f : data_.keys()) {
       if (fun_queue_.contains(f)) {
         FitMaps(f, n);
+        assert(!data_[f][n].occurs);
         if (!data_[f][n].occurs) {
           data_[f][n].occurs = true;
           domain_[f].PushBack(n);
@@ -173,7 +174,6 @@ class Sat {
   }
 
   void Simplify() {
-    assert(current_level() == Level::kBase);
     if (empty_clause_) {
       return;
     }
@@ -241,7 +241,7 @@ class Sat {
       const CRef conflict = Propagate();
       if (conflict != CRef::kNull || nogood_predicate(model_, (nogood.clear(), &nogood))) {
         if (current_level() <= Level::kRoot) {
-          assert(Invariants());
+          assert(Invariants(true));
           return Truth::kUnsat;
         }
         Level btlevel;
@@ -282,10 +282,11 @@ class Sat {
         EnqueueEq(a, CRef::kNull);
       }
     }
-    assert(Invariants());
-    if (current_level() > Level::kRoot) {
-      Backtrack(Level::kRoot);
+    assert(Invariants(true));
+    if (current_level() > Level::kBase) {
+      Backtrack(Level::kBase);
     }
+    assert(Invariants());
     return Truth::kUnknown;
   }
 
@@ -749,7 +750,7 @@ class Sat {
 
   void Backtrack(Level l) {
     assert(std::all_of(trail_.begin(), trail_.end(), [this](Lit a) { return satisfies(a); }));
-    for (int i = trail_head_ - 1; i >= level_size_[int(l)]; --i) {
+    for (int i = int(trail_.size()) - 1; i >= level_size_[int(l)]; --i) {
       const Lit a = trail_[i];
       const bool p = a.pos();
       const Fun f = a.fun();
@@ -888,9 +889,9 @@ class Sat {
   }
 
 #ifndef NDEBUG
-  bool Invariants() const;
+  bool Invariants(bool allow_inconsistency = false) const;
 #else
-  void Invariants() const {}
+  void Invariants(bool = false) const {}
 #endif
 
 
@@ -944,7 +945,7 @@ class Sat {
 };
 
 #ifndef NDEBUG
-bool Sat::Invariants() const {
+bool Sat::Invariants(bool allow_inconsistency) const {
   // Trail.
   assert(trail_head_ <= int(trail_.size()));
   int trail_eqs = 0;
@@ -965,7 +966,7 @@ bool Sat::Invariants() const {
   for (Fun f : trail_neqs_.keys()) {
     assert(trail_neqs[f] == trail_neqs_[f]);
   }
-  assert(level_size_.empty() || level_size_.back() <= trail_.size());
+  assert(level_size_.empty() || level_size_.back() <= int(trail_.size()));
   for (int i = 0; i < int(level_size_.size()); ++i) {
     for (int j = i == 0 ? 0 : level_size_[i-1]; j < level_size_[i]; ++j) {
       assert(int(level_of(trail_[j])) == i);
@@ -975,7 +976,7 @@ bool Sat::Invariants() const {
     assert(int(level_of(trail_[j])) == int(current_level()));
   }
   // Clauses
-  for (int i = 1; i < int(clauses_.size()); ++i) {
+  for (int i = 1; i < int(clauses_.size()) && !allow_inconsistency; ++i) {
     const CRef cr = clauses_[i];
     const Clause& c = clausef_[cr];
     if (c.learnt() && !propagate_with_learnt_) {
@@ -1032,9 +1033,9 @@ bool Sat::Invariants() const {
       }
     }
     assert(domain_size_[f] == occurs);
-    assert(domain_[f].size() + popped == occurs);
+    assert(domain_size_[f] == domain_[f].size() + popped);
     assert(occurs == 0 || !model_[f].null() || fun_queue_.contains(f));
-    assert(domain_size_[f] - trail_neqs_[f] <= domain_[f].size() + popped && domain_[f].size() + popped <= domain_size_[f]);
+    assert((occurs == 0 && trail_neqs_[f] == 0) || trail_neqs_[f] < occurs);
   }
   assert(fun_bump_step_ >= 0.0);
   return true;

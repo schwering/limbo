@@ -59,7 +59,7 @@ class LimSat {
         domains_.FitForKey(f);
         domains_[f].FitForKey(n);
         domains_[f][n] = true;
-        extra_name_id_ = std::max(int(n), extra_name_id_);
+        extra_name_id_ = std::max(int(n) + 1, extra_name_id_);
         if (!sat_.registered(f, n)) {
           assert(!extra_name_registered_);
           sat_.Register(f, n);
@@ -239,7 +239,7 @@ class LimSat {
     //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
     auto activity = [&wanted](Fun f) { return wanted.key_in_range(f) ? wanted[f] * kActivityOffset : 0.0; };
 #if 0
-    InitSat(wanted);
+    InitSat(activity);
 #else
     sat_ = Sat();
     for (const auto& c : clauses_vec_) {
@@ -247,13 +247,13 @@ class LimSat {
         sat_.Register(a.fun(), a.name(), activity);
       }
     }
-    sat_.RegisterExtraName(Name::FromId(extra_name_id_ + 1));
+    sat_.RegisterExtraName(Name::FromId(extra_name_id_));
     for (const auto& c : clauses_vec_) {
       sat_.AddClause(c);
     }
     sat_.Reset(Sat::KeepLearnt(propagate_with_learnt), activity);
 #endif
-    sat_.Print();
+    //sat_.Print();
     sat_.set_propagate_with_learnt(propagate_with_learnt);
     TermMap<Fun, Name> model;
     int n_conflicts = 0;
@@ -295,7 +295,7 @@ class LimSat {
         domains_[f].FitForKey(n, false);
         if (!domains_[f][n]) {
           domains_[f][n] = true;
-          extra_name_id_ = std::max(int(n), extra_name_id_);
+          extra_name_id_ = std::max(int(n) + 1, extra_name_id_);
           sat_.Register(f, n);
         }
       } else {
@@ -307,7 +307,7 @@ class LimSat {
   template<typename ActivityFunction>
   void InitSat(ActivityFunction activity = ActivityFunction()) {
     if (!extra_name_registered_) {
-      sat_.RegisterExtraName(Name::FromId(extra_name_id_ + 1));
+      sat_.RegisterExtraName(Name::FromId(extra_name_id_));
       extra_name_registered_ = true;
     } else {
       sat_.Reset(Sat::KeepLearnt(false), activity);
@@ -332,7 +332,7 @@ class LimSat {
 
   TermMap<Fun, TermMap<Name, bool>> domains_;
   bool                              extra_name_registered_ = false;
-  int                               extra_name_id_ = 0;
+  int                               extra_name_id_ = 1;
 
   Sat sat_;
   int sat_init_index_ = 0;

@@ -187,9 +187,12 @@ std::ostream& operator<<(std::ostream& os, const limbo::internal::Maybe<T>& m) {
   return os;
 }
 
+}  // namespace io
+
 #ifdef LIMBO_SAT_H_
 #ifndef NDEBUG
 void Sat::Print() const {
+  using limbo::io::operator<<;
   auto& o = std::cout;
   auto e = '\n';
   o << "empty_clause_ = " << std::boolalpha << empty_clause_ << e;
@@ -272,7 +275,6 @@ void Sat::Print() const {
 #endif
 #endif
 
-}  // namespace io
 }  // namespace limbo
 
 using limbo::io::operator<<;  // I too often forget this, so for now, it's here
