@@ -674,25 +674,25 @@ class RFormula : private FormulaCommons {
     assert(nnf());
     struct ConnectiveMarker {
       explicit ConnectiveMarker() = default;
-      explicit ConnectiveMarker(bool conjunctive, const std::vector<Lit>& reason, Scope scope)
-          : conjunctive(conjunctive), backtrack(int(reason.size())), scope(scope) {}
+      explicit ConnectiveMarker(bool conjunctive, const std::vector<Lit>* reason, Scope scope)
+          : conjunctive(conjunctive), backtrack(int(reason != nullptr ? reason->size() : 0)), scope(scope) {}
       bool conjunctive = false;
       int backtrack;
       int satisfied = 2 * conjunctive - 1;
       Scope scope;
     };
-    auto unexplain = [&reason](const ConnectiveMarker& m) { reason->resize(m.backtrack); };
+    auto unexplain = [&reason](const ConnectiveMarker& m) { if (reason != nullptr) { reason->resize(m.backtrack); } };
     std::vector<ConnectiveMarker> s;
     Scope::Observer scoper;
-    s.push_back(ConnectiveMarker(false, *reason, scoper.scope()));
+    s.push_back(ConnectiveMarker(false, reason, scoper.scope()));
     for (auto it = begin(); it != end(); ) {
       switch (it->tag) {
         case Abc::Symbol::kOr: {
-          s.push_back(ConnectiveMarker(false, *reason, scoper.scope()));
+          s.push_back(ConnectiveMarker(false, reason, scoper.scope()));
           break;
         }
         case Abc::Symbol::kAnd: {
-          s.push_back(ConnectiveMarker(true, *reason, scoper.scope()));
+          s.push_back(ConnectiveMarker(true, reason, scoper.scope()));
           break;
         }
         case Abc::Symbol::kStrippedLit: {
@@ -700,11 +700,13 @@ class RFormula : private FormulaCommons {
           if (cm.conjunctive == (cm.satisfied > 0)) {
             const Lit a = it->u.a;
             const Fun f = a.fun();
-            const Name m = model[f];
+            const Name m = model.key_in_range(f) ? model[f] : Name();
             const Name n = a.name();
             cm.satisfied = m.null() ? 0 : a.pos() == (m == n) ? 1 : -1;
             if (cm.satisfied > 0) {
-              reason->push_back(a);
+              if (reason != nullptr) {
+                reason->push_back(a);
+              }
             } else {
               unexplain(cm);
             }

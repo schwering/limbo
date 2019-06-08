@@ -36,9 +36,9 @@ class Sat {
  public:
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
+  struct KeepLearnt { explicit KeepLearnt(bool yes) : yes(yes) {} bool yes; };
   struct DefaultActivity { double operator()(Fun) const { return 0.0; } };
   struct DefaultNogood { bool operator()(const TermMap<Fun, Name>&, std::vector<Lit>*) const { return false; } };
-  struct KeepLearnt { explicit KeepLearnt(bool yes) : yes(yes) {} bool yes; };
 
   explicit Sat() = default;
 
@@ -122,8 +122,7 @@ class Sat {
               }
             }
           }
-          assert(!falsifies(c[0]) || std::all_of(c.begin() + 1, c.end(), [this, &c](const Lit a) { return falsifies(a) && level_of_complementary(c[0]) >= level_of_complementary(a); }));
-          assert(!falsifies(c[1]) || std::all_of(c.begin() + 2, c.end(), [this, &c](const Lit a) { return falsifies(a) && level_of_complementary(c[1]) >= level_of_complementary(a); }));
+          assert([better](int i) { while (--i > 0) { if (better(i, i-1)) { return false; } } return true; }(c.size()));
         }
         clauses_.push_back(cr);
         Watch(cr, c);
@@ -147,11 +146,11 @@ class Sat {
           }
         }
       }
-      int n_clauses = clauses_.size();
-      while (n_clauses >= 1 && clausef_[clauses_[n_clauses - 1]].learnt()) {
-        --n_clauses;
+      int i = clauses_.size() - 1;
+      while (i >= 1 && clausef_[clauses_[i]].learnt()) {
+        --i;
       }
-      clauses_.resize(n_clauses);
+      clauses_.resize(i + 1);
     }
     assert(Invariants());
   }
@@ -160,12 +159,13 @@ class Sat {
   void Reset(KeepLearnt keep_learnt = KeepLearnt(true), ActivityFunction activity = ActivityFunction()) {
     Reset(keep_learnt);
     for (const Fun f : fun_activity_->keys()) {
+      const double old_act = (*fun_activity_)[f];
+      const double new_act = activity(f);
+      (*fun_activity_)[f] = new_act;
       if (fun_queue_.contains(f)) {
-        const double old = (*fun_activity_)[f];
-        (*fun_activity_)[f] = activity(f);
-        if ((*fun_activity_)[f] > old) {
+        if (new_act > old_act) {
           fun_queue_.Increase(f);
-        } else if ((*fun_activity_)[f] < old) {
+        } else if (new_act < old_act) {
           fun_queue_.Decrease(f);
         }
       }
@@ -249,7 +249,7 @@ class Sat {
         assert(btlevel >= Level::kRoot && learnt.size() >= 1);
         go &= conflict_predicate(int(current_level()), conflict, learnt, int(btlevel));
         Backtrack(btlevel);
-        assert(Invariants());
+        assert(Invariants() && !learnt.empty());
         if (learnt.size() > 1) {
           const CRef cr = clausef_.New(learnt, Clause::NormalizationPromise(true));
           Clause& c = clausef_[cr];
@@ -282,9 +282,8 @@ class Sat {
         EnqueueEq(a, CRef::kNull);
       }
     }
-    assert(Invariants(true));
-    if (current_level() > Level::kBase) {
-      Backtrack(Level::kBase);
+    if (current_level() > Level::kRoot) {
+      Backtrack(Level::kRoot);
     }
     assert(Invariants());
     return Truth::kUnknown;

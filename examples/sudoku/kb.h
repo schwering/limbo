@@ -104,7 +104,6 @@ class KnowledgeBase {
   void Add(Point p, int i) { Add(eq(cellf(p), valn(i))); }
 
   Maybe<int> Val(Point p, int k) {
-    std::cout << "CALLING THE SOLVER LimSat" << std::endl;
     t_.start();
     //const Maybe<Name> r = lim_sat_.Determines(k, cell(p));
     //if (r) {
@@ -115,13 +114,18 @@ class KnowledgeBase {
     //    }
     //  }
     //}
+#if 0
+    if (!lim_sat_.Solve(k, eq(cellf(p), valn(2)).readable())) {
+      return limbo::internal::Just(2);
+    }
+#else
     for (int i = 1; i <= 9; ++i) {
       //printf("x = %d, y = %d, i = %d, size = %lu\n", p.x, p.y, i, lim_sat_.clauses().size());
       if (!lim_sat_.Solve(k, eq(cellf(p), valn(i)).readable())) {
-        std::abort();
         return limbo::internal::Just(i);
       }
     }
+#endif
     t_.stop();
     return limbo::internal::Nothing;
   }

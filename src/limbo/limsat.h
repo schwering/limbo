@@ -29,6 +29,8 @@
 #include <limbo/internal/dense.h>
 #include <limbo/internal/subsets.h>
 
+#include <limbo/io/output.h>
+
 namespace limbo {
 
 class LimSat {
@@ -205,13 +207,13 @@ class LimSat {
       if (!fm.succ) {
         return FoundCoveringModels();
       }
+      if (min_model_size == 0) {
+        return FoundCoveringModels(std::move(models), std::move(newly_assigned_in));
+      }
       AssignedFunctions gaf = GetAndUnwantNewlyAssignedFunctions(fm.model, &wanted);
       if (gaf.newly_assigned.empty() && !wanted_is_must) {
         wanted_is_must = true;
         continue;
-      }
-      if (gaf.newly_assigned.empty() && min_model_size == 0) {
-        return FoundCoveringModels();
       }
       // Remove previous models that assign a subset of the newly found model.
       for (int i = 0; i < int(models.size()); ) {
@@ -277,7 +279,7 @@ class LimSat {
       //printf("FindModel %d: true, model_size = %d, assignment =", __LINE__, sat_.model_size()); for (const Fun f : sat_.model().keys()) { if (assigns(sat_.model(), f)) { printf(" (%d = %d)", int(f), int(sat_.model()[f])); } } printf("\n");
       assert(AssignsAll(sat_.model(), wanted));
       return FoundModel(sat_.model());
-    } else if (model_size >= min_model_size) {
+    } else if (model_size >= min_model_size && !query.SatisfiedBy(model, nullptr)) {
       //printf("FindModel %d: true, model_size = %d, assignment =", __LINE__, model_size); for (const Fun f : model.keys()) { if (assigns(model, f)) { printf(" (%d = %d)", int(f), int(model[f])); } } printf("\n");
       return FoundModel(std::move(model));
     } else {
@@ -309,17 +311,10 @@ class LimSat {
     if (!extra_name_registered_) {
       sat_.RegisterExtraName(Name::FromId(extra_name_id_));
       extra_name_registered_ = true;
-    } else {
-      sat_.Reset(Sat::KeepLearnt(false), activity);
     }
-#if 0
-    for (; sat_init_index_ < int(clauses_.size()); ++sat_init_index_) {
-      auto clause_it = clauses_not_yet_added_[sat_init_index_];
-      sat_.AddClause(*clause_it);
-    }
-#endif
-    for (auto i = sat_.clauses().size() - 1; i < clauses_vec_.size(); ++i) {
-      sat_.AddClause(clauses_vec_[i]);
+    sat_.Reset(Sat::KeepLearnt(false), activity);
+    for (; sat_init_index_ < int(clauses_vec_.size()); ++sat_init_index_) {
+      sat_.AddClause(clauses_vec_[sat_init_index_]);
     }
   }
 

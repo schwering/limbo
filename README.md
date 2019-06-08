@@ -1,6 +1,6 @@
 # A Reasoning System for First-Order Limited Belief
 
-_Note: This `rewrite` branch is far from finished. Check out the `master` branch for a more stable version._
+_Note: This `rewrite` branch is far from finished. Check out the `master` branch for a more stable version. Most of the below text refers to the old version (in particular, the web demos are still running a version from 2017)._
 
 Limbo is a **reasoning system** for modelling and querying an agent's
 knowledge. Limbo features a **highly expressive** modelling language
