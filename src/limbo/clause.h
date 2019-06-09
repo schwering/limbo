@@ -150,7 +150,7 @@ next: {}
  private:
   explicit Clause(const Lit a) {
     h_.size = 1;
-    h_.learnt = 0;
+    h_.learnt = false;
     as_[0] = a;
     assert(Normalized());
   }
@@ -160,6 +160,7 @@ next: {}
                   NormalizationPromise normalization = NormalizationPromise(false),
                   InvalidityPromise invalid = InvalidityPromise(false)) {
     h_.size = size;
+    h_.learnt = false;
     std::memcpy(begin(), first, size * sizeof(Lit));
     if (!normalization.promised) {
       size = Normalize(h_.size, as_, invalid);
