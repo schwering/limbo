@@ -31,9 +31,9 @@ class KnowledgeBaseAgent : public Agent {
 
   limbo::internal::Maybe<Result> Explore() override {
 #if 0
-  Point p(1, 1);
+  Point p(1, 2);
   if (g_->get(p) == 0) {
-    const int k = 1;
+    const int k = 0;
     const limbo::internal::Maybe<int> r = kb_->Val(p, k);
     if (r) {
       const int n = r.val;
@@ -44,8 +44,8 @@ class KnowledgeBaseAgent : public Agent {
   }
 #else
     for (int k = 0; k <= kb_->max_k(); ++k) {
-      for (int x = 1; x <= 9; ++x) {
-        for (int y = 1; y <= 9; ++y) {
+      for (int y = 1; y <= 9; ++y) {
+        for (int x = 1; x <= 9; ++x) {
           Point p(x, y);
           if (g_->get(p) == 0) {
             const limbo::internal::Maybe<int> r = kb_->Val(p, k);

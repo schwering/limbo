@@ -161,17 +161,22 @@ class LimSat {
     // {1,2}, {2,3}, {1,3}, and {3,4}, {4,5}, {3,5}.
     const FoundCoveringModels fcm = FindCoveringModels(min_model_size, query);
     if (!fcm.all_covered) {
+      //std::cout << __FILE__ << ":" << __LINE__ << " " << query << std::endl;
       return false;
     }
     // Now find models for sets for which models aren't implied yet.
     // In the example, the sets {{x,y} | x in {1,2,3}, y in {4,5}} that are not
     // subsets of {1,2,3} or {3,4,5}.
+    //std::cout << __FILE__ << ":" << __LINE__ << " " << query << std::endl;
+    //std::cout << __FILE__ << ":" << __LINE__ << " min_model_size=" << min_model_size << std::endl;
+    //std::cout << __FILE__ << ":" << __LINE__ << " fcm.newly_assigned_in=" << fcm.newly_assigned_in << std::endl;
     return internal::AllCombinedSubsetsOfSize(fcm.newly_assigned_in, min_model_size,
                                               [&](const std::vector<Fun>& must) -> bool {
       // Skip sets of functions that have been covered already.
       // In the example, {3,4} and {3,5} are implied by M2.
       for (const TermMap<Fun, Name>& model : fcm.models) {
         if (AssignsAll(model, must)) {
+          //std::cout << __FILE__ << ":" << __LINE__ << " " << query << std::endl;
           return true;
         }
       }
@@ -183,6 +188,7 @@ class LimSat {
       constexpr bool propagate_with_learnt = false;
       constexpr bool wanted_is_must = true;
       const FoundModel fm = FindModel(min_model_size, query, propagate_with_learnt, wanted_is_must, wanted);
+      //std::cout << __FILE__ << ":" << __LINE__ << " " << query << " " << fm.succ << std::endl;
       return fm.succ;
     });
   }
@@ -201,17 +207,21 @@ class LimSat {
       //printf("FindCoveringModels:%d\n", __LINE__);
       const FoundModel fm = FindModel(min_model_size, query, propagate_with_learnt, wanted_is_must, wanted);
       if (!fm.succ && propagate_with_learnt) {
+        //std::cout << __FILE__ << ":" << __LINE__ << " " << query << " | " << query.head().u.a.fun() << " = " << (fm.model.key_in_range(query.head().u.a.fun()) ? fm.model[query.head().u.a.fun()] : Name()) << std::endl;
         propagate_with_learnt = false;
         continue;
       }
       if (!fm.succ) {
+        //std::cout << __FILE__ << ":" << __LINE__ << " " << query << " | " << query.head().u.a.fun() << " = " << (fm.model.key_in_range(query.head().u.a.fun()) ? fm.model[query.head().u.a.fun()] : Name()) << std::endl;
         return FoundCoveringModels();
       }
       if (min_model_size == 0) {
+        //std::cout << __FILE__ << ":" << __LINE__ << " " << query << " | " << query.head().u.a.fun() << " = " << (fm.model.key_in_range(query.head().u.a.fun()) ? fm.model[query.head().u.a.fun()] : Name()) << std::endl;
         return FoundCoveringModels(std::move(models), std::move(newly_assigned_in));
       }
       AssignedFunctions gaf = GetAndUnwantNewlyAssignedFunctions(fm.model, &wanted);
       if (gaf.newly_assigned.empty() && !wanted_is_must) {
+        //std::cout << __FILE__ << ":" << __LINE__ << " " << query << " | " << query.head().u.a.fun() << " = " << (fm.model.key_in_range(query.head().u.a.fun()) ? fm.model[query.head().u.a.fun()] : Name()) << std::endl;
         wanted_is_must = true;
         continue;
       }
@@ -228,6 +238,7 @@ class LimSat {
       models.push_back(fm.model);
       newly_assigned_in.push_back(gaf.newly_assigned);
       if (gaf.all_assigned) {
+        //std::cout << __FILE__ << ":" << __LINE__ << " " << query << " | " << query.head().u.a.fun() << " = " << (fm.model.key_in_range(query.head().u.a.fun()) ? fm.model[query.head().u.a.fun()] : Name()) << std::endl;
         return FoundCoveringModels(std::move(models), std::move(newly_assigned_in));
       }
     }
@@ -253,35 +264,40 @@ class LimSat {
     for (const auto& c : clauses_vec_) {
       sat_.AddClause(c);
     }
-    sat_.Reset(Sat::KeepLearnt(propagate_with_learnt), activity);
+    //sat_.Reset(Sat::KeepLearnt(propagate_with_learnt), activity);
 #endif
-    //sat_.Print();
     sat_.set_propagate_with_learnt(propagate_with_learnt);
-    TermMap<Fun, Name> model;
+    TermMap<Fun, Name> partial_model;
+    int partial_model_size = -1;
     int n_conflicts = 0;
-    int model_size = 0;
     const Sat::Truth truth = sat_.Solve(
         [&](int, Sat::CRef, const LitVec&, int) -> bool {
           return ++n_conflicts <= kMaxConflicts;
         },
         [&](int, Lit) -> bool {
-          if (min_model_size <= sat_.model_size() && model_size < sat_.model_size() &&
-              (!wanted_is_must || AssignsAll(sat_.model(), wanted))) {
-            model_size = sat_.model_size();
-            model = sat_.model();
+          if (min_model_size <= sat_.model_size() && partial_model_size < sat_.model_size() &&
+              (!wanted_is_must || AssignsAll(sat_.model(), wanted)) && !query.SatisfiedBy(partial_model, nullptr)) {
+            partial_model_size = sat_.model_size();
+            partial_model = sat_.model();
           }
           return true;
         },
         [&](const TermMap<Fun, Name>& model, LitVec* nogood) {
-          return query.SatisfiedBy(model, nogood);
+          const bool sat = query.SatisfiedBy(model, nogood);
+          if (!sat && min_model_size <= sat_.model_size() && partial_model_size < sat_.model_size() &&
+              (!wanted_is_must || AssignsAll(sat_.model(), wanted))) {
+            partial_model_size = sat_.model_size();
+            partial_model = sat_.model();
+          }
+          return sat;
         });
     if (truth == Sat::Truth::kSat) {
-      //printf("FindModel %d: true, model_size = %d, assignment =", __LINE__, sat_.model_size()); for (const Fun f : sat_.model().keys()) { if (assigns(sat_.model(), f)) { printf(" (%d = %d)", int(f), int(sat_.model()[f])); } } printf("\n");
+      //printf("FindModel %d: true, partial_model_size = %d, assignment =", __LINE__, sat_.model_size()); for (const Fun f : sat_.model().keys()) { if (assigns(sat_.model(), f)) { printf(" (%d = %d)", int(f), int(sat_.model()[f])); } } printf("\n");
       assert(AssignsAll(sat_.model(), wanted));
       return FoundModel(sat_.model());
-    } else if (model_size >= min_model_size && !query.SatisfiedBy(model, nullptr)) {
-      //printf("FindModel %d: true, model_size = %d, assignment =", __LINE__, model_size); for (const Fun f : model.keys()) { if (assigns(model, f)) { printf(" (%d = %d)", int(f), int(model[f])); } } printf("\n");
-      return FoundModel(std::move(model));
+    } else if (partial_model_size >= min_model_size && !query.SatisfiedBy(partial_model, nullptr)) {
+      //printf("FindModel %d: true, partial_model_size = %d, assignment =", __LINE__, partial_model_size); for (const Fun f : partial_model.keys()) { if (assigns(partial_model, f)) { printf(" (%d = %d)", int(f), int(partial_model[f])); } } printf("\n");
+      return FoundModel(std::move(partial_model));
     } else {
       //printf("FindModel %d: false\n", __LINE__);
       return FoundModel();

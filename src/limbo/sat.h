@@ -404,7 +404,7 @@ class Sat {
   CRef Propagate() {
     CRef conflict = CRef::kNull;
     while (trail_head_ < int(trail_.size()) && conflict == CRef::kNull) {
-      Lit a = trail_[trail_head_++];
+      const Lit a = trail_[trail_head_++];
       conflict = Propagate(a);
     }
     return conflict;
@@ -748,6 +748,7 @@ class Sat {
   }
 
   void Backtrack(Level l) {
+    assert(trail_head_ == int(trail_.size()));
     assert(std::all_of(trail_.begin(), trail_.end(), [this](Lit a) { return satisfies(a); }));
     for (int i = int(trail_.size()) - 1; i >= level_size_[int(l)]; --i) {
       const Lit a = trail_[i];
@@ -946,45 +947,46 @@ class Sat {
 #ifndef NDEBUG
 bool Sat::Invariants(bool allow_inconsistency) const {
   // Trail.
-  assert(trail_head_ <= int(trail_.size()));
+  if (!(trail_head_ <= int(trail_.size()))) { return false; }
   int trail_eqs = 0;
   TermMap<Fun, int> trail_neqs;
   trail_neqs.FitForIndex(trail_neqs_.upper_bound_index());
   for (const Lit a : trail_) {
-    assert(!falsifies(a));
-    assert(satisfies(a));
+    if (!(!falsifies(a))) { return false; }
+    if (!(satisfies(a))) { return false; }
     if (a.pos()) {
-      assert(model_[a.fun()] == a.name());
+      if (!(model_[a.fun()] == a.name())) { return false; }
       ++trail_eqs;
     } else {
-      assert(data_[a.fun()][a.name()].model_neq);
+      if (!(data_[a.fun()][a.name()].model_neq)) { return false; }
       ++trail_neqs[a.fun()];
     }
   }
-  assert(trail_eqs == trail_eqs_);
+  if (!(trail_eqs == trail_eqs_)) { return false; }
   for (Fun f : trail_neqs_.keys()) {
-    assert(trail_neqs[f] == trail_neqs_[f]);
+    if (!(trail_neqs[f] == trail_neqs_[f])) { return false; }
   }
-  assert(level_size_.empty() || level_size_.back() <= int(trail_.size()));
+  if (!(level_size_.empty() || level_size_.back() <= int(trail_.size()))) { return false; }
   for (int i = 0; i < int(level_size_.size()); ++i) {
     for (int j = i == 0 ? 0 : level_size_[i-1]; j < level_size_[i]; ++j) {
-      assert(int(level_of(trail_[j])) == i);
+      if (!(int(level_of(trail_[j])) == i)) { return false; }
     }
   }
   for (int j = level_size_.empty() ? 0 : level_size_.back(); j < int(trail_.size()); ++j) {
-    assert(int(level_of(trail_[j])) == int(current_level()));
+    if (!(int(level_of(trail_[j])) == int(current_level()))) { return false; }
   }
   // Clauses
   for (int i = 1; i < int(clauses_.size()) && !allow_inconsistency; ++i) {
     const CRef cr = clauses_[i];
     const Clause& c = clausef_[cr];
+    if (!(!falsifies(c))) { return false; }
     if (c.learnt() && !propagate_with_learnt_) {
       continue;
     }
-    assert(c.size() >= 2);
+    if (!(c.size() >= 2)) { return false; }
     if ((falsifies(c[0]) || falsifies(c[1])) && !satisfies(c)) {
-      assert(std::all_of(c.begin() + 2, c.end(), [this](const Lit a) { return falsifies(a); }));
-      assert(!falsifies(c[0]) || !falsifies(c[1]) || empty_clause_);
+      if (!(std::all_of(c.begin() + 2, c.end(), [this](const Lit a) { return falsifies(a); }))) { return false; }
+      if (!(!falsifies(c[0]) || !falsifies(c[1]) || empty_clause_)) { return false; }
     }
   }
   // Watchers
@@ -1002,10 +1004,10 @@ bool Sat::Invariants(bool allow_inconsistency) const {
     if (c.learnt() && !propagate_with_learnt_) {
       continue;
     }
-    assert(w[cr].size() == 1 || w[cr].size() == 2);
-    assert(w[cr].size() == 1 + (c[0].fun() != c[1].fun()));
+    if (!(w[cr].size() == 1 || w[cr].size() == 2)) { return false; }
+    if (!(w[cr].size() == 1 + (c[0].fun() != c[1].fun()))) { return false; }
   }
-  assert(clause_bump_step_ >= 0.0);
+  if (!(clause_bump_step_ >= 0.0)) { return false; }
   // Domain and model and data and queue
   for (const Fun f : data_.keys()) {
     int occurs = 0;
@@ -1015,28 +1017,28 @@ bool Sat::Invariants(bool allow_inconsistency) const {
       occurs += data_[f][n].occurs;
       popped += data_[f][n].popped;
       model_neq += data_[f][n].model_neq;
-      assert(!data_[f][n].seen_subsumed);
-      assert(!data_[f][n].wanted);
+      if (!(!data_[f][n].seen_subsumed)) { return false; }
+      if (!(!data_[f][n].wanted)) { return false; }
       const CRef cr = data_[f][n].reason;
       if (cr == CRef::kNull) {
       } else if (cr == CRef::kDomain) {
-        assert(!data_[f][n].model_neq);
+        if (!(!data_[f][n].model_neq)) { return false; }
         for (const Name nn : data_[f].keys()) {
           if (n != nn && data_[f][nn].occurs) {
-            assert(data_[f][nn].model_neq);
+            if (!(data_[f][nn].model_neq)) { return false; }
           }
         }
       } else {
         const Lit a = data_[f][n].model_neq ? Lit::Neq(f, n) : Lit::Eq(f, n);
-        assert(clausef_[cr][0] == a || clausef_[cr][1] == a);
+        if (!(clausef_[cr][0] == a || clausef_[cr][1] == a)) { return false; }
       }
     }
-    assert(domain_size_[f] == occurs);
-    assert(domain_size_[f] == domain_[f].size() + popped);
-    assert(occurs == 0 || !model_[f].null() || fun_queue_.contains(f));
-    assert((occurs == 0 && trail_neqs_[f] == 0) || trail_neqs_[f] < occurs);
+    if (!(domain_size_[f] == occurs)) { return false; }
+    if (!(domain_size_[f] == domain_[f].size() + popped)) { return false; }
+    if (!(occurs == 0 || !model_[f].null() || fun_queue_.contains(f))) { return false; }
+    if (!((occurs == 0 && trail_neqs_[f] == 0) || trail_neqs_[f] < occurs)) { return false; }
   }
-  assert(fun_bump_step_ >= 0.0);
+  if (!(fun_bump_step_ >= 0.0)) { return false; }
   return true;
 }
 #endif

@@ -83,8 +83,9 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
   return os << sequence(c, strings::kOrS);
 }
 
-std::ostream& operator<<(std::ostream& os, const std::vector<Lit>& as) {
-  return os << sequence(as);
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& xs) {
+  return os << sequence(xs);
 }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::Sort& s) {

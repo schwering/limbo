@@ -26,14 +26,15 @@ class KnowledgeBase {
     n_.resize(9);
     fs_.resize(9 * 9);
     ns_.resize(9);
-    for (int x = 1; x <= 9; ++x) {
-      for (int y = 1; y <= 9; ++y) {
+    for (int y = 1; y <= 9; ++y) {
+      for (int x = 1; x <= 9; ++x) {
         const char f_str[] = {char('0' + x), char('0' + y), '\0'};
         cell(x, y) = abc().CreateFun(sort_, 0);
         LIMBO_REG_STR(cell(x, y), f_str);
         Formula ff = Formula::Fun(cell(x, y));
         ff.Strip();
         cellf(x, y) = ff.head().u.f_s;
+        //std::cout << "cellf(" << x << "," << y << ") = int " << int(cellf(x,y)) << " = " << cellf(x,y) << " | cell(" << x << "," << y << ") = " << cell(x,y) << std::endl;
       }
     }
     for (int i = 1; i <= 9; ++i) {
@@ -43,6 +44,7 @@ class KnowledgeBase {
       Formula ff = Formula::Name(val(i));
       ff.Strip();
       valn(i) = ff.head().u.n_s;
+      //std::cout << "valn(" << i << ") = int " << int(valn(i)) << " = " << valn(i) << " | val(" << i << ") = " << val(i) << std::endl;
     }
     for (int x = 1; x <= 9; ++x) {
       for (int y = 1; y <= 9; ++y) {
@@ -115,10 +117,12 @@ class KnowledgeBase {
     //  }
     //}
 #if 0
-    if (!lim_sat_.Solve(k, eq(cellf(p), valn(2)).readable())) {
-      return limbo::internal::Just(2);
+    int i = 6;
+    if (!lim_sat_.Solve(k, eq(cellf(p), valn(i)).readable())) {
+      return limbo::internal::Just(i);
     }
 #else
+    //printf("x = %d, y = %d, size = %lu\n", p.x, p.y, lim_sat_.clauses().size());
     for (int i = 1; i <= 9; ++i) {
       //printf("x = %d, y = %d, i = %d, size = %lu\n", p.x, p.y, i, lim_sat_.clauses().size());
       if (!lim_sat_.Solve(k, eq(cellf(p), valn(i)).readable())) {
@@ -204,15 +208,15 @@ next: {}
   Abc& abc() const { return Abc::instance(); }
 
   Fun   cellf(Point p)      const { return cellf(p.x, p.y); }
-  Fun   cellf(int x, int y) const { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return f_[(x-1) * 9 + y-1]; }
+  Fun   cellf(int x, int y) const { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return f_[(y-1) * 9 + x-1]; }
   Name  valn(int i)         const { assert(1 <= i && i <= 9); return n_[i-1]; }
-  Fun&  cellf(int x, int y)       { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return f_[(x-1) * 9 + y-1]; }
+  Fun&  cellf(int x, int y)       { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return f_[(y-1) * 9 + x-1]; }
   Name& valn(int i)               { assert(1 <= i && i <= 9); return n_[i-1]; }
 
   Abc::FunSymbol   cell(Point p)      const { return cell(p.x, p.y); }
-  Abc::FunSymbol   cell(int x, int y) const { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return fs_[(x-1) * 9 + y-1]; }
+  Abc::FunSymbol   cell(int x, int y) const { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return fs_[(y-1) * 9 + x-1]; }
   Abc::NameSymbol  val(int i)         const { assert(1 <= i && i <= 9); return ns_[i-1]; }
-  Abc::FunSymbol&  cell(int x, int y)       { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return fs_[(x-1) * 9 + y-1]; }
+  Abc::FunSymbol&  cell(int x, int y)       { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return fs_[(y-1) * 9 + x-1]; }
   Abc::NameSymbol& val(int i)               { assert(1 <= i && i <= 9); return ns_[i-1]; }
 
   Formula eq(Fun f, Name n) const { return Formula::Lit(Lit::Eq(f, n)); }
