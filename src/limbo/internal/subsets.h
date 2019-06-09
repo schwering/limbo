@@ -69,7 +69,7 @@ bool AllCombinedSubsetsOfSize(const SetSetContainer& Xs,
                               UnaryPredicate pred = UnaryPredicate()) {
   assert(index <= int(Xs.size()));
   if (index == int(Xs.size())) {
-    return xs_wanted == 0 && pred(*xs);
+    return Xs.empty() || (xs_wanted == 0 && pred(*xs));
   }
   assert(!Xs[index].empty());
   // What is the minimum number of functions we xs_wanted to assign from this bucket?

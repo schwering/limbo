@@ -7,9 +7,32 @@
 #include <gtest/gtest.h>
 
 #include <limbo/internal/subsets.h>
+#include <limbo/io/output.h>
 
 namespace limbo {
 namespace internal {
+
+TEST(SubsetsTest, subsets_empty_set_cardinality_zero) {
+  std::vector<std::vector<int>> Xs;
+  std::set<std::vector<int>> Ys;
+  int n_subsets = 0;
+  bool r = AllCombinedSubsetsOfSize(Xs, 0, [&](const std::vector<int>& xs) { std::cout << xs << std::endl; Ys.insert(xs); ++n_subsets; return true; });
+  EXPECT_TRUE(r);
+  EXPECT_EQ(n_subsets, 0);
+  r = AllCombinedSubsetsOfSize(Xs, 0, [&](const std::vector<int>& xs) { Ys.insert(xs); ++n_subsets; return false; });
+  EXPECT_TRUE(r);
+}
+
+TEST(SubsetsTest, subsets_empty_set_cardinality_one) {
+  std::vector<std::vector<int>> Xs;
+  std::set<std::vector<int>> Ys;
+  int n_subsets = 0;
+  bool r = AllCombinedSubsetsOfSize(Xs, 1, [&](const std::vector<int>& xs) { std::cout << xs << std::endl; Ys.insert(xs); ++n_subsets; return true; });
+  EXPECT_TRUE(r);
+  EXPECT_EQ(n_subsets, 0);
+  r = AllCombinedSubsetsOfSize(Xs, 0, [&](const std::vector<int>& xs) { Ys.insert(xs); ++n_subsets; return false; });
+  EXPECT_TRUE(r);
+}
 
 TEST(SubsetsTest, subsets_two_ternary_sets_cardinality_zero) {
   std::vector<std::vector<int>> Xs;
