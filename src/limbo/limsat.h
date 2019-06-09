@@ -251,7 +251,7 @@ class LimSat {
                        const TermMap<Fun, bool>& wanted) {
     //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
     auto activity = [&wanted](Fun f) { return wanted.key_in_range(f) ? wanted[f] * kActivityOffset : 0.0; };
-#if 0
+#if 1
     InitSat(activity);
 #else
     sat_ = Sat();

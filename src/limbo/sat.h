@@ -170,7 +170,6 @@ class Sat {
         }
       }
     }
-    assert(level_size_.empty() || level_size_.back() <= trail_.size());
   }
 
   void Simplify() {
@@ -231,6 +230,11 @@ class Sat {
       return Truth::kUnsat;
     }
     if (current_level() == Level::kBase) {
+      const CRef conflict = Propagate();
+      if (conflict != CRef::kNull) {
+        assert(Invariants(true));
+        return Truth::kUnsat;
+      }
       AddNewLevel();
     }
     assert(Invariants());
