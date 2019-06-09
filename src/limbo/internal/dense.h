@@ -125,15 +125,15 @@ class DenseMap {
 
   void FitForKey(Key k)            { FitForIndex(k2i_(k)); }
   void FitForKey(Key k, Val v)     { FitForIndex(k2i_(k), v); }
-  void FitForIndex(Index i)        { i -= kOffset; if (i >= vec_.size()) { vec_.resize(i + 1); } }
-  void FitForIndex(Index i, Val v) { i -= kOffset; if (i >= vec_.size()) { vec_.resize(i + 1, v); } }
+  void FitForIndex(Index i)        { i -= kOffset; if (i >= Index(vec_.size())) { vec_.resize(i + 1); } }
+  void FitForIndex(Index i, Val v) { i -= kOffset; if (i >= Index(vec_.size())) { vec_.resize(i + 1, v); } }
 
   bool empty() const { return vec_.empty(); }
 
   void Clear() { vec_.clear(); }
 
   bool key_in_range(Key k)     const { return index_in_range(k2i_(k)); }
-  bool index_in_range(Index i) const { i -= kOffset; return 0 <= i && i < vec_.size(); }
+  bool index_in_range(Index i) const { i -= kOffset; return 0 <= i && i < Index(vec_.size()); }
 
   Index upper_bound_index() const { return Index(vec_.size()) - 1 + kOffset; }
   Key   upper_bound_key()   const { return i2k_(upper_bound_index()); }
@@ -151,7 +151,7 @@ class DenseMap {
   const_reference head() const { return at_index(kOffset); }
 
   Range<KeyIterator> keys() const {
-    return Range<KeyIterator>(KeyIterator(kOffset, k2i_, i2k_), KeyIterator(vec_.size() + kOffset, k2i_, i2k_));
+    return Range<KeyIterator>(KeyIterator(kOffset, k2i_, i2k_), KeyIterator(Index(vec_.size()) + kOffset, k2i_, i2k_));
   }
   Range<const_iterator> values() const { return Range<const_iterator>(vec_.begin(), vec_.end()); }
   Range<      iterator> values()       { return Range<      iterator>(vec_.begin(), vec_.end()); }
@@ -224,7 +224,7 @@ class DenseMinHeap {
     index_[heap_[i]] = i;
     heap_.pop_back();
     index_[x] = 0;
-    if (heap_.size() > i) {
+    if (Index(heap_.size()) > i) {
       SiftDown(i);
       SiftUp(i);
     }
@@ -259,8 +259,10 @@ class DenseMinHeap {
   void SiftDown(int i) {
     assert(i > 0 && i < heap_.size());
     const T x = heap_[i];
-    while (left(i) < heap_.size()) {
-      const int min_child = right(i) < heap_.size() && less_(heap_[right(i)], heap_[left(i)]) ? right(i) : left(i);
+    while (left(i) < Index(heap_.size())) {
+      const int min_child =
+          right(i) < Index(heap_.size()) && less_(heap_[right(i)], heap_[left(i)])
+          ? right(i) : left(i);
       if (!less_(heap_[min_child], x)) {
         break;
       }

@@ -82,7 +82,7 @@ template<typename UnaryFunction, typename T = int>
 static void CreateTerms(UnaryFunction f, int n, std::vector<typename std::result_of<UnaryFunction(T)>::type>* terms) {
   terms->clear();
   terms->reserve(n);
-  for (auto i = terms->size(); i < n; ++i) {
+  for (T i = terms->size(); i < n; ++i) {
     const auto t = f(i + 1);
     terms->push_back(t);
     std::ostringstream s;
