@@ -21,11 +21,10 @@ class KnowledgeBase {
   using Maybe  = limbo::internal::Maybe<T>;
 
   explicit KnowledgeBase(int max_k) : max_k_(max_k) {
-    sort_ = abc().CreateSort(false);
     f_.resize(9 * 9);
-    n_.resize(9);
+    n_.resize(10);
     fs_.resize(9 * 9);
-    ns_.resize(9);
+    ns_.resize(10);
     for (int y = 1; y <= 9; ++y) {
       for (int x = 1; x <= 9; ++x) {
         const char f_str[] = {char('0' + x), char('0' + y), '\0'};
@@ -34,18 +33,17 @@ class KnowledgeBase {
         Formula ff = Formula::Fun(cell(x, y));
         ff.Strip();
         cellf(x, y) = ff.head().u.f_s;
-        //std::cout << "cellf(" << x << "," << y << ") = int " << int(cellf(x,y)) << " = " << cellf(x,y) << " | cell(" << x << "," << y << ") = " << cell(x,y) << std::endl;
       }
     }
-    for (int i = 1; i <= 9; ++i) {
-      const char n_str[] = {char('0' + i), '\0'};
+    for (int i = 1; i <= 10; ++i) {
+      const char n_str[] = {char(i <= 9 ? '0' + i : 'E'), '\0'};
       val(i) = abc().CreateName(sort_, 0);
       LIMBO_REG_STR(val(i), n_str);
       Formula ff = Formula::Name(val(i));
       ff.Strip();
       valn(i) = ff.head().u.n_s;
-      //std::cout << "valn(" << i << ") = int " << int(valn(i)) << " = " << valn(i) << " | val(" << i << ") = " << val(i) << std::endl;
     }
+    // row constraint
     for (int x = 1; x <= 9; ++x) {
       for (int y = 1; y <= 9; ++y) {
         for (int yy = 1; yy <= 9; ++yy) {
@@ -55,6 +53,7 @@ class KnowledgeBase {
         }
       }
     }
+    // column constraint
     for (int x = 1; x <= 9; ++x) {
       for (int xx = 1; xx <= 9; ++xx) {
         for (int y = 1; y <= 9; ++y) {
@@ -64,6 +63,7 @@ class KnowledgeBase {
         }
       }
     }
+    // box constraint
     for (int i = 1; i <= 3; ++i) {
       for (int j = 1; j <= 3; ++j) {
         for (int x = 3*i-2; x <= 3*i; ++x) {
@@ -79,6 +79,7 @@ class KnowledgeBase {
         }
       }
     }
+    // domain constraint: fa x (x = 1 v ... v x = 9)
     for (int x = 1; x <= 9; ++x) {
       for (int y = 1; y <= 9; ++y) {
         std::vector<Formula> as;
@@ -88,6 +89,21 @@ class KnowledgeBase {
         Add(Formula::Or(std::move(as)));
       }
     }
+#if 0
+    // optional anti-domain constraint: fa x (x = 1 v ... v x = 9 v f != x)
+    const Abc::VarSymbol var = Abc::instance().CreateVar(sort_);
+    for (int x = 1; x <= 9; ++x) {
+      for (int y = 1; y <= 9; ++y) {
+        std::vector<Formula> as;
+        for (int i = 1; i <= 9; ++i) {
+          as.push_back(Formula::Equals(Formula::Var(var), Formula::Name(val(i))));
+        }
+        as.push_back(Formula::NotEquals(Formula::Fun(cell(x, y)), Formula::Var(var)));
+        Add(Formula::Forall(var, Formula::Or(std::move(as))));
+      }
+    }
+#endif
+    lim_sat_.set_extra_name(valn(10));
   }
 
   void InitGame(const Game* g) {
@@ -107,24 +123,18 @@ class KnowledgeBase {
 
   Maybe<int> Val(Point p, int k) {
     t_.start();
-    //const Maybe<Name> r = lim_sat_.Determines(k, cell(p));
-    //if (r) {
-    //  assert(!r.val.null());
-    //  for (int i = 1; i <= 9; ++i) {
-    //    if (r.val.null() || abc().Unstrip(r.val) == val(i)) {
-    //      return limbo::internal::Just(i);
-    //    }
-    //  }
-    //}
 #if 0
-    int i = 6;
-    if (!lim_sat_.Solve(k, eq(cellf(p), valn(i)).readable())) {
-      return limbo::internal::Just(i);
+    const Maybe<Name> r = lim_sat_.Determines(k, cell(p));
+    if (r) {
+      assert(!r.val.null());
+      for (int i = 1; i <= 9; ++i) {
+        if (r.val.null() || abc().Unstrip(r.val) == val(i)) {
+          return limbo::internal::Just(i);
+        }
+      }
     }
 #else
-    //printf("x = %d, y = %d, size = %lu\n", p.x, p.y, lim_sat_.clauses().size());
     for (int i = 1; i <= 9; ++i) {
-      //printf("x = %d, y = %d, i = %d, size = %lu\n", p.x, p.y, i, lim_sat_.clauses().size());
       if (!lim_sat_.Solve(k, eq(cellf(p), valn(i)).readable())) {
         return limbo::internal::Just(i);
       }
@@ -179,20 +189,20 @@ next: {}
   using LimSat  = limbo::LimSat;
 
   void Add(Formula&& f) {
-    //std::cout << f << std::endl;
+    //std::cout << "Input: " << f << std::endl;
     f.Normalize();
-    //std::cout << f << std::endl;
+    //std::cout << "Normalized: " << f << std::endl;
     f.Ground([this](const Abc::Sort) -> const auto& { return n_; });
-    //std::cout << f << std::endl;
+    //std::cout << "Grounded: " << f << std::endl;
     f.Strip();
-    //std::cout << f << std::endl;
+    //std::cout << "Stripped: " << f << std::endl;
     Maybe<std::vector<std::vector<Lit>>> cs = f.readable().CnfClauses();
     if (!cs) {
       std::cerr << "No clauses extracted from " << f << std::endl;
     } else {
       //std::cout << cs.val.size() << " clauses" << std::endl;
       //for (std::vector<Lit>& c : cs.val) {
-      //  std::cout << c.size() << ": " << c << std::endl;
+      //  std::cout << "Clause of length " << c.size() << ": " << c << std::endl;
       //}
       for (std::vector<Lit>& c : cs.val) {
         Add(std::move(c));
@@ -230,7 +240,7 @@ next: {}
   int    max_k_;
   LimSat lim_sat_;
 
-  Abc::Sort sort_;
+  Abc::Sort sort_ = abc().CreateSort(false);
 
   std::vector<Fun>  f_;
   std::vector<Name> n_;

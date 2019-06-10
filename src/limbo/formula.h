@@ -645,26 +645,33 @@ class RFormula : private FormulaCommons {
     assert(weakly_well_formed() && ground() && stripped());
     std::vector<std::vector<Lit>> cs;
     Scope::Observer scoper;
-    bool or_flag = false;
-    Scope or_scope = scoper.scope();
+    bool disjunction = false;
+    bool disjunction_valid = false;
+    Scope disjunction_scope = scoper.scope();
     for (auto it = begin(); it != end(); ) {
-      if (it->tag == Abc::Symbol::kAnd) {
-      } else if (it->tag == Abc::Symbol::kOr) {
-        if (!or_flag) {
-          or_flag = true;
-          or_scope = scoper.scope();
+      if (it->tag == Abc::Symbol::kOr) {
+        if (!disjunction) {
+          disjunction = true;
+          disjunction_valid = false;
+          disjunction_scope = scoper.scope();
           cs.emplace_back();
         }
-      } else if (it->tag == Abc::Symbol::kStrippedLit) {
-        if (!or_flag) {
-          cs.emplace_back();
+      } else if (disjunction && it->tag == Abc::Symbol::kAnd && it->arity() == 0) {
+        disjunction_valid = true;
+        cs.pop_back();
+      } else if (disjunction && it->tag == Abc::Symbol::kStrippedLit) {
+        if (!disjunction_valid) {
+          cs.back().push_back(it->u.a);
         }
+      } else if (!disjunction && it->tag == Abc::Symbol::kStrippedLit) {
+        cs.emplace_back();
         cs.back().push_back(it->u.a);
+      } else if (!disjunction && it->tag == Abc::Symbol::kAnd) {
       } else {
         return internal::Nothing;
       }
       scoper.Munch(*it++);
-      or_flag &= scoper.active(or_scope);
+      disjunction &= scoper.active(disjunction_scope);
     }
     return internal::Just(std::move(cs));
   }
@@ -1437,16 +1444,14 @@ class Formula : private FormulaCommons {
       Abc::Symbol::Ref rhs;
       if (last_eq != end() && (lhs = std::next(last_eq)) != end() && (rhs = std::next(lhs)) != end()) {
         assert(last_eq->tag == Abc::Symbol::kEquals || last_eq->tag == Abc::Symbol::kNotEquals);
-        if (lhs->stripped() && lhs->term() && rhs->stripped() && rhs->term() && (lhs->name() != rhs->name())) {
+        if (lhs->stripped() && lhs->term() && rhs->stripped() && rhs->term()) {
           Abc::Symbol s;
+          const bool pos = last_eq->tag == Abc::Symbol::kEquals;
           if (lhs->name() && rhs->name()) {
-            s = (lhs->u.n_s == rhs->u.n_s) == (last_eq->tag == Abc::Symbol::kEquals)
-                ? Abc::Symbol::And(0)
-                : Abc::Symbol::Or(0);
+            s = (lhs->u.n_s == rhs->u.n_s) == pos ? Abc::Symbol::And(0) : Abc::Symbol::Or(0);
           } else if (lhs->sort() != rhs->sort()) {
-            s = last_eq->tag == Abc::Symbol::kEquals ? Abc::Symbol::Or(0) : Abc::Symbol::And(0);
+            s = pos ? Abc::Symbol::Or(0) : Abc::Symbol::And(0);
           } else {
-            bool pos = last_eq->tag == Abc::Symbol::kEquals;
             const class Fun f = lhs->fun() ? lhs->u.f_s : rhs->u.f_s;
             const class Name n = rhs->name() ? rhs->u.n_s : lhs->u.n_s;
             s = Abc::Symbol::Lit(pos ? Lit::Eq(f, n) : Lit::Neq(f, n));
