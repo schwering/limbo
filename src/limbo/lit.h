@@ -40,7 +40,11 @@ class Fun {
   explicit operator int()  const { return id_; }
   bool null() const { return id_ == 0; }
 
+  id_t id() const { return id_; }
+
  private:
+  static_assert(sizeof(id_t) <= sizeof(int), "id_t must be smaller than int");
+
   explicit Fun(id_t id) : id_(id) { assert(!null()); }
 
   id_t id_;
@@ -70,7 +74,11 @@ class Name {
   explicit operator int()  const { return id_; }
   bool null() const { return id_ == 0; }
 
+  id_t id() const { return id_; }
+
  private:
+  static_assert(sizeof(id_t) <= sizeof(int), "Name::id_t must be smaller than int");
+
   explicit Name(id_t id) : id_(id) { assert(!null()); }
 
   id_t id_;
@@ -102,8 +110,9 @@ class Lit {
   Name name() const { return Name::FromId(Bits::split_lo(id_) >> 1); }
 
   explicit operator bool() const { return id_; }
-  explicit operator int()  const { return id_; }
   bool null() const { return id_ == 0; }
+
+  id_t id() const { return id_; }
 
   Lit flip() const { return Lit(id_ ^ 1); }
 
@@ -149,7 +158,7 @@ class Lit {
   bool ProperlySubsumes(Lit b) const { return ProperlySubsumes(*this, b); }
 
  private:
-  using Bits = internal::BitConcatenator<Fun::id_t>;
+  using Bits = internal::BitInterleaver<Fun::id_t>;
 
   static_assert(sizeof(Fun::id_t) == sizeof(Name::id_t), "Fun::id_t and Name::id_t must be identical");
   static_assert(sizeof(Fun::id_t) + sizeof(Name::id_t) == sizeof(id_t), "Fun::id_t and Name::id_t must fit in id_t");
@@ -165,19 +174,19 @@ static_assert(std::is_trivial<Lit>::value, "Lit should be trivial type");
 
 template<typename T>
 struct TermToId {
-  int operator()(const T k) const { return int(k); }
+  typename T::id_t operator()(const T t) const { return t.id(); }
 };
 
 template<typename T>
 struct IdToTerm {
-  T operator()(const int i) const { return T::FromId(i); }
+  T operator()(const typename T::id_t i) const { return T::FromId(i); }
 };
 
 template<typename T, typename Val, typename BoundCheck = internal::NoBoundCheck>
-using TermMap = internal::DenseMap<T, Val, int, 1, TermToId<T>, IdToTerm<T>, BoundCheck>;
+using TermMap = internal::DenseMap<T, Val, typename T::id_t, 1, TermToId<T>, IdToTerm<T>, BoundCheck>;
 
 template<typename T, typename Less, typename BoundCheck = internal::NoBoundCheck>
-using MinHeap = internal::DenseMinHeap<T, Less, int, 1, TermToId<T>, IdToTerm<T>, BoundCheck>;
+using MinHeap = internal::DenseMinHeap<T, Less, typename T::id_t, 1, TermToId<T>, IdToTerm<T>, BoundCheck>;
 
 }  // namespace limbo
 

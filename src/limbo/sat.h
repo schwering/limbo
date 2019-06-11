@@ -131,7 +131,7 @@ class Sat {
   }
 
   void Reset(KeepLearnt keep_learnt = KeepLearnt(true)) {
-    assert(Invariants());
+    assert(Invariants(true));
     const Level level = keep_learnt.yes ? Level::kRoot : Level::kBase;
     if (level < current_level()) {
       Backtrack(level);
@@ -152,6 +152,7 @@ class Sat {
       }
       clauses_.resize(i + 1);
     }
+    fun_bump_step_ = kBumpStepInit;
     assert(Invariants());
   }
 
@@ -352,17 +353,6 @@ class Sat {
   static constexpr double kDecayFactor = 0.95;
 
 
-  void Bump(Clause* c) {
-    c->set_activity(c->activity() + clause_bump_step_);
-    if (c->activity() > kActivityThreshold) {
-      for (const CRef cr : clauses_) {
-        Clause& c = clausef_[cr];
-        c.set_activity(c.activity() / kActivityThreshold);
-      }
-      clause_bump_step_ /= kActivityThreshold;
-    }
-  }
-
   void Bump(const Fun f, const double bump) {
     (*fun_activity_)[f] += bump;
     if ((*fun_activity_)[f] > kActivityThreshold) {
@@ -382,9 +372,7 @@ class Sat {
 
   void BumpToFront(const Fun f) { Bump(f, (*fun_activity_)[fun_queue_.top()] - (*fun_activity_)[f] + fun_bump_step_); }
   void Bump(const Fun f)        { Bump(f, fun_bump_step_); }
-
-  void DecayClause() { clause_bump_step_ /= kDecayFactor; }
-  void DecayFun()    { fun_bump_step_    /= kDecayFactor; }
+  void DecayFun()               { fun_bump_step_ /= kDecayFactor; }
 
   void Watch(const CRef cr, const Clause& c) {
     assert(&clausef_[cr] == &c);
@@ -508,11 +496,9 @@ class Sat {
           Enqueue(c[i], cr);
           *cr_ptr2++ = *cr_ptr1++;
         }
-        Bump(&c);
       }
     }
     ws.resize(cr_ptr2 - begin);
-    DecayClause();
     return conflict;
   }
 
@@ -752,7 +738,7 @@ class Sat {
   }
 
   void Backtrack(Level l) {
-    assert(trail_head_ == int(trail_.size()));
+    assert(trail_head_ <= int(trail_.size()));
     assert(std::all_of(trail_.begin(), trail_.end(), [this](Lit a) { return satisfies(a); }));
     for (int i = int(trail_.size()) - 1; i >= level_size_[int(l)]; --i) {
       const Lit a = trail_[i];
@@ -908,7 +894,6 @@ class Sat {
   Clause::Factory   clausef_;
   std::vector<CRef> clauses_               = std::vector<CRef>(1, CRef::kNull);
   bool              propagate_with_learnt_ = true;
-  double            clause_bump_step_      = kBumpStepInit;
 
   // watchers_ maps every function to a sequence of clauses that watch it;
   //    every clause watches two functions, and when a literal with this
@@ -951,46 +936,46 @@ class Sat {
 #ifndef NDEBUG
 bool Sat::Invariants(bool allow_inconsistency) const {
   // Trail.
-  if (!(trail_head_ <= int(trail_.size()))) { return false; }
+  assert(trail_head_ <= int(trail_.size()));
   int trail_eqs = 0;
   TermMap<Fun, int> trail_neqs;
   trail_neqs.FitForIndex(trail_neqs_.upper_bound_index());
   for (const Lit a : trail_) {
-    if (!(!falsifies(a))) { return false; }
-    if (!(satisfies(a))) { return false; }
+    assert(!falsifies(a));
+    assert(satisfies(a));
     if (a.pos()) {
-      if (!(model_[a.fun()] == a.name())) { return false; }
+      assert(model_[a.fun()] == a.name());
       ++trail_eqs;
     } else {
-      if (!(data_[a.fun()][a.name()].model_neq)) { return false; }
+      assert(data_[a.fun()][a.name()].model_neq);
       ++trail_neqs[a.fun()];
     }
   }
-  if (!(trail_eqs == trail_eqs_)) { return false; }
+  assert(trail_eqs == trail_eqs_);
   for (Fun f : trail_neqs_.keys()) {
-    if (!(trail_neqs[f] == trail_neqs_[f])) { return false; }
+    assert(trail_neqs[f] == trail_neqs_[f]);
   }
-  if (!(level_size_.empty() || level_size_.back() <= int(trail_.size()))) { return false; }
+  assert(level_size_.empty() || level_size_.back() <= int(trail_.size()));
   for (int i = 0; i < int(level_size_.size()); ++i) {
     for (int j = i == 0 ? 0 : level_size_[i-1]; j < level_size_[i]; ++j) {
-      if (!(int(level_of(trail_[j])) == i)) { return false; }
+      assert(int(level_of(trail_[j])) == i);
     }
   }
   for (int j = level_size_.empty() ? 0 : level_size_.back(); j < int(trail_.size()); ++j) {
-    if (!(int(level_of(trail_[j])) == int(current_level()))) { return false; }
+    assert(int(level_of(trail_[j])) == int(current_level()));
   }
   // Clauses
   for (int i = 1; i < int(clauses_.size()) && !allow_inconsistency; ++i) {
     const CRef cr = clauses_[i];
     const Clause& c = clausef_[cr];
-    if (!(!falsifies(c))) { return false; }
     if (c.learnt() && !propagate_with_learnt_) {
       continue;
     }
-    if (!(c.size() >= 2)) { return false; }
+    assert(!falsifies(c));
+    assert(c.size() >= 2);
     if ((falsifies(c[0]) || falsifies(c[1])) && !satisfies(c)) {
-      if (!(std::all_of(c.begin() + 2, c.end(), [this](const Lit a) { return falsifies(a); }))) { return false; }
-      if (!(!falsifies(c[0]) || !falsifies(c[1]) || empty_clause_)) { return false; }
+      assert(std::all_of(c.begin() + 2, c.end(), [this](const Lit a) { return falsifies(a); }));
+      assert(!falsifies(c[0]) || !falsifies(c[1]) || empty_clause_);
     }
   }
   // Watchers
@@ -1008,10 +993,9 @@ bool Sat::Invariants(bool allow_inconsistency) const {
     if (c.learnt() && !propagate_with_learnt_) {
       continue;
     }
-    if (!(w[cr].size() == 1 || w[cr].size() == 2)) { return false; }
-    if (!(w[cr].size() == 1 + (c[0].fun() != c[1].fun()))) { return false; }
+    assert(w[cr].size() == 1 || w[cr].size() == 2);
+    assert(w[cr].size() == 1 + (c[0].fun() != c[1].fun()));
   }
-  if (!(clause_bump_step_ >= 0.0)) { return false; }
   // Domain and model and data and queue
   for (const Fun f : data_.keys()) {
     int occurs = 0;
@@ -1021,28 +1005,28 @@ bool Sat::Invariants(bool allow_inconsistency) const {
       occurs += data_[f][n].occurs;
       popped += data_[f][n].popped;
       model_neq += data_[f][n].model_neq;
-      if (!(!data_[f][n].seen_subsumed)) { return false; }
-      if (!(!data_[f][n].wanted)) { return false; }
+      assert(!data_[f][n].seen_subsumed);
+      assert(!data_[f][n].wanted);
       const CRef cr = data_[f][n].reason;
       if (cr == CRef::kNull) {
       } else if (cr == CRef::kDomain) {
-        if (!(!data_[f][n].model_neq)) { return false; }
+        assert(!data_[f][n].model_neq);
         for (const Name nn : data_[f].keys()) {
           if (n != nn && data_[f][nn].occurs) {
-            if (!(data_[f][nn].model_neq)) { return false; }
+            assert(data_[f][nn].model_neq);
           }
         }
       } else {
         const Lit a = data_[f][n].model_neq ? Lit::Neq(f, n) : Lit::Eq(f, n);
-        if (!(clausef_[cr][0] == a || clausef_[cr][1] == a)) { return false; }
+        assert(clausef_[cr][0] == a || clausef_[cr][1] == a);
       }
     }
-    if (!(domain_size_[f] == occurs)) { return false; }
-    if (!(domain_size_[f] == domain_[f].size() + popped)) { return false; }
-    if (!(occurs == 0 || !model_[f].null() || fun_queue_.contains(f))) { return false; }
-    if (!((occurs == 0 && trail_neqs_[f] == 0) || trail_neqs_[f] < occurs)) { return false; }
+    assert(domain_size_[f] == occurs);
+    assert(domain_size_[f] == domain_[f].size() + popped);
+    assert(occurs == 0 || !model_[f].null() || fun_queue_.contains(f));
+    assert((occurs == 0 && trail_neqs_[f] == 0) || trail_neqs_[f] < occurs);
   }
-  if (!(fun_bump_step_ >= 0.0)) { return false; }
+  assert(fun_bump_step_ >= 0.0);
   return true;
 }
 #endif

@@ -103,7 +103,7 @@ class KnowledgeBase {
       }
     }
 #endif
-    lim_sat_.set_extra_name(valn(10));
+    lim_sat_.set_extra_name_contained(true);
   }
 
   void InitGame(const Game* g) {
@@ -219,15 +219,15 @@ next: {}
 
   Fun   cellf(Point p)      const { return cellf(p.x, p.y); }
   Fun   cellf(int x, int y) const { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return f_[(y-1) * 9 + x-1]; }
-  Name  valn(int i)         const { assert(1 <= i && i <= 9); return n_[i-1]; }
+  Name  valn(int i)         const { assert(1 <= i && i <= 10); return n_[i-1]; }
   Fun&  cellf(int x, int y)       { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return f_[(y-1) * 9 + x-1]; }
-  Name& valn(int i)               { assert(1 <= i && i <= 9); return n_[i-1]; }
+  Name& valn(int i)               { assert(1 <= i && i <= 10); return n_[i-1]; }
 
   Abc::FunSymbol   cell(Point p)      const { return cell(p.x, p.y); }
   Abc::FunSymbol   cell(int x, int y) const { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return fs_[(y-1) * 9 + x-1]; }
-  Abc::NameSymbol  val(int i)         const { assert(1 <= i && i <= 9); return ns_[i-1]; }
+  Abc::NameSymbol  val(int i)         const { assert(1 <= i && i <= 10); return ns_[i-1]; }
   Abc::FunSymbol&  cell(int x, int y)       { assert(1 <= x && x <= 9 && 1 <= y && y <= 9); return fs_[(y-1) * 9 + x-1]; }
-  Abc::NameSymbol& val(int i)               { assert(1 <= i && i <= 9); return ns_[i-1]; }
+  Abc::NameSymbol& val(int i)               { assert(1 <= i && i <= 10); return ns_[i-1]; }
 
   Formula eq(Fun f, Name n) const { return Formula::Lit(Lit::Eq(f, n)); }
   Formula neq(Fun f, Name n) const { return Formula::Lit(Lit::Neq(f, n)); }

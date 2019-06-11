@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <memory>
+#include <iostream>
 #include <ostream>
 #include <string>
 
@@ -15,6 +16,13 @@
 #include <limbo/lit.h>
 #include <limbo/internal/maybe.h>
 #include <limbo/io/iocontext.h>
+
+#ifndef LIMBO_LOG
+#define LIMBO_LOG(s)    std::cout << __FILE__ << ":" << __FUNCTION__ << ":" << __LINE__ << ": " << std::boolalpha << s << std::endl
+#endif
+#ifndef LIMBO_LOG_VAR
+#define LIMBO_LOG_VAR(x) std::cout << __FILE__ << ":" << __FUNCTION__ << ":" << __LINE__ << ": " #x " = " << std::boolalpha << s << std::endl
+#endif
 
 namespace limbo {
 namespace io {

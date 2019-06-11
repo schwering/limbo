@@ -99,9 +99,6 @@ next: {}
   void set_learnt(bool b) { h_.learnt = b; }
   bool learnt() const { return h_.learnt; }
 
-  void set_activity(double a) { activity_ = a; }
-  double activity() const { return activity_; }
-
   Lit& operator[](int i)       { assert(i >= 0 && i < size()); return as_[i]; }
   Lit  operator[](int i) const { assert(i >= 0 && i < size()); return as_[i]; }
 
@@ -191,8 +188,7 @@ next: {}
   struct {
     unsigned learnt :  1;
     unsigned size   : 31;
-  } h_;
-  double activity_ = 0.0;
+  } h_{};
   Lit as_[0];
 };
 

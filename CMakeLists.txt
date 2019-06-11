@@ -19,7 +19,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "(Clang|GNU)")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wno-zero-length-array")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wuninitialized -pedantic -Wno-zero-length-array")
 endif ()
 
 # Debug configuration
