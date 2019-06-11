@@ -237,18 +237,18 @@ next: {}
   Formula neq(Abc::FunSymbol f, Abc::NameSymbol n) const { return Formula::NotEquals(Formula::Fun(f), Formula::Name(n)); }
   Formula neq(Abc::FunSymbol f, Abc::FunSymbol ff) const { return Formula::NotEquals(Formula::Fun(f), Formula::Fun(ff)); }
 
-  int    max_k_;
-  LimSat lim_sat_;
+  int    max_k_ = 0;
+  LimSat lim_sat_{};
 
   Abc::Sort sort_ = abc().CreateSort(false);
 
-  std::vector<Fun>  f_;
-  std::vector<Name> n_;
+  std::vector<Fun>  f_{};
+  std::vector<Name> n_{};
 
-  std::vector<Abc::FunSymbol>  fs_;
-  std::vector<Abc::NameSymbol> ns_;
+  std::vector<Abc::FunSymbol>  fs_{};
+  std::vector<Abc::NameSymbol> ns_{};
 
-  Timer t_;
+  Timer t_{};
 };
 
 #endif  // EXAMPLES_SUDOKU_KB_H_

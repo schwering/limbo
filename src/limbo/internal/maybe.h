@@ -21,7 +21,7 @@ namespace internal {
 
 template<typename T>
 struct Maybe {
-  Maybe()                           : yes(false) {}
+  Maybe() = default;
   explicit Maybe(T&& val)           : val(std::forward<T>(val)), yes(true) {}
   explicit Maybe(bool yes, T&& val) : val(std::forward<T>(val)), yes(yes) {}
   ~Maybe() = default;
@@ -44,8 +44,8 @@ struct Maybe {
 
   explicit operator bool() const { return yes; }
 
-  T val;
-  bool yes;
+  T val{};
+  bool yes = false;
 };
 
 struct NothingType {

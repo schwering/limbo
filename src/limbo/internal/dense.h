@@ -62,7 +62,7 @@ class DenseMap {
     pointer operator->() const { return &v_; }
 
    private:
-    mutable typename std::remove_const<value_type>::type v_;
+    mutable typename std::remove_const<value_type>::type v_{};
   };
 
   struct KeyIterator {
@@ -101,9 +101,9 @@ class DenseMap {
     bool operator>=(KeyIterator it) const { return !(*this < it); }
 
    private:
-    KeyToIndex k2i;
-    IndexToKey i2k;
-    Index index;
+    KeyToIndex k2i{};
+    IndexToKey i2k{};
+    Index index{};
   };
 
   template<typename T>
@@ -112,8 +112,8 @@ class DenseMap {
     T begin() const { return begin_; }
     T end()   const { return end_; }
    private:
-    T begin_;
-    T end_;
+    T begin_{};
+    T end_{};
   };
 
   explicit DenseMap(KeyToIndex k2i = KeyToIndex(), IndexToKey i2k = IndexToKey()) : k2i_(k2i), i2k_(i2k) {}
@@ -157,10 +157,10 @@ class DenseMap {
   Range<      iterator> values()       { return Range<      iterator>(vec_.begin(), vec_.end()); }
 
  private:
-  CheckBound cb_;
-  KeyToIndex k2i_;
-  IndexToKey i2k_;
-  Vec vec_;
+  CheckBound cb_{};
+  KeyToIndex k2i_{};
+  IndexToKey i2k_{};
+  Vec vec_{};
 };
 
 template<typename T,
@@ -275,9 +275,9 @@ class DenseMinHeap {
     assert(std::all_of(heap_.begin() + 1, heap_.end(), [this](T x) { return heap_[index_[x]] == x; }));
   }
 
-  Less less_;
-  std::vector<T> heap_;
-  Map index_;
+  Less less_{};
+  std::vector<T> heap_{};
+  Map index_{};
 };
 
 }  // namespace internal

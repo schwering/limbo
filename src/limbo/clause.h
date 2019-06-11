@@ -147,7 +147,6 @@ next: {}
  private:
   explicit Clause(const Lit a) {
     h_.size = 1;
-    h_.learnt = false;
     as_[0] = a;
     assert(Normalized());
   }
@@ -157,7 +156,6 @@ next: {}
                   NormalizationPromise normalization = NormalizationPromise(false),
                   InvalidityPromise invalid = InvalidityPromise(false)) {
     h_.size = size;
-    h_.learnt = false;
     std::memcpy(begin(), first, size * sizeof(Lit));
     if (!normalization.promised) {
       size = Normalize(h_.size, as_, invalid);
@@ -287,7 +285,7 @@ class Clause::Factory {
     return memory_.bytes_to_chunks(sizeof(Clause) + size * sizeof(Lit));
   }
 
-  Pool memory_;
+  Pool memory_{};
 };
 
 }  // namespace limbo

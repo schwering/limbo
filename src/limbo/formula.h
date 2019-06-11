@@ -50,7 +50,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     bool null() const { return id_ == 0; }
 
    private:
-    id_t id_;
+    id_t id_ = 0;
   };
 
   class Sort : public IntRepresented {
@@ -95,75 +95,6 @@ class Alphabet : private internal::Singleton<Alphabet> {
   template<typename Key>
   using DenseSet = DenseMap<Key, bool>;
 
-#if 0
-  class QuasiName {
-   public:
-    explicit QuasiName(NameSymbol n) : ground_(true) { u_.n = n; }
-    explicit QuasiName(Var v) : ground_(false) { u_.v = v; }
-    bool ground() const { return !ground_; }
-    NameSymbol name() const { return u_.n; }
-    Var var() const { return u_.v; }
-   private:
-    bool ground_;
-    union {
-      NameSymbol n;
-      Var v;
-    } u_;
-  };
-
-  class QuasiLit {
-    class ConstArgs {
-     public:
-      explicit ConstArgs(const QuasiLit* owner) : owner_(owner) {}
-      std::vector<QuasiName>::const_iterator begin() const { return owner_->ns_.begin(); }
-      std::vector<QuasiName>::const_iterator end()   const { return owner_->ns_.end() - 1; }
-     private:
-      const QuasiLit* owner_;
-    };
-
-    class Args {
-     public:
-      explicit Args(QuasiLit* owner) : owner_(owner) {}
-      std::vector<QuasiName>::iterator begin() const { return owner_->ns_.begin(); }
-      std::vector<QuasiName>::iterator end()   const { return owner_->ns_.end() - 1; }
-     private:
-      QuasiLit* owner_;
-    };
-
-    template<typename InputIt>
-    explicit QuasiLit(FunSymbol f, InputIt args_begin, bool eq, QuasiName n) : eq_(eq), f_(f) {
-      int arity = f.arity();
-      ns_.resize(arity + 1);
-      while (arity-- > 0) {
-        ns_.push_back(*args_begin++);
-      }
-      ns_.push_back(n);
-    }
-    explicit QuasiLit(QuasiName n1, bool eq, QuasiName n2) : eq_(eq) {
-      ns_.resize(2);
-      ns_.push_back(n1);
-      ns_.push_back(n2);
-    }
-
-    bool triv() const { return f_.null(); }
-    bool prim() const { return !triv(); }
-    bool ground() const { return std::all_of(ns_.begin(), ns_.end(), [](QuasiName n) { return n.ground(); }); }
-
-   private:
-    bool eq_;
-    FunSymbol f_;
-    std::vector<QuasiName> ns_;
-  };
-
-  class QuasiClause {
-    explicit QuasiClause() = default;
-          QuasiLit& operator[](int i)       { return as_[i]; }
-    const QuasiLit& operator[](int i) const { return as_[i]; }
-   private:
-    std::vector<QuasiLit> as_;
-  };
-#endif
-
   struct Symbol {
     enum Tag {
       kFun = 1, kName, kVar, kStrippedFun, kStrippedName, kEquals, kNotEquals, kStrippedLit,
@@ -192,14 +123,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     static Symbol Believe(int k, int l)      { Symbol s; s.tag = kBelieve;      s.u.kl = {k,l};       return s; }
     static Symbol Action()                   { Symbol s; s.tag = kAction;                             return s; }
 
-    explicit Symbol() = default;
-
-    Symbol(const Symbol&)            = default;
-    Symbol& operator=(const Symbol&) = default;
-    Symbol(Symbol&&)                 = default;
-    Symbol& operator=(Symbol&&)      = default;
-
-    Tag tag;
+    Tag tag{};
 
     union {
       FunSymbol  f;    // kFun
@@ -213,7 +137,14 @@ class Alphabet : private internal::Singleton<Alphabet> {
         int      k;
         int      l;
       } kl;            // kBelieve
-    } u;
+    } u{};
+
+    explicit Symbol() = default;
+
+    Symbol(const Symbol&)            = default;
+    Symbol& operator=(const Symbol&) = default;
+    Symbol(Symbol&&)                 = default;
+    Symbol& operator=(Symbol&&)      = default;
 
     bool operator==(const Symbol& s) const {
       if (tag != s.tag) {
@@ -314,7 +245,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     };
 
     Symbol::CRef begin_ = EmptyList<Symbol>::kInstance.begin();
-    Symbol::CRef end_ = EmptyList<Symbol>::kInstance.end();
+    Symbol::CRef end_   = EmptyList<Symbol>::kInstance.end();
   };
 
   class Word {
@@ -370,7 +301,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     Word(const Word&)            = default;
     Word& operator=(const Word&) = default;
 
-    Symbol::List symbols_;
+    Symbol::List symbols_{};
   };
 
   static Alphabet& instance() {
@@ -504,16 +435,16 @@ class Alphabet : private internal::Singleton<Alphabet> {
   Alphabet(Alphabet&&)                 = delete;
   Alphabet& operator=(Alphabet&&)      = delete;
 
-  DenseMap<Sort,       bool> sort_rigid_;
-  DenseMap<FunSymbol,  Sort> fun_sort_;
-  DenseMap<FunSymbol,  int>  fun_arity_;
-  DenseMap<NameSymbol, Sort> name_sort_;
-  DenseMap<NameSymbol, int>  name_arity_;
-  DenseMap<VarSymbol,  Sort> var_sort_;
+  DenseMap<Sort,       bool> sort_rigid_{};
+  DenseMap<FunSymbol,  Sort> fun_sort_{};
+  DenseMap<FunSymbol,  int>  fun_arity_{};
+  DenseMap<NameSymbol, Sort> name_sort_{};
+  DenseMap<NameSymbol, int>  name_arity_{};
+  DenseMap<VarSymbol,  Sort> var_sort_{};
 
-  TermMap              symbols_term_;
-  DenseMap<Fun,  Word> term_fun_symbols_;
-  DenseMap<Name, Word> term_name_symbols_;
+  TermMap              symbols_term_{};
+  DenseMap<Fun,  Word> term_fun_symbols_{};
+  DenseMap<Name, Word> term_name_symbols_{};
   int                  last_sort_      = 0;
   int                  last_var_       = 0;
   int                  last_fun_       = 0;
@@ -521,7 +452,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
   int                  last_fun_term_  = 0;
   int                  last_name_term_ = 0;
 
-  std::vector<DenseMap<FunSymbol, FunSymbol>> swear_funcs_;
+  std::vector<DenseMap<FunSymbol, FunSymbol>> swear_funcs_{};
 };
 
 template<typename T>
@@ -579,8 +510,8 @@ class FormulaCommons {
 
 class RFormula : private FormulaCommons {
  public:
-  explicit RFormula() : meta_init_(false) {}
-  explicit RFormula(Abc::Symbol::CRef begin, Abc::Symbol::CRef end) : rword_(begin, end), meta_init_(false) {}
+  explicit RFormula() = default;
+  explicit RFormula(Abc::Symbol::CRef begin, Abc::Symbol::CRef end) : rword_(begin, end) {}
   explicit RFormula(const Abc::RWord& w) : RFormula(w.begin(), w.end()) {}
   explicit RFormula(Abc::Symbol::CRef begin) : RFormula(begin, End(begin)) {}
 
@@ -760,15 +691,15 @@ class RFormula : private FormulaCommons {
   // Strongly well formed means the formula is well formed as defined in the
   // paper, i.e., quasi-primitive literals, quasi-trivial actions (flattened).
   // Weakly well formed admits nested functions and right-hand side functions.
-  bool stripped()             const { if (!meta_init_) { InitMeta(); } return stripped_; }
-  bool ground()               const { if (!meta_init_) { InitMeta(); } return ground_; }
-  bool objective()            const { if (!meta_init_) { InitMeta(); } return objective_; }
-  bool subjective()           const { if (!meta_init_) { InitMeta(); } return subjective_; }
-  bool dynamic()              const { if (!meta_init_) { InitMeta(); } return !static_; }
-  bool nnf()                  const { if (!meta_init_) { InitMeta(); } return nnf_; }
-  bool proper_plus()          const { if (!meta_init_) { InitMeta(); } return proper_plus_; }
-  bool weakly_well_formed()   const { if (!meta_init_) { InitMeta(); } return weakly_well_formed_; }
-  bool strongly_well_formed() const { if (!meta_init_) { InitMeta(); } return strongly_well_formed_; }
+  bool stripped()             const { if (!m_.init) { InitMeta(); } return m_.stripped; }
+  bool ground()               const { if (!m_.init) { InitMeta(); } return m_.ground; }
+  bool objective()            const { if (!m_.init) { InitMeta(); } return m_.objective; }
+  bool subjective()           const { if (!m_.init) { InitMeta(); } return m_.subjective; }
+  bool dynamic()              const { if (!m_.init) { InitMeta(); } return m_.dynamic; }
+  bool nnf()                  const { if (!m_.init) { InitMeta(); } return m_.nnf; }
+  bool proper_plus()          const { if (!m_.init) { InitMeta(); } return m_.proper_plus; }
+  bool weakly_well_formed()   const { if (!m_.init) { InitMeta(); } return m_.weakly_well_formed; }
+  bool strongly_well_formed() const { if (!m_.init) { InitMeta(); } return m_.strongly_well_formed; }
 
  private:
   void InitMeta() const { const_cast<RFormula*>(this)->InitMeta(); }
@@ -783,16 +714,16 @@ class RFormula : private FormulaCommons {
     bool action_scope_active    = false;
     bool negation_scope_active  = false;
     bool epistemic_scope_active = false;
-    meta_init_            = true;
-    stripped_             = true;
-    ground_               = true;
-    objective_            = true;
-    subjective_           = true;
-    static_               = true;
-    nnf_                  = true;
-    proper_plus_          = true;
-    weakly_well_formed_   = true;
-    strongly_well_formed_ = true;
+    m_.init                 = true;
+    m_.stripped             = true;
+    m_.ground               = true;
+    m_.objective            = true;
+    m_.subjective           = true;
+    m_.dynamic              = false;
+    m_.nnf                  = true;
+    m_.proper_plus          = true;
+    m_.weakly_well_formed   = true;
+    m_.strongly_well_formed = true;
     for (auto it = begin(); it != end(); ) {
       const Abc::Symbol& s = *it;
       if (s.tag == Abc::Symbol::kNot && !negation_scope_active) {
@@ -810,27 +741,27 @@ class RFormula : private FormulaCommons {
       negation_scope_active  &= scoper.active(negation_scope);
       action_scope_active    &= scoper.active(action_scope);
       epistemic_scope_active &= scoper.active(epistemic_scope);
-      stripped_    &= !s.unstripped();
-      ground_      &= s.tag != Abc::Symbol::kVar && !s.quantifier();
-      objective_   &= s.objective();
-      subjective_  &= epistemic_scope_active || (!s.fun() && s.tag != Abc::Symbol::kStrippedLit);
-      static_      &= s.tag != Abc::Symbol::kAction;
-      nnf_         &= s.tag != Abc::Symbol::kNot &&
-                      (!action_scope_active || s.tag == Abc::Symbol::kAction || s.term() || s.literal());
-      proper_plus_ &= s.term() || s.literal() ||
-                      (negation_scope_active && (s.tag == Abc::Symbol::kExists || s.tag == Abc::Symbol::kAnd)) ||
-                      (!negation_scope_active && (s.tag == Abc::Symbol::kForall || s.tag == Abc::Symbol::kOr));
+      m_.stripped    &= !s.unstripped();
+      m_.ground      &= s.tag != Abc::Symbol::kVar && !s.quantifier();
+      m_.objective   &= s.objective();
+      m_.subjective  &= epistemic_scope_active || (!s.fun() && s.tag != Abc::Symbol::kStrippedLit);
+      m_.dynamic     |= s.tag == Abc::Symbol::kAction;
+      m_.nnf         &= s.tag != Abc::Symbol::kNot &&
+                        (!action_scope_active || s.tag == Abc::Symbol::kAction || s.term() || s.literal());
+      m_.proper_plus &= s.term() || s.literal() ||
+                        (negation_scope_active && (s.tag == Abc::Symbol::kExists || s.tag == Abc::Symbol::kAnd)) ||
+                        (!negation_scope_active && (s.tag == Abc::Symbol::kForall || s.tag == Abc::Symbol::kOr));
       if (it != begin()) {
         if (!es.empty()) {
           switch (es.back()) {
-            case kTerm:       weakly_well_formed_ &= s.term();  strongly_well_formed_ &= s.term();            break;
-            case kQuasiName:  weakly_well_formed_ &= s.term();  strongly_well_formed_ &= s.name() || s.var(); break;
-            case kFormula:    weakly_well_formed_ &= !s.term(); strongly_well_formed_ &= !s.term();           break;
+            case kTerm:       m_.weakly_well_formed &= s.term();  m_.strongly_well_formed &= s.term();            break;
+            case kQuasiName:  m_.weakly_well_formed &= s.term();  m_.strongly_well_formed &= s.name() || s.var(); break;
+            case kFormula:    m_.weakly_well_formed &= !s.term(); m_.strongly_well_formed &= !s.term();           break;
           }
           es.pop_back();
         } else {
-          weakly_well_formed_   &= !s.term();
-          strongly_well_formed_ &= !s.term();
+          m_.weakly_well_formed   &= !s.term();
+          m_.strongly_well_formed &= !s.term();
         }
       }
       switch (s.tag) {
@@ -854,8 +785,8 @@ class RFormula : private FormulaCommons {
       }
       scoper.Munch(*it++);
     }
-    weakly_well_formed_   &= es.empty();
-    strongly_well_formed_ &= es.empty();
+    m_.weakly_well_formed   &= es.empty();
+    m_.strongly_well_formed &= es.empty();
   }
 
   void InitArg(int i) const { const_cast<RFormula*>(this)->InitArg(i); }
@@ -867,18 +798,20 @@ class RFormula : private FormulaCommons {
     }
   }
 
-  Abc::RWord rword_;
-  mutable std::vector<RFormula> args_;
-  unsigned meta_init_            : 1;
-  unsigned ground_               : 1;
-  unsigned stripped_             : 1;
-  unsigned objective_            : 1;
-  unsigned subjective_           : 1;
-  unsigned static_               : 1;
-  unsigned nnf_                  : 1;
-  unsigned proper_plus_          : 1;
-  unsigned weakly_well_formed_   : 1;
-  unsigned strongly_well_formed_ : 1;
+  Abc::RWord rword_{};
+  mutable std::vector<RFormula> args_{};
+  struct {
+    unsigned init                 : 1;
+    unsigned ground               : 1;
+    unsigned stripped             : 1;
+    unsigned objective            : 1;
+    unsigned subjective           : 1;
+    unsigned dynamic              : 1;
+    unsigned nnf                  : 1;
+    unsigned proper_plus          : 1;
+    unsigned weakly_well_formed   : 1;
+    unsigned strongly_well_formed : 1;
+  } m_{};
 };
 
 class Formula : private FormulaCommons {
@@ -970,14 +903,14 @@ class Formula : private FormulaCommons {
     struct ForallMarker {
       explicit ForallMarker(Abc::VarSymbol x, Scope scope) : x(x), scope(scope) {}
       explicit ForallMarker(Scope scope) : scope(scope) {}
-      Abc::VarSymbol x;
-      Scope scope;
+      Abc::VarSymbol x{};
+      Scope scope{};
     };
     struct NotMarker {
       explicit NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
-      explicit NotMarker(Scope scope) : neg(false), scope(scope) {}
-      unsigned neg : 1;
-      Scope scope;
+      explicit NotMarker(Scope scope) : scope(scope) {}
+      bool neg = false;
+      Scope scope{};
     };
     std::vector<ForallMarker> foralls;
     std::vector<NotMarker> nots;
@@ -1048,8 +981,8 @@ class Formula : private FormulaCommons {
     assert(readable().weakly_well_formed());
     struct ActionMarker {
       explicit ActionMarker(Abc::Symbol::List symbols, Scope scope) : symbols(symbols), scope(scope) {}
-      Abc::Symbol::List symbols;
-      Scope scope;
+      Abc::Symbol::List symbols{};
+      Scope scope{};
     };
     std::vector<ActionMarker> actions;
     Scope::Observer scoper;
@@ -1108,13 +1041,13 @@ class Formula : private FormulaCommons {
     struct NewVar {
       explicit NewVar() = default;
       explicit NewVar(Abc::VarSymbol x, Scope scope) : x(x), scope(scope) {}
-      Abc::VarSymbol x;
-      Scope scope;
+      Abc::VarSymbol x{};
+      Scope scope{};
     };
     struct NewVars {
       explicit NewVars() = default;
       bool used = false;
-      std::vector<NewVar> vars;
+      std::vector<NewVar> vars{};
     };
     Abc::DenseMap<Abc::VarSymbol, NewVars> vars;
     Scope::Observer scoper;
@@ -1149,9 +1082,9 @@ class Formula : private FormulaCommons {
     struct NotMarker {
       explicit NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
       explicit NotMarker(Scope scope) : reset(true), scope(scope) {}
-      unsigned reset : 1;
-      unsigned neg   : 1;
-      Scope scope;
+      bool reset = false;
+      bool neg   = false;
+      Scope scope{};
     };
     std::vector<NotMarker> nots;
     Scope::Observer scoper;
@@ -1231,23 +1164,23 @@ class Formula : private FormulaCommons {
     struct AndOrMarker {
       explicit AndOrMarker(Abc::Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
       explicit AndOrMarker(Scope scope) : reset(true), scope(scope) {}
-      unsigned reset : 1;
-      Abc::Symbol::Ref ref;
-      Scope scope;
+      bool reset = false;
+      Abc::Symbol::Ref ref{};
+      Scope scope{};
     };
     struct ActionMarker {
       explicit ActionMarker(Abc::Symbol::List symbols, Scope scope) : symbols(symbols), scope(scope) {}
       explicit ActionMarker(Scope scope) : reset(true), scope(scope) {}
-      unsigned reset : 1;
-      Abc::Symbol::List symbols;
-      Scope scope;
+      bool reset = false;
+      Abc::Symbol::List symbols{};
+      Scope scope{};
     };
     struct NotMarker {
       explicit NotMarker(bool neg, Scope scope) : neg(neg), scope(scope) {}
       explicit NotMarker(Scope scope) : reset(true), scope(scope) {}
-      unsigned reset : 1;
-      unsigned neg   : 1;
-      Scope scope;
+      bool reset = false;
+      bool neg   = false;
+      Scope scope{};
     };
     std::vector<AndOrMarker> andors;
     std::vector<ActionMarker> actions;
@@ -1356,10 +1289,10 @@ class Formula : private FormulaCommons {
     struct SubstitutionMarker {
       explicit SubstitutionMarker(Abc::VarSymbol x, Iterator n_begin, Iterator n_end, Scope scope)
           : x(x), n_begin(n_begin), n_end(n_end), scope(scope) {}
-      Abc::VarSymbol x;
-      Iterator n_begin;
-      Iterator n_end;
-      Scope scope;
+      Abc::VarSymbol x{};
+      Iterator n_begin{};
+      Iterator n_end{};
+      Scope scope{};
     };
     std::vector<SubstitutionMarker> markers;
     Abc::DenseMap<Abc::VarSymbol, class Name> map;
@@ -1409,8 +1342,8 @@ class Formula : private FormulaCommons {
     struct TermMarker {
       explicit TermMarker(Abc::Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
       bool ok = true;
-      Abc::Symbol::Ref ref;
-      Scope scope;
+      Abc::Symbol::Ref ref{};
+      Scope scope{};
     };
     std::vector<TermMarker> terms;
     Scope::Observer scoper;
@@ -1472,8 +1405,8 @@ class Formula : private FormulaCommons {
     assert(readable().weakly_well_formed());
     struct Marker {
       explicit Marker(Abc::Symbol::Ref ref, Scope scope) : ref(ref), scope(scope) {}
-      Abc::Symbol::Ref ref;
-      Scope scope;
+      Abc::Symbol::Ref ref{};
+      Scope scope{};
     };
     std::vector<Marker> markers;
     Scope::Observer scoper;

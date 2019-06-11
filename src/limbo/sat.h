@@ -36,7 +36,7 @@ class Sat {
  public:
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
-  struct KeepLearnt { explicit KeepLearnt(bool yes) : yes(yes) {} bool yes; };
+  struct KeepLearnt { explicit KeepLearnt(bool yes) : yes(yes) {} bool yes = false; };
   struct DefaultActivity { double operator()(Fun) const { return 0.0; } };
   struct DefaultNogood { bool operator()(const TermMap<Fun, Name>&, std::vector<Lit>*) const { return false; } };
 
@@ -306,7 +306,7 @@ class Sat {
     static constexpr bool kModelEq  = false;
 
     explicit FunNameData()
-        : occurs(0), popped(0), model_neq(0), seen_subsumed(0), wanted(0), level(0), reason(CRef::kNull) {}
+        : occurs(0), popped(0), model_neq(0), seen_subsumed(0), wanted(0), level(0) {}
 
     FunNameData(const FunNameData&)            = delete;
     FunNameData& operator=(const FunNameData&) = delete;
@@ -334,7 +334,7 @@ class Sat {
     unsigned seen_subsumed :  1;  // true iff a literal subsumed by f = n / f != n on the trail (helper for Analyze())
     unsigned wanted        :  1;  // true iff a literal complementary to f = n / f != n is wanted (helper for Analyze())
     unsigned level         : 27;  // level at which f = n or f != n was set or derived
-    CRef reason;                  // clause which derived f = n or f != n
+    CRef reason = CRef::kNull;    // clause which derived f = n or f != n
   };
 
   class ActivityCompare {
@@ -342,7 +342,7 @@ class Sat {
     explicit ActivityCompare(const TermMap<Fun, double>* fa) : fa_(fa) {}
     bool operator()(const Fun f1, const Fun f2) const { return (*fa_)[f1] > (*fa_)[f2]; }
    private:
-    const TermMap<Fun, double>* fa_;
+    const TermMap<Fun, double>* fa_ = nullptr;
   };
 
 
@@ -891,14 +891,14 @@ class Sat {
   // clauses_ is the sequence of clauses added initially or learnt.
   // propagate_with_learnt_ is true iff learnt clauses are not considered in
   //    Propagate().
-  Clause::Factory   clausef_;
+  Clause::Factory   clausef_{};
   std::vector<CRef> clauses_               = std::vector<CRef>(1, CRef::kNull);
   bool              propagate_with_learnt_ = true;
 
   // watchers_ maps every function to a sequence of clauses that watch it;
   //    every clause watches two functions, and when a literal with this
   //    function is propagated, the watching clauses are inspected.
-  TermMap<Fun, std::vector<CRef>> watchers_;
+  TermMap<Fun, std::vector<CRef>> watchers_{};
 
   // trail_ is a sequence of literals in the order they were derived.
   // level_size_ groups the literals of trail_ into chunks by their level at
@@ -908,23 +908,23 @@ class Sat {
   //    propagated yet.
   // trail_eqs_ is the number of equalities on the trail.
   // trail_neqs_ is the number of inequalities on the trail for a function.
-  std::vector<Lit>  trail_;
-  std::vector<int>  level_size_;
+  std::vector<Lit>  trail_{};
+  std::vector<int>  level_size_{};
   int               trail_head_ = 0;
   int               trail_eqs_  = 0;
-  TermMap<Fun, int> trail_neqs_;
+  TermMap<Fun, int> trail_neqs_{};
 
   // domain_size_ is the number of names that occured per function.
   // domain_ contains at least domain_size_ - trail_neqs_[f] and at most
   //    domain_size_ names n that are potential values for each f; some of
   //    those may already be excluded by f != n on the trail.
-  TermMap<Fun, int>              domain_size_;
-  TermMap<Fun, RingBuffer<Name>> domain_;
+  TermMap<Fun, int>              domain_size_{};
+  TermMap<Fun, RingBuffer<Name>> domain_{};
 
   // model_ is an assignment of functions to names, i.e., positive literals.
   // data_ is meta data for every function and name pair (cf. FunNameData).
-  TermMap<Fun, Name>                       model_;
-  TermMap<Fun, TermMap<Name, FunNameData>> data_;
+  TermMap<Fun, Name>                       model_{};
+  TermMap<Fun, TermMap<Name, FunNameData>> data_{};
 
   // fun_activity_ assigns an activity to each function.
   // fun_queue_ ranks the clauses by activity (highest first).

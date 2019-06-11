@@ -110,27 +110,26 @@ class LimSat {
   enum class SolverType { kWithLearntClauses, kWithoutLearntClauses };
 
   struct FoundModel {
-    FoundModel() : succ(false) {}
+    FoundModel() = default;
     FoundModel(TermMap<Fun, Name>&& model) : model(model), succ(true) {}
     FoundModel(const TermMap<Fun, Name>& model) : model(model), succ(true) {}
-    TermMap<Fun, Name> model;
-    bool succ;
+    TermMap<Fun, Name> model{};
+    bool succ = false;
   };
 
   struct FoundCoveringModels {
-    FoundCoveringModels() : all_covered(false) {}
-    FoundCoveringModels(std::vector<TermMap<Fun, Name>>&& models,
-                        std::vector<std::vector<Fun>>&& newly_assigned_in)
+    FoundCoveringModels() = default;
+    FoundCoveringModels(std::vector<TermMap<Fun, Name>>&& models, std::vector<std::vector<Fun>>&& newly_assigned_in)
         : models(models), newly_assigned_in(newly_assigned_in), all_covered(true) {}
-    std::vector<TermMap<Fun, Name>> models;
-    std::vector<std::vector<Fun>> newly_assigned_in;
-    bool all_covered;
+    std::vector<TermMap<Fun, Name>> models{};
+    std::vector<std::vector<Fun>> newly_assigned_in{};
+    bool all_covered = false;
   };
 
   struct AssignedFunctions {
     AssignedFunctions(std::vector<Fun>&& newly_assigned, bool all_assigned)
         : newly_assigned(newly_assigned), all_assigned(all_assigned) {}
-    std::vector<Fun> newly_assigned;
+    std::vector<Fun> newly_assigned{};
     bool all_assigned = false;
   };
 
@@ -368,14 +367,14 @@ class LimSat {
   static constexpr double kActivityOffset = 1000.0;
   static constexpr int    kMaxConflicts   = 50;
 
-  std::set<LitVec>    clauses_;
-  std::vector<LitVec> clauses_vec_;
+  std::set<LitVec>    clauses_{};
+  std::vector<LitVec> clauses_vec_{};
 
-  TermMap<Fun, TermMap<Name, bool>> domains_;
+  TermMap<Fun, TermMap<Name, bool>> domains_{};
   int                               extra_name_id_ = 1;
   bool                              extra_name_contained_ = false;
 
-  Sat sat_;
+  Sat sat_{};
   int sat_init_index_ = 0;
 };
 

@@ -18,7 +18,7 @@ struct Singleton {
 };
 
 template<typename T>
-std::unique_ptr<T> Singleton<T>::instance_;
+std::unique_ptr<T> Singleton<T>::instance_ = nullptr;
 
 }  // namespace internal
 }  // namespace limbo
