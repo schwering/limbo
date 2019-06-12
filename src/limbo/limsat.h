@@ -20,6 +20,7 @@
 #define LIMBO_LIMSAT_H_
 
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 #include <set>
 #include <vector>
@@ -28,6 +29,11 @@
 #include <limbo/sat.h>
 #include <limbo/internal/dense.h>
 #include <limbo/internal/subsets.h>
+
+#include <iostream>
+#include <ostream>
+#include <bitset>
+#include <cmath>
 
 namespace limbo {
 
@@ -138,17 +144,35 @@ class LimSat {
    public:
     explicit Activity() = default;
     explicit Activity(double d) : val_(d) {}
-    Activity& operator+=(const double d) { val_ += val_ >= 0 ? d : -d; return *this; }
-    Activity& operator*=(const double d) { val_ *= d; return *this; }
-    Activity& operator/=(const double d) { val_ /= d; return *this; }
+
+    Activity& operator+=(const double d) {
+      if (neg(val_)) {
+        val_ -= d;
+      } else {
+        val_ += d;
+      }
+      return *this;
+    }
+
+    Activity& operator/=(const double d) {
+      val_ /= d;
+      return *this;
+    }
+
     bool operator>(const Activity a) const {
-      return (val_ >= 0) > (a.val_ >= 0) || (val_ >= a.val_ && a.val_ >= 0) || (val_ < a.val_ && a.val_ < 0);
+      return (!neg(val_) &&  neg(a.val_)) ||
+             (!neg(val_) && !neg(a.val_) && val_ > a.val_) ||
+             ( neg(val_) &&  neg(a.val_) && val_ < a.val_);
     }
+
     bool operator>(const double d) const {
-      return (val_ >= 0 ? val_ : -val_) > d;
+      return !neg(val_) ? (val_ > d) : (val_ < d);
     }
+
    private:
-    double val_ = 0.0;
+    static bool neg(double d) { return std::signbit(d); }
+
+    double val_ = +0.0;
   };
 #else
   using Activity = double;
@@ -387,7 +411,7 @@ class LimSat {
     }
   }
 
-  static constexpr double kActivityOffset = 1.0;
+  static constexpr double kActivityOffset = 1000.0;
   static constexpr int    kMaxConflicts   = 50;
 
   std::set<LitVec>    clauses_{};
