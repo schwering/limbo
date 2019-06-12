@@ -169,7 +169,7 @@ static bool LoadCnf(std::istream& stream,
   return prop;
 }
 
-bool Solve(Sat* sat, int max_conflicts_init, int conflicts_increase) {
+bool Solve(Sat<>* sat, int max_conflicts_init, int conflicts_increase) {
   struct Stats {
     int n_conflicts             = 0;
     int n_decisions             = 0;
@@ -179,10 +179,10 @@ bool Solve(Sat* sat, int max_conflicts_init, int conflicts_increase) {
   } stats;
   bool restarts = max_conflicts_init >= 0;
   int max_conflicts = max_conflicts_init;
-  Sat::Truth truth = Sat::Truth::kUnknown;
+  Sat<>::Truth truth = Sat<>::Truth::kUnknown;
 
   auto update_avg = [](double* avg, auto n, auto x) { *avg = double(n) / double(n + 1) * *avg + double(x) / double(n + 1); };
-  auto conflict_predicate = [&](int level, Sat::CRef, const std::vector<Lit>&, int btlevel) {
+  auto conflict_predicate = [&](int level, Sat<>::CRef, const std::vector<Lit>&, int btlevel) {
     update_avg(&stats.avg_conflict_level,   stats.n_conflicts, level);
     update_avg(&stats.avg_conflict_btlevel, stats.n_conflicts, btlevel);
     ++stats.n_conflicts;
@@ -196,12 +196,12 @@ bool Solve(Sat* sat, int max_conflicts_init, int conflicts_increase) {
 
   Timer t;
   t.start();
-  for (int i = 0; truth == Sat::Truth::kUnknown; ++i) {
+  for (int i = 0; truth == Sat<>::Truth::kUnknown; ++i) {
     max_conflicts = static_cast<int>(std::pow(conflicts_increase, i) * max_conflicts_init);
     truth = sat->Solve(conflict_predicate, decision_predicate);
   }
   t.stop();
-  printf("%s (in %.5lfs)\n", (truth == Sat::Truth::kSat ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
+  printf("%s (in %.5lfs)\n", (truth == Sat<>::Truth::kSat ? "SATISFIABLE" : "UNSATISFIABLE"), t.duration());
   printf("Clauses: %d | Propagate from learnt: %s\n",
          int(sat->clauses().size()) - 1,
          sat->propagate_with_learnt() ? "yes" : "no");
@@ -211,10 +211,10 @@ bool Solve(Sat* sat, int max_conflicts_init, int conflicts_increase) {
          stats.avg_conflict_btlevel,
          stats.n_decisions,
          stats.avg_decision_level);
-  return truth == Sat::Truth::kSat;
+  return truth == Sat<>::Truth::kSat;
 }
 
-void PrintSolution(const Sat& sat, const bool prop, const int n_columns, bool show_funs,
+void PrintSolution(const Sat<>& sat, const bool prop, const int n_columns, bool show_funs,
                    const std::vector<Fun>& funs, const std::vector<Name>& names,
                    const bool extra, const Name extra_name) {
   struct winsize ws;
@@ -314,7 +314,7 @@ int main(int argc, char *argv[]) {
 
   Timer timer_total;
   timer_total.start();
-  Sat sat;
+  Sat<> sat;
   for (const std::vector<Lit>& lits : cnf) {
     for (const Lit a : lits) {
       if (!sat.registered(a.fun(), a.name())) {

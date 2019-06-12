@@ -133,6 +133,27 @@ class LimSat {
     bool all_assigned = false;
   };
 
+#if 1
+  class Activity {
+   public:
+    explicit Activity() = default;
+    explicit Activity(double d) : val_(d) {}
+    Activity& operator+=(const double d) { val_ += val_ >= 0 ? d : -d; return *this; }
+    Activity& operator*=(const double d) { val_ *= d; return *this; }
+    Activity& operator/=(const double d) { val_ /= d; return *this; }
+    bool operator>(const Activity a) const {
+      return (val_ >= 0) > (a.val_ >= 0) || (val_ >= a.val_ && a.val_ >= 0) || (val_ < a.val_ && a.val_ < 0);
+    }
+    bool operator>(const double d) const {
+      return (val_ >= 0 ? val_ : -val_) > d;
+    }
+   private:
+    double val_ = 0.0;
+  };
+#else
+  using Activity = double;
+#endif
+
   static bool assigns(const TermMap<Fun, Name>& model, const Fun f) {
     return model.key_in_range(f) && !model[f].null();
   }
@@ -274,11 +295,13 @@ class LimSat {
                        const TermMap<Fun, bool>& wanted,
                        QueryPredicate query_satisfied) {
     //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
-    auto activity = [&wanted](Fun f) { return wanted.key_in_range(f) ? wanted[f] * kActivityOffset : 0.0; };
+    auto activity = [&wanted, wanted_is_must](Fun f) {
+      return Activity(wanted.key_in_range(f) && wanted[f] ? kActivityOffset : wanted_is_must ? -1.0 : 1.0);
+    };
 #if 1
     InitSat(activity);
 #else
-    sat_ = Sat();
+    sat_ = Sat<Activity>();
     for (const auto& c : clauses_vec_) {
       for (const Lit a : c) {
         sat_.Register(a.fun(), a.name(), activity);
@@ -290,14 +313,14 @@ class LimSat {
     for (const auto& c : clauses_vec_) {
       sat_.AddClause(c);
     }
-    sat_.Reset(Sat::KeepLearnt(propagate_with_learnt), activity);
+    sat_.Reset(Sat<Activity>::KeepLearnt(propagate_with_learnt), activity);
 #endif
     sat_.set_propagate_with_learnt(propagate_with_learnt);
     TermMap<Fun, Name> partial_model;
     int partial_model_size = -1;
     int n_conflicts = 0;
-    const Sat::Truth truth = sat_.Solve(
-        [&](int, Sat::CRef, const LitVec&, int) -> bool {
+    const Sat<Activity>::Truth truth = sat_.Solve(
+        [&](int, Sat<Activity>::CRef, const LitVec&, int) -> bool {
           return ++n_conflicts <= kMaxConflicts;
         },
         [&](int, Lit) -> bool {
@@ -317,7 +340,7 @@ class LimSat {
           }
           return sat;
         });
-    if (truth == Sat::Truth::kSat) {
+    if (truth == Sat<Activity>::Truth::kSat) {
       //printf("FindModel %d: true, partial_model_size = %d, assignment =", __LINE__, sat_.model_size()); for (const Fun f : sat_.model().keys()) { if (assigns(sat_.model(), f)) { printf(" (%d = %d)", int(f), int(sat_.model()[f])); } } printf("\n");
       assert(AssignsAll(sat_.model(), wanted));
       return FoundModel(sat_.model());
@@ -358,13 +381,13 @@ class LimSat {
       sat_.RegisterExtraName(Name::FromId(extra_name_id_));
       extra_name_contained_ = true;
     }
-    sat_.Reset(Sat::KeepLearnt(false), activity);
+    sat_.Reset(Sat<Activity>::KeepLearnt(false), activity);
     for (; sat_init_index_ < int(clauses_vec_.size()); ++sat_init_index_) {
       sat_.AddClause(clauses_vec_[sat_init_index_]);
     }
   }
 
-  static constexpr double kActivityOffset = 1000.0;
+  static constexpr double kActivityOffset = 1.0;
   static constexpr int    kMaxConflicts   = 50;
 
   std::set<LitVec>    clauses_{};
@@ -374,8 +397,8 @@ class LimSat {
   int                               extra_name_id_ = 1;
   bool                              extra_name_contained_ = false;
 
-  Sat sat_{};
-  int sat_init_index_ = 0;
+  Sat<Activity> sat_{};
+  int           sat_init_index_ = 0;
 };
 
 }  // namespace limbo

@@ -32,12 +32,13 @@
 
 namespace limbo {
 
+template<typename Activity = double>
 class Sat {
  public:
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
   struct KeepLearnt { explicit KeepLearnt(bool yes) : yes(yes) {} bool yes = false; };
-  struct DefaultActivity { double operator()(Fun) const { return 0.0; } };
+  struct DefaultActivity { Activity operator()(Fun) const { return Activity(); } };
   struct DefaultNogood { bool operator()(const TermMap<Fun, Name>&, std::vector<Lit>*) const { return false; } };
 
   explicit Sat() = default;
@@ -160,13 +161,13 @@ class Sat {
   void Reset(KeepLearnt keep_learnt = KeepLearnt(true), ActivityFunction activity = ActivityFunction()) {
     Reset(keep_learnt);
     for (const Fun f : fun_activity_->keys()) {
-      const double old_act = (*fun_activity_)[f];
-      const double new_act = activity(f);
+      const Activity old_act = (*fun_activity_)[f];
+      const Activity new_act = activity(f);
       (*fun_activity_)[f] = new_act;
       if (fun_queue_.contains(f)) {
         if (new_act > old_act) {
           fun_queue_.Increase(f);
-        } else if (new_act < old_act) {
+        } else if (old_act > new_act) {
           fun_queue_.Decrease(f);
         }
       }
@@ -268,7 +269,7 @@ class Sat {
           Enqueue(learnt[0], CRef::kNull);
         }
         BumpToFront(learnt[0].fun());
-        DecayFun();
+        Decay();
       } else {
         assert(Invariants());
         const Fun f = NextFun();
@@ -305,8 +306,7 @@ class Sat {
     static constexpr bool kModelNeq = true;
     static constexpr bool kModelEq  = false;
 
-    explicit FunNameData()
-        : occurs(0), popped(0), model_neq(0), seen_subsumed(0), wanted(0), level(0) {}
+    explicit FunNameData() : occurs(0), popped(0), model_neq(0), seen_subsumed(0), wanted(0), level(0) {}
 
     FunNameData(const FunNameData&)            = delete;
     FunNameData& operator=(const FunNameData&) = delete;
@@ -339,40 +339,37 @@ class Sat {
 
   class ActivityCompare {
    public:
-    explicit ActivityCompare(const TermMap<Fun, double>* fa) : fa_(fa) {}
+    explicit ActivityCompare(const TermMap<Fun, Activity>* fa) : fa_(fa) {}
     bool operator()(const Fun f1, const Fun f2) const { return (*fa_)[f1] > (*fa_)[f2]; }
    private:
-    const TermMap<Fun, double>* fa_ = nullptr;
+    const TermMap<Fun, Activity>* fa_ = nullptr;
   };
 
 
   static_assert(sizeof(FunNameData) == 4 + sizeof(CRef), "FunNameData should be 4 + 4 bytes");
 
-  static constexpr double kBumpStepInit = 1.0;
-  static constexpr double kActivityThreshold = 1e100;
-  static constexpr double kDecayFactor = 0.95;
+  static constexpr double kBumpStepInit   = 1.0;
+  static constexpr double kBumpMultiplier = 1.05;
+  static constexpr double kDecayThreshold = 1e100;
 
 
   void Bump(const Fun f, const double bump) {
+    assert(bump >= 0);
     (*fun_activity_)[f] += bump;
-    if ((*fun_activity_)[f] > kActivityThreshold) {
-      for (double& a : fun_activity_->values()) {
-        a /= kActivityThreshold;
+    if ((*fun_activity_)[f] > kDecayThreshold) {
+      for (Activity& a : fun_activity_->values()) {
+        a /= kDecayThreshold;
       }
-      fun_bump_step_ /= kActivityThreshold;
+      fun_bump_step_ /= kDecayThreshold;
     }
     if (fun_queue_.contains(f)) {
-      if (bump >= 0) {
-        fun_queue_.Increase(f);
-      } else {
-        fun_queue_.Decrease(f);
-      }
+      fun_queue_.Increase(f);
     }
   }
 
-  void BumpToFront(const Fun f) { Bump(f, (*fun_activity_)[fun_queue_.top()] - (*fun_activity_)[f] + fun_bump_step_); }
+  void BumpToFront(const Fun f) { Bump(f, kDecayThreshold); }
   void Bump(const Fun f)        { Bump(f, fun_bump_step_); }
-  void DecayFun()               { fun_bump_step_ /= kDecayFactor; }
+  void Decay()                  { fun_bump_step_ *= kBumpMultiplier; }
 
   void Watch(const CRef cr, const Clause& c) {
     assert(&clausef_[cr] == &c);
@@ -928,9 +925,9 @@ class Sat {
 
   // fun_activity_ assigns an activity to each function.
   // fun_queue_ ranks the clauses by activity (highest first).
-  std::unique_ptr<TermMap<Fun, double>> fun_activity_{new TermMap<Fun, double>()};
-  MinHeap<Fun, ActivityCompare>         fun_queue_{ActivityCompare(fun_activity_.get())};
-  double                                fun_bump_step_ = kBumpStepInit;
+  std::unique_ptr<TermMap<Fun, Activity>> fun_activity_{new TermMap<Fun, Activity>()};
+  MinHeap<Fun, ActivityCompare>           fun_queue_{ActivityCompare(fun_activity_.get())};
+  double                                  fun_bump_step_ = kBumpStepInit;
 };
 
 #ifndef NDEBUG
