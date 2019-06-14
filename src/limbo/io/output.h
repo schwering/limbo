@@ -6,8 +6,8 @@
 #define LIMBO_IO_OUTPUT_H_
 
 #include <cstdlib>
-#include <memory>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <string>
 
@@ -18,16 +18,25 @@
 #include <limbo/io/iocontext.h>
 
 #ifndef LIMBO_LOG
-#define LIMBO_LOG(s)    std::cout << __FILE__ << ":" << __FUNCTION__ << ":" << __LINE__ << ": " << std::boolalpha << s << std::endl
+#define LIMBO_LOG(s) \
+    std::cout << __FILE__ << ":" << __FUNCTION__ << ":" << __LINE__ << ": "\
+              << std::boolalpha << std::scientific << s << std::endl
 #endif
+
 #ifndef LIMBO_LOG_VAR
-#define LIMBO_LOG_VAR(x) std::cout << __FILE__ << ":" << __FUNCTION__ << ":" << __LINE__ << ": " #x " = " << std::boolalpha << s << std::endl
+#define LIMBO_LOG_VAR(x) \
+    std::cout << __FILE__ << ":" << __FUNCTION__ << ":" << __LINE__ << ": " #x " = "\
+              << std::boolalpha << std::scientific << x << std::endl
 #endif
 
 namespace limbo {
 namespace io {
 
 namespace strings {
+  static constexpr const char* kReset = "\033[0m";
+  static constexpr const char* kBlack = "\033[30m";
+  static constexpr const char* kRed   = "\033[31m";
+  static constexpr const char* kGreen = "\033[32m";
   static constexpr const char* kEquals = "\u003D";
   static constexpr const char* kNotEquals = "\u2260";
   static constexpr const char* kNot = "\u00AC";
@@ -94,6 +103,23 @@ std::ostream& operator<<(std::ostream& os, const Clause& c) {
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& xs) {
   return os << sequence(xs);
+}
+
+template<typename Key,
+         typename Val,
+         typename Index,
+         Index kOffset,
+         typename KeyToIndex,
+         typename IndexToKey,
+         typename CheckBound>
+std::ostream& operator<<(std::ostream& os,
+                         const internal::DenseMap<Key, Val, Index, kOffset, KeyToIndex, IndexToKey, CheckBound>& map) {
+  os << "(";
+  for (const Key& key : map.keys()) {
+    os << " " << key << " -> " << map[key] << " ";
+  }
+  os << ")";
+  return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Alphabet::Sort& s) {

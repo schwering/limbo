@@ -30,11 +30,6 @@
 #include <limbo/internal/dense.h>
 #include <limbo/internal/subsets.h>
 
-#include <iostream>
-#include <ostream>
-#include <bitset>
-#include <cmath>
-
 namespace limbo {
 
 class LimSat {
@@ -115,6 +110,8 @@ class LimSat {
  private:
   enum class SolverType { kWithLearntClauses, kWithoutLearntClauses };
 
+  enum class Intensity { kCould, kShould, kMust };
+
   struct FoundModel {
     FoundModel() = default;
     FoundModel(TermMap<Fun, Name>&& model) : model(model), succ(true) {}
@@ -160,9 +157,10 @@ class LimSat {
     }
 
     bool operator>(const Activity a) const {
-      return (!neg(val_) &&  neg(a.val_)) ||
+      bool b = (!neg(val_) &&  neg(a.val_)) ||
              (!neg(val_) && !neg(a.val_) && val_ > a.val_) ||
              ( neg(val_) &&  neg(a.val_) && val_ < a.val_);
+      return b;
     }
 
     bool operator>(const double d) const {
@@ -198,6 +196,14 @@ class LimSat {
       }
     }
     return true;
+  }
+
+  static int AssignsNumber(const TermMap<Fun, Name>& model, const TermMap<Fun, bool>& wanted) {
+    int n = 0;
+    for (const Fun f : wanted.keys()) {
+      n += wanted[f] && assigns(model, f);
+    }
+    return n;
   }
 
   template<typename T>
@@ -255,9 +261,9 @@ class LimSat {
       for (const Fun f : must) {
         wanted[f] = true;
       }
-      constexpr bool propagate_with_learnt = true;
-      constexpr bool wanted_is_must = true;
-      const FoundModel fm = FindModel(min_model_size, propagate_with_learnt, wanted_is_must, wanted, query_satisfied);
+      constexpr bool propagate_with_learnt = false;
+      constexpr Intensity want_intensity = Intensity::kMust;
+      const FoundModel fm = FindModel(min_model_size, propagate_with_learnt, want_intensity, wanted, query_satisfied);
       return fm.succ;
     });
   }
@@ -273,26 +279,25 @@ class LimSat {
     for (const Fun f : domains_.keys()) {
       wanted[f] = !domains_[f].empty();
     }
-    bool propagate_with_learnt = false;
-    bool wanted_is_must = false;
+    bool propagate_with_learnt = true;
+    Intensity want_intensity = Intensity::kShould;
     for (;;) {
-      //printf("FindCoveringModels:%d\n", __LINE__);
-      const FoundModel fm = FindModel(min_model_size, propagate_with_learnt, wanted_is_must, wanted, query_satisfied);
-      if (!fm.succ && propagate_with_learnt) {
+      const FoundModel fm = FindModel(min_model_size, propagate_with_learnt, want_intensity, wanted, query_satisfied);
+      if (propagate_with_learnt && !fm.succ) {
         propagate_with_learnt = false;
         continue;
       }
-      if (!fm.succ) {
+      AssignedFunctions gaf = GetAndUnwantNewlyAssignedFunctions(fm.model, &wanted);
+      if (want_intensity == Intensity::kCould && gaf.newly_assigned.empty()) {
+        want_intensity = Intensity::kCould;
+        continue;
+      }
+      if (!fm.succ || (min_model_size > 0 && gaf.newly_assigned.empty())) {
         return FoundCoveringModels();
       }
       model_found(fm.model);
       if (min_model_size == 0) {
         return FoundCoveringModels(std::move(models), std::move(newly_assigned_in));
-      }
-      AssignedFunctions gaf = GetAndUnwantNewlyAssignedFunctions(fm.model, &wanted);
-      if (gaf.newly_assigned.empty() && !wanted_is_must) {
-        wanted_is_must = true;
-        continue;
       }
       // Remove previous models that assign a subset of the newly found model.
       for (int i = 0; i < int(models.size()); ) {
@@ -315,15 +320,15 @@ class LimSat {
   template<typename QueryPredicate>
   FoundModel FindModel(const int min_model_size,
                        const bool propagate_with_learnt,
-                       const bool wanted_is_must,
+                       const Intensity want_intensity,
                        const TermMap<Fun, bool>& wanted,
                        QueryPredicate query_satisfied) {
-    //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, wanted_is_must = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", wanted_is_must ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
-    auto activity = [&wanted, wanted_is_must](Fun f) {
-      return Activity(wanted.key_in_range(f) && wanted[f] ? kActivityOffset : wanted_is_must ? -1.0 : 1.0);
+    //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, want_intensity = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", want_intensity ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
+    auto activity = [&wanted, want_intensity](Fun f) {
+      return Activity(wanted.key_in_range(f) && wanted[f] ? kActivityOffset : true||want_intensity > Intensity::kCould ? -1.0 : 1.0);
     };
 #if 1
-    InitSat(activity);
+    InitSat(false && propagate_with_learnt, activity);
 #else
     sat_ = Sat<Activity>();
     for (const auto& c : clauses_vec_) {
@@ -343,24 +348,35 @@ class LimSat {
     TermMap<Fun, Name> partial_model;
     int partial_model_size = -1;
     int n_conflicts = 0;
+    int partial_assigns_number = -1;
+    int partial_last_conflict = -1;
     const Sat<Activity>::Truth truth = sat_.Solve(
         [&](int, Sat<Activity>::CRef, const LitVec&, int) -> bool {
-          return ++n_conflicts <= kMaxConflicts;
+          ++n_conflicts;
+          return partial_last_conflict < 0 || n_conflicts - partial_last_conflict < kMaxConflicts;
         },
         [&](int, Lit) -> bool {
+          int assigns_number = -1;
           if (min_model_size <= sat_.model_size() && partial_model_size < sat_.model_size() &&
-              (!wanted_is_must || AssignsAll(sat_.model(), wanted)) && !query_satisfied(partial_model, nullptr)) {
-            partial_model_size = sat_.model_size();
-            partial_model = sat_.model();
+              (want_intensity < Intensity::kMust || AssignsAll(sat_.model(), wanted)) && !query_satisfied(partial_model, nullptr) &&
+              (want_intensity == Intensity::kMust || (assigns_number = AssignsNumber(sat_.model(), wanted)) > partial_assigns_number)) {
+            partial_model_size     = sat_.model_size();
+            partial_model          = sat_.model();
+            partial_last_conflict  = n_conflicts;
+            partial_assigns_number = assigns_number;
           }
           return true;
         },
-        [&](const TermMap<Fun, Name>& model, LitVec* nogood) {
+        [&](const TermMap<Fun, Name>& model, LitVec* nogood) -> bool {
           const bool sat = query_satisfied(model, nogood);
+          int assigns_number = -1;
           if (!sat && min_model_size <= sat_.model_size() && partial_model_size < sat_.model_size() &&
-              (!wanted_is_must || AssignsAll(sat_.model(), wanted))) {
-            partial_model_size = sat_.model_size();
-            partial_model = sat_.model();
+              (want_intensity < Intensity::kMust || AssignsAll(sat_.model(), wanted)) &&
+              (want_intensity == Intensity::kMust || (assigns_number = AssignsNumber(sat_.model(), wanted)) > partial_assigns_number)) {
+            partial_model_size     = sat_.model_size();
+            partial_model          = sat_.model();
+            partial_last_conflict  = n_conflicts;
+            partial_assigns_number = assigns_number;
           }
           return sat;
         });
@@ -368,7 +384,7 @@ class LimSat {
       //printf("FindModel %d: true, partial_model_size = %d, assignment =", __LINE__, sat_.model_size()); for (const Fun f : sat_.model().keys()) { if (assigns(sat_.model(), f)) { printf(" (%d = %d)", int(f), int(sat_.model()[f])); } } printf("\n");
       assert(AssignsAll(sat_.model(), wanted));
       return FoundModel(sat_.model());
-    } else if (partial_model_size >= min_model_size && !query_satisfied(partial_model, nullptr)) {
+    } else if (partial_model_size >= min_model_size) {
       //printf("FindModel %d: true, partial_model_size = %d, assignment =", __LINE__, partial_model_size); for (const Fun f : partial_model.keys()) { if (assigns(partial_model, f)) { printf(" (%d = %d)", int(f), int(partial_model[f])); } } printf("\n");
       return FoundModel(std::move(partial_model));
     } else {
@@ -400,12 +416,12 @@ class LimSat {
   }
 
   template<typename ActivityFunction>
-  void InitSat(ActivityFunction activity = ActivityFunction()) {
+  void InitSat(bool keep_learnt, ActivityFunction activity = ActivityFunction()) {
     if (!extra_name_contained_) {
       sat_.RegisterExtraName(Name::FromId(extra_name_id_));
       extra_name_contained_ = true;
     }
-    sat_.Reset(Sat<Activity>::KeepLearnt(false), activity);
+    sat_.Reset(Sat<Activity>::KeepLearnt(keep_learnt), activity);
     for (; sat_init_index_ < int(clauses_vec_.size()); ++sat_init_index_) {
       sat_.AddClause(clauses_vec_[sat_init_index_]);
     }
