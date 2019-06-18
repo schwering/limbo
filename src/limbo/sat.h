@@ -107,15 +107,21 @@ class Sat {
         assert(c.size() >= 2);
         if (falsifies(c[0]) || falsifies(c[1])) {
           auto better = [this, &c](int i, int j) {
-            return !falsifies(c[i]) || (falsifies(c[j]) && level_of_complementary(c[i]) > level_of_complementary(c[j]));
+            return !falsifies(c[i]) ||
+                   (falsifies(c[j]) && level_of_complementary(c[i]) >= level_of_complementary(c[j]));
           };
-          if (better(1, 0)) {
+          // Lemma: !better(i, j) implies better(j, i).
+          // Proof: Suppose !better(i, j). Let l_k = level_of_complementary(c[k]).
+          // Then falsifies(c[i]), and falsifies(c[j]) implies l_i < l_j.
+          // If !falsifies(c[j]), then better(j, i). Else, if falsifies(c[j]),
+          // l_j >= l_i, and since falsifies(c[i]), better(j, i).
+          if (!better(0, 1)) {
             std::swap(c[0], c[1]);
           }
           for (int i = 2; i < c.size(); ++i) {
-            if (better(i, 1)) {
+            if (!better(1, i)) {
               std::swap(c[1], c[i]);
-              if (better(1, 0)) {
+              if (!better(0, 1)) {
                 std::swap(c[0], c[1]);
               }
               if (current_level() == Level::kBase && !falsifies(c[1])) {
@@ -123,10 +129,17 @@ class Sat {
               }
             }
           }
-          assert([better](int i) { while (--i > 0) { if (better(i, i-1)) { return false; } } return true; }(c.size()));
+          assert([better](int i) { while (--i >= 1) { if (!better(0, i)) { return false; } } return true; }(c.size()));
+          assert([better](int i) { while (--i >= 2) { if (!better(1, i)) { return false; } } return true; }(c.size()));
         }
         clauses_.push_back(cr);
         Watch(cr, c);
+        assert(!falsifies(c[0]) || (falsifies(c[1]) && level_of_complementary(c[1]) <= level_of_complementary(c[0])));
+        if (falsifies(c[1])) {
+          const Level level = level_of_complementary(falsifies(c[0]) ? c[0] : c[1]);
+          const int index = int(level) > 0 ? level_size_[int(level) - 1] : 0;
+          trail_head_ = std::min(trail_head_, index);
+        }
       }
     }
   }
