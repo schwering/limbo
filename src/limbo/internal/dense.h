@@ -184,13 +184,13 @@ class DenseMinHeap {
   const Less& less() const { return less; }
 
   void FitForElement(const T x) { index_.FitForKey(x); }
-  void FitForIndex(const int i) { index_.FitForIndex(i); }
+  void FitForIndex(const Index i) { index_.FitForIndex(i); }
 
   void Clear() { heap_.clear(); index_.Clear(); heap_.emplace_back(); }
 
   int size()  const { return heap_.size() - 1; }
   bool empty() const { return heap_.size() == 1; }
-  const T& operator[](int i) const { return heap_[i + 1]; }
+  const T& operator[](Index i) const { return heap_[i + 1]; }
 
   bool contains(const T& x) const { return index_[x] != 0; }
 
@@ -210,7 +210,7 @@ class DenseMinHeap {
 
   void Insert(const T& x) {
     assert(!contains(x));
-    const int i = heap_.size();
+    const Index i = heap_.size();
     heap_.push_back(x);
     index_[x] = i;
     SiftUp(i);
@@ -219,7 +219,7 @@ class DenseMinHeap {
 
   void Remove(const T& x) {
     assert(contains(x));
-    const int i = index_[x];
+    const Index i = index_[x];
     heap_[i] = heap_.back();
     index_[heap_[i]] = i;
     heap_.pop_back();
@@ -236,16 +236,16 @@ class DenseMinHeap {
   typename std::vector<T>::const_iterator end()   const { return heap_.end(); }
 
  private:
-  using Map = DenseMap<T, int, Index, kOffset, KeyToIndex, IndexToKey, CheckBound>;
+  using Map = DenseMap<T, Index, Index, kOffset, KeyToIndex, IndexToKey, CheckBound>;
 
-  static int left(const int i)   { return 2 * i; }
-  static int right(const int i)  { return 2 * i + 1; }
-  static int parent(const int i) { return i / 2; }
+  static Index left(const Index i)   { return 2 * i; }
+  static Index right(const Index i)  { return 2 * i + 1; }
+  static Index parent(const Index i) { return i / 2; }
 
-  void SiftUp(int i) {
+  void SiftUp(Index i) {
     assert(i > 0 && i < heap_.size());
     const T x = heap_[i];
-    int p;
+    Index p;
     while ((p = parent(i)) != 0 && less_(x, heap_[p])) {
       heap_[i] = heap_[p];
       index_[heap_[i]] = i;
@@ -256,11 +256,11 @@ class DenseMinHeap {
     assert(std::all_of(heap_.begin() + 1, heap_.end(), [this](T x) { return heap_[index_[x]] == x; }));
   }
 
-  void SiftDown(int i) {
+  void SiftDown(Index i) {
     assert(i > 0 && i < heap_.size());
     const T x = heap_[i];
     while (left(i) < Index(heap_.size())) {
-      const int min_child =
+      const Index min_child =
           right(i) < Index(heap_.size()) && less_(heap_[right(i)], heap_[left(i)])
           ? right(i) : left(i);
       if (!less_(heap_[min_child], x)) {

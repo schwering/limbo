@@ -96,7 +96,7 @@ class IoContext : public limbo::internal::Singleton<IoContext> {
     const std::string& ToString(const Sym sym, const char* default_string) {
       if (!Registered(sym)) {
         std::stringstream ss;
-        ss << default_string << int(sym);
+        ss << default_string << sym.id();
         Register(sym, ss.str());
       }
       return sym2str_[sym];

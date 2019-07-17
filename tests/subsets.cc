@@ -39,7 +39,7 @@ TEST(SubsetsTest, subsets_two_ternary_sets_cardinality_zero) {
   Xs.push_back({1, 2, 3});
   Xs.push_back({11, 22, 33});
   std::set<std::vector<int>> Ys;
-  int n_subsets = 0;
+  unsigned int n_subsets = 0;
   bool r = AllCombinedSubsetsOfSize(Xs, 0, [&](const std::vector<int>& xs) { Ys.insert(xs); ++n_subsets; return true; });
   EXPECT_TRUE(r);
   EXPECT_EQ(n_subsets, 0);
@@ -52,7 +52,7 @@ TEST(SubsetsTest, subsets_two_ternary_sets_cardinality_one) {
   Xs.push_back({1, 2, 3});
   Xs.push_back({11, 22, 33});
   std::set<std::vector<int>> Ys;
-  int n_subsets = 0;
+  unsigned int n_subsets = 0;
   bool r = AllCombinedSubsetsOfSize(Xs, 1, [&](const std::vector<int>& xs) { Ys.insert(xs); ++n_subsets; return true; });
   EXPECT_TRUE(r);
   EXPECT_EQ(n_subsets, 0);
@@ -87,8 +87,8 @@ TEST(SubsetsTest, subsets_two_ternary_sets_cardinality_three) {
   //for (const std::vector<int>& ys : Ys) {
   //  printf("ys = "); for (auto y : ys) { printf("%d ", y); } printf("\n");
   //}
-  EXPECT_EQ(Ys.size(), n_subsets);
-  EXPECT_EQ(Ys.size(), 3*3+3*3);
+  EXPECT_EQ(Ys.size(), unsigned(n_subsets));
+  EXPECT_EQ(Ys.size(), unsigned(3*3+3*3));
   for (int i = 1; i <= 3; ++i) {
     EXPECT_TRUE(Ys.find({i,11,22}) != Ys.end());
     EXPECT_TRUE(Ys.find({i,11,33}) != Ys.end());

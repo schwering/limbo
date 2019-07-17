@@ -862,8 +862,8 @@ class Sat {
   Level current_level() const { return Level(level_size_.size()); }
 
   void FitMaps(const Fun f, const Name n) {
-    const int fi = int(f) > data_.upper_bound_index() ? int(f) : -1;
-    const int ni = data_.empty() || int(n) > data_.head().upper_bound_index() ? int(n) : -1;
+    const int fi = f.id() > data_.upper_bound_index() ? f.id() : -1;
+    const int ni = data_.empty() || n.id() > data_.head().upper_bound_index() ? n.id() : -1;
     const int fig = (fi + 1) * 1.5;
     const int nig = ni >= 0 ? (ni + 1) * 3 / 2 : data_.head().upper_bound_index() + 1;
     if (fi >= 0) {

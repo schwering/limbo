@@ -74,8 +74,8 @@ struct DefaultEventHandler {
 template<typename ForwardIt, typename EventHandler = DefaultEventHandler>
 class Parser {
  public:
-  using Lexer         = Lexer<ForwardIt>;
-  using TokenIterator = typename Lexer::TokenIterator;
+  using Lex           = Lexer<ForwardIt>;
+  using TokenIterator = typename Lex::TokenIterator;
 
   struct Void {
     friend std::ostream& operator<<(std::ostream& os, Void) { return os; }
@@ -1543,7 +1543,7 @@ class Parser {
 
   EventHandler   eh_;
   bool           default_if_undeclared_ = false;
-  Lexer          lexer_;
+  Lex            lexer_;
   mutable        TokenIterator begin_;  // don't use begin_ directly: to avoid the stream blocking us, Advance() actually increments
   mutable size_t begin_plus_ = 0;  // begin_plus_ instead of begin_; use begin() to obtain the incremented iterator.
   TokenIterator  end_;

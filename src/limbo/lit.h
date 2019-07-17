@@ -37,9 +37,7 @@ class Fun {
   bool operator> (Fun f) const { return id_ >  f.id_; }
 
   explicit operator bool() const { return id_; }
-  explicit operator int()  const { return id_; }
   bool null() const { return id_ == 0; }
-
   id_t id() const { return id_; }
 
  private:
@@ -71,9 +69,7 @@ class Name {
   bool operator> (Name n) const { return id_ >  n.id_; }
 
   explicit operator bool() const { return id_; }
-  explicit operator int()  const { return id_; }
   bool null() const { return id_ == 0; }
-
   id_t id() const { return id_; }
 
  private:
@@ -93,7 +89,7 @@ class Lit {
   static Lit FromId(id_t id) { return Lit(id); }
 
   explicit Lit() = default;
-  explicit Lit(bool pos, Fun fun, Name name) : Lit(Bits::merge(int(fun), (int(name) << 1) | pos)) {
+  explicit Lit(bool pos, Fun fun, Name name) : Lit(Bits::merge(fun.id(), (name.id() << 1) | pos)) {
     assert(this->pos() == pos);
     assert(this->fun() == fun);
     assert(this->name() == name);
@@ -111,7 +107,6 @@ class Lit {
 
   explicit operator bool() const { return id_; }
   bool null() const { return id_ == 0; }
-
   id_t id() const { return id_; }
 
   Lit flip() const { return Lit(id_ ^ 1); }

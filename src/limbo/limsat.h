@@ -60,7 +60,7 @@ class LimSat {
         domains_.FitForKey(f);
         domains_[f].FitForKey(n);
         domains_[f][n] = true;
-        extra_name_id_ = std::max(int(n) + 1, extra_name_id_);
+        extra_name_id_ = std::max(n.id() + 1, extra_name_id_);
         if (!sat_.registered(f, n)) {
           sat_.Register(f, n);
         }
@@ -323,7 +323,7 @@ class LimSat {
                        const Intensity want_intensity,
                        const TermMap<Fun, bool>& wanted,
                        QueryPredicate query_satisfied) {
-    //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, want_intensity = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", want_intensity ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", int(f)); } } printf("\n");
+    //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, want_intensity = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", want_intensity ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", f.id()); } } printf("\n");
     auto activity = [&wanted, want_intensity](Fun f) {
       return Activity(wanted.key_in_range(f) && wanted[f] ? kActivityOffset : true||want_intensity > Intensity::kCould ? -1.0 : 1.0);
     };
@@ -381,11 +381,11 @@ class LimSat {
           return sat;
         });
     if (truth == Sat<Activity>::Truth::kSat) {
-      //printf("FindModel %d: true, partial_model_size = %d, assignment =", __LINE__, sat_.model_size()); for (const Fun f : sat_.model().keys()) { if (assigns(sat_.model(), f)) { printf(" (%d = %d)", int(f), int(sat_.model()[f])); } } printf("\n");
+      //printf("FindModel %d: true, partial_model_size = %d, assignment =", __LINE__, sat_.model_size()); for (const Fun f : sat_.model().keys()) { if (assigns(sat_.model(), f)) { printf(" (%d = %d)", f.id(), sat_.model()[f].id()); } } printf("\n");
       assert(AssignsAll(sat_.model(), wanted));
       return FoundModel(sat_.model());
     } else if (partial_model_size >= min_model_size) {
-      //printf("FindModel %d: true, partial_model_size = %d, assignment =", __LINE__, partial_model_size); for (const Fun f : partial_model.keys()) { if (assigns(partial_model, f)) { printf(" (%d = %d)", int(f), int(partial_model[f])); } } printf("\n");
+      //printf("FindModel %d: true, partial_model_size = %d, assignment =", __LINE__, partial_model_size); for (const Fun f : partial_model.keys()) { if (assigns(partial_model, f)) { printf(" (%d = %d)", f.id(), partial_model[f].id()); } } printf("\n");
       return FoundModel(std::move(partial_model));
     } else {
       //printf("FindModel %d: false\n", __LINE__);
@@ -402,7 +402,7 @@ class LimSat {
         domains_[f].FitForKey(n, false);
         if (!domains_[f][n]) {
           domains_[f][n] = true;
-          extra_name_id_ = std::max(int(n) + 1, extra_name_id_);
+          extra_name_id_ = std::max(n.id() + 1, extra_name_id_);
           sat_.Register(f, n);
         }
       } else {
@@ -434,7 +434,7 @@ class LimSat {
   std::vector<LitVec> clauses_vec_{};
 
   TermMap<Fun, TermMap<Name, bool>> domains_{};
-  int                               extra_name_id_ = 1;
+  Name::id_t                        extra_name_id_ = 1;
   bool                              extra_name_contained_ = false;
 
   Sat<Activity> sat_{};

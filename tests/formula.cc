@@ -327,7 +327,7 @@ TEST(FormulaTest, Rectify) {
     //F phi(F::And(F::Exists(x, F::Equals(F::Var(x), F::Var(x))), F::Exists(x, F::Equals(F::Var(x), F::Var(x)))));
     F phi(F::Exists(x, F::Equals(F::Var(x), F::Var(x))));
     std::cout << "Orig: " << phi << std::endl;
-    phi.Ground(subst);
+    phi.Ground([&subst](const Abc::Sort s) { return subst[s]; });
     std::cout << "Grou: " << phi << std::endl;
   }
 
@@ -337,7 +337,7 @@ TEST(FormulaTest, Rectify) {
     std::cout << "" << std::endl;
     F phi(F::And(F::Forall(x, F::Equals(F::Var(x), F::Var(x))), F::Exists(x, F::Equals(F::Var(x), F::Var(x)))));
     std::cout << "Orig: " << phi << std::endl;
-    phi.Ground(subst);
+    phi.Ground([&subst](const Abc::Sort s) { return subst[s]; });
     std::cout << "Grou: " << phi << std::endl;
   }
 }

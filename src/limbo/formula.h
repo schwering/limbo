@@ -45,9 +45,9 @@ class Alphabet : private internal::Singleton<Alphabet> {
     bool operator!=(const IntRepresented& i) const { return !(*this == i); }
 
     explicit operator bool() const { return id_; }
-    explicit operator int() const { return id_; }
-
     bool null() const { return id_ == 0; }
+
+    id_t id() const { return id_; }
 
    private:
     id_t id_ = 0;
@@ -81,7 +81,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
 
   template<typename T>
   struct ToId {
-    int operator()(const T k) const { return int(k); }
+    int operator()(const T k) const { return k.id(); }
   };
 
   template<typename T>
@@ -406,11 +406,11 @@ class Alphabet : private internal::Singleton<Alphabet> {
         assert(s.term());
         int i = 0;
         switch (s.tag) {
-          case Symbol::kFun:          i = int(s.u.f);   break;
-          case Symbol::kName:         i = int(s.u.n);   break;
-          case Symbol::kVar:          i = int(s.u.x);   break;
-          case Symbol::kStrippedFun:  i = int(s.u.f_s); break;
-          case Symbol::kStrippedName: i = int(s.u.n_s); break;
+          case Symbol::kFun:          i = s.u.f.id();   break;
+          case Symbol::kName:         i = s.u.n.id();   break;
+          case Symbol::kVar:          i = s.u.x.id();   break;
+          case Symbol::kStrippedFun:  i = s.u.f_s.id(); break;
+          case Symbol::kStrippedName: i = s.u.n_s.id(); break;
           default:                                      break;
         }
         h ^= internal::jenkins_hash(s.tag);

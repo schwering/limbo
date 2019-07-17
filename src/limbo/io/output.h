@@ -77,7 +77,7 @@ std::ostream& operator<<(std::ostream& os, const RFormula& w);
 std::ostream& operator<<(std::ostream& os, const Fun& f) {
   const Alphabet::RWord w = Alphabet::instance().Unstrip(f);
   if (w.empty()) {
-    return os << 'f' << int(f);
+    return os << 'f' << f.id();
   } else {
     return os << RFormula(w);
   }
@@ -86,7 +86,7 @@ std::ostream& operator<<(std::ostream& os, const Fun& f) {
 std::ostream& operator<<(std::ostream& os, const Name& n) {
   const Alphabet::RWord w = Alphabet::instance().Unstrip(n);
   if (w.empty()) {
-    return os << 'n' << int(n);
+    return os << 'n' << n.id();
   } else {
     return os << RFormula(w);
   }
