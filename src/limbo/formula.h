@@ -204,7 +204,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     bool term()             const { return fun() || name() || var(); }
     bool literal()          const { return tag == kEquals || tag == kNotEquals || tag == kStrippedLit; }
     bool quantifier()       const { return tag == kExists || tag == kForall; }
-    bool objective()        const { return tag != kKnow || tag != kMaybe || tag != kBelieve; }
+    bool objective()        const { return tag != kKnow && tag != kMaybe && tag != kBelieve; }
 
     Sort sort() const {
       assert(term());

@@ -270,7 +270,7 @@ class Sat {
         Backtrack(btlevel);
         assert(Invariants() && !learnt.empty());
         if (learnt.size() > 1) {
-          const CRef cr = clausef_.New(learnt, Clause::NormalizationPromise(true));
+          const CRef cr = clausef_.New(learnt, Clause::NormalizationPromise{true});
           Clause& c = clausef_[cr];
           c.set_learnt(true);
           assert(!satisfies(c[0]) && !falsifies(c[0]));
@@ -676,7 +676,7 @@ class Sat {
       data_[a.fun()][a.name()].seen_subsumed = false;
     }
 
-    learnt->resize(Clause::Normalize(learnt->size(), learnt->data(), Clause::InvalidityPromise(true)));
+    learnt->resize(Clause::Normalize(learnt->size(), learnt->data(), Clause::InvalidityPromise{true}));
 
     if (learnt->size() == 1) {
       *btlevel = Level::kRoot;

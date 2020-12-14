@@ -33,14 +33,8 @@ class Clause {
   using const_iterator = const Lit*;
   class Factory;
 
-  struct InvalidityPromise {
-    explicit InvalidityPromise(bool promised) : promised(promised) {}
-    bool promised;
-  };
-  struct NormalizationPromise {
-    explicit NormalizationPromise(bool promised) : promised(promised) {}
-    bool promised;
-  };
+  struct InvalidityPromise    { bool promised; };
+  struct NormalizationPromise { bool promised; };
 
   static int Normalize(int size, Lit* as, InvalidityPromise invalidity) {
     int i1 = 0;
@@ -111,7 +105,6 @@ next: {}
   const_iterator begin() const { return cbegin(); }
   const_iterator end()   const { return cend(); }
 
-
   bool valid() const { return unit() && as_[0].null(); }
   bool unsat() const { return empty(); }
 
@@ -153,8 +146,8 @@ next: {}
 
   explicit Clause(int size,
                   const Lit* first,
-                  NormalizationPromise normalization = NormalizationPromise(false),
-                  InvalidityPromise invalid = InvalidityPromise(false)) {
+                  NormalizationPromise normalization = {false},
+                  InvalidityPromise invalid = {false}) {
     h_.size = size;
     std::memcpy(begin(), first, size * sizeof(Lit));
     if (!normalization.promised) {
@@ -210,13 +203,13 @@ class Clause::Factory {
     return cr;
   }
 
-  CRef New(int k, const Lit* as, NormalizationPromise normalization = NormalizationPromise(false)) {
+  CRef New(int k, const Lit* as, NormalizationPromise normalization = {false}) {
     const CRef cr = memory_.Allocate(clause_size(k));
     new (memory_.address(cr)) Clause(k, as, normalization);
     return cr;
   }
 
-  CRef New(const std::vector<Lit>& as, NormalizationPromise normalization = NormalizationPromise(false)) {
+  CRef New(const std::vector<Lit>& as, NormalizationPromise normalization = {false}) {
     return New(as.size(), as.data(), normalization);
   }
 
