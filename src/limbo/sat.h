@@ -37,7 +37,7 @@ class Sat {
  public:
   enum class Truth : char { kUnsat = -1, kUnknown = 0, kSat = 1 };
   using CRef = Clause::Factory::CRef;
-  struct KeepLearnt { explicit KeepLearnt(bool yes) : yes(yes) {} bool yes = false; };
+  struct KeepLearnt { bool yes = false; };
   struct DefaultActivity { Activity operator()(Fun) const { return Activity(); } };
   struct DefaultNogood { bool operator()(const TermMap<Fun, Name>&, std::vector<Lit>*) const { return false; } };
 
@@ -144,7 +144,7 @@ class Sat {
     }
   }
 
-  void Reset(KeepLearnt keep_learnt = KeepLearnt(true)) {
+  void Reset(const KeepLearnt keep_learnt = {true}) {
     assert(Invariants(true));
     const Level level = keep_learnt.yes ? Level::kRoot : Level::kBase;
     if (level < current_level()) {
@@ -171,7 +171,7 @@ class Sat {
   }
 
   template<typename ActivityFunction>
-  void Reset(KeepLearnt keep_learnt = KeepLearnt(true), ActivityFunction activity = ActivityFunction()) {
+  void Reset(const KeepLearnt keep_learnt = {true}, ActivityFunction activity = ActivityFunction()) {
     Reset(keep_learnt);
     for (const Fun f : fun_activity_->keys()) {
       const Activity old_act = (*fun_activity_)[f];
@@ -313,7 +313,7 @@ class Sat {
 #endif
 
  private:
-  enum class Level : int  { kBase = 0, kRoot = 1 };
+  enum class Level : int { kBase = 0, kRoot = 1 };
 
   struct FunNameData {
     static constexpr bool kModelNeq = true;
@@ -588,7 +588,7 @@ class Sat {
     // f == model_[f] because this will become f == n in the conflict clause.
     // This also means that we want exactly one literal, which eliminates the
     // need for traversing the whole level again to reset the wanted flag.
-    auto want_complementary_on_level = [this](const Lit a, Level l) -> void {
+    auto want_complementary_on_level = [this](const Lit a, const Level l) -> void {
       assert(falsifies(a));
       assert(Level(data_[a.fun()][a.name()].level) <= l);
       assert(a.pos() || Level(data_[a.fun()][a.name()].level) == l);
@@ -602,7 +602,7 @@ class Sat {
       data_[f][Level(data_[f][n].level) == l ? n : m].wanted = true;
     };
     // wanted_complementary_on_level(a,l) iff a on level l is wanted.
-    auto wanted_complementary_on_level = [this](const Lit a, Level l) -> bool {
+    auto wanted_complementary_on_level = [this](const Lit a, const Level l) -> bool {
       assert(falsifies(a));
       assert(Level(data_[a.fun()][a.name()].level) <= l);
       const bool p = a.pos();
@@ -747,7 +747,7 @@ class Sat {
     assert(satisfies(a));
   }
 
-  void Backtrack(Level l) {
+  void Backtrack(const Level l) {
     assert(trail_head_ <= int(trail_.size()));
     assert(std::all_of(trail_.begin(), trail_.end(), [this](Lit a) { return satisfies(a); }));
     for (int i = int(trail_.size()) - 1; i >= level_size_[int(l)]; --i) {

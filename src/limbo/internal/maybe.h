@@ -34,7 +34,7 @@ struct Maybe {
   Maybe(Maybe&&)            = default;
   Maybe& operator=(Maybe&&) = default;
   template<typename U>
-  Maybe(Maybe<U>&& m) : val(m.val), yes(m.yes) {}
+  Maybe(Maybe<U>&& m) : val(std::forward<U>(m.val)), yes(m.yes) {}
 
   bool operator==(const Maybe& m) const { return yes == m.yes && (!yes || val == m.val); }
   bool operator!=(const Maybe& m) const { return !(*this == m); }
@@ -48,12 +48,10 @@ struct Maybe {
   bool yes = false;
 };
 
-struct NothingType {
+constexpr struct {
   template<typename T>
   operator Maybe<T>() const { return Maybe<T>(); }
-};
-
-constexpr NothingType Nothing = NothingType();
+} Nothing{};
 
 template<typename T>
 Maybe<typename std::remove_cv<typename std::remove_reference<T>::type>::type> Just(T&& val) {  // NOLINT

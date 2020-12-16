@@ -3,7 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root.
 //
 // Formulas are represented as linked lists of symbols. For lightweight
-// copying and read-access, RFormula only works with pointers to the list.
+// copying and read-access, RFormulas only work with pointers to the list.
 
 #ifndef LIMBO_FORMULA_H_
 #define LIMBO_FORMULA_H_
@@ -105,23 +105,23 @@ class Alphabet : private internal::Singleton<Alphabet> {
     using Ref  = List::iterator;
     using CRef = List::const_iterator;
 
-    static Symbol Fun(FunSymbol f)           { Symbol s; s.tag = kFun;          s.u.f = f;            return s; }
-    static Symbol Name(NameSymbol n)         { Symbol s; s.tag = kName;         s.u.n = n;            return s; }
-    static Symbol Var(VarSymbol x)           { Symbol s; s.tag = kVar;          s.u.x = x;            return s; }
-    static Symbol StrippedFun(class Fun f)   { Symbol s; s.tag = kStrippedFun;  s.u.f_s = f;          return s; }
-    static Symbol StrippedName(class Name n) { Symbol s; s.tag = kStrippedName; s.u.n_s = n;          return s; }
-    static Symbol Equals()                   { Symbol s; s.tag = kEquals;                             return s; }
-    static Symbol NotEquals()                { Symbol s; s.tag = kNotEquals;                          return s; }
-    static Symbol Lit(Lit a)                 { Symbol s; s.tag = kStrippedLit;  s.u.a = a;            return s; }
-    static Symbol Not()                      { Symbol s; s.tag = kNot;                                return s; }
-    static Symbol Exists(VarSymbol x)        { Symbol s; s.tag = kExists;       s.u.x = x;            return s; }
-    static Symbol Forall(VarSymbol x)        { Symbol s; s.tag = kForall;       s.u.x = x;            return s; }
-    static Symbol Or(int k)                  { Symbol s; s.tag = kOr;           s.u.k = k;            return s; }
-    static Symbol And(int k)                 { Symbol s; s.tag = kAnd;          s.u.k = k;            return s; }
-    static Symbol Know(int k)                { Symbol s; s.tag = kKnow;         s.u.k = k;            return s; }
-    static Symbol Maybe(int k)               { Symbol s; s.tag = kMaybe;        s.u.k = k;            return s; }
-    static Symbol Believe(int k, int l)      { Symbol s; s.tag = kBelieve;      s.u.kl = {k,l};       return s; }
-    static Symbol Action()                   { Symbol s; s.tag = kAction;                             return s; }
+    static Symbol Fun(const FunSymbol f)            { Symbol s; s.tag = kFun;          s.u.f = f;      return s; }
+    static Symbol Name(const NameSymbol n)          { Symbol s; s.tag = kName;         s.u.n = n;      return s; }
+    static Symbol Var(const VarSymbol x)            { Symbol s; s.tag = kVar;          s.u.x = x;      return s; }
+    static Symbol StrippedFun(const class Fun f)    { Symbol s; s.tag = kStrippedFun;  s.u.f_s = f;    return s; }
+    static Symbol StrippedName(const class Name n)  { Symbol s; s.tag = kStrippedName; s.u.n_s = n;    return s; }
+    static Symbol Equals()                          { Symbol s; s.tag = kEquals;                       return s; }
+    static Symbol NotEquals()                       { Symbol s; s.tag = kNotEquals;                    return s; }
+    static Symbol Lit(Lit a)                        { Symbol s; s.tag = kStrippedLit;  s.u.a = a;      return s; }
+    static Symbol Not()                             { Symbol s; s.tag = kNot;                          return s; }
+    static Symbol Exists(const VarSymbol x)         { Symbol s; s.tag = kExists;       s.u.x = x;      return s; }
+    static Symbol Forall(const VarSymbol x)         { Symbol s; s.tag = kForall;       s.u.x = x;      return s; }
+    static Symbol Or(const int k)                   { Symbol s; s.tag = kOr;           s.u.k = k;      return s; }
+    static Symbol And(const int k)                  { Symbol s; s.tag = kAnd;          s.u.k = k;      return s; }
+    static Symbol Know(const int k)                 { Symbol s; s.tag = kKnow;         s.u.k = k;      return s; }
+    static Symbol Maybe(const int k)                { Symbol s; s.tag = kMaybe;        s.u.k = k;      return s; }
+    static Symbol Believe(const int k, const int l) { Symbol s; s.tag = kBelieve;      s.u.kl = {k,l}; return s; }
+    static Symbol Action()                          { Symbol s; s.tag = kAction;                       return s; }
 
     Tag tag{};
 
@@ -136,7 +136,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
       struct {
         int      k;
         int      l;
-      } kl;            // kBelieve
+      }          kl;   // kBelieve
     } u{};
 
     explicit Symbol() = default;
@@ -226,7 +226,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
   class RWord {
    public:
     explicit RWord() = default;
-    explicit RWord(Symbol::CRef begin, Symbol::CRef end) : begin_(begin), end_(end) {}
+    explicit RWord(const Symbol::CRef begin, const Symbol::CRef end) : begin_(begin), end_(end) {}
 
     RWord(const RWord&)            = default;
     RWord& operator=(const RWord&) = default;
@@ -255,7 +255,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     explicit Word(Symbol::List&& w) : symbols_(w) {}
 
     template<typename InputIt>
-    explicit Word(InputIt begin, InputIt end) : symbols_(begin, end) {}
+    explicit Word(const InputIt begin, const InputIt end) : symbols_(begin, end) {}
 
     bool operator==(const Word& w) const { return symbols_ == w.symbols_; }
     bool operator!=(const Word& w) const { return !(*this == w); }
@@ -277,25 +277,25 @@ class Alphabet : private internal::Singleton<Alphabet> {
     Symbol::CRef end()   const { return symbols_.end(); }
 
     template<typename InputIt>
-    Symbol::Ref Insert(Symbol::Ref before, InputIt first, InputIt last) { return symbols_.insert(before, first, last); }
-    Symbol::Ref Insert(Symbol::Ref before, Symbol s) { return symbols_.insert(before, s); }
+    Symbol::Ref Insert(const Symbol::Ref before, const InputIt first, const InputIt last) { return symbols_.insert(before, first, last); }
+    Symbol::Ref Insert(const Symbol::Ref before, const Symbol s) { return symbols_.insert(before, s); }
 
-    Symbol::Ref Erase(Symbol::Ref first, Symbol::Ref last) { return symbols_.erase(first, last); }
-    Symbol::Ref Erase(Symbol::Ref it) { return symbols_.erase(it); }
+    Symbol::Ref Erase(const Symbol::Ref first, const Symbol::Ref last) { return symbols_.erase(first, last); }
+    Symbol::Ref Erase(const Symbol::Ref it) { return symbols_.erase(it); }
 
-    void Move(Symbol::Ref before, Symbol::Ref first) { symbols_.splice(before, symbols_, first); }
+    void Move(const Symbol::Ref before, const Symbol::Ref first) { symbols_.splice(before, symbols_, first); }
 
-    Symbol::List TakeOut(Symbol::Ref first, Symbol::Ref last) {
+    Symbol::List TakeOut(const Symbol::Ref first, const Symbol::Ref last) {
       Symbol::List tgt;
       tgt.splice(tgt.end(), symbols_, first, last);
       return tgt;
     }
 
-    void PutIn(Symbol::Ref before, Symbol::List&& symbols) {
+    void PutIn(const Symbol::Ref before, Symbol::List&& symbols) {
       symbols_.splice(before, symbols, symbols.begin(), symbols.end());
     }
 
-    void PutIn(Symbol::Ref before, Word&& w) { PutIn(before, std::move(w.symbols_)); }
+    void PutIn(const Symbol::Ref before, Word&& w) { PutIn(before, std::move(w.symbols_)); }
 
    private:
     Word(const Word&)            = default;
@@ -315,7 +315,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     instance_ = nullptr;
   }
 
-  Sort CreateSort(bool rigid) {
+  Sort CreateSort(const bool rigid) {
     // XXX Maybe future Sorts shouldn't be non-rigid/rigid but of different order
     // and the standard names of each order can only be formed with argumenst of
     // lower order.
@@ -324,7 +324,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     return s;
   }
 
-  FunSymbol CreateFun(Sort s, int arity) {
+  FunSymbol CreateFun(const Sort s, const int arity) {
     // XXX Should functions of a rigid sort be allowed?
     assert(!s.rigid());
     if (s.rigid()) {
@@ -336,7 +336,7 @@ class Alphabet : private internal::Singleton<Alphabet> {
     return f;
   }
 
-  NameSymbol CreateName(Sort s, int arity = 0) {
+  NameSymbol CreateName(const Sort s, const int arity = 0) {
     assert(s.rigid() || arity == 0);
     if (!s.rigid() && arity > 0) {
       std::abort();
@@ -347,13 +347,13 @@ class Alphabet : private internal::Singleton<Alphabet> {
     return n;
   }
 
-  VarSymbol CreateVar(Sort s) {
+  VarSymbol CreateVar(const Sort s) {
     const VarSymbol x = VarSymbol(++last_var_);
     var_sort_[x] = s;
     return x;
   }
 
-  FunSymbol Squaring(int sitlen, FunSymbol f) {
+  FunSymbol Squaring(const int sitlen, const FunSymbol f) {
     if (sitlen == 0) {
       return f;
     } else {
@@ -483,7 +483,7 @@ class FormulaCommons {
     };
 
     explicit Scope() = default;
-    explicit Scope(int k) : k_(k) {}
+    explicit Scope(const int k) : k_(k) {}
 
     Scope(const Scope&)            = default;
     Scope& operator=(const Scope&) = default;
@@ -511,16 +511,16 @@ class FormulaCommons {
 class RFormula : private FormulaCommons {
  public:
   explicit RFormula() = default;
-  explicit RFormula(Abc::Symbol::CRef begin, Abc::Symbol::CRef end) : rword_(begin, end) {}
+  explicit RFormula(const Abc::Symbol::CRef begin, const Abc::Symbol::CRef end) : rword_(begin, end) {}
   explicit RFormula(const Abc::RWord& w) : RFormula(w.begin(), w.end()) {}
-  explicit RFormula(Abc::Symbol::CRef begin) : RFormula(begin, End(begin)) {}
+  explicit RFormula(const Abc::Symbol::CRef begin) : RFormula(begin, End(begin)) {}
 
   const Abc::RWord& rword() const { return rword_; }
   const Abc::Symbol head()  const { return !empty() ? *begin() : Abc::Symbol(); }
   Abc::Symbol::Tag tag()    const { return head().tag; }
   int arity()               const { return head().arity(); }
 
-  const RFormula& arg(int i) const {
+  const RFormula& arg(const int i) const {
     InitArg(i);
     return args_[i];
   }
@@ -789,9 +789,9 @@ class RFormula : private FormulaCommons {
     m_.strongly_well_formed &= es.empty();
   }
 
-  void InitArg(int i) const { const_cast<RFormula*>(this)->InitArg(i); }
+  void InitArg(const int i) const { const_cast<RFormula*>(this)->InitArg(i); }
 
-  void InitArg(int i) {
+  void InitArg(const int i) {
     args_.reserve(arity());
     while (int(args_.size()) <= i) {
       args_.push_back(RFormula(!args_.empty() ? args_.back().end() : std::next(begin())));
@@ -817,42 +817,42 @@ class RFormula : private FormulaCommons {
 class Formula : private FormulaCommons {
  public:
   template<typename Formulas>
-  static Formula Fun(Abc::FunSymbol f, Formulas&& args)            { Formula ff(Abc::Symbol::Fun(f)); ff.AddArgs(args); return ff; }
-  static Formula Fun(Abc::FunSymbol f)                             { Formula ff(Abc::Symbol::Fun(f)); return ff; }
-  static Formula Fun(class Fun f)                                  { Formula ff(Abc::Symbol::StrippedFun(f)); return ff; }
+  static Formula Fun(const Abc::FunSymbol f, Formulas&& args)                  { Formula ff(Abc::Symbol::Fun(f)); ff.AddArgs(args); return ff; }
+  static Formula Fun(const Abc::FunSymbol f)                                   { Formula ff(Abc::Symbol::Fun(f)); return ff; }
+  static Formula Fun(const class Fun f)                                        { Formula ff(Abc::Symbol::StrippedFun(f)); return ff; }
   template<typename Formulas>
-  static Formula Name(Abc::NameSymbol n, Formulas&& args)          { Formula ff(Abc::Symbol::Name(n)); ff.AddArgs(args); return ff; }
-  static Formula Name(Abc::NameSymbol n)                           { Formula ff(Abc::Symbol::Name(n)); return ff; }
-  static Formula Name(class Name n)                                { Formula ff(Abc::Symbol::StrippedName(n)); return ff; }
-  static Formula Lit(class Lit a)                                  { return Formula(Abc::Symbol::Lit(a)); }
-  static Formula Var(Abc::VarSymbol x)                             { return Formula(Abc::Symbol::Var(x)); }
-  static Formula Equals(Formula&& f1, Formula&& f2)                { return Formula(Abc::Symbol::Equals(), f1, f2); }
-  static Formula Equals(const Formula& f1, const Formula& f2)      { return Formula(Abc::Symbol::Equals(), f1, f2); }
-  static Formula NotEquals(Formula&& f1, Formula&& f2)             { return Formula(Abc::Symbol::NotEquals(), f1, f2); }
-  static Formula NotEquals(const Formula& f1, const Formula& f2)   { return Formula(Abc::Symbol::NotEquals(), f1, f2); }
-  static Formula Not(Formula&& f)                                  { return Formula(Abc::Symbol::Not(), f); }
-  static Formula Not(const Formula& f)                             { return Formula(Abc::Symbol::Not(), f); }
-  static Formula Exists(Abc::VarSymbol x, Formula&& f)             { return Formula(Abc::Symbol::Exists(x), f); }
-  static Formula Exists(Abc::VarSymbol x, const Formula& f)        { return Formula(Abc::Symbol::Exists(x), f); }
-  static Formula Forall(Abc::VarSymbol x, Formula&& f)             { return Formula(Abc::Symbol::Forall(x), f); }
-  static Formula Forall(Abc::VarSymbol x, const Formula& f)        { return Formula(Abc::Symbol::Forall(x), f); }
-  static Formula Or(Formula&& f1, Formula&& f2)                    { return Formula(Abc::Symbol::Or(2), f1, f2); }
-  static Formula Or(const Formula& f1, const Formula& f2)          { return Formula(Abc::Symbol::Or(2), f1, f2); }
+  static Formula Name(const Abc::NameSymbol n, Formulas&& args)                { Formula ff(Abc::Symbol::Name(n)); ff.AddArgs(args); return ff; }
+  static Formula Name(const Abc::NameSymbol n)                                 { Formula ff(Abc::Symbol::Name(n)); return ff; }
+  static Formula Name(const class Name n)                                      { Formula ff(Abc::Symbol::StrippedName(n)); return ff; }
+  static Formula Lit(const class Lit a)                                        { return Formula(Abc::Symbol::Lit(a)); }
+  static Formula Var(const Abc::VarSymbol x)                                   { return Formula(Abc::Symbol::Var(x)); }
+  static Formula Equals(Formula&& f1, Formula&& f2)                            { return Formula(Abc::Symbol::Equals(), f1, f2); }
+  static Formula Equals(const Formula& f1, const Formula& f2)                  { return Formula(Abc::Symbol::Equals(), f1, f2); }
+  static Formula NotEquals(Formula&& f1, Formula&& f2)                         { return Formula(Abc::Symbol::NotEquals(), f1, f2); }
+  static Formula NotEquals(const Formula& f1, const Formula& f2)               { return Formula(Abc::Symbol::NotEquals(), f1, f2); }
+  static Formula Not(Formula&& f)                                              { return Formula(Abc::Symbol::Not(), f); }
+  static Formula Not(const Formula& f)                                         { return Formula(Abc::Symbol::Not(), f); }
+  static Formula Exists(const Abc::VarSymbol x, Formula&& f)                   { return Formula(Abc::Symbol::Exists(x), f); }
+  static Formula Exists(const Abc::VarSymbol x, const Formula& f)              { return Formula(Abc::Symbol::Exists(x), f); }
+  static Formula Forall(const Abc::VarSymbol x, Formula&& f)                   { return Formula(Abc::Symbol::Forall(x), f); }
+  static Formula Forall(const Abc::VarSymbol x, const Formula& f)              { return Formula(Abc::Symbol::Forall(x), f); }
+  static Formula Or(Formula&& f1, Formula&& f2)                                { return Formula(Abc::Symbol::Or(2), f1, f2); }
+  static Formula Or(const Formula& f1, const Formula& f2)                      { return Formula(Abc::Symbol::Or(2), f1, f2); }
   template<typename Formulas>
-  static Formula Or(Formulas&& fs)                                 { Formula ff(Abc::Symbol::Or(fs.size())); ff.AddArgs(fs); return ff; }
-  static Formula And(Formula&& f1, Formula&& f2)                   { return Formula(Abc::Symbol::And(2), f1, f2); }
-  static Formula And(const Formula& f1, const Formula& f2)         { return Formula(Abc::Symbol::And(2), f1, f2); }
+  static Formula Or(Formulas&& fs)                                             { Formula ff(Abc::Symbol::Or(fs.size())); ff.AddArgs(fs); return ff; }
+  static Formula And(Formula&& f1, Formula&& f2)                               { return Formula(Abc::Symbol::And(2), f1, f2); }
+  static Formula And(const Formula& f1, const Formula& f2)                     { return Formula(Abc::Symbol::And(2), f1, f2); }
   template<typename Formulas>
-  static Formula And(Formulas&& fs)                                { Formula ff(Abc::Symbol::And(fs.size())); ff.AddArgs(fs); return ff; }
-  static Formula Know(int k, Formula&& f)                          { return Formula(Abc::Symbol::Know(k), f); }
-  static Formula Know(int k, const Formula& f)                     { return Formula(Abc::Symbol::Know(k), f); }
-  static Formula Maybe(int k, Formula&& f)                         { return Formula(Abc::Symbol::Maybe(k), f); }
-  static Formula Maybe(int k, const Formula& f)                    { return Formula(Abc::Symbol::Maybe(k), f); }
-  static Formula Believe(int k, int l, Formula&& f1, Formula&& f2) { return Formula(Abc::Symbol::Believe(k, l), f1, f2); }
-  static Formula Believe(int k, int l, const Formula& f1, const Formula& f2)
-                                                                   { return Formula(Abc::Symbol::Believe(k, l), f1, f2); }
-  static Formula Action(Formula&& t, Formula&& f)                  { return Formula(Abc::Symbol::Action(), t, f); }
-  static Formula Action(const Formula& t, const Formula& f)        { return Formula(Abc::Symbol::Action(), t, f); }
+  static Formula And(Formulas&& fs)                                            { Formula ff(Abc::Symbol::And(fs.size())); ff.AddArgs(fs); return ff; }
+  static Formula Know(const int k, Formula&& f)                                { return Formula(Abc::Symbol::Know(k), f); }
+  static Formula Know(const int k, const Formula& f)                           { return Formula(Abc::Symbol::Know(k), f); }
+  static Formula Maybe(const int k, Formula&& f)                               { return Formula(Abc::Symbol::Maybe(k), f); }
+  static Formula Maybe(const int k, const Formula& f)                          { return Formula(Abc::Symbol::Maybe(k), f); }
+  static Formula Believe(const int k, const int l, Formula&& f1, Formula&& f2) { return Formula(Abc::Symbol::Believe(k, l), f1, f2); }
+  static Formula Believe(const int k, const int l, const Formula& f1, const Formula& f2)
+                                                                               { return Formula(Abc::Symbol::Believe(k, l), f1, f2); }
+  static Formula Action(Formula&& t, Formula&& f)                              { return Formula(Abc::Symbol::Action(), t, f); }
+  static Formula Action(const Formula& t, const Formula& f)                    { return Formula(Abc::Symbol::Action(), t, f); }
 
   explicit Formula(Abc::Word&& w) : word_(std::move(w)) {}
   explicit Formula(const RFormula& f) : word_(f.rword()) {}
@@ -1036,7 +1036,7 @@ class Formula : private FormulaCommons {
   // Introduces new variables so that no variable is quantified twice.
   // If all_new is true, then every variable is replaced with a new one;
   // otherwise the first occurrences remain unaltered.
-  void Rectify(bool all_new = false) {
+  void Rectify(const bool all_new = false) {
     assert(readable().weakly_well_formed());
     struct NewVar {
       explicit NewVar() = default;
@@ -1427,11 +1427,11 @@ class Formula : private FormulaCommons {
   }
 
  private:
-  explicit Formula(Abc::Symbol s)                                                  { word_.Insert(end(), s); }
-  explicit Formula(Abc::Symbol s, Formula&& f)                        : Formula(s) { assert(s.arity() == 1); AddArg(f); }
-  explicit Formula(Abc::Symbol s, const Formula& f)                   : Formula(s) { assert(s.arity() == 1); AddArg(f); }
-  explicit Formula(Abc::Symbol s, Formula&& f, Formula&& g)           : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
-  explicit Formula(Abc::Symbol s, const Formula& f, const Formula& g) : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
+  explicit Formula(const Abc::Symbol s)                                                  { word_.Insert(end(), s); }
+  explicit Formula(const Abc::Symbol s, Formula&& f)                        : Formula(s) { assert(s.arity() == 1); AddArg(f); }
+  explicit Formula(const Abc::Symbol s, const Formula& f)                   : Formula(s) { assert(s.arity() == 1); AddArg(f); }
+  explicit Formula(const Abc::Symbol s, Formula&& f, Formula&& g)           : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
+  explicit Formula(const Abc::Symbol s, const Formula& f, const Formula& g) : Formula(s) { assert(s.arity() == 2); AddArg(f); AddArg(g); }
 
   template<typename Formulas>
   void AddArgs(Formulas&& args) {

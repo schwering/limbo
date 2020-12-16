@@ -43,10 +43,7 @@ class LimSat {
   LimSat(LimSat&&)                 = default;
   LimSat& operator=(LimSat&&)      = default;
 
-  bool AddClause(const LitVec& as) {
-    LitVec copy = as;
-    return AddClause(std::move(copy));
-  }
+  bool AddClause(const LitVec& as) { return AddClause(LitVec(as)); }
 
   bool AddClause(LitVec&& as) {
     std::sort(as.begin(), as.end());
@@ -69,12 +66,12 @@ class LimSat {
     return p.second;
   }
 
-  void set_extra_name_contained(bool b) { extra_name_contained_ = b; }
+  void set_extra_name_contained(const bool b) { extra_name_contained_ = b; }
   bool extra_name_contained() const { return extra_name_contained_; }
 
   const std::set<LitVec>& clauses() const { return clauses_; }
 
-  bool Solve(int belief_level, const RFormula& query) {
+  bool Solve(const int belief_level, const RFormula& query) {
     UpdateDomainsForQuery(query);
     auto query_pred = [&query](const TermMap<Fun, Name>& model, std::vector<Lit>* nogood) {
       return query.SatisfiedBy(model, nogood);
@@ -84,7 +81,7 @@ class LimSat {
     return sat;
   }
 
-  internal::Maybe<Name> Solve(int belief_level, Fun f) {
+  internal::Maybe<Name> Solve(const int belief_level, const Fun f) {
     UpdateDomainsForQuery(f);
     Name n;
     Formula query = Formula();
@@ -114,7 +111,7 @@ class LimSat {
 
   struct FoundModel {
     FoundModel() = default;
-    FoundModel(TermMap<Fun, Name>&& model) : model(model), succ(true) {}
+    FoundModel(TermMap<Fun, Name>&& model) : model(std::move(model)), succ(true) {}
     FoundModel(const TermMap<Fun, Name>& model) : model(model), succ(true) {}
     TermMap<Fun, Name> model{};
     bool succ = false;
@@ -123,7 +120,7 @@ class LimSat {
   struct FoundCoveringModels {
     FoundCoveringModels() = default;
     FoundCoveringModels(std::vector<TermMap<Fun, Name>>&& models, std::vector<std::vector<Fun>>&& newly_assigned_in)
-        : models(models), newly_assigned_in(newly_assigned_in), all_covered(true) {}
+        : models(std::move(models)), newly_assigned_in(std::move(newly_assigned_in)), all_covered(true) {}
     std::vector<TermMap<Fun, Name>> models{};
     std::vector<std::vector<Fun>> newly_assigned_in{};
     bool all_covered = false;
@@ -131,7 +128,7 @@ class LimSat {
 
   struct AssignedFunctions {
     AssignedFunctions(std::vector<Fun>&& newly_assigned, bool all_assigned)
-        : newly_assigned(newly_assigned), all_assigned(all_assigned) {}
+        : newly_assigned(std::move(newly_assigned)), all_assigned(std::move(all_assigned)) {}
     std::vector<Fun> newly_assigned{};
     bool all_assigned = false;
   };
@@ -140,7 +137,7 @@ class LimSat {
   class Activity {
    public:
     explicit Activity() = default;
-    explicit Activity(double d) : val_(d) {}
+    explicit Activity(const double d) : val_(d) {}
 
     Activity& operator+=(const double d) {
       if (neg(val_)) {
@@ -157,10 +154,9 @@ class LimSat {
     }
 
     bool operator>(const Activity a) const {
-      bool b = (!neg(val_) &&  neg(a.val_)) ||
+      return (!neg(val_) &&  neg(a.val_)) ||
              (!neg(val_) && !neg(a.val_) && val_ > a.val_) ||
              ( neg(val_) &&  neg(a.val_) && val_ < a.val_);
-      return b;
     }
 
     bool operator>(const double d) const {
@@ -168,7 +164,7 @@ class LimSat {
     }
 
    private:
-    static bool neg(double d) { return std::signbit(d); }
+    static bool neg(const double d) { return std::signbit(d); }
 
     double val_ = +0.0;
   };
@@ -416,12 +412,12 @@ class LimSat {
   }
 
   template<typename ActivityFunction>
-  void InitSat(bool keep_learnt, ActivityFunction activity = ActivityFunction()) {
+  void InitSat(const bool keep_learnt, ActivityFunction activity = ActivityFunction()) {
     if (!extra_name_contained_) {
       sat_.RegisterExtraName(Name::FromId(extra_name_id_));
       extra_name_contained_ = true;
     }
-    sat_.Reset(Sat<Activity>::KeepLearnt(keep_learnt), activity);
+    sat_.Reset(Sat<Activity>::KeepLearnt{keep_learnt}, activity);
     for (; sat_init_index_ < int(clauses_vec_.size()); ++sat_init_index_) {
       sat_.AddClause(clauses_vec_[sat_init_index_]);
     }

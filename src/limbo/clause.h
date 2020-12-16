@@ -36,7 +36,7 @@ class Clause {
   struct InvalidityPromise    { bool promised; };
   struct NormalizationPromise { bool promised; };
 
-  static int Normalize(int size, Lit* as, InvalidityPromise invalidity) {
+  static int Normalize(const int size, Lit* as, const InvalidityPromise invalidity) {
     int i1 = 0;
     int i2 = 0;
     while (i2 < size) {
@@ -63,12 +63,12 @@ next: {}
     return i1;
   }
 
-  Clause()                           = delete;
-  Clause(const Clause&)              = delete;
-  Clause& operator=(const Clause& c) = delete;
-  Clause(Clause&&)                   = delete;
-  Clause& operator=(Clause&& c)      = delete;
-  ~Clause()                          = delete;
+  Clause()                         = delete;
+  Clause(const Clause&)            = delete;
+  Clause& operator=(const Clause&) = delete;
+  Clause(Clause&&)                 = delete;
+  Clause& operator=(Clause&&)      = delete;
+  ~Clause()                        = delete;
 
   bool operator==(const Clause& c) const {
     if (size() != c.size()) {
@@ -90,11 +90,11 @@ next: {}
   bool unit()  const { return h_.size == 1; }
   int size()   const { return h_.size; }
 
-  void set_learnt(bool b) { h_.learnt = b; }
+  void set_learnt(const bool b) { h_.learnt = b; }
   bool learnt() const { return h_.learnt; }
 
-  Lit& operator[](int i)       { assert(i >= 0 && i < size()); return as_[i]; }
-  Lit  operator[](int i) const { assert(i >= 0 && i < size()); return as_[i]; }
+  Lit& operator[](const int i)       { assert(i >= 0 && i < size()); return as_[i]; }
+  Lit  operator[](const int i) const { assert(i >= 0 && i < size()); return as_[i]; }
 
   iterator begin() { return &as_[0]; }
   iterator end()   { return &as_[0] + h_.size; }
@@ -146,8 +146,8 @@ next: {}
 
   explicit Clause(int size,
                   const Lit* first,
-                  NormalizationPromise normalization = {false},
-                  InvalidityPromise invalid = {false}) {
+                  const NormalizationPromise normalization = {false},
+                  const InvalidityPromise invalid = {false}) {
     h_.size = size;
     std::memcpy(begin(), first, size * sizeof(Lit));
     if (!normalization.promised) {
@@ -197,26 +197,26 @@ class Clause::Factory {
   Factory(Factory&&)                 = default;
   Factory& operator=(Factory&&)      = default;
 
-  CRef New(Lit a) {
+  CRef New(const Lit a) {
     const CRef cr = memory_.Allocate(clause_size(1));
     new (memory_.address(cr)) Clause(a);
     return cr;
   }
 
-  CRef New(int k, const Lit* as, NormalizationPromise normalization = {false}) {
+  CRef New(const int k, const Lit* as, const NormalizationPromise normalization = {false}) {
     const CRef cr = memory_.Allocate(clause_size(k));
     new (memory_.address(cr)) Clause(k, as, normalization);
     return cr;
   }
 
-  CRef New(const std::vector<Lit>& as, NormalizationPromise normalization = {false}) {
+  CRef New(const std::vector<Lit>& as, const NormalizationPromise normalization = {false}) {
     return New(as.size(), as.data(), normalization);
   }
 
-  void Delete(CRef cr, int k) { memory_.Free(cr, k); }
+  void Delete(const CRef cr, const int k) { memory_.Free(cr, k); }
 
-        Clause& operator[](CRef r)       { return reinterpret_cast<      Clause&>(memory_[r]); }
-  const Clause& operator[](CRef r) const { return reinterpret_cast<const Clause&>(memory_[r]); }
+        Clause& operator[](const CRef r)       { return reinterpret_cast<      Clause&>(memory_[r]); }
+  const Clause& operator[](const CRef r) const { return reinterpret_cast<const Clause&>(memory_[r]); }
 
  private:
   template<typename T>
@@ -224,7 +224,7 @@ class Clause::Factory {
    public:
     using size_t = unsigned int;
 
-    explicit MemoryPool(size_t n = 1024 * 1024) { Capacitate(n); }
+    explicit MemoryPool(const size_t n = 1024 * 1024) { Capacitate(n); }
     ~MemoryPool() = default;
 
     MemoryPool(const MemoryPool&)            = delete;
@@ -232,25 +232,25 @@ class Clause::Factory {
     MemoryPool(MemoryPool&&)                 = default;
     MemoryPool& operator=(MemoryPool&&)      = default;
 
-    size_t bytes_to_chunks(size_t n) { return (n + sizeof(T) - 1) / sizeof(T); }
+    size_t bytes_to_chunks(const size_t n) { return (n + sizeof(T) - 1) / sizeof(T); }
 
-    CRef Allocate(size_t n) {
+    CRef Allocate(const size_t n) {
       const CRef r = CRef(size_);
       size_ += n;
       Capacitate(size_);
       return r;
     }
 
-    void Free(CRef r, int k) {
+    void Free(const CRef r, const int k) {
       if (size_t(r) + k == size_) {
         size_ = size_t(r);
       }
     }
 
-          T& operator[](CRef r)       { return memory_[size_t(r)]; }
-    const T& operator[](CRef r) const { return memory_[size_t(r)]; }
+          T& operator[](const CRef r)       { return memory_[size_t(r)]; }
+    const T& operator[](const CRef r) const { return memory_[size_t(r)]; }
 
-    T*   address(CRef r)       const { return &memory_[size_t(r)]; }
+    T*   address(const CRef r) const { return &memory_[size_t(r)]; }
     CRef reference(const T* r) const { return r - &memory_[0]; }
 
    private:
@@ -258,7 +258,7 @@ class Clause::Factory {
       void operator()(T* memory) { if (memory) { std::free(memory); } }
     };
 
-    void Capacitate(size_t n) {
+    void Capacitate(const size_t n) {
       if (n > capacity_) {
         while (n > capacity_) {
           capacity_ += ((capacity_ / 2) + (capacity_ / 8) + 2) & ~1;
@@ -274,7 +274,7 @@ class Clause::Factory {
 
   using Pool = MemoryPool<unsigned int>;
 
-  Pool::size_t clause_size(Pool::size_t size) {
+  Pool::size_t clause_size(const Pool::size_t size) {
     return memory_.bytes_to_chunks(sizeof(Clause) + size * sizeof(Lit));
   }
 
