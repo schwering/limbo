@@ -26,12 +26,12 @@ using namespace limbo::internal;
 
 #ifndef LIMBO_IO_OUTPUT_H_
 std::ostream& operator<<(std::ostream& os, const Fun f) {
-  os << int(f);
+  os << f.id();
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Name n) {
-  os << int(n);
+  os << n.id();
   return os;
 }
 

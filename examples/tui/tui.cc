@@ -58,7 +58,7 @@ class EventHandler {
   }
 
   void MetaSymbolRegistered(IoContext::MetaSymbol m) {
-    std::cout << "Registered meta symbol " << IoContext::instance()->meta_registry().ToString(m, "m") << std::endl;
+    std::cout << "Registered meta symbol " << IoContext::instance().meta_registry().ToString(m, "m") << std::endl;
   }
 
   bool Add(const Formula& f) {
@@ -71,7 +71,7 @@ class EventHandler {
       std::vector<Lit> c;
       ff.Reduce([&c](const Alphabet::Symbol s) { if (s.tag == Alphabet::Symbol::kStrippedLit) { c.push_back(s.u.a); } return false; },
                 [](const RFormula&) { return Formula(); });
-      lim_sat_->add_clause(c);
+      lim_sat_->AddClause(c);
       std::cout << "Added " << c << std::endl;
       return true;
     }
@@ -84,15 +84,14 @@ class EventHandler {
     if (s.tag == Alphabet::Symbol::kKnow) {
       belief_level = s.u.k;
     }
-    lim_sat_->set_query(f.readable());
-    const bool succ = lim_sat_->Solve(belief_level);
+    const bool succ = lim_sat_->Solve(belief_level, f.readable());
     std::cout << "Query: " << f << "  =  " << in_color(succ ? "Yes" : "No", succ ? GREEN : RED) << std::endl;
     return succ;
   }
 
  private:
-  Alphabet*  abc() const { return Alphabet::instance(); }
-  IoContext* io()  const { return IoContext::instance(); }
+  Alphabet&  abc() const { return Alphabet::instance(); }
+  IoContext& io()  const { return IoContext::instance(); }
 
   LimSat* lim_sat_;
 };

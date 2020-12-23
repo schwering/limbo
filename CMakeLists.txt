@@ -3,8 +3,8 @@ project (limbo)
 
 include (CTest)
 
-set (CMAKE_BUILD_TYPE Release)
-#set (CMAKE_BUILD_TYPE Debug)
+#set (CMAKE_BUILD_TYPE Release)
+set (CMAKE_BUILD_TYPE Debug)
 
 set (CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -19,7 +19,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "(Clang|GNU)")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wuninitialized -pedantic -Wno-zero-length-array")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -Wuninitialized -pedantic -Wno-zero-length-array")
 endif ()
 
 # Debug configuration

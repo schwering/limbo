@@ -28,12 +28,12 @@ using namespace limbo::internal;
 
 #ifndef LIMBO_IO_OUTPUT_H_
 std::ostream& operator<<(std::ostream& os, const Fun f) {
-  os << int(f);
+  os << f.id();
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const Name n) {
-  os << int(n);
+  os << n.id();
   return os;
 }
 
@@ -248,7 +248,7 @@ void PrintSolution(const Sat<>& sat, const bool prop, const int n_columns, bool 
       if (!extra && n == extra_name) {
         continue;
       }
-      std::cout << (n != extra_name ? "-" : "") << int(f) << ' ';
+      std::cout << (n != extra_name ? "-" : "") << f.id() << ' ';
     }
     std::cout << '0';
   }
