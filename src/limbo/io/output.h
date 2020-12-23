@@ -226,7 +226,8 @@ std::ostream& operator<<(std::ostream& os, const limbo::internal::Maybe<T>& m) {
 
 #ifdef LIMBO_SAT_H_
 #ifndef NDEBUG
-void Sat::Print() const {
+template<typename Activity>
+void Sat<Activity>::Print() const {
   using limbo::io::operator<<;
   auto& o = std::cout;
   auto e = '\n';
@@ -242,7 +243,6 @@ void Sat::Print() const {
     o << e;
   }
   o << "propagate_with_learnt_ = " << std::boolalpha << propagate_with_learnt_ << e;
-  o << "clause_bump_step_ = " << clause_bump_step_ << e;
   assert(std::all_of(trail_.begin(), trail_.end(), [this](Lit a) { return satisfies(a); }));
   for (int i = 0; i < int(trail_.size()); ++i) {
     o << "trail_[" << i << "] = " << trail_[i] << " at level " << int(level_of(trail_[i])) << " due to " << int(reason_of(trail_[i]));

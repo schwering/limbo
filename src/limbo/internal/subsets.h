@@ -63,7 +63,8 @@ bool AllCombinedSubsetsOfSize(const SetSetContainer& Xs,
   //     (xs_wanted - min_assign < n_not_yet_covered_in[index] - (n_not_yet_covered_in.size() - index - 1))
   // <=> (min_assign > xs_wanted - n_not_yet_covered_in[index] + n_not_yet_covered_in.size() - index - 1)
   // <=> (min_assign >= xs_wanted - n_not_yet_covered_in[index] + n_not_yet_covered_in.size() - index - 1)
-  const int min_assign = std::max(0, xs_wanted - n_not_yet_covered_in[index] + int(n_not_yet_covered_in.size()) - index - 1);
+  const int min_assign = std::max(0,
+      xs_wanted - n_not_yet_covered_in[index] + int(n_not_yet_covered_in.size()) - index - 1);
   // What is the maximum number of functions we can assign from this buckt?
   const int max_assign = std::min(xs_wanted - xs->empty(), int(Xs[index].size()) - 1);
   for (int i = min_assign; i <= max_assign; ++i) {

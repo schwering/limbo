@@ -105,8 +105,6 @@ class LimSat {
   }
 
  private:
-  enum class SolverType { kWithLearntClauses, kWithoutLearntClauses };
-
   enum class Intensity { kCould, kShould, kMust };
 
   struct FoundModel {
@@ -233,16 +231,15 @@ class LimSat {
     // For example, consider a problem with functions 1,2,3,4,5 and minimum
     // model size 2.
     // We might find two models M1 and M2 that assign 1,2,3 and 3,4,5, which
-    // covers all functions. M1 and M2 imply models that assign the subsets of
-    // cardinality of size 2 of {1,2,3} and {3,4,5}, that is,
+    // covers all functions. M1 and M2 subsume models that assign the subsets
+    // of cardinality of size 2 of {1,2,3} and {3,4,5}, that is,
     // {1,2}, {2,3}, {1,3}, and {3,4}, {4,5}, {3,5}.
     const FoundCoveringModels fcm = FindCoveringModels(min_model_size, query_satisfied, model_found);
     if (!fcm.all_covered) {
       return false;
     }
     // Now find models for sets for which models aren't implied yet.
-    // In the example, the sets {{x,y} | x in {1,2,3}, y in {4,5}} that are not
-    // subsets of {1,2,3} or {3,4,5}.
+    // In the example, the sets {{x,y} | x in {1,2,3}, y in {4,5}}.
     return internal::AllCombinedSubsetsOfSize(fcm.newly_assigned_in, min_model_size,
                                               [&](const std::vector<Fun>& must) -> bool {
       // Skip sets of functions that have been covered already.
@@ -321,7 +318,11 @@ class LimSat {
                        QueryPredicate query_satisfied) {
     //printf("FindModel: min_model_size = %d, propagate_with_learnt = %s, want_intensity = %s, wanted =", min_model_size, propagate_with_learnt ? "true" : "false", want_intensity ? "true" : "false"); for (Fun f : wanted.keys()) { if (wanted[f]) { printf(" %d", f.id()); } } printf("\n");
     auto activity = [&wanted, want_intensity](Fun f) {
-      return Activity(wanted.key_in_range(f) && wanted[f] ? kActivityOffset : true||want_intensity > Intensity::kCould ? -1.0 : 1.0);
+      return Activity(wanted.key_in_range(f) && wanted[f] ?
+                      kActivityOffset :
+                      true||want_intensity > Intensity::kCould ?
+                      -1.0 :
+                      1.0);
     };
 #if 1
     InitSat(false && propagate_with_learnt, activity);
@@ -354,8 +355,10 @@ class LimSat {
         [&](int, Lit) -> bool {
           int assigns_number = -1;
           if (min_model_size <= sat_.model_size() && partial_model_size < sat_.model_size() &&
-              (want_intensity < Intensity::kMust || AssignsAll(sat_.model(), wanted)) && !query_satisfied(partial_model, nullptr) &&
-              (want_intensity == Intensity::kMust || (assigns_number = AssignsNumber(sat_.model(), wanted)) > partial_assigns_number)) {
+              (want_intensity < Intensity::kMust || AssignsAll(sat_.model(), wanted)) &&
+              !query_satisfied(partial_model, nullptr) &&
+              (want_intensity == Intensity::kMust ||
+               (assigns_number = AssignsNumber(sat_.model(), wanted)) > partial_assigns_number)) {
             partial_model_size     = sat_.model_size();
             partial_model          = sat_.model();
             partial_last_conflict  = n_conflicts;
@@ -368,7 +371,8 @@ class LimSat {
           int assigns_number = -1;
           if (!sat && min_model_size <= sat_.model_size() && partial_model_size < sat_.model_size() &&
               (want_intensity < Intensity::kMust || AssignsAll(sat_.model(), wanted)) &&
-              (want_intensity == Intensity::kMust || (assigns_number = AssignsNumber(sat_.model(), wanted)) > partial_assigns_number)) {
+              (want_intensity == Intensity::kMust ||
+               (assigns_number = AssignsNumber(sat_.model(), wanted)) > partial_assigns_number)) {
             partial_model_size     = sat_.model_size();
             partial_model          = sat_.model();
             partial_last_conflict  = n_conflicts;

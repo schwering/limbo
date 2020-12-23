@@ -18,14 +18,35 @@ class RingBuffer {
   RingBuffer(const RingBuffer&)            = delete;
   RingBuffer& operator=(const RingBuffer&) = delete;
 
-  RingBuffer(RingBuffer&& b) : xs_(b.xs_), capacity_(b.capacity_), begin_(b.begin_), end_(b.end_) { b.xs_ = nullptr; }
-  RingBuffer& operator=(RingBuffer&& b) { xs_ = b.xs_; capacity_ = b.capacity_; begin_ = b.begin_; end_ = b.end_; b.xs_ = nullptr; }
+  RingBuffer(RingBuffer&& b)
+    : xs_(b.xs_),
+      capacity_(b.capacity_),
+      begin_(b.begin_),
+      end_(b.end_) {
+    b.xs_ = nullptr;
+    b.capacity_ = 0;
+    b.begin_ = 0;
+    b.end_ = 0;
+  }
+  RingBuffer& operator=(RingBuffer&& b) {
+    if (this != &b) {
+      delete xs_;
+      xs_ = b.xs_;
+      capacity_ = b.capacity_;
+      begin_ = b.begin_;
+      end_ = b.end_;
+      b.xs_ = nullptr;
+      b.capacity_ = 0;
+      b.begin_ = 0;
+      b.end_ = 0;
+    }
+    return *this;
+  }
 
   ~RingBuffer() { delete[] xs_; }
 
   int size()   const { return begin_ <= end_ ? end_ - begin_ : capacity_ - begin_ + end_; }
   bool empty() const { return begin_ == end_; }
-  bool full()  const { return xs_ == nullptr || size() == capacity_ - 1; }
 
         T& operator[](int i)       { return xs_[(begin_ + i) % capacity_]; }
   const T& operator[](int i) const { return xs_[(begin_ + i) % capacity_]; }
@@ -81,6 +102,8 @@ class RingBuffer {
   }
 
  private:
+  bool full() const { return xs_ == nullptr || size() == capacity_ - 1; }
+
   int succ(int i) const { return (i + 1) % capacity_; }
   int pred(int i) const { return ((i - 1) + capacity_) % capacity_; }
 

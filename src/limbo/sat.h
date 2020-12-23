@@ -345,7 +345,7 @@ class Sat {
     unsigned popped        :  1;  // true iff n has been popped from domain_[f]
     unsigned model_neq     :  1;  // true iff f != n was set or derived
     unsigned seen_subsumed :  1;  // true iff a literal subsumed by f = n / f != n on the trail (helper for Analyze())
-    unsigned wanted        :  1;  // true iff a literal complementary to f = n / f != n is wanted (helper for Analyze())
+    unsigned wanted        :  1;  // true iff a literal complementary to f = n / f != n is wanted (for Analyze())
     unsigned level         : 27;  // level at which f = n or f != n was set or derived
     CRef reason = CRef::kNull;    // clause which derived f = n or f != n
   };
@@ -526,8 +526,8 @@ class Sat {
     // seen_subsumed(a) holds iff some literal subsumed by a has been seen.
     //
     // Proof:
-    // (#) The stack contains a literal complementary to a.
-    // (*) The stack does not contain a literal that subsumes a.
+    // (#) The trail contains a literal complementary to a.
+    // (*) The trail does not contain a literal that subsumes a.
     // (1) f == n is subsumed (only) by f == n;
     // (2) f == n is complementary (only) to f != n and f == n';
     // (3) f != n is subsumed (only) by f != n and f == n';
@@ -595,7 +595,8 @@ class Sat {
       assert(a.pos() || model_[a.fun()] == a.name());
       assert(!a.pos() || Level(data_[a.fun()][a.name()].level) != l || data_[a.fun()][a.name()].model_neq);
       assert(!a.pos() || Level(data_[a.fun()][a.name()].level) == l || !model_[a.fun()].null());
-      assert(!a.pos() || Level(data_[a.fun()][a.name()].level) == l || Level(data_[a.fun()][model_[a.fun()]].level) == l);
+      assert(!a.pos() || Level(data_[a.fun()][a.name()].level) == l ||
+             Level(data_[a.fun()][model_[a.fun()]].level) == l);
       const Fun f = a.fun();
       const Name n = a.name();
       const Name m = model_[f];
@@ -697,8 +698,12 @@ class Sat {
     assert(level_of(trail_a) > *btlevel && *btlevel >= Level::kRoot);
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return falsifies(a); }));
     assert(std::all_of(learnt->begin(), learnt->end(), [this](Lit a) -> bool { return !satisfies(a); }));
-    assert(std::all_of(data_.values().begin(), data_.values().end(), [](const auto& ds) -> bool { return std::all_of(ds.values().begin(), ds.values().end(), [](const FunNameData& d) -> bool { return !d.seen_subsumed; }); }));
-    assert(std::all_of(data_.values().begin(), data_.values().end(), [](const auto& ds) -> bool { return std::all_of(ds.values().begin(), ds.values().end(), [](const FunNameData& d) -> bool { return !d.wanted; }); }));
+    assert(std::all_of(data_.values().begin(), data_.values().end(), [](const auto& ds) -> bool {
+          return std::all_of(ds.values().begin(), ds.values().end(), [](const FunNameData& d) -> bool {
+              return !d.seen_subsumed; }); }));
+    assert(std::all_of(data_.values().begin(), data_.values().end(), [](const auto& ds) -> bool {
+          return std::all_of(ds.values().begin(), ds.values().end(), [](const FunNameData& d) -> bool {
+              return !d.wanted; }); }));
   }
 
   void AddNewLevel() { level_size_.push_back(trail_.size()); }
@@ -944,7 +949,8 @@ class Sat {
 };
 
 #ifndef NDEBUG
-bool Sat::Invariants(bool allow_inconsistency) const {
+template<typename Activity>
+bool Sat<Activity>::Invariants(bool allow_inconsistency) const {
   // Trail.
   assert(trail_head_ <= int(trail_.size()));
   int trail_eqs = 0;

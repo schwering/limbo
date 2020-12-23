@@ -1144,7 +1144,7 @@ class Parser {
         return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
         cond = false;
         for (Formula& t : bind.val.second) {
-          //io().RegisterMetaVariable(id, t);
+          (void)t;//io().RegisterMetaVariable(id, t);
           Result<Formula> alpha = alpha_a.Compute();
           if (!alpha) {
             return Error<>(LIMBO_MSG("Expected condition if_else"), alpha);
@@ -1218,7 +1218,7 @@ class Parser {
           cond = false;
           for (Formula& t : bind.val.second) {
             return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
-            //io().RegisterMetaVariable(id, t);
+            (void)t;//io().RegisterMetaVariable(id, t);
             Result<Formula> alpha = alpha_a.Compute();
             if (!alpha) {
               return Error<>(LIMBO_MSG("Expected condition while_loop"), alpha);
@@ -1298,7 +1298,7 @@ class Parser {
       bool once = false;
       for (Formula& t : bind.val.second) {
         return Error<>(LIMBO_MSG("Meta variables currently not implemented"));
-        //io().RegisterMetaVariable(id, t);
+        (void)t;//io().RegisterMetaVariable(id, t);
         Result<Formula> alpha = alpha_a.Compute();
         if (!alpha) {
           return Error<>(LIMBO_MSG("Expected condition for_loop"), alpha);

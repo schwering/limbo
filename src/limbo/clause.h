@@ -29,6 +29,7 @@ namespace limbo {
 
 class Clause {
  public:
+  using value_type = Lit;
   using iterator = Lit*;
   using const_iterator = const Lit*;
   class Factory;
